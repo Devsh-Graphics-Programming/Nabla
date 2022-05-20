@@ -109,7 +109,18 @@ public:
 		}
 	}
 
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType);
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType,
+		const core::vectorSIMDu32& workgroupDims, const uint32_t alphaBinCount = DefaultAlphaBinCount);
+
+	// outImageFormat dictates encoding.
+	// outImageViewFormat dictates the GLSL storage image format qualifier.
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outImageFormat,
+		const asset::E_FORMAT outImageViewFormat, const core::vectorSIMDu32& workgroupDims, const uint32_t alphaBinCount = DefaultAlphaBinCount);
+
+	// Todo(achal): Remove inExtent and outExtent params, they are only used for validation which should be done in the static create method/or the blit method, but not here
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(const asset::E_FORMAT inImageFormat, const asset::E_FORMAT outImageFormat, const asset::E_FORMAT outImageViewFormat,
+		const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic,
+		const uint32_t workgroupSize = DefaultBlitWorkgroupSize,uint32_t alphaBinCount = DefaultAlphaBinCount);
 
 	inline void buildParameters(nbl_glsl_blit_parameters_t& outPC, const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType,
 		const asset::E_FORMAT inImageFormat, const uint32_t layersToBlit = 1, const float referenceAlpha = 0.f)
@@ -173,10 +184,6 @@ public:
 		outDispatchInfo.wgCount[2] = workgroupCount.z;
 	}
 
-	// outImageFormat dictates encoding.
-	// outImageViewFormat dictates the GLSL storage image format qualifier.
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outImageFormat, const asset::E_FORMAT outImageViewFormat);
-
 	static inline core::vectorSIMDu32 getDefaultWorkgroupDims(const asset::IImage::E_TYPE inImageType, const uint32_t layersToBlit = 1)
 	{
 		switch (inImageType)
@@ -206,10 +213,6 @@ public:
 
 		return scratchSize*layersToBlit;
 	}
-
-	// Todo(achal): Remove inExtent and outExtent params, they are only used for validation which should be done in the static create method/or the blit method, but not here
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(const asset::E_FORMAT inImageFormat, const asset::E_FORMAT outImageFormat, const asset::E_FORMAT outImageViewFormat,
-		const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic);
 
 	void updateDescriptorSets(video::IGPUDescriptorSet* blitDS, video::IGPUDescriptorSet* kernelWeightsDS, core::smart_refctd_ptr<video::IGPUImageView> inImageView, core::smart_refctd_ptr<video::IGPUImageView> outImageView, core::smart_refctd_ptr<video::IGPUBuffer> coverageAdjustmentScratchBuffer, core::smart_refctd_ptr<video::IGPUBuffer> kernelWeightsUBO)
 	{
@@ -564,7 +567,6 @@ private:
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
 
-
 	core::smart_refctd_ptr<video::IGPUBuffer> m_dummySSBO = nullptr;
 
 	const uint32_t sharedMemorySize;
@@ -626,8 +628,6 @@ private:
 			return asset::EF_UNKNOWN;
 		}
 	}
-
-	core::smart_refctd_ptr<asset::ICPUShader> getCPUShaderFromGLSL(const system::IFile* glsl);
 };
 }
 

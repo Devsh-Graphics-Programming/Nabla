@@ -39,16 +39,12 @@
 
 #endif
 
-// Todo(achal): Pull this out into common header
-#define ALPHA_BIN_COUNT 256
-struct nbl_glsl_blit_AlphaStatistics_t
-{
-	uint passedPixelCount;
-	uint histogram[ALPHA_BIN_COUNT];
-};
-
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_
 #define _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ nbl_glsl_blit_normalization_passedCounterAlphaHistogram
+
+	#ifndef _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_
+		#error _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_ must be defined
+	#endif
 
 	#ifndef _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_BINDING_DEFINED_
 		#define _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_BINDING_DEFINED_ 2
@@ -56,7 +52,7 @@ struct nbl_glsl_blit_AlphaStatistics_t
 
 	layout(set = _NBL_GLSL_BLIT_NORMALIZATION_DESCRIPTOR_SET_DEFINED_, binding = _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_BINDING_DEFINED_) buffer restrict readonly PassedCounterAlphaHistogram
 	{
-		nbl_glsl_blit_AlphaStatistics_t data[];
+		_NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_ data[];
 	} _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_;
 
 #endif

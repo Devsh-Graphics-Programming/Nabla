@@ -1,72 +1,11 @@
-#version 460 core
+#include <nbl/builtin/glsl/blit/default_compute_common.comp>
 
-#include <nbl/builtin/glsl/macros.glsl>
-
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_
-#define _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_ 256
-#endif
-
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_
-#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ must be defined
-#endif
+#define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_
+#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_
 
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_
 #error _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ must be defined
 #endif
-
-
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
-	#define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ sampler1DArray
-	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ uimage1DArray
-	#else
-		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ image1DArray
-	#endif
-
-	#define WG_X 256
-	#define WG_Y 1
-	#define WG_Z 1
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
-	#define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ sampler2DArray
-	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ uimage2DArray
-	#else
-		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ image2DArray
-	#endif
-
-	#define WG_X 16
-	#define WG_Y 16
-	#define WG_Z 1
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
-	#define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ sampler3D
-	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ uimage3D
-	#else
-		#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ image3D
-	#endif
-
-	#define WG_X 8
-	#define WG_Y 8
-	#define WG_Z 4
-#else
-	#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ not supported
-#endif
-
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_X_
-#define _NBL_GLSL_WORKGROUP_SIZE_X_ WG_X
-#endif
-
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_Y_
-#define _NBL_GLSL_WORKGROUP_SIZE_Y_ WG_Y
-#endif
-
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_Z_
-#define _NBL_GLSL_WORKGROUP_SIZE_Z_ WG_Z
-#endif
-
-#undef WG_X
-#undef WG_Y
-#undef WG_Z
 
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_PIXEL_TYPE_DEFINED_
 #define _NBL_GLSL_BLIT_NORMALIZATION_PIXEL_TYPE_DEFINED_
@@ -75,8 +14,6 @@ struct nbl_glsl_blit_normalization_pixel_t
 	vec4 data;
 };
 #endif
-
-#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_WORKGROUP_SIZE_X_ * _NBL_GLSL_WORKGROUP_SIZE_Y_ * _NBL_GLSL_WORKGROUP_SIZE_Z_)
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = _NBL_GLSL_WORKGROUP_SIZE_Z_) in;
 
@@ -107,17 +44,17 @@ nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in
 {
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_normalization_getParameters();
 
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define COORD coord.xy
 	#define IMAGE_DIM params.outDim.xy
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
 	#define COORD coord
 	#define IMAGE_DIM params.outDim
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define COORD coord
 	#define IMAGE_DIM params.outDim
 #else
-	#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ not supported
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
 	nbl_glsl_blit_normalization_pixel_t result;
@@ -146,17 +83,17 @@ void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t 
 {
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_normalization_getParameters();
 
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define COORD coord.xy
 	#define IMAGE_DIM params.outDim.xy
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
 	#define COORD coord
 	#define IMAGE_DIM params.outDim
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define COORD coord
 	#define IMAGE_DIM params.outDim
 #else
-	#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ not supported
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
 	if (all(lessThan(COORD, IMAGE_DIM)))

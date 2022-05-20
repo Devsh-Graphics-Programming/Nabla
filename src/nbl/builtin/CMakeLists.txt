@@ -238,6 +238,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
   # blit
   "nbl/builtin/glsl/blit/parameters.glsl"
+  "nbl/builtin/glsl/blit/default_compute_common.comp"
 
   "nbl/builtin/glsl/blit/default_compute_blit.comp"
   "nbl/builtin/glsl/blit/blit/blit.glsl"

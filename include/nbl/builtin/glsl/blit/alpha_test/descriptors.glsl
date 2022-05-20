@@ -20,18 +20,12 @@
 
 #endif
 
-// Todo(achal): Source it from outside
-#define ALPHA_BIN_COUNT 256
-
-// Todo(achal): Pull this out into common header
-struct nbl_glsl_blit_AlphaStatistics_t
-{
-	uint passedPixelCount;
-	uint histogram[ALPHA_BIN_COUNT];
-};
-
 #ifndef _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_
 #define _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_ nbl_glsl_blit_alpha_test_alphaStatistics
+
+	#ifndef _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_
+		#error _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_ must be defined
+	#endif
 
 	#ifndef _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_BINDING_DEFINED_
 		#define _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_BINDING_DEFINED_ 2
@@ -39,7 +33,7 @@ struct nbl_glsl_blit_AlphaStatistics_t
 
 	layout(set = _NBL_GLSL_BLIT_ALPHA_TEST_DESCRIPTOR_SET_DEFINED_, binding = _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_BINDING_DEFINED_) restrict coherent buffer AlphaTestPassedCounterBuffer
 	{
-		nbl_glsl_blit_AlphaStatistics_t data[];
+		_NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_ data[];
 	} _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_;
 
 #endif

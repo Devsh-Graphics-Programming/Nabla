@@ -1,17 +1,7 @@
-#version 460 core
-
-#include <nbl/builtin/glsl/macros.glsl>
-
-#ifndef _NBL_GLSL_WORKGROUP_SIZE_
-#define _NBL_GLSL_WORKGROUP_SIZE_ 256
-#endif
+#include <nbl/builtin/glsl/blit/default_compute_common.comp>
 
 #ifndef _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_
 #error _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ must be defined
-#endif
-
-#ifndef _NBL_GLSL_BLIT_DIM_COUNT_
-#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
 #endif
 
 #ifndef _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_
@@ -20,31 +10,6 @@
 
 #ifndef _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_
 #error _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ must be defined
-#endif
-
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler1DArray
-	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage1DArray
-	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image1DArray
-	#endif
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
-	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler2DArray
-	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage2DArray
-	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image2DArray
-	#endif
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
-	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler3D
-	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage3D
-	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image3D
-	#endif
-#else
-	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
 #ifndef _NBL_GLSL_BLIT_PIXEL_TYPE_DEFINED_
@@ -106,10 +71,6 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 #endif
 
 #ifndef _NBL_GLSL_BLIT_SET_DATA_DEFINED_
-
-#ifndef _NBL_GLSL_BLIT_DIM_COUNT_
-#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
-#endif
 
 #ifndef _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_
 #error _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_ must be defined

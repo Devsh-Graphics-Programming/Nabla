@@ -33,23 +33,23 @@ uint nbl_glsl_blit_normalization_getPassedInputPixelCountData(in uint layerIdx);
 void nbl_glsl_blit_normalization_main()
 {
 	// Todo(achal): Need to pull this out
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 1)
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define LAYER_IDX gl_GlobalInvocationID.y
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 2)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
 	#define LAYER_IDX gl_GlobalInvocationID.z
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_, 3)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define LAYER_IDX 0
 #else
-	#error _NBL_GLSL_BLIT_NORMALIZATION_DIM_COUNT_ not supported
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
 	uint histogramVal = 0u;
-	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_)
+	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)
 		histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(gl_LocalInvocationIndex, LAYER_IDX);
 
 	const uint cumHistogramVal = nbl_glsl_workgroupInclusiveAdd(histogramVal);
 
-	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_)
+	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)
 		scratchShared[gl_LocalInvocationIndex] = cumHistogramVal;
 	barrier();
 
@@ -66,7 +66,7 @@ void nbl_glsl_blit_normalization_main()
 	uint bucketIndex;
 	{
 		uint begin = 0u;
-		const uint end = _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_;
+		const uint end = _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_;
 		const uint value = pixelsShouldFailCount;
 		uint len = end - begin;
 		if (NBL_GLSL_IS_NOT_POT(len))
@@ -89,7 +89,7 @@ void nbl_glsl_blit_normalization_main()
 
 	// const uint bucketIndex = lower_bound_scratchShared_NBL_GLSL_LESS(0u, _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_, pixelsShouldFailCount);
 
-	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_ - 1), 1.f);
+	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
 
 	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
 

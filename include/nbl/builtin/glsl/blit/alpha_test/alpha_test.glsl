@@ -18,14 +18,14 @@ void nbl_glsl_blit_alpha_test_main()
 	const float alpha = nbl_glsl_blit_alpha_test_getPaddedData(ivec3(gl_GlobalInvocationID));
 
 	// Todo(achal): Need to pull this out in setData
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 1)
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define LAYER_IDX gl_GlobalInvocationID.y
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 2)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
 	#define LAYER_IDX gl_GlobalInvocationID.z
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_, 3)
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define LAYER_IDX 0
 #else
-	#error _NBL_GLSL_BLIT_ALPHA_TEST_DIM_COUNT_ not supported
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 	if (alpha > nbl_glsl_blit_alpha_test_getParameters().referenceAlpha)
 		atomicAdd(_NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_.data[LAYER_IDX].passedPixelCount, 1u);

@@ -39,14 +39,6 @@
 
 #endif
 
-// Todo(achal): Pull this out into common header
-#define ALPHA_BIN_COUNT 256
-struct nbl_glsl_blit_AlphaStatistics_t
-{
-	uint passedPixelCount;
-	uint histogram[ALPHA_BIN_COUNT];
-};
-
 #ifndef _NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_
 #define _NBL_GLSL_BLIT_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ nbl_glsl_blit_alphaHistogram
 

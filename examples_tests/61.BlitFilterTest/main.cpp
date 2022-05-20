@@ -137,7 +137,6 @@ public:
 		logger = std::move(initOutput.logger);
 		inputSystem = std::move(initOutput.inputSystem);
 
-		// if (false)
 		{
 			logger->log("Test #1");
 
@@ -152,7 +151,6 @@ public:
 			blitTest(std::move(inImage), outImageDim, alphaSemantic);
 		}
 
-		// if (false)
 		{
 			logger->log("Test #2");
 
@@ -167,7 +165,6 @@ public:
 			blitTest(std::move(inImage), outImageDim, alphaSemantic);
 		}
 
-		// if (false)
 		{
 			logger->log("Test #3");
 
@@ -195,7 +192,6 @@ public:
 			blitTest(std::move(inImage), outImageDim, alphaSemantic);
 		}
 
-		// if (false)
 		{
 			logger->log("Test #5");
 			const core::vectorSIMDu32 inImageDim(511u, 1024u, 1u);
@@ -497,16 +493,17 @@ private:
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> blitDS = nullptr;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> blitWeightsDS = nullptr;
 
-			core::smart_refctd_ptr<video::IGPUComputePipeline> alphaTestPipeline = nullptr; // Todo(achal): I think I can get rid of this and just reuse the blitPipeline
+			core::smart_refctd_ptr<video::IGPUComputePipeline> alphaTestPipeline = nullptr;
 			core::smart_refctd_ptr<video::IGPUComputePipeline> normalizationPipeline = nullptr;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> normalizationDS = nullptr;
 
 			if (alphaSemantic == IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
-				auto alphaTestSpecShader = blitFilter->createAlphaTestSpecializedShader(inImage->getCreationParameters().type);
+				const auto defaultWorkGroupDims = video::CComputeBlit::getDefaultWorkgroupDims(inImageType, layersToBlit);
+				auto alphaTestSpecShader = blitFilter->createAlphaTestSpecializedShader(inImage->getCreationParameters().type, defaultWorkGroupDims);
 				alphaTestPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(coverageAdjustmentPipelineLayout), std::move(alphaTestSpecShader));
 
-				auto normalizationSpecShader = blitFilter->createNormalizationSpecializedShader(normalizationInImage->getCreationParameters().type, outImageFormat, outImageViewFormat);
+				auto normalizationSpecShader = blitFilter->createNormalizationSpecializedShader(normalizationInImage->getCreationParameters().type, outImageFormat, outImageViewFormat, defaultWorkGroupDims);
 				normalizationPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(coverageAdjustmentPipelineLayout), std::move(normalizationSpecShader));
 
 				const uint32_t dsCounts = 2;
@@ -597,7 +594,6 @@ private:
 				memcpy(gpuOutput.data(), mappedGPUData, gpuOutput.size());
 				logicalDevice->unmapMemory(downloadBuffer->getBoundMemory());
 			}
-
 		}
 
 		assert(gpuOutput.size() == cpuOutput.size());

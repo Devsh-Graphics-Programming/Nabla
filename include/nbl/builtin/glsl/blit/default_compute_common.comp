@@ -1,0 +1,62 @@
+#ifndef _NBL_GLSL_BLIT_DEFAULT_COMPUTE_COMMON_INCLUDED_
+#define _NBL_GLSL_BLIT_DEFAULT_COMPUTE_COMMON_INCLUDED_
+
+#include <nbl/builtin/glsl/macros.glsl>
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_X_
+#error _NBL_GLSL_WORKGROUP_SIZE_X_ must be defined
+#endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_Y_
+#error _NBL_GLSL_WORKGROUP_SIZE_Y_ must be defined
+#endif
+
+#ifndef _NBL_GLSL_WORKGROUP_SIZE_Z_
+#error _NBL_GLSL_WORKGROUP_SIZE_Z_ must be defined
+#endif
+
+#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_WORKGROUP_SIZE_X_ * _NBL_GLSL_WORKGROUP_SIZE_Y_ * _NBL_GLSL_WORKGROUP_SIZE_Z_)
+
+#ifndef _NBL_GLSL_BLIT_DIM_COUNT_
+#error _NBL_GLSL_BLIT_DIM_COUNT_ must be defined
+#endif
+
+#ifndef _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_
+#error _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ must be defined
+#endif
+
+#ifndef _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_
+struct nbl_glsl_blit_AlphaStatistics_t
+{
+	uint passedPixelCount;
+	uint histogram[_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_];
+};
+#define _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_ nbl_glsl_blit_AlphaStatistics_t
+#endif
+
+#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler1DArray
+	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage1DArray
+	#else
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image1DArray
+	#endif
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler2DArray
+	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage2DArray
+	#else
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image2DArray
+	#endif
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler3D
+	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage3D
+	#else
+		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image3D
+	#endif
+#else
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
+#endif
+
+#endif
