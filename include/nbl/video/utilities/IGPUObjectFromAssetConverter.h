@@ -464,17 +464,15 @@ struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin, const asset::ICPUBuffer** const _end, SParams& _params) -> created_gpu_object_array<asset::ICPUBuffer> // TODO: improve for caches of very large buffers!!!
 {
-	const auto assetCount = std::distance(_begin, _end);
-	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUBuffer> >(assetCount);
+    const auto assetCount = std::distance(_begin, _end);
+    auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUBuffer> >(assetCount);
 
     const uint64_t alignment =
-        std::max<uint64_t>(
-            std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.SSBOAlignment),
-            std::max<uint64_t>(_params.limits.UBOAlignment, _NBL_SIMD_ALIGNMENT)
-        );
-    
-    auto reqs = _params.device->getDeviceLocalGPUMemoryReqs();
-    reqs.vulkanReqs.alignment = alignment;
+    std::max<uint64_t>(
+        std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.SSBOAlignment),
+        std::max<uint64_t>(_params.limits.UBOAlignment, _NBL_SIMD_ALIGNMENT)
+    );
+
     const uint64_t maxBufferSize = _params.limits.maxBufferSize;
     auto out = res->begin();
     auto firstInBlock = out;
@@ -505,11 +503,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 
     auto finalizeBlock = [&]() -> void
     {
-        reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
-        if (reqs.vulkanReqs.size==0u)
+        auto bufferSize = addrAllctr.get_allocated_size();
+        if (bufferSize==0u)
             return;
         
         IGPUBuffer::SCreationParams bufparams;
+        bufparams.declaredSize = bufferSize;
         bufparams.usage = core::bitflag(IGPUBuffer::EUF_TRANSFER_DST_BIT);
 
         for (auto it = firstInBlock; it != out; it++)
@@ -524,7 +523,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         bufparams.queueFamilyIndices = qfams;
         bufparams.queueFamilyIndexCount = (qfams[0] == qfams[1]) ? 1u : 2u;
         
-        auto gpubuffer = _params.device->createGPUBufferOnDedMem(bufparams, reqs);
+        core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDriverMemoryAllocation::EMAF_NONE);
+        if(bufparams.usage.hasFlags(IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+
+        auto gpubuffer = _params.device->createBuffer(bufparams);
+        auto gpubufferMemReqs = gpubuffer->getMemoryReqs2();
+        gpubufferMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpubufferMem = _params.device->allocate(gpubufferMemReqs, gpubuffer.get(), allocateFlags);
+
         for (auto it = firstInBlock; it != out; it++)
         {
             if (auto output = *it)
