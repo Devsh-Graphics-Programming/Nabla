@@ -56,9 +56,9 @@ class StreamingTransientDataBuffer
         // getters
         inline IGPUBuffer*  getBuffer() noexcept {return m_composed.getBuffer();}
         inline const IGPUBuffer*  getBuffer() const noexcept {return m_composed.getBuffer();}
-#if 0
-        inline void*        getBufferPointer() noexcept {return m_composed.getAllocator().getCurrentBufferAllocation().ptr;}
-#endif
+
+        inline void*        getBufferPointer() noexcept {return getBuffer()->getBoundMemory()->getMappedPointer();}
+
         //
         inline void         cull_frees() noexcept {m_composed.cull_frees();}
 

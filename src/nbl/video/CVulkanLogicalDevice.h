@@ -960,8 +960,8 @@ public:
         if (m_devf.vk.vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
             static_cast<VkDeviceSize>(memory.length), vk_memoryMapFlags, &mappedPtr) == VK_SUCCESS)
         {
-            vulkanMemory->setMembersPostMap(mappedPtr, memory.range, accessHint);
-            return mappedPtr;
+            post_mapMemory(vulkanMemory, mappedPtr, memory.range, accessHint);
+            return vulkanMemory->getMappedPointer(); // so pointer is rewound
         }
         else
         {
