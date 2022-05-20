@@ -118,7 +118,9 @@ class CAsyncSingleBufferSubAllocator
                 size_type numAllocs;
         };
 
-//        using Base::Base;
+        // perfect forward ctor to `CSingleBufferSubAllocator`
+        template<typename... Args>
+        inline CAsyncSingleBufferSubAllocator(Args&&... args) : Composed(std::forward<Args>(args)...) {}
         virtual ~CAsyncSingleBufferSubAllocator() {}
 
 

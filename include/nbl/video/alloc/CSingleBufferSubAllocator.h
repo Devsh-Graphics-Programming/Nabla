@@ -26,22 +26,24 @@ class CSingleBufferSubAllocator : public IBufferAllocator
 
         // constructors
         template<typename... Args>
-        inline CSingleBufferSubAllocator(asset::SBufferRange<IGPUBuffer>&& _bufferRange, ReservedAllocator&& _reservedAllocator, const value_type maxAllocatableAlignment, const Args&... args) :
+        inline CSingleBufferSubAllocator(asset::SBufferRange<IGPUBuffer>&& _bufferRange, ReservedAllocator&& _reservedAllocator, const value_type maxAllocatableAlignment, Args&&... args) :
             m_addressAllocator(
                 _reservedAllocator.allocate(AddressAllocator::reserved_size(maxAllocatableAlignment,_bufferRange.size,args...),_NBL_SIMD_ALIGNMENT),
                 _bufferRange.offset, 0u, maxAllocatableAlignment, _bufferRange.size, std::forward<Args>(args)...
             ), m_reservedAllocator(std::move(_reservedAllocator)), m_buffer(std::move(_bufferRange.buffer))
         {
+            assert(_bufferRange.isValid());
         }
         // version with default constructed reserved allocator
         template<typename... Args>
-        explicit inline CSingleBufferSubAllocator(asset::SBufferRange<IGPUBuffer>&& _bufferRange, const value_type maxAllocatableAlignment, const Args&... args) :
+        explicit inline CSingleBufferSubAllocator(asset::SBufferRange<IGPUBuffer>&& _bufferRange, const value_type maxAllocatableAlignment, Args&&... args) :
             CSingleBufferSubAllocator(std::move(_bufferRange),ReservedAllocator(),maxAllocatableAlignment,std::forward<Args>(args)...)
         {
         }
         ~CSingleBufferSubAllocator()
         {
-            m_reservedAllocator.deallocate(address_allocator_traits<AddressAllocator>::getReservedSpacePtr(m_addressAllocator),m_reservedSize);
+            auto ptr = reinterpret_cast<const uint8_t*>(core::address_allocator_traits<AddressAllocator>::getReservedSpacePtr(m_addressAllocator));
+            m_reservedAllocator.deallocate(const_cast<uint8_t*>(ptr),m_reservedSize);
         }
 
         // anyone gonna use it?
@@ -60,12 +62,12 @@ class CSingleBufferSubAllocator : public IBufferAllocator
         template<typename... Args>
         inline void multi_allocate(uint32_t count, value_type* outAddresses, const size_type* byteSizes, const size_type* alignments, const Args&... args)
         {
-            address_allocator_traits<AddressAllocator>::multi_alloc_addr(m_addressAllocator,count,outAddresses,byteSizes,alignments,args...);
+            core::address_allocator_traits<AddressAllocator>::multi_alloc_addr(m_addressAllocator,count,outAddresses,byteSizes,alignments,args...);
         }
         template<typename... Args>
         inline void multi_deallocate(Args&&... args)
         {
-            address_allocator_traits<AddressAllocator>::multi_free_addr(m_addressAllocator,std::forward<Args>(args)...);
+            core::address_allocator_traits<AddressAllocator>::multi_free_addr(m_addressAllocator,std::forward<Args>(args)...);
         }
 
         // to conform to IBufferAllocator concept

@@ -27,79 +27,79 @@ class StreamingTransientDataBuffer
         using Composed = impl::CAsyncSingleBufferSubAllocator<core::GeneralpurposeAddressAllocator<uint32_t>,HostAllocator>;
 
     protected:
-        virtual ~StreamingTransientDataBuffer() {}
-
         Composed m_composed;
 
     public:
         using size_type = typename Composed::size_type;
+        using value_type = typename Composed::value_type;
         static constexpr inline size_type invalid_value = Composed::invalid_value;
 
-#if 0
-        //!
-        /**
-        \param default minAllocSize has been carefully picked to reflect the lowest nonCoherentAtomSize under Vulkan 1.1 which is not 1u .*/
-        StreamingTransientDataBuffer(
-            ILogicalDevice* inDevice,
-            const uint32_t usableMemoryTypeBits,
-            const IGPUBuffer::SCreationParams& bufferCreationParams,
-            const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
-            const CPUAllocator& reservedMemAllocator = CPUAllocator(), size_type minAllocSize = 1024u)
-            : m_composed(inDevice, reservedMemAllocator, CStreamingBufferAllocator(inDevice, usableMemoryTypeBits), 0u, 0u, bufferCreationParams, allocateFlags, minAllocSize) {}
-
-        const auto& getAllocator() const {return m_composed.getAllocator();}
-#endif
+        // perfect forward ctor to `CAsyncSingleBufferSubAllocator`
+        template<typename... Args>
+        inline StreamingTransientDataBuffer(asset::SBufferRange<IGPUBuffer>&& _bufferRange, Args&&... args) : Composed(std::move(_bufferRange),std::forward<Args>(args)...)
+        {
+            assert(getBuffer()->getBoundMemory()->isMappable());
+            assert(getBuffer()->getBoundMemory()->getMappedPointer());
+            // we're suballocating from a buffer, whole buffer needs to be reachable from the mapped pointer
+            const auto mappedRange = getBuffer()->getBoundMemory()->getMappedRange();
+            assert(mappedRange.offset<=getBuffer()->getBoundMemoryOffset());
+            assert(mappedRange.offset+mappedRange.length>=getBuffer()->getBoundMemoryOffset()+getBuffer()->getSize());
+        }
+        virtual ~StreamingTransientDataBuffer() {}
 
         //
-        inline bool         needsManualFlushOrInvalidate() const {return getBuffer()->getBoundMemory()->haveToMakeVisible();}
+        inline bool needsManualFlushOrInvalidate() const {return getBuffer()->getBoundMemory()->haveToMakeVisible();}
 
         // getters
-        inline IGPUBuffer*  getBuffer() noexcept {return m_composed.getBuffer();}
-        inline const IGPUBuffer*  getBuffer() const noexcept {return m_composed.getBuffer();}
-
-        inline void*        getBufferPointer() noexcept {return getBuffer()->getBoundMemory()->getMappedPointer();}
+        inline IGPUBuffer* getBuffer() noexcept {return m_composed.getBuffer();}
+        inline const IGPUBuffer* getBuffer() const noexcept {return m_composed.getBuffer();}
 
         //
-        inline void         cull_frees() noexcept {m_composed.cull_frees();}
+        inline void* getBufferPointer() noexcept {return getBuffer()->getBoundMemory()->getMappedPointer();}
 
         //
-        inline size_type    max_size() noexcept {return m_composed.max_size();}
+        inline void cull_frees() noexcept {m_composed.cull_frees();}
 
-#if 0
+        //
+        inline size_type max_size() noexcept {return m_composed.max_size();}
+
+        // perfect forward to `Composed` method
         template<typename... Args>
-        inline size_type    multi_place(uint32_t count, Args&&... args) noexcept
+        inline value_type multi_allocate(Args&&... args) noexcept
         {
-            return multi_place(GPUEventWrapper::default_wait(),count,std::forward<Args>(args)...);
+            return m_composed.multi_allocate(std::forward<Args>(args)...);
         }
 
+        //
         template<typename... Args>
-        inline size_type    multi_alloc(Args&&... args) noexcept
+        inline void multi_deallocate(Args&&... args) noexcept
         {
-            return m_composed.multi_alloc(std::forward<Args>(args)...);
+            m_composed.multi_deallocate(std::forward<Args>(args)...);
         }
 
+        // allocate and copy data into the allocations, specifying a timeout for the the allocation
         template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration, typename... Args>
-        inline size_type    multi_place(const std::chrono::time_point<Clock,Duration>& maxWaitPoint, uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
+        inline size_type multi_place(
+            const std::chrono::time_point<Clock,Duration>& maxWaitPoint,
+            uint32_t count, const void* const* dataToPlace,
+            value_type* outAddresses, const size_type* byteSizes, Args&&... args
+        ) noexcept
         {
-        #ifdef _NBL_DEBUG
-            assert(getBuffer()->getBoundMemory());
-        #endif // _NBL_DEBUG
-            auto retval = multi_alloc(maxWaitPoint,count,outAddresses,bytes,std::forward<Args>(args)...);
+            auto retval = multi_alloc(maxWaitPoint,count,outAddresses,byteSizes,std::forward<Args>(args)...);
             // fill with data
             for (uint32_t i=0; i<count; i++)
             {
-                if (outAddresses[i]!=invalid_address)
-                    memcpy(reinterpret_cast<uint8_t*>(getBufferPointer())+outAddresses[i],dataToPlace[i],bytes[i]);
+                if (outAddresses[i]!=invalid_value)
+                    memcpy(reinterpret_cast<uint8_t*>(getBufferPointer())+outAddresses[i],dataToPlace[i],byteSizes[i]);
             }
             return retval;
         }
-
+        // overload with default timeout
         template<typename... Args>
-        inline void         multi_free(Args&&... args) noexcept
+        inline size_type multi_place(uint32_t count, Args&&... args) noexcept
         {
-            m_composed.multi_free(std::forward<Args>(args)...);
+            return multi_place(GPUEventWrapper::default_wait(), count, std::forward<Args>(args)...);
         }
-#endif
 };
 }
 
@@ -133,28 +133,31 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
 
         template<typename... Args>
         StreamingTransientDataBufferMT(Args... args) : m_composed(std::forward<Args>(args)...) {}
-#if 0
+
         //
-        inline bool         needsManualFlushOrInvalidate()
+        inline bool needsManualFlushOrInvalidate()
         {
             return m_composed.needsManualFlushOrInvalidate();
         }
-#endif
 
-        //! With the right Data Allocator, this pointer should remain constant after first allocation but the underlying gfx API object may change!
-        inline IGPUBuffer*  getBuffer() noexcept
+        //!
+        inline IGPUBuffer* getBuffer() noexcept
         {
             return m_composed.getBuffer();
         }
-#if 0
+        inline const IGPUBuffer* getBuffer() const noexcept
+        {
+            return m_composed.getBuffer();
+        }
+
         //! you should really `this->get_lock()`  if you need the pointer to not become invalid while you use it
-        inline void*        getBufferPointer() noexcept
+        inline void* getBufferPointer() noexcept
         {
             return m_composed.getBufferPointer();
         }
-#endif
+
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
-        inline void    cull_frees() noexcept
+        inline void cull_frees() noexcept
         {
             lock.lock();
             m_composed.cull_frees();
@@ -162,7 +165,7 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
         }
 
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
-        inline size_type    max_size() noexcept
+        inline size_type max_size() noexcept
         {
             lock.lock();
             auto retval = m_composed.max_size();
@@ -170,18 +173,24 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return retval;
         }
 
-#if 0
+
         template<typename... Args>
-        inline size_type    multi_alloc(Args&&... args) noexcept
+        inline size_type multi_allocate(Args&&... args) noexcept
         {
             lock.lock();
-            auto retval = m_composed.multi_alloc(std::forward<Args>(args)...);
+            auto retval = m_composed.multi_allocate(std::forward<Args>(args)...);
             lock.unlock();
             return retval;
         }
-
         template<typename... Args>
-        inline size_type    multi_place(Args&&... args) noexcept
+        inline void multi_deallocate(Args&&... args) noexcept
+        {
+            lock.lock();
+            m_composed.multi_deallocate(std::forward<Args>(args)...);
+            lock.unlock();
+        }
+        template<typename... Args>
+        inline size_type multi_place(Args&&... args) noexcept
         {
             lock.lock();
             auto retval = m_composed.multi_place(std::forward<Args>(args)...);
@@ -189,17 +198,8 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return retval;
         }
 
-        template<typename... Args>
-        inline void         multi_free(Args&&... args) noexcept
-        {
-            lock.lock();
-            m_composed.multi_free(std::forward<Args>(args)...);
-            lock.unlock();
-        }
-#endif
-
         //! Extra == Use WITH EXTREME CAUTION
-        inline RecursiveLockable&   get_lock() noexcept
+        inline RecursiveLockable& get_lock() noexcept
         {
             return lock;
         }
