@@ -14,23 +14,32 @@
 namespace nbl::video
 {
 
-    class IUtilities : public core::IReferenceCounted
-    {
+class IUtilities : public core::IReferenceCounted
+{
     public:
-        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, size_t downstreamSize = 0x4000000ull, size_t upstreamSize = 0x4000000ull) : m_device(std::move(_device))
+        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(_device))
         {
-            const auto& limits = m_device->getPhysicalDevice()->getLimits();
+            auto physicalDevice = m_device->getPhysicalDevice();
+            const auto& limits = physicalDevice->getLimits();
+            IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
+            const uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
+            const uint32_t minStreamingBufferAllocationSize = 1024u;
+            const auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
             {
-                auto reqs = m_device->getDownStreamingMemoryReqs();
-                reqs.vulkanReqs.size = downstreamSize;
-                reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
+                streamingBufferCreationParams.declaredSize = downstreamSize;
+                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT|IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT; // GPU write to RAM usages
+                auto buffer = m_device->createBuffer(streamingBufferCreationParams);
+
+                auto reqs = m_device->allocate(buffer->getMemoryReqs2(), buffer.get()/*,should we IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT when we can?*/);
+                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             {
-                auto reqs = m_device->getUpStreamingMemoryReqs();
-                reqs.vulkanReqs.size = upstreamSize;
-                reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
+                streamingBufferCreationParams.declaredSize = upstreamSize;
+                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
+                auto buffer = m_device->createBuffer(streamingBufferCreationParams);
+
+                auto reqs = m_device->allocate(buffer->getMemoryReqs2(), buffer.get()/*,should we IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT when we can?*/);
+                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
@@ -370,7 +379,7 @@ namespace nbl::video
                 copy.size = subSize;
                 cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&alllocationSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
+                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&alllocationSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
                 uploadedSize += subSize;
             }
         }

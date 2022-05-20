@@ -120,7 +120,7 @@ class CAsyncSingleBufferSubAllocator
 
         // perfect forward ctor to `CSingleBufferSubAllocator`
         template<typename... Args>
-        inline CAsyncSingleBufferSubAllocator(Args&&... args) : Composed(std::forward<Args>(args)...) {}
+        inline CAsyncSingleBufferSubAllocator(Args&&... args) : m_composed(std::forward<Args>(args)...) {}
         virtual ~CAsyncSingleBufferSubAllocator() {}
 
 
@@ -195,7 +195,7 @@ class CAsyncSingleBufferSubAllocator
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            deferredFrees.addEvent(GPUEventWrapper(core::smart_refctd_ptr<ILogicalDevice>(m_composed->getBuffer()->getDevice()),std::move(fence)),std::forward<DeferredFreeFunctor>(functor));
+            deferredFrees.addEvent(GPUEventWrapper(const_cast<ILogicalDevice*>(m_composed.getBuffer()->getOriginDevice()),std::move(fence)),std::move(functor));
         }
         inline void multi_deallocate(uint32_t count, const value_type* addr, const size_type* bytes) noexcept
         {
@@ -210,9 +210,9 @@ class CAsyncSingleBufferSubAllocator
         inline void multi_deallocate(uint32_t count, const value_type* addr, const size_type* bytes, core::smart_refctd_ptr<IGPUFence>&& fence, const T*const *const objectsToDrop=nullptr) noexcept
         {
             if (fence)
-                multi_free(std::move(fence),DeferredFreeFunctor(this,count,addr,bytes,objectsToDrop));
+                multi_deallocate(std::move(fence),DeferredFreeFunctor(&m_composed,count,addr,bytes,objectsToDrop));
             else
-                multi_free(count,addr,bytes);
+                multi_deallocate(count,addr,bytes);
         }
 
     protected:
@@ -222,7 +222,7 @@ class CAsyncSingleBufferSubAllocator
         template<typename... Args>
         inline value_type try_multi_alloc(uint32_t count, value_type* outAddresses, const size_type* byteSizes, const Args&... args) noexcept
         {
-            m_composed.multi_alloc_addr(count,outAddresses,byteSizes,args...);
+            m_composed.multi_allocate(count,outAddresses,byteSizes,args...);
 
             size_type unallocatedSize = 0;
             for (uint32_t i=0u; i<count; i++)

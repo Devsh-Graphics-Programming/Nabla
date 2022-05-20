@@ -36,7 +36,7 @@ class StreamingTransientDataBuffer
 
         // perfect forward ctor to `CAsyncSingleBufferSubAllocator`
         template<typename... Args>
-        inline StreamingTransientDataBuffer(asset::SBufferRange<IGPUBuffer>&& _bufferRange, Args&&... args) : Composed(std::move(_bufferRange),std::forward<Args>(args)...)
+        inline StreamingTransientDataBuffer(asset::SBufferRange<IGPUBuffer>&& _bufferRange, Args&&... args) : m_composed(std::move(_bufferRange),std::forward<Args>(args)...)
         {
             assert(getBuffer()->getBoundMemory()->isMappable());
             assert(getBuffer()->getBoundMemory()->getMappedPointer());

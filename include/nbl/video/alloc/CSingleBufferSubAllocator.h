@@ -28,8 +28,8 @@ class CSingleBufferSubAllocator : public IBufferAllocator
         template<typename... Args>
         inline CSingleBufferSubAllocator(asset::SBufferRange<IGPUBuffer>&& _bufferRange, ReservedAllocator&& _reservedAllocator, const value_type maxAllocatableAlignment, Args&&... args) :
             m_addressAllocator(
-                _reservedAllocator.allocate(AddressAllocator::reserved_size(maxAllocatableAlignment,_bufferRange.size,args...),_NBL_SIMD_ALIGNMENT),
-                _bufferRange.offset, 0u, maxAllocatableAlignment, _bufferRange.size, std::forward<Args>(args)...
+                _reservedAllocator.allocate(AddressAllocator::reserved_size(maxAllocatableAlignment,static_cast<size_type>(_bufferRange.size), args...), _NBL_SIMD_ALIGNMENT),
+                static_cast<size_type>(_bufferRange.offset), 0u, maxAllocatableAlignment, static_cast<size_type>(_bufferRange.size), std::forward<Args>(args)...
             ), m_reservedAllocator(std::move(_reservedAllocator)), m_buffer(std::move(_bufferRange.buffer))
         {
             assert(_bufferRange.isValid());
@@ -50,7 +50,7 @@ class CSingleBufferSubAllocator : public IBufferAllocator
         inline const AddressAllocator& getAddressAllocator() const {return m_addressAllocator;}
 
         //
-        inline const ReservedAllocator& getReservedAllocator() const {return m_reservedAllocator;}
+        inline ReservedAllocator& getReservedAllocator() {return m_reservedAllocator;}
 
         // buffer getters
         inline IGPUBuffer* getBuffer() {return m_buffer.get();}
