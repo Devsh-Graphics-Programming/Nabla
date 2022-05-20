@@ -46,93 +46,67 @@ public:
 		m_dummySSBO = device->createDeviceLocalGPUBufferOnDedMem(creationParams, 1ull);
 	}
 
-	void getDefaultDescriptorSetLayouts(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>& outBlitDSLayout,
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>& outKernelWeightsDSLayout, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic)
+	void getDefaultDescriptorSetLayouts(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>* outBlitDSLayout,
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>* outKernelWeightsDSLayout, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic)
 	{
-		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
+		if (outBlitDSLayout)
 		{
-			if (!m_blitDSLayouts[1])
+			constexpr auto MAX_BLIT_DESCRIPTOR_COUNT = 3;
+			asset::E_DESCRIPTOR_TYPE types[MAX_BLIT_DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input image, output image, alpha statistics
+
+			const auto blitType = (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE) ? EBT_COVERAGE_ADJUSTMENT : EBT_REGULAR;
+			const auto actualDescriptorCount = (blitType == EBT_COVERAGE_ADJUSTMENT) ? 3 : 2;
+
+			if (!m_blitDSLayout[blitType])
+				m_blitDSLayout[blitType] = getDSLayout(actualDescriptorCount, types, device.get(), sampler);
+
+			*outBlitDSLayout = m_blitDSLayout[blitType];
+		}
+
+		if (outKernelWeightsDSLayout)
+		{
+			if (!m_kernelWeightsDSLayout)
 			{
-				constexpr uint32_t BLIT_DESCRIPTOR_COUNT = 3u;
-				asset::E_DESCRIPTOR_TYPE types[BLIT_DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input image, output image, alpha statistics
-				m_blitDSLayouts[1] = getDSLayout(BLIT_DESCRIPTOR_COUNT, types, device.get(), sampler);
+				constexpr uint32_t DESCRIPTOR_COUNT = 1u;
+				asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_UNIFORM_BUFFER };
+				m_kernelWeightsDSLayout = getDSLayout(DESCRIPTOR_COUNT, types, device.get(), sampler);
 			}
 
-			outBlitDSLayout = m_blitDSLayouts[1];
+			*outKernelWeightsDSLayout = m_kernelWeightsDSLayout;
 		}
-		else
-		{
-			if (!m_blitDSLayouts[0])
-			{
-				constexpr uint32_t BLIT_DESCRIPTOR_COUNT = 2u;
-				asset::E_DESCRIPTOR_TYPE types[BLIT_DESCRIPTOR_COUNT] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE }; // input image, output image
-				m_blitDSLayouts[0] = getDSLayout(BLIT_DESCRIPTOR_COUNT, types, device.get(), sampler);
-			}
-
-			outBlitDSLayout = m_blitDSLayouts[0];
-		}
-
-		// Todo(achal): Remove this check once I create m_kernelWeightsDSLayout in the static create method since it will be required always
-		if (!m_kernelWeightsDSLayout)
-		{
-			constexpr uint32_t DESCRIPTOR_COUNT = 1u;
-			asset::E_DESCRIPTOR_TYPE types[DESCRIPTOR_COUNT] = { asset::EDT_UNIFORM_BUFFER };
-			m_kernelWeightsDSLayout = getDSLayout(DESCRIPTOR_COUNT, types, device.get(), sampler);
-		}
-		outKernelWeightsDSLayout = m_kernelWeightsDSLayout;
 	}
 
-	// Todo(achal): When I merge the push constants
-	// void getDefaultPipelineLayouts(core::smart_refctd_ptr<video::IGPUPipelineLayout>& outBlitPipelineLayout,
-	// 	core::smart_refctd_ptr<video::IGPUPipelineLayout>& outCoverageAdjustmentPipelineLayout, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic);
-	core::smart_refctd_ptr<video::IGPUPipelineLayout>* getDefaultPipelineLayouts(uint32_t& outCount, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) /*Todo(achal): const*/
+	void getDefaultPipelineLayouts(core::smart_refctd_ptr<video::IGPUPipelineLayout>* outBlitPipelineLayout,
+		core::smart_refctd_ptr<video::IGPUPipelineLayout>* outCoverageAdjustmentPipelineLayout, const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic)
 	{
-		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			outCount = 3; // Todo(achal): 2
-		else
-			outCount = 1;
-
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> blitDSLayout = nullptr;
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> kernelWeightsDSLayout = nullptr;
-		getDefaultDescriptorSetLayouts(blitDSLayout, kernelWeightsDSLayout, alphaSemantic);
-
-		if (!m_pipelineLayouts[0]) // blit
+		asset::SPushConstantRange pcRange = {};
 		{
-			asset::SPushConstantRange pcRange = {};
-			{
-				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
-				pcRange.offset = 0u;
-				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
-			}
-
-			m_pipelineLayouts[0] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout), core::smart_refctd_ptr(kernelWeightsDSLayout));
+			pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+			pcRange.offset = 0u;
+			pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
 		}
 
-		if (!m_pipelineLayouts[1] && (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)) // alpha test
-		{
-			asset::SPushConstantRange pcRange = {};
-			{
-				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
-				pcRange.offset = 0u;
-				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
-			}
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> blitDSLayout;
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> kernelWeightsDSLayout;
+		getDefaultDescriptorSetLayouts(&blitDSLayout, &kernelWeightsDSLayout, alphaSemantic);
 
-			m_pipelineLayouts[1] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout));
+		const auto blitType = (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE) ? EBT_COVERAGE_ADJUSTMENT : EBT_REGULAR;
+
+		if (outBlitPipelineLayout)
+		{
+			if (!m_blitPipelineLayout[blitType])
+				m_blitPipelineLayout[blitType] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout), std::move(kernelWeightsDSLayout));
+
+			*outBlitPipelineLayout = m_blitPipelineLayout[blitType];
 		}
 
-		if (!m_pipelineLayouts[2] && (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)) // normalization
+		if (outCoverageAdjustmentPipelineLayout && (blitType == EBT_COVERAGE_ADJUSTMENT))
 		{
-			asset::SPushConstantRange pcRange = {};
-			{
-				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
-				pcRange.offset = 0u;
-				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
-			}
+			if (!m_coverageAdjustmentPipelineLayout)
+				m_coverageAdjustmentPipelineLayout = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout));
 
-			m_pipelineLayouts[2] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout));
+			*outCoverageAdjustmentPipelineLayout = m_coverageAdjustmentPipelineLayout;
 		}
-
-		return m_pipelineLayouts;
 	}
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType);
@@ -298,13 +272,6 @@ public:
 		}
 	}
 
-	template <typename push_constants_t>
-	static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const push_constants_t& pushConstants, const dispatch_info_t& dispatchInfo)
-	{
-		cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0u, sizeof(push_constants_t), &pushConstants);
-		cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
-	}
-
 	inline void blit(
 		video::IGPUCommandBuffer* cmdbuf,
 		const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic,
@@ -336,8 +303,7 @@ public:
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0u, 1u, &alphaTestDS);
 			cmdbuf->bindComputePipeline(alphaTestPipeline);
-			cmdbuf->pushConstants(alphaTestPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
-			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
+			dispatchHelper(cmdbuf, alphaTestPipeline->getLayout(), pushConstants, dispatchInfo);
 		}
 
 		{
@@ -347,8 +313,7 @@ public:
 			video::IGPUDescriptorSet* ds_raw[] = { blitDS, blitWeightsDS };
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 2, ds_raw);
 			cmdbuf->bindComputePipeline(blitPipeline);
-			cmdbuf->pushConstants(blitPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
-			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
+			dispatchHelper(cmdbuf, blitPipeline->getLayout(), pushConstants, dispatchInfo);
 		}
 
 		// After this dispatch ends and finishes writing to outImage, normalize outImage
@@ -385,8 +350,7 @@ public:
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
 			cmdbuf->bindComputePipeline(normalizationPipeline);
-			cmdbuf->pushConstants(normalizationPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
-			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
+			dispatchHelper(cmdbuf, normalizationPipeline->getLayout(), pushConstants, dispatchInfo);
 		}
 	}
 
@@ -587,10 +551,19 @@ public:
 	}
 
 private:
-	// m_blitDSLayouts[0] is used for blit with no coverage adjustment and m_blitDSLayouts[1] is used for the coverage adjustment case
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_blitDSLayouts[2];
+	enum E_BLIT_TYPE : uint8_t
+	{
+		EBT_REGULAR = 0,
+		EBT_COVERAGE_ADJUSTMENT,
+		EBT_COUNT
+	};
+
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_blitDSLayout[EBT_COUNT];
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_kernelWeightsDSLayout;
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_pipelineLayouts[3]; // Todo(achal): Make it two
+
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
+
 
 	core::smart_refctd_ptr<video::IGPUBuffer> m_dummySSBO = nullptr;
 
@@ -604,6 +577,12 @@ private:
 	{
 		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
 		return static_cast<core::vectorSIMDu32>(core::ceil(scale));
+	}
+
+	static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl_glsl_blit_parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
+	{
+		cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
+		cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 	}
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUSampler> sampler) const

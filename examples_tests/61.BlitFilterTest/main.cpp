@@ -483,10 +483,11 @@ private:
 
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> blitDSLayout;
 			core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> kernelWeightsDSLayout;
-			blitFilter->getDefaultDescriptorSetLayouts(blitDSLayout, kernelWeightsDSLayout, alphaSemantic);
+			blitFilter->getDefaultDescriptorSetLayouts(&blitDSLayout, &kernelWeightsDSLayout, alphaSemantic);
 
-			uint32_t pipelineLayoutCount;
-			const auto* pipelineLayouts = blitFilter->getDefaultPipelineLayouts(pipelineLayoutCount, alphaSemantic);
+			core::smart_refctd_ptr<video::IGPUPipelineLayout> blitPipelineLayout = nullptr;
+			core::smart_refctd_ptr<video::IGPUPipelineLayout> coverageAdjustmentPipelineLayout = nullptr;
+			blitFilter->getDefaultPipelineLayouts(&blitPipelineLayout, &coverageAdjustmentPipelineLayout, alphaSemantic);
 
 			video::IGPUDescriptorSetLayout* blitDSLayouts_raw[] = { blitDSLayout.get(), kernelWeightsDSLayout.get() };
 			uint32_t dsCounts[] = { 1, 1 };
@@ -503,12 +504,10 @@ private:
 			if (alphaSemantic == IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
 				auto alphaTestSpecShader = blitFilter->createAlphaTestSpecializedShader(inImage->getCreationParameters().type);
-				const auto& alphaTestPipelineLayout = pipelineLayouts[1];
-				alphaTestPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(alphaTestPipelineLayout), std::move(alphaTestSpecShader));
+				alphaTestPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(coverageAdjustmentPipelineLayout), std::move(alphaTestSpecShader));
 
 				auto normalizationSpecShader = blitFilter->createNormalizationSpecializedShader(normalizationInImage->getCreationParameters().type, outImageFormat, outImageViewFormat);
-				const auto& normalizationPipelineLayout = pipelineLayouts[2];
-				normalizationPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(normalizationPipelineLayout), std::move(normalizationSpecShader));
+				normalizationPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(coverageAdjustmentPipelineLayout), std::move(normalizationSpecShader));
 
 				const uint32_t dsCounts = 2;
 				auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &blitDSLayout.get(), &blitDSLayout.get() + 1ull, &dsCounts);
@@ -523,7 +522,6 @@ private:
 			else
 				blitSpecShader = blitFilter->createBlitSpecializedShader(inImage->getCreationParameters().format, outImageFormat, outImageViewFormat, inImageType, inExtent, outExtent, alphaSemantic);
 
-			const auto& blitPipelineLayout = pipelineLayouts[0];
 			blitPipeline = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(blitPipelineLayout), std::move(blitSpecShader));
 
 			blitDS = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(blitDSLayout));
