@@ -237,21 +237,21 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
   # blit
+  "nbl/builtin/glsl/blit/parameters.glsl"
+
   "nbl/builtin/glsl/blit/default_compute_blit.comp"
   "nbl/builtin/glsl/blit/blit/blit.glsl"
   "nbl/builtin/glsl/blit/blit/descriptors.glsl"
-  "nbl/builtin/glsl/blit/blit/parameters.glsl"
 
   "nbl/builtin/glsl/blit/default_compute_alpha_test.comp"
   "nbl/builtin/glsl/blit/alpha_test/alpha_test.glsl"
-  "nbl/builtin/glsl/blit/alpha_test/parameters.glsl"
   "nbl/builtin/glsl/blit/alpha_test/descriptors.glsl"
 
   "nbl/builtin/glsl/blit/default_compute_normalization.comp"
   "nbl/builtin/glsl/blit/normalization/normalization.glsl"
-  "nbl/builtin/glsl/blit/normalization/parameters.glsl"
   "nbl/builtin/glsl/blit/normalization/descriptors.glsl"
 
+  # Todo(achal): Remove
   "nbl/builtin/glsl/blit/blit/formats/r8.glsl"
   "nbl/builtin/glsl/blit/blit/formats/r11f_g11f_b10f.glsl"
   "nbl/builtin/glsl/blit/blit/formats/r16.glsl"

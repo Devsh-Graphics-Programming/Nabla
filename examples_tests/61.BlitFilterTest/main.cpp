@@ -531,80 +531,13 @@ private:
 
 			blitFilter->updateDescriptorSets(blitDS.get(), blitWeightsDS.get(), inImageView, normalizationInImageView, coverageAdjustmentScratchBuffer, scaledKernelPhasedLUT);
 
-			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
-			logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
-
-			auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
-
 			logger->log("GPU begin..");
-			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
-			video::CComputeBlit::alpha_test_push_constants_t alphaTestPC;
-			video::CComputeBlit::dispatch_info_t alphaTestDispatchInfo;
-			video::CComputeBlit::normalization_push_constants_t normalizationPC;
-			video::CComputeBlit::dispatch_info_t normalizationDispatchInfo;
-			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			{
-				video::CComputeBlit::buildAlphaTestParameters(referenceAlpha, inImageType, inExtent, layersToBlit, alphaTestPC, alphaTestDispatchInfo);
-				video::CComputeBlit::buildNormalizationParameters(inImageType, inExtent, outExtent, referenceAlpha, layersToBlit, normalizationPC, normalizationDispatchInfo);
-			}
-
-			video::CComputeBlit::blit_push_constants_t blitPC;
-			video::CComputeBlit::dispatch_info_t blitDispatchInfo;
-			blitFilter->buildBlitParameters(inExtent, outExtent, inImageType, inImageFormat, layersToBlit, blitPC, blitDispatchInfo); // Todo(achal): I should probably take in sharedMemorySize as a param and make this static
-
-			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			{
-				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0, 1, &blitDS.get());
-				cmdbuf->bindComputePipeline(alphaTestPipeline.get());
-				video::CComputeBlit::dispatchHelper<CComputeBlit::alpha_test_push_constants_t>(cmdbuf.get(), alphaTestPipeline->getLayout(), alphaTestPC, alphaTestDispatchInfo);
-			}
-
-			video::IGPUDescriptorSet* ds_raw[] = { blitDS.get(), blitWeightsDS.get() };
-			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 2, ds_raw);
-			cmdbuf->bindComputePipeline(blitPipeline.get());
-			video::CComputeBlit::dispatchHelper<video::CComputeBlit::blit_push_constants_t>(cmdbuf.get(), blitPipeline->getLayout(), blitPC, blitDispatchInfo);
-			// Memory dependency to ensure that the previous compute pass has finished writing to the output image
-			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			{
-				// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
-				video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
-				alphaTestBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				alphaTestBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-				alphaTestBarrier.srcQueueFamilyIndex = ~0u;
-				alphaTestBarrier.dstQueueFamilyIndex = ~0u;
-				alphaTestBarrier.buffer = coverageAdjustmentScratchBuffer;
-				alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getCachedCreationParams().declaredSize;
-				alphaTestBarrier.offset = 0;
-
-				// Memory dependency to ensure that the previous compute pass has finished writing to the output image
-				video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
-				readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
-				readyForNorm.oldLayout = asset::EIL_GENERAL;
-				readyForNorm.newLayout = asset::EIL_GENERAL;
-				readyForNorm.srcQueueFamilyIndex = ~0u;
-				readyForNorm.dstQueueFamilyIndex = ~0u;
-				readyForNorm.image = normalizationInImage;
-				readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-				readyForNorm.subresourceRange.levelCount = 1u;
-				readyForNorm.subresourceRange.baseArrayLayer = 0;
-				readyForNorm.subresourceRange.layerCount = layersToBlit;
-				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 1u, &readyForNorm);
-
-				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS.get());
-				cmdbuf->bindComputePipeline(normalizationPipeline.get());
-				video::CComputeBlit::dispatchHelper<CComputeBlit::normalization_push_constants_t>(cmdbuf.get(), normalizationPipeline->getLayout(), normalizationPC, normalizationDispatchInfo);
-			}
-
-			cmdbuf->end();
-
-			video::IGPUQueue::SSubmitInfo submitInfo = {};
-			submitInfo.commandBufferCount = 1u;
-			submitInfo.commandBuffers = &cmdbuf.get();
-			queues[CommonAPI::InitOutput::EQT_COMPUTE]->submit(1, &submitInfo, fence.get());
-
-			logicalDevice->blockForFences(1, &fence.get());
+			blitFilter->blit(
+				queues[CommonAPI::InitOutput::EQT_COMPUTE], alphaSemantic,
+				blitDS.get(), alphaTestPipeline.get(),
+				blitDS.get(), blitWeightsDS.get(), blitPipeline.get(),
+				normalizationDS.get(), normalizationPipeline.get(),
+				inExtent, inImageType, inImageFormat, normalizationInImage, layersToBlit, coverageAdjustmentScratchBuffer, referenceAlpha);
 			logger->log("GPU end..");
 
 			if (outImage->getCreationParameters().type == asset::IImage::ET_2D)

@@ -60,7 +60,7 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 shared float nbl_glsl_blit_scratchShared[_NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_][_NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
 
-#include <nbl/builtin/glsl/blit/blit/parameters.glsl>
+#include <nbl/builtin/glsl/blit/parameters.glsl>
 #include <nbl/builtin/glsl/blit/blit/descriptors.glsl>
 #include <nbl/builtin/glsl/blit/blit/blit.glsl>
 

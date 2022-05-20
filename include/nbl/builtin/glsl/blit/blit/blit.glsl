@@ -3,7 +3,7 @@
 
 #ifndef _NBL_GLSL_BLIT_MAIN_DEFINED_
 
-#include <nbl/builtin/glsl/blit/blit/parameters.glsl>
+#include <nbl/builtin/glsl/blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
 nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord);
@@ -38,7 +38,7 @@ void nbl_glsl_blit_main()
 {
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
-	const vec3 scale = vec3(params.inDim) / vec3(params.outDim);
+	const vec3 scale = params.fScale;
 
 	const uint windowPixelCount = params.windowDim.x * params.windowDim.y * params.windowDim.z;
 

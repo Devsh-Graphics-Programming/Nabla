@@ -1,7 +1,6 @@
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_INCLUDED_
 #define _NBL_GLSL_BLIT_NORMALIZATION_INCLUDED_
 
-
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 
 uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint divisor)
@@ -20,8 +19,8 @@ uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint di
 
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
-#include <nbl/builtin/glsl/blit/normalization/parameters.glsl>
-nbl_glsl_blit_normalization_parameters_t nbl_glsl_blit_normalization_getParameters();
+#include <nbl/builtin/glsl/blit/parameters.glsl>
+nbl_glsl_blit_parameters_t nbl_glsl_blit_normalization_getParameters();
 
 nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord);
 void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t data, in ivec3 coord);
@@ -54,9 +53,9 @@ void nbl_glsl_blit_normalization_main()
 		scratchShared[gl_LocalInvocationIndex] = cumHistogramVal;
 	barrier();
 
-	const nbl_glsl_blit_normalization_parameters_t params = nbl_glsl_blit_normalization_getParameters();
+	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_normalization_getParameters();
 
-	const uint outputPixelCount = params.outImageDim.x * params.outImageDim.y * params.outImageDim.z;
+	const uint outputPixelCount = params.outPixelCount;
 
 	uint productMsb, productLsb;
 	umulExtended(nbl_glsl_blit_normalization_getPassedInputPixelCountData(LAYER_IDX), outputPixelCount, productMsb, productLsb);
@@ -92,7 +91,7 @@ void nbl_glsl_blit_normalization_main()
 
 	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_ - 1), 1.f);
 
-	const float alphaScale = params.oldReferenceAlpha / newReferenceAlpha;
+	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
 
 	const nbl_glsl_blit_normalization_pixel_t pixel = nbl_glsl_blit_normalization_getPaddedData(ivec3(gl_GlobalInvocationID));
 	nbl_glsl_blit_normalization_pixel_t scaledPixel;

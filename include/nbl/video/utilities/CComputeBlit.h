@@ -7,15 +7,8 @@ namespace nbl::video
 class CComputeBlit : public core::IReferenceCounted
 {
 private:
-	struct alignas(16) vec3_aligned
-	{
-		float x, y, z;
-	};
-
-	struct alignas(16) uvec3_aligned
-	{
-		uint32_t x, y, z;
-	};
+	struct vec3 { float x, y, z; };
+	struct uvec3 { uint32_t x, y, z; };
 
 public:
 	// This default is only for the blitting step (not alpha test or normalization steps) which always uses a 1D workgroup.
@@ -23,29 +16,7 @@ public:
 	static constexpr uint32_t DefaultBlitWorkgroupSize = 256u;
 	static constexpr uint32_t DefaultAlphaBinCount = 256u;
 
-	struct alpha_test_push_constants_t
-	{
-		float referenceAlpha;
-	};
-
-	struct blit_push_constants_t
-	{
-		uvec3_aligned inDim;
-		uvec3_aligned outDim;
-		vec3_aligned negativeSupport;
-		vec3_aligned positiveSupport;
-		uvec3_aligned windowDim;
-		uvec3_aligned phaseCount;
-		uint32_t windowsPerWG;
-		uint32_t axisCount;
-	};
-
-	struct normalization_push_constants_t
-	{
-		uvec3_aligned outDim;
-		uint32_t inPixelCount;
-		float referenceAlpha;
-	};
+#include "nbl/builtin/glsl/blit/parameters.glsl"
 
 	struct dispatch_info_t
 	{
@@ -131,7 +102,7 @@ public:
 			{
 				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 				pcRange.offset = 0u;
-				pcRange.size = sizeof(blit_push_constants_t);
+				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
 			}
 
 			m_pipelineLayouts[0] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout), core::smart_refctd_ptr(kernelWeightsDSLayout));
@@ -143,7 +114,7 @@ public:
 			{
 				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 				pcRange.offset = 0u;
-				pcRange.size = sizeof(alpha_test_push_constants_t);
+				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
 			}
 
 			m_pipelineLayouts[1] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout));
@@ -155,7 +126,7 @@ public:
 			{
 				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 				pcRange.offset = 0u;
-				pcRange.size = sizeof(normalization_push_constants_t);
+				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
 			}
 
 			m_pipelineLayouts[2] = device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(blitDSLayout));
@@ -166,12 +137,63 @@ public:
 
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType);
 
-	static inline void buildAlphaTestParameters(const float referenceAlpha, const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, const uint32_t layersToBlit, alpha_test_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
+	inline void buildParameters(nbl_glsl_blit_parameters_t& outPC, const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType,
+		const asset::E_FORMAT inImageFormat, const uint32_t layersToBlit = 1, const float referenceAlpha = 0.f)
 	{
+		outPC.outDim = { outImageExtent.x, outImageExtent.y, outImageExtent.z };
 		outPC.referenceAlpha = referenceAlpha;
 
+		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
+		outPC.fScale = {scale.x, scale.y, scale.z};
+
+		outPC.inPixelCount = inImageExtent.x * inImageExtent.y * inImageExtent.z;
+
+		const core::vectorSIMDf negativeSupport = core::vectorSIMDf(-0.5f, -0.5f, -0.5f) * scale;
+		outPC.negativeSupport.x = negativeSupport.x; outPC.negativeSupport.y = negativeSupport.y; outPC.negativeSupport.z = negativeSupport.z;
+
+		outPC.outPixelCount = outPC.outDim.x * outPC.outDim.y * outPC.outDim.z;
+
+		const core::vectorSIMDu32 windowDim = getWindowDim(inImageExtent, outImageExtent);
+		outPC.windowDim.x = windowDim.x; outPC.windowDim.y = windowDim.y; outPC.windowDim.z = windowDim.z;
+
+		const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, inImageType);
+		outPC.phaseCount.x = phaseCount.x; outPC.phaseCount.y = phaseCount.y; outPC.phaseCount.z = phaseCount.z;
+
+		const uint32_t windowPixelCount = outPC.windowDim.x * outPC.windowDim.y * outPC.windowDim.z;
+		const uint32_t smemPerWindow = windowPixelCount * (asset::getFormatChannelCount(inImageFormat) * sizeof(float));
+		outPC.windowsPerWG = sharedMemorySize / smemPerWindow;
+	}
+
+	static inline void buildAlphaTestDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& inImageExtent, const asset::IImage::E_TYPE inImageType, const uint32_t layersToBlit = 1)
+	{
 		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType, layersToBlit);
 		const core::vectorSIMDu32 workgroupCount = (inImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
+		outDispatchInfo.wgCount[0] = workgroupCount.x;
+		outDispatchInfo.wgCount[1] = workgroupCount.y;
+		outDispatchInfo.wgCount[2] = workgroupCount.z;
+	}
+
+	inline void buildBlitDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const asset::E_FORMAT inImageFormat, const uint32_t layersToBlit)
+	{
+		const auto windowDim = getWindowDim(inImageExtent, outImageExtent);
+		const uint32_t windowPixelCount = windowDim.x * windowDim.y * windowDim.z;
+		const uint32_t smemPerWindow = windowPixelCount * (asset::getFormatChannelCount(inImageFormat) * sizeof(float));
+		auto windowsPerWG = sharedMemorySize / smemPerWindow;
+
+		const uint32_t totalWindowCount = outImageExtent.x * outImageExtent.y * outImageExtent.z;
+		const uint32_t wgCount = (totalWindowCount + windowsPerWG - 1) / windowsPerWG;
+
+		outDispatchInfo.wgCount[0] = wgCount;
+		outDispatchInfo.wgCount[1] = layersToBlit;
+		outDispatchInfo.wgCount[2] = 1u;
+	}
+
+	static inline void buildNormalizationDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = DefaultAlphaBinCount, const uint32_t layersToBlit = 1)
+	{
+		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType, layersToBlit);
+		assert(workgroupDims.x * workgroupDims.y * workgroupDims.z <= alphaBinCount);
+		const core::vectorSIMDu32 workgroupCount = (outImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
+
 		outDispatchInfo.wgCount[0] = workgroupCount.x;
 		outDispatchInfo.wgCount[1] = workgroupCount.y;
 		outDispatchInfo.wgCount[2] = workgroupCount.z;
@@ -210,21 +232,6 @@ public:
 		}
 
 		return scratchSize*layersToBlit;
-	}
-
-	static void buildNormalizationParameters(const asset::IImage::E_TYPE inImageType, const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const float referenceAlpha, const uint32_t layersToBlit, normalization_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
-	{
-		outPC.outDim = { outImageExtent.x, outImageExtent.y, outImageExtent.z };
-		outPC.inPixelCount = inImageExtent.x * inImageExtent.y * inImageExtent.z;
-		outPC.referenceAlpha = static_cast<float>(referenceAlpha);
-
-		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType, layersToBlit);
-		assert(workgroupDims.x * workgroupDims.y * workgroupDims.z <= DefaultAlphaBinCount);
-		const core::vectorSIMDu32 workgroupCount = (outImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
-
-		outDispatchInfo.wgCount[0] = workgroupCount.x;
-		outDispatchInfo.wgCount[1] = workgroupCount.y;
-		outDispatchInfo.wgCount[2] = workgroupCount.z;
 	}
 
 	// Todo(achal): Remove inExtent and outExtent params, they are only used for validation which should be done in the static create method/or the blit method, but not here
@@ -292,39 +299,6 @@ public:
 		}
 	}
 
-	inline void buildBlitParameters(const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT inImageFormat, const uint32_t layersToBlit, blit_push_constants_t& outPC, dispatch_info_t& outDispatchInfo)
-	{
-		outPC.inDim.x = inImageExtent.x; outPC.inDim.y = inImageExtent.y; outPC.inDim.z = inImageExtent.z;
-		outPC.outDim.x = outImageExtent.x; outPC.outDim.y = outImageExtent.y; outPC.outDim.z = outImageExtent.z;
-
-		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
-
-		const core::vectorSIMDf negativeSupport = core::vectorSIMDf(-0.5f, -0.5f, -0.5f) * scale;
-		const core::vectorSIMDf positiveSupport = core::vectorSIMDf(0.5f, 0.5f, 0.5f) * scale;
-
-		outPC.negativeSupport.x = negativeSupport.x; outPC.negativeSupport.y = negativeSupport.y; outPC.negativeSupport.z = negativeSupport.z;
-		outPC.positiveSupport.x = positiveSupport.x; outPC.positiveSupport.y = positiveSupport.y; outPC.positiveSupport.z = positiveSupport.z;
-
-		const core::vectorSIMDu32 windowDim = static_cast<core::vectorSIMDu32>(core::ceil(scale));
-		outPC.windowDim.x = windowDim.x; outPC.windowDim.y = windowDim.y; outPC.windowDim.z = windowDim.z;
-
-		const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, inImageType);
-		outPC.phaseCount.x = phaseCount.x; outPC.phaseCount.y = phaseCount.y; outPC.phaseCount.z = phaseCount.z;
-
-		const uint32_t windowPixelCount = outPC.windowDim.x * outPC.windowDim.y * outPC.windowDim.z;
-		const uint32_t smemPerWindow = windowPixelCount * (asset::getFormatChannelCount(inImageFormat) * sizeof(float));
-		outPC.windowsPerWG = sharedMemorySize / smemPerWindow;
-
-		outPC.axisCount = static_cast<uint32_t>(inImageType) + 1u;
-
-		const uint32_t totalWindowCount = outPC.outDim.x * outPC.outDim.y * outPC.outDim.z;
-		const uint32_t wgCount = (totalWindowCount + outPC.windowsPerWG - 1) / outPC.windowsPerWG;
-
-		outDispatchInfo.wgCount[0] = wgCount;
-		outDispatchInfo.wgCount[1] = layersToBlit;
-		outDispatchInfo.wgCount[2] = 1u;
-	}
-
 	template <typename push_constants_t>
 	static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const push_constants_t& pushConstants, const dispatch_info_t& dispatchInfo)
 	{
@@ -338,39 +312,53 @@ public:
 		video::IGPUDescriptorSet* alphaTestDS,
 		video::IGPUComputePipeline* alphaTestPipeline,
 		video::IGPUDescriptorSet* blitDS,
+		video::IGPUDescriptorSet* blitWeightsDS,
 		video::IGPUComputePipeline* blitPipeline,
 		video::IGPUDescriptorSet* normalizationDS,
 		video::IGPUComputePipeline* normalizationPipeline,
 		const core::vectorSIMDu32& inImageExtent,
 		const asset::IImage::E_TYPE inImageType,
 		const asset::E_FORMAT inImageFormat,
-		core::smart_refctd_ptr<video::IGPUImage> outImage,
-		const float referenceAlpha = 0.f,
+		core::smart_refctd_ptr<video::IGPUImage> normalizationInImage,
 		const uint32_t layersToBlit = 1,
-		const asset::SBufferRange<video::IGPUBuffer>* alphaTestCounter = nullptr)
+		core::smart_refctd_ptr<video::IGPUBuffer> coverageAdjustmentScratchBuffer = nullptr,
+		const float referenceAlpha = 0.f,
+		const uint32_t alphaBinCount = DefaultAlphaBinCount)
 	{
+		const core::vectorSIMDu32 outImageExtent(normalizationInImage->getCreationParameters().extent.width, normalizationInImage->getCreationParameters().extent.height, normalizationInImage->getCreationParameters().extent.depth, 1u);
+
+		nbl_glsl_blit_parameters_t pushConstants;
+		buildParameters(pushConstants, inImageExtent, outImageExtent, inImageType, inImageFormat, layersToBlit, referenceAlpha);
+
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 		{
+			dispatch_info_t dispatchInfo;
+			buildAlphaTestDispatchInfo(dispatchInfo, inImageExtent, inImageType, layersToBlit);
+
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0u, 1u, &alphaTestDS);
 			cmdbuf->bindComputePipeline(alphaTestPipeline);
-			CComputeBlit::alpha_test_push_constants_t alphaTestPC;
-			CComputeBlit::dispatch_info_t alphaTestDispatchInfo;
-			buildAlphaTestParameters(referenceAlpha, inImageType, inImageExtent, layersToBlit, alphaTestPC, alphaTestDispatchInfo);
-			dispatchHelper<CComputeBlit::alpha_test_push_constants_t>(cmdbuf, alphaTestPipeline->getLayout(), alphaTestPC, alphaTestDispatchInfo);
+			cmdbuf->pushConstants(alphaTestPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
+			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 		}
 
-		cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0u, 1u, &blitDS);
-		cmdbuf->bindComputePipeline(blitPipeline);
-		CComputeBlit::blit_push_constants_t blitPC;
-		CComputeBlit::dispatch_info_t blitDispatchInfo;
-		const core::vectorSIMDu32 outImageExtent(outImage->getCreationParameters().extent.width, outImage->getCreationParameters().extent.height, outImage->getCreationParameters().extent.depth, 1u);
-		buildBlitParameters(inImageExtent, outImageExtent, inImageType, inImageFormat, layersToBlit, blitPC, blitDispatchInfo);
-		dispatchHelper<CComputeBlit::blit_push_constants_t>(cmdbuf, blitPipeline->getLayout(), blitPC, blitDispatchInfo);
+		{
+			dispatch_info_t dispatchInfo;
+			buildBlitDispatchInfo(dispatchInfo, inImageExtent, outImageExtent, inImageFormat, layersToBlit);
+
+			video::IGPUDescriptorSet* ds_raw[] = { blitDS, blitWeightsDS };
+			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 2, ds_raw);
+			cmdbuf->bindComputePipeline(blitPipeline);
+			cmdbuf->pushConstants(blitPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
+			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
+		}
 
 		// After this dispatch ends and finishes writing to outImage, normalize outImage
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 		{
-			assert(alphaTestCounter);
+			dispatch_info_t dispatchInfo;
+			buildNormalizationDispatchInfo(dispatchInfo, outImageExtent, inImageType, alphaBinCount, layersToBlit);
+
+			assert(coverageAdjustmentScratchBuffer);
 
 			// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
 			video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
@@ -378,9 +366,9 @@ public:
 			alphaTestBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
 			alphaTestBarrier.srcQueueFamilyIndex = ~0u;
 			alphaTestBarrier.dstQueueFamilyIndex = ~0u;
-			alphaTestBarrier.buffer = alphaTestCounter->buffer;
-			alphaTestBarrier.size = alphaTestCounter->size;
-			alphaTestBarrier.offset = alphaTestCounter->offset;
+			alphaTestBarrier.buffer = coverageAdjustmentScratchBuffer;
+			alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getCachedCreationParams().declaredSize;
+			alphaTestBarrier.offset = 0;
 
 			// Memory dependency to ensure that the previous compute pass has finished writing to the output image
 			video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
@@ -390,7 +378,7 @@ public:
 			readyForNorm.newLayout = asset::EIL_GENERAL;
 			readyForNorm.srcQueueFamilyIndex = ~0u;
 			readyForNorm.dstQueueFamilyIndex = ~0u;
-			readyForNorm.image = outImage;
+			readyForNorm.image = normalizationInImage;
 			readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			readyForNorm.subresourceRange.levelCount = 1u;
 			readyForNorm.subresourceRange.layerCount = 1u;
@@ -398,10 +386,8 @@ public:
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
 			cmdbuf->bindComputePipeline(normalizationPipeline);
-			CComputeBlit::normalization_push_constants_t normPC = {};
-			CComputeBlit::dispatch_info_t normDispatchInfo = {};
-			buildNormalizationParameters(inImageType, inImageExtent, outImageExtent, referenceAlpha, layersToBlit, normPC, normDispatchInfo);
-			dispatchHelper<CComputeBlit::normalization_push_constants_t>(cmdbuf, normalizationPipeline->getLayout(), normPC, normDispatchInfo);
+			cmdbuf->pushConstants(normalizationPipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
+			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 		}
 	}
 
@@ -412,16 +398,18 @@ public:
 		video::IGPUDescriptorSet* alphaTestDS,
 		video::IGPUComputePipeline* alphaTestPipeline,
 		video::IGPUDescriptorSet* blitDS,
+		video::IGPUDescriptorSet* blitKernelWeightsDS,
 		video::IGPUComputePipeline* blitPipeline,
 		video::IGPUDescriptorSet* normalizationDS,
 		video::IGPUComputePipeline* normalizationPipeline,
 		const core::vectorSIMDu32& inImageExtent,
 		const asset::IImage::E_TYPE inImageType,
 		const asset::E_FORMAT inImageFormat,
-		core::smart_refctd_ptr<video::IGPUImage> outImage,
-		const float referenceAlpha = 0.f,
+		core::smart_refctd_ptr<video::IGPUImage> normalizationInImage,
 		const uint32_t layersToBlit = 1,
-		const asset::SBufferRange<video::IGPUBuffer>* alphaTestCounter = nullptr)
+		core::smart_refctd_ptr<video::IGPUBuffer> coverageAdjustmentScratchBuffer = nullptr,
+		const float referenceAlpha = 0.f,
+		const uint32_t alphaBinCount = DefaultAlphaBinCount)
 	{
 		auto cmdpool = device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
@@ -430,7 +418,13 @@ public:
 		auto fence = device->createFence(video::IGPUFence::ECF_UNSIGNALED);
 
 		cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-		blit(cmdbuf.get(), alphaSemantic, alphaTestDS, alphaTestPipeline, blitDS, blitPipeline, normalizationDS, normalizationPipeline, inImageExtent, inImageType, inImageFormat, outImage, referenceAlpha, layersToBlit, alphaTestCounter);
+		blit(
+			cmdbuf.get(), alphaSemantic,
+			alphaTestDS, alphaTestPipeline,
+			blitDS, blitKernelWeightsDS, blitPipeline,
+			normalizationDS, normalizationPipeline,
+			inImageExtent, inImageType, inImageFormat, normalizationInImage, layersToBlit,
+			coverageAdjustmentScratchBuffer, referenceAlpha, alphaBinCount);
 		cmdbuf->end();
 
 		video::IGPUQueue::SSubmitInfo submitInfo = {};
@@ -605,6 +599,13 @@ private:
 	core::smart_refctd_ptr<video::ILogicalDevice> device;
 
 	core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
+
+	// Todo(achal): Isn't this just getRealWindowSize?
+	static inline core::vectorSIMDu32 getWindowDim(const core::vectorSIMDu32& inImageExtent, const core::vectorSIMDu32& outImageExtent)
+	{
+		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
+		return static_cast<core::vectorSIMDu32>(core::ceil(scale));
+	}
 
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUSampler> sampler) const
 	{
