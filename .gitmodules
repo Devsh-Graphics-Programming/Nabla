@@ -111,3 +111,7 @@
 	branch = ditt
 [submodule "examples_tests/media"]
 	branch = ditt
+[submodule "ci"]
+	path = ci
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-CI.git
+	branch = ditt
