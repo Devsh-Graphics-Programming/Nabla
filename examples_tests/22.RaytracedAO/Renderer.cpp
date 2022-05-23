@@ -109,7 +109,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 			core::smart_refctd_ptr(m_additionalGlobalDSLayout),
 			core::smart_refctd_ptr(m_cullDSLayout)
 		);
-		m_visibilityBufferFillPipeline = m_driver->createRenderpassIndependentPipeline(
+		m_visibilityBufferFillPipeline = m_driver->createGPURenderpassIndependentPipeline(
 			nullptr,std::move(_visibilityBufferFillPipelineLayout),&shaders->get(),&shaders->get()+2u,
 			SVertexInputParams{},SBlendParams{},primitiveAssembly,raster
 		);
@@ -692,7 +692,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 
 	auto gpuPipelineLayout = m_driver->createPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(blendEnvDescriptorSetLayout));
 
-	blendEnvPipeline = m_driver->createRenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + 2,
+	blendEnvPipeline = m_driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + 2,
 		std::get<SVertexInputParams>(fullScreenTriangle), blendParams,
 		std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
 	

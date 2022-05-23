@@ -69,12 +69,12 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 		}
 		COpenGLImage(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDriverMemoryBacked::SDriverMemoryRequirements2 reqs,
+			const uint32_t deviceLocalMemoryTypeBits,
 			IGPUImage::SCreationParams&& _params,
 			GLenum internalFormat,
 			GLenum target,
 			GLuint name
-		) : IGPUImage(std::move(dev), std::move(reqs), std::move(_params)),
+		) : IGPUImage(std::move(dev), SDriverMemoryRequirements2{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
 			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
 		{
 		}

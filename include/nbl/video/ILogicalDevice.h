@@ -185,18 +185,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             return reqs;
         }
 
-        static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
-        {
-            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.alignment = 0;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            return reqs;
-        }
-
         static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
         {
             IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -220,34 +208,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             reqs.requiresDedicatedAllocation = true;
             return reqs;
         }
-
-        static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
-        {
-            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.alignment = 0;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | IDriverMemoryAllocation::EMCF_COHERENT | IDriverMemoryAllocation::EMCF_CACHED;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            return reqs;
-        }
-
-        //! Best for Mesh data, UBOs, SSBOs, etc.
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! If cannot or don't want to use device local memory, then this memory can be used
-        /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
-
-        //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) { return nullptr; }
 
         virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) { return nullptr; }
 
@@ -287,14 +247,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs);
-        }
-
-        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
-        {
-            auto reqs = getSpilloverGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs);
         }

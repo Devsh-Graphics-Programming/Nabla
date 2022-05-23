@@ -882,21 +882,6 @@ public:
             descriptorCopyCount, vk_copyDescriptorSets.data());
     }
 
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
-
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateSpilloverMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
-
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateUpStreamingMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
-
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDownStreamingMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
-
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) override;
-
     core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
         const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) override;
 

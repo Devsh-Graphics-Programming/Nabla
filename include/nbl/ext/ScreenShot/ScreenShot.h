@@ -62,11 +62,12 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		region.imageExtent = { extent.x, extent.y, extent.z };
 
 		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
+		bufferCreationParams.declaredSize = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
-
-		auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
-		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
-		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(bufferCreationParams,deviceLocalGPUMemoryReqs);
+		gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);
+		auto gpuTexelBufferMemReqs = gpuTexelBuffer->getMemoryReqs2();
+		gpuTexelBufferMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, gpuTexelBuffer.get());
 
 		video::IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
 		barrier.barrier.srcAccessMask = accessMask;
@@ -205,7 +206,7 @@ inline bool createScreenShot(
 
 #endif
 
-#ifdef OLD_CODE // code from `master` branch:
+#ifdef OLD_CODE // code from old `ditt` branch:
 			/*
 				Download mip level image with gpu image usage and save it to IGPUBuffer.
 				Because of the fence placed by driver the function stalls the CPU 

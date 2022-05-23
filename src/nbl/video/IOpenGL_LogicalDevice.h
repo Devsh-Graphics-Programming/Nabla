@@ -573,18 +573,11 @@ protected:
                 auto& p = std::get<SRequestBufferCreate2>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
 
-                IDriverMemoryBacked::SDriverMemoryRequirements2 mreqs;
-                mreqs.size = p.creationParams.declaredSize;
-                mreqs.memoryTypeBits = 0xffffffffu;
-                mreqs.alignmentLog2 = 0u; // TODO(Erfan) Alignment previously was 0u in getXXXMemoryRequirementsOnDedMem(). what to set here? get minXXXOffsetAlignment from physical device and deduce from usage?
-                mreqs.prefersDedicatedAllocation = true;
-                mreqs.requiresDedicatedAllocation = true;
-
                 GLuint bufferName;
                 gl.extGlCreateBuffers(1,&bufferName);
                 if (bufferName!=0)
                 {
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), mreqs, p.creationParams, bufferName);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.creationParams, bufferName);
                 }
                 else
                 {
@@ -615,12 +608,6 @@ protected:
                 GLenum target;
                 GLuint name;
 
-                IDriverMemoryBacked::SDriverMemoryRequirements2 mreqs;
-                mreqs.size = 0u; // TODO(Erfan) some approx of image size -> considering dimensions, mipLevels, arrayLayers, samples, minImageGranularity and texelBlockInfo (see ImageUploadUtility)
-                mreqs.memoryTypeBits = p.deviceLocalMemoryTypeBits;
-                mreqs.alignmentLog2 = std::log2(256u);
-                mreqs.prefersDedicatedAllocation = true;
-                mreqs.requiresDedicatedAllocation = true;
 
                 GLsizei samples = p.creationParams.samples;
                 switch (p.creationParams.type)
@@ -644,7 +631,7 @@ protected:
                         assert(false);
                         break;
                 }
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), std::move(mreqs), std::move(p.creationParams), internalFormat, target, name);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.deviceLocalMemoryTypeBits, std::move(p.creationParams), internalFormat, target, name);
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:
