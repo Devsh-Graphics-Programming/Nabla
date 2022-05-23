@@ -680,37 +680,6 @@ public:
 
         return !anyFailed;
     }
-            
-    core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
-    {
-        core::smart_refctd_ptr<IGPUImage> gpuImage = createGPUImage(std::move(params));
-
-        if (!gpuImage)
-            return nullptr;
-
-        IDriverMemoryBacked::SDriverMemoryRequirements memReqs = gpuImage->getMemoryReqs();
-        memReqs.vulkanReqs.size = core::max(memReqs.vulkanReqs.size, initialMreqs.vulkanReqs.size);
-        memReqs.vulkanReqs.alignment = core::max(memReqs.vulkanReqs.alignment, initialMreqs.vulkanReqs.alignment);
-        memReqs.vulkanReqs.memoryTypeBits &= initialMreqs.vulkanReqs.memoryTypeBits;
-        memReqs.memoryHeapLocation = initialMreqs.memoryHeapLocation;
-        memReqs.mappingCapability = initialMreqs.mappingCapability;
-
-        core::smart_refctd_ptr<video::IDriverMemoryAllocation> imageMemory =
-            allocateGPUMemory(memReqs);
-
-        if (!imageMemory)
-            return nullptr;
-
-        ILogicalDevice::SBindImageMemoryInfo bindImageInfo = {};
-        bindImageInfo.image = gpuImage.get();
-        bindImageInfo.memory = imageMemory.get();
-        bindImageInfo.offset = 0ull;
-
-        if (!bindImageMemory(1u, &bindImageInfo))
-            return nullptr;
-
-        return gpuImage;
-    }
 
     void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
         uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override

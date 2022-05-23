@@ -17,6 +17,11 @@ public:
 	{
 		core::smart_refctd_ptr<IDriverMemoryAllocation> memory = nullptr;
 		size_t offset = InvalidMemoryOffset;
+
+		bool isValid() const
+		{
+			return memory && (offset!=InvalidMemoryOffset);
+		}
 	};
 
 	struct SAllocateInfo

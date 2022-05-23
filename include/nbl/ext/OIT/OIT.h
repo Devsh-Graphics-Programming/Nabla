@@ -65,11 +65,13 @@ class COIT
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
 
-                    video::IDriverMemoryBacked::SDriverMemoryRequirements mreq; //ignored on GL
-
-                    img = dev->createGPUImageOnDedMem(std::move(params), mreq);
+                    img = dev->createImage(std::move(params));
                     assert(img);
-                    if (!img)
+                    auto mreq = img->getMemoryReqs2();
+                    mreq.memoryTypeBits &= dev->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+                    auto imgMem = dev->allocate(mreq, img.get());
+
+                    if (!img || !imgMem.isValid())
                         return nullptr;
 
                     video::IGPUImageView::SCreationParams vparams;

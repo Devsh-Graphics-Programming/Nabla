@@ -299,10 +299,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         //! The counterpart of @see bindBufferMemory for images
         virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
 
-        //!
-        virtual core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) = 0;
-
-
         //! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {

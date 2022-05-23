@@ -114,27 +114,6 @@ public:
         m_threadHandler.waitForInitComplete();
     }
 
-
-    core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override final
-    {
-        if (!asset::IImage::validateCreationParameters(params))
-            return nullptr;
-        if constexpr (IsGLES)
-        {
-            if (params.type == IGPUImage::ET_1D)
-                return nullptr;
-        }
-
-        core::smart_refctd_ptr<IGPUImage> retval;
-
-        SRequestImageCreate req_params;
-        req_params.params = std::move(params);
-        auto& req = m_threadHandler.request(std::move(req_params), &retval);
-        m_masterContextCallsInvoked++;
-        m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
-
-        return retval;
-    }
     core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params) override final
     {
         if (!asset::IImage::validateCreationParameters(params))
@@ -203,14 +182,14 @@ public:
         imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
         imgci.usage = params.imageUsage;
 
-        IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
-        mreqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        mreqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
         auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
         for (auto& img_dst : (*images))
         {
-            img_dst = createGPUImageOnDedMem(IGPUImage::SCreationParams(imgci), mreqs);
-            if (!img_dst)
+            img_dst = createImage(IGPUImage::SCreationParams(imgci));
+            auto mreq = img_dst->getMemoryReqs2();
+            mreq.memoryTypeBits &= m_physicalDevice->getDeviceLocalMemoryTypeBits();
+            auto imgMem = IDriverMemoryAllocator::allocate(mreq, img_dst.get());
+            if (!img_dst || !imgMem.isValid())
                 return nullptr;
         }
 
