@@ -15,7 +15,7 @@ class CVulkanBuffer : public IGPUBuffer
 public:
     CVulkanBuffer(
         core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        const IDriverMemoryBacked::SDriverMemoryRequirements2& reqs,
+        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
         const IGPUBuffer::SCachedCreationParams& cachedCreationParams, VkBuffer buffer
     ) : IGPUBuffer(std::move(dev),reqs,cachedCreationParams), m_vkBuffer(buffer)
     {

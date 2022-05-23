@@ -24,7 +24,7 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             EOT_IMAGE
         };
 
-        struct SDriverMemoryRequirements2
+        struct SDriverMemoryRequirements
         {
             size_t   size;
             uint32_t memoryTypeBits;
@@ -32,13 +32,13 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             uint32_t prefersDedicatedAllocation     : 1;
             uint32_t requiresDedicatedAllocation    : 1;
         };
-        static_assert(sizeof(SDriverMemoryRequirements2)==16);
+        static_assert(sizeof(SDriverMemoryRequirements)==16);
         
         //! Return type of memory backed object (image or buffer)
         virtual E_OBJECT_TYPE getObjectType() const = 0;
 
         //! Before allocating memory from the driver or trying to bind a range of an existing allocation
-        inline const SDriverMemoryRequirements2& getMemoryReqs2() const {return cachedMemoryReqs2;}
+        inline const SDriverMemoryRequirements& getMemoryReqs2() const {return cachedMemoryReqs2;}
 
         //! Returns the allocation which is bound to the resource
         virtual IDriverMemoryAllocation* getBoundMemory() = 0;
@@ -51,9 +51,9 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
 
     protected:
         IDriverMemoryBacked() {}
-        IDriverMemoryBacked(const SDriverMemoryRequirements2& reqs) : cachedMemoryReqs2(reqs) {}
+        IDriverMemoryBacked(const SDriverMemoryRequirements& reqs) : cachedMemoryReqs2(reqs) {}
 
-        SDriverMemoryRequirements2 cachedMemoryReqs2;
+        SDriverMemoryRequirements cachedMemoryReqs2;
 };
 
 } // end namespace nbl::video

@@ -35,7 +35,7 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 			GLenum internalFormat,
 			GLenum target,
 			GLuint name
-		) : IGPUImage(std::move(dev), SDriverMemoryRequirements2{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
+		) : IGPUImage(std::move(dev), SDriverMemoryRequirements{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
 			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
 		{
 		}

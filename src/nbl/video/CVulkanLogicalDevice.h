@@ -489,7 +489,7 @@ public:
             vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
             m_devf.vk.vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
 
-            IDriverMemoryBacked::SDriverMemoryRequirements2 bufferMemoryReqs = {};
+            IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
             bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
             bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
             bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
