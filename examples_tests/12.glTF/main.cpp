@@ -739,7 +739,7 @@ class GLTFApp : public ApplicationBase
 							graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuRenderpassIndependentPipeline));
 							graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-							gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+							gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 						}
 
 						graphicsDataMesh.resources[i].gpuGraphicsPipeline = gpuPipelines[adress];

@@ -694,7 +694,7 @@ APP_CONSTRUCTOR(MegaTextureApp)
                 graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
                 const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-                gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+                gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
             }
         }
 

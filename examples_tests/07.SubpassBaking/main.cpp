@@ -354,7 +354,7 @@ public:
                             params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(renderpassIndep);
                             params.renderpass = core::smart_refctd_ptr(renderpass);
                             params.subpassIx = kSubpassIx;
-                            foundPpln = graphicsPipelines.emplace_hint(foundPpln, renderpassIndep, logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(params)));
+                            foundPpln = graphicsPipelines.emplace_hint(foundPpln, renderpassIndep, logicalDevice->createGraphicsPipeline(nullptr, std::move(params)));
                         }
                         drawcall.pipeline = foundPpln->second;
                     }

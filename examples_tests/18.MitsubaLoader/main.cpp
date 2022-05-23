@@ -884,7 +884,7 @@ public:
 				graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(mb->getPipeline()));
 				graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-				graphicsPplns.emplace_back(logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams)));
+				graphicsPplns.emplace_back(logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams)));
 			}
 		}
 
@@ -1630,7 +1630,7 @@ public:
 //			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(mb->getPipeline()));
 //			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 //
-//			graphicsPplns.emplace_back(logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams)));
+//			graphicsPplns.emplace_back(logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams)));
 //		}
 //	}
 //

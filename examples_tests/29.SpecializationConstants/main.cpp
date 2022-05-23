@@ -368,7 +368,7 @@ public:
 		gp_params.renderpassIndependent = core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(m_rpIndependentPipeline);
 		gp_params.subpassIx = 0u;
 
-		m_graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+		m_graphicsPipeline = device->createGraphicsPipeline(nullptr, std::move(gp_params));
 
 		devLocalReqs.vulkanReqs.size = sizeof(m_viewParams);
 		video::IGPUBuffer::SCreationParams gfxUboCreationParams = {};

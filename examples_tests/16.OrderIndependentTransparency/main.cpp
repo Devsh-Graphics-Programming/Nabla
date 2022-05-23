@@ -249,7 +249,7 @@ public:
             pplnparams.renderpass = renderpass;
             pplnparams.renderpassIndependent = rpindep;
             pplnparams.subpassIx = 0u;
-            oit_resolve_ppln = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(pplnparams));
+            oit_resolve_ppln = logicalDevice->createGraphicsPipeline(nullptr, std::move(pplnparams));
         }
 
         nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
@@ -333,7 +333,7 @@ public:
             pplnparams.renderpass = renderpass;
             pplnparams.renderpassIndependent = rpindep;
             pplnparams.subpassIx = 0u;
-            oit_pass1_pipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(pplnparams));
+            oit_pass1_pipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(pplnparams));
         }
         firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
         pipelineMetadata = metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
@@ -430,7 +430,7 @@ public:
                 const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
                 if (gpuPipelines.find(adress) != gpuPipelines.end())
                     continue;
-                gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+                gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
             }
         }
 

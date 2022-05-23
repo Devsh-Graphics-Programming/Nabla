@@ -338,7 +338,7 @@ Choose Graphics API:
 		gp_params.renderpassIndependent = rpindependent_pipeline;
 		gp_params.subpassIx = 0u;
 
-		pipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+		pipeline = device->createGraphicsPipeline(nullptr, std::move(gp_params));
 	}
 
 	core::smart_refctd_ptr<video::IGPUBuffer> buffer;

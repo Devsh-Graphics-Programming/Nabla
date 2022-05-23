@@ -366,7 +366,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 					graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
 					const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-					container[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+					container[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 				}
 			};
 

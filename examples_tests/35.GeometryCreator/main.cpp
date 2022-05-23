@@ -444,7 +444,7 @@ public:
 			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr(gpuRenderpassIndependentPipeline);
 			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-			auto gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+			auto gpuGraphicsPipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 
 			return { mb, gpuGraphicsPipeline };
 		};

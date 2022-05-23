@@ -663,7 +663,7 @@ public:
 			gp_params.renderpass = core::smart_refctd_ptr<video::IGPURenderpass>(renderpass);
 			gp_params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(ret.gpuMesh->getPipeline());
 			gp_params.subpassIx = 0u;
-			ret.graphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+			ret.graphicsPipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(gp_params));
 
 			return ret;
 		};

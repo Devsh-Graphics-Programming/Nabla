@@ -374,7 +374,7 @@ public:
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(gpuPipeline.get());
 			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
-			auto gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+			auto gpuGraphicsPipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 
 			core::vectorSIMDf cameraPosition(-5, 0, 0);
 			matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.01, 1000);

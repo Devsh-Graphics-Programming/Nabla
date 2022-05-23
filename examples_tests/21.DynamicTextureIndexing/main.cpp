@@ -431,7 +431,7 @@ public:
             graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuPipeline.get()));
             graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-            gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+            gpuGraphicsPipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
         }
 
         desc = core::vector<GpuDescriptoSetPair>(mbRangesTex.size());

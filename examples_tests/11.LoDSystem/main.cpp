@@ -123,7 +123,7 @@ void addLoDTable(
         params.renderpass = renderpass;
         params.renderpassIndependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
         params.subpassIx = 0u;
-        pipeline = cpu2gpuParams.device->createGPUGraphicsPipeline(nullptr, std::move(params));
+        pipeline = cpu2gpuParams.device->createGraphicsPipeline(nullptr, std::move(params));
     }
 
     auto drawcallInfosOutIx = drawcallInfos.size();

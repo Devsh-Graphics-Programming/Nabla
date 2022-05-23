@@ -492,7 +492,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuMeshBuffer->getPipeline()));
 			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
-			gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+			gpuGraphicsPipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 		}
 
 		gpuMeshBuffer2 = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(gpuRenderpassIndependentPipeline2), nullptr, gpuGbindings, asset::SBufferBinding<video::IGPUBuffer>());
@@ -505,7 +505,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuMeshBuffer2->getPipeline()));
 			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
-			gpuGraphicsPipeline2 = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+			gpuGraphicsPipeline2 = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 		}
 
 		const std::string captionData = "[Nabla Engine] Compute Shaders";

@@ -231,16 +231,19 @@ public:
         {
             // SAMPLES_PASSED_0 + AVAILABILIY_0 + SAMPLES_PASSED_1 + AVAILABILIY_1 (uint32_t)
             const size_t queriesSize = sizeof(uint32_t) * 4;
-            auto memreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
-            memreq.vulkanReqs.size = queriesSize;
             video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+            gpuuboCreationParams.declaredSize = queriesSize;
             gpuuboCreationParams.canUpdateSubRange = true;
             gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
             gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
             gpuuboCreationParams.queueFamilyIndexCount = 0u;
             gpuuboCreationParams.queueFamilyIndices = nullptr;
 
-            queryResultsBuffer = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams, memreq);
+            queryResultsBuffer = logicalDevice->createBuffer(gpuuboCreationParams);
+            auto memReqs = queryResultsBuffer->getMemoryReqs2();
+            memReqs.memoryTypeBits &= physicalDevice->getDeviceLocalMemoryTypeBits();
+            auto queriesMem = logicalDevice->allocate(memReqs, queryResultsBuffer.get());
+
             queryResultsBuffer->setObjectDebugName("QueryResults");
         }
 
@@ -359,7 +362,7 @@ public:
                 graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
                 const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-                gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+                gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
             }
         }
 
