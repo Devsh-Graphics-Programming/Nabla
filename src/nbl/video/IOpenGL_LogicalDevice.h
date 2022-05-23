@@ -72,10 +72,8 @@ class IOpenGL_LogicalDeviceBase
             //! create requests
             //! creation requests are cross-context sync sensitive (see description above
             ERT_BUFFER_CREATE,
-            ERT_BUFFER_CREATE2,
             ERT_BUFFER_VIEW_CREATE,
             ERT_IMAGE_CREATE,
-            ERT_IMAGE_CREATE2,
             ERT_IMAGE_VIEW_CREATE,
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
@@ -145,13 +143,6 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
-            IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
-            IGPUBuffer::SCachedCreationParams cachedCreationParams;
-        };
-        struct SRequestBufferCreate2
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE2;
-            using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
             IGPUBuffer::SCachedCreationParams creationParams;
         };
         struct SRequestBufferViewCreate
@@ -166,12 +157,6 @@ class IOpenGL_LogicalDeviceBase
         struct SRequestImageCreate
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_IMAGE_CREATE;
-            using retval_t = core::smart_refctd_ptr<IGPUImage>;
-            IGPUImage::SCreationParams params;
-        };
-        struct SRequestImageCreate2
-        {
-            static inline constexpr E_REQUEST_TYPE type = ERT_IMAGE_CREATE2;
             using retval_t = core::smart_refctd_ptr<IGPUImage>;
             uint32_t deviceLocalMemoryTypeBits;
             IGPUImage::SCreationParams creationParams;
@@ -377,10 +362,8 @@ protected:
             SRequestFenceCreate,
             SRequestAllocate,
             SRequestBufferCreate,
-            SRequestBufferCreate2,
             SRequestBufferViewCreate,
             SRequestImageCreate,
-            SRequestImageCreate2,
             SRequestImageViewCreate,
             SRequestSamplerCreate,
             SRequestRenderpassIndependentPipelineCreate,
@@ -565,13 +548,6 @@ protected:
             {
                 auto& p = std::get<SRequestBufferCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.cachedCreationParams);
-            }
-                break;
-            case ERT_BUFFER_CREATE2:
-            {
-                auto& p = std::get<SRequestBufferCreate2>(req.params_variant);
-                core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
 
                 GLuint bufferName;
                 gl.extGlCreateBuffers(1,&bufferName);
@@ -595,13 +571,6 @@ protected:
             case ERT_IMAGE_CREATE:
             {
                 auto& p = std::get<SRequestImageCreate>(req.params_variant);
-                core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
-            }
-                break;
-            case ERT_IMAGE_CREATE2:
-            {
-                auto& p = std::get<SRequestImageCreate2>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
 
                 GLenum internalFormat = getSizedOpenGLFormatFromOurFormat(&gl, p.creationParams.format);

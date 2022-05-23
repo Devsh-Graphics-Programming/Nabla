@@ -28,45 +28,6 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 		GLuint name;
 	public:
 		//! constructor
-		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(_params)),
-			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
-		{
-			#ifdef OPENGL_LEAK_DEBUG
-				COpenGLExtensionHandler::textureLeaker.registerObj(this);
-			#endif // OPENGL_LEAK_DEBUG
-			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
-
-			GLsizei samples = params.samples;
-			switch (params.type) // TODO what about multisample targets?
-			{
-				case IGPUImage::ET_1D:
-					target = GL_TEXTURE_1D_ARRAY;
-					gl->extGlCreateTextures(target, 1, &name);
-					gl->extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
-																	params.extent.width, params.arrayLayers);
-					break;
-				case IGPUImage::ET_2D:
-					if (params.flags & ECF_CUBE_COMPATIBLE_BIT)
-						target = GL_TEXTURE_CUBE_MAP_ARRAY;
-					else
-						target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
-					gl->extGlCreateTextures(target, 1, &name);
-					if (samples == 1)
-						gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat, params.extent.width, params.extent.height, params.arrayLayers);
-					else
-						gl->extGlTextureStorage3DMultisample(name, target, samples, internalFormat, params.extent.width, params.extent.height, params.arrayLayers, GL_TRUE);
-					break;
-				case IGPUImage::ET_3D:
-					target = GL_TEXTURE_3D;
-					gl->extGlCreateTextures(target, 1, &name);
-					gl->extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
-																	params.extent.width, params.extent.height, params.extent.depth);
-					break;
-				default:
-					assert(false);
-					break;
-			}
-		}
 		COpenGLImage(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			const uint32_t deviceLocalMemoryTypeBits,

@@ -126,12 +126,12 @@ public:
 
         core::smart_refctd_ptr<IGPUImage> retval;
 
-        SRequestImageCreate2 reqParams;
+        SRequestImageCreate reqParams;
         reqParams.deviceLocalMemoryTypeBits = m_physicalDevice->getDeviceLocalMemoryTypeBits();
         reqParams.creationParams = std::move(params);
         auto& req = m_threadHandler.request(std::move(reqParams), &retval);
         m_masterContextCallsInvoked++;
-        m_threadHandler.template waitForRequestCompletion<SRequestImageCreate2>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
 
         return retval;
     }
@@ -269,12 +269,12 @@ public:
 
     core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
     {
-        SRequestBufferCreate2 reqParams;
+        SRequestBufferCreate reqParams;
         reqParams.creationParams = creationParams;
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(reqParams),&output);
         m_masterContextCallsInvoked++;
-        m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate2>(req);
+        m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate>(req);
 
         return output;
     }
