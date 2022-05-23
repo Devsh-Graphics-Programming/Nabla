@@ -22,8 +22,8 @@ uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint di
 #include <nbl/builtin/glsl/blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
-nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord);
-void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t data, in ivec3 coord);
+vec4 nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord);
+void nbl_glsl_blit_normalization_setData(in vec4 data, in ivec3 coord);
 uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint layerIdx);
 uint nbl_glsl_blit_normalization_getPassedInputPixelCountData(in uint layerIdx);
 
@@ -93,9 +93,8 @@ void nbl_glsl_blit_normalization_main()
 
 	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
 
-	const nbl_glsl_blit_normalization_pixel_t pixel = nbl_glsl_blit_normalization_getPaddedData(ivec3(gl_GlobalInvocationID));
-	nbl_glsl_blit_normalization_pixel_t scaledPixel;
-	scaledPixel.data = vec4(pixel.data.rgb, pixel.data.a * alphaScale);
+	const vec4 pixel = nbl_glsl_blit_normalization_getPaddedData(ivec3(gl_GlobalInvocationID));
+	vec4 scaledPixel = vec4(pixel.rgb, pixel.a * alphaScale);
 	nbl_glsl_blit_normalization_setData(scaledPixel, ivec3(gl_GlobalInvocationID));
 }
 

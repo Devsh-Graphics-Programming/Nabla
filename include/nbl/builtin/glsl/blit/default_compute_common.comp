@@ -35,29 +35,25 @@ struct nbl_glsl_blit_AlphaStatistics_t
 #define _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_ nbl_glsl_blit_AlphaStatistics_t
 #endif
 
+
+
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler1DArray
-	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage1DArray
-	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image1DArray
-	#endif
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_ image1DArray
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
 	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler2DArray
-	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage2DArray
-	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image2DArray
-	#endif
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_ image2DArray
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler3D
-	#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ uimage3D
-	#else
-		#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ image3D
-	#endif
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_ image3D
 #else
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
+#endif
+
+#ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ u##_NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_
+#else
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_
 #endif
 
 layout (push_constant) uniform Block

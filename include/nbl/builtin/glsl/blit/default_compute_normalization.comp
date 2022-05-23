@@ -7,14 +7,6 @@
 #error _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ must be defined
 #endif
 
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_PIXEL_TYPE_DEFINED_
-#define _NBL_GLSL_BLIT_NORMALIZATION_PIXEL_TYPE_DEFINED_
-struct nbl_glsl_blit_normalization_pixel_t
-{
-	vec4 data;
-};
-#endif
-
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = _NBL_GLSL_WORKGROUP_SIZE_Z_) in;
 
 #include <nbl/builtin/glsl/blit/normalization/normalization.glsl>
@@ -26,7 +18,7 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WOR
 #error _NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord)
+vec4 nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord)
 {
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
@@ -43,12 +35,9 @@ nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
-	nbl_glsl_blit_normalization_pixel_t result;
-	result.data = vec4(0.f);
+	vec4 result = vec4(0.f);
 	if (all(lessThan(COORD, IMAGE_DIM)))
-	{
-		result.data = texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, COORD, 0);
-	}
+		result = texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, COORD, 0);
 
 #undef COORD
 #undef IMAGE_DIM
@@ -65,7 +54,7 @@ nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in
 #error _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t value, in ivec3 coord)
+void nbl_glsl_blit_normalization_setData(in vec4 value, in ivec3 coord)
 {
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
@@ -85,9 +74,9 @@ void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t 
 	if (all(lessThan(COORD, IMAGE_DIM)))
 	{
 	#ifdef _NBL_GLSL_BLIT_NORMALIZATION_SOFTWARE_CODEC_
-		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, nbl_glsl_blit_formats_encode(value.data));
+		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, nbl_glsl_blit_formats_encode(value));
 	#else
-		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, value.data);
+		imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, COORD, value);
 	#endif
 	}
 
