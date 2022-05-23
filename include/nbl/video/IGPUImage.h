@@ -55,8 +55,6 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			return true;
 		}
 
-		inline const SDriverMemoryRequirements& getMemoryReqs() const { return base_t::getMemoryReqs(); }
-
 		// OpenGL: const GLuint* handle of a texture target
 		// Vulkan: const VkImage*
 		virtual const void* getNativeHandle() const = 0;
@@ -65,13 +63,6 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
 		//! constructor
-		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			SCreationParams&& _params,
-			const IDriverMemoryBacked::SDriverMemoryRequirements reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
-			: base_t(reqs), IBackendObject(std::move(dev))
-		{
-			params = std::move(_params);
-		}
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			const IDriverMemoryBacked::SDriverMemoryRequirements2 reqs,
 			SCreationParams&& _params)
