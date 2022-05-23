@@ -32,7 +32,7 @@ class CSingleBufferSubAllocator : public IBufferAllocator
                 static_cast<size_type>(_bufferRange.offset), 0u, maxAllocatableAlignment, static_cast<size_type>(_bufferRange.size), std::forward<Args>(args)...
             ), m_reservedAllocator(std::move(_reservedAllocator)), m_buffer(std::move(_bufferRange.buffer))
         {
-            assert(_bufferRange.isValid());
+           assert(m_buffer && _bufferRange.size && (_bufferRange.offset + _bufferRange.size) <= m_buffer->getSize());
         }
         // version with default constructed reserved allocator
         template<typename... Args>

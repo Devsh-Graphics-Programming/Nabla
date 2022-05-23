@@ -24,13 +24,35 @@ class IUtilities : public core::IReferenceCounted
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
             const uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
             const uint32_t minStreamingBufferAllocationSize = 1024u;
-            const auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
+            bool shaderDeviceAddressSupport = false; //TODO(Erfan)
+            auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
+            if(shaderDeviceAddressSupport)
+                commonUsages |= IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
+            
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDriverMemoryAllocation::EMAF_NONE);
+            if(shaderDeviceAddressSupport)
+                allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+
             {
                 streamingBufferCreationParams.declaredSize = downstreamSize;
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT|IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT; // GPU write to RAM usages
                 auto buffer = m_device->createBuffer(streamingBufferCreationParams);
+                auto reqs = buffer->getMemoryReqs2();
+                reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
 
-                auto reqs = m_device->allocate(buffer->getMemoryReqs2(), buffer.get()/*,should we IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT when we can?*/);
+                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
+                auto mem = memOffset.memory;
+
+                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+                const auto memProps = mem->getMemoryPropertyFlags();
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_READ;
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+                assert(access.value);
+                IDriverMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
+                m_device->mapMemory(memoryRange, access);
+
                 m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             {
@@ -38,7 +60,21 @@ class IUtilities : public core::IReferenceCounted
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
                 auto buffer = m_device->createBuffer(streamingBufferCreationParams);
 
-                auto reqs = m_device->allocate(buffer->getMemoryReqs2(), buffer.get()/*,should we IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT when we can?*/);
+                auto reqs = buffer->getMemoryReqs2();
+                reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
+                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
+
+                auto mem = memOffset.memory;
+                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+                const auto memProps = mem->getMemoryPropertyFlags();
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_READ;
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+                assert(access.value);
+                IDriverMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
+                m_device->mapMemory(memoryRange, access);
+
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
