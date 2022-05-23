@@ -7,7 +7,6 @@
 
 struct nbl_glsl_blit_parameters_t
 {
-	// uvec3 inDim; this is only used to calculate `scale`, which we store directly as fScale in new scheme
 	uvec3 outDim;
 	float referenceAlpha;
 	vec3 fScale;

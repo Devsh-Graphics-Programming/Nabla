@@ -6,8 +6,8 @@
 #include <nbl/builtin/glsl/blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
-nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord);
-void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t data, in ivec3 coord);
+vec4 nbl_glsl_blit_getData(in ivec3 coord);
+void nbl_glsl_blit_setData(in vec4 data, in ivec3 coord);
 
 float nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord);
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx);
@@ -81,7 +81,7 @@ void nbl_glsl_blit_main()
 		lutIndex.z = params.phaseCount.x * params.windowDim.x + params.phaseCount.y * params.windowDim.y + windowLocalPixelID.z;
 
 		const float premultWeights = nbl_glsl_blit_getCachedWeightsPremultiplied(lutIndex);
-		const vec4 loadedData = nbl_glsl_blit_getData(inputPixelCoord).data * premultWeights;
+		const vec4 loadedData = nbl_glsl_blit_getData(inputPixelCoord) * premultWeights;
 		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 			scratchShared[ch][wgLocalWindowIndex * windowPixelCount + windowLocalPixelIndex] = loadedData[ch];
 	}
@@ -143,9 +143,9 @@ void nbl_glsl_blit_main()
 		if (globalWindowIndex >= totalWindowCount)
 			break;
 
-		nbl_glsl_blit_pixel_t dataToStore;
+		vec4 dataToStore;
 		for (uint ch = 0u; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
-			dataToStore.data[ch] = scratchShared[ch][wgLocalWindowIndex * windowPixelCount];
+			dataToStore[ch] = scratchShared[ch][wgLocalWindowIndex * windowPixelCount];
 
 		// Todo(achal): Need to pull this out in setData
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
@@ -158,7 +158,7 @@ void nbl_glsl_blit_main()
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
-		const uint bucketIndex = packUnorm4x8(vec4(dataToStore.data.a, 0.f, 0.f, 0.f));
+		const uint bucketIndex = packUnorm4x8(vec4(dataToStore.a, 0.f, 0.f, 0.f));
 		nbl_glsl_blit_addToHistogram(bucketIndex, LAYER_IDX);
 
 #undef LAYER_IDX

@@ -12,35 +12,13 @@
 #error _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ must be defined
 #endif
 
-#ifndef _NBL_GLSL_BLIT_PIXEL_TYPE_DEFINED_
-#define _NBL_GLSL_BLIT_PIXEL_TYPE_DEFINED_
-struct nbl_glsl_blit_pixel_t
-{
-	vec4 data;
-};
-#endif
-
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 
 shared float nbl_glsl_blit_scratchShared[_NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_][_NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_];
 #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_blit_scratchShared
 
-#include <nbl/builtin/glsl/blit/parameters.glsl>
 #include <nbl/builtin/glsl/blit/blit/descriptors.glsl>
 #include <nbl/builtin/glsl/blit/blit/blit.glsl>
-
-layout(push_constant) uniform Block
-{
-	nbl_glsl_blit_parameters_t params;
-} pc;
-
-#ifndef _NBL_GLSL_BLIT_GET_PARAMETERS_DEFINED_
-nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
-{
-	return pc.params;
-}
-#define _NBL_GLSL_BLIT_GET_PARAMETERS_DEFINED_
-#endif
 
 #ifndef _NBL_GLSL_BLIT_GET_DATA_DEFINED_
 
@@ -48,9 +26,9 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters()
 #error _NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
+vec4 nbl_glsl_blit_getData(in ivec3 coord)
 {
-	nbl_glsl_blit_pixel_t result;
+	vec4 result;
 
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define COORD coord.xy
@@ -62,7 +40,7 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 
-	result.data = texelFetch(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, COORD, 0);
+	result = texelFetch(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, COORD, 0);
 	return result;
 #undef COORD
 }
@@ -76,7 +54,7 @@ nbl_glsl_blit_pixel_t nbl_glsl_blit_getData(in ivec3 coord)
 #error _NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
+void nbl_glsl_blit_setData(in vec4 value, in ivec3 coord)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define COORD coord.xy
@@ -89,9 +67,9 @@ void nbl_glsl_blit_setData(in nbl_glsl_blit_pixel_t value, in ivec3 coord)
 #endif
 
 #ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, nbl_glsl_blit_formats_encode(value.data));
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, nbl_glsl_blit_formats_encode(value));
 #else
-	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, value.data);
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, COORD, value);
 #endif
 
 #undef COORD

@@ -20,7 +20,7 @@ uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint di
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
 #include <nbl/builtin/glsl/blit/parameters.glsl>
-nbl_glsl_blit_parameters_t nbl_glsl_blit_normalization_getParameters();
+nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
 nbl_glsl_blit_normalization_pixel_t nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord);
 void nbl_glsl_blit_normalization_setData(in nbl_glsl_blit_normalization_pixel_t data, in ivec3 coord);
@@ -53,7 +53,7 @@ void nbl_glsl_blit_normalization_main()
 		scratchShared[gl_LocalInvocationIndex] = cumHistogramVal;
 	barrier();
 
-	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_normalization_getParameters();
+	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
 	const uint outputPixelCount = params.outPixelCount;
 

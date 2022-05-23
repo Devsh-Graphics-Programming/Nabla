@@ -9,7 +9,7 @@
 #error _NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-nbl_glsl_blit_parameters_t nbl_glsl_blit_alpha_test_getParameters();
+nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
 float nbl_glsl_blit_alpha_test_getPaddedData(in ivec3 texCoords);
 
@@ -27,7 +27,7 @@ void nbl_glsl_blit_alpha_test_main()
 #else
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
-	if (alpha > nbl_glsl_blit_alpha_test_getParameters().referenceAlpha)
+	if (alpha > nbl_glsl_blit_getParameters().referenceAlpha)
 		atomicAdd(_NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_.data[LAYER_IDX].passedPixelCount, 1u);
 
 #undef LAYER_IDX
