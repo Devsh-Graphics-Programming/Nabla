@@ -185,30 +185,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             return reqs;
         }
 
-        static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
-        {
-            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.alignment = 0;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            return reqs;
-        }
-
-        static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
-        {
-            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.alignment = 0;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | IDriverMemoryAllocation::EMCF_CACHED;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            return reqs;
-        }
-
         virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) { return nullptr; }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
@@ -247,22 +223,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs);
-        }
-
-        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
-        {
-            auto reqs = getUpStreamingMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs);
-        }
-
-        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
-        {
-            auto reqs = getDownStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
             return this->createGPUBufferOnDedMem(params, reqs);
         }

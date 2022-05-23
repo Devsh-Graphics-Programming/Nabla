@@ -1762,7 +1762,10 @@ public:
 		gpu_image_params.type = nbl::asset::IImage::ET_2D;
 		gpu_image_params.samples = nbl::asset::IImage::ESCF_1_BIT;
 		gpu_image_params.flags = static_cast<nbl::asset::IImage::E_CREATE_FLAGS>(0u);
-		nbl::core::smart_refctd_ptr image = device->createGPUImageOnDedMem(std::move(gpu_image_params), device->getDeviceLocalGPUMemoryReqs());
+		nbl::core::smart_refctd_ptr image = device->createImage(std::move(gpu_image_params));
+		auto imagereqs = image->getMemoryReqs2();
+		imagereqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+		auto imageMem = device->allocate(imagereqs, image.get());
 
 		nbl::video::IGPUImageView::SCreationParams creation_params;
 		creation_params.format = image->getCreationParameters().format;

@@ -119,9 +119,13 @@ class IUtilities : public core::IReferenceCounted
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
         {
             IGPUBuffer::SCreationParams params = {};
-            auto retval = m_device->createDeviceLocalGPUBufferOnDedMem(params, size);
-            updateBufferRangeViaStagingBuffer(queue, asset::SBufferRange<IGPUBuffer>{0u, size, retval}, data);
-            return retval;
+            params.declaredSize = size;
+            auto buffer = m_device->createBuffer(params);
+            auto mreqs = buffer->getMemoryReqs2();
+            mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto mem = m_device->allocate(mreqs, buffer.get());
+            updateBufferRangeViaStagingBuffer(queue, asset::SBufferRange<IGPUBuffer>{0u, size, buffer}, data);
+            return buffer;
         }
 
         // TODO: Some utility in ILogical Device that can upload the image via the streaming buffer just from the regions without creating a whole intermediate huge GPU Buffer

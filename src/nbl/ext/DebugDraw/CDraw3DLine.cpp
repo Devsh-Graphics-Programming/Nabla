@@ -87,12 +87,17 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 	if (buffSize < minimalBuffSize)
 	{
 		IGPUBuffer::SCreationParams creationParams;
+		creationParams.declaredSize = minimalBuffSize;
 		creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
 		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndices = 0u;
 		creationParams.queueFamilyIndices = nullptr;
 
-		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(creationParams, minimalBuffSize);
+		m_linesBuffer = m_device->createBuffer(creationParams);
+		auto mreqs = m_linesBuffer->getMemoryReqs2();
+		mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+		auto linesMem = m_device->allocate(mreqs, m_linesBuffer.get());
+		assert(m_linesBuffer && linesMem.isValid());
 	}
 	SBufferRange<IGPUBuffer> range;
 	range.buffer = m_linesBuffer;
