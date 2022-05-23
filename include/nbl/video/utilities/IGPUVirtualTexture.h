@@ -46,7 +46,13 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             cpuImageParams.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
 
             // TODO: Look at issue #167 on Nabla repo, at some point
-            auto gpuTexelBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(IGPUBuffer::SCreationParams(), _cpuimg->getBuffer()->getSize());
+            IGPUBuffer::SCreationParams bufferCreationParams = {};
+            bufferCreationParams.declaredSize = _cpuimg->getBuffer()->getSize();
+            auto gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);	
+            auto mreqs = gpuTexelBuffer->getMemoryReqs2();
+            mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto gpubufMem = logicalDevice->allocate(mreqs, gpuTexelBuffer.get());
+
             uint32_t signalSemaphoreCount=0u;
             IGPUSemaphore* const* semaphoresToSignal = nullptr;
             utilities->updateBufferRangeViaStagingBuffer(
