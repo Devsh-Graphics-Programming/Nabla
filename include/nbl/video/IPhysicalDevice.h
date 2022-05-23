@@ -411,6 +411,14 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
             return getMemoryTypeBitsFromMemoryTypeFlags(requiredFlags);
         }
+        //! HostVisible: Mappable for write/read
+        //! Requires EMPF_HOST_WRITABLE_BIT OR EMPF_HOST_READABLE_BIT
+        uint32_t getHostVisibleMemoryTypeBits() const
+        {
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT);
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT);
+            return hostWritable | hostReadable;
+        }
         //! UpStreaming: Mappable for write and preferably device local
         //! Requires EMPF_HOST_WRITABLE_BIT
         //! Prefers EMPF_DEVICE_LOCAL_BIT

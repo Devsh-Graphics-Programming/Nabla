@@ -461,7 +461,7 @@ public:
         if (retval)
             post_mapMemory(memory.memory, retval, memory.range, actualAccess);
 
-        return retval;
+        return memory.memory->getMappedPointer(); // so pointer is rewound
     }
 
     void unmapMemory(IDriverMemoryAllocation* memory) override final

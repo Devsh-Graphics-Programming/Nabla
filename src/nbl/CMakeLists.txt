@@ -297,8 +297,7 @@ set(NBL_ASSET_SOURCES
 )
 set(NBL_VIDEO_SOURCES
 # Allocators
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/SimpleGPUBufferAllocator.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/alloc/CSimpleBufferAllocator.cpp
 
 # Utilities
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp

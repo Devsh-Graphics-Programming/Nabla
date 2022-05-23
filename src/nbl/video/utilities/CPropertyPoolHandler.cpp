@@ -349,12 +349,12 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			}
 		}
 
-		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
+		constexpr auto invalid_address = video::StreamingTransientDataBufferMT<>::invalid_value;
 		auto addr = invalid_address;
 		const auto size = static_cast<uint32_t>(core::alignUp(memoryUsage.getUsage()+worstCasePadding,m_alignment));
 		// because right now the GPUEventWrapper cant distinguish between placeholder fences and fences which will actually be signalled
 		auto waitUntil = std::min(video::GPUEventWrapper::default_wait(),maxWaitPoint);
-		upBuff->multi_alloc(waitUntil,1u,&addr,&size,&m_alignment);
+		upBuff->multi_allocate(waitUntil,1u,&addr,&size,&m_alignment);
 		if (addr!=invalid_address)
 		{
 			const auto endDWORD = baseDWORDs+doneDWORDs;
@@ -431,10 +431,10 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
 			if (transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger,baseDWORDs,endDWORD))
 			{
-				upBuff->multi_free(1u,&addr,&size,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+				upBuff->multi_deallocate(1u,&addr,&size,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
 				return doneDWORDs;
 			}
-			upBuff->multi_free(1u,&addr,&size);
+			upBuff->multi_deallocate(1u,&addr,&size);
 		}
 		return 0u;
 	};

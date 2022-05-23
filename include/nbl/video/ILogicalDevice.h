@@ -615,7 +615,8 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         // must be called by implementations of mapMemory()
         static void post_mapMemory(IDriverMemoryAllocation* memory, void* ptr, IDriverMemoryAllocation::MemoryRange rng, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
         {
-            memory->postMapSetMembers(ptr, rng, access);
+            // rewind pointer so 0 offset is a real start to the memory
+            memory->postMapSetMembers(reinterpret_cast<uint8_t*>(ptr)-rng.offset, rng, access);
         }
         // must be called by implementations of unmapMemory()
         static void post_unmapMemory(IDriverMemoryAllocation* memory)

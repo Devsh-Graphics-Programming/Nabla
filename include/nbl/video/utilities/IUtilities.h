@@ -14,29 +14,80 @@
 namespace nbl::video
 {
 
-    class IUtilities : public core::IReferenceCounted
-    {
+class IUtilities : public core::IReferenceCounted
+{
     public:
-        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, size_t downstreamSize = 0x4000000ull, size_t upstreamSize = 0x4000000ull) : m_device(std::move(_device))
+        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(_device))
         {
-            const auto& limits = m_device->getPhysicalDevice()->getLimits();
+            auto physicalDevice = m_device->getPhysicalDevice();
+            const auto& limits = physicalDevice->getLimits();
+            IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
+            const uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
+            const uint32_t minStreamingBufferAllocationSize = 1024u;
+            bool shaderDeviceAddressSupport = false; //TODO(Erfan)
+            auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
+            if(shaderDeviceAddressSupport)
+                commonUsages |= IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
+            
+            core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDriverMemoryAllocation::EMAF_NONE);
+            if(shaderDeviceAddressSupport)
+                allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+
             {
-                auto reqs = m_device->getDownStreamingMemoryReqs();
-                reqs.vulkanReqs.size = downstreamSize;
-                reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
+                streamingBufferCreationParams.declaredSize = downstreamSize;
+                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT|IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT; // GPU write to RAM usages
+                auto buffer = m_device->createBuffer(streamingBufferCreationParams);
+                auto reqs = buffer->getMemoryReqs2();
+                reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
+
+                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
+                auto mem = memOffset.memory;
+
+                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+                const auto memProps = mem->getMemoryPropertyFlags();
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_READ;
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+                assert(access.value);
+                IDriverMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
+                m_device->mapMemory(memoryRange, access);
+
+                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             {
-                auto reqs = m_device->getUpStreamingMemoryReqs();
-                reqs.vulkanReqs.size = upstreamSize;
-                reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
-                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<> >(m_device.get(), reqs);
+                streamingBufferCreationParams.declaredSize = upstreamSize;
+                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
+                auto buffer = m_device->createBuffer(streamingBufferCreationParams);
+
+                auto reqs = buffer->getMemoryReqs2();
+                reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
+                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
+
+                auto mem = memOffset.memory;
+                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+                const auto memProps = mem->getMemoryPropertyFlags();
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_READ;
+                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+                assert(access.value);
+                IDriverMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
+                m_device->mapMemory(memoryRange, access);
+
+                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
             // TODO: investigate whether we need to clamp against 256u instead of 128u on mobile
             const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
             m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
+        }
+
+        ~IUtilities()
+        {
+            m_device->unmapMemory(m_defaultDownloadBuffer->getBuffer()->getBoundMemory());
+            m_device->unmapMemory(m_defaultUploadBuffer->getBuffer()->getBoundMemory());
         }
 
         //!
@@ -322,16 +373,16 @@ namespace nbl::video
                 // make sure we dont overrun the destination buffer due to padding
                 const uint32_t subSize = core::min(alllocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
-                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                m_defaultUploadBuffer.get()->multi_alloc(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&alllocationSize,&alignment);
+                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;
+                m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&alllocationSize,&alignment);
                 // copy only the unpadded part
-                if (localOffset != video::StreamingTransientDataBufferMT<>::invalid_address)
+                if (localOffset != video::StreamingTransientDataBufferMT<>::invalid_value)
                 {
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data) + uploadedSize;
                     memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + localOffset, dataPtr, subSize);
                 }
                 // keep trying again
-                if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_address)
+                if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_value)
                 {
                     // but first sumbit the already buffered up copies
                     cmdbuf->end();
@@ -370,7 +421,7 @@ namespace nbl::video
                 copy.size = subSize;
                 cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                m_defaultUploadBuffer.get()->multi_free(1u,&localOffset,&alllocationSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
+                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&alllocationSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
                 uploadedSize += subSize;
             }
         }
