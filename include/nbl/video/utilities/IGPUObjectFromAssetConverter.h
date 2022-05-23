@@ -812,10 +812,13 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         IGPUBuffer::SCreationParams params = {};
         params.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_SRC_BIT) | video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
         const auto& cpuimgParams = cpuimg->getCreationParameters();
+        params.declaredSize = cpuimg->getBuffer()->getSize();
 
-        const size_t size = cpuimg->getBuffer()->getSize();
+        auto gpubuf = _params.device->createBuffer(params);
+        auto mreqs = gpubuf->getMemoryReqs2();
+        mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get());
 
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params, size);
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
         const auto format = cpuimg->getCreationParameters().format;
@@ -1976,8 +1979,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
     {
         // Create buffer with cpuas->getAccelerationStructureSize
         IGPUBuffer::SCreationParams gpuBufParams = {};
+        gpuBufParams.declaredSize = asSize;
         gpuBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuBufParams, asSize);
+        auto gpubuf = _params.device->createBuffer(gpuBufParams);
+        auto mreqs = gpubuf->getMemoryReqs2();
+        mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get());
             
         // Create GPUAccelerationStructure with that buffer
         video::IGPUAccelerationStructure::SCreationParams creatationParams = {};
@@ -2219,8 +2226,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
 
             // Allocate Scratch Buffer
             IGPUBuffer::SCreationParams gpuScratchBufParams = {};
+            gpuScratchBufParams.declaredSize = totalScratchBufferSize;
             gpuScratchBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
-            auto gpuScratchBuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuScratchBufParams, totalScratchBufferSize);
+            auto gpuScratchBuf = _params.device->createBuffer(gpuScratchBufParams);
+            auto mreqs = gpuScratchBuf->getMemoryReqs2();
+            mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto gpuScratchBufMem = _params.device->allocate(mreqs, gpuScratchBuf.get());
+
+
             for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
             {
                 auto & gpuBuildInfo = buildGeomInfos[i];
