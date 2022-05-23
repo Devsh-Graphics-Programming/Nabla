@@ -84,6 +84,12 @@ class IUtilities : public core::IReferenceCounted
             m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
         }
 
+        ~IUtilities()
+        {
+            m_device->unmapMemory(m_defaultDownloadBuffer->getBuffer()->getBoundMemory());
+            m_device->unmapMemory(m_defaultUploadBuffer->getBuffer()->getBoundMemory());
+        }
+
         //!
         inline ILogicalDevice* getLogicalDevice() const { return m_device.get(); }
 
