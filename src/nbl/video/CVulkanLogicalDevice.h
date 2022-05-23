@@ -465,54 +465,6 @@ public:
         return !anyFailed;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size) override
-    {
-        VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-        vk_createInfo.pNext = nullptr; 
-        vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0); // Nabla doesn't support any of these flags
-        vk_createInfo.size = static_cast<VkDeviceSize>(size);
-        vk_createInfo.usage = static_cast<VkBufferUsageFlags>(creationParams.usage.value);
-        vk_createInfo.sharingMode = static_cast<VkSharingMode>(creationParams.sharingMode); 
-        vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
-        vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
-
-        VkBuffer vk_buffer;
-        if (m_devf.vk.vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
-        {
-            VkBufferMemoryRequirementsInfo2 vk_memoryRequirementsInfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2 };
-            vk_memoryRequirementsInfo.pNext = nullptr; // pNext must be NULL
-            vk_memoryRequirementsInfo.buffer = vk_buffer;
-
-            VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
-            VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
-            vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
-            m_devf.vk.vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
-
-            IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
-            bufferMemoryReqs.vulkanReqs.alignment = vk_memoryRequirements.memoryRequirements.alignment;
-            bufferMemoryReqs.vulkanReqs.size = vk_memoryRequirements.memoryRequirements.size;
-            bufferMemoryReqs.vulkanReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
-            bufferMemoryReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
-            bufferMemoryReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
-            bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
-            bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
-
-            // 1. `size` should go in IGPUBuffer::SCreationParams
-            // 2. It should be returned by IGPUBuffer::getSize
-            // 3. The (optionally padded) memory size should then be
-            // returned by IDriverMemoryBacked::getMemoryReqs().vulkanReqs.size
-            const_cast<IGPUBuffer::SCreationParams&>(creationParams).declaredSize = size;
-
-            return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, creationParams, vk_buffer);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-    
     core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams)
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -551,42 +503,6 @@ public:
         {
             return nullptr;
         }
-    }
-
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& additionalMemoryReqs) override
-    {
-        core::smart_refctd_ptr<IGPUBuffer> gpuBuffer = createGPUBuffer(creationParams,additionalMemoryReqs.vulkanReqs.size);
-
-        if (!gpuBuffer)
-            return nullptr;
-
-        IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = gpuBuffer->getMemoryReqs();
-        memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalMemoryReqs.vulkanReqs.size);
-        memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalMemoryReqs.vulkanReqs.alignment);
-        memoryReqs.vulkanReqs.memoryTypeBits &= additionalMemoryReqs.vulkanReqs.memoryTypeBits;
-        memoryReqs.memoryHeapLocation = additionalMemoryReqs.memoryHeapLocation;
-        memoryReqs.mappingCapability = additionalMemoryReqs.mappingCapability;
-
-        core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
-
-        if(creationParams.usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
-            allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
-
-        core::smart_refctd_ptr<video::IDriverMemoryAllocation> bufferMemory =
-            allocateGPUMemory(memoryReqs, allocateFlags);
-
-        if (!bufferMemory)
-            return nullptr;
-
-        ILogicalDevice::SBindBufferMemoryInfo bindBufferInfo = {};
-        bindBufferInfo.buffer = gpuBuffer.get();
-        bindBufferInfo.memory = bufferMemory.get();
-        bindBufferInfo.offset = 0ull;
-
-        if (!bindBufferMemory(1u, &bindBufferInfo))
-            return nullptr;
-
-        return gpuBuffer;
     }
         
     core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
@@ -647,7 +563,6 @@ public:
         }
     }
 
-    core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) override;
     core::smart_refctd_ptr<IGPUImage> createImage(asset::IImage::SCreationParams&& params) override;
 
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
@@ -850,9 +765,6 @@ public:
             descriptorWriteCount, vk_writeDescriptorSets.data(),
             descriptorCopyCount, vk_copyDescriptorSets.data());
     }
-
-    core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(
-        const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) override;
 
     SMemoryOffset allocate(const SAllocateInfo& info) override;
 

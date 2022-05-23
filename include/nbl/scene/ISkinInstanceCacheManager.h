@@ -408,7 +408,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = m_debugDrawRenderpassIndependent;
 			graphicsPipelineParams.renderpass = std::move(renderpass);
-			return m_device->createGPUGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
+			return m_device->createGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
 		}
 
 		//

@@ -47,9 +47,9 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			setWorkgroups(contents.instanceRefCountingSortScatter);
 			setWorkgroups(contents.drawCompact);
 
-            video::IGPUBuffer::SCreationParams params;
-            params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
-            return utils->createFilledDeviceLocalGPUBufferOnDedMem(queue,sizeof(contents),&contents);
+			video::IGPUBuffer::SCreationParams params;
+			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
+			return utils->createFilledDeviceLocalGPUBufferOnDedMem(queue,sizeof(contents),&contents);
 		}
 
 		// These buffer ranges can be safely discarded or reused after `processInstancesAndFillIndirectDraws` completes
@@ -84,11 +84,16 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				video::IGPUBuffer::SCreationParams params;
 				params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+				params.declaredSize = retval.prefixSumScratch.offset+retval.prefixSumScratch.size;
+				auto gpubuffer = logicalDevice->createBuffer(params);
 				retval.pvsInstances.buffer =
 				retval.lodDrawCallCounts.buffer =
 				retval.pvsInstanceDraws.buffer =
-				retval.prefixSumScratch.buffer =
-					logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,retval.prefixSumScratch.offset+retval.prefixSumScratch.size);
+				retval.prefixSumScratch.buffer = gpubuffer;
+				auto mreqs = gpubuffer->getMemoryReqs2();
+				mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto gpubufMem = logicalDevice->allocate(mreqs, gpubuffer.get());
+
 				retval.pvsInstances.buffer->setObjectDebugName("Culling Scratch Buffer");
 			}
 			return retval;
@@ -116,17 +121,27 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		}
 		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalInstances, const uint32_t perViewPerInstanceDataSize)
 		{
-            video::IGPUBuffer::SCreationParams params;
+			video::IGPUBuffer::SCreationParams params;
+			params.declaredSize = perViewPerInstanceDataSize*maxTotalInstances;
 			params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,perViewPerInstanceDataSize*maxTotalInstances);
+			auto buffer = logicalDevice->createBuffer(params);
+			auto mreqs = buffer->getMemoryReqs2();
+			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
+			return buffer;
 		}
 
 		// Instance Redirect buffer holds a `uvec2` of `{instanceGUID,perViewPerInstanceDataID}` for each instace of a drawcall
 		static core::smart_refctd_ptr<video::IGPUBuffer> createInstanceRedirectBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalVisibleDrawcallInstances)
 		{
-            video::IGPUBuffer::SCreationParams params;
-            params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances);
+			video::IGPUBuffer::SCreationParams params;
+			params.declaredSize = sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances;
+			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
+			auto buffer = logicalDevice->createBuffer(params);
+			auto mreqs = buffer->getMemoryReqs2();
+			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
+			return buffer;
 		}
 
 

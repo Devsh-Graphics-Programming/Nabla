@@ -718,7 +718,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = choosePipelines<TransformTree>().debugDraw;
 			graphicsPipelineParams.renderpass = std::move(renderpass);
-			return m_device->createGPUGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
+			return m_device->createGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
 		}
 
 		//

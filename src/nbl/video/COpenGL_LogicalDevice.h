@@ -278,19 +278,6 @@ public:
 
         return output;
     }
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
-    {
-        SRequestBufferCreate reqParams;
-        reqParams.mreqs = initialMreqs;
-        reqParams.cachedCreationParams = params;
-        reqParams.cachedCreationParams.declaredSize = initialMreqs.vulkanReqs.size;
-        core::smart_refctd_ptr<IGPUBuffer> output;
-        auto& req = m_threadHandler.request(std::move(reqParams),&output);
-        m_masterContextCallsInvoked++;
-        m_threadHandler.template waitForRequestCompletion<SRequestBufferCreate>(req);
-
-        return output;
-    }
 
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override final
     {
@@ -985,7 +972,7 @@ protected:
         uint32_t i = 0u;
         for (const auto& ci : params)
         {
-            if (!(output[i++] = createGPUGraphicsPipeline(pipelineCache, IGPUGraphicsPipeline::SCreationParams(ci))))
+            if (!(output[i++] = createGraphicsPipeline(pipelineCache, IGPUGraphicsPipeline::SCreationParams(ci))))
                 return false;
         }
         return true;

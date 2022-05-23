@@ -172,21 +172,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 
-        static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
-        {
-            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-            reqs.vulkanReqs.size = 0;
-            reqs.vulkanReqs.alignment = 0;
-            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-            reqs.prefersDedicatedAllocation = true;
-            reqs.requiresDedicatedAllocation = true;
-            return reqs;
-        }
-
-        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateGPUMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE) { return nullptr; }
-
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
         void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
         {
@@ -207,7 +192,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IGPUBuffer::SCreationParams& creationParams, const size_t size) { return nullptr; }
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
@@ -218,17 +202,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         so effectively the memory is pre-bound at the time of creation.
         \return true on success, always false under OpenGL.*/
         virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
-
-        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const size_t size)
-        {
-            auto reqs = getDeviceLocalGPUMemoryReqs();
-            reqs.vulkanReqs.size = size;
-            return this->createGPUBufferOnDedMem(params, reqs);
-        }
-
-        //! Low level function used to implement the above, use with caution
-        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& creationParams, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) { return nullptr; }
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
@@ -253,7 +226,6 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
 
 
         //! Creates an Image (@see ICPUImage)
-        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params) { return nullptr; }
         virtual core::smart_refctd_ptr<IGPUImage> createImage(asset::IImage::SCreationParams&& params) { return nullptr; }
 
         //! The counterpart of @see bindBufferMemory for images
@@ -450,7 +422,7 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
             return createRenderpassIndependentPipelines(pipelineCache, ci, output);
         }
 
-        core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params)
+        core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params)
         {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
                 return nullptr;
