@@ -380,6 +380,7 @@ public:
 			assert(mreq.memoryTypeBits);
 			// (Erfan to Cyprian) We usually don't use the return value (SMemoryOffset) of the allocate function but make sure you set it to some variable named bufferMem or something so we know it's there
 			auto bufferMem = logicalDevice->allocate(mreq, buffers[i].get());
+			assert(bufferMem.isValid());
 
 			IDeviceMemoryAllocation::MappedMemoryRange mem;
 			mem.memory = buffers[i]->getBoundMemory();
