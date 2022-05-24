@@ -116,15 +116,13 @@ class IUtilities : public core::IReferenceCounted
         }
 
         //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
+        inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, IGPUBuffer::SCreationParams&& params, const void* data)
         {
-            IGPUBuffer::SCreationParams params = {};
-            params.size = size;
             auto buffer = m_device->createBuffer(params);
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto mem = m_device->allocate(mreqs, buffer.get());
-            updateBufferRangeViaStagingBuffer(queue, asset::SBufferRange<IGPUBuffer>{0u, size, buffer}, data);
+            updateBufferRangeViaStagingBuffer(queue, asset::SBufferRange<IGPUBuffer>{0u, params.size, buffer}, data);
             return buffer;
         }
 

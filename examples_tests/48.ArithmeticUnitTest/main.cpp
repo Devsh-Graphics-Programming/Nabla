@@ -328,7 +328,10 @@ public:
 				inputData[i] = randGenerator();
 		}
 
-		auto gpuinputDataBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], kBufferSize, inputData);
+		IGPUBuffer::SCreationParams inputDataBufferCreationParams = {};
+		inputDataBufferCreationParams.size = kBufferSize;
+		// inputDataBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+		auto gpuinputDataBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], std::move(inputDataBufferCreationParams), inputData);
 
 		//create 8 buffers.
 		constexpr const auto totalBufferCount = outputBufferCount + 1u;

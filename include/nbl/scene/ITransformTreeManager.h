@@ -134,8 +134,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				*reinterpret_cast<ITransformTree::relative_transform_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::relative_transform_prop_ix)) = core::matrix3x4SIMD();
 				*reinterpret_cast<ITransformTree::modified_stamp_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::modified_stamp_prop_ix)) = ITransformTree::initial_modified_timestamp;
 				*reinterpret_cast<ITransformTree::recomputed_stamp_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::recomputed_stamp_prop_ix)) = ITransformTree::initial_recomputed_timestamp;
-			}
-			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
+			}			
+			
+			video::IGPUBuffer::SCreationParams defaultFillValuesBufferCreationParams = {};
+			defaultFillValuesBufferCreationParams.size = tmp.size();
+			// defaultFillValuesBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,std::move(defaultFillValuesBufferCreationParams),fillData);
 			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
 			tmp.resize(sizeof(uint16_t)*DebugIndexCount);
 			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
@@ -168,7 +172,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				debugIndices[24] = 8u;
 				debugIndices[25] = 9u;
 			}
-			auto debugIndexBuffer = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
+			
+			video::IGPUBuffer::SCreationParams debugIndexBufferCreationParams = {};
+			debugIndexBufferCreationParams.size = tmp.size();
+			// debugIndexBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+			auto debugIndexBuffer = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,std::move(debugIndexBufferCreationParams),fillData);
 
 			auto updateLocalDsLayout = createUpdateLocalTransformsDescriptorSetLayout(device);
 			auto recomputeGlobalDsLayout = createRecomputeGlobalTransformsDescriptorSetLayout(device);

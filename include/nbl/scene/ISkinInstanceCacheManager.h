@@ -45,7 +45,12 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			const auto& limits = device->getPhysicalDevice()->getLimits();
 			core::vector<uint8_t> tmp(limits.SSBOAlignment);
 			*reinterpret_cast<ISkinInstanceCache::recomputed_stamp_t*>(tmp.data()) = ISkinInstanceCache::initial_recomputed_timestamp;
-			auto initTimestampValue = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),tmp.data());
+			
+			IGPUBuffer::SCreationParams initTimestampValueBufferCreationParams = {};
+			initTimestampValueBufferCreationParams.size = tmp.size();
+			// initTimestampValueBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+
+			auto initTimestampValue = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,std::move(initTimestampValueBufferCreationParams),tmp.data());
 			if (!initTimestampValue)
 				return nullptr;
 			initTimestampValue->setObjectDebugName("ISkinInstanceCacheManager::m_initTimestampValue");
