@@ -192,7 +192,11 @@ bool validateResults(ILogicalDevice* device, const uint32_t* inputData, const ui
 	bool success = true;
 
 	auto mem = bufferToRead->getBoundMemory();
-	if (mem->getMappingCaps()&IDeviceMemoryAllocation::EMCF_COHERENT)
+	// (Erfan->Cyprian): see this old code below -> we don't have getMappingCaps function anymore because we can deduce it from memorytype's property flags
+	// also since they are now `core::bitflag` you can use .hasFlags instead of using &
+	// if (mem->getMappingCaps()&IDeviceMemoryAllocation::EMCF_COHERENT)
+	// Also I added a ! because the if check should've been the other way around
+	if(!mem->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT))
 	{
 		IDeviceMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
 		device->invalidateMappedMemoryRanges(1u,&rng);
@@ -333,17 +337,50 @@ public:
 		for (auto i = 0; i < outputBufferCount; i++)
 		{
 			IGPUBuffer::SCreationParams params;
+			// (Erfan to Cyprian) note that IGPUBuffer::SCreationParams::size would get ignored before and was passed into the create function as a paramter or in "reqs" but it's very important now and make sure they are set when you're replacing the old usages
+			params.size = kBufferSize;
 			params.queueFamilyIndexCount = 0;
 			params.queueFamilyIndices = nullptr;
 			params.sharingMode = ESM_CONCURRENT;
 			params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_TRANSFER_SRC_BIT;
-			IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
-			reqs.vulkanReqs.memoryTypeBits = ~0u;
-			reqs.vulkanReqs.alignment = 256u;
-			reqs.vulkanReqs.size = kBufferSize;
-			reqs.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
-			reqs.mappingCapability = IDeviceMemoryAllocation::EMCAF_READ;
-			buffers[i] = logicalDevice->createGPUBufferOnDedMem(params, reqs);
+			
+			// Notes from Erfan to Cyprian (Delete when Read)
+			// 
+			// OLD CODE:
+			// IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
+			// reqs.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
+			// reqs.mappingCapability = IDeviceMemoryAllocation::EMCAF_READ;
+			// 
+			// Mindset about memoryTypeBits:
+			// memoryTypes can each represent a combination of usages, for example HOST_READABLE, DEVICE_LOCAL, ... (see E_MEMORY_TYPE_FLAGS) 
+			// each memoryType (combination of usages) supported by your GPU will be reported in physicalDevice->getMemoryProperties()
+			// each bit in a MemoryTypeBits represents an index that maps to a memoryType
+			// So for example if you use physicalDevice->getDeviceLocalMemoryTypeBits() and it returns 0x0000'0003 means there are 2 memory types that have DEVICE_LOCAL flag (index = 0 and 1)
+			// See IPhysicalDevice::getXXXXXMemoryTypeBits and the comments above the functions
+			// 
+			// Each createXXXOnDedMem is now replaced by 3 steps ->
+			// 1. Create buffer/image
+			// 2. Get It's memory requirements and &= it's memoryTypeBits with the user requested usages 
+			//		for example when you see old API usages that use device->getDownStreamingMemoryReqs, you would replace it by reqs &= physicalDevice->getDownStreamingMemoryTypeBits
+			// 3. use allocate and pass the reqs + image/buffer for dedication
+			// -> note that previously used memoryCapability is now decided by memoryTypeBits which you can query from PhysDev
+			// (see commented code above) Previously memoryHeapLocation was ESMT_DEVICE_LOCAL and mapping capability was EMCAD_READ -> so we're looking for a "DEVICE_LOCAL" AND "HOST_READABLE" memoryType 
+			//
+			// You can access physicalDevice pointer directly in some places or via device->getPhysicalDevice()
+			// 
+			// Note that previously here the writer of example didn't use helper functions device->getXXXRequiremtns and filled in the reqs themselves because probably none of those would return the requiements of their need
+			// In that case you could use physDev->getMemoryTypeBitsFromMemoryTypeFlags and pass in the correct Memory Property Flags to fulfill user's "previous" wish
+			
+			buffers[i] = logicalDevice->createBuffer(params);
+			auto mreq = buffers[i]->getMemoryReqs();
+			mreq.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(video::IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+			mreq.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(video::IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT);
+			
+			// (Erfan to Cyprian) assert memoryTypeBits is not 0 because if it is then it means there is no memoryType that is both DeviceLocal and HostReadable
+			assert(mreq.memoryTypeBits);
+			// (Erfan to Cyprian) We usually don't use the return value (SMemoryOffset) of the allocate function but make sure you set it to some variable named bufferMem or something so we know it's there
+			auto bufferMem = logicalDevice->allocate(mreq, buffers[i].get());
+
 			IDeviceMemoryAllocation::MappedMemoryRange mem;
 			mem.memory = buffers[i]->getBoundMemory();
 			mem.offset = 0u;
