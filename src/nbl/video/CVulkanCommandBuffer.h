@@ -39,11 +39,11 @@ public:
         freeSpaceInCmdPool();
     }
 
-    bool begin(uint32_t recordingFlags, const SInheritanceInfo* inheritanceInfo=nullptr) override
+    bool begin(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo=nullptr) override
     {
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
-        beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags);
+        beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags.value);
 
         VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
         if (inheritanceInfo)
@@ -104,7 +104,7 @@ public:
         }
     }
 
-    bool reset(uint32_t _flags) override
+    bool reset(core::bitflag<E_RESET_FLAGS> _flags) override
     {
         if(!IGPUCommandBuffer::canReset())
             return false;
@@ -113,7 +113,7 @@ public:
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
-        if (vk->vk.vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags)) == VK_SUCCESS)
+        if (vk->vk.vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags.value)) == VK_SUCCESS)
         {
             return IGPUCommandBuffer::reset(_flags);
         }

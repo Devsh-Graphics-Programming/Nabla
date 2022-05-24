@@ -371,7 +371,7 @@ public:
 				// acquire image 
 				swapchain->acquireNextImage(MAX_TIMEOUT, imageAcquire[resourceIx].get(), nullptr, &imgnum);
 
-				cb->begin(0);
+				cb->begin(IGPUCommandBuffer::EU_NONE);
 
 				asset::SViewport viewport;
 				viewport.minDepth = 1.f;

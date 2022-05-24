@@ -15,7 +15,8 @@ void IUtilities::updateImageViaStagingBuffer(
     auto* cmdpool = cmdbuf->getPool();
     assert(cmdbuf->isResettable());
     assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
-            
+    assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
     auto texelBlockDim = texelBlockInfo.getDimension();
     auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[0];

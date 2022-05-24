@@ -572,7 +572,7 @@ APP_CONSTRUCTOR(MeshLoadersApp)
 
 		auto& commandBuffer = commandBuffers[0];
 		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-		commandBuffer->begin(0);
+		commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
 		asset::SViewport viewport;
 		viewport.minDepth = 1.f;

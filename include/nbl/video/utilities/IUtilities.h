@@ -358,6 +358,7 @@ class IUtilities : public core::IReferenceCounted
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdbuf->isResettable());
             assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
+            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize = 0ull; uploadedSize < bufferRange.size;)
