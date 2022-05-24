@@ -396,8 +396,6 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             return ret;
         }
 
-        // TODO(Erfan): cache the result of functions below in the Physdev since they don't change during the existance of the PhysicalDevice
-
         //! DeviceLocal: most efficient for device access
         //! Requires EMPF_DEVICE_LOCAL_BIT from MemoryTypes
         uint32_t getDeviceLocalMemoryTypeBits() const
