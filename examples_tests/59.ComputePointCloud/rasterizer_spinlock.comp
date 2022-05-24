@@ -1,0 +1,8 @@
+
+#version 450
+
+#pragma shader_stage(compute)
+
+layout (local_size_x = 256, local_size_y = 1) in;
+
+#include "rasterizer.comp"

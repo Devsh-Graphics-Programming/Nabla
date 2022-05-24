@@ -1,0 +1,108 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#include "common.h"
+
+layout (push_constant) uniform pushConstants
+{
+	layout(row_major) RasterizerPushConstants c;
+} u_pushConstants;
+
+#if defined(Z_PREPASS) || defined(USE_Z_PREPASS)
+layout (set = 0, binding = 0, r32ui) uniform uimage2D outImage;
+layout (set = 0, binding = 1, r32ui) uniform coherent uimage2D depthBuffer;
+#else
+layout (set = 0, binding = 0, rg32ui) uniform coherent uimage2D outImage;
+layout (set = 0, binding = 1, r32ui) uniform coherent uimage2D spinLock;
+#endif
+
+struct WorldPosition {
+	float x, y, z;
+};
+
+layout (set = 0, binding = 2, std430) readonly buffer pointCloud {
+	WorldPosition position[];
+} u_pointCloud;
+
+struct DebugOutputPoint {
+	vec4 transformed;
+	uvec4 cameraCull;
+	vec3 ndc;
+	uint pad;
+	vec2 uv;
+	vec2 pad2;
+	ivec2 coords;
+	vec2 pad3;
+};
+
+#include <nbl/builtin/glsl/utils/transform.glsl>
+
+mat4 spvWorkaroundRowMajor(mat4 wrap) { return wrap; }
+
+void main()
+{
+	uint localThread = gl_GlobalInvocationID.x;
+	// Persistent threads
+	// e.g. thread 1 starts with 1, then goes for totalThreads + 1 and so on until there are no more points for it
+	for (uint virtInvoc = localThread; virtInvoc < u_pushConstants.c.pointCount; virtInvoc += u_pushConstants.c.totalThreads) {
+		WorldPosition pointPos = u_pointCloud.position[virtInvoc];
+		vec3 pointPos3 = vec3(pointPos.x, pointPos.y, pointPos.z);
+		vec4 transformed = nbl_glsl_pseudoMul4x4with3x1(spvWorkaroundRowMajor(u_pushConstants.c.mvp), pointPos3);
+
+		// Behind the camera
+		// XOR of the sign bits (if only one of Z or W is negative, cull it)
+		if ((floatBitsToUint(transformed.z) ^ floatBitsToUint(transformed.w)) >> 31 == 1) 
+		{
+			continue;
+		}
+
+		vec3 ndc = transformed.xyz / vec3(transformed.w);
+
+		if (ndc.z > 1.0) 
+		{
+			continue;
+		}
+		ndc.z = 1.0 - ndc.z;
+
+		vec2 uv = (ndc.xy + 1.0) * 0.5;
+		const ivec2 size = ivec2(5, 5);
+
+		ivec2 coords = ivec2(uv * vec2(u_pushConstants.c.imgSize));
+		
+		if (all(greaterThanEqual(coords, ivec2(0))) && all(lessThan(coords, ivec2(u_pushConstants.c.imgSize))))
+		{
+			#ifdef Z_PREPASS
+			// (Z-prepass generation)
+			imageAtomicMax(depthBuffer, coords, floatBitsToUint(ndc.z));
+
+			#elif defined(USE_Z_PREPASS)
+
+			// (Z-prepass usage for visbuffer generation)
+			// Set the visbuffer value if the depth matches
+			if (ndc.z == uintBitsToFloat(imageLoad(depthBuffer, coords).x))
+			{
+				imageStore(outImage, coords, uvec4(floatBitsToUint(ndc.z), 0, 0, 0));
+			}
+			#else
+
+			// (Spinlock implementation)
+			for (bool done = false; !done;) {
+				if (imageAtomicExchange(spinLock, coords, 1u) == 0u) {
+					memoryBarrierImage();
+
+					float previousDepth = uintBitsToFloat(imageLoad(outImage, coords).x);
+					if (ndc.z > previousDepth) 
+					{
+						imageStore(outImage, coords, uvec4(floatBitsToUint(ndc.z), virtInvoc, 0, 0));
+					}
+
+					imageStore(spinLock, coords, uvec4(0u));
+					memoryBarrierImage();
+					done = true;
+				}
+			}
+			#endif
+		}
+	}
+}
