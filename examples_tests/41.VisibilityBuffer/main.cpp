@@ -616,7 +616,7 @@ int main()
 
             const uint32_t totalActualMdiCnt = mdiListOffset;
 
-            batchDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
+            batchDataSSBO = driver->createFilledDeviceLocalBufferOnDedMem(batchData.size()*sizeof(BatchInstanceData),batchData.data());
 
             gpump = core::make_smart_refctd_ptr<CGPUMeshPackerV2<>>(driver,mp.get());
             sceneData.idxBuffer = gpump->getPackerDataStore().indexBuffer;
@@ -629,7 +629,7 @@ int main()
             cullShaderData.cubeDrawGUIDs = driver->createDeviceLocalGPUBufferOnDedMem(totalActualMdiCnt * sizeof(uint32_t));
 
             cullShaderData.maxBatchCount = std::distance(batchCullData.begin(), batchCullDataEnd);
-            cullShaderData.perBatchCull = driver->createFilledDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(CullData_t), batchCullData.data());
+            cullShaderData.perBatchCull = driver->createFilledDeviceLocalBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(CullData_t), batchCullData.data());
             cullShaderData.mvpBuffer = driver->createDeviceLocalGPUBufferOnDedMem(cullShaderData.maxBatchCount * sizeof(core::matrix4SIMD));
             cullShaderData.visible = driver->createDeviceLocalGPUBufferOnDedMem(totalActualMdiCnt * sizeof(uint16_t));
             driver->fillBuffer(cullShaderData.visible.get(), 0u, cullShaderData.visible->getSize(), 0u);
@@ -646,13 +646,13 @@ int main()
             cubeIndirectDrawCommand.count = cubeIdxCnt;
             cubeIndirectDrawCommand.firstIndex = 0u;
             cubeIndirectDrawCommand.instanceCount = 0u;
-            cullShaderData.cubeCommandBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t), &cubeIndirectDrawCommand);
+            cullShaderData.cubeCommandBuffer = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t), &cubeIndirectDrawCommand);
 
             DispatchIndirectCommand_t dispatchIndirect;
             dispatchIndirect.num_groups_x = 0u;
             dispatchIndirect.num_groups_y = 1u;
             dispatchIndirect.num_groups_z = 1u;
-            cullShaderData.dispatchIndirect = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DispatchIndirectCommand_t), &dispatchIndirect);
+            cullShaderData.dispatchIndirect = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(DispatchIndirectCommand_t), &dispatchIndirect);
         }
 
         //
@@ -793,7 +793,7 @@ int main()
             gpuvt->getDescriptorSetWrites(writesVT.data(),infoVT.data(),sceneData.vtDS.get(),_NBL_VT_PAGE_TABLE_BINDING,_NBL_VT_FLOAT_VIEWS_BINDING);
 
             auto& precomp = gpuvt->getPrecomputedData();
-            infoVT.back().desc = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(precomp),&precomp);
+            infoVT.back().desc = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(precomp),&precomp);
             infoVT.back().buffer.offset = 0u;
             infoVT.back().buffer.size = sizeof(video::IGPUVirtualTexture::SPrecomputedData);
             writesVT.back().dstSet = sceneData.vtDS.get();
@@ -964,7 +964,7 @@ int main()
         };
 
         cullShaderData.cubeIdxBuffer.offset = 0ull;
-        cullShaderData.cubeIdxBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indices), indices);
+        cullShaderData.cubeIdxBuffer.buffer = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(indices), indices);
 
         SVertexInputParams vtxParams;
         vtxParams.enabledAttribFlags = 0b1111u;

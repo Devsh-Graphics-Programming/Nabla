@@ -183,7 +183,7 @@ int main()
 		in[i].data = i;
 	}
 	
-	auto in_gpu = driver->createFilledDeviceLocalGPUBufferOnDedMem(in_size, in);
+	auto in_gpu = driver->createFilledDeviceLocalBufferOnDedMem(in_size, in);
 	
 	// Take (an almost) 64MB portion from it to sort
 	size_t begin = (1 << 23) + 112;

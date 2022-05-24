@@ -352,7 +352,7 @@ class GLTFApp : public ApplicationBase
 				allNodes.insert(allNodes.begin(),allNodes.size());
 				pivotNodesRange.offset += sizeof(uint32_t);
 
-				auto allNodesBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allNodes.size(),allNodes.data());
+				auto allNodesBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allNodes.size(),allNodes.data());
 				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),{0ull,allNodesBuffer});
 				pivotNodesRange.buffer = std::move(allNodesBuffer);
 			}
@@ -448,7 +448,7 @@ class GLTFApp : public ApplicationBase
 			}
 			// transfer compressed aabbs to the GPU
 			{
-				aabbBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(CompressedAABB)*aabbPool.size(),aabbPool.data())};
+				aabbBinding = {0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(CompressedAABB)*aabbPool.size(),aabbPool.data())};
 				transformTreeManager->updateDebugDrawDescriptorSet(logicalDevice.get(),ttmDescriptorSets.debugDraw.get(),SBufferBinding(aabbBinding));
 				
 				IGPUBuffer::SCreationParams params = {};
@@ -577,8 +577,8 @@ class GLTFApp : public ApplicationBase
 					std::inclusive_scan(jointCountInclusivePrefixSum.begin(),jointCountInclusivePrefixSum.end(),jointCountInclusivePrefixSum.begin());
 					sicManager->updateCacheUpdateDescriptorSet(
 						logicalDevice.get(),sicDescriptorSets.cacheUpdate.get(),
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCache::skin_instance_t)*skinsToUpdate.size(),skinsToUpdate.data())},
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCache::skin_instance_t)*skinsToUpdate.size(),skinsToUpdate.data())},
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
 					);
 				}
 				// debug draw skin instances
@@ -626,8 +626,8 @@ class GLTFApp : public ApplicationBase
 					sicManager->updateDebugDrawDescriptorSet(
 						logicalDevice.get(),sicDescriptorSets.debugDraw.get(),
 						transformTree.get(),SBufferBinding(aabbBinding),
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCacheManager::DebugDrawData)*debugData.size(),debugData.data())},
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclPrefixSum.size(),jointCountInclPrefixSum.data())}
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCacheManager::DebugDrawData)*debugData.size(),debugData.data())},
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclPrefixSum.size(),jointCountInclPrefixSum.data())}
 					);
 				}
 			}

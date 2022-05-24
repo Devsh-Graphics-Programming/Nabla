@@ -94,7 +94,7 @@ int main()
 	LumaMeterClass::Uniforms_t<MeterMode> uniforms;
 	auto lumaDispatchInfo = LumaMeterClass::buildParameters(uniforms, outImg->getCreationParameters().extent, meteringMinUV, meteringMaxUV);
 
-	auto uniformBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uniforms),&uniforms);
+	auto uniformBuffer = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(uniforms),&uniforms);
 
 
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;

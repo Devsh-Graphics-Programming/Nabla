@@ -713,8 +713,8 @@ public:
 				out[i*MaxDimensions+dim] = sampler.sample(dim,i);
 			}
 		
-			// TODO: Temp Fix because createFilledDeviceLocalGPUBufferOnDedMem doesn't take in params
-			// auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
+			// TODO: Temp Fix because createFilledDeviceLocalBufferOnDedMem doesn't take in params
+			// auto gpuSequenceBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
 			{
 				IGPUBuffer::SCreationParams params = {};
 				params.size = sampleSequence->getSize();
@@ -758,8 +758,8 @@ public:
 					pixel = rng.nextSample();
 			}
 
-			// TODO: Temp Fix because createFilledDeviceLocalGPUBufferOnDedMem doesn't take in params
-			// auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
+			// TODO: Temp Fix because createFilledDeviceLocalBufferOnDedMem doesn't take in params
+			// auto buffer = utilities->createFilledDeviceLocalBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
 			core::smart_refctd_ptr<IGPUBuffer> buffer;
 			{
 				IGPUBuffer::SCreationParams params = {};
@@ -774,7 +774,7 @@ public:
 
 			IGPUImageView::SCreationParams viewParams;
 			viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-			viewParams.image = utilities->createFilledDeviceLocalGPUImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
+			viewParams.image = utilities->createFilledDeviceLocalImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
 			viewParams.viewType = IGPUImageView::ET_2D;
 			viewParams.format = EF_R32G32_UINT;
 			viewParams.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;

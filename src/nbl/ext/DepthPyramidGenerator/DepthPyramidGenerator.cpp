@@ -292,7 +292,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 	}
 
 	uint32_t virtualWorkGroupContents[2] = { 0u, 0u };
-	core::smart_refctd_ptr<IGPUBuffer> virtualWorkGroup = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(virtualWorkGroupContents), virtualWorkGroupContents);
+	core::smart_refctd_ptr<IGPUBuffer> virtualWorkGroup = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(virtualWorkGroupContents), virtualWorkGroupContents);
 
 	// NOTE: it is writen solely for 8 image binding limit
 	core::smart_refctd_ptr<IGPUBuffer> virtualWorkGroupData;
@@ -363,7 +363,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 		if(virtualDispatchCnt % 2u)
 			outputDispatchData[outputDsCnt - 1u].pcData.maxMetaZLayerCnt = 1u;
 
-		virtualWorkGroupData = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(core::vector2d<uint32_t>) * virtualWorkGroupDataContents.size(), virtualWorkGroupDataContents.data());
+		virtualWorkGroupData = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(core::vector2d<uint32_t>) * virtualWorkGroupDataContents.size(), virtualWorkGroupDataContents.data());
 	}
 
 	uint32_t mipLvlsRemaining = mipCnt;

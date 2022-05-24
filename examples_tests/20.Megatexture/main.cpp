@@ -664,7 +664,7 @@ APP_CONSTRUCTOR(MegaTextureApp)
         gpuds2 = logicalDevice->createDescriptorSet(descriptorPoolDs2.get(), std::move(gpu_ds2layout));
         {
             core::smart_refctd_ptr<video::IUtilities> utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(logicalDevice));
-            core::smart_refctd_ptr<video::IGPUBuffer> buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
+            core::smart_refctd_ptr<video::IGPUBuffer> buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
 
             {
                 std::array<video::IGPUDescriptorSet::SWriteDescriptorSet, 1> write;

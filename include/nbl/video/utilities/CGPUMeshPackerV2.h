@@ -50,9 +50,9 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
             m_utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(driver));
 
             // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
-            base_t::m_packerDataStore.MDIDataBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
-            base_t::m_packerDataStore.indexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuIdxBuff->getSize(),cpuIdxBuff->getPointer());
-            base_t::m_packerDataStore.vertexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuVtxBuff->getSize(),cpuVtxBuff->getPointer());
+            base_t::m_packerDataStore.MDIDataBuffer = m_utilities->createFilledDeviceLocalBufferOnDedMem(queue, cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
+            base_t::m_packerDataStore.indexBuffer = m_utilities->createFilledDeviceLocalBufferOnDedMem(queue, cpuIdxBuff->getSize(),cpuIdxBuff->getPointer());
+            base_t::m_packerDataStore.vertexBuffer = m_utilities->createFilledDeviceLocalBufferOnDedMem(queue, cpuVtxBuff->getSize(),cpuVtxBuff->getPointer());
         }
 
         void instantiateDataStorage();
