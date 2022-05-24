@@ -215,7 +215,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
-			return device->createGPUDescriptorSetLayout(bindings,bindings+DescriptorBindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+DescriptorBindingCount);
 		}
 
 		inline const auto getDescriptorSet() const
@@ -240,7 +240,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		{
 			auto layout = createDescriptorSetLayout(device);
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
-			m_ds = device->createGPUDescriptorSet(pool.get(),std::move(layout));
+			m_ds = device->createDescriptorSet(pool.get(),std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[DescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[DescriptorBindingCount] =

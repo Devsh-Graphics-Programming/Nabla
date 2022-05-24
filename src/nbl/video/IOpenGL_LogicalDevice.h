@@ -53,7 +53,12 @@ class IOpenGL_LogicalDeviceBase
             static void copyContentsToOwnedMemory(CRTP&, void*) {}
         };
         */
-
+        
+        //! Request Type
+        //! Cross-context Sync Sensitive Request Types:
+        //!     some requests need to sync between contexts such as creation requests
+        //!     for such requests ensure `incrementProgressionSync` gets called on your request, by direct function call or making it a creation request (see isCreationRequest)
+        //!     [WARNING] otherwise you may encounter a deadlock waiting for master context
         enum E_REQUEST_TYPE : uint8_t
         {
             // GL pipelines and vaos are kept, created and destroyed in COpenGL_Queue internal thread
@@ -64,12 +69,15 @@ class IOpenGL_LogicalDeviceBase
             //ERT_GRAPHICS_PIPELINE_DESTROY,
             ERT_PROGRAM_DESTROY,
 
+            //! create requests
+            //! creation requests are cross-context sync sensitive (see description above
             ERT_BUFFER_CREATE,
             ERT_BUFFER_VIEW_CREATE,
             ERT_IMAGE_CREATE,
             ERT_IMAGE_VIEW_CREATE,
             ERT_FENCE_CREATE,
             ERT_SAMPLER_CREATE,
+            ERT_ALLOCATE,
             ERT_RENDERPASS_INDEPENDENT_PIPELINE_CREATE,
             ERT_COMPUTE_PIPELINE_CREATE,
             //ERT_GRAPHICS_PIPELINE_CREATE,
@@ -81,7 +89,6 @@ class IOpenGL_LogicalDeviceBase
             ERT_INVALIDATE_MAPPED_MEMORY_RANGES,
             ERT_MAP_BUFFER_RANGE,
             ERT_UNMAP_BUFFER,
-            //BIND_BUFFER_MEMORY,
             
             ERT_SET_DEBUG_NAME,
             ERT_GET_QUERY_POOL_RESULTS,
@@ -136,8 +143,7 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
-            IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
-            IGPUBuffer::SCachedCreationParams cachedCreationParams;
+            IGPUBuffer::SCachedCreationParams creationParams;
         };
         struct SRequestBufferViewCreate
         {
@@ -152,7 +158,8 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_IMAGE_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUImage>;
-            IGPUImage::SCreationParams params;
+            uint32_t deviceLocalMemoryTypeBits;
+            IGPUImage::SCreationParams creationParams;
         };
         struct SRequestImageViewCreate
         {
@@ -205,20 +212,20 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_FLUSH_MAPPED_MEMORY_RANGES;
             using retval_t = void;
-            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
+            core::SRange<const IDeviceMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
         };
         struct SRequestInvalidateMappedMemoryRanges
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_INVALIDATE_MAPPED_MEMORY_RANGES;
             using retval_t = void;
-            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
+            core::SRange<const IDeviceMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
         };
         struct SRequestMapBufferRange
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_MAP_BUFFER_RANGE;
             using retval_t = void*;
 
-            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
+            core::smart_refctd_ptr<IDeviceMemoryAllocation> buf;
             GLintptr offset;
             GLsizeiptr size;
             GLbitfield flags;
@@ -228,7 +235,15 @@ class IOpenGL_LogicalDeviceBase
             static inline constexpr E_REQUEST_TYPE type = ERT_UNMAP_BUFFER;
             using retval_t = void;
 
-            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
+            core::smart_refctd_ptr<IDeviceMemoryAllocation> buf;
+        };
+        struct SRequestAllocate
+        {
+            static inline constexpr E_REQUEST_TYPE type = ERT_ALLOCATE;
+            using retval_t = IDeviceMemoryAllocator::SMemoryOffset;
+            IOpenGLMemoryAllocation* dedicationAsAllocation = nullptr;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> memoryAllocateFlags;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags;
         };
         struct SRequestSetDebugName
         {
@@ -270,7 +285,7 @@ class IOpenGL_LogicalDeviceBase
     template <>
     size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestFlushMappedMemoryRanges>::neededMemorySize(const SRequestFlushMappedMemoryRanges& x)
     { 
-        return x.memoryRanges.size() * sizeof(IDriverMemoryAllocation::MappedMemoryRange);
+        return x.memoryRanges.size() * sizeof(IDeviceMemoryAllocation::MappedMemoryRange);
     }
     template <>
     void IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestFlushMappedMemoryRanges>::copyContentsToOwnedMemory(SRequestFlushMappedMemoryRanges& x, void* mem)
@@ -281,7 +296,7 @@ class IOpenGL_LogicalDeviceBase
     template <>
     size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestInvalidateMappedMemoryRanges>::neededMemorySize(const SRequestInvalidateMappedMemoryRanges& x)
     {
-        return x.memoryRanges.size() * sizeof(IDriverMemoryAllocation::MappedMemoryRange);
+        return x.memoryRanges.size() * sizeof(IDeviceMemoryAllocation::MappedMemoryRange);
     }
     template <>
     void IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestInvalidateMappedMemoryRanges>::copyContentsToOwnedMemory(SRequestInvalidateMappedMemoryRanges& x, void* mem)
@@ -345,6 +360,7 @@ protected:
     {
         using params_variant_t = std::variant<
             SRequestFenceCreate,
+            SRequestAllocate,
             SRequestBufferCreate,
             SRequestBufferViewCreate,
             SRequestImageCreate,
@@ -532,7 +548,17 @@ protected:
             {
                 auto& p = std::get<SRequestBufferCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUBuffer>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUBuffer>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, p.mreqs, p.cachedCreationParams);
+
+                GLuint bufferName;
+                gl.extGlCreateBuffers(1,&bufferName);
+                if (bufferName!=0)
+                {
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.creationParams, bufferName);
+                }
+                else
+                {
+                    pretval[0] = nullptr;
+                }
             }
                 break;
             case ERT_BUFFER_VIEW_CREATE:
@@ -546,7 +572,35 @@ protected:
             {
                 auto& p = std::get<SRequestImageCreate>(req.params_variant);
                 core::smart_refctd_ptr<IGPUImage>* pretval = reinterpret_cast<core::smart_refctd_ptr<IGPUImage>*>(req.pretval);
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl, std::move(p.params));
+
+                GLenum internalFormat = getSizedOpenGLFormatFromOurFormat(&gl, p.creationParams.format);
+                GLenum target;
+                GLuint name;
+
+
+                GLsizei samples = p.creationParams.samples;
+                switch (p.creationParams.type)
+                {
+                    case IGPUImage::ET_1D:
+                        target = GL_TEXTURE_1D_ARRAY;
+                        gl.extGlCreateTextures(target, 1, &name);
+                        break;
+                    case IGPUImage::ET_2D:
+                        if (p.creationParams.flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT)
+                            target = GL_TEXTURE_CUBE_MAP_ARRAY;
+                        else
+                            target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
+                        gl.extGlCreateTextures(target, 1, &name);
+                        break;
+                    case IGPUImage::ET_3D:
+                        target = GL_TEXTURE_3D;
+                        gl.extGlCreateTextures(target, 1, &name);
+                        break;
+                    default:
+                        assert(false);
+                        break;
+                }
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.deviceLocalMemoryTypeBits, std::move(p.creationParams), internalFormat, target, name);
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:
@@ -623,6 +677,24 @@ protected:
                 gl.extGlUnmapNamedBuffer(static_cast<COpenGLBuffer*>(p.buf.get())->getOpenGLName());
                 // unfortunately I have to make every other context wait on the master to ensure the unmapping completes
                 incrementProgressionSync(_gl);
+            }
+                break;
+            case ERT_ALLOCATE:
+            {
+                auto& p = std::get<SRequestAllocate>(req.params_variant);
+                IDeviceMemoryAllocator::SMemoryOffset* pretval = reinterpret_cast<IDeviceMemoryAllocator::SMemoryOffset*>(req.pretval);
+                IDeviceMemoryAllocator::SMemoryOffset& retval = *pretval;
+                if(p.dedicationAsAllocation)
+                {
+                    p.dedicationAsAllocation->initMemory(&gl, p.memoryAllocateFlags, p.memoryPropertyFlags);
+                    retval.memory = core::smart_refctd_ptr<IDeviceMemoryAllocation>(p.dedicationAsAllocation);
+                    retval.offset = 0ull;
+                }
+                else
+                {
+                    retval.memory = nullptr;
+                    retval.offset = IDeviceMemoryAllocator::InvalidMemoryOffset;
+                }
             }
                 break;
             case ERT_GET_FENCE_STATUS:

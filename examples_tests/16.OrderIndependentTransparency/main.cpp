@@ -56,7 +56,7 @@ public:
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
     core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
-    video::IDriverMemoryBacked::SDriverMemoryRequirements ubomemreq;
+    video::IDeviceMemoryBacked::SDeviceMemoryRequirements ubomemreq;
     core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
 
@@ -216,7 +216,7 @@ public:
 
         auto ds2pool = logicalDevice->createDescriptorPoolForDSLayouts(static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0), &ds2layout.get(), &ds2layout.get() + 1);
         {
-            ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
+            ds2 = logicalDevice->createDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
 
             video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
             video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
@@ -227,7 +227,7 @@ public:
         }
 
         {
-            ds2 = logicalDevice->createGPUDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
+            ds2 = logicalDevice->createDescriptorSet(ds2pool.get(), core::smart_refctd_ptr(ds2layout));
 
             video::IGPUDescriptorSet::SDescriptorInfo info[ext::OIT::COIT::MaxImgBindingCount];
             video::IGPUDescriptorSet::SWriteDescriptorSet w[ext::OIT::COIT::MaxImgBindingCount];
@@ -238,18 +238,18 @@ public:
         }
 
         {
-            auto layout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(ds2layout), nullptr);
+            auto layout = logicalDevice->createPipelineLayout(nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(ds2layout), nullptr);
 
             const auto& proto = oit.getResolveProtoPipeline();
 
             video::IGPUSpecializedShader* shaders[2]{ proto.vs.get(), proto.fs.get() };
-            auto rpindep = logicalDevice->createGPURenderpassIndependentPipeline(nullptr, std::move(layout), shaders, shaders + 2, proto.vtx, proto.blend, proto.primAsm, proto.raster);
+            auto rpindep = logicalDevice->createRenderpassIndependentPipeline(nullptr, std::move(layout), shaders, shaders + 2, proto.vtx, proto.blend, proto.primAsm, proto.raster);
 
             video::IGPUGraphicsPipeline::SCreationParams pplnparams;
             pplnparams.renderpass = renderpass;
             pplnparams.renderpassIndependent = rpindep;
             pplnparams.subpassIx = 0u;
-            oit_resolve_ppln = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(pplnparams));
+            oit_resolve_ppln = logicalDevice->createGraphicsPipeline(nullptr, std::move(pplnparams));
         }
 
         nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
@@ -333,7 +333,7 @@ public:
             pplnparams.renderpass = renderpass;
             pplnparams.renderpassIndependent = rpindep;
             pplnparams.subpassIx = 0u;
-            oit_pass1_pipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(pplnparams));
+            oit_pass1_pipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(pplnparams));
         }
         firstMeshBuffer = *meshRaw->getMeshBuffers().begin();
         pipelineMetadata = metaOBJ->getAssetSpecificMetadata(firstMeshBuffer->getPipeline());
@@ -378,7 +378,7 @@ public:
         gpuuboCreationParams.canUpdateSubRange = true;
 
         gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams, ubomemreq);
-        gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
+        gpuds1 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
             write.dstSet = gpuds1.get();
@@ -430,7 +430,7 @@ public:
                 const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
                 if (gpuPipelines.find(adress) != gpuPipelines.end())
                     continue;
-                gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+                gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
             }
         }
 

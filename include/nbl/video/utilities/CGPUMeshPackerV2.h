@@ -67,7 +67,7 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         {
             auto createBufferView = [&](core::smart_refctd_ptr<IGPUBuffer>&& buff, asset::E_FORMAT format) -> core::smart_refctd_ptr<asset::IDescriptor>
             {
-                return m_driver->createGPUBufferView(buff.get(),format);
+                return m_driver->createBufferView(buff.get(),format);
             };
             return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
         }
@@ -80,6 +80,19 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
 template <typename MDIStructType>
 void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
+    // Update to NewBufferAPI when porting
+    // auto createAndAllocateBuffer = [&](size_t size) -> auto
+    // {
+    //     video::IGPUBuffer::SCreationParams creationParams = {};
+    //     creationParams.size = size;
+    //     creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT; ???
+    //     auto buffer = params.device->createBuffer(creationParams);	
+    //     auto mreqs = buffer->getMemoryReqs();
+    //     mreqs.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+    //     auto gpubufMem = params.device->allocate(mreqs, buffer.get());
+    //     return buffer;
+    // };
+
     const uint32_t MDIDataBuffByteSize = base_t::m_MDIDataAlctr.get_total_size() * sizeof(MDIStructType);
     const uint32_t idxBuffByteSize = base_t::m_idxBuffAlctr.get_total_size() * sizeof(uint16_t);
     const uint32_t vtxBuffByteSize = base_t::m_vtxBuffAlctr.get_total_size();

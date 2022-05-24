@@ -568,7 +568,7 @@ class TransformationApp : public ApplicationBase
 					gp_params.renderpassIndependent = rpIndependentPipeline; // TODO: fix use gpuMesh->getPipeline instead
 					gp_params.subpassIx = 0u;
 
-					ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+					ret.graphicsPipeline = device->createGraphicsPipeline(nullptr, std::move(gp_params));
 
 					return ret;
 			};

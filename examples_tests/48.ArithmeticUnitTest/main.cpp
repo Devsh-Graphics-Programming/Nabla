@@ -192,9 +192,9 @@ bool validateResults(ILogicalDevice* device, const uint32_t* inputData, const ui
 	bool success = true;
 
 	auto mem = bufferToRead->getBoundMemory();
-	if (mem->getMappingCaps()&IDriverMemoryAllocation::EMCF_COHERENT)
+	if (mem->getMappingCaps()&IDeviceMemoryAllocation::EMCF_COHERENT)
 	{
-		IDriverMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
+		IDeviceMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
 		device->invalidateMappedMemoryRanges(1u,&rng);
 	}
 
@@ -337,31 +337,31 @@ public:
 			params.queueFamilyIndices = nullptr;
 			params.sharingMode = ESM_CONCURRENT;
 			params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_TRANSFER_SRC_BIT;
-			IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+			IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
 			reqs.vulkanReqs.memoryTypeBits = ~0u;
 			reqs.vulkanReqs.alignment = 256u;
 			reqs.vulkanReqs.size = kBufferSize;
-			reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-			reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
+			reqs.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
+			reqs.mappingCapability = IDeviceMemoryAllocation::EMCAF_READ;
 			buffers[i] = logicalDevice->createGPUBufferOnDedMem(params, reqs);
-			IDriverMemoryAllocation::MappedMemoryRange mem;
+			IDeviceMemoryAllocation::MappedMemoryRange mem;
 			mem.memory = buffers[i]->getBoundMemory();
 			mem.offset = 0u;
 			mem.length = kBufferSize;
-			logicalDevice->mapMemory(mem, IDriverMemoryAllocation::EMCAF_READ);
+			logicalDevice->mapMemory(mem, IDeviceMemoryAllocation::EMCAF_READ);
 		}
 
 		IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
 		for (uint32_t i = 0u; i < totalBufferCount; i++)
 			binding[i] = { i,EDT_STORAGE_BUFFER,1u,IShader::ESS_COMPUTE,nullptr };
-		auto gpuDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding, binding + totalBufferCount);
+		auto gpuDSLayout = logicalDevice->createDescriptorSetLayout(binding, binding + totalBufferCount);
 
 		constexpr uint32_t pushconstantSize = 8u * totalBufferCount;
 		SPushConstantRange pcRange[1] = { IShader::ESS_COMPUTE,0u,pushconstantSize };
-		auto pipelineLayout = logicalDevice->createGPUPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
+		auto pipelineLayout = logicalDevice->createPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
 
 		auto descPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE, &gpuDSLayout.get(), &gpuDSLayout.get() + 1u);
-		auto descriptorSet = logicalDevice->createGPUDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
+		auto descriptorSet = logicalDevice->createDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
 		{
 			IGPUDescriptorSet::SDescriptorInfo infos[totalBufferCount];
 			infos[0].desc = gpuinputDataBuffer;
@@ -429,7 +429,7 @@ public:
 		{
 			core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
 			for (uint32_t i = 0u; i < kTestTypeCount; i++)
-				pipelines[i] = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i].get(), workgroupSize)));
+				pipelines[i] = logicalDevice->createComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i].get(), workgroupSize)));
 
 			bool passed = true;
 

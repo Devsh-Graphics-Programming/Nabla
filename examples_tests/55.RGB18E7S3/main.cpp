@@ -125,7 +125,7 @@ int main()
 
     auto ssboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
     ssboMemoryReqs.vulkanReqs.size = sizeof(SShaderStorageBufferObject);
-    ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
+    ssboMemoryReqs.mappingCapability = video::IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE;
 
     video::IGPUBuffer::SCreationParams ssboCreationParams;
     ssboCreationParams.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_TRANSFER_DST_BIT;
@@ -146,8 +146,8 @@ int main()
     };
 
     auto gpuCDescriptorPool = createDescriptorPool(ES_COUNT, asset::EDT_STORAGE_BUFFER);
-    auto gpuCDescriptorSetLayout = logicalDevice->createGPUDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + ES_COUNT);
-    auto gpuCDescriptorSet = logicalDevice->createGPUDescriptorSet(gpuCDescriptorPool.get(), core::smart_refctd_ptr(gpuCDescriptorSetLayout));
+    auto gpuCDescriptorSetLayout = logicalDevice->createDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + ES_COUNT);
+    auto gpuCDescriptorSet = logicalDevice->createDescriptorSet(gpuCDescriptorPool.get(), core::smart_refctd_ptr(gpuCDescriptorSetLayout));
     {
         video::IGPUDescriptorSet::SDescriptorInfo gpuDescriptorSetInfos[ES_COUNT];
 
@@ -179,8 +179,8 @@ int main()
         }
     }
 
-    auto gpuCPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
-    auto gpuComputePipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
+    auto gpuCPipelineLayout = logicalDevice->createPipelineLayout(nullptr, nullptr, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
+    auto gpuComputePipeline = logicalDevice->createComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
 
     core::smart_refctd_ptr<video::IGPUCommandBuffer> commandBuffer;
     logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_COMPUTE].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
@@ -215,8 +215,8 @@ int main()
     }
     logicalDevice->blockForFences(1u,&gpuFence.get());
 
-    video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuDownloadSSBOmapped->getBoundMemory(), 0u, gpuDownloadSSBOmapped->getSize());
-    logicalDevice->mapMemory(mappedMemoryRange, video::IDriverMemoryAllocation::EMCAF_READ);
+    video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuDownloadSSBOmapped->getBoundMemory(), 0u, gpuDownloadSSBOmapped->getSize());
+    logicalDevice->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
 
     if (gpuDownloadSSBOmapped->getBoundMemory()->haveToMakeVisible())
         logicalDevice->invalidateMappedMemoryRanges(1u, &mappedMemoryRange);

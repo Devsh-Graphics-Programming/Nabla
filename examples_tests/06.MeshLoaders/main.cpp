@@ -53,7 +53,7 @@ public:
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
     
     core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
-    video::IDriverMemoryBacked::SDriverMemoryRequirements ubomemreq;
+    video::IDeviceMemoryBacked::SDeviceMemoryRequirements ubomemreq;
     core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
 
@@ -189,7 +189,7 @@ public:
         initOutput.window = core::smart_refctd_ptr(window);
         initOutput.system = core::smart_refctd_ptr(system);
 
-        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_SRC_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
         CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "MeshLoaders", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
@@ -231,16 +231,19 @@ public:
         {
             // SAMPLES_PASSED_0 + AVAILABILIY_0 + SAMPLES_PASSED_1 + AVAILABILIY_1 (uint32_t)
             const size_t queriesSize = sizeof(uint32_t) * 4;
-            auto memreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
-            memreq.vulkanReqs.size = queriesSize;
             video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+            gpuuboCreationParams.size = queriesSize;
             gpuuboCreationParams.canUpdateSubRange = true;
             gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
             gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
             gpuuboCreationParams.queueFamilyIndexCount = 0u;
             gpuuboCreationParams.queueFamilyIndices = nullptr;
 
-            queryResultsBuffer = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams, memreq);
+            queryResultsBuffer = logicalDevice->createBuffer(gpuuboCreationParams);
+            auto memReqs = queryResultsBuffer->getMemoryReqs();
+            memReqs.memoryTypeBits &= physicalDevice->getDeviceLocalMemoryTypeBits();
+            auto queriesMem = logicalDevice->allocate(memReqs, queryResultsBuffer.get());
+
             queryResultsBuffer->setObjectDebugName("QueryResults");
         }
 
@@ -306,17 +309,20 @@ public:
 
         descriptorPool = createDescriptorPool(1u);
 
-        ubomemreq = logicalDevice->getDeviceLocalGPUMemoryReqs();
-        ubomemreq.vulkanReqs.size = neededDS1UBOsz;
         video::IGPUBuffer::SCreationParams gpuuboCreationParams;
+        gpuuboCreationParams.size = neededDS1UBOsz;
         gpuuboCreationParams.canUpdateSubRange = true;
         gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
         gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
         gpuuboCreationParams.queueFamilyIndexCount = 0u;
         gpuuboCreationParams.queueFamilyIndices = nullptr;
 
-        gpuubo = logicalDevice->createGPUBufferOnDedMem(gpuuboCreationParams,ubomemreq);
-        gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
+        gpuubo = logicalDevice->createBuffer(gpuuboCreationParams);
+        auto gpuuboMemReqs = gpuubo->getMemoryReqs();
+        gpuuboMemReqs.memoryTypeBits &= physicalDevice->getDeviceLocalMemoryTypeBits();
+        auto uboMemoryOffset = logicalDevice->allocate(gpuuboMemReqs, gpuubo.get(), video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
+
+        gpuds1 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
 
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
@@ -356,13 +362,14 @@ public:
                 graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
                 const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-                gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+                gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
             }
         }
 
-        core::vectorSIMDf cameraPosition(0, 5, -10);
-        matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 1000);
-        camera = Camera(cameraPosition, core::vectorSIMDf(0, 0, 0), projectionMatrix, 10.f, 1.f);
+        core::vectorSIMDf cameraPosition(-250.0f,177.0f,1.69f);
+        core::vectorSIMDf cameraTarget(50.0f,125.0f,-3.0f);
+        matrix4SIMD projectionMatrix = matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(60.0f), float(WIN_W) / WIN_H, 0.1, 10000);
+        camera = Camera(cameraPosition, cameraTarget, projectionMatrix, 10.f, 1.f);
         lastTime = std::chrono::steady_clock::now();
 
         for (size_t i = 0ull; i < NBL_FRAMES_TO_AVERAGE; ++i)
@@ -447,7 +454,7 @@ public:
         modelMatrix.setTranslation(nbl::core::vectorSIMDf(0, 0, 0, 0));
         core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjectionMatrix, modelMatrix);
 
-        const size_t uboSize = gpuubo->getCachedCreationParams().declaredSize;
+        const size_t uboSize = gpuubo->getSize();
         core::vector<uint8_t> uboData(uboSize);
         for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
         {

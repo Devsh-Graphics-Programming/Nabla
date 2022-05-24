@@ -143,7 +143,7 @@ public:
     {
         CommonAPI::InitOutput initOutput;
 
-        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_SRC_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
         CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "SubpassBaking", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
@@ -248,7 +248,7 @@ public:
             cameraUBOCreationParams.queueFamilyIndices = nullptr;
 
             cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams, ubomemreq);
-            perCameraDescSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
+            perCameraDescSet = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
             {
                 video::IGPUDescriptorSet::SWriteDescriptorSet write;
                 write.dstSet = perCameraDescSet.get();
@@ -354,7 +354,7 @@ public:
                             params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(renderpassIndep);
                             params.renderpass = core::smart_refctd_ptr(renderpass);
                             params.subpassIx = kSubpassIx;
-                            foundPpln = graphicsPipelines.emplace_hint(foundPpln, renderpassIndep, logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(params)));
+                            foundPpln = graphicsPipelines.emplace_hint(foundPpln, renderpassIndep, logicalDevice->createGraphicsPipeline(nullptr, std::move(params)));
                         }
                         drawcall.pipeline = foundPpln->second;
                     }
@@ -524,7 +524,7 @@ public:
             const auto& viewMatrix = camera.getViewMatrix();
             const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
-            const size_t camUboSize = cameraUBO->getCachedCreationParams().declaredSize;
+            const size_t camUboSize = cameraUBO->getSize();
             core::vector<uint8_t> uboData(camUboSize);
             for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
             {

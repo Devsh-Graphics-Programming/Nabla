@@ -201,8 +201,8 @@ int main()
 	const uint32_t ds_sort_count = 2u;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> ds_sort[ds_sort_count];
 	for (uint32_t i = 0; i < ds_sort_count; ++i)
-		ds_sort[i] = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
-	auto ds_scan = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultScanDescriptorSetLayout()));
+		ds_sort[i] = driver->createDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultSortDescriptorSetLayout()));
+	auto ds_scan = driver->createDescriptorSet(core::smart_refctd_ptr<const video::IGPUDescriptorSetLayout>(sorter->getDefaultScanDescriptorSetLayout()));
 
 	auto histogram_pipeline = sorter->getDefaultHistogramPipeline();	
 	auto upsweep_pipeline = sorter->getDefaultUpsweepPipeline();

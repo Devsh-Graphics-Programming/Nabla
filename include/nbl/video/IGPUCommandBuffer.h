@@ -57,7 +57,7 @@ public:
 
     inline bool isResettable() const
     {
-        return m_cmdpool->getCreationFlags().hasValue(IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+        return m_cmdpool->getCreationFlags().hasFlags(IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
     }
 
     inline bool canReset() const

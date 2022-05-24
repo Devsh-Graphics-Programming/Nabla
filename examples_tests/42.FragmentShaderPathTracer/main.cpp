@@ -49,7 +49,7 @@ smart_refctd_ptr<IGPUImageView> createHDRImageView(nbl::core::smart_refctd_ptr<n
 		imgViewInfo.subresourceRange.layerCount = 1u;
 		imgViewInfo.subresourceRange.levelCount = 1u;
 
-		gpuImageViewColorBuffer = device->createGPUImageView(std::move(imgViewInfo));
+		gpuImageViewColorBuffer = device->createImageView(std::move(imgViewInfo));
 	}
 
 	return gpuImageViewColorBuffer;
@@ -182,9 +182,9 @@ int main()
 		{ 2u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IShader::ESS_COMPUTE, nullptr }
 	};
 	
-	auto gpuDescriptorSetLayout0 = device->createGPUDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
-	auto gpuDescriptorSetLayout1 = device->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
-	auto gpuDescriptorSetLayout2 = device->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+3u);
+	auto gpuDescriptorSetLayout0 = device->createDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
+	auto gpuDescriptorSetLayout1 = device->createDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
+	auto gpuDescriptorSetLayout2 = device->createDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+3u);
 
 	auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 	{
@@ -210,9 +210,9 @@ int main()
 
 		auto gpuComputeSpecializedShader = CPU2GPU.getGPUObjectsFromAssets(&cpuComputeSpecializedShader, &cpuComputeSpecializedShader + 1, cpu2gpuParams)->front();
 
-		auto gpuPipelineLayout = device->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout0), core::smart_refctd_ptr(gpuDescriptorSetLayout1), core::smart_refctd_ptr(gpuDescriptorSetLayout2), nullptr);
+		auto gpuPipelineLayout = device->createPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout0), core::smart_refctd_ptr(gpuDescriptorSetLayout1), core::smart_refctd_ptr(gpuDescriptorSetLayout2), nullptr);
 
-		auto gpuPipeline = device->createGPUComputePipeline(nullptr, std::move(gpuPipelineLayout), std::move(gpuComputeSpecializedShader));
+		auto gpuPipeline = device->createComputePipeline(nullptr, std::move(gpuPipelineLayout), std::move(gpuComputeSpecializedShader));
 
 		return gpuPipeline;
 	};
@@ -223,7 +223,7 @@ int main()
 
 	DispatchInfo_t dispatchInfo = getDispatchInfo(WIN_W, WIN_H);
 
-	auto createGPUImageView = [&](std::string pathToOpenEXRHDRIImage)
+	auto createImageView = [&](std::string pathToOpenEXRHDRIImage)
 	{
 		auto pathToTexture = pathToOpenEXRHDRIImage;
 		IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
@@ -253,7 +253,7 @@ int main()
 		return gpuImageView;
 	};
 	
-	auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
+	auto gpuEnvmapImageView = createImageView("../../media/envmap/envmap_0.exr");
 
 	smart_refctd_ptr<IGPUBufferView> gpuSequenceBufferView;
 	{
@@ -282,7 +282,7 @@ int main()
 			gpuSequenceBuffer = device->createDeviceLocalGPUBufferOnDedMem(params, size);
 			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,gpuSequenceBuffer},sampleSequence->getPointer());
 		}
-		gpuSequenceBufferView = device->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
+		gpuSequenceBufferView = device->createBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
 
 	smart_refctd_ptr<IGPUImageView> gpuScrambleImageView;
@@ -335,7 +335,7 @@ int main()
 		viewParams.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 		viewParams.subresourceRange.levelCount = 1u;
 		viewParams.subresourceRange.layerCount = 1u;
-		gpuScrambleImageView = device->createGPUImageView(std::move(viewParams));
+		gpuScrambleImageView = device->createImageView(std::move(viewParams));
 	}
 	
 	// Create Out Image TODO
@@ -348,7 +348,7 @@ int main()
 	for(uint32_t i = 0; i < FBO_COUNT; ++i)
 	{
 		auto & descSet = descriptorSets0[i];
-		descSet = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout0));
+		descSet = device->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout0));
 		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet;
 		writeDescriptorSet.dstSet = descSet.get();
 		writeDescriptorSet.binding = 0;
@@ -374,7 +374,7 @@ int main()
 	const size_t gpuuboParamsSize = sizeof(SBasicViewParametersAligned);
 	gpuuboParams.usage = core::bitflag(IGPUBuffer::EUF_UNIFORM_BUFFER_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
 	auto gpuubo = device->createDeviceLocalGPUBufferOnDedMem(gpuuboParams, gpuuboParamsSize);
-	auto uboDescriptorSet1 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
+	auto uboDescriptorSet1 = device->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
 		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
 		uboWriteDescriptorSet.dstSet = uboDescriptorSet1.get();
@@ -393,11 +393,11 @@ int main()
 	}
 
 	ISampler::SParams samplerParams0 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-	auto sampler0 = device->createGPUSampler(samplerParams0);
+	auto sampler0 = device->createSampler(samplerParams0);
 	ISampler::SParams samplerParams1 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-	auto sampler1 = device->createGPUSampler(samplerParams1);
+	auto sampler1 = device->createSampler(samplerParams1);
 	
-	auto descriptorSet2 = device->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
+	auto descriptorSet2 = device->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
 	{
 		constexpr auto kDescriptorCount = 3;
 		IGPUDescriptorSet::SWriteDescriptorSet samplerWriteDescriptorSet[kDescriptorCount];

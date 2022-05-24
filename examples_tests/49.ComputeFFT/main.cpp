@@ -57,9 +57,9 @@ R"===(#version 430 core
 		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
 	);
 	
-	auto gpuShader = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+	auto gpuShader = driver->createShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
 	
-	auto gpuSpecializedShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+	auto gpuSpecializedShader = driver->createSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
 
 	return gpuSpecializedShader;
 }
@@ -204,7 +204,7 @@ int main()
 		srcImgViewInfo.subresourceRange.levelCount = 1;
 		srcImgViewInfo.subresourceRange.baseArrayLayer = 0;
 		srcImgViewInfo.subresourceRange.layerCount = 1;
-		srcImageView = driver->createGPUImageView(std::move(srcImgViewInfo));
+		srcImageView = driver->createImageView(std::move(srcImgViewInfo));
 	}
 	smart_refctd_ptr<IGPUImageView> kerImageView;
 	{
@@ -220,7 +220,7 @@ int main()
 		kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
 		kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
 		kerImgViewInfo.subresourceRange.layerCount = 1;
-		kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
+		kerImageView = driver->createImageView(std::move(kerImgViewInfo));
 	}
 
 	// agree on formats
@@ -242,7 +242,7 @@ int main()
 		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(dstImgInfo));
 
 		dstImgViewInfo.image = outImg;
-		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(dstImgViewInfo));
+		outImgView = driver->createImageView(IGPUImageView::SCreationParams(dstImgViewInfo));
 	}
 
 	// input pipeline
@@ -269,9 +269,9 @@ int main()
 		core::SRange<const asset::SPushConstantRange> pcRange = FFTClass::getDefaultPushConstantRanges();
 		core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 
-		return driver->createGPUPipelineLayout(
+		return driver->createPipelineLayout(
 			pcRange.begin(),pcRange.end(),
-			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+			driver->createDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 		);
 	}();
 	auto convolvePipelineLayout = [driver]() -> auto
@@ -291,7 +291,7 @@ int main()
 				ISampler::ECO_ALWAYS
 			}
 		};
-		auto sampler = driver->createGPUSampler(std::move(params));
+		auto sampler = driver->createSampler(std::move(params));
 		smart_refctd_ptr<IGPUSampler> samplers[channelCountOverride];
 		std::fill_n(samplers,channelCountOverride,sampler);
 
@@ -323,9 +323,9 @@ int main()
 		const asset::SPushConstantRange pcRange = {ISpecializedShader::ESS_COMPUTE,0u,sizeof(convolve_parameters_t)};
 		core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 
-		return driver->createGPUPipelineLayout(
+		return driver->createPipelineLayout(
 			&pcRange,&pcRange+1,
-			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+			driver->createDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 		);
 	}();
 	auto lastFFTPipelineLayout = [driver]() -> auto
@@ -351,9 +351,9 @@ int main()
 		const asset::SPushConstantRange pcRange = {ISpecializedShader::ESS_COMPUTE,0u,sizeof(image_store_parameters_t)};
 		core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};;
 
-		return driver->createGPUPipelineLayout(
+		return driver->createPipelineLayout(
 			&pcRange,&pcRange+1,
-			driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+			driver->createDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 		);
 	}();
 
@@ -397,7 +397,7 @@ int main()
 				ISampler::ECO_ALWAYS
 			}
 		};
-		auto sampler = driver->createGPUSampler(std::move(params));
+		auto sampler = driver->createSampler(std::move(params));
 		
 		constexpr auto kDescriptorCount = 2u;
 		video::IGPUDescriptorSet::SDescriptorInfo pInfos[kDescriptorCount];
@@ -455,7 +455,7 @@ int main()
 			viewParams.subresourceRange = {};
 			viewParams.subresourceRange.levelCount = 1u;
 			viewParams.subresourceRange.layerCount = 1u;
-			return driver->createGPUImageView(std::move(viewParams));
+			return driver->createImageView(std::move(viewParams));
 		};
 		for (uint32_t i=0u; i<channelCountOverride; i++)
 			kernelNormalizedSpectrums[i] = createKernelSpectrum();
@@ -472,8 +472,8 @@ int main()
 		// descriptor sets
 		core::smart_refctd_ptr<IGPUDescriptorSet> fftDescriptorSet_Ker_FFT[2] =
 		{
-			driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u))),
-			driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipeline_SSBOInput->getLayout()->getDescriptorSetLayout(0u)))
+			driver->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u))),
+			driver->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipeline_SSBOInput->getLayout()->getDescriptorSetLayout(0u)))
 		};
 		updateDescriptorSet(fftDescriptorSet_Ker_FFT[0].get(), kerImageView, ISampler::ETC_CLAMP_TO_BORDER, fftOutputBuffer_0);
 		FFTClass::updateDescriptorSet(driver,fftDescriptorSet_Ker_FFT[1].get(), fftOutputBuffer_0, fftOutputBuffer_1);
@@ -507,14 +507,14 @@ int main()
 			pc_rng.offset = 0u;
 			pc_rng.size = sizeof(NormalizationPushConstants);
 			pc_rng.stageFlags = ISpecializedShader::ESS_COMPUTE;
-			return driver->createGPUPipelineLayout(
+			return driver->createPipelineLayout(
 				&pc_rng,&pc_rng+1u,
-				driver->createGPUDescriptorSetLayout(bnd,bnd+2),nullptr,nullptr,nullptr
+				driver->createDescriptorSetLayout(bnd,bnd+2),nullptr,nullptr,nullptr
 			);
 		}();
 		auto fftDescriptorSet_KernelNormalization = [&]() -> auto
 		{
-			auto dset = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_KernelNormalization->getDescriptorSetLayout(0u)));
+			auto dset = driver->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_KernelNormalization->getDescriptorSetLayout(0u)));
 
 			video::IGPUDescriptorSet::SDescriptorInfo pInfos[1+channelCountOverride];
 			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[2];
@@ -553,7 +553,7 @@ int main()
 
 		// Ker Image First Axis FFT
 		{
-			auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../image_first_fft.comp",bloomScale));
+			auto fftPipeline_ImageInput = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../image_first_fft.comp",bloomScale));
 			driver->bindComputePipeline(fftPipeline_ImageInput.get());
 			driver->bindDescriptorSets(EPBP_COMPUTE, imageFirstFFTPipelineLayout.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT[0].get(), nullptr);
 			FFTClass::dispatchHelper(driver, imageFirstFFTPipelineLayout.get(), fftPushConstants[0], fftDispatchInfo[0]);
@@ -565,7 +565,7 @@ int main()
 		FFTClass::dispatchHelper(driver, fftPipeline_SSBOInput->getLayout(), fftPushConstants[1], fftDispatchInfo[1]);
 		
 		// Ker Normalization
-		auto fftPipeline_KernelNormalization = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization),createShader(driver,0xdeadbeefu,useHalfFloats,"../normalization.comp"));
+		auto fftPipeline_KernelNormalization = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization),createShader(driver,0xdeadbeefu,useHalfFloats,"../normalization.comp"));
 		driver->bindComputePipeline(fftPipeline_KernelNormalization.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_KernelNormalization.get(), 0u, 1u, &fftDescriptorSet_KernelNormalization.get(), nullptr);
 		{
@@ -605,20 +605,20 @@ int main()
 	}
 	assert(passes==2);
 	// pipelines
-	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../image_first_fft.comp"));
-	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, std::move(convolvePipelineLayout), createShader(driver,0x1u<<fftPushConstants[1].getLog2FFTSize(),useHalfFloats, "../fft_convolve_ifft.comp"));
-	auto lastFFTPipeline = driver->createGPUComputePipeline(nullptr, std::move(lastFFTPipelineLayout), createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../last_fft.comp"));
+	auto fftPipeline_ImageInput = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(imageFirstFFTPipelineLayout),createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../image_first_fft.comp"));
+	auto convolvePipeline = driver->createComputePipeline(nullptr, std::move(convolvePipelineLayout), createShader(driver,0x1u<<fftPushConstants[1].getLog2FFTSize(),useHalfFloats, "../fft_convolve_ifft.comp"));
+	auto lastFFTPipeline = driver->createComputePipeline(nullptr, std::move(lastFFTPipelineLayout), createShader(driver,0x1u<<fftPushConstants[0].getLog2FFTSize(),useHalfFloats,"../last_fft.comp"));
 
 	// Src First Axis FFT
-	auto fftDescriptorSet_Src_FirstFFT = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
+	auto fftDescriptorSet_Src_FirstFFT = driver->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(imageFirstFFTPipelineLayout->getDescriptorSetLayout(0u)));
 	updateDescriptorSet(fftDescriptorSet_Src_FirstFFT.get(), srcImageView, ISampler::ETC_MIRROR, fftOutputBuffer_0);
 
 	// Convolution
-	auto convolveDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipeline->getLayout()->getDescriptorSetLayout(0u)));
+	auto convolveDescriptorSet = driver->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipeline->getLayout()->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_0, fftOutputBuffer_1, kernelNormalizedSpectrums);
 
 	// Last Axis IFFT
-	auto lastFFTDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(lastFFTPipeline->getLayout()->getDescriptorSetLayout(0u)));
+	auto lastFFTDescriptorSet = driver->createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(lastFFTPipeline->getLayout()->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_LastFFT(driver, lastFFTDescriptorSet.get(), fftOutputBuffer_1, outImgView);
 
 	uint32_t outBufferIx = 0u;

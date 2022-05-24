@@ -86,13 +86,13 @@ core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> createGraphicsP
     fsSrc.insert(_2ndLine+1u, "#define "s + _testName + "\n");
 
     auto cpufs = core::make_smart_refctd_ptr<asset::ICPUShader>(fsSrc.c_str());
-    auto fs = _driver->createGPUShader(std::move(cpufs));
+    auto fs = _driver->createShader(std::move(cpufs));
     asset::ISpecializedShader::SInfo fsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT, "../shader.frag");
-    auto fs_spec = _driver->createGPUSpecializedShader(fs.get(), fsinfo);
+    auto fs_spec = _driver->createSpecializedShader(fs.get(), fsinfo);
 
     video::IGPUSpecializedShader* shaders[2] {_vs,fs_spec.get()};
     asset::SRasterizationParams raster;
-    return _driver->createGPURenderpassIndependentPipeline(nullptr, std::move(_layout), shaders, shaders+2, _dat.inputParams, asset::SBlendParams{}, _dat.assemblyParams, raster);
+    return _driver->createRenderpassIndependentPipeline(nullptr, std::move(_layout), shaders, shaders+2, _dat.inputParams, asset::SBlendParams{}, _dat.assemblyParams, raster);
 }
 
 int main()
@@ -146,7 +146,7 @@ int main()
         rng[1].size = sizeof(SPushConsts::campos);
         rng[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
 
-        layout = driver->createGPUPipelineLayout(rng, rng+2);
+        layout = driver->createPipelineLayout(rng, rng+2);
     }
 
     constexpr uint32_t INSTANCE_COUNT = 10u;
@@ -169,10 +169,10 @@ int main()
 
         io::IReadFile* file = fs->createAndOpenFile("../shader.vert");
         auto cpuvs = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_VERTEX, "../shader.vert");
-        auto vs = driver->createGPUShader(std::move(cpuvs));
+        auto vs = driver->createShader(std::move(cpuvs));
         file->drop();
         asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX, "../shader.vert");
-        auto vs_spec = driver->createGPUSpecializedShader(vs.get(), vsinfo);
+        auto vs_spec = driver->createSpecializedShader(vs.get(), vsinfo);
 
         file = fs->createAndOpenFile("../shader.frag");
         std::string fsSrc;
@@ -217,7 +217,7 @@ int main()
     imgViewInfo.subresourceRange.layerCount = imgInfo.arrayLayers;
     imgViewInfo.subresourceRange.levelCount = imgInfo.mipLevels;
 
-    auto imageView = driver->createGPUImageView(std::move(imgViewInfo));
+    auto imageView = driver->createImageView(std::move(imgViewInfo));
 
     auto* fbo = driver->addFrameBuffer();
     fbo->attach(video::EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(imageView));

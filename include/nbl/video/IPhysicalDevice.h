@@ -26,75 +26,167 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
     public:
         //
         virtual E_API_TYPE getAPIType() const = 0;
-        
-        // TODO: fold into SLimits
+
+        enum E_TYPE : uint8_t {
+            ET_UNKNOWN = 0,
+            ET_INTEGRATED_GPU = 1,
+            ET_DISCRETE_GPU = 2,
+            ET_VIRTUAL_GPU = 3,
+            ET_CPU = 4,
+        };
+
+        enum E_DRIVER_ID : uint8_t
+        {
+            EDI_UNKNOWN = 0,
+            EDI_AMD_PROPRIETARY = 1,
+            EDI_AMD_OPEN_SOURCE = 2,
+            EDI_MESA_RADV = 3,
+            EDI_NVIDIA_PROPRIETARY = 4,
+            EDI_INTEL_PROPRIETARY_WINDOWS = 5,
+            EDI_INTEL_OPEN_SOURCE_MESA = 6,
+            EDI_IMAGINATION_PROPRIETARY = 7,
+            EDI_QUALCOMM_PROPRIETARY = 8,
+            EDI_ARM_PROPRIETARY = 9,
+            EDI_GOOGLE_SWIFTSHADER = 10,
+            EDI_GGP_PROPRIETARY = 11,
+            EDI_BROADCOM_PROPRIETARY = 12,
+            EDI_MESA_LLVMPIPE = 13,
+            EDI_MOLTENVK = 14,
+            EDI_COREAVI_PROPRIETARY = 15,
+            EDI_JUICE_PROPRIETARY = 16,
+            EDI_VERISILICON_PROPRIETARY = 17,
+            EDI_MESA_TURNIP = 18,
+            EDI_MESA_V3DV = 19,
+            EDI_MESA_PANVK = 20,
+            EDI_SAMSUNG_PROPRIETARY = 21,
+            EDI_MESA_VENUS = 22,
+        };
+
+        //
         struct APIVersion
         {
             uint32_t major : 5;
             uint32_t minor : 5;
             uint32_t patch : 22;
         };
-        const APIVersion& getAPIVersion() const { return m_apiVersion; }
-        
+
         //
         struct SLimits
         {
-            uint8_t deviceUUID[VK_UUID_SIZE] = {}; // TODO: implement on Vulkan with VkPhysicalDeviceIDProperties
-
-            //
-            uint32_t UBOAlignment;
-            uint32_t SSBOAlignment;
-            uint32_t bufferViewAlignment;
-            float    maxSamplerAnisotropyLog2;
-            float    timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
-
+            //uint32_t              maxImageDimension1D;
+            //uint32_t              maxImageDimension2D;
+            //uint32_t              maxImageDimension3D;
+            //uint32_t              maxImageDimensionCube;
+            uint32_t maxImageArrayLayers;
+            uint32_t maxBufferViewSizeTexels;
             uint32_t maxUBOSize;
             uint32_t maxSSBOSize;
-            uint32_t maxBufferViewSizeTexels;
-            uint32_t maxBufferSize;
-
-            uint32_t maxImageArrayLayers;
-
-            uint32_t maxPerStageSSBOs;
-            //uint32_t maxPerStageUBOs;
-            //uint32_t maxPerStageTextures;
-            //uint32_t maxPerStageStorageImages;
-
-            uint32_t maxSSBOs;
-            uint32_t maxUBOs;
-            uint32_t maxDynamicOffsetSSBOs;
-            uint32_t maxDynamicOffsetUBOs;
-            uint32_t maxTextures;
-            uint32_t maxStorageImages;
-
-            uint64_t maxTextureSize;
-
+            //uint32_t              maxPushConstantsSize;
+            //uint32_t              maxMemoryAllocationCount;
+            //uint32_t              maxSamplerAllocationCount;
+            //VkDeviceSize          bufferImageGranularity;
+            //VkDeviceSize          sparseAddressSpaceSize;
+            //uint32_t              maxBoundDescriptorSets;
+            //uint32_t              maxPerStageDescriptorSamplers;
+            //uint32_t              maxPerStageDescriptorUniformBuffers;
+            uint32_t maxPerStageDescriptorSSBOs;
+            //uint32_t              maxPerStageDescriptorSampledImages;
+            //uint32_t              maxPerStageDescriptorStorageImages;
+            //uint32_t              maxPerStageDescriptorInputAttachments;
+            //uint32_t              maxPerStageResources;
+            //uint32_t              maxDescriptorSetSamplers;
+            uint32_t maxDescriptorSetUBOs;
+            uint32_t maxDescriptorSetDynamicOffsetUBOs;
+            uint32_t maxDescriptorSetSSBOs;
+            uint32_t maxDescriptorSetDynamicOffsetSSBOs;
+            uint32_t maxDescriptorSetImages;
+            uint32_t maxDescriptorSetStorageImages;
+            //uint32_t              maxDescriptorSetInputAttachments;
+            //uint32_t              maxVertexInputAttributes;
+            //uint32_t              maxVertexInputBindings;
+            //uint32_t              maxVertexInputAttributeOffset;
+            //uint32_t              maxVertexInputBindingStride;
+            //uint32_t              maxVertexOutputComponents;
+            //uint32_t              maxTessellationGenerationLevel;
+            //uint32_t              maxTessellationPatchSize;
+            //uint32_t              maxTessellationControlPerVertexInputComponents;
+            //uint32_t              maxTessellationControlPerVertexOutputComponents;
+            //uint32_t              maxTessellationControlPerPatchOutputComponents;
+            //uint32_t              maxTessellationControlTotalOutputComponents;
+            //uint32_t              maxTessellationEvaluationInputComponents;
+            //uint32_t              maxTessellationEvaluationOutputComponents;
+            //uint32_t              maxGeometryShaderInvocations;
+            //uint32_t              maxGeometryInputComponents;
+            //uint32_t              maxGeometryOutputComponents;
+            //uint32_t              maxGeometryOutputVertices;
+            //uint32_t              maxGeometryTotalOutputComponents;
+            //uint32_t              maxFragmentInputComponents;
+            //uint32_t              maxFragmentOutputAttachments;
+            //uint32_t              maxFragmentDualSrcAttachments;
+            //uint32_t              maxFragmentCombinedOutputResources;
+            uint32_t maxComputeSharedMemorySize;
+            //uint32_t              maxComputeWorkGroupCount[3];
+            //uint32_t              maxComputeWorkGroupInvocations;
+            uint32_t maxWorkgroupSize[3];
+            //uint32_t              subPixelPrecisionBits;
+            //uint32_t              subTexelPrecisionBits;
+            //uint32_t              mipmapPrecisionBits;
+            //uint32_t              maxDrawIndexedIndexValue;
             uint32_t maxDrawIndirectCount;
-
-            float pointSizeRange[2];
-            float lineWidthRange[2];
-
+            //float                 maxSamplerLodBias;
+            float    maxSamplerAnisotropyLog2;
             uint32_t maxViewports;
             uint32_t maxViewportDims[2];
-
-            uint32_t maxWorkgroupSize[3];
-            // its 1D because multidimensional workgroups are an illusion
-            uint32_t maxOptimallyResidentWorkgroupInvocations = 0u;
-
-            uint32_t subgroupSize;
-
-            // These are maximum number of invocations you could expect to execute simultaneously on this device.
-            uint32_t maxResidentInvocations = 0u;
-
-            // TODO: move the subgroupOps bitflag to `SFeatures`
-            // Also isn't there a separate bitflag per subgroup op type?
-            core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
-
+            //float                 viewportBoundsRange[2];
+            //uint32_t              viewportSubPixelBits;
+            //size_t                minMemoryMapAlignment;
+            uint32_t bufferViewAlignment;
+            uint32_t UBOAlignment;
+            uint32_t SSBOAlignment;
+            //int32_t               minTexelOffset;
+            //uint32_t              maxTexelOffset;
+            //int32_t               minTexelGatherOffset;
+            //uint32_t              maxTexelGatherOffset;
+            //float                 minInterpolationOffset;
+            //float                 maxInterpolationOffset;
+            //uint32_t              subPixelInterpolationOffsetBits;
+            //uint32_t              maxFramebufferWidth;
+            //uint32_t              maxFramebufferHeight;
+            //uint32_t              maxFramebufferLayers;
+            //VkSampleCountFlags    framebufferColorSampleCounts;
+            //VkSampleCountFlags    framebufferDepthSampleCounts;
+            //VkSampleCountFlags    framebufferStencilSampleCounts;
+            //VkSampleCountFlags    framebufferNoAttachmentsSampleCounts;
+            //uint32_t              maxColorAttachments;
+            //VkSampleCountFlags    sampledImageColorSampleCounts;
+            //VkSampleCountFlags    sampledImageIntegerSampleCounts;
+            //VkSampleCountFlags    sampledImageDepthSampleCounts;
+            //VkSampleCountFlags    sampledImageStencilSampleCounts;
+            //VkSampleCountFlags    storageImageSampleCounts;
+            //uint32_t              maxSampleMaskWords;
+            //VkBool32              timestampComputeAndGraphics;
+            float    timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
+            //uint32_t              maxClipDistances;
+            //uint32_t              maxCullDistances;
+            //uint32_t              maxCombinedClipAndCullDistances;
+            //uint32_t              discreteQueuePriorities;
+            float pointSizeRange[2];
+            float lineWidthRange[2];
+            //float                 pointSizeGranularity;
+            //float                 lineWidthGranularity;
+            //VkBool32              strictLines;
+            //VkBool32              standardSampleLocations;
+            //VkDeviceSize          optimalBufferCopyOffsetAlignment;
+            //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
             uint64_t nonCoherentAtomSize;
 
-            asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
-
-            // AccelerationStructure
+            //--> VkPhysicalDeviceSubgroupProperties
+            uint32_t subgroupSize;
+            core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+            //VkSubgroupFeatureFlags    supportedOperations; -> in SFeatures as booleans instead of flags
+            //VkBool32                  quadOperationsInAllStages;
+            
+            //--> VkPhysicalDeviceAccelerationStructurePropertiesKHR
             uint64_t           maxGeometryCount;
             uint64_t           maxInstanceCount;
             uint64_t           maxPrimitiveCount;
@@ -104,7 +196,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
             uint32_t           minAccelerationStructureScratchOffsetAlignment;
 
-            // RayTracingPipeline
+            //--> VkPhysicalDeviceRayTracingPipelinePropertiesKHR
             uint32_t           shaderGroupHandleSize;
             uint32_t           maxRayRecursionDepth;
             uint32_t           maxShaderGroupStride;
@@ -113,6 +205,13 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t           maxRayDispatchInvocationCount;
             uint32_t           shaderGroupHandleAlignment;
             uint32_t           maxRayHitAttributeSize;
+
+            //--> Nabla:
+            uint32_t maxBufferSize;
+            uint64_t maxTextureSize; // TODO: Use maxImageDimensions1D/2D/3D/Cube instead for gl and get rid of this
+            uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
+            uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
+            asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
 
             // utility functions
             // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),
@@ -126,17 +225,98 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
                 return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
             }
         };
-        const SLimits& getLimits() const { return m_limits; }
+
+        struct SProperties
+        {
+            //--> VkPhysicalDeviceProperties:
+            APIVersion  apiVersion;
+            // uint32_t driverVersion;
+            // uint32_t vendorID;
+            // uint32_t deviceID;
+            E_TYPE      deviceType;
+            // char     deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+            // uint8_t  pipelineCacheUUID[VK_UUID_SIZE];
+            SLimits     limits;
+            // VkPhysicalDeviceSparseProperties    sparseProperties;
+
+            //--> VkPhysicalDeviceDriverProperties
+            E_DRIVER_ID driverID;
+            // char driverName[VK_MAX_DRIVER_NAME_SIZE];
+            // char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
+            // VkConformanceVersion conformanceVersion;
+
+            //--> VkPhysicalDeviceIDProperties
+            uint8_t deviceUUID[VK_UUID_SIZE];
+            // uint8_t driverUUID[VK_UUID_SIZE];
+            // uint8_t deviceLUID[VK_LUID_SIZE];
+            // uint32_t deviceNodeMask;
+            // VkBool32 deviceLUIDValid;
+        };
+
+        const SProperties& getProperties() const { return m_properties; }
+        const SLimits& getLimits() const { return m_properties.limits; }
+        APIVersion getAPIVersion() const { return m_properties.apiVersion; }
 
         //
         struct SFeatures
         {
             bool robustBufferAccess = false;
+            //VkBool32    fullDrawIndexUint32;
             bool imageCubeArray = false;
+            //VkBool32    independentBlend;
+            bool geometryShader    = false;
+            //VkBool32    tessellationShader;
+            //VkBool32    sampleRateShading;
+            //VkBool32    dualSrcBlend;
             bool logicOp = false;
+            bool multiDrawIndirect = false;
+            //VkBool32    drawIndirectFirstInstance;
+            //VkBool32    depthClamp;
+            //VkBool32    depthBiasClamp;
+            //VkBool32    fillModeNonSolid;
+            //VkBool32    depthBounds;
+            //VkBool32    wideLines;
+            //VkBool32    largePoints;
+            //VkBool32    alphaToOne;
             bool multiViewport = false;
-            bool vertexAttributeDouble = false;
-            bool dispatchBase = false;
+            bool samplerAnisotropy = false;
+            //VkBool32    textureCompressionETC2;
+            //VkBool32    textureCompressionASTC_LDR;
+            //VkBool32    textureCompressionBC;
+            //VkBool32    occlusionQueryPrecise;
+            //VkBool32    pipelineStatisticsQuery;
+            //VkBool32    vertexPipelineStoresAndAtomics;
+            //VkBool32    fragmentStoresAndAtomics;
+            //VkBool32    shaderTessellationAndGeometryPointSize;
+            //VkBool32    shaderImageGatherExtended;
+            //VkBool32    shaderStorageImageExtendedFormats;
+            //VkBool32    shaderStorageImageMultisample;
+            //VkBool32    shaderStorageImageReadWithoutFormat;
+            //VkBool32    shaderStorageImageWriteWithoutFormat;
+            //VkBool32    shaderUniformBufferArrayDynamicIndexing;
+            //VkBool32    shaderSampledImageArrayDynamicIndexing;
+            //VkBool32    shaderStorageBufferArrayDynamicIndexing;
+            //VkBool32    shaderStorageImageArrayDynamicIndexing;
+            //VkBool32    shaderClipDistance;
+            //VkBool32    shaderCullDistance;
+            bool vertexAttributeDouble = false; // shaderFloat64
+            //VkBool32    shaderInt64;
+            //VkBool32    shaderInt16;
+            //VkBool32    shaderResourceResidency;
+            //VkBool32    shaderResourceMinLod;
+            //VkBool32    sparseBinding;
+            //VkBool32    sparseResidencyBuffer;
+            //VkBool32    sparseResidencyImage2D;
+            //VkBool32    sparseResidencyImage3D;
+            //VkBool32    sparseResidency2Samples;
+            //VkBool32    sparseResidency4Samples;
+            //VkBool32    sparseResidency8Samples;
+            //VkBool32    sparseResidency16Samples;
+            //VkBool32    sparseResidencyAliased;
+            //VkBool32    variableMultisampleRate;
+            bool inheritedQueries = false;
+
+            //--> VkPhysicalDeviceSubgroupProperties: // TODO(Erfan): I think we should move these into SProperties::SLimits since it's part of properties and not features
             bool shaderSubgroupBasic = false;
             bool shaderSubgroupVote = false;
             bool shaderSubgroupArithmetic = false;
@@ -148,51 +328,139 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
             // See SLimit::subgroupOpsShaderStages.
             bool shaderSubgroupQuadAllStages = false;
-            bool drawIndirectCount = false;
-            bool multiDrawIndirect = false;
-            bool samplerAnisotropy = false;
-            bool geometryShader    = false;
 
-            // RayQuery
+            //--> VkPhysicalDeviceRayQueryFeaturesKHR
             bool rayQuery = false;
 
-            // AccelerationStructure
+            //--> VkPhysicalDeviceAccelerationStructureFeaturesKHR
             bool accelerationStructure = false;
             bool accelerationStructureCaptureReplay = false;
             bool accelerationStructureIndirectBuild = false;
             bool accelerationStructureHostCommands = false;
             bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
 
-            // RayTracingPipeline
+            //--> VkPhysicalDeviceRayTracingPipelineFeaturesKHR
             bool rayTracingPipeline = false;
             bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
             bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
             bool rayTracingPipelineTraceRaysIndirect = false;
             bool rayTraversalPrimitiveCulling = false;
 
-            // Fragment Shader Interlock
+            //--> VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT
             bool fragmentShaderSampleInterlock = false;
             bool fragmentShaderPixelInterlock = false;
             bool fragmentShaderShadingRateInterlock = false;
 
-            // Queries
-            bool allowCommandBufferQueryCopies = false;
-            bool inheritedQueries = false;
 
-            // Buffer Device Address
+            //--> VkPhysicalDeviceBufferDeviceAddressFeaturesKHR
             bool bufferDeviceAddress = false;
+            //VkBool32           bufferDeviceAddressCaptureReplay;
+            //VkBool32           bufferDeviceAddressMultiDevice;
+            
+            //--> Nabla:
+            bool dispatchBase = false;
+            bool drawIndirectCount = false;
+            bool allowCommandBufferQueryCopies = false;
         };
         const SFeatures& getFeatures() const { return m_features; }
+
+        struct MemoryType
+        {
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> propertyFlags;
+            uint32_t heapIndex;
+        };
+
+        struct MemoryHeap
+        {
+            size_t size;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS> flags;
+        };
 
         //
         struct SMemoryProperties
         {
             uint32_t        memoryTypeCount = 0u;
-            VkMemoryType    memoryTypes[VK_MAX_MEMORY_TYPES];
+            MemoryType      memoryTypes[VK_MAX_MEMORY_TYPES];
             uint32_t        memoryHeapCount = 0u;
-            VkMemoryHeap    memoryHeaps[VK_MAX_MEMORY_HEAPS];
+            MemoryHeap      memoryHeaps[VK_MAX_MEMORY_HEAPS];
         };
         const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
+        
+        //! Bit `i` in MemoryTypeBitss will be set if m_memoryProperties.memoryTypes[i] has the `flags`
+        uint32_t getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> flags) const
+        {
+            uint32_t ret = 0u;
+            for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
+                if(m_memoryProperties.memoryTypes[i].propertyFlags.hasFlags(flags))
+                    ret |= (1u << i);
+            return ret;
+        }
+
+        //! DeviceLocal: most efficient for device access
+        //! Requires EMPF_DEVICE_LOCAL_BIT from MemoryTypes
+        uint32_t getDeviceLocalMemoryTypeBits() const
+        {
+            return getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+        }
+        //! DirectVRAMAccess: Mappable for read and write and device local, will often return 0, always check if the mask != 0
+        //! Requires EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT from MemoryTypes
+        uint32_t getDirectVRAMAccessMemoryTypeBits() const
+        {
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
+            return getMemoryTypeBitsFromMemoryTypeFlags(requiredFlags);
+        }
+        //! HostVisible: Mappable for write/read
+        //! Requires EMPF_HOST_WRITABLE_BIT OR EMPF_HOST_READABLE_BIT
+        uint32_t getHostVisibleMemoryTypeBits() const
+        {
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT);
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT);
+            return hostWritable | hostReadable;
+        }
+        //! UpStreaming: Mappable for write and preferably device local
+        //! Requires EMPF_HOST_WRITABLE_BIT
+        //! Prefers EMPF_DEVICE_LOCAL_BIT
+        uint32_t getUpStreamingMemoryTypeBits() const
+        {
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+            uint32_t both = hostWritable & deviceLocal;
+            if(both > 0)
+                return both;
+            else
+                return hostWritable;
+        }
+        //! Mappable for read and preferably host cached
+        //! Requires EMPF_HOST_READABLE_BIT
+        //! Preferably EMPF_HOST_CACHED_BIT
+        uint32_t getDownStreamingMemoryTypeBits() const
+        {
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT);
+            uint32_t hostCached = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT);
+            uint32_t both = hostReadable & hostCached;
+            if(both > 0)
+                return both;
+            else
+                return hostReadable;
+        }
+        //! Spillover: Not host visible(read&write) and Not device local
+        //! Excludes EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT
+        uint32_t getSpilloverMemoryTypeBits() const
+        {
+            uint32_t all = getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(0u));
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+            return all & (~deviceLocal);
+        }
+        //! HostVisibleSpillover: Same as Spillover but mappable for read&write
+        //! Requires EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT
+        //! Excludes EMPF_DEVICE_LOCAL_BIT
+        uint32_t getHostVisibleSpilloverMemoryTypeBits() const
+        {
+            uint32_t hostWritable = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT);
+            uint32_t hostReadable = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT);
+            uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+            return (hostWritable & hostReadable) & (~deviceLocal);
+        }
 
         //
         struct SFormatBufferUsage
@@ -419,10 +687,9 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         core::smart_refctd_ptr<system::ISystem> m_system;
         core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
-        SLimits m_limits;
+        SProperties m_properties;
         SFeatures m_features;
         SMemoryProperties m_memoryProperties;
-        APIVersion m_apiVersion;
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
 

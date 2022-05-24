@@ -154,7 +154,7 @@ public:
 		initOutp.system = system;
 		CommonAPI::Init(
 			initOutp,
-			video::EAT_VULKAN,
+			video::EAT_OPENGL,
 			"29.SpecializationConstants",
 			requiredInstanceFeatures,
 			optionalInstanceFeatures,
@@ -289,7 +289,7 @@ public:
 		video::IGPUBuffer::SCreationParams uboComputeCreationParams = {};
 		uboComputeCreationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
 		auto gpuUboCompute = device->createGPUBufferOnDedMem(uboComputeCreationParams, devLocalReqs);
-		m_gpuds0Compute = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
+		m_gpuds0Compute = device->createDescriptorSet(dscPool.get(), std::move(gpuDs0layoutCompute));
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo i[3];
 			video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
@@ -313,7 +313,7 @@ public:
 			i[1].buffer.size = BUF_SZ;
 			i[2].desc = gpuUboCompute;
 			i[2].buffer.offset = 0ull;
-			i[2].buffer.size = gpuUboCompute->getCachedCreationParams().declaredSize;
+			i[2].buffer.size = gpuUboCompute->getSize();
 
 			device->updateDescriptorSets(2u, w, 0u, nullptr);
 		}
@@ -360,7 +360,7 @@ public:
 		m_rpIndependentPipeline = CPU2GPU.getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1, cpu2gpuParams)->front();
 		auto* ds0layoutGraphics = gfxLayout->getDescriptorSetLayout(0);
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpuDs0layoutGraphics = CPU2GPU.getGPUObjectsFromAssets(&ds0layoutGraphics, &ds0layoutGraphics + 1, cpu2gpuParams)->front();
-		m_gpuds0Graphics = device->createGPUDescriptorSet(dscPool.get(), std::move(gpuDs0layoutGraphics));
+		m_gpuds0Graphics = device->createDescriptorSet(dscPool.get(), std::move(gpuDs0layoutGraphics));
 
 		video::IGPUGraphicsPipeline::SCreationParams gp_params;
 		gp_params.rasterizationSamplesHint = asset::IImage::ESCF_1_BIT;
@@ -368,7 +368,7 @@ public:
 		gp_params.renderpassIndependent = core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(m_rpIndependentPipeline);
 		gp_params.subpassIx = 0u;
 
-		m_graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+		m_graphicsPipeline = device->createGraphicsPipeline(nullptr, std::move(gp_params));
 
 		devLocalReqs.vulkanReqs.size = sizeof(m_viewParams);
 		video::IGPUBuffer::SCreationParams gfxUboCreationParams = {};
@@ -385,7 +385,7 @@ public:
 			w.info = &i;
 			i.desc = gpuUboGraphics;
 			i.buffer.offset = 0u;
-			i.buffer.size = gpuUboGraphics->getCachedCreationParams().declaredSize; // gpuUboGraphics->getSize();
+			i.buffer.size = gpuUboGraphics->getSize(); // gpuUboGraphics->getSize();
 
 			device->updateDescriptorSets(1u, &w, 0u, nullptr);
 		}
@@ -393,8 +393,8 @@ public:
 		m_lastTime = std::chrono::high_resolution_clock::now();
 		constexpr uint32_t FRAME_COUNT = 500000u;
 		constexpr uint64_t MAX_TIMEOUT = 99999999999999ull;
-		m_computeUBORange = { 0, gpuUboCompute->getCachedCreationParams().declaredSize, gpuUboCompute };
-		m_graphicsUBORange = { 0, gpuUboGraphics->getCachedCreationParams().declaredSize, gpuUboGraphics };
+		m_computeUBORange = { 0, gpuUboCompute->getSize(), gpuUboCompute };
+		m_graphicsUBORange = { 0, gpuUboGraphics->getSize(), gpuUboGraphics };
 
 		device->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_cmdbuf);
 
