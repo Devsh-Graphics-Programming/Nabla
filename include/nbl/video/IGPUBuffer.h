@@ -27,7 +27,7 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBa
 	public:
 		struct SCachedCreationParams
 		{
-			size_t declaredSize = 0ull;
+			size_t size = 0ull;
 			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
 			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
 			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
@@ -41,7 +41,7 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBa
 		
 		E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
 
-		inline uint64_t getSize() const override {return m_cachedCreationParams.declaredSize;}
+		inline uint64_t getSize() const override {return m_cachedCreationParams.size;}
 
 		inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
 

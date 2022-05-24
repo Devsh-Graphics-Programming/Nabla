@@ -47,7 +47,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
 
             // TODO: Look at issue #167 on Nabla repo, at some point
             IGPUBuffer::SCreationParams bufferCreationParams = {};
-            bufferCreationParams.declaredSize = _cpuimg->getBuffer()->getSize();
+            bufferCreationParams.size = _cpuimg->getBuffer()->getSize();
             auto gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);	
             auto mreqs = gpuTexelBuffer->getMemoryReqs();
             mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();

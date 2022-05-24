@@ -730,7 +730,7 @@ public:
 		cameraUBOCreationParams.queueFamilyIndices = nullptr;
 		cameraUBOCreationParams.sharingMode = E_SHARING_MODE::ESM_CONCURRENT;
 		cameraUBOCreationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
-		cameraUBOCreationParams.declaredSize = sizeof(SBasicViewParameters);
+		cameraUBOCreationParams.size = sizeof(SBasicViewParameters);
 
 		IDeviceMemoryBacked::SDeviceMemoryRequirements memReq;
 		memReq.vulkanReqs.size = sizeof(SBasicViewParameters);

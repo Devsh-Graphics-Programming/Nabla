@@ -57,7 +57,7 @@ class CPropertyPool final : public IPropertyPool
             {
                 blocks[i].offset = 0ull;
                 blocks[i].size = capacity * PropertySizes[i];
-                params.declaredSize = blocks[i].size;
+                params.size = blocks[i].size;
                 blocks[i].buffer = device->createBuffer(params);
                 auto bufferReqs = blocks[i].buffer->getMemoryReqs();
                 bufferReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();

@@ -51,7 +51,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				bufferParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 
 				// 
-				bufferParams.declaredSize = tableBufferSize;
+				bufferParams.size = tableBufferSize;
 				auto lodTableInfoBuffer = params.device->createBuffer(bufferParams);
 				auto lodTableInfoMReqs = lodTableInfoBuffer->getMemoryReqs();
 				lodTableInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
@@ -61,7 +61,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				explicitParams.lodTableInfoBuffer.buffer->setObjectDebugName("LoD Table Infos");
 
 				// 
-				bufferParams.declaredSize = lodBufferSize;
+				bufferParams.size = lodBufferSize;
 				auto lodInfoBuffer = params.device->createBuffer(lodBufferSize);
 				auto lodInfoMReqs = lodInfoBuffer->getMemoryReqs();
 				lodInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;

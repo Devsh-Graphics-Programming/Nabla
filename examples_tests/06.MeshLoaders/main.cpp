@@ -232,7 +232,7 @@ public:
             // SAMPLES_PASSED_0 + AVAILABILIY_0 + SAMPLES_PASSED_1 + AVAILABILIY_1 (uint32_t)
             const size_t queriesSize = sizeof(uint32_t) * 4;
             video::IGPUBuffer::SCreationParams gpuuboCreationParams;
-            gpuuboCreationParams.declaredSize = queriesSize;
+            gpuuboCreationParams.size = queriesSize;
             gpuuboCreationParams.canUpdateSubRange = true;
             gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
             gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
@@ -310,7 +310,7 @@ public:
         descriptorPool = createDescriptorPool(1u);
 
         video::IGPUBuffer::SCreationParams gpuuboCreationParams;
-        gpuuboCreationParams.declaredSize = neededDS1UBOsz;
+        gpuuboCreationParams.size = neededDS1UBOsz;
         gpuuboCreationParams.canUpdateSubRange = true;
         gpuuboCreationParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT;
         gpuuboCreationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;

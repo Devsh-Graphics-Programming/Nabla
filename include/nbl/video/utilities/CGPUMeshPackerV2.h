@@ -84,7 +84,7 @@ void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
     // auto createAndAllocateBuffer = [&](size_t size) -> auto
     // {
     //     video::IGPUBuffer::SCreationParams creationParams = {};
-    //     creationParams.declaredSize = size;
+    //     creationParams.size = size;
     //     creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT; ???
     //     auto buffer = params.device->createBuffer(creationParams);	
     //     auto mreqs = buffer->getMemoryReqs();

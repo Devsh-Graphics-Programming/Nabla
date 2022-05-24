@@ -84,7 +84,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			{
 				video::IGPUBuffer::SCreationParams params;
 				params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-				params.declaredSize = retval.prefixSumScratch.offset+retval.prefixSumScratch.size;
+				params.size = retval.prefixSumScratch.offset+retval.prefixSumScratch.size;
 				auto gpubuffer = logicalDevice->createBuffer(params);
 				retval.pvsInstances.buffer =
 				retval.lodDrawCallCounts.buffer =
@@ -122,7 +122,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalInstances, const uint32_t perViewPerInstanceDataSize)
 		{
 			video::IGPUBuffer::SCreationParams params;
-			params.declaredSize = perViewPerInstanceDataSize*maxTotalInstances;
+			params.size = perViewPerInstanceDataSize*maxTotalInstances;
 			params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 			auto buffer = logicalDevice->createBuffer(params);
 			auto mreqs = buffer->getMemoryReqs();
@@ -135,7 +135,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static core::smart_refctd_ptr<video::IGPUBuffer> createInstanceRedirectBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalVisibleDrawcallInstances)
 		{
 			video::IGPUBuffer::SCreationParams params;
-			params.declaredSize = sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances;
+			params.size = sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances;
 			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
 			auto buffer = logicalDevice->createBuffer(params);
 			auto mreqs = buffer->getMemoryReqs();

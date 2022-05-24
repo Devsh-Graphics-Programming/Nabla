@@ -34,7 +34,7 @@ class IUtilities : public core::IReferenceCounted
                 allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
 
             {
-                streamingBufferCreationParams.declaredSize = downstreamSize;
+                streamingBufferCreationParams.size = downstreamSize;
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT|IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT; // GPU write to RAM usages
                 auto buffer = m_device->createBuffer(streamingBufferCreationParams);
                 auto reqs = buffer->getMemoryReqs();
@@ -56,7 +56,7 @@ class IUtilities : public core::IReferenceCounted
                 m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             {
-                streamingBufferCreationParams.declaredSize = upstreamSize;
+                streamingBufferCreationParams.size = upstreamSize;
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
                 auto buffer = m_device->createBuffer(streamingBufferCreationParams);
 
@@ -119,7 +119,7 @@ class IUtilities : public core::IReferenceCounted
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, size_t size, const void* data)
         {
             IGPUBuffer::SCreationParams params = {};
-            params.declaredSize = size;
+            params.size = size;
             auto buffer = m_device->createBuffer(params);
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();

@@ -87,7 +87,7 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 	if (buffSize < minimalBuffSize)
 	{
 		IGPUBuffer::SCreationParams creationParams;
-		creationParams.declaredSize = minimalBuffSize;
+		creationParams.size = minimalBuffSize;
 		creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
 		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndices = 0u;
