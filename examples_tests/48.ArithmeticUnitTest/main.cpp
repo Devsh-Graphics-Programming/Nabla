@@ -247,7 +247,7 @@ bool runTest(
 {
 	// TODO: overlap dispatches with memory readbacks (requires multiple copies of `buffers`)
 
-	cmdbuf->begin(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+	cmdbuf->begin(IGPUCommandBuffer::EU_NONE);
 	cmdbuf->bindComputePipeline(pipeline);
 	cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds);
 	const uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
@@ -305,7 +305,7 @@ public:
 	void onAppInitialized_impl() override
 	{
 		CommonAPI::InitOutput initOutput;
-		CommonAPI::InitWithNoExt(initOutput, video::EAT_VULKAN, "Subgroup Arithmetic Test");
+		CommonAPI::InitWithNoExt(initOutput, video::EAT_OPENGL, "Subgroup Arithmetic Test");
 		gl = std::move(initOutput.apiConnection);
 		gpuPhysicalDevice = std::move(initOutput.physicalDevice);
 		logicalDevice = std::move(initOutput.logicalDevice);
