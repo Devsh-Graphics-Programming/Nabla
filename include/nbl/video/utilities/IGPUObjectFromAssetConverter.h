@@ -523,9 +523,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         bufparams.queueFamilyIndices = qfams;
         bufparams.queueFamilyIndexCount = (qfams[0] == qfams[1]) ? 1u : 2u;
         
-        core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDriverMemoryAllocation::EMAF_NONE);
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_NONE);
         if(bufparams.usage.hasFlags(IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
-            allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+            allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
 
         auto gpubuffer = _params.device->createBuffer(bufparams);
         auto gpubufferMemReqs = gpubuffer->getMemoryReqs2();

@@ -1,21 +1,21 @@
 #ifndef _NBL_VIDEO_I_DEVICE_MEMORY_ALLOCATOR_H_INCLUDED_
 #define _NBL_VIDEO_I_DEVICE_MEMORY_ALLOCATOR_H_INCLUDED_
 
-#include "IDriverMemoryAllocation.h"
-#include "IDriverMemoryBacked.h"
+#include "IDeviceMemoryAllocation.h"
+#include "IDeviceMemoryBacked.h"
 #include "nbl/core/definitions.h" // findLSB
 
 namespace nbl::video
 {
 
-class IDriverMemoryAllocator
+class IDeviceMemoryAllocator
 {
 public:
 	static constexpr size_t InvalidMemoryOffset = 0xdeadbeefBadC0ffeull;
 
 	struct SMemoryOffset
 	{
-		core::smart_refctd_ptr<IDriverMemoryAllocation> memory = nullptr;
+		core::smart_refctd_ptr<IDeviceMemoryAllocation> memory = nullptr;
 		size_t offset = InvalidMemoryOffset;
 
 		bool isValid() const
@@ -27,9 +27,9 @@ public:
 	struct SAllocateInfo
 	{
 		size_t size : 54 = 0ull;
-		size_t flags : 5 = 0u; // IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS
+		size_t flags : 5 = 0u; // IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS
 		size_t memoryTypeIndex : 5 = 0u;
-		IDriverMemoryBacked* dedication = nullptr; // if you make the info have a `dedication` the memory will be bound right away, also it will use VK_KHR_dedicated_allocation on vulkan
+		IDeviceMemoryBacked* dedication = nullptr; // if you make the info have a `dedication` the memory will be bound right away, also it will use VK_KHR_dedicated_allocation on vulkan
 		// size_t opaqueCaptureAddress = 0u; Note that this mechanism is intended only to support capture/replay tools, and is not recommended for use in other applications.
 	};
 
@@ -39,7 +39,7 @@ public:
 	class IMemoryTypeIterator
 	{
 	public:
-		IMemoryTypeIterator(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
+		IMemoryTypeIterator(const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 			: m_allocateFlags(static_cast<uint32_t>(allocateFlags.value))
 			, m_reqs(reqs)
 		{}
@@ -52,7 +52,7 @@ public:
 			return *this;
 		}
 
-		inline SAllocateInfo operator()(IDriverMemoryBacked* dedication)
+		inline SAllocateInfo operator()(IDeviceMemoryBacked* dedication)
 		{
 			SAllocateInfo ret;
 			ret.size = m_reqs.size;
@@ -69,7 +69,7 @@ public:
 		virtual uint32_t dereference() const = 0;
 		virtual void advance() = 0;
 		
-		IDriverMemoryBacked::SDriverMemoryRequirements m_reqs;
+		IDeviceMemoryBacked::SDriverMemoryRequirements m_reqs;
 		uint32_t m_allocateFlags;
 	};
 
@@ -77,7 +77,7 @@ public:
 	class DefaultMemoryTypeIterator : public IMemoryTypeIterator
 	{
 	public:
-		DefaultMemoryTypeIterator(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
+		DefaultMemoryTypeIterator(const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 			: IMemoryTypeIterator(reqs, allocateFlags)
 		{
 			currentIndex = core::findLSB(m_reqs.memoryTypeBits);
@@ -105,9 +105,9 @@ public:
 
 	template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
 	SMemoryOffset allocate(
-		const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-		IDriverMemoryBacked* dedication = nullptr,
-		const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
+		const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs,
+		IDeviceMemoryBacked* dedication = nullptr,
+		const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
 	{
 		for(memory_type_iterator_t memTypeIt(reqs, allocateFlags); memTypeIt != IMemoryTypeIterator::end(); ++memTypeIt)
 		{

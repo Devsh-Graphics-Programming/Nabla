@@ -150,19 +150,19 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
         return IGPUEvent::ES_FAILURE;
 }
 
-IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
+IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    IDriverMemoryAllocator::SMemoryOffset ret = {nullptr, IDriverMemoryAllocator::InvalidMemoryOffset};
+    IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
 
-    core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
+    core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
 
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
 
-    if (allocateFlags.hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+    if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_MASK_BIT))
         vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
-    else if(allocateFlags.hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+    else if(allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
         vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
     vk_allocateFlagsInfo.deviceMask = 0u; // unused
     
@@ -177,9 +177,9 @@ IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
         static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
         vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
 
-        if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_BUFFER)
+        if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
             vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
-        else if(info.dedication->getObjectType() == IDriverMemoryBacked::EOT_IMAGE)
+        else if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
             vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
     }
 
@@ -197,7 +197,7 @@ IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
                 bool dedicationSuccess = false;
                 switch (info.dedication->getObjectType())
                 {
-                case IDriverMemoryBacked::EOT_BUFFER:
+                case IDeviceMemoryBacked::EOT_BUFFER:
                 {
                     SBindBufferMemoryInfo bindBufferInfo = {};
                     bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
@@ -206,7 +206,7 @@ IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
                     dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
                 }
                     break;
-                case IDriverMemoryBacked::EOT_IMAGE:
+                case IDeviceMemoryBacked::EOT_IMAGE:
                 {
                     SBindImageMemoryInfo bindImageInfo = {};
                     bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
@@ -222,7 +222,7 @@ IDriverMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
                 if(!dedicationSuccess)
                 {
                     // automatically allocation goes out of scope and frees itself
-                    ret = {nullptr, IDriverMemoryAllocator::InvalidMemoryOffset};
+                    ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
                 }
             }
         }
@@ -306,7 +306,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImag
 
         m_devf.vk.vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
 
-        IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
+        IDeviceMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
         imageMemReqs.size = vk_memReqs.memoryRequirements.size;
         imageMemReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
         imageMemReqs.alignmentLog2 = std::log2(vk_memReqs.memoryRequirements.alignment);

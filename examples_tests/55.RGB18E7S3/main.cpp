@@ -125,7 +125,7 @@ int main()
 
     auto ssboMemoryReqs = logicalDevice->getDeviceLocalGPUMemoryReqs();
     ssboMemoryReqs.vulkanReqs.size = sizeof(SShaderStorageBufferObject);
-    ssboMemoryReqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_READ_AND_WRITE;
+    ssboMemoryReqs.mappingCapability = video::IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE;
 
     video::IGPUBuffer::SCreationParams ssboCreationParams;
     ssboCreationParams.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_TRANSFER_DST_BIT;
@@ -215,8 +215,8 @@ int main()
     }
     logicalDevice->blockForFences(1u,&gpuFence.get());
 
-    video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuDownloadSSBOmapped->getBoundMemory(), 0u, gpuDownloadSSBOmapped->getSize());
-    logicalDevice->mapMemory(mappedMemoryRange, video::IDriverMemoryAllocation::EMCAF_READ);
+    video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuDownloadSSBOmapped->getBoundMemory(), 0u, gpuDownloadSSBOmapped->getSize());
+    logicalDevice->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
 
     if (gpuDownloadSSBOmapped->getBoundMemory()->haveToMakeVisible())
         logicalDevice->invalidateMappedMemoryRanges(1u, &mappedMemoryRange);

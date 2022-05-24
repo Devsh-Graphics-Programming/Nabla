@@ -423,7 +423,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			// flush if needed
 			if (upBuff->needsManualFlushOrInvalidate())
 			{
-				IDriverMemoryAllocation::MappedMemoryRange flushRange;
+				IDeviceMemoryAllocation::MappedMemoryRange flushRange;
 				flushRange.memory = uploadBuffer.buffer->getBoundMemory();
 				flushRange.range = {addr,size};
 				m_device->flushMappedMemoryRanges(1u,&flushRange);

@@ -33,17 +33,17 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
         bool initMemory(
             IOpenGL_FunctionTable* gl,
             core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
-            core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags) override
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags) override
         {
             if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
                 return false;
             cachedFlags =   (m_cachedCreationParams.canUpdateSubRange ? GL_DYNAMIC_STORAGE_BIT:0)|
-                            (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) ? 0:GL_CLIENT_STORAGE_BIT);
-            if (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT))
+                            (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) ? 0:GL_CLIENT_STORAGE_BIT);
+            if (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT))
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
-            if (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
+            if (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
-            if (memoryPropertyFlags.hasFlags(IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
+            if (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
                 cachedFlags |= GL_MAP_COHERENT_BIT;
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs2.size,nullptr,cachedFlags);
         }
@@ -58,10 +58,10 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
         inline GLbitfield getOpenGLStorageFlags() const { return cachedFlags; }
 
         //! Returns the allocation which is bound to the resource
-        inline IDriverMemoryAllocation* getBoundMemory() override {return this;}
+        inline IDeviceMemoryAllocation* getBoundMemory() override {return this;}
 
         //! Constant version
-        inline const IDriverMemoryAllocation* getBoundMemory() const override {return this;}
+        inline const IDeviceMemoryAllocation* getBoundMemory() const override {return this;}
 
         //! Returns the offset in the allocation at which it is bound to the resource
         inline size_t getBoundMemoryOffset() const override {return 0ull;}

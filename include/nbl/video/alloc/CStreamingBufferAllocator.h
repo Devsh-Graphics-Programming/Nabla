@@ -21,13 +21,13 @@ public:
     using CSimpleBufferAllocator::CSimpleBufferAllocator;
     virtual ~CStreamingBufferAllocator() = default;
 
-    inline value_type allocate(const IGPUBuffer::SCreationParams& creationParams, const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDriverMemoryAllocation::EMAF_NONE)
+    inline value_type allocate(const IGPUBuffer::SCreationParams& creationParams, const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::EMAF_NONE)
     {
         auto bufferBinding = CSimpleBufferAllocator::allocate(creationParams, allocateFlags);
         uint8_t* mappedPtr = nullptr;
         if (bufferBinding.buffer)
         {
-            IDriverMemoryAllocation* mem = bufferBinding.buffer->getBoundMemory();
+            IDeviceMemoryAllocation* mem = bufferBinding.buffer->getBoundMemory();
             if (mem->isCurrentlyMapped())
             {
                 assert(mem->getMappedRange().offset == 0ull && mem->getMappedRange().length == mem->getAllocationSize());
@@ -35,14 +35,14 @@ public:
             }
             else
             {
-                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+                core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
                 const auto memProps = mem->getMemoryPropertyFlags();
-                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
-                    access |= IDriverMemoryAllocation::EMCAF_READ;
-                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
-                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+                if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDeviceMemoryAllocation::EMCAF_READ;
+                if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDeviceMemoryAllocation::EMCAF_WRITE;
                 assert(access.value);
-                IDriverMemoryAllocation::MappedMemoryRange memoryRange = {mem,0ull,mem->getAllocationSize()};
+                IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem,0ull,mem->getAllocationSize()};
                 mappedPtr = reinterpret_cast<uint8_t*>(getDevice()->mapMemory(memoryRange, access));
             }
             if (!mappedPtr)

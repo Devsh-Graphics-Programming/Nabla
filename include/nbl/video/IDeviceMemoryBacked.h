@@ -5,7 +5,7 @@
 #ifndef __NBL_I_DRIVER_MEMORY_BACKED_H_INCLUDED__
 #define __NBL_I_DRIVER_MEMORY_BACKED_H_INCLUDED__
 
-#include "IDriverMemoryAllocation.h"
+#include "IDeviceMemoryAllocation.h"
 #include <algorithm>
 
 #define VK_NO_PROTOTYPES
@@ -14,8 +14,8 @@
 namespace nbl::video
 {
 
-//! Interface from which resources backed by IDriverMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
-class IDriverMemoryBacked : public virtual core::IReferenceCounted
+//! Interface from which resources backed by IDeviceMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
+class IDeviceMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
         enum E_OBJECT_TYPE : bool
@@ -41,17 +41,17 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
         inline const SDriverMemoryRequirements& getMemoryReqs2() const {return cachedMemoryReqs2;}
 
         //! Returns the allocation which is bound to the resource
-        virtual IDriverMemoryAllocation* getBoundMemory() = 0;
+        virtual IDeviceMemoryAllocation* getBoundMemory() = 0;
 
         //! Constant version
-        virtual const IDriverMemoryAllocation* getBoundMemory() const = 0;
+        virtual const IDeviceMemoryAllocation* getBoundMemory() const = 0;
 
         //! Returns the offset in the allocation at which it is bound to the resource
         virtual size_t getBoundMemoryOffset() const = 0;
 
     protected:
-        IDriverMemoryBacked() {}
-        IDriverMemoryBacked(const SDriverMemoryRequirements& reqs) : cachedMemoryReqs2(reqs) {}
+        IDeviceMemoryBacked() {}
+        IDeviceMemoryBacked(const SDriverMemoryRequirements& reqs) : cachedMemoryReqs2(reqs) {}
 
         SDriverMemoryRequirements cachedMemoryReqs2;
 };

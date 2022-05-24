@@ -387,7 +387,7 @@ public:
     }
            
     // API needs to change, vkFlushMappedMemoryRanges could fail.
-    void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
+    void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
     {
         constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
         VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
@@ -406,7 +406,7 @@ public:
     }
             
     // API needs to change, this could fail
-    void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override
+    void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
     {
         constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
         VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
@@ -437,7 +437,7 @@ public:
 
             if (bindInfo.buffer->getCachedCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
             {
-                if(!bindInfo.memory->getAllocateFlags().hasFlags(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+                if(!bindInfo.memory->getAllocateFlags().hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
                 {
                     // TODO(erfan): Log-> if buffer was created with EUF_SHADER_DEVICE_ADDRESS_BIT set, memory must have been allocated with the EMAF_DEVICE_ADDRESS_BIT bit.
                     _NBL_DEBUG_BREAK_IF(true);
@@ -452,7 +452,7 @@ public:
             if (m_devf.vk.vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) == VK_SUCCESS)
             {
                 vulkanBuffer->setMemoryAndOffset(
-                    core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory), bindInfo.offset);
+                    core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory), bindInfo.offset);
             }
             else
             {
@@ -489,7 +489,7 @@ public:
             vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
             m_devf.vk.vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
 
-            IDriverMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
+            IDeviceMemoryBacked::SDriverMemoryRequirements bufferMemoryReqs = {};
             bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
             bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
             bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
@@ -582,7 +582,7 @@ public:
             if (m_devf.vk.vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) == VK_SUCCESS)
             {
                 vulkanImage->setMemoryAndOffset(
-                    core::smart_refctd_ptr<IDriverMemoryAllocation>(bindInfo.memory),
+                    core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory),
                     bindInfo.offset);
             }
             else
@@ -813,11 +813,11 @@ public:
         assert(retval == VK_SUCCESS);
     }
 
-    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override
+    void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override
     {
         if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_VULKAN)
             return nullptr;
-        assert(IDriverMemoryAllocation::isMappingAccessConsistentWithMemoryType(accessHint, memory.memory->getMemoryPropertyFlags()));
+        assert(IDeviceMemoryAllocation::isMappingAccessConsistentWithMemoryType(accessHint, memory.memory->getMemoryPropertyFlags()));
 
         VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
         auto vulkanMemory = static_cast<CVulkanMemoryAllocation*>(memory.memory);
@@ -835,7 +835,7 @@ public:
         }
     }
 
-    void unmapMemory(IDriverMemoryAllocation* memory) override
+    void unmapMemory(IDeviceMemoryAllocation* memory) override
     {
         if (memory->getAPIType() != EAT_VULKAN)
             return;
@@ -1541,7 +1541,7 @@ protected:
     bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
 private:
-    inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDriverMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDriverMemoryAllocation::MappedMemoryRange* inRangeEnd)
+    inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeEnd)
     {
         uint32_t k = 0u;
         for (auto currentRange = inRangeBegin; currentRange != inRangeEnd; ++currentRange)

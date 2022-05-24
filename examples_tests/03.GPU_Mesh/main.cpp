@@ -327,7 +327,7 @@ public:
 			//	if (upStreamBuff->needsManualFlushOrInvalidate())
 			//	{
 			//		auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-			//		driver->flushMappedMemoryRanges({ video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1]) });
+			//		driver->flushMappedMemoryRanges({ video::IDeviceMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDeviceMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1]) });
 			//	}
 
 			//	asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };

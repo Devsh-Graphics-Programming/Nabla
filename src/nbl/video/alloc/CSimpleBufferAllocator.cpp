@@ -11,7 +11,7 @@ using namespace video;
 
 CSimpleBufferAllocator::value_type CSimpleBufferAllocator::allocate(
     const IGPUBuffer::SCreationParams& creationParams,
-    const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
+    const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 {
     auto buffer = m_device->createBuffer(creationParams);
     auto reqs = buffer->getMemoryReqs2();

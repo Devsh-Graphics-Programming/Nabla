@@ -56,7 +56,7 @@ public:
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
     core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
-    video::IDriverMemoryBacked::SDriverMemoryRequirements ubomemreq;
+    video::IDeviceMemoryBacked::SDriverMemoryRequirements ubomemreq;
     core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
 

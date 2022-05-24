@@ -12,7 +12,7 @@
 
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/video/decl/IBackendObject.h"
-#include "nbl/video/IDriverMemoryBacked.h"
+#include "nbl/video/IDeviceMemoryBacked.h"
 
 
 namespace nbl::video
@@ -22,7 +22,7 @@ namespace nbl::video
 /** For additional OpenGL DSA state-free operations such as flushing mapped ranges or
 buffer to buffer copies, one needs a command buffer in Vulkan as these operations are
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
-class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBackendObject
+class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBackendObject
 {
 	public:
 		struct SCachedCreationParams
@@ -52,9 +52,9 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBa
 	protected:
 		IGPUBuffer(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+			const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs,
 			const SCachedCreationParams& cachedCreationParams
-		) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
+		) : IDeviceMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
 		{
 		}
 

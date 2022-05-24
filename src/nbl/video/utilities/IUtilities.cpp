@@ -629,7 +629,7 @@ void IUtilities::updateImageViaStagingBuffer(
             
             // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
             if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate()) {
-                IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, uploadBufferSize);
+                IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, uploadBufferSize);
                 m_device->flushMappedMemoryRanges(1u, &flushRange);
             }
         }

@@ -212,20 +212,20 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_FLUSH_MAPPED_MEMORY_RANGES;
             using retval_t = void;
-            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
+            core::SRange<const IDeviceMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
         };
         struct SRequestInvalidateMappedMemoryRanges
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_INVALIDATE_MAPPED_MEMORY_RANGES;
             using retval_t = void;
-            core::SRange<const IDriverMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
+            core::SRange<const IDeviceMemoryAllocation::MappedMemoryRange> memoryRanges = { nullptr, nullptr };
         };
         struct SRequestMapBufferRange
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_MAP_BUFFER_RANGE;
             using retval_t = void*;
 
-            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
+            core::smart_refctd_ptr<IDeviceMemoryAllocation> buf;
             GLintptr offset;
             GLsizeiptr size;
             GLbitfield flags;
@@ -235,15 +235,15 @@ class IOpenGL_LogicalDeviceBase
             static inline constexpr E_REQUEST_TYPE type = ERT_UNMAP_BUFFER;
             using retval_t = void;
 
-            core::smart_refctd_ptr<IDriverMemoryAllocation> buf;
+            core::smart_refctd_ptr<IDeviceMemoryAllocation> buf;
         };
         struct SRequestAllocate
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_ALLOCATE;
-            using retval_t = IDriverMemoryAllocator::SMemoryOffset;
+            using retval_t = IDeviceMemoryAllocator::SMemoryOffset;
             IOpenGLMemoryAllocation* dedicationAsAllocation = nullptr;
-            core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> memoryAllocateFlags;
-            core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> memoryAllocateFlags;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags;
         };
         struct SRequestSetDebugName
         {
@@ -285,7 +285,7 @@ class IOpenGL_LogicalDeviceBase
     template <>
     size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestFlushMappedMemoryRanges>::neededMemorySize(const SRequestFlushMappedMemoryRanges& x)
     { 
-        return x.memoryRanges.size() * sizeof(IDriverMemoryAllocation::MappedMemoryRange);
+        return x.memoryRanges.size() * sizeof(IDeviceMemoryAllocation::MappedMemoryRange);
     }
     template <>
     void IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestFlushMappedMemoryRanges>::copyContentsToOwnedMemory(SRequestFlushMappedMemoryRanges& x, void* mem)
@@ -296,7 +296,7 @@ class IOpenGL_LogicalDeviceBase
     template <>
     size_t IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestInvalidateMappedMemoryRanges>::neededMemorySize(const SRequestInvalidateMappedMemoryRanges& x)
     {
-        return x.memoryRanges.size() * sizeof(IDriverMemoryAllocation::MappedMemoryRange);
+        return x.memoryRanges.size() * sizeof(IDeviceMemoryAllocation::MappedMemoryRange);
     }
     template <>
     void IOpenGL_LogicalDeviceBase::SRequestBase<IOpenGL_LogicalDeviceBase::SRequestInvalidateMappedMemoryRanges>::copyContentsToOwnedMemory(SRequestInvalidateMappedMemoryRanges& x, void* mem)
@@ -682,18 +682,18 @@ protected:
             case ERT_ALLOCATE:
             {
                 auto& p = std::get<SRequestAllocate>(req.params_variant);
-                IDriverMemoryAllocator::SMemoryOffset* pretval = reinterpret_cast<IDriverMemoryAllocator::SMemoryOffset*>(req.pretval);
-                IDriverMemoryAllocator::SMemoryOffset& retval = *pretval;
+                IDeviceMemoryAllocator::SMemoryOffset* pretval = reinterpret_cast<IDeviceMemoryAllocator::SMemoryOffset*>(req.pretval);
+                IDeviceMemoryAllocator::SMemoryOffset& retval = *pretval;
                 if(p.dedicationAsAllocation)
                 {
                     p.dedicationAsAllocation->initMemory(&gl, p.memoryAllocateFlags, p.memoryPropertyFlags);
-                    retval.memory = core::smart_refctd_ptr<IDriverMemoryAllocation>(p.dedicationAsAllocation);
+                    retval.memory = core::smart_refctd_ptr<IDeviceMemoryAllocation>(p.dedicationAsAllocation);
                     retval.offset = 0ull;
                 }
                 else
                 {
                     retval.memory = nullptr;
-                    retval.offset = IDriverMemoryAllocator::InvalidMemoryOffset;
+                    retval.offset = IDeviceMemoryAllocator::InvalidMemoryOffset;
                 }
             }
                 break;

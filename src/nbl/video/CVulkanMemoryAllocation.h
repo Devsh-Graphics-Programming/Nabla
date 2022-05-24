@@ -1,6 +1,6 @@
 #ifndef __NBL_C_VULKAN_MEMORY_ALLOCATION_H_INCLUDED__
 
-#include "nbl/video/IDriverMemoryAllocation.h"
+#include "nbl/video/IDeviceMemoryAllocation.h"
 
 #include <volk.h>
 
@@ -9,7 +9,7 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class CVulkanMemoryAllocation : public IDriverMemoryAllocation
+class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 {
 public:
     CVulkanMemoryAllocation(
@@ -17,9 +17,9 @@ public:
         size_t size,
         bool isDedicated, 
         VkDeviceMemory deviceMemoryHandle,
-        core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags,
-        core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
-        : IDriverMemoryAllocation(dev, flags, memoryPropertyFlags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags,
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
+        : IDeviceMemoryAllocation(dev, flags, memoryPropertyFlags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
     {}
 
     ~CVulkanMemoryAllocation();

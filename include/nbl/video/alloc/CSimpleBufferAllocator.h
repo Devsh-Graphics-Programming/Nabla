@@ -5,7 +5,7 @@
 #ifndef _NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H_
 #define _NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H_
 
-#include "nbl/video/IDriverMemoryAllocator.h"
+#include "nbl/video/IDeviceMemoryAllocator.h"
 #include "nbl/video/alloc/IBufferAllocator.h"
 
 namespace nbl::video
@@ -26,11 +26,11 @@ class CSimpleBufferAllocator : public IBufferAllocator
 
     value_type allocate(
         const IGPUBuffer::SCreationParams& creationParams,
-        const core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
+        const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
 
     inline void deallocate(value_type& allocation)
     {
-        allocation = {IDriverMemoryAllocator::InvalidMemoryOffset,nullptr};
+        allocation = {IDeviceMemoryAllocator::InvalidMemoryOffset,nullptr};
     }
 };
 

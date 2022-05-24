@@ -297,12 +297,12 @@ public:
 			IGPUBuffer::SCreationParams creationParams = {};
 			creationParams.canUpdateSubRange = true;
 			creationParams.usage = core::bitflag(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT)|asset::IBuffer::EUF_TRANSFER_DST_BIT;
-			IDriverMemoryBacked::SDriverMemoryRequirements memReq;
+			IDeviceMemoryBacked::SDriverMemoryRequirements memReq;
 			memReq.vulkanReqs.size = sizeof(SBasicViewParameters);
 			memReq.vulkanReqs.alignment = physicalDevice->getLimits().UBOAlignment;
 			memReq.vulkanReqs.memoryTypeBits = 0xffffffffu;
-			memReq.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-			memReq.mappingCapability = IDriverMemoryAllocation::EMAF_NONE;
+			memReq.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
+			memReq.mappingCapability = IDeviceMemoryAllocation::EMAF_NONE;
 			memReq.prefersDedicatedAllocation = true;
 			memReq.requiresDedicatedAllocation = true;
 			gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams,memReq);

@@ -446,11 +446,11 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize, bool _createGpuS
     if (m_samplesSsbo)
         m_samplesSsbo->drop();
 
-    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    video::IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
     reqs.vulkanReqs.alignment = 4;
     reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    reqs.memoryHeapLocation = video::IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDeviceMemoryAllocation::EMCF_CANNOT_MAP;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
     reqs.vulkanReqs.size = 2 * m_outSize.X * m_outSize.Y * sizeof(uint32_t);
@@ -655,11 +655,11 @@ void CBlurPerformer::writeUBOData(void* _dst) const
 
 void CBlurPerformer::updateUBO(const void* _contents)
 {
-    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+    video::IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
     reqs.vulkanReqs.alignment = 4;
     reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+    reqs.memoryHeapLocation = video::IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
+    reqs.mappingCapability = video::IDeviceMemoryAllocation::EMCF_CANNOT_MAP;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
     reqs.vulkanReqs.size = getRequiredUBOSize(m_driver);

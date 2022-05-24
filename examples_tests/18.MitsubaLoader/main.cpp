@@ -732,7 +732,7 @@ public:
 		cameraUBOCreationParams.usage = asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT;
 		cameraUBOCreationParams.declaredSize = sizeof(SBasicViewParameters);
 
-		IDriverMemoryBacked::SDriverMemoryRequirements memReq;
+		IDeviceMemoryBacked::SDriverMemoryRequirements memReq;
 		memReq.vulkanReqs.size = sizeof(SBasicViewParameters);
 		cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams, memReq);
 		gpuDS1 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuDS1Layout));
@@ -1478,7 +1478,7 @@ public:
 //	core::smart_refctd_ptr<IDescriptorPool> descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, gpuLayouts, gpuLayouts + 2);
 //
 //	core::vector<core::smart_refctd_ptr<IGPUGraphicsPipeline>> graphicsPplns;
-//	IDriverMemoryBacked::SDriverMemoryRequirements memReq;
+//	IDeviceMemoryBacked::SDriverMemoryRequirements memReq;
 //	memReq.vulkanReqs.size = sizeof(SBasicViewParameters);
 //	core::smart_refctd_ptr<IGPUBuffer> cameraUBO = logicalDevice->createGPUBufferOnDedMem(memReq, true);
 //	auto gpuDS1 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuDS1Layout));

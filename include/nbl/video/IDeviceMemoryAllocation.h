@@ -20,7 +20,7 @@ TO COPY BETWEEN MEMORY ALLOCATIONS you need to have them bound to
 one or two IGPUBuffers and execute IVideoDriver::copyBuffer between them.
 We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
-class IDriverMemoryAllocation : public virtual core::IReferenceCounted
+class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 {
         friend class ILogicalDevice;
 
@@ -38,9 +38,9 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         struct MappedMemoryRange
         {
             MappedMemoryRange() : memory(nullptr), range(0u,0u) {}
-            MappedMemoryRange(IDriverMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range(off,len) {}
+            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range(off,len) {}
 
-            IDriverMemoryAllocation* memory;
+            IDeviceMemoryAllocation* memory;
             union
             {
                 MemoryRange range;
@@ -95,7 +95,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             EMAF_NONE = 0x00000000,
             EMAF_DEVICE_MASK_BIT = 0x00000001,
             EMAF_DEVICE_ADDRESS_BIT = 0x00000002,
-            // EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004, // See notes in VulkanSpec and IDriverMemoryAllocator::SAllocateInfo
+            // EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004, // See notes in VulkanSpec and IDeviceMemoryAllocator::SAllocateInfo
         };
         
         enum E_MEMORY_PROPERTY_FLAGS : uint32_t
@@ -184,7 +184,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             currentMappingAccess = access;
         }
 
-        IDriverMemoryAllocation(
+        IDeviceMemoryAllocation(
             const ILogicalDevice* originDevice,
             core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
             core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE)

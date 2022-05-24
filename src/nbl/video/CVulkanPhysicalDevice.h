@@ -240,7 +240,7 @@ public:
             for(uint32_t i = 0; i < m_memoryProperties.memoryHeapCount; ++i)
             {
                 m_memoryProperties.memoryHeaps[i].size = vk_physicalDeviceMemoryProperties.memoryHeaps[i].size;
-                m_memoryProperties.memoryHeaps[i].flags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryHeaps[i].flags);
+                m_memoryProperties.memoryHeaps[i].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryHeaps[i].flags);
             }
         }
                 

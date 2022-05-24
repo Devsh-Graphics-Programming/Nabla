@@ -192,9 +192,9 @@ bool validateResults(ILogicalDevice* device, const uint32_t* inputData, const ui
 	bool success = true;
 
 	auto mem = bufferToRead->getBoundMemory();
-	if (mem->getMappingCaps()&IDriverMemoryAllocation::EMCF_COHERENT)
+	if (mem->getMappingCaps()&IDeviceMemoryAllocation::EMCF_COHERENT)
 	{
-		IDriverMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
+		IDeviceMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
 		device->invalidateMappedMemoryRanges(1u,&rng);
 	}
 
@@ -337,18 +337,18 @@ public:
 			params.queueFamilyIndices = nullptr;
 			params.sharingMode = ESM_CONCURRENT;
 			params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_TRANSFER_SRC_BIT;
-			IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+			IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
 			reqs.vulkanReqs.memoryTypeBits = ~0u;
 			reqs.vulkanReqs.alignment = 256u;
 			reqs.vulkanReqs.size = kBufferSize;
-			reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-			reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
+			reqs.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
+			reqs.mappingCapability = IDeviceMemoryAllocation::EMCAF_READ;
 			buffers[i] = logicalDevice->createGPUBufferOnDedMem(params, reqs);
-			IDriverMemoryAllocation::MappedMemoryRange mem;
+			IDeviceMemoryAllocation::MappedMemoryRange mem;
 			mem.memory = buffers[i]->getBoundMemory();
 			mem.offset = 0u;
 			mem.length = kBufferSize;
-			logicalDevice->mapMemory(mem, IDriverMemoryAllocation::EMCAF_READ);
+			logicalDevice->mapMemory(mem, IDeviceMemoryAllocation::EMCAF_READ);
 		}
 
 		IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];

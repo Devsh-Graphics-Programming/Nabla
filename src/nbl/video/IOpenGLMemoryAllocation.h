@@ -1,6 +1,6 @@
 #ifndef __NBL_I_OPENGL_MEMORY_ALLOCATION_H_INCLUDED__
 
-#include "nbl/video/IDriverMemoryAllocation.h"
+#include "nbl/video/IDeviceMemoryAllocation.h"
 
 #include <volk.h>
 
@@ -9,12 +9,12 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class IOpenGLMemoryAllocation : public IDriverMemoryAllocation
+class IOpenGLMemoryAllocation : public IDeviceMemoryAllocation
 {
-    using base_t = IDriverMemoryAllocation;
+    using base_t = IDeviceMemoryAllocation;
 public:
     IOpenGLMemoryAllocation(const ILogicalDevice* dev)
-        : IDriverMemoryAllocation(dev, IDriverMemoryAllocation::EMAF_NONE, IDriverMemoryAllocation::EMPF_NONE), initialized(false)
+        : IDeviceMemoryAllocation(dev, IDeviceMemoryAllocation::EMAF_NONE, IDeviceMemoryAllocation::EMPF_NONE), initialized(false)
     {}
 
     ~IOpenGLMemoryAllocation() = default;
@@ -29,7 +29,7 @@ public:
     virtual bool initMemory(
         IOpenGL_FunctionTable* gl,
         core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
-        core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
     {
         setCachedAllocateInfo(allocateFlags, memoryPropertyFlags);
         initialized = true;
@@ -39,7 +39,7 @@ public:
     //! Allocations happen after buffer/image creation requests based on memory requirements and since COpenGLImage/Buffer are memory themselves, these parameters can't be passed during IOpenGLMemoryAllocation construction
     void setCachedAllocateInfo(
         core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
-        core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
     {
         base_t::allocateFlags = allocateFlags;
         base_t::memoryPropertyFlags = memoryPropertyFlags;

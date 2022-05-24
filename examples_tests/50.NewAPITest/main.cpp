@@ -349,7 +349,7 @@ Choose Graphics API:
 			{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
 		};
 
-		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
+		video::IDeviceMemoryBacked::SDriverMemoryRequirements mreq;
 		
 		auto mreqs = device->getDeviceLocalGPUMemoryReqs();
 		mreqs.vulkanReqs.size = sizeof(vertices);

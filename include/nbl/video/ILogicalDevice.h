@@ -26,7 +26,7 @@
 
 // TODO: undo the circular ref
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
-#include "nbl/video/IDriverMemoryAllocator.h"
+#include "nbl/video/IDeviceMemoryAllocator.h"
 
 namespace nbl::video
 {
@@ -34,7 +34,7 @@ namespace nbl::video
 class IDescriptorPool;
 class IPhysicalDevice;
 
-class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAllocator
+class ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
         enum E_FEATURE
@@ -79,13 +79,13 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         struct SBindBufferMemoryInfo
         {
             IGPUBuffer* buffer;
-            IDriverMemoryAllocation* memory;
+            IDeviceMemoryAllocation* memory;
             size_t offset;
         };
         struct SBindImageMemoryInfo
         {
             IGPUImage* image;
-            IDriverMemoryAllocation* memory;
+            IDeviceMemoryAllocation* memory;
             size_t offset;
         };
 
@@ -172,25 +172,25 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 
-        //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
-        void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+        //! For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
+        void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
         {
-            core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
+            core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
             return flushMappedMemoryRanges(ranges);
         }
 
         //! Utility wrapper for the pointer based func
-        virtual void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
+        virtual void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
-        void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+        //! For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
+        void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
         {
-            core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
+            core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
             return invalidateMappedMemoryRanges(ranges);
         }
 
         //! Utility wrapper for the pointer based func
-        virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) = 0;
+        virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) { return nullptr; }
 
@@ -198,7 +198,7 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
         so pooling or aliasing memory for different resources is not possible.
         There is no unbind, so once memory is bound it remains bound until you destroy the resource object.
-        Actually all resource classes in OpenGL implement both IDriverMemoryBacked and IDriverMemoryAllocation,
+        Actually all resource classes in OpenGL implement both IDeviceMemoryBacked and IDeviceMemoryAllocation,
         so effectively the memory is pre-bound at the time of creation.
         \return true on success, always false under OpenGL.*/
         virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
@@ -462,10 +462,10 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         virtual void waitIdle() = 0;
 
         //
-        virtual void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
+        virtual void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
 
         //
-        virtual void unmapMemory(IDriverMemoryAllocation* memory) = 0;
+        virtual void unmapMemory(IDeviceMemoryAllocation* memory) = 0;
 
         // Not implemented stuff:
         //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)
@@ -541,15 +541,15 @@ class ILogicalDevice : public core::IReferenceCounted, public IDriverMemoryAlloc
         }
 
         // must be called by implementations of mapMemory()
-        static void post_mapMemory(IDriverMemoryAllocation* memory, void* ptr, IDriverMemoryAllocation::MemoryRange rng, core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
+        static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
         {
             // rewind pointer so 0 offset is a real start to the memory
             memory->postMapSetMembers(reinterpret_cast<uint8_t*>(ptr)-rng.offset, rng, access);
         }
         // must be called by implementations of unmapMemory()
-        static void post_unmapMemory(IDriverMemoryAllocation* memory)
+        static void post_unmapMemory(IDeviceMemoryAllocation* memory)
         {
-            post_mapMemory(memory, nullptr, { 0,0 }, IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+            post_mapMemory(memory, nullptr, { 0,0 }, IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
         }
 
         virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;

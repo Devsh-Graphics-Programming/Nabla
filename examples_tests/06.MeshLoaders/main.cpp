@@ -53,7 +53,7 @@ public:
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
     
     core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
-    video::IDriverMemoryBacked::SDriverMemoryRequirements ubomemreq;
+    video::IDeviceMemoryBacked::SDriverMemoryRequirements ubomemreq;
     core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
 
@@ -320,7 +320,7 @@ public:
         gpuubo = logicalDevice->createBuffer(gpuuboCreationParams);
         auto gpuuboMemReqs = gpuubo->getMemoryReqs2();
         gpuuboMemReqs.memoryTypeBits &= physicalDevice->getDeviceLocalMemoryTypeBits();
-        auto uboMemoryOffset = logicalDevice->allocate(gpuuboMemReqs, gpuubo.get(), video::IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
+        auto uboMemoryOffset = logicalDevice->allocate(gpuuboMemReqs, gpuubo.get(), video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
 
         gpuds1 = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
 

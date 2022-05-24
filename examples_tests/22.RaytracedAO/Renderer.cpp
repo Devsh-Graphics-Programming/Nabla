@@ -62,16 +62,16 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	{
 		const uint32_t zeros[RAYCOUNT_N_BUFFERING] = { 0u };
 		m_rayCountBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t)*RAYCOUNT_N_BUFFERING,zeros);
-		IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+		IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
 		reqs.vulkanReqs.size = sizeof(uint32_t);
 		reqs.vulkanReqs.alignment = alignof(uint32_t);
 		reqs.vulkanReqs.memoryTypeBits = ~0u;
-		reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-		reqs.mappingCapability = IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
+		reqs.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+		reqs.mappingCapability = IDeviceMemoryAllocation::EMCF_COHERENT|IDeviceMemoryAllocation::EMCF_CAN_MAP_FOR_READ;
 		reqs.prefersDedicatedAllocation = 0u;
 		reqs.requiresDedicatedAllocation = 0u;
 		m_littleDownloadBuffer = m_driver->createGPUBufferOnDedMem(reqs);
-		m_littleDownloadBuffer->getBoundMemory()->mapMemoryRange(IDriverMemoryAllocation::EMCAF_READ,{0,sizeof(uint32_t)});
+		m_littleDownloadBuffer->getBoundMemory()->mapMemoryRange(IDeviceMemoryAllocation::EMCAF_READ,{0,sizeof(uint32_t)});
 	}
 
 	// set up Visibility Buffer pipeline
@@ -1232,7 +1232,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 		if (static_cast<COpenGLDriver*>(m_driver)->runningInRenderdoc()) // makes Renderdoc capture the modifications done by OpenCL
 		{
 			interopBuffer.buffer = m_driver->createUpStreamingGPUBufferOnDedMem(size);
-			//interopBuffer.buffer->getBoundMemory()->mapMemoryRange(IDriverMemoryAllocation::EMCAF_WRITE,{0u,size})
+			//interopBuffer.buffer->getBoundMemory()->mapMemoryRange(IDeviceMemoryAllocation::EMCAF_WRITE,{0u,size})
 		}
 		else
 			interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
@@ -1320,8 +1320,8 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 			{
 				core::RandomSampler rng(0xbadc0ffeu);
 				auto it = reinterpret_cast<uint32_t*>(tmpBuff->getBoundMemory()->mapMemoryRange(
-					IDriverMemoryAllocation::EMCAF_WRITE,
-					IDriverMemoryAllocation::MemoryRange(0u,tmpBuff->getSize())
+					IDeviceMemoryAllocation::EMCAF_WRITE,
+					IDeviceMemoryAllocation::MemoryRange(0u,tmpBuff->getSize())
 				));
 				for (auto end=it+ScrambleStateChannels*renderPixelCount; it!=end; it++)
 					*it = rng.nextSample();

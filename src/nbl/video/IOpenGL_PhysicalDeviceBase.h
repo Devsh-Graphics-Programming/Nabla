@@ -337,47 +337,47 @@ public:
 		// Spoof Memory Types and Heaps
 		m_memoryProperties = {};
 		m_memoryProperties.memoryHeapCount = 3u;
-		m_memoryProperties.memoryHeaps[0u].flags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_HEAP_FLAGS>(IDriverMemoryAllocation::EMHF_DEVICE_LOCAL_BIT);
+		m_memoryProperties.memoryHeaps[0u].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(IDeviceMemoryAllocation::EMHF_DEVICE_LOCAL_BIT);
 		m_memoryProperties.memoryHeaps[0u].size = VRAMSize; // VRAM SIZE
-		m_memoryProperties.memoryHeaps[1u].flags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_HEAP_FLAGS>(0u);
+		m_memoryProperties.memoryHeaps[1u].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(0u);
 		m_memoryProperties.memoryHeaps[1u].size = size_t(0.7f * float(m_system->getSystemInfo().totalMemory)); // 70% System memory
-		m_memoryProperties.memoryHeaps[2u].flags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_HEAP_FLAGS>(IDriverMemoryAllocation::EMHF_DEVICE_LOCAL_BIT);
+		m_memoryProperties.memoryHeaps[2u].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(IDeviceMemoryAllocation::EMHF_DEVICE_LOCAL_BIT);
 		m_memoryProperties.memoryHeaps[2u].size = 256u * 1024u * 1024u; // 256MB
 
 		m_memoryProperties.memoryTypeCount = 14u;
 		m_memoryProperties.memoryTypes[0u].heapIndex = 0u;
-		m_memoryProperties.memoryTypes[0u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+		m_memoryProperties.memoryTypes[0u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
 
 		m_memoryProperties.memoryTypes[1u].heapIndex = 2u;
-		m_memoryProperties.memoryTypes[1u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_COHERENT_BIT;
+		m_memoryProperties.memoryTypes[1u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT;
 		m_memoryProperties.memoryTypes[2u].heapIndex = 2u;
-		m_memoryProperties.memoryTypes[2u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_COHERENT_BIT;
+		m_memoryProperties.memoryTypes[2u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT;
 		m_memoryProperties.memoryTypes[3u].heapIndex = 2u;
-		m_memoryProperties.memoryTypes[3u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_COHERENT_BIT;
+		m_memoryProperties.memoryTypes[3u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT;
 		
 		m_memoryProperties.memoryTypes[4u].heapIndex = 2u;
-		m_memoryProperties.memoryTypes[4u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_CACHED_BIT;
+		m_memoryProperties.memoryTypes[4u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT;
 		m_memoryProperties.memoryTypes[5u].heapIndex = 2u;
-		m_memoryProperties.memoryTypes[5u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_CACHED_BIT;
+		m_memoryProperties.memoryTypes[5u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT;
 		m_memoryProperties.memoryTypes[6u].heapIndex = 2u;
-		m_memoryProperties.memoryTypes[6u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_CACHED_BIT;
+		m_memoryProperties.memoryTypes[6u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT;
 		
 		m_memoryProperties.memoryTypes[7u].heapIndex = 1u;
-		m_memoryProperties.memoryTypes[7u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(0u);
+		m_memoryProperties.memoryTypes[7u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(0u);
 		
 		m_memoryProperties.memoryTypes[8u].heapIndex = 1u;
-		m_memoryProperties.memoryTypes[8u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT ;
+		m_memoryProperties.memoryTypes[8u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT ;
 		m_memoryProperties.memoryTypes[9u].heapIndex = 1u;
-		m_memoryProperties.memoryTypes[9u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT;
+		m_memoryProperties.memoryTypes[9u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT;
 		m_memoryProperties.memoryTypes[10u].heapIndex = 1u;
-		m_memoryProperties.memoryTypes[10u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
+		m_memoryProperties.memoryTypes[10u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
 		
 		m_memoryProperties.memoryTypes[11u].heapIndex = 1u;
-		m_memoryProperties.memoryTypes[11u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT ;
+		m_memoryProperties.memoryTypes[11u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT ;
 		m_memoryProperties.memoryTypes[12u].heapIndex = 1u;
-		m_memoryProperties.memoryTypes[12u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT;
+		m_memoryProperties.memoryTypes[12u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT;
 		m_memoryProperties.memoryTypes[13u].heapIndex = 1u;
-		m_memoryProperties.memoryTypes[13u].propertyFlags = core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDriverMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
+		m_memoryProperties.memoryTypes[13u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
 
 		const std::regex version_re("([1-9]\\.[0-9])");
 		std::cmatch re_match;

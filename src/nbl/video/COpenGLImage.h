@@ -44,7 +44,7 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 		bool initMemory(
 			IOpenGL_FunctionTable* gl,
 			core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
-			core::bitflag<IDriverMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags) override
+			core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags) override
 		{
 			if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
 				return false;
@@ -85,8 +85,8 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 
 
 		inline size_t getAllocationSize() const override { return this->getImageDataSizeInBytes(); }
-		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }
-		inline const IDriverMemoryAllocation* getBoundMemory() const override { return this; }
+		inline IDeviceMemoryAllocation* getBoundMemory() override { return this; }
+		inline const IDeviceMemoryAllocation* getBoundMemory() const override { return this; }
 		inline size_t getBoundMemoryOffset() const override { return 0ull; }
 
 		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }

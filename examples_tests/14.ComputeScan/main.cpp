@@ -178,15 +178,15 @@ public:
 				logicalDevice->blockForFences(1u, &lastFence.get());
 			}
 
-			auto mem = const_cast<video::IDriverMemoryAllocation*>(downloaded_buffer->getBoundMemory());
+			auto mem = const_cast<video::IDeviceMemoryAllocation*>(downloaded_buffer->getBoundMemory());
 			{
-				video::IDriverMemoryAllocation::MappedMemoryRange range;
+				video::IDeviceMemoryAllocation::MappedMemoryRange range;
 				{
 					range.memory = mem;
 					range.offset = 0u;
 					range.length = in_gpu_range.size;
 				}
-				logicalDevice->mapMemory(range, video::IDriverMemoryAllocation::EMCAF_READ);
+				logicalDevice->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
 			}
 			auto gpu_begin = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
 			for (auto i = 0u; i < elementCount; i++)
@@ -380,15 +380,15 @@ NBL_COMMON_API_MAIN(ComputeScanApp)
 //			logicalDevice->blockForFences(1u,&lastFence.get());
 //		}
 //
-//		auto mem = const_cast<video::IDriverMemoryAllocation*>(downloaded_buffer->getBoundMemory());
+//		auto mem = const_cast<video::IDeviceMemoryAllocation*>(downloaded_buffer->getBoundMemory());
 //		{
-//			video::IDriverMemoryAllocation::MappedMemoryRange range;
+//			video::IDeviceMemoryAllocation::MappedMemoryRange range;
 //			{
 //				range.memory = mem;
 //				range.offset = 0u;
 //				range.length = in_gpu_range.size;
 //			}
-//			logicalDevice->mapMemory(range,video::IDriverMemoryAllocation::EMCAF_READ);
+//			logicalDevice->mapMemory(range,video::IDeviceMemoryAllocation::EMCAF_READ);
 //		}
 //		auto gpu_begin = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
 //		for (auto i=0u; i<elementCount; i++)

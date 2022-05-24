@@ -29,9 +29,9 @@ class IUtilities : public core::IReferenceCounted
             if(shaderDeviceAddressSupport)
                 commonUsages |= IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
             
-            core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDriverMemoryAllocation::EMAF_NONE);
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_NONE);
             if(shaderDeviceAddressSupport)
-                allocateFlags |= IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+                allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
 
             {
                 streamingBufferCreationParams.declaredSize = downstreamSize;
@@ -43,14 +43,14 @@ class IUtilities : public core::IReferenceCounted
                 auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
                 auto mem = memOffset.memory;
 
-                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+                core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
                 const auto memProps = mem->getMemoryPropertyFlags();
-                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
-                    access |= IDriverMemoryAllocation::EMCAF_READ;
-                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
-                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+                if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDeviceMemoryAllocation::EMCAF_READ;
+                if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDeviceMemoryAllocation::EMCAF_WRITE;
                 assert(access.value);
-                IDriverMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
+                IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
                 m_device->mapMemory(memoryRange, access);
 
                 m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
@@ -65,14 +65,14 @@ class IUtilities : public core::IReferenceCounted
                 auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
 
                 auto mem = memOffset.memory;
-                core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+                core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
                 const auto memProps = mem->getMemoryPropertyFlags();
-                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_READABLE_BIT))
-                    access |= IDriverMemoryAllocation::EMCAF_READ;
-                if (memProps.hasFlags(IDriverMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
-                    access |= IDriverMemoryAllocation::EMCAF_WRITE;
+                if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
+                    access |= IDeviceMemoryAllocation::EMCAF_READ;
+                if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+                    access |= IDeviceMemoryAllocation::EMCAF_WRITE;
                 assert(access.value);
-                IDriverMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
+                IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
                 m_device->mapMemory(memoryRange, access);
 
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
@@ -415,7 +415,7 @@ class IUtilities : public core::IReferenceCounted
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                 if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
                 {
-                    IDriverMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,alllocationSize);
+                    IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,alllocationSize);
                     m_device->flushMappedMemoryRanges(1u,&flushRange);
                 }
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
