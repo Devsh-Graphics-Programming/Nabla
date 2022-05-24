@@ -1984,8 +1984,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
         auto gpubuf = _params.device->createBuffer(gpuBufParams);
         auto mreqs = gpubuf->getMemoryReqs();
         mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-        auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get());
-            
+        auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+        assert(gpubufMem.isValid());
+
         // Create GPUAccelerationStructure with that buffer
         video::IGPUAccelerationStructure::SCreationParams creatationParams = {};
         creatationParams.bufferRange.buffer = gpubuf;
@@ -2231,7 +2232,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             auto gpuScratchBuf = _params.device->createBuffer(gpuScratchBufParams);
             auto mreqs = gpuScratchBuf->getMemoryReqs();
             mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-            auto gpuScratchBufMem = _params.device->allocate(mreqs, gpuScratchBuf.get());
+            auto gpuScratchBufMem = _params.device->allocate(mreqs, gpuScratchBuf.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 
 
             for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
