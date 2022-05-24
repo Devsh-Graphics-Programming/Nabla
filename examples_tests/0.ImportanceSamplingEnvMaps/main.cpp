@@ -187,7 +187,7 @@ public:
 	core::smart_refctd_ptr<IGPUImageView> getLUTGPUImageViewFromBuffer(core::smart_refctd_ptr<ICPUBuffer> buffer, IImage::E_TYPE imageType, asset::E_FORMAT format, const asset::VkExtent3D& extent,
 		IGPUImageView::E_TYPE imageViewType)
 	{
-		auto gpuBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], buffer->getSize(), buffer->getPointer());
+		auto gpuBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], buffer->getSize(), buffer->getPointer());
 
 		IGPUImage::SCreationParams params;
 		params.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
@@ -203,7 +203,7 @@ public:
 		region.imageSubresource.layerCount = 1u;
 		region.imageExtent = params.extent;
 
-		auto gpuImage = utilities->createFilledDeviceLocalGPUImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(params), gpuBuffer.get(), 1u, &region);
+		auto gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(params), gpuBuffer.get(), 1u, &region);
 
 		IGPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
@@ -567,7 +567,7 @@ public:
 				}
 			}
 
-			auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sampleSequence->getSize(), sampleSequence->getPointer());
+			auto gpuSequenceBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sampleSequence->getSize(), sampleSequence->getPointer());
 			auto gpuSequenceBuffer = cpu2gpu.getGPUObjectsFromAssets(&sampleSequence, &sampleSequence + 1u, cpu2gpuParams)->front()->getBuffer();
 			gpuSequenceBufferView = logicalDevice->createBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 		}
@@ -596,12 +596,12 @@ public:
 					pixel = rng.nextSample();
 			}
 			cpu2gpuParams.beginCommandBuffers();
-			auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], random.size() * sizeof(uint32_t), random.data());
+			auto buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], random.size() * sizeof(uint32_t), random.data());
 			cpu2gpuParams.waitForCreationToComplete();
 
 			IGPUImageView::SCreationParams viewParams;
 			viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-			viewParams.image = utilities->createFilledDeviceLocalGPUImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(imgParams), buffer.get(), 1u, &region);
+			viewParams.image = utilities->createFilledDeviceLocalImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(imgParams), buffer.get(), 1u, &region);
 			viewParams.viewType = IGPUImageView::ET_2D;
 			viewParams.format = EF_R32G32_UINT;
 			viewParams.subresourceRange.levelCount = 1u;

@@ -62,7 +62,7 @@ public:
 		SBufferRange<IGPUBuffer> in_gpu_range;
 		in_gpu_range.offset = begin * sizeof(uint32_t);
 		in_gpu_range.size = elementCount * sizeof(uint32_t);
-		in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], in_count * sizeof(uint32_t), in);
+		in_gpu_range.buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], in_count * sizeof(uint32_t), in);
 
 		const auto scanType = video::CScanner::EST_EXCLUSIVE;
 		auto scanner = utilities->getDefaultScanner();
@@ -264,7 +264,7 @@ NBL_COMMON_API_MAIN(ComputeScanApp)
 //	SBufferRange<IGPUBuffer> in_gpu_range;
 //	in_gpu_range.offset = begin*sizeof(uint32_t);
 //	in_gpu_range.size = elementCount*sizeof(uint32_t);
-//	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
+//	in_gpu_range.buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
 //	
 //	const auto scanType = video::CScanner::EST_EXCLUSIVE;
 //	auto scanner = utilities->getDefaultScanner();

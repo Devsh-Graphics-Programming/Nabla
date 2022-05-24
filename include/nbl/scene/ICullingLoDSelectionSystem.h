@@ -50,7 +50,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			video::IGPUBuffer::SCreationParams params;
 			params.size = sizeof(contents);
 			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
-			return utils->createFilledDeviceLocalGPUBufferOnDedMem(queue,std::move(params),&contents);
+			return utils->createFilledDeviceLocalBufferOnDedMem(queue,std::move(params),&contents);
 		}
 
 		// These buffer ranges can be safely discarded or reused after `processInstancesAndFillIndirectDraws` completes

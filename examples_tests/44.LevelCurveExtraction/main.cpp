@@ -253,7 +253,7 @@ int main()
 
     // create buffers for draw indirect structs
     asset::DrawArraysIndirectCommand_t drawArraysIndirectCmd[2] = { { 0u,1u,0u,0u }, { 0u,1u,0u,0u } };
-    auto lineCountBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(core::alignUp(sizeof(drawArraysIndirectCmd), 16ull), drawArraysIndirectCmd);
+    auto lineCountBuffer = driver->createFilledDeviceLocalBufferOnDedMem(core::alignUp(sizeof(drawArraysIndirectCmd), 16ull), drawArraysIndirectCmd);
 
     //create buffers for the geometry shader
     auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(linesBufferSize);

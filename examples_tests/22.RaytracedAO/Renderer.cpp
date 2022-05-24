@@ -61,7 +61,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	// set up raycount buffers
 	{
 		const uint32_t zeros[RAYCOUNT_N_BUFFERING] = { 0u };
-		m_rayCountBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t)*RAYCOUNT_N_BUFFERING,zeros);
+		m_rayCountBuffer = m_driver->createFilledDeviceLocalBufferOnDedMem(sizeof(uint32_t)*RAYCOUNT_N_BUFFERING,zeros);
 		IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
 		reqs.vulkanReqs.size = sizeof(uint32_t);
 		reqs.vulkanReqs.alignment = alignof(uint32_t);
@@ -575,7 +575,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	{
 		recordInfoBuffer(infos[3],core::smart_refctd_ptr(m_indirectDrawBuffers[1]));
 		recordInfoBuffer(infos[2],core::smart_refctd_ptr(m_indirectDrawBuffers[0]));
-		recordInfoBuffer(infos[1],m_driver->createFilledDeviceLocalGPUBufferOnDedMem(m_cullPushConstants.maxGlobalInstanceCount*sizeof(CullData_t),cullData.data()));
+		recordInfoBuffer(infos[1],m_driver->createFilledDeviceLocalBufferOnDedMem(m_cullPushConstants.maxGlobalInstanceCount*sizeof(CullData_t),cullData.data()));
 		cullData.clear();
 		recordInfoBuffer(infos[0],m_driver->createDeviceLocalGPUBufferOnDedMem(m_cullPushConstants.maxGlobalInstanceCount*sizeof(DrawData_t)));
 		
@@ -863,7 +863,7 @@ core::smart_refctd_ptr<asset::ICPUBuffer> Renderer::SampleSequence::createCPUBuf
 }
 void Renderer::SampleSequence::createBufferView(IVideoDriver* driver, core::smart_refctd_ptr<asset::ICPUBuffer>&& buff)
 {
-	auto gpubuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(buff->getSize(),buff->getPointer());
+	auto gpubuf = driver->createFilledDeviceLocalBufferOnDedMem(buff->getSize(),buff->getPointer());
 	bufferView = driver->createBufferView(gpubuf.get(),asset::EF_R32G32_UINT);
 }
 core::smart_refctd_ptr<ICPUBuffer> Renderer::SampleSequence::createBufferView(IVideoDriver* driver, uint32_t quantizedDimensions, uint32_t sampleCount)
@@ -969,7 +969,7 @@ void Renderer::initSceneResources(SAssetBundle& meshes, nbl::io::path&& _sampleS
 			};
 			auto createFilledBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, size_t size, const void* data)
 			{
-				auto buf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(size,data);
+				auto buf = m_driver->createFilledDeviceLocalBufferOnDedMem(size,data);
 				setBufferInfo(info,core::smart_refctd_ptr(buf));
 				return buf;
 			};
@@ -1209,7 +1209,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height)
 
 	auto createFilledBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, size_t size, const void* data)
 	{
-		auto buf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(size,data);
+		auto buf = m_driver->createFilledDeviceLocalBufferOnDedMem(size,data);
 		setBufferInfo(info,core::smart_refctd_ptr(buf));
 		return buf;
 	};

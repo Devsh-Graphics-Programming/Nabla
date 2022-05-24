@@ -139,7 +139,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUBuffer::SCreationParams defaultFillValuesBufferCreationParams = {};
 			defaultFillValuesBufferCreationParams.size = tmp.size();
 			// defaultFillValuesBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
-			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,std::move(defaultFillValuesBufferCreationParams),fillData);
+			auto defaultFillValues = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(defaultFillValuesBufferCreationParams),fillData);
 			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
 			tmp.resize(sizeof(uint16_t)*DebugIndexCount);
 			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
@@ -176,7 +176,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUBuffer::SCreationParams debugIndexBufferCreationParams = {};
 			debugIndexBufferCreationParams.size = tmp.size();
 			// debugIndexBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
-			auto debugIndexBuffer = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,std::move(debugIndexBufferCreationParams),fillData);
+			auto debugIndexBuffer = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(debugIndexBufferCreationParams),fillData);
 
 			auto updateLocalDsLayout = createUpdateLocalTransformsDescriptorSetLayout(device);
 			auto recomputeGlobalDsLayout = createRecomputeGlobalTransformsDescriptorSetLayout(device);

@@ -116,7 +116,7 @@ class IUtilities : public core::IReferenceCounted
         }
 
         //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(IGPUQueue* queue, IGPUBuffer::SCreationParams&& params, const void* data)
+        inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalBufferOnDedMem(IGPUQueue* queue, IGPUBuffer::SCreationParams&& params, const void* data)
         {
             auto buffer = m_device->createBuffer(params);
             auto mreqs = buffer->getMemoryReqs();
@@ -128,7 +128,7 @@ class IUtilities : public core::IReferenceCounted
 
         // TODO: Some utility in ILogical Device that can upload the image via the streaming buffer just from the regions without creating a whole intermediate huge GPU Buffer
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
+        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
         {
             // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
             if (srcBuffer->getAPIType() == EAT_VULKAN)
@@ -179,7 +179,7 @@ class IUtilities : public core::IReferenceCounted
             return retImg;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(
+        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
             IGPUFence* fence, IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions,
             const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
             const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
@@ -190,7 +190,7 @@ class IUtilities : public core::IReferenceCounted
             m_device->createCommandBuffers(cmdpool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
             assert(cmdbuf);
             cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-            auto retval = createFilledDeviceLocalGPUImageOnDedMem(cmdbuf.get(), std::move(params), srcBuffer, regionCount, pRegions);
+            auto retval = createFilledDeviceLocalImageOnDedMem(cmdbuf.get(), std::move(params), srcBuffer, regionCount, pRegions);
             cmdbuf->end();
             IGPUQueue::SSubmitInfo submit;
             submit.commandBufferCount = 1u;
@@ -207,7 +207,7 @@ class IUtilities : public core::IReferenceCounted
             return retval;
         }
         //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(
+        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
             IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions,
             const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
             const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
@@ -215,7 +215,7 @@ class IUtilities : public core::IReferenceCounted
         {
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             auto* fenceptr = fence.get();
-            auto retval = createFilledDeviceLocalGPUImageOnDedMem(
+            auto retval = createFilledDeviceLocalImageOnDedMem(
                 fenceptr, queue, std::move(params), srcBuffer, regionCount, pRegions,
                 waitSemaphoreCount, semaphoresToWaitBeforeExecution, stagesToWaitForPerSemaphore,
                 signalSemaphoreCount, semaphoresToSignal
@@ -225,7 +225,7 @@ class IUtilities : public core::IReferenceCounted
         }
 
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
+        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
         {
             // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
             if (srcImage->getAPIType() == EAT_VULKAN)
@@ -290,7 +290,7 @@ class IUtilities : public core::IReferenceCounted
             return retImg;
         }
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(
+        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
             IGPUFence* fence, IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions,
             const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
             const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
@@ -301,7 +301,7 @@ class IUtilities : public core::IReferenceCounted
             m_device->createCommandBuffers(cmdpool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
             assert(cmdbuf);
             cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-            auto retval = createFilledDeviceLocalGPUImageOnDedMem(cmdbuf.get(), std::move(params), srcImage, regionCount, pRegions);
+            auto retval = createFilledDeviceLocalImageOnDedMem(cmdbuf.get(), std::move(params), srcImage, regionCount, pRegions);
             cmdbuf->end();
             IGPUQueue::SSubmitInfo submit;
             submit.commandBufferCount = 1u;
@@ -318,7 +318,7 @@ class IUtilities : public core::IReferenceCounted
             return retval;
         }
         //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(
+        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
             IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions,
             const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
             const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
@@ -326,7 +326,7 @@ class IUtilities : public core::IReferenceCounted
         {
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             auto* fenceptr = fence.get();
-            auto retval = createFilledDeviceLocalGPUImageOnDedMem(
+            auto retval = createFilledDeviceLocalImageOnDedMem(
                 fenceptr, queue, std::move(params), srcImage, regionCount, pRegions,
                 waitSemaphoreCount, semaphoresToWaitBeforeExecution, stagesToWaitForPerSemaphore,
                 signalSemaphoreCount, semaphoresToSignal
