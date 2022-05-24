@@ -67,7 +67,7 @@ public:
         return false;
     }
 
-    virtual bool begin(uint32_t _flags, const SInheritanceInfo* inheritanceInfo = nullptr)
+    virtual bool begin(core::bitflag<E_USAGE> _flags, const SInheritanceInfo* inheritanceInfo = nullptr)
     {
         if (!isResettable())
         {
@@ -90,7 +90,7 @@ public:
         return base_t::begin(_flags);
     }
 
-    virtual bool reset(uint32_t _flags)
+    virtual bool reset(core::bitflag<E_RESET_FLAGS> _flags)
     {
         if (!canReset())
         {

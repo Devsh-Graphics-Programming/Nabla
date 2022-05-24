@@ -430,7 +430,7 @@ public:
 		}
 
 		// safe to proceed
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 
 		{
 			auto time = std::chrono::high_resolution_clock::now();

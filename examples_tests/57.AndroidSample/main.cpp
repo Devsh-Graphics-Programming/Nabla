@@ -413,7 +413,7 @@ void main()
 			auto& cb = cmdbuf[i];
 			auto& fb = fbo[i];
 
-			cb->begin(0);
+			cb->begin(IGPUCommandBuffer::EU_NONE);
 
 			asset::SViewport vp;
 			vp.minDepth = 1.f;

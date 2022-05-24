@@ -204,7 +204,7 @@ class GLTFApp : public ApplicationBase
 			{
 				xferFence = logicalDevice->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
 				logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&xferCmdbuf);
-				xferCmdbuf->begin(0);
+				xferCmdbuf->begin(IGPUCommandBuffer::EU_NONE);
 			}
 			auto xferQueue = logicalDevice->getQueue(xferCmdbuf->getQueueFamilyIndex(),0u);
 			asset::SBufferBinding<video::IGPUBuffer> xferScratch;
@@ -795,7 +795,7 @@ class GLTFApp : public ApplicationBase
 				fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
 			commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-			commandBuffer->begin(0);
+			commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
 			const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 

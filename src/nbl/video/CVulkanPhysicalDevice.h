@@ -113,7 +113,7 @@ public:
                 m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
                 break;
             case 3:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
+                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");

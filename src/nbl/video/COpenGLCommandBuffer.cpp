@@ -110,7 +110,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         }
     }
 
-    bool COpenGLCommandBuffer::reset(uint32_t _flags)
+    bool COpenGLCommandBuffer::reset(core::bitflag<E_RESET_FLAGS> _flags)
     {
         if (!IGPUCommandBuffer::canReset())
             return false;

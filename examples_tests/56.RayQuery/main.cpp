@@ -945,7 +945,7 @@ public:
 		const auto viewProjectionMatrix = cam.getConcatenatedMatrix();
 				
 		// safe to proceed
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 
 		// renderpass 
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[m_resourceIx].get(),nullptr,&m_acquiredNextFBO);

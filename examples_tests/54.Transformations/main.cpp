@@ -438,7 +438,7 @@ class TransformationApp : public ApplicationBase
 						ttm->setupTransfers(req, transfers);
 					}
 
-					cmdbuf_nodes->begin(0);
+					cmdbuf_nodes->begin(IGPUCommandBuffer::EU_NONE);
 					utils->getDefaultPropertyPoolHandler()->transferProperties(
 						cmdbuf_nodes.get(), fence_nodes.get(), scratch, { 0ull,tmp_node_buf },
 						transfers, transfers + scene::ITransformTreeManager::TransferCount, initOutput.logger.get()
@@ -648,7 +648,7 @@ class TransformationApp : public ApplicationBase
 			timestamp++;
 
 			// safe to proceed
-			cb->begin(0);
+			cb->begin(IGPUCommandBuffer::EU_NONE);
 
 			// we don't wait on anything because we do everything on the same queue
 			uint32_t waitSemaphoreCount = 0u;

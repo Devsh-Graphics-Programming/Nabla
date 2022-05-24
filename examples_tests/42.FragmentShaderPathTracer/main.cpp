@@ -485,7 +485,7 @@ int main()
 		const auto viewProjectionMatrix = cam.getConcatenatedMatrix();
 				
 		// safe to proceed
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 
 		// renderpass 
 		uint32_t imgnum = 0u;

@@ -113,8 +113,9 @@ protected:
 public:
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
-    enum E_RESET_FLAGS : uint32_t
+    enum E_RESET_FLAGS : uint8_t
     {
+        ERF_NONE = 0x00,
         ERF_RELEASE_RESOURCES_BIT = 0x01
     };
 
@@ -135,7 +136,7 @@ public:
         - ES_INVALID
             -> After submission for resettable command buffers.
     */
-    enum E_STATE : uint32_t
+    enum E_STATE : uint8_t
     {
         ES_INITIAL,
         ES_RECORDING,
@@ -144,14 +145,15 @@ public:
         ES_INVALID
     };
 
-    enum E_USAGE : uint32_t
+    enum E_USAGE : uint8_t
     {
+        EU_NONE = 0x00,
         EU_ONE_TIME_SUBMIT_BIT = 0x01,
         EU_RENDER_PASS_CONTINUE_BIT = 0x02,
         EU_SIMULTANEOUS_USE_BIT = 0x04
     };
 
-    enum E_LEVEL : uint32_t
+    enum E_LEVEL : uint8_t
     {
         EL_PRIMARY = 0u,
         EL_SECONDARY
@@ -205,12 +207,13 @@ public:
 
     E_STATE getState() const { return m_state; }
 
+    core::bitflag<E_USAGE> getRecordingFlags() const { return m_recordingFlags; } // TODO(Erfan): maybe store m_recordingFlags as 
+
     E_LEVEL getLevel() const { return m_level; }
 
     // hm now i think having begin(), reset() and end() as command buffer API is a little weird
 
-    //! `_flags` takes bits from E_USAGE
-    virtual bool begin(uint32_t _flags)
+    virtual bool begin(core::bitflag<E_USAGE> _flags)
     {
         if(m_state == ES_RECORDING)
         {
@@ -222,8 +225,7 @@ public:
         return true;
     }
    
-    //! `_flags` takes bits from E_RESET_FLAGS
-    virtual bool reset(uint32_t _flags)
+    virtual bool reset(core::bitflag<E_RESET_FLAGS> _flags)
     {
         m_state = ES_INITIAL;
         return true;
@@ -365,7 +367,7 @@ protected:
 
     E_LEVEL m_level;
     // Flags from E_USAGE
-    uint32_t m_recordingFlags = 0u;
+    core::bitflag<E_USAGE> m_recordingFlags = E_USAGE::EU_NONE;
     E_STATE m_state = ES_INITIAL;
     //future
     uint32_t m_deviceMask = ~0u;

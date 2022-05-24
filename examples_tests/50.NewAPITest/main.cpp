@@ -404,7 +404,7 @@ Choose Graphics API:
 		auto& cb = cmdbuf[i];
 		auto& fb = fbo[i];
 
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 		
 		const video::IGPUBuffer* buf = buffer.get();
 		size_t offset = 0u;

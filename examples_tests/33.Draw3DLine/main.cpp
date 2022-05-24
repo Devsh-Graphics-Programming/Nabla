@@ -223,7 +223,7 @@ public:
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 
 		asset::SViewport vp;
 		vp.minDepth = 1.f;
