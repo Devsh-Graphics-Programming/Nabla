@@ -39,7 +39,7 @@ public:
 	class IMemoryTypeIterator
 	{
 	public:
-		IMemoryTypeIterator(const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
+		IMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 			: m_allocateFlags(static_cast<uint32_t>(allocateFlags.value))
 			, m_reqs(reqs)
 		{}
@@ -69,7 +69,7 @@ public:
 		virtual uint32_t dereference() const = 0;
 		virtual void advance() = 0;
 		
-		IDeviceMemoryBacked::SDriverMemoryRequirements m_reqs;
+		IDeviceMemoryBacked::SDeviceMemoryRequirements m_reqs;
 		uint32_t m_allocateFlags;
 	};
 
@@ -77,7 +77,7 @@ public:
 	class DefaultMemoryTypeIterator : public IMemoryTypeIterator
 	{
 	public:
-		DefaultMemoryTypeIterator(const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
+		DefaultMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 			: IMemoryTypeIterator(reqs, allocateFlags)
 		{
 			currentIndex = core::findLSB(m_reqs.memoryTypeBits);
@@ -105,7 +105,7 @@ public:
 
 	template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
 	SMemoryOffset allocate(
-		const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs,
+		const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
 		IDeviceMemoryBacked* dedication = nullptr,
 		const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
 	{

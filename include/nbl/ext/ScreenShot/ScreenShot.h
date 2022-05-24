@@ -65,7 +65,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		bufferCreationParams.declaredSize = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
 		gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);
-		auto gpuTexelBufferMemReqs = gpuTexelBuffer->getMemoryReqs2();
+		auto gpuTexelBufferMemReqs = gpuTexelBuffer->getMemoryReqs();
 		gpuTexelBufferMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
 		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, gpuTexelBuffer.get());
 
@@ -252,7 +252,7 @@ inline bool createScreenShot(
 				region.imageOffset = { 0u, 0u, 0u };
 				region.imageExtent = image->getCreationParameters().extent;
 
-				video::IDeviceMemoryBacked::SDriverMemoryRequirements memoryRequirements;
+				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memoryRequirements;
 				memoryRequirements.vulkanReqs.alignment = 64u;
 				memoryRequirements.vulkanReqs.memoryTypeBits = 0xffffffffu;
 				memoryRequirements.memoryHeapLocation = video::IDeviceMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;

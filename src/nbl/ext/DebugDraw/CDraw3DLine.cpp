@@ -94,7 +94,7 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 		creationParams.queueFamilyIndices = nullptr;
 
 		m_linesBuffer = m_device->createBuffer(creationParams);
-		auto mreqs = m_linesBuffer->getMemoryReqs2();
+		auto mreqs = m_linesBuffer->getMemoryReqs();
 		mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 		auto linesMem = m_device->allocate(mreqs, m_linesBuffer.get());
 		assert(m_linesBuffer && linesMem.isValid());

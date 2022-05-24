@@ -64,7 +64,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacked,asset:
 
 		//! constructor
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDeviceMemoryBacked::SDriverMemoryRequirements reqs,
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements reqs,
 			SCreationParams&& _params)
 			: base_t(reqs), IBackendObject(std::move(dev))
 		{

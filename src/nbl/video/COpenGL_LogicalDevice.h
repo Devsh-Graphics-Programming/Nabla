@@ -186,7 +186,7 @@ public:
         for (auto& img_dst : (*images))
         {
             img_dst = createImage(IGPUImage::SCreationParams(imgci));
-            auto mreq = img_dst->getMemoryReqs2();
+            auto mreq = img_dst->getMemoryReqs();
             mreq.memoryTypeBits &= m_physicalDevice->getDeviceLocalMemoryTypeBits();
             auto imgMem = IDeviceMemoryAllocator::allocate(mreq, img_dst.get());
             if (!img_dst || !imgMem.isValid())

@@ -1667,7 +1667,7 @@ public:
 				imgParams.samples = asset::IImage::ESCF_1_BIT;
 
 				auto depthImg = device->createImage(std::move(imgParams));
-				auto depthImgMemReqs = depthImg->getMemoryReqs2();
+				auto depthImgMemReqs = depthImg->getMemoryReqs();
 				depthImgMemReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 				auto depthImgMem = device->allocate(depthImgMemReqs, depthImg.get());
 
@@ -1763,7 +1763,7 @@ public:
 		gpu_image_params.samples = nbl::asset::IImage::ESCF_1_BIT;
 		gpu_image_params.flags = static_cast<nbl::asset::IImage::E_CREATE_FLAGS>(0u);
 		nbl::core::smart_refctd_ptr image = device->createImage(std::move(gpu_image_params));
-		auto imagereqs = image->getMemoryReqs2();
+		auto imagereqs = image->getMemoryReqs();
 		imagereqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 		auto imageMem = device->allocate(imagereqs, image.get());
 

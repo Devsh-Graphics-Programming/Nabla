@@ -37,7 +37,7 @@ class IUtilities : public core::IReferenceCounted
                 streamingBufferCreationParams.declaredSize = downstreamSize;
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT|IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT; // GPU write to RAM usages
                 auto buffer = m_device->createBuffer(streamingBufferCreationParams);
-                auto reqs = buffer->getMemoryReqs2();
+                auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
 
                 auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
@@ -60,7 +60,7 @@ class IUtilities : public core::IReferenceCounted
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
                 auto buffer = m_device->createBuffer(streamingBufferCreationParams);
 
-                auto reqs = buffer->getMemoryReqs2();
+                auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
                 auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
 
@@ -121,7 +121,7 @@ class IUtilities : public core::IReferenceCounted
             IGPUBuffer::SCreationParams params = {};
             params.declaredSize = size;
             auto buffer = m_device->createBuffer(params);
-            auto mreqs = buffer->getMemoryReqs2();
+            auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto mem = m_device->allocate(mreqs, buffer.get());
             updateBufferRangeViaStagingBuffer(queue, asset::SBufferRange<IGPUBuffer>{0u, size, buffer}, data);
@@ -146,7 +146,7 @@ class IUtilities : public core::IReferenceCounted
                 params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
 
             auto retImg = m_device->createImage(std::move(params));
-            auto retImgMemReqs = retImg->getMemoryReqs2();
+            auto retImgMemReqs = retImg->getMemoryReqs();
             retImgMemReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto retImgMem = m_device->allocate(retImgMemReqs, retImg.get());
 
@@ -258,7 +258,7 @@ class IUtilities : public core::IReferenceCounted
                 params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
 
             auto retImg = m_device->createImage(std::move(params));
-            auto retImgMemReqs = retImg->getMemoryReqs2();
+            auto retImgMemReqs = retImg->getMemoryReqs();
             retImgMemReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto retImgMem = m_device->allocate(retImgMemReqs, retImg.get());
 

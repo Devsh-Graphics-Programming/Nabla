@@ -337,7 +337,7 @@ public:
 			params.queueFamilyIndices = nullptr;
 			params.sharingMode = ESM_CONCURRENT;
 			params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_TRANSFER_SRC_BIT;
-			IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
+			IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
 			reqs.vulkanReqs.memoryTypeBits = ~0u;
 			reqs.vulkanReqs.alignment = 256u;
 			reqs.vulkanReqs.size = kBufferSize;

@@ -14,7 +14,7 @@ CSimpleBufferAllocator::value_type CSimpleBufferAllocator::allocate(
     const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 {
     auto buffer = m_device->createBuffer(creationParams);
-    auto reqs = buffer->getMemoryReqs2();
+    auto reqs = buffer->getMemoryReqs();
     reqs.memoryTypeBits &= m_memoryTypesToUse;
     auto mem = m_device->allocate(reqs,buffer.get(),allocateFlags);
     if (!mem.memory)

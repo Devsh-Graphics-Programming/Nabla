@@ -33,7 +33,7 @@ class CSkinInstanceCache final : public ISkinInstanceCache
                     creationParams.declaredSize = size;
                     creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
                     auto buffer = params.device->createBuffer(creationParams);	
-                    auto mreqs = buffer->getMemoryReqs2();
+                    auto mreqs = buffer->getMemoryReqs();
                     mreqs.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
                     auto gpubufMem = params.device->allocate(mreqs, buffer.get());
                     return buffer;

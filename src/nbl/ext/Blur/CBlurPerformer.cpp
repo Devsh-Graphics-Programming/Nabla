@@ -446,7 +446,7 @@ void CBlurPerformer::prepareForBlur(const uint32_t* _inputSize, bool _createGpuS
     if (m_samplesSsbo)
         m_samplesSsbo->drop();
 
-    video::IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
+    video::IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
     reqs.vulkanReqs.alignment = 4;
     reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
     reqs.memoryHeapLocation = video::IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
@@ -655,7 +655,7 @@ void CBlurPerformer::writeUBOData(void* _dst) const
 
 void CBlurPerformer::updateUBO(const void* _contents)
 {
-    video::IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
+    video::IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
     reqs.vulkanReqs.alignment = 4;
     reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
     reqs.memoryHeapLocation = video::IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;

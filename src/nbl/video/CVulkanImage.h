@@ -20,7 +20,7 @@ class CVulkanImage : public IGPUImage
 	public:
 		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
 			IGPUImage::SCreationParams&& _params, VkImage _vkimg,
-			const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs)
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
 			: IGPUImage(std::move(_vkdev), reqs, std::move(_params)), m_vkImage(_vkimg)
 		{}
 		

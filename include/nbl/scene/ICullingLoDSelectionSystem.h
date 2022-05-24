@@ -90,7 +90,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.lodDrawCallCounts.buffer =
 				retval.pvsInstanceDraws.buffer =
 				retval.prefixSumScratch.buffer = gpubuffer;
-				auto mreqs = gpubuffer->getMemoryReqs2();
+				auto mreqs = gpubuffer->getMemoryReqs();
 				mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 				auto gpubufMem = logicalDevice->allocate(mreqs, gpubuffer.get());
 
@@ -125,7 +125,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			params.declaredSize = perViewPerInstanceDataSize*maxTotalInstances;
 			params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 			auto buffer = logicalDevice->createBuffer(params);
-			auto mreqs = buffer->getMemoryReqs2();
+			auto mreqs = buffer->getMemoryReqs();
 			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
 			return buffer;
@@ -138,7 +138,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			params.declaredSize = sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances;
 			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
 			auto buffer = logicalDevice->createBuffer(params);
-			auto mreqs = buffer->getMemoryReqs2();
+			auto mreqs = buffer->getMemoryReqs();
 			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
 			return buffer;

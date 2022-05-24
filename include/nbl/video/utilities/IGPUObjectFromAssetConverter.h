@@ -528,7 +528,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
             allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
 
         auto gpubuffer = _params.device->createBuffer(bufparams);
-        auto gpubufferMemReqs = gpubuffer->getMemoryReqs2();
+        auto gpubufferMemReqs = gpubuffer->getMemoryReqs();
         gpubufferMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
         auto gpubufferMem = _params.device->allocate(gpubufferMemReqs, gpubuffer.get(), allocateFlags);
 
@@ -815,7 +815,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         params.declaredSize = cpuimg->getBuffer()->getSize();
 
         auto gpubuf = _params.device->createBuffer(params);
-        auto mreqs = gpubuf->getMemoryReqs2();
+        auto mreqs = gpubuf->getMemoryReqs();
         mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
         auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get());
 
@@ -1104,7 +1104,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
 
         auto gpuimg = _params.device->createImage(std::move(params));
-        auto gpuimgMemReqs = gpuimg->getMemoryReqs2();
+        auto gpuimgMemReqs = gpuimg->getMemoryReqs();
         gpuimgMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
         auto gpuimgMem = _params.device->allocate(gpuimgMemReqs, gpuimg.get());
 
@@ -1982,7 +1982,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
         gpuBufParams.declaredSize = asSize;
         gpuBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
         auto gpubuf = _params.device->createBuffer(gpuBufParams);
-        auto mreqs = gpubuf->getMemoryReqs2();
+        auto mreqs = gpubuf->getMemoryReqs();
         mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
         auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get());
             
@@ -2229,7 +2229,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             gpuScratchBufParams.declaredSize = totalScratchBufferSize;
             gpuScratchBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
             auto gpuScratchBuf = _params.device->createBuffer(gpuScratchBufParams);
-            auto mreqs = gpuScratchBuf->getMemoryReqs2();
+            auto mreqs = gpuScratchBuf->getMemoryReqs();
             mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto gpuScratchBufMem = _params.device->allocate(mreqs, gpuScratchBuf.get());
 

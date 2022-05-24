@@ -53,7 +53,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				// 
 				bufferParams.declaredSize = tableBufferSize;
 				auto lodTableInfoBuffer = params.device->createBuffer(bufferParams);
-				auto lodTableInfoMReqs = lodTableInfoBuffer->getMemoryReqs2();
+				auto lodTableInfoMReqs = lodTableInfoBuffer->getMemoryReqs();
 				lodTableInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
 				params.device->allocate(lodTableInfoMReqs, lodTableInfoBuffer.get());
 
@@ -63,7 +63,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				// 
 				bufferParams.declaredSize = lodBufferSize;
 				auto lodInfoBuffer = params.device->createBuffer(lodBufferSize);
-				auto lodInfoMReqs = lodInfoBuffer->getMemoryReqs2();
+				auto lodInfoMReqs = lodInfoBuffer->getMemoryReqs();
 				lodInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
 				params.device->allocate(lodInfoMReqs, lodInfoBuffer.get());
 

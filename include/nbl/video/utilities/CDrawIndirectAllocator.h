@@ -42,7 +42,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
 
             creationParams.declaredSize = explicit_params.drawCommandBuffer.size;
             explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(creationParams);
-            auto mreqsDrawCmdBuf = explicit_params.drawCommandBuffer.buffer->getMemoryReqs2();
+            auto mreqsDrawCmdBuf = explicit_params.drawCommandBuffer.buffer->getMemoryReqs();
             mreqsDrawCmdBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, explicit_params.drawCommandBuffer.buffer.get());
 
@@ -52,7 +52,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             {
                 creationParams.declaredSize = explicit_params.drawCountBuffer.size;
                 explicit_params.drawCountBuffer.buffer = params.device->createBuffer(creationParams);
-                auto mreqsDrawCountBuf = explicit_params.drawCountBuffer.buffer->getMemoryReqs2();
+                auto mreqsDrawCountBuf = explicit_params.drawCountBuffer.buffer->getMemoryReqs();
                 mreqsDrawCountBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
                 auto gpubufMem = params.device->allocate(mreqsDrawCountBuf, explicit_params.drawCountBuffer.buffer.get());
             }

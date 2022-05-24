@@ -62,7 +62,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	{
 		const uint32_t zeros[RAYCOUNT_N_BUFFERING] = { 0u };
 		m_rayCountBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t)*RAYCOUNT_N_BUFFERING,zeros);
-		IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
+		IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
 		reqs.vulkanReqs.size = sizeof(uint32_t);
 		reqs.vulkanReqs.alignment = alignof(uint32_t);
 		reqs.vulkanReqs.memoryTypeBits = ~0u;

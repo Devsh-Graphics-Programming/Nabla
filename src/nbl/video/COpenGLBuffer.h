@@ -26,7 +26,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
             core::smart_refctd_ptr<const ILogicalDevice>&& dev,
             const IGPUBuffer::SCachedCreationParams& cachedCreationParams,
             GLuint bufferName
-        ) : IGPUBuffer(std::move(dev), SDriverMemoryRequirements{cachedCreationParams.declaredSize, 0xffffffffu, 0u, true, true},cachedCreationParams), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
+        ) : IGPUBuffer(std::move(dev), SDeviceMemoryRequirements{cachedCreationParams.declaredSize, 0xffffffffu, 0u, true, true},cachedCreationParams), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
         {
         }
 
@@ -45,7 +45,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
             if (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
                 cachedFlags |= GL_MAP_COHERENT_BIT;
-            gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs2.size,nullptr,cachedFlags);
+            gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.size,nullptr,cachedFlags);
         }
 
         void setObjectDebugName(const char* label) const override;
@@ -68,9 +68,6 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
 
         //! on OpenGL the buffer is the allocation
         inline size_t getAllocationSize() const override {return IGPUBuffer::getSize();}
-
-        //!
-        inline E_SOURCE_MEMORY_TYPE getType() const override {return ESMT_DONT_KNOW;}
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
         inline bool isDedicated() const override { return true; }

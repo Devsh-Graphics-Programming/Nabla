@@ -35,7 +35,7 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 			GLenum internalFormat,
 			GLenum target,
 			GLuint name
-		) : IGPUImage(std::move(dev), SDriverMemoryRequirements{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
+		) : IGPUImage(std::move(dev), SDeviceMemoryRequirements{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
 			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
 		{
 		}
@@ -89,7 +89,6 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 		inline const IDeviceMemoryAllocation* getBoundMemory() const override { return this; }
 		inline size_t getBoundMemoryOffset() const override { return 0ull; }
 
-		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
 		inline bool isDedicated() const override { return true; }
 };
 

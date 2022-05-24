@@ -53,7 +53,7 @@ public:
     nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
     
     core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool;
-    video::IDeviceMemoryBacked::SDriverMemoryRequirements ubomemreq;
+    video::IDeviceMemoryBacked::SDeviceMemoryRequirements ubomemreq;
     core::smart_refctd_ptr<video::IGPUBuffer> gpuubo;
     core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds1;
 
@@ -240,7 +240,7 @@ public:
             gpuuboCreationParams.queueFamilyIndices = nullptr;
 
             queryResultsBuffer = logicalDevice->createBuffer(gpuuboCreationParams);
-            auto memReqs = queryResultsBuffer->getMemoryReqs2();
+            auto memReqs = queryResultsBuffer->getMemoryReqs();
             memReqs.memoryTypeBits &= physicalDevice->getDeviceLocalMemoryTypeBits();
             auto queriesMem = logicalDevice->allocate(memReqs, queryResultsBuffer.get());
 
@@ -318,7 +318,7 @@ public:
         gpuuboCreationParams.queueFamilyIndices = nullptr;
 
         gpuubo = logicalDevice->createBuffer(gpuuboCreationParams);
-        auto gpuuboMemReqs = gpuubo->getMemoryReqs2();
+        auto gpuuboMemReqs = gpuubo->getMemoryReqs();
         gpuuboMemReqs.memoryTypeBits &= physicalDevice->getDeviceLocalMemoryTypeBits();
         auto uboMemoryOffset = logicalDevice->allocate(gpuuboMemReqs, gpuubo.get(), video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
 

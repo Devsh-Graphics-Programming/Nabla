@@ -366,7 +366,7 @@ void main()
 				{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
 			};
 
-			video::IDeviceMemoryBacked::SDriverMemoryRequirements mreq;
+			video::IDeviceMemoryBacked::SDeviceMemoryRequirements mreq;
 
 			auto mreqs = device->getDeviceLocalGPUMemoryReqs();
 			mreqs.vulkanReqs.size = sizeof(vertices);

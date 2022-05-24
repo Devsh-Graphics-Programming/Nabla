@@ -49,7 +49,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             IGPUBuffer::SCreationParams bufferCreationParams = {};
             bufferCreationParams.declaredSize = _cpuimg->getBuffer()->getSize();
             auto gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);	
-            auto mreqs = gpuTexelBuffer->getMemoryReqs2();
+            auto mreqs = gpuTexelBuffer->getMemoryReqs();
             mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto gpubufMem = logicalDevice->allocate(mreqs, gpuTexelBuffer.get());
 

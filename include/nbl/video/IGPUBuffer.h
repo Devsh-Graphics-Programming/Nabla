@@ -52,7 +52,7 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBa
 	protected:
 		IGPUBuffer(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDeviceMemoryBacked::SDriverMemoryRequirements& reqs,
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
 			const SCachedCreationParams& cachedCreationParams
 		) : IDeviceMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
 		{

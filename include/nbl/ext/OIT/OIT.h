@@ -67,7 +67,7 @@ class COIT
 
                     img = dev->createImage(std::move(params));
                     assert(img);
-                    auto mreq = img->getMemoryReqs2();
+                    auto mreq = img->getMemoryReqs();
                     mreq.memoryTypeBits &= dev->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
                     auto imgMem = dev->allocate(mreq, img.get());
 

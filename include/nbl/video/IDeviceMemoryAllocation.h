@@ -52,17 +52,6 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             };
         };
 
-        //! Enumeration for Driver allocated memory location
-        /**  For specifying your wish as to where you want the memory to live.
-        This can only be guaranteed on Vulkan, in OpenGL these are just hints.
-        ESMT_DONT_CARE is for OpenGL usage only, illegal in Vulkan. */
-        enum E_SOURCE_MEMORY_TYPE
-        {
-            ESMT_DEVICE_LOCAL=0u,
-            ESMT_NOT_DEVICE_LOCAL,
-            ESMT_DONT_KNOW, ///< invalid in Vulkan
-            ESMT_COUNT
-        };
         //! Access flags for how the application plans to use mapped memory (if any)
         /** When you create the memory you can allow for it to be mapped (be given a pointer)
         for reading and writing directly from it, however the driver needs to know up-front
@@ -76,17 +65,6 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EMCAF_READ=0x1u,
             EMCAF_WRITE=0x2u,
             EMCAF_READ_AND_WRITE=(EMCAF_READ|EMCAF_WRITE)
-        };
-        //! Memory mapping capability flags
-        /** Depending on their creation flags (E_MAPPING_CPU_ACCESS_FLAGS) memory allocations
-        will have different capabilities in terms of mapping (direct memory transfer). */
-        enum E_MAPPING_CAPABILITY_FLAGS
-        {
-            EMCF_CANNOT_MAP=EMCAF_NO_MAPPING_ACCESS,
-            EMCF_CAN_MAP_FOR_READ=EMCAF_READ,
-            EMCF_CAN_MAP_FOR_WRITE=EMCAF_WRITE,
-            EMCF_COHERENT=0x04u, ///< whether mapping is coherent, i.e. no need to flush, which always true on read-enabled mappings.
-            EMCF_CACHED=0x08u, ///< whether mapping is cached, i.e. if cpu reads go through cache, this is relevant to Vulkan only and is transparent to program operation.
         };
 
         //! Memory allocate flags
@@ -120,9 +98,6 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         };
 
         E_API_TYPE getAPIType() const;
-
-        //! Where the memory was actually allocated
-        virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
 
         //! Utility function, tells whether the allocation can be mapped (whether mapMemory will ever return anything other than nullptr)
         inline bool isMappable() const {return memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT) || memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT);}

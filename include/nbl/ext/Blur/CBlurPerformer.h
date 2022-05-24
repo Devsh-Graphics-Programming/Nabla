@@ -158,7 +158,7 @@ private:
     {
         if (!m_ubo)
         {
-            video::IDeviceMemoryBacked::SDriverMemoryRequirements reqs;
+            video::IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
             reqs.vulkanReqs.alignment = 4;
             reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
             reqs.memoryHeapLocation = video::IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;

@@ -59,7 +59,7 @@ class CPropertyPool final : public IPropertyPool
                 blocks[i].size = capacity * PropertySizes[i];
                 params.declaredSize = blocks[i].size;
                 blocks[i].buffer = device->createBuffer(params);
-                auto bufferReqs = blocks[i].buffer->getMemoryReqs2();
+                auto bufferReqs = blocks[i].buffer->getMemoryReqs();
                 bufferReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
                 auto gpubufferMem = device->allocate(bufferReqs, blocks[i].buffer.get());
             }
