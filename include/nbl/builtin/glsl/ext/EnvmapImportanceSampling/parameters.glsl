@@ -9,10 +9,4 @@ struct LumaMipMapGenShaderData_t
     vec2 padding;
 };
 
-struct WarpMapGenShaderData_t
-{
-    uint lumaMipCount;
-    vec3 padding;
-};
-
 #endif

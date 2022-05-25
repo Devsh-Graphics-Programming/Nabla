@@ -197,9 +197,7 @@ void EnvmapImportanceSampling::initResources(core::smart_refctd_ptr<IGPUImageVie
 		}
 
 		{
-			
-			SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(WarpMapGenShaderData_t)};
-			m_warpPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(m_warpDSLayout));
+			m_warpPipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_warpDSLayout));
 		
 		 	m_warpDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_warpDSLayout));
 			
@@ -416,7 +414,11 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 		downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
 	}
 
-	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+variance));
+	// ideally would want a better metric of how "concentrated" the energy is in one direction rather than variance, maybe:
+	// - first order spherical harmonic band?
+	// - covariance matrix gaussian anisotropy?
+	// - weighted (by luma) average of directions?
+	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+3.f*variance));
 	std::cout << "New Regularization Factor based on Variance = " << regularizationFactor << std::endl;
 	constexpr float varianceThreshold = 0.001f;
 	enableRIS = (variance >= varianceThreshold);
@@ -464,9 +466,6 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 	// Generate WarpMap
 	{
 		m_driver->bindComputePipeline(m_warpPipeline.get());
-
-		WarpMapGenShaderData_t warpPcData = {};
-		warpPcData.lumaMipCount = m_mipCountLuminance;
 	
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_warpPipeline->getLayout(),0u,1u,&m_warpDS.get(),nullptr);
 		
@@ -477,8 +476,6 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 			(warpMapWidth-1u)/m_warpMapGenWorkgroupDimension+1u,
 			(warpMapHeight-1u)/m_warpMapGenWorkgroupDimension+1u
 		};
-
-		m_driver->pushConstants(m_warpPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(warpPcData),&warpPcData);
 		m_driver->dispatch(workGroups[0],workGroups[1],1);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
