@@ -15,15 +15,7 @@
 namespace nbl::video
 {
     
-<<<<<<< HEAD
-template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
-class NBL_API StreamingTransientDataBufferMT;
 
-namespace impl
-{
-template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
-class NBL_API StreamingTransientDataBuffer
-=======
 template<class HostAllocator=core::allocator<uint8_t>, class RecursiveLockable=std::recursive_mutex>
 class StreamingTransientDataBufferMT;
 
@@ -31,7 +23,6 @@ namespace impl
 {
 template<class HostAllocator>
 class StreamingTransientDataBuffer
->>>>>>> c4f7993ce2a3e806c5cbaa5dd539ca53d22f0ec5
 {
         using ThisType = StreamingTransientDataBuffer<HostAllocator>;
         using Composed = impl::CAsyncSingleBufferSubAllocator<core::GeneralpurposeAddressAllocator<uint32_t>,HostAllocator>;
@@ -113,13 +104,8 @@ class StreamingTransientDataBuffer
 };
 }
 
-<<<<<<< HEAD
-template<typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void>
-class NBL_API StreamingTransientDataBufferST : public core::IReferenceCounted, public impl::StreamingTransientDataBuffer<_size_type,CPUAllocator,CustomDeferredFreeFunctor>
-=======
 template<class HostAllocator=core::allocator<uint8_t>>
 class StreamingTransientDataBufferST : public core::IReferenceCounted, public impl::StreamingTransientDataBuffer<HostAllocator>
->>>>>>> c4f7993ce2a3e806c5cbaa5dd539ca53d22f0ec5
 {
         using Base = impl::StreamingTransientDataBuffer<HostAllocator>;
 
@@ -131,13 +117,8 @@ class StreamingTransientDataBufferST : public core::IReferenceCounted, public im
         StreamingTransientDataBufferST(Args&&... args) : Base(std::forward<Args>(args)...) {}
 };
 
-<<<<<<< HEAD
-template<typename _size_type, class CPUAllocator, class CustomDeferredFreeFunctor, class RecursiveLockable>
-class NBL_API StreamingTransientDataBufferMT : public core::IReferenceCounted
-=======
 template<class HostAllocator, class RecursiveLockable>
 class StreamingTransientDataBufferMT : public core::IReferenceCounted
->>>>>>> c4f7993ce2a3e806c5cbaa5dd539ca53d22f0ec5
 {
         using Composed = impl::StreamingTransientDataBuffer<HostAllocator>;
 

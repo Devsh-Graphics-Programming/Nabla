@@ -22,7 +22,7 @@ namespace nbl::video
 /** For additional OpenGL DSA state-free operations such as flushing mapped ranges or
 buffer to buffer copies, one needs a command buffer in Vulkan as these operations are
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
-class NBL_API IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBackendObject
+class NBL_API IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBackendObject
 {
 	public:
 		struct SCachedCreationParams

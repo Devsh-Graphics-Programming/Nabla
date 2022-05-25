@@ -18,7 +18,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>, public IBackendObject
+class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacked,asset::IImage>, public IBackendObject
 {
 	private:
 		using base_t = core::impl::ResolveAlignment<IDeviceMemoryBacked, asset::IImage>;
