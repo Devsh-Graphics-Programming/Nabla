@@ -30,7 +30,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             assert(gpuCommandBuffer);
             // buffer should hold onto pool with refcounted backlink
         }
-        gpuCommandBuffer->begin(0u);
+        gpuCommandBuffer->begin(IGPUCommandBuffer::EU_NONE);
         return gpuCommandBuffer;
     }
     static inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(
@@ -46,7 +46,13 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             cpuImageParams.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
 
             // TODO: Look at issue #167 on Nabla repo, at some point
-            auto gpuTexelBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(IGPUBuffer::SCreationParams(), _cpuimg->getBuffer()->getSize());
+            IGPUBuffer::SCreationParams bufferCreationParams = {};
+            bufferCreationParams.size = _cpuimg->getBuffer()->getSize();
+            auto gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);	
+            auto mreqs = gpuTexelBuffer->getMemoryReqs();
+            mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto gpubufMem = logicalDevice->allocate(mreqs, gpuTexelBuffer.get());
+
             uint32_t signalSemaphoreCount=0u;
             IGPUSemaphore* const* semaphoresToSignal = nullptr;
             utilities->updateBufferRangeViaStagingBuffer(
@@ -56,7 +62,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
 
             auto regions = _cpuimg->getRegions();
             assert(regions.size());
-            gpuImage = utilities->createFilledDeviceLocalGPUImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
+            gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
         }
 
         return gpuImage;
@@ -166,7 +172,7 @@ protected:
     private:
         core::smart_refctd_ptr<IGPUImageView> createView_internal(IGPUImageView::SCreationParams&& _params) const override
         {
-            return m_logicalDevice->createGPUImageView(std::move(_params));
+            return m_logicalDevice->createImageView(std::move(_params));
         }
 
         ILogicalDevice* m_logicalDevice;
@@ -298,7 +304,7 @@ public:
 protected:
     core::smart_refctd_ptr<IGPUImageView> createPageTableView() const override
     {
-        return m_logicalDevice->createGPUImageView(createPageTableViewCreationParams());
+        return m_logicalDevice->createImageView(createPageTableViewCreationParams());
     }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
@@ -314,7 +320,7 @@ protected:
     }
     core::smart_refctd_ptr<IGPUSampler> createSampler(const asset::ISampler::SParams& _params) const override
     {
-        return m_logicalDevice->createGPUSampler(_params);
+        return m_logicalDevice->createSampler(_params);
     }
 };
 

@@ -28,7 +28,7 @@ namespace scene
             CSkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const asset::CFinalBoneHierarchy* sourceHierarchy)
                                     : ISkinningStateManager(boneControl,driver,sourceHierarchy), Driver(driver)
             {
-                TBO = driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
+                TBO = driver->createBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
             }
 
             //
@@ -55,7 +55,7 @@ namespace scene
                 if (instanceDataSize!=instanceCapacity)
                 {
                     if (TBO->getByteSize() != instanceBoneDataAllocator->getFrontBuffer()->getSize())
-                        TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
+                        TBO = Driver->createBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
 
                     auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
                     uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(newInstanceDataSize,_NBL_SIMD_ALIGNMENT));
@@ -132,7 +132,7 @@ namespace scene
                 if (ISkinningStateManager::dropInstance(ID))
                 {
                     if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
-                        TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
+                        TBO = Driver->createBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
                     return true;
                 }
                 else
@@ -271,7 +271,7 @@ namespace scene
             {
                 instanceBoneDataAllocator->pushBuffer(Driver->getDefaultUpStreamingBuffer());
                 if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
-                    TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
+                    TBO = Driver->createBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
             }
 
             virtual void performBoning()

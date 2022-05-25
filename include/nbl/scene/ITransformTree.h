@@ -65,7 +65,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[TransformTree::RenderDescriptorSetBindingCount];
 			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
 		}
 		
 		//
@@ -160,8 +160,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!poolLayout || !renderLayout)
 				return false;
 
-			outPoolDS = device->createGPUDescriptorSet(dsp.get(),std::move(poolLayout));
-			outRenderDS = device->createGPUDescriptorSet(dsp.get(),std::move(renderLayout));
+			outPoolDS = device->createDescriptorSet(dsp.get(),std::move(poolLayout));
+			outRenderDS = device->createDescriptorSet(dsp.get(),std::move(renderLayout));
 			if (!outPoolDS || !outRenderDS)
 				return false;
 

@@ -51,7 +51,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[CacheDescriptorSetBindingCount];
 			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+CacheDescriptorSetBindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+CacheDescriptorSetBindingCount);
 		}
 		//
 		template<class TransformTree>
@@ -68,7 +68,7 @@ class ISkinInstanceCache : public virtual core::IReferenceCounted
 			constexpr auto BindingCount = TransformTree::RenderDescriptorSetBindingCount+1u;
 			video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
 			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,BindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+BindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+BindingCount);
 		}
 
 		//

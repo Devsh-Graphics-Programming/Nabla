@@ -297,8 +297,7 @@ set(NBL_ASSET_SOURCES
 )
 set(NBL_VIDEO_SOURCES
 # Allocators
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/SimpleGPUBufferAllocator.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/StreamingGPUBufferAllocator.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/alloc/CSimpleBufferAllocator.cpp
 
 # Utilities
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp
@@ -312,7 +311,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IDriverMemoryAllocation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 
 # OpenGL
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp

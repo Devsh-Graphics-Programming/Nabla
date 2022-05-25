@@ -21,18 +21,18 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 		range.offset = 0u;
 		range.size = sizeof(core::matrix4SIMD);
 		range.stageFlags = asset::IShader::ESS_VERTEX;
-		layout = device->createGPUPipelineLayout(&range, &range + 1);
+		layout = device->createPipelineLayout(&range, &range + 1);
 	}
 	assert(layout);
 	{
 
-		auto vs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader, asset::IShader::ESS_VERTEX, "vs"));
-		auto fs_unspec = m_device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader, asset::IShader::ESS_FRAGMENT, "fs"));
+		auto vs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader, asset::IShader::ESS_VERTEX, "vs"));
+		auto fs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader, asset::IShader::ESS_FRAGMENT, "fs"));
 
 		asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main");
-		auto vs = m_device->createGPUSpecializedShader(vs_unspec.get(), vsinfo);
+		auto vs = m_device->createSpecializedShader(vs_unspec.get(), vsinfo);
 		asset::ISpecializedShader::SInfo fsinfo(nullptr, nullptr, "main");
-		auto fs = m_device->createGPUSpecializedShader(fs_unspec.get(), fsinfo);
+		auto fs = m_device->createSpecializedShader(fs_unspec.get(), fsinfo);
 
 		video::IGPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 
@@ -63,7 +63,7 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 		blendParams.logicOpEnable = false;
 		blendParams.logicOp = nbl::asset::ELO_NO_OP;
 		
-		m_rpindependent_pipeline = m_device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blendParams, primitive, raster);
+		m_rpindependent_pipeline = m_device->createRenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders + 2, vtxinput, blendParams, primitive, raster);
 		assert(m_rpindependent_pipeline);
 	}
 
@@ -87,12 +87,17 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 	if (buffSize < minimalBuffSize)
 	{
 		IGPUBuffer::SCreationParams creationParams;
+		creationParams.size = minimalBuffSize;
 		creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
 		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndices = 0u;
 		creationParams.queueFamilyIndices = nullptr;
 
-		m_linesBuffer = m_device->createDeviceLocalGPUBufferOnDedMem(creationParams, minimalBuffSize);
+		m_linesBuffer = m_device->createBuffer(creationParams);
+		auto mreqs = m_linesBuffer->getMemoryReqs();
+		mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+		auto linesMem = m_device->allocate(mreqs, m_linesBuffer.get());
+		assert(m_linesBuffer && linesMem.isValid());
 	}
 	SBufferRange<IGPUBuffer> range;
 	range.buffer = m_linesBuffer;
