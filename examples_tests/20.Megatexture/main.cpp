@@ -574,7 +574,7 @@ APP_CONSTRUCTOR(MegaTextureApp)
         auto descriptorPoolDs0 = createDescriptorPool(1u); // TODO check it out
 
         
-        gpuds0 = logicalDevice->createGPUDescriptorSet(descriptorPoolDs0.get(), core::smart_refctd_ptr(gpuds0layout));//intentionally not moving layout
+        gpuds0 = logicalDevice->createDescriptorSet(descriptorPoolDs0.get(), core::smart_refctd_ptr(gpuds0layout));//intentionally not moving layout
         {
             auto sizes = gpuvt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
             auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SWriteDescriptorSet>>(sizes.first);
@@ -623,7 +623,7 @@ APP_CONSTRUCTOR(MegaTextureApp)
 
         auto descriptorPoolDs1 = createDescriptorPool(1u); // TODO check it out
 
-        gpuds1 = logicalDevice->createGPUDescriptorSet(descriptorPoolDs1.get(), std::move(gpuds1layout));
+        gpuds1 = logicalDevice->createDescriptorSet(descriptorPoolDs1.get(), std::move(gpuds1layout));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet write;
             write.dstSet = gpuds1.get();
@@ -661,10 +661,10 @@ APP_CONSTRUCTOR(MegaTextureApp)
 
         auto descriptorPoolDs2 = createDescriptorPool(1u); // TODO check it out
 
-        gpuds2 = logicalDevice->createGPUDescriptorSet(descriptorPoolDs2.get(), std::move(gpu_ds2layout));
+        gpuds2 = logicalDevice->createDescriptorSet(descriptorPoolDs2.get(), std::move(gpu_ds2layout));
         {
             core::smart_refctd_ptr<video::IUtilities> utilities = core::make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(logicalDevice));
-            core::smart_refctd_ptr<video::IGPUBuffer> buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
+            core::smart_refctd_ptr<video::IGPUBuffer> buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
 
             {
                 std::array<video::IGPUDescriptorSet::SWriteDescriptorSet, 1> write;
@@ -694,7 +694,7 @@ APP_CONSTRUCTOR(MegaTextureApp)
                 graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
                 const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-                gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+                gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
             }
         }
 
@@ -709,7 +709,7 @@ APP_CONSTRUCTOR(MegaTextureApp)
         auto commandBuffer = commandBuffers[0];
 
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-        commandBuffer->begin(0);
+        commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
         asset::SViewport viewport;
         viewport.minDepth = 1.f;

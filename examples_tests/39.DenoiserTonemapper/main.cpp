@@ -203,7 +203,7 @@ int main(int argc, char* argv[])
 		float bloomIntensity;
 	};
 	{
-		auto firstKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto firstKernelFFTShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
@@ -232,7 +232,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(in ivec3 coordinate, in uint cha
 
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 		)==="));
-		auto lastKernelFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto lastKernelFFTShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #define _NBL_GLSL_WORKGROUP_SIZE_ 256
 layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) in;
@@ -255,7 +255,7 @@ layout(set=0, binding=2) writeonly restrict buffer OutputBuffer
 
 #include "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
 		)==="));
-		auto kernelNormalizationShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto kernelNormalizationShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 layout(local_size_x=16, local_size_y=16, local_size_z=1) in;
 
@@ -293,9 +293,9 @@ void main()
 	imageStore(NormalizedKernel[gl_WorkGroupID.z],ivec2(coord),vec4(value,0.0,0.0));
 }
 		)==="));
-		auto firstKernelFFTSpecializedShader = driver->createGPUSpecializedShader(firstKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
-		auto lastKernelFFTSpecializedShader = driver->createGPUSpecializedShader(lastKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
-		auto kernelNormalizationSpecializedShader = driver->createGPUSpecializedShader(kernelNormalizationShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+		auto firstKernelFFTSpecializedShader = driver->createSpecializedShader(firstKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+		auto lastKernelFFTSpecializedShader = driver->createSpecializedShader(lastKernelFFTShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
+		auto kernelNormalizationSpecializedShader = driver->createSpecializedShader(kernelNormalizationShader.get(),IGPUSpecializedShader::SInfo(nullptr,nullptr,"main",ISpecializedShader::ESS_COMPUTE));
 
 		{
 			IGPUSampler::SParams params =
@@ -313,27 +313,27 @@ void main()
 					ISampler::ECO_ALWAYS
 				}
 			};
-			auto sampler = driver->createGPUSampler(std::move(params));
+			auto sampler = driver->createSampler(std::move(params));
 			IGPUDescriptorSetLayout::SBinding binding[kernelSetDescCount] = {
 				{0u,EDT_COMBINED_IMAGE_SAMPLER,1u,IGPUSpecializedShader::ESS_COMPUTE,&sampler},
 				{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 				{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 				{3u,EDT_STORAGE_IMAGE,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 			};
-			kernelDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+kernelSetDescCount);
+			kernelDescriptorSetLayout = driver->createDescriptorSetLayout(binding,binding+kernelSetDescCount);
 		}
 
 		{
 			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,core::max(sizeof(FFTClass::Parameters_t),sizeof(NormalizationPushConstants))};
-			kernelPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+1u,core::smart_refctd_ptr(kernelDescriptorSetLayout));
+			kernelPipelineLayout = driver->createPipelineLayout(pcRange,pcRange+1u,core::smart_refctd_ptr(kernelDescriptorSetLayout));
 		}
 
-		firstKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(firstKernelFFTSpecializedShader));
-		lastKernelFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(lastKernelFFTSpecializedShader));
-		kernelNormalizationPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(kernelNormalizationSpecializedShader));
+		firstKernelFFTPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(firstKernelFFTSpecializedShader));
+		lastKernelFFTPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(lastKernelFFTSpecializedShader));
+		kernelNormalizationPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(kernelPipelineLayout),std::move(kernelNormalizationSpecializedShader));
 
 
-		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto deinterleaveShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #define _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
@@ -373,7 +373,7 @@ void main()
 	outBuffers[gl_GlobalInvocationID.z].data[addr].z = float16_t(globalPixelData.z);
 }
 		)==="));
-		auto intensityShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto intensityShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #include "../ShaderCommon.glsl"
@@ -421,7 +421,7 @@ void main()
 		intensity[pc.data.intensityBufferDWORDOffset] = optixIntensity;
 }
 		)==="));
-		auto secondLumaMeterAndFirstFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto secondLumaMeterAndFirstFFTShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #define _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
@@ -539,7 +539,7 @@ void main()
 	}
 }
 		)==="));
-		auto convolveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto convolveShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 
@@ -656,7 +656,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 	return spectrum[index];
 }
 		)==="));
-		auto interleaveAndLastFFTShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+		auto interleaveAndLastFFTShader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 
@@ -812,11 +812,11 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 													),
 													core::smart_refctd_ptr(specConstantBuffer),"main",ISpecializedShader::ESS_COMPUTE
 												};
-		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
-		auto intensitySpecializedShader = driver->createGPUSpecializedShader(intensityShader.get(),specInfo);
-		auto secondLumaMeterAndFirstFFTSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndFirstFFTShader.get(),specInfo);
-		auto convolveSpecializedShader = driver->createGPUSpecializedShader(convolveShader.get(),specInfo);
-		auto interleaveAndLastFFTSpecializedShader = driver->createGPUSpecializedShader(interleaveAndLastFFTShader.get(),specInfo);
+		auto deinterleaveSpecializedShader = driver->createSpecializedShader(deinterleaveShader.get(),specInfo);
+		auto intensitySpecializedShader = driver->createSpecializedShader(intensityShader.get(),specInfo);
+		auto secondLumaMeterAndFirstFFTSpecializedShader = driver->createSpecializedShader(secondLumaMeterAndFirstFFTShader.get(),specInfo);
+		auto convolveSpecializedShader = driver->createSpecializedShader(convolveShader.get(),specInfo);
+		auto interleaveAndLastFFTSpecializedShader = driver->createSpecializedShader(interleaveAndLastFFTShader.get(),specInfo);
 
 		{
 			core::smart_refctd_ptr<IGPUSampler> samplers[colorChannelsFFT];
@@ -836,7 +836,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 						ISampler::ECO_ALWAYS
 					}
 				};
-				auto sampler = driver->createGPUSampler(std::move(params));
+				auto sampler = driver->createSampler(std::move(params));
 				std::fill_n(samplers,colorChannelsFFT,sampler);
 			}
 			IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
@@ -846,19 +846,19 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 				{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 				{4u,EDT_COMBINED_IMAGE_SAMPLER,colorChannelsFFT,IGPUSpecializedShader::ESS_COMPUTE,samplers}
 			};
-			sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
+			sharedDescriptorSetLayout = driver->createDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
 		}
 
 		{
 			SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
-			sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
+			sharedPipelineLayout = driver->createPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
 		}
 
-		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
-		intensityPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
-		secondLumaMeterAndFirstFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndFirstFFTSpecializedShader));
-		convolvePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(convolveSpecializedShader));
-		interleaveAndLastFFTPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveAndLastFFTSpecializedShader));
+		deinterleavePipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
+		intensityPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
+		secondLumaMeterAndFirstFFTPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndFirstFFTSpecializedShader));
+		convolvePipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(convolveSpecializedShader));
+		interleaveAndLastFFTPipeline = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveAndLastFFTSpecializedShader));
 	}
 
 	const auto inputFilesAmount = cmdHandler.getInputFilesAmount();
@@ -1344,7 +1344,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					kerImgViewInfo.subresourceRange.levelCount = kerImgViewInfo.image->getCreationParameters().mipLevels;
 					kerImgViewInfo.subresourceRange.baseArrayLayer = 0;
 					kerImgViewInfo.subresourceRange.layerCount = 1;
-					kerImageView = driver->createGPUImageView(std::move(kerImgViewInfo));
+					kerImageView = driver->createImageView(std::move(kerImgViewInfo));
 				}
 
 				// kernel outputs
@@ -1369,7 +1369,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 					viewParams.subresourceRange = {};
 					viewParams.subresourceRange.levelCount = 1u;
 					viewParams.subresourceRange.layerCount = 1u;
-					kernelNormalizedSpectrums[i] = driver->createGPUImageView(std::move(viewParams));
+					kernelNormalizedSpectrums[i] = driver->createImageView(std::move(viewParams));
 				}
 
 				//
@@ -1380,7 +1380,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 
 				// the kernel's FFTs
 				{
-					auto kernelDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(kernelDescriptorSetLayout));
+					auto kernelDescriptorSet = driver->createDescriptorSet(core::smart_refctd_ptr(kernelDescriptorSetLayout));
 					{
 						IGPUDescriptorSet::SDescriptorInfo infos[kernelSetDescCount+colorChannelsFFT-1u];
 						infos[0].desc = kerImageView;
@@ -1434,7 +1434,7 @@ nbl_glsl_complex nbl_glsl_ext_FFT_getPaddedData(ivec3 coordinate, in uint channe
 			// bind shader resources
 			{
 				// create descriptor set
-				auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
+				auto descriptorSet = driver->createDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
 				// write descriptor set
 				{
 					IGPUDescriptorSet::SDescriptorInfo infos[SharedDescriptorSetDescCount+EII_COUNT*2u-2u+colorChannelsFFT];

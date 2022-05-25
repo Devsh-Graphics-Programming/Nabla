@@ -150,8 +150,8 @@ int main()
 	{
 		constexpr auto resourceCount = 3u;
 		cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> resources[resourceCount];
-		auto& A = resources[0] = driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[0]->getPointer());
-		auto& B = resources[1] = driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[1]->getPointer());
+		auto& A = resources[0] = driver->createFilledDeviceLocalBufferOnDedMem(_size,cpubuffers[0]->getPointer());
+		auto& B = resources[1] = driver->createFilledDeviceLocalBufferOnDedMem(_size,cpubuffers[1]->getPointer());
 		auto& C = resources[2] = driver->createDeviceLocalGPUBufferOnDedMem(_size);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&A,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
 			return 11;

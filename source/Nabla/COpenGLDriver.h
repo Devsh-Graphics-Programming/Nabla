@@ -23,7 +23,7 @@ namespace nbl
 
 #include "EGL/egl.h"
 
-#include "IDriverMemoryAllocation.h"
+#include "IDeviceMemoryAllocation.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
 #include "nbl/video/COpenGLDescriptorSet.h"

@@ -62,7 +62,7 @@ public:
 		SBufferRange<IGPUBuffer> in_gpu_range;
 		in_gpu_range.offset = begin * sizeof(uint32_t);
 		in_gpu_range.size = elementCount * sizeof(uint32_t);
-		in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], in_count * sizeof(uint32_t), in);
+		in_gpu_range.buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], in_count * sizeof(uint32_t), in);
 
 		const auto scanType = video::CScanner::EST_EXCLUSIVE;
 		auto scanner = utilities->getDefaultScanner();
@@ -83,7 +83,7 @@ public:
 
 		auto dsLayout = scanner->getDefaultDescriptorSetLayout();
 		auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE, &dsLayout, &dsLayout + 1u);
-		auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
+		auto ds = logicalDevice->createDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 		scanner->updateDescriptorSet(ds.get(), in_gpu_range, scratch_gpu_range);
 
 		constexpr auto BenchmarkingRuns = 1u;
@@ -178,15 +178,15 @@ public:
 				logicalDevice->blockForFences(1u, &lastFence.get());
 			}
 
-			auto mem = const_cast<video::IDriverMemoryAllocation*>(downloaded_buffer->getBoundMemory());
+			auto mem = const_cast<video::IDeviceMemoryAllocation*>(downloaded_buffer->getBoundMemory());
 			{
-				video::IDriverMemoryAllocation::MappedMemoryRange range;
+				video::IDeviceMemoryAllocation::MappedMemoryRange range;
 				{
 					range.memory = mem;
 					range.offset = 0u;
 					range.length = in_gpu_range.size;
 				}
-				logicalDevice->mapMemory(range, video::IDriverMemoryAllocation::EMCAF_READ);
+				logicalDevice->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
 			}
 			auto gpu_begin = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
 			for (auto i = 0u; i < elementCount; i++)
@@ -264,7 +264,7 @@ NBL_COMMON_API_MAIN(ComputeScanApp)
 //	SBufferRange<IGPUBuffer> in_gpu_range;
 //	in_gpu_range.offset = begin*sizeof(uint32_t);
 //	in_gpu_range.size = elementCount*sizeof(uint32_t);
-//	in_gpu_range.buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
+//	in_gpu_range.buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP],in_count*sizeof(uint32_t),in);
 //	
 //	const auto scanType = video::CScanner::EST_EXCLUSIVE;
 //	auto scanner = utilities->getDefaultScanner();
@@ -285,7 +285,7 @@ NBL_COMMON_API_MAIN(ComputeScanApp)
 //
 //	auto dsLayout = scanner->getDefaultDescriptorSetLayout();
 //	auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE,&dsLayout,&dsLayout+1u);
-//	auto ds = logicalDevice->createGPUDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
+//	auto ds = logicalDevice->createDescriptorSet(dsPool.get(),core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayout));
 //	scanner->updateDescriptorSet(ds.get(),in_gpu_range,scratch_gpu_range);
 //
 //	constexpr auto BenchmarkingRuns = 1u;
@@ -380,15 +380,15 @@ NBL_COMMON_API_MAIN(ComputeScanApp)
 //			logicalDevice->blockForFences(1u,&lastFence.get());
 //		}
 //
-//		auto mem = const_cast<video::IDriverMemoryAllocation*>(downloaded_buffer->getBoundMemory());
+//		auto mem = const_cast<video::IDeviceMemoryAllocation*>(downloaded_buffer->getBoundMemory());
 //		{
-//			video::IDriverMemoryAllocation::MappedMemoryRange range;
+//			video::IDeviceMemoryAllocation::MappedMemoryRange range;
 //			{
 //				range.memory = mem;
 //				range.offset = 0u;
 //				range.length = in_gpu_range.size;
 //			}
-//			logicalDevice->mapMemory(range,video::IDriverMemoryAllocation::EMCAF_READ);
+//			logicalDevice->mapMemory(range,video::IDeviceMemoryAllocation::EMCAF_READ);
 //		}
 //		auto gpu_begin = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
 //		for (auto i=0u; i<elementCount; i++)

@@ -207,6 +207,7 @@ public:
 
 		m_egl.call.peglMakeCurrent(m_egl.display, pbuf, pbuf, ctx);
 
+		auto GetError = reinterpret_cast<decltype(glGetError)*>(m_egl.call.peglGetProcAddress("glGetError"));
 		auto GetString = reinterpret_cast<decltype(glGetString)*>(m_egl.call.peglGetProcAddress("glGetString"));
 		auto GetStringi = reinterpret_cast<PFNGLGETSTRINGIPROC>(m_egl.call.peglGetProcAddress("glGetStringi"));
 		auto GetIntegerv = reinterpret_cast<decltype(glGetIntegerv)*>(m_egl.call.peglGetProcAddress("glGetIntegerv"));
@@ -237,15 +238,151 @@ public:
 			}
 		}
 
+		// Some usefull stringy searchy functions
+		auto hasInString = [](const std::string& str, const std::string& toFind, bool matchWholeWord = false, bool matchCase = false) -> bool
+		{
+			std::string base = str;
+			std::string to_find = toFind;
+			if(!matchCase)
+			{
+				std::transform(base.begin(), base.end(), base.begin(), [](unsigned char c){ return std::tolower(c); });
+				std::transform(to_find.begin(), to_find.end(), to_find.begin(), [](unsigned char c){ return std::tolower(c); });
+			}
+
+			if(matchWholeWord) // Because we don't want to detect "armadillo" as an "arm" driver, I couldn't come up with a better example
+			{
+				std::regex r("\\b" + toFind + "\\b"); // the pattern \b matches a word boundary
+				std::smatch m;
+				return std::regex_search(base, m, r);
+			}
+			else
+			{
+				return (base.find(toFind) != base.npos);
+			}
+		};
+
+		// Some tests to ensure "matchWholeWord" works as expected
+		assert(hasInString("RADV/ACO FIJI", "radv", true));
+		assert(hasInString("Intel(R)", "intel", true));
+		assert(hasInString("ATI Technologies Inc.", "ati technologies", true));
+
 		// initialize features
-		std::string vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
-		m_glfeatures.isIntelGPU = (vendor.find("Intel") != vendor.npos || vendor.find("INTEL") != vendor.npos);
+		const char* vendor = reinterpret_cast<const char*>(GetString(GL_VENDOR));
+		const char* renderer = reinterpret_cast<const char*>(GetString(GL_RENDERER));
+		const char* ogl_ver_str = reinterpret_cast<const char*>(GetString(GL_VERSION));
+
+		// Detecting DriverID from vendor, renderer and gl_version:
+		// the logic comes from exhaustive search and matching between OpenGL and Vulkan GPUInfo website
+		// https://vulkan.gpuinfo.org/displaycoreproperty.php?core=1.2&name=driverID&platform=all
+		if(hasInString(vendor, "mesa", true) || hasInString(renderer, "mesa", true) || hasInString(ogl_ver_str, "mesa", true))
+		{
+			// Mesa Driver
+			if(hasInString(vendor, "intel", true) || hasInString(renderer, "intel", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA;
+			else if(hasInString(renderer, "radv", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_MESA_RADV;
+			else if(hasInString(renderer, "llvmpipe", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_MESA_LLVMPIPE;
+			else if(hasInString(renderer, "amd", true) || hasInString(renderer, "radeon", true) || hasInString(vendor, "ati technologies", true))
+				m_properties.driverID = E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
+		}
+		else if(hasInString(vendor, "intel", true) || hasInString(renderer, "intel", true))
+			m_properties.driverID = E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS;
+		else if(hasInString(vendor, "ati technologies", true) || hasInString(vendor, "amd", true) || hasInString(renderer, "amd", true))
+			m_properties.driverID = E_DRIVER_ID::EDI_AMD_PROPRIETARY;
+		else if(hasInString(vendor, "nvidia", true)) // easiest to detect :D
+			m_properties.driverID = E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY;
+		else 
+			m_properties.driverID = E_DRIVER_ID::EDI_UNKNOWN;
+
+		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+
+		// Heuristic to detect Physical Device Type until we have something better:
+		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+			m_properties.deviceType = E_TYPE::ET_INTEGRATED_GPU;
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
+			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
+		else if(hasInString(renderer, "virgl", true))
+			m_properties.deviceType = E_TYPE::ET_VIRTUAL_GPU;
+		else
+			m_properties.deviceType = E_TYPE::ET_UNKNOWN;
+		
+		// Query VRAM Size 
+		GetError();
+		size_t VRAMSize = 0u;
+		GLint tmp[4] = {0,0,0,0};
+		switch (m_properties.deviceType)
+		{
+		case E_DRIVER_ID::EDI_AMD_PROPRIETARY:
+			GetIntegerv(0x87FC,tmp); //TEXTURE_FREE_MEMORY_ATI, only textures
+			VRAMSize = size_t(tmp[0])*1024ull;
+			assert(VRAMSize > 0u);
+			break;
+		case EDI_INTEL_OPEN_SOURCE_MESA: [[fallthrough]];
+		case EDI_MESA_RADV: [[fallthrough]];
+		case EDI_MESA_LLVMPIPE: [[fallthrough]];
+		case EDI_AMD_OPEN_SOURCE: [[fallthrough]];
+			// TODO https://www.khronos.org/registry/OpenGL/extensions/MESA/GLX_MESA_query_renderer.txt
+		default: // other vendors sometimes implement the NVX extension
+			GetIntegerv(0x9047,tmp); // dedicated as per https://www.khronos.org/registry/OpenGL/extensions/NVX/NVX_gpu_memory_info.txt
+			VRAMSize = size_t(tmp[0])*1024ull;
+			assert(VRAMSize > 0u);
+			break;
+		}
+		if (GetError()!=GL_NO_ERROR)
+			VRAMSize = 2047u;
+
+		// Spoof Memory Types and Heaps
+		m_memoryProperties = {};
+		m_memoryProperties.memoryHeapCount = 3u;
+		m_memoryProperties.memoryHeaps[0u].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(IDeviceMemoryAllocation::EMHF_DEVICE_LOCAL_BIT);
+		m_memoryProperties.memoryHeaps[0u].size = VRAMSize; // VRAM SIZE
+		m_memoryProperties.memoryHeaps[1u].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(0u);
+		m_memoryProperties.memoryHeaps[1u].size = size_t(0.7f * float(m_system->getSystemInfo().totalMemory)); // 70% System memory
+		m_memoryProperties.memoryHeaps[2u].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(IDeviceMemoryAllocation::EMHF_DEVICE_LOCAL_BIT);
+		m_memoryProperties.memoryHeaps[2u].size = 256u * 1024u * 1024u; // 256MB
+
+		m_memoryProperties.memoryTypeCount = 14u;
+		m_memoryProperties.memoryTypes[0u].heapIndex = 0u;
+		m_memoryProperties.memoryTypes[0u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+
+		m_memoryProperties.memoryTypes[1u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[1u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT;
+		m_memoryProperties.memoryTypes[2u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[2u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT;
+		m_memoryProperties.memoryTypes[3u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[3u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT;
+		
+		m_memoryProperties.memoryTypes[4u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[4u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT;
+		m_memoryProperties.memoryTypes[5u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[5u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT;
+		m_memoryProperties.memoryTypes[6u].heapIndex = 2u;
+		m_memoryProperties.memoryTypes[6u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT;
+		
+		m_memoryProperties.memoryTypes[7u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[7u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(0u);
+		
+		m_memoryProperties.memoryTypes[8u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[8u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT ;
+		m_memoryProperties.memoryTypes[9u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[9u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT;
+		m_memoryProperties.memoryTypes[10u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[10u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
+		
+		m_memoryProperties.memoryTypes[11u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[11u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT ;
+		m_memoryProperties.memoryTypes[12u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[12u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT;
+		m_memoryProperties.memoryTypes[13u].heapIndex = 1u;
+		m_memoryProperties.memoryTypes[13u].propertyFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT) | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
 
 		const std::regex version_re("([1-9]\\.[0-9])");
 		std::cmatch re_match;
 
 		float ogl_ver = 0.f;
-		const char* ogl_ver_str = reinterpret_cast<const char*>(GetString(GL_VERSION));
 		if (std::regex_search(ogl_ver_str, re_match, version_re) && re_match.size() >= 2)
 		{
 			sscanf(re_match[1].str().c_str(), "%f", &ogl_ver);
@@ -358,7 +495,7 @@ public:
 			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
 			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
 			m_features.samplerAnisotropy = true;
-			m_limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
+			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
 		}
 		else m_glfeatures.MaxAnisotropy = 0u;
 
@@ -430,20 +567,30 @@ public:
 
 		// physical device limits
 		{
+			// TODO: get deviceUUID
+			// TODO: get deviceType
+			int majorVer = 0;
+			int minorVer = 0;
+			GetIntegerv(GL_MAJOR_VERSION, &majorVer);
+			GetIntegerv(GL_MINOR_VERSION, &minorVer);
+			m_properties.apiVersion.major = majorVer;
+			m_properties.apiVersion.minor = minorVer;
+			m_properties.apiVersion.patch = 0u;
+			
 			// GL doesnt have any limit on this (???)
-			m_limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_limits.maxDrawIndirectCount)>::max();
+			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
 
-			m_limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
-			m_limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
-			m_limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
+			m_properties.limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
+			m_properties.limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
+			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
 
-			m_limits.maxUBOSize = m_glfeatures.maxUBOSize;
-			m_limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
-			m_limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
-			m_limits.maxBufferSize = std::max(m_limits.maxUBOSize, m_limits.maxSSBOSize);
+			m_properties.limits.maxUBOSize = m_glfeatures.maxUBOSize;
+			m_properties.limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
+			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
+			m_properties.limits.maxBufferSize = std::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
 
-			m_limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
-			m_limits.timestampPeriodInNanoSeconds = 1.0f;
+			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
+			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
@@ -453,18 +600,18 @@ public:
 			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, max_ssbos + 4);
 			uint32_t maxSSBOsPerStage = static_cast<uint32_t>(*std::min_element(max_ssbos, max_ssbos + 5));
 
-			m_limits.maxPerStageSSBOs = maxSSBOsPerStage;
+			m_properties.limits.maxPerStageDescriptorSSBOs = maxSSBOsPerStage;
 
-			m_limits.maxSSBOs = m_glfeatures.maxSSBOBindings;
-			m_limits.maxUBOs = m_glfeatures.maxUBOBindings;
-			m_limits.maxDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
-			m_limits.maxDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
-			m_limits.maxTextures = m_glfeatures.maxTextureBindings;
-			m_limits.maxStorageImages = m_glfeatures.maxImageBindings;
-			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_limits.maxTextureSize));
+			m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
+			m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
+			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
+			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
+			m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
+			m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
+			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxTextureSize));
 
-			GetFloatv(GL_POINT_SIZE_RANGE, m_limits.pointSizeRange);
-			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_limits.lineWidthRange);
+			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
+			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_properties.limits.lineWidthRange);
 
 			GLint maxViewportExtent[2]{0,0};
 			GetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewportExtent);
@@ -472,28 +619,32 @@ public:
 			GLint maxViewports = 16;
 			GetIntegerv(GL_MAX_VIEWPORTS, &maxViewports);
 
-			m_limits.maxViewports = maxViewports;
+			m_properties.limits.maxViewports = maxViewports;
 
-			m_limits.maxViewportDims[0] = maxViewportExtent[0];
-			m_limits.maxViewportDims[1] = maxViewportExtent[1];
+			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
+			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
 
-			m_limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
-			m_limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
-			m_limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
+			GLint maxComputeSharedMemorySize = 0;
+			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
+			m_properties.limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
+
+			m_properties.limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
+			m_properties.limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
+			m_properties.limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
 
 			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
-			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_limits.maxOptimallyResidentWorkgroupInvocations));
-			m_limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_limits.maxOptimallyResidentWorkgroupInvocations),512u);
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_properties.limits.maxOptimallyResidentWorkgroupInvocations));
+			m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_properties.limits.maxOptimallyResidentWorkgroupInvocations),512u);
 			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
-			m_limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_limits.maxOptimallyResidentWorkgroupInvocations;
+			m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
 
 			// TODO: better subgroup exposal
-			m_limits.subgroupSize = 0u;
-			m_limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
+			m_properties.limits.subgroupSize = 0u;
+			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 			
-			m_limits.nonCoherentAtomSize = 256ull;
+			m_properties.limits.nonCoherentAtomSize = 256ull;
 
-			m_limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
+			m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
@@ -503,28 +654,19 @@ public:
 				GLint subgroupOpsStages = 0;
 				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
 				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
 				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
 				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
 				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
 				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
 				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
-					m_limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
 			}
 		}
-		
-		int majorVer = 0;
-		int minorVer = 0;
-		GetIntegerv(GL_MAJOR_VERSION, &majorVer);
-		GetIntegerv(GL_MINOR_VERSION, &minorVer);
-		m_apiVersion.major = majorVer;
-		m_apiVersion.minor = minorVer;
-		m_apiVersion.patch = 0u;
-
 
 		std::ostringstream pool;
 		addCommonGLSLDefines(pool,runningInRenderDoc);

@@ -97,8 +97,8 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderCode), asset::ICPUShader::buffer_contains_glsl),
 		asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
 
-	auto gpuShader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpuSpecializedShader->getUnspecialized()));
-	m_shader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+	auto gpuShader = driver->createShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+	m_shader = driver->createSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
 }
 
 uint32_t DepthPyramidGenerator::createMipMapImages(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImage>* outputDepthPyramidMipImages, const Config& config)
@@ -175,7 +175,7 @@ uint32_t DepthPyramidGenerator::createMipMapImageViews(IVideoDriver* driver, cor
 	{
 		assert(*inputMipImages);
 		imgViewParams.image = core::smart_refctd_ptr(*inputMipImages);
-		*outputMips = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewParams));
+		*outputMips = driver->createImageView(IGPUImageView::SCreationParams(imgViewParams));
 		assert(*outputMips);
 
 		currMipExtent.width >>= 1u;
@@ -229,7 +229,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> DepthPyramidGenerator::createDes
 		params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
 	}
 	
-	auto sampler = driver->createGPUSampler(params);
+	auto sampler = driver->createSampler(params);
 	
 	IGPUDescriptorSetLayout::SBinding bindings[4];
 	bindings[0].binding = 0u;
@@ -256,7 +256,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> DepthPyramidGenerator::createDes
 	bindings[3].stageFlags = ISpecializedShader::ESS_COMPUTE;
 	bindings[3].type = EDT_STORAGE_IMAGE;
 	
-	return driver->createGPUDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
+	return driver->createDescriptorSetLayout(bindings, bindings + sizeof(bindings) / sizeof(IGPUDescriptorSetLayout::SBinding));
 }
 
 uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core::smart_refctd_ptr<IGPUImageView> inputDepthImageView, core::smart_refctd_ptr<IGPUImageView>* inputDepthPyramidMips, 
@@ -292,7 +292,7 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 	}
 
 	uint32_t virtualWorkGroupContents[2] = { 0u, 0u };
-	core::smart_refctd_ptr<IGPUBuffer> virtualWorkGroup = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(virtualWorkGroupContents), virtualWorkGroupContents);
+	core::smart_refctd_ptr<IGPUBuffer> virtualWorkGroup = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(virtualWorkGroupContents), virtualWorkGroupContents);
 
 	// NOTE: it is writen solely for 8 image binding limit
 	core::smart_refctd_ptr<IGPUBuffer> virtualWorkGroupData;
@@ -363,14 +363,14 @@ uint32_t DepthPyramidGenerator::createDescriptorSets(IVideoDriver* driver, core:
 		if(virtualDispatchCnt % 2u)
 			outputDispatchData[outputDsCnt - 1u].pcData.maxMetaZLayerCnt = 1u;
 
-		virtualWorkGroupData = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(core::vector2d<uint32_t>) * virtualWorkGroupDataContents.size(), virtualWorkGroupDataContents.data());
+		virtualWorkGroupData = driver->createFilledDeviceLocalBufferOnDedMem(sizeof(core::vector2d<uint32_t>) * virtualWorkGroupDataContents.size(), virtualWorkGroupDataContents.data());
 	}
 
 	uint32_t mipLvlsRemaining = mipCnt;
 	for (uint32_t i = 0u; i < outputDsCnt; i++)
 	{
 		core::smart_refctd_ptr<IGPUDescriptorSet>& currDs = *(outputDs + i);
-		currDs = driver->createGPUDescriptorSet(core::smart_refctd_ptr(inputDsLayout));
+		currDs = driver->createDescriptorSet(core::smart_refctd_ptr(inputDsLayout));
 
 		const uint32_t thisPassMipCnt = mipLvlsRemaining > perPassMipCnt ? perPassMipCnt : mipLvlsRemaining;
 
@@ -445,7 +445,7 @@ void DepthPyramidGenerator::createPipeline(IVideoDriver* driver, core::smart_ref
 	pcRange.offset = 0u;
 	pcRange.stageFlags = ISpecializedShader::ESS_COMPUTE;
 
-	outputPpln = driver->createGPUComputePipeline(nullptr, driver->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(dsLayout)), core::smart_refctd_ptr(m_shader));
+	outputPpln = driver->createComputePipeline(nullptr, driver->createPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(dsLayout)), core::smart_refctd_ptr(m_shader));
 }
 
 void DepthPyramidGenerator::generateMipMaps(const core::smart_refctd_ptr<IGPUImageView>& inputImage, core::smart_refctd_ptr<IGPUComputePipeline>& ppln, core::smart_refctd_ptr<IGPUDescriptorSet>& ds, const DispatchData& dispatchData, bool issueDefaultBarrier)

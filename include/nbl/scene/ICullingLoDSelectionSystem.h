@@ -47,9 +47,10 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			setWorkgroups(contents.instanceRefCountingSortScatter);
 			setWorkgroups(contents.drawCompact);
 
-            video::IGPUBuffer::SCreationParams params;
-            params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
-            return utils->createFilledDeviceLocalGPUBufferOnDedMem(queue,sizeof(contents),&contents);
+			video::IGPUBuffer::SCreationParams params;
+			params.size = sizeof(contents);
+			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
+			return utils->createFilledDeviceLocalBufferOnDedMem(queue,std::move(params),&contents);
 		}
 
 		// These buffer ranges can be safely discarded or reused after `processInstancesAndFillIndirectDraws` completes
@@ -84,11 +85,16 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			{
 				video::IGPUBuffer::SCreationParams params;
 				params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+				params.size = retval.prefixSumScratch.offset+retval.prefixSumScratch.size;
+				auto gpubuffer = logicalDevice->createBuffer(params);
 				retval.pvsInstances.buffer =
 				retval.lodDrawCallCounts.buffer =
 				retval.pvsInstanceDraws.buffer =
-				retval.prefixSumScratch.buffer =
-					logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,retval.prefixSumScratch.offset+retval.prefixSumScratch.size);
+				retval.prefixSumScratch.buffer = gpubuffer;
+				auto mreqs = gpubuffer->getMemoryReqs();
+				mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto gpubufMem = logicalDevice->allocate(mreqs, gpubuffer.get());
+
 				retval.pvsInstances.buffer->setObjectDebugName("Culling Scratch Buffer");
 			}
 			return retval;
@@ -116,17 +122,27 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		}
 		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalInstances, const uint32_t perViewPerInstanceDataSize)
 		{
-            video::IGPUBuffer::SCreationParams params;
+			video::IGPUBuffer::SCreationParams params;
+			params.size = perViewPerInstanceDataSize*maxTotalInstances;
 			params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,perViewPerInstanceDataSize*maxTotalInstances);
+			auto buffer = logicalDevice->createBuffer(params);
+			auto mreqs = buffer->getMemoryReqs();
+			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
+			return buffer;
 		}
 
 		// Instance Redirect buffer holds a `uvec2` of `{instanceGUID,perViewPerInstanceDataID}` for each instace of a drawcall
 		static core::smart_refctd_ptr<video::IGPUBuffer> createInstanceRedirectBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalVisibleDrawcallInstances)
 		{
-            video::IGPUBuffer::SCreationParams params;
-            params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-            return logicalDevice->createDeviceLocalGPUBufferOnDedMem(params,sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances);
+			video::IGPUBuffer::SCreationParams params;
+			params.size = sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances;
+			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
+			auto buffer = logicalDevice->createBuffer(params);
+			auto mreqs = buffer->getMemoryReqs();
+			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
+			return buffer;
 		}
 
 
@@ -150,7 +166,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			uint32_t count = InputDescriptorBindingCount;
 			if (!withMDICounts)
 				count--;
-			return device->createGPUDescriptorSetLayout(bindings,bindings+InputDescriptorBindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+InputDescriptorBindingCount);
 		}
 		//
 		static inline constexpr auto OutputDescriptorBindingCount = 4u;
@@ -172,7 +188,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			uint32_t count = OutputDescriptorBindingCount;
 			if (!withMDICounts)
 				count--;
-			return device->createGPUDescriptorSetLayout(bindings,bindings+count);
+			return device->createDescriptorSetLayout(bindings,bindings+count);
 		}
 
 
@@ -188,7 +204,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createGPUDescriptorSet(pool,std::move(layout));
+			auto ds = device->createDescriptorSet(pool,std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[InputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[InputDescriptorBindingCount] =
@@ -233,7 +249,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createGPUDescriptorSet(pool,std::move(layout));
+			auto ds = device->createDescriptorSet(pool,std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[OutputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[OutputDescriptorBindingCount] =
@@ -431,7 +447,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			if (!lodLibraryDSLayout || !transientInputDSLayout || !transientOutputDSLayout)
 				return nullptr;
 
-			auto instanceCullAndLoDSelectLayout = device->createGPUPipelineLayout(
+			auto instanceCullAndLoDSelectLayout = device->createPipelineLayout(
 				cullAndLoDSelectPCBegin,cullAndLoDSelectPCEnd,
 				core::smart_refctd_ptr(lodLibraryDSLayout),
 				core::smart_refctd_ptr(transientInputDSLayout),
@@ -439,14 +455,14 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				std::move(customExtraDSLayout)
 			);
 			const asset::SPushConstantRange singleUintRange = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)};
-			auto instanceDrawCullLayout = device->createGPUPipelineLayout(
+			auto instanceDrawCullLayout = device->createPipelineLayout(
 				&singleUintRange,&singleUintRange+1u,
 				core::smart_refctd_ptr(lodLibraryDSLayout),
 				core::smart_refctd_ptr(transientInputDSLayout),
 				core::smart_refctd_ptr(transientOutputDSLayout)
 			);
 			auto instanceRefCountingSortPushConstants = _scanner->getDefaultPipelineLayout()->getPushConstantRanges();
-			auto instanceRefCountingSortPipelineLayout = device->createGPUPipelineLayout(
+			auto instanceRefCountingSortPipelineLayout = device->createPipelineLayout(
 				instanceRefCountingSortPushConstants.begin(),instanceRefCountingSortPushConstants.end(),
 				nullptr,
 				core::smart_refctd_ptr(transientInputDSLayout),
@@ -481,20 +497,20 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				path = cwdForShaderCompilation / path.filename();
 				baseShader.first->setFilePathHint(path.string());
 				baseShader.first->setShaderStage(asset::IShader::ESS_COMPUTE);
-				auto shader =  device->createGPUShader(
+				auto shader =  device->createShader(
 					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
+				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			const std::string workgroupSizeDef = "\n#define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_\n";
 			
 			auto firstShader = getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")());
-			auto instanceCullAndLoDSelect = device->createGPUComputePipeline(
+			auto instanceCullAndLoDSelect = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceCullAndLoDSelectLayout),
 				overrideShader(std::move(firstShader),workgroupSizeDef+perViewPerInstanceDefinition+cullAndLoDSelectFuncDefinitions)
 			);
-			auto instanceDrawCountPrefixSum = device->createGPUComputePipeline(
+			auto instanceDrawCountPrefixSum = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceDrawCullLayout),
 				overrideShader(
 					{
@@ -505,12 +521,12 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				)
 			);
 			
-			auto instanceDrawCull = device->createGPUComputePipeline(
+			auto instanceDrawCull = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceDrawCullLayout),
 				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")()),workgroupSizeDef+perViewPerInstanceDefinition)
 			);
 
-			auto drawInstanceCountPrefixSum = device->createGPUComputePipeline(
+			auto drawInstanceCountPrefixSum = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
 				overrideShader(
 					{
@@ -520,7 +536,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					"\n#include <nbl/builtin/glsl/culling_lod_selection/draw_instance_count_scan_override.glsl>\n"
 				)
 			);
-			auto instanceRefCountingSortScatter = device->createGPUComputePipeline(
+			auto instanceRefCountingSortScatter = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
 				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp")()),workgroupSizeDef)
 			);

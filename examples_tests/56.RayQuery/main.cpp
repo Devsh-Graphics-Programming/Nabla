@@ -36,7 +36,12 @@ smart_refctd_ptr<IGPUImageView> createHDRImageView(nbl::core::smart_refctd_ptr<n
 		imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
 		imgInfo.usage = core::bitflag(asset::IImage::EUF_STORAGE_BIT) | asset::IImage::EUF_TRANSFER_SRC_BIT;
 
-		auto image = device->createGPUImageOnDedMem(std::move(imgInfo),device->getDeviceLocalGPUMemoryReqs());
+		// (Erfan -> Cyprian)
+		// auto image = device->createGPUImageOnDedMem(std::move(imgInfo),device->getDeviceLocalGPUMemoryReqs());
+		auto image = device->createImage(std::move(imgInfo));
+		auto imageMemoryReqs = image->getMemoryReqs();
+		imageMemoryReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits(); // getDeviceLocalMemoryTypeBits because of previous code getDeviceLocalGPUMemoryReqs
+		auto imageMem = device->allocate(imageMemoryReqs, image.get());
 
 		IGPUImageView::SCreationParams imgViewInfo;
 		imgViewInfo.image = std::move(image);
@@ -49,7 +54,7 @@ smart_refctd_ptr<IGPUImageView> createHDRImageView(nbl::core::smart_refctd_ptr<n
 		imgViewInfo.subresourceRange.layerCount = 1u;
 		imgViewInfo.subresourceRange.levelCount = 1u;
 
-		gpuImageViewColorBuffer = device->createGPUImageView(std::move(imgViewInfo));
+		gpuImageViewColorBuffer = device->createImageView(std::move(imgViewInfo));
 	}
 
 	return gpuImageViewColorBuffer;
@@ -312,8 +317,12 @@ public:
 
 		{
 			IGPUBuffer::SCreationParams params = {};
+			params.size = spheresBufferSize; // (Erfan->Cyprian) See How I moved "createDeviceLocalGPUBufferOnDedMem" second parameter to params.size? IGPUBuffer::SCreationParams::size is very important to be filled unlike before
 			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT) | asset::IBuffer::EUF_TRANSFER_DST_BIT; 
-			spheresBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, spheresBufferSize);
+			spheresBuffer = logicalDevice->createBuffer(params);
+			auto bufferReqs = spheresBuffer->getMemoryReqs();
+			bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits(); // (Erfan->Cyprian) I used `getDeviceLocalMemoryTypeBits` because of previous createDeviceLocalGPUBufferOnDedMem (Focus on DeviceLocal Part)
+			auto spheresBufferMem = logicalDevice->allocate(bufferReqs, spheresBuffer.get());
 			utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,spheresBufferSize,spheresBuffer}, spheres);
 		}
 
@@ -397,8 +406,14 @@ public:
 
 			{
 				IGPUBuffer::SCreationParams params = {};
+				params.size = aabbsBufferSize;
 				params.usage = raytracingFlags | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; 
-				aabbsBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, aabbsBufferSize);
+				aabbsBuffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = aabbsBuffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto aabbBufferMem = logicalDevice->allocate(bufferReqs, aabbsBuffer.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+				// (Erfan->Cyprian) -> I passed `IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT` as a third parameter to the allocate function because the buffer needs the usage `EUF_SHADER_DEVICE_ADDRESS_BIT`
+				//		You don't have to worry about it, it's only used in this example
 				utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,aabbsBufferSize,aabbsBuffer}, aabbs);
 			}
 
@@ -431,8 +446,12 @@ public:
 			{
 				core::smart_refctd_ptr<IGPUBuffer> asBuffer;
 				IGPUBuffer::SCreationParams params = {};
-				params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT; 
-				asBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.accelerationStructureSize);
+				params.size = buildSizes.accelerationStructureSize;
+				params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
+				asBuffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = asBuffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto asBufferMem = logicalDevice->allocate(bufferReqs, asBuffer.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 
 				IGPUAccelerationStructure::SCreationParams blasParams = {};
 				blasParams.type = IGPUAccelerationStructure::ET_BOTTOM_LEVEL;
@@ -440,15 +459,19 @@ public:
 				blasParams.bufferRange.buffer = asBuffer;
 				blasParams.bufferRange.offset = 0u;
 				blasParams.bufferRange.size = buildSizes.accelerationStructureSize;
-				gpuBlas = logicalDevice->createGPUAccelerationStructure(std::move(blasParams));
+				gpuBlas = logicalDevice->createAccelerationStructure(std::move(blasParams));
 			}
 
 			// Allocate ScratchBuffer
 			core::smart_refctd_ptr<IGPUBuffer> scratchBuffer;
 			{
 				IGPUBuffer::SCreationParams params = {};
+				params.size = buildSizes.buildScratchSize;
 				params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
-				scratchBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.buildScratchSize);
+				scratchBuffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = scratchBuffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto scratchBufferMem = logicalDevice->allocate(bufferReqs, scratchBuffer.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 			}
 
 			// Complete BLAS Build Info
@@ -497,8 +520,12 @@ public:
 			uint32_t instancesBufferSize = sizeof(Instance);
 			{
 				IGPUBuffer::SCreationParams params = {};
+				params.size = instancesBufferSize;
 				params.usage = raytracingFlags | asset::IBuffer::EUF_TRANSFER_DST_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; 
-				instancesBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, instancesBufferSize);
+				instancesBuffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = instancesBuffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto instancesBufferMem = logicalDevice->allocate(bufferReqs, instancesBuffer.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 				utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,instancesBufferSize,instancesBuffer}, instances);
 			}
 		
@@ -530,8 +557,12 @@ public:
 			{
 				core::smart_refctd_ptr<IGPUBuffer> asBuffer;
 				IGPUBuffer::SCreationParams params = {};
+				params.size = buildSizes.accelerationStructureSize;
 				params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT; 
-				asBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.accelerationStructureSize);
+				asBuffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = asBuffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto asBufferMem = logicalDevice->allocate(bufferReqs, asBuffer.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 
 				IGPUAccelerationStructure::SCreationParams tlasParams = {};
 				tlasParams.type = IGPUAccelerationStructure::ET_TOP_LEVEL;
@@ -539,15 +570,19 @@ public:
 				tlasParams.bufferRange.buffer = asBuffer;
 				tlasParams.bufferRange.offset = 0u;
 				tlasParams.bufferRange.size = buildSizes.accelerationStructureSize;
-				gpuTlas = logicalDevice->createGPUAccelerationStructure(std::move(tlasParams));
+				gpuTlas = logicalDevice->createAccelerationStructure(std::move(tlasParams));
 			}
 
 			// Allocate ScratchBuffer
 			core::smart_refctd_ptr<IGPUBuffer> scratchBuffer;
 			{
 				IGPUBuffer::SCreationParams params = {};
+				params.size = buildSizes.buildScratchSize;
 				params.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
-				scratchBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, buildSizes.buildScratchSize);
+				scratchBuffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = scratchBuffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto scratchBufferMem = logicalDevice->allocate(bufferReqs, scratchBuffer.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 			}
 
 			// Complete BLAS Build Info
@@ -589,9 +624,9 @@ public:
 			{ 4u, EDT_STORAGE_BUFFER, 1u, IShader::ESS_COMPUTE, nullptr }
 		};
 	
-		auto gpuDescriptorSetLayout0 = logicalDevice->createGPUDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
-		auto gpuDescriptorSetLayout1 = logicalDevice->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
-		auto gpuDescriptorSetLayout2 = logicalDevice->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+5u);
+		auto gpuDescriptorSetLayout0 = logicalDevice->createDescriptorSetLayout(descriptorSet0Bindings, descriptorSet0Bindings + 1u);
+		auto gpuDescriptorSetLayout1 = logicalDevice->createDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
+		auto gpuDescriptorSetLayout2 = logicalDevice->createDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+5u);
 
 		auto createGpuResources = [&](std::string pathToShader) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
 		{
@@ -617,9 +652,9 @@ public:
 
 			auto gpuComputeSpecializedShader = cpu2gpu.getGPUObjectsFromAssets(&cpuComputeSpecializedShader, &cpuComputeSpecializedShader + 1, cpu2gpuParams)->front();
 
-			auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout0), core::smart_refctd_ptr(gpuDescriptorSetLayout1), core::smart_refctd_ptr(gpuDescriptorSetLayout2), nullptr);
+			auto gpuPipelineLayout = logicalDevice->createPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout0), core::smart_refctd_ptr(gpuDescriptorSetLayout1), core::smart_refctd_ptr(gpuDescriptorSetLayout2), nullptr);
 
-			auto gpuPipeline = logicalDevice->createGPUComputePipeline(nullptr, std::move(gpuPipelineLayout), std::move(gpuComputeSpecializedShader));
+			auto gpuPipeline = logicalDevice->createComputePipeline(nullptr, std::move(gpuPipelineLayout), std::move(gpuComputeSpecializedShader));
 
 			return gpuPipeline;
 		};
@@ -630,7 +665,7 @@ public:
 
 		dispatchInfo = getDispatchInfo(WIN_W, WIN_H);
 
-		auto createGPUImageView = [&](std::string pathToOpenEXRHDRIImage)
+		auto createImageView = [&](std::string pathToOpenEXRHDRIImage)
 		{
 			auto pathToTexture = pathToOpenEXRHDRIImage;
 			IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
@@ -660,7 +695,7 @@ public:
 			return gpuImageView;
 		};
 	
-		gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
+		gpuEnvmapImageView = createImageView("../../media/envmap/envmap_0.exr");
 
 		{
 			const uint32_t MaxDimensions = 3u<<kShaderParameters.MaxDepthLog2;
@@ -678,16 +713,19 @@ public:
 				out[i*MaxDimensions+dim] = sampler.sample(dim,i);
 			}
 		
-			// TODO: Temp Fix because createFilledDeviceLocalGPUBufferOnDedMem doesn't take in params
-			// auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
+			// TODO: Temp Fix because createFilledDeviceLocalBufferOnDedMem doesn't take in params
+			// auto gpuSequenceBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(graphicsQueue, sampleSequence->getSize(), sampleSequence->getPointer());
 			{
 				IGPUBuffer::SCreationParams params = {};
-				const size_t size = sampleSequence->getSize();
+				params.size = sampleSequence->getSize();
 				params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT; 
-				gpuSequenceBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, size);
-				utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,gpuSequenceBuffer},sampleSequence->getPointer());
+				gpuSequenceBuffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = gpuSequenceBuffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto gpuSequenceBufferMem = logicalDevice->allocate(bufferReqs, gpuSequenceBuffer.get());
+				utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,params.size,gpuSequenceBuffer},sampleSequence->getPointer());
 			}
-			gpuSequenceBufferView = logicalDevice->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
+			gpuSequenceBufferView = logicalDevice->createBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 		}
 
 		{
@@ -720,26 +758,29 @@ public:
 					pixel = rng.nextSample();
 			}
 
-			// TODO: Temp Fix because createFilledDeviceLocalGPUBufferOnDedMem doesn't take in params
-			// auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
+			// TODO: Temp Fix because createFilledDeviceLocalBufferOnDedMem doesn't take in params
+			// auto buffer = utilities->createFilledDeviceLocalBufferOnDedMem(graphicsQueue, random.size()*sizeof(uint32_t), random.data());
 			core::smart_refctd_ptr<IGPUBuffer> buffer;
 			{
 				IGPUBuffer::SCreationParams params = {};
-				const size_t size = random.size() * sizeof(uint32_t);
+				params.size = random.size() * sizeof(uint32_t);
 				params.usage = core::bitflag(asset::IBuffer::EUF_TRANSFER_DST_BIT) | asset::IBuffer::EUF_TRANSFER_SRC_BIT; 
-				buffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(params, size);
-				utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,size,buffer},random.data());
+				buffer = logicalDevice->createBuffer(params);
+				auto bufferReqs = buffer->getMemoryReqs();
+				bufferReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto bufferMem = logicalDevice->allocate(bufferReqs, buffer.get());
+				utilities->updateBufferRangeViaStagingBuffer(graphicsQueue, asset::SBufferRange<IGPUBuffer>{0u,params.size,buffer},random.data());
 			}
 
 			IGPUImageView::SCreationParams viewParams;
 			viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-			viewParams.image = utilities->createFilledDeviceLocalGPUImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
+			viewParams.image = utilities->createFilledDeviceLocalImageOnDedMem(graphicsQueue, std::move(imgParams), buffer.get(), 1u, &region);
 			viewParams.viewType = IGPUImageView::ET_2D;
 			viewParams.format = EF_R32G32_UINT;
 			viewParams.subresourceRange.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 			viewParams.subresourceRange.levelCount = 1u;
 			viewParams.subresourceRange.layerCount = 1u;
-			gpuScrambleImageView = logicalDevice->createGPUImageView(std::move(viewParams));
+			gpuScrambleImageView = logicalDevice->createImageView(std::move(viewParams));
 		}
 	
 		// Create Out Image TODO
@@ -750,7 +791,7 @@ public:
 		for(uint32_t i = 0; i < FBO_COUNT; ++i)
 		{
 			auto & descSet = descriptorSets0[i];
-			descSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout0));
+			descSet = logicalDevice->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout0));
 			video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet;
 			writeDescriptorSet.dstSet = descSet.get();
 			writeDescriptorSet.binding = 0;
@@ -768,11 +809,14 @@ public:
 		}
 	
 		IGPUBuffer::SCreationParams gpuuboParams = {};
-		const size_t gpuuboParamsSize = sizeof(SBasicViewParametersAligned);
+		gpuuboParams.size = sizeof(SBasicViewParametersAligned);
 		gpuuboParams.usage = core::bitflag(IGPUBuffer::EUF_UNIFORM_BUFFER_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
-		gpuubo = logicalDevice->createDeviceLocalGPUBufferOnDedMem(gpuuboParams, gpuuboParamsSize);
+		gpuubo = logicalDevice->createBuffer(gpuuboParams);
+		auto gpuUboMemReqs = gpuubo->getMemoryReqs();
+		gpuUboMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+		auto gpuUboMem = logicalDevice->allocate(gpuUboMemReqs, gpuubo.get());
 
-		uboDescriptorSet1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
+		uboDescriptorSet1 = logicalDevice->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
 			uboWriteDescriptorSet.dstSet = uboDescriptorSet1.get();
@@ -791,11 +835,11 @@ public:
 		}
 
 		ISampler::SParams samplerParams0 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-		sampler0 = logicalDevice->createGPUSampler(samplerParams0);
+		sampler0 = logicalDevice->createSampler(samplerParams0);
 		ISampler::SParams samplerParams1 = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-		sampler1 = logicalDevice->createGPUSampler(samplerParams1);
+		sampler1 = logicalDevice->createSampler(samplerParams1);
 		
-		descriptorSet2 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
+		descriptorSet2 = logicalDevice->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout2));
 		{
 			constexpr auto kDescriptorCount = 5;
 			IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet2[kDescriptorCount];
@@ -901,7 +945,7 @@ public:
 		const auto viewProjectionMatrix = cam.getConcatenatedMatrix();
 				
 		// safe to proceed
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 
 		// renderpass 
 		swapchain->acquireNextImage(MAX_TIMEOUT,imageAcquire[m_resourceIx].get(),nullptr,&m_acquiredNextFBO);

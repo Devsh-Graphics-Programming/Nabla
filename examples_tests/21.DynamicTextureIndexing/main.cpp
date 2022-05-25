@@ -351,14 +351,14 @@ public:
             assert(pmbData.mdiParameterCount == meshBuffersInRangeCnt);
 
             //create draw call inputs
-            mdiCallParams[i].indexBuff = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], packedMeshBuffer[i].indexBuffer.buffer->getSize(), packedMeshBuffer[i].indexBuffer.buffer->getPointer());
+            mdiCallParams[i].indexBuff = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], packedMeshBuffer[i].indexBuffer.buffer->getSize(), packedMeshBuffer[i].indexBuffer.buffer->getPointer());
 
             auto& cpuVtxBuff = packedMeshBuffer[i].vertexBufferBindings[0].buffer;
 
-            gpuIndirectDrawBuffer[i] = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sizeof(CustomIndirectCommand) * pmbData.mdiParameterCount, packedMeshBuffer[i].MDIDataBuffer->getPointer());
+            gpuIndirectDrawBuffer[i] = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sizeof(CustomIndirectCommand) * pmbData.mdiParameterCount, packedMeshBuffer[i].MDIDataBuffer->getPointer());
             mdiCallParams[i].indirectDrawBuff = core::smart_refctd_ptr(gpuIndirectDrawBuffer[i]);
 
-            auto gpuVtxBuff = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
+            auto gpuVtxBuff = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
 
             for (uint32_t j = 0u; j < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
             {
@@ -390,7 +390,7 @@ public:
         sp.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
         sp.MinFilter = ISampler::E_TEXTURE_FILTER::ETF_LINEAR;
         sp.MaxFilter = ISampler::E_TEXTURE_FILTER::ETF_LINEAR;
-        auto sampler = logicalDevice->createGPUSampler(sp);
+        auto sampler = logicalDevice->createSampler(sp);
         {
             asset::SPushConstantRange range[1] = { asset::IShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
 
@@ -407,7 +407,7 @@ public:
                 b[0].stageFlags = IShader::ESS_FRAGMENT;
                 b[0].samplers = samplerArray;
 
-                ds0layout = logicalDevice->createGPUDescriptorSetLayout(b, b + 1);
+                ds0layout = logicalDevice->createDescriptorSetLayout(b, b + 1);
             }
             {
                 video::IGPUDescriptorSetLayout::SBinding b[1];
@@ -416,22 +416,22 @@ public:
                 b[0].type = EDT_STORAGE_BUFFER;
                 b[0].stageFlags = IShader::ESS_FRAGMENT;
 
-                ds1layout = logicalDevice->createGPUDescriptorSetLayout(b, b + 1);
+                ds1layout = logicalDevice->createDescriptorSetLayout(b, b + 1);
             }
 
             auto gpuShaders = cpu2gpu.getGPUObjectsFromAssets(shaders, shaders + 2, cpu2gpuParams);
             IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
 
-            gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(range, range + 1, core::smart_refctd_ptr(ds0layout), core::smart_refctd_ptr(ds1layout));
+            gpuPipelineLayout = logicalDevice->createPipelineLayout(range, range + 1, core::smart_refctd_ptr(ds0layout), core::smart_refctd_ptr(ds1layout));
             asset::SRasterizationParams rp;
             
-            gpuPipeline = logicalDevice->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout), shaders, shaders + 2u, packedMeshBuffer[0].vertexInputParams, asset::SBlendParams(), asset::SPrimitiveAssemblyParams(), rp);
+            gpuPipeline = logicalDevice->createRenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout), shaders, shaders + 2u, packedMeshBuffer[0].vertexInputParams, asset::SBlendParams(), asset::SPrimitiveAssemblyParams(), rp);
 
             nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
             graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuPipeline.get()));
             graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-            gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+            gpuGraphicsPipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
         }
 
         desc = core::vector<GpuDescriptoSetPair>(mbRangesTex.size());
@@ -444,8 +444,8 @@ public:
             auto& textures = mbRangesTex[i].textures;
             const uint32_t texCnt = textures.size();
 
-            texDesc = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(ds0layout));
-            ssboDesc = logicalDevice->createGPUDescriptorSet(descriptorPool.get(),  core::smart_refctd_ptr(ds1layout));
+            texDesc = logicalDevice->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(ds0layout));
+            ssboDesc = logicalDevice->createDescriptorSet(descriptorPool.get(),  core::smart_refctd_ptr(ds1layout));
             video::IGPUDescriptorSet::SDescriptorInfo info[16u];
             video::IGPUDescriptorSet::SWriteDescriptorSet w[16u];
 
@@ -563,7 +563,7 @@ public:
         const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-        commandBuffer->begin(0);
+        commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
         asset::SViewport viewport;
         viewport.minDepth = 1.f;

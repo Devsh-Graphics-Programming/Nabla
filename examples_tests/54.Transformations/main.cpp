@@ -413,11 +413,11 @@ class TransformationApp : public ApplicationBase
 					tmp_parents[i] = solarSystemObjectsData[i].parentIndex;
 					tmp_transforms[i] = solarSystemObjectsData[i].getTform();
 				}
-				auto tmp_node_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q, sizeof(scene::ITransformTree::node_t) * NumInstances, tmp_nodes.data());
+				auto tmp_node_buf = utils->createFilledDeviceLocalBufferOnDedMem(q, sizeof(scene::ITransformTree::node_t) * NumInstances, tmp_nodes.data());
 				tmp_node_buf->setObjectDebugName("Temporary Nodes");
-				auto tmp_parent_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q, sizeof(scene::ITransformTree::parent_t) * NumInstances, tmp_parents.data());
+				auto tmp_parent_buf = utils->createFilledDeviceLocalBufferOnDedMem(q, sizeof(scene::ITransformTree::parent_t) * NumInstances, tmp_parents.data());
 				tmp_parent_buf->setObjectDebugName("Temporary Parents");
-				auto tmp_transform_buf = utils->createFilledDeviceLocalGPUBufferOnDedMem(q, sizeof(scene::ITransformTree::relative_transform_t) * NumInstances, tmp_transforms.data());
+				auto tmp_transform_buf = utils->createFilledDeviceLocalBufferOnDedMem(q, sizeof(scene::ITransformTree::relative_transform_t) * NumInstances, tmp_transforms.data());
 				tmp_transform_buf->setObjectDebugName("Temporary Transforms");
 
 				//
@@ -438,7 +438,7 @@ class TransformationApp : public ApplicationBase
 						ttm->setupTransfers(req, transfers);
 					}
 
-					cmdbuf_nodes->begin(0);
+					cmdbuf_nodes->begin(IGPUCommandBuffer::EU_NONE);
 					utils->getDefaultPropertyPoolHandler()->transferProperties(
 						cmdbuf_nodes.get(), fence_nodes.get(), scratch, { 0ull,tmp_node_buf },
 						transfers, transfers + scene::ITransformTreeManager::TransferCount, initOutput.logger.get()
@@ -568,7 +568,7 @@ class TransformationApp : public ApplicationBase
 					gp_params.renderpassIndependent = rpIndependentPipeline; // TODO: fix use gpuMesh->getPipeline instead
 					gp_params.subpassIx = 0u;
 
-					ret.graphicsPipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+					ret.graphicsPipeline = device->createGraphicsPipeline(nullptr, std::move(gp_params));
 
 					return ret;
 			};
@@ -620,7 +620,7 @@ class TransformationApp : public ApplicationBase
 				aabb.MaxEdge *= obj.scale;
 				aabbs.emplace_back() = aabb;
 			}
-			ttm->updateDebugDrawDescriptorSet(device.get(),ttmDescriptorSets.debugDraw.get(),{0ull,utils->createFilledDeviceLocalGPUBufferOnDedMem(device->getQueue(0,0),sizeof(core::CompressedAABB)*aabbs.size(),aabbs.data())});
+			ttm->updateDebugDrawDescriptorSet(device.get(),ttmDescriptorSets.debugDraw.get(),{0ull,utils->createFilledDeviceLocalBufferOnDedMem(device->getQueue(0,0),sizeof(core::CompressedAABB)*aabbs.size(),aabbs.data())});
 		}
 
 		void onAppTerminated_impl() override
@@ -648,7 +648,7 @@ class TransformationApp : public ApplicationBase
 			timestamp++;
 
 			// safe to proceed
-			cb->begin(0);
+			cb->begin(IGPUCommandBuffer::EU_NONE);
 
 			// we don't wait on anything because we do everything on the same queue
 			uint32_t waitSemaphoreCount = 0u;

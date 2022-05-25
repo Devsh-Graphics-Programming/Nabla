@@ -237,7 +237,7 @@ Choose Graphics API:
 		rp_params.subpasses = &sp;
 		rp_params.subpassCount = 1u;
 
-		renderpass = device->createGPURenderpass(rp_params);
+		renderpass = device->createRenderpass(rp_params);
 	}
 
 	auto sc_images = sc->getImages();
@@ -258,7 +258,7 @@ Choose Graphics API:
 			view_params.subresourceRange.layerCount = 1u;
 			view_params.image = std::move(img);
 
-			view = device->createGPUImageView(std::move(view_params));
+			view = device->createImageView(std::move(view_params));
 			assert(view);
 		}
 
@@ -271,7 +271,7 @@ Choose Graphics API:
 		fb_params.attachmentCount = 1u;
 		fb_params.attachments = &view;
 
-		fbo[i] = device->createGPUFramebuffer(std::move(fb_params));
+		fbo[i] = device->createFramebuffer(std::move(fb_params));
 		assert(fbo[i]);
 	}
 
@@ -286,18 +286,18 @@ Choose Graphics API:
 	} PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
-	auto layout = device->createGPUPipelineLayout();
+	auto layout = device->createPipelineLayout();
 	assert(layout);
 
 	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> rpindependent_pipeline;
 	{
-		auto vs_unspec = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vs_source));
-		auto fs_unspec = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fs_source));
+		auto vs_unspec = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vs_source));
+		auto fs_unspec = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fs_source));
 
 		asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX, "vs");
-		auto vs = device->createGPUSpecializedShader(vs_unspec.get(), vsinfo);
+		auto vs = device->createSpecializedShader(vs_unspec.get(), vsinfo);
 		asset::ISpecializedShader::SInfo fsinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT, "fs");
-		auto fs = device->createGPUSpecializedShader(fs_unspec.get(), fsinfo);
+		auto fs = device->createSpecializedShader(fs_unspec.get(), fsinfo);
 
 		video::IGPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 
@@ -326,7 +326,7 @@ Choose Graphics API:
 
 		asset::SBlendParams blend;
 
-		rpindependent_pipeline = device->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders+2, vtxinput, blend, primitive, raster);
+		rpindependent_pipeline = device->createRenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(layout), shaders, shaders+2, vtxinput, blend, primitive, raster);
 		assert(rpindependent_pipeline);
 	}
 
@@ -338,7 +338,7 @@ Choose Graphics API:
 		gp_params.renderpassIndependent = rpindependent_pipeline;
 		gp_params.subpassIx = 0u;
 
-		pipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+		pipeline = device->createGraphicsPipeline(nullptr, std::move(gp_params));
 	}
 
 	core::smart_refctd_ptr<video::IGPUBuffer> buffer;
@@ -349,7 +349,7 @@ Choose Graphics API:
 			{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
 		};
 
-		video::IDriverMemoryBacked::SDriverMemoryRequirements mreq;
+		video::IDeviceMemoryBacked::SDeviceMemoryRequirements mreq;
 		
 		auto mreqs = device->getDeviceLocalGPUMemoryReqs();
 		mreqs.vulkanReqs.size = sizeof(vertices);
@@ -404,7 +404,7 @@ Choose Graphics API:
 		auto& cb = cmdbuf[i];
 		auto& fb = fbo[i];
 
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 		
 		const video::IGPUBuffer* buf = buffer.get();
 		size_t offset = 0u;

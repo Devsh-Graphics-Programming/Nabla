@@ -17,6 +17,8 @@ struct NBL_API bitflag final
 
 	bitflag() = default;
 	bitflag(const ENUM_TYPE value) : value(value) {}
+	template<typename Integer, std::enable_if_t<std::is_integral<Integer>::value, bool> = true, std::enable_if_t<std::is_unsigned<Integer>::value, bool> = true>
+	explicit bitflag(const Integer value) : value(static_cast<ENUM_TYPE>(value)) {}
 
 	inline bitflag<ENUM_TYPE> operator~() { return static_cast<ENUM_TYPE>(~value); }
 	inline bitflag<ENUM_TYPE> operator|(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(value | rhs.value); }
@@ -25,7 +27,7 @@ struct NBL_API bitflag final
 	inline bitflag<ENUM_TYPE>& operator|=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value | rhs.value); return *this; }
 	inline bitflag<ENUM_TYPE>& operator&=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value & rhs.value); return *this; }
 	inline bitflag<ENUM_TYPE>& operator^=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value ^ rhs.value); return *this; }
-	inline bool hasValue(bitflag<ENUM_TYPE> val) const { return (value & val.value) != 0; }
+	inline bool hasFlags(bitflag<ENUM_TYPE> val) const { return (value & val.value) == val.value; }
 };
 
 }

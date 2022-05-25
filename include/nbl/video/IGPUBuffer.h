@@ -12,7 +12,7 @@
 
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/video/decl/IBackendObject.h"
-#include "nbl/video/IDriverMemoryBacked.h"
+#include "nbl/video/IDeviceMemoryBacked.h"
 
 
 namespace nbl::video
@@ -24,21 +24,24 @@ buffer to buffer copies, one needs a command buffer in Vulkan as these operation
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
 class NBL_API IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, public IBackendObject
 {
-    public:
+	public:
 		struct SCachedCreationParams
 		{
+			size_t size = 0ull;
 			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
-			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
 			asset::E_SHARING_MODE sharingMode = asset::ESM_EXCLUSIVE;
-			size_t declaredSize = 0ull;
+			bool canUpdateSubRange = false; // whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
 		};
+		static_assert(sizeof(SCachedCreationParams)==16u);
 		struct SCreationParams : SCachedCreationParams
 		{
 			uint32_t queueFamilyIndexCount = 0u;
 			const uint32_t* queueFamilyIndices = nullptr;
 		};
+		
+		E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
 
-		inline uint64_t getSize() const override {return cachedMemoryReqs.vulkanReqs.size;}
+		inline uint64_t getSize() const override {return m_cachedCreationParams.size;}
 
 		inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
 
@@ -46,12 +49,12 @@ class NBL_API IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked, pu
 		// Vulkan: const VkBuffer*
 		virtual const void* getNativeHandle() const = 0;
 		
-    protected:
-        IGPUBuffer(
+	protected:
+		IGPUBuffer(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
 			const SCachedCreationParams& cachedCreationParams
-		) : IDriverMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
+		) : IDeviceMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
 		{
 		}
 

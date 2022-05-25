@@ -253,7 +253,7 @@ int main()
 
     // create buffers for draw indirect structs
     asset::DrawArraysIndirectCommand_t drawArraysIndirectCmd[2] = { { 0u,1u,0u,0u }, { 0u,1u,0u,0u } };
-    auto lineCountBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(core::alignUp(sizeof(drawArraysIndirectCmd), 16ull), drawArraysIndirectCmd);
+    auto lineCountBuffer = driver->createFilledDeviceLocalBufferOnDedMem(core::alignUp(sizeof(drawArraysIndirectCmd), 16ull), drawArraysIndirectCmd);
 
     //create buffers for the geometry shader
     auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(linesBufferSize);
@@ -264,14 +264,14 @@ int main()
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> drawIndirect_pipeline;
     {
         // set up the shaders
-        auto lineVertShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vertShaderCode));
-        auto lineFragShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fragShaderCode));
-        auto linevshader = driver->createGPUSpecializedShader(lineVertShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX));
-        auto linefshader = driver->createGPUSpecializedShader(lineFragShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT));
+        auto lineVertShader = driver->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vertShaderCode));
+        auto lineFragShader = driver->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fragShaderCode));
+        auto linevshader = driver->createSpecializedShader(lineVertShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX));
+        auto linefshader = driver->createSpecializedShader(lineFragShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT));
 
         // the layout
         asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD) };
-        auto linePipelineLayout = driver->createGPUPipelineLayout(pcRange, pcRange+1u, nullptr, nullptr, nullptr, nullptr);
+        auto linePipelineLayout = driver->createPipelineLayout(pcRange, pcRange+1u, nullptr, nullptr, nullptr, nullptr);
 
         //set up the pipeline
         asset::SPrimitiveAssemblyParams assemblyParams = { asset::EPT_LINE_LIST,false,2u };
@@ -289,7 +289,7 @@ int main()
         asset::SRasterizationParams rasterParams;
         rasterParams.polygonMode = asset::EPM_LINE;
 
-        drawIndirect_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(linePipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
+        drawIndirect_pipeline = driver->createRenderpassIndependentPipeline(nullptr, std::move(linePipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
     }
 
     // prepare global descriptor set layout
@@ -319,7 +319,7 @@ int main()
 
     // and the actual descriptor set
     core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds[4] = {};
-    gpuds[0] = driver->createGPUDescriptorSet(smart_refctd_ptr(gpuds0layout));
+    gpuds[0] = driver->createDescriptorSet(smart_refctd_ptr(gpuds0layout));
     {
         video::IGPUDescriptorSet::SWriteDescriptorSet write[3];
         video::IGPUDescriptorSet::SDescriptorInfo info[3];
@@ -363,7 +363,7 @@ int main()
 
     // set up compute shader to clamp line count and bind it persistently
     {
-        auto layout = driver->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuds0layout), nullptr, nullptr, nullptr);
+        auto layout = driver->createPipelineLayout(nullptr, nullptr, std::move(gpuds0layout), nullptr, nullptr, nullptr);
         core::smart_refctd_ptr<video::IGPUSpecializedShader> compShader;
         {
             asset::IAssetLoader::SAssetLoadParams lp;
@@ -373,7 +373,7 @@ int main()
             auto cs_rawptr = cs.get();
             compShader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
         }
-        auto compPipeline = driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(compShader));
+        auto compPipeline = driver->createComputePipeline(nullptr, std::move(layout), std::move(compShader));
         driver->bindComputePipeline(compPipeline.get());
         driver->bindDescriptorSets(video::EPBP_COMPUTE, compPipeline->getLayout(), 0u, 1u, &gpuds[0].get(), nullptr);
     }
@@ -474,7 +474,7 @@ int main()
     auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
 
     auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout,&ds1layout+1)->front();
-    gpuds[1] = driver->createGPUDescriptorSet(std::move(gpuds1layout));
+    gpuds[1] = driver->createDescriptorSet(std::move(gpuds1layout));
     {
         video::IGPUDescriptorSet::SWriteDescriptorSet write;
         write.dstSet = gpuds[1].get();

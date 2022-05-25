@@ -123,7 +123,7 @@ void addLoDTable(
         params.renderpass = renderpass;
         params.renderpassIndependent = core::smart_refctd_ptr_dynamic_cast<video::IGPURenderpassIndependentPipeline>(assetManager->findGPUObject(cpupipeline.get()));
         params.subpassIx = 0u;
-        pipeline = cpu2gpuParams.device->createGPUGraphicsPipeline(nullptr, std::move(params));
+        pipeline = cpu2gpuParams.device->createGraphicsPipeline(nullptr, std::move(params));
     }
 
     auto drawcallInfosOutIx = drawcallInfos.size();
@@ -410,7 +410,7 @@ class LoDSystemApp : public ApplicationBase
                             bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
                             bindings[i].samplers = nullptr;
                         }
-                        return logicalDevice->createGPUDescriptorSetLayout(bindings,bindings + BindingCount);
+                        return logicalDevice->createDescriptorSetLayout(bindings,bindings + BindingCount);
                     }()
                 };
                 cullingDSPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &layouts->get(), &layouts->get() + LayoutCount);
@@ -446,7 +446,7 @@ class LoDSystemApp : public ApplicationBase
                     cullingParams.perInstanceRedirectAttribs,
                     cullingParams.drawCounts
                 );
-                cullingParams.customDS = logicalDevice->createGPUDescriptorSet(cullingDSPool.get(), std::move(layouts[3]));
+                cullingParams.customDS = logicalDevice->createDescriptorSet(cullingDSPool.get(), std::move(layouts[3]));
                 {
                     video::IGPUDescriptorSet::SWriteDescriptorSet write;
                     video::IGPUDescriptorSet::SDescriptorInfo info(nodePP->getPropertyMemoryBlock(scene::ITransformTree::global_transform_prop_ix));
@@ -495,9 +495,9 @@ class LoDSystemApp : public ApplicationBase
                 cpuPerViewDSLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuBindings, cpuBindings + BindingCount);
 
                 auto bindings = reinterpret_cast<video::IGPUDescriptorSetLayout::SBinding*>(cpuBindings);
-                auto perViewDSLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + BindingCount);
+                auto perViewDSLayout = logicalDevice->createDescriptorSetLayout(bindings, bindings + BindingCount);
                 auto dsPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &perViewDSLayout.get(), &perViewDSLayout.get() + 1u);
-                perViewDS = logicalDevice->createGPUDescriptorSet(dsPool.get(), std::move(perViewDSLayout));
+                perViewDS = logicalDevice->createDescriptorSet(dsPool.get(), std::move(perViewDSLayout));
                 {
                     video::IGPUDescriptorSet::SWriteDescriptorSet writes[BindingCount];
                     video::IGPUDescriptorSet::SDescriptorInfo infos[BindingCount];
@@ -520,7 +520,7 @@ class LoDSystemApp : public ApplicationBase
             {
                 auto layout = ttm->createRecomputeGlobalTransformsDescriptorSetLayout(logicalDevice.get());
                 auto pool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
-                recomputeGlobalTransformsDS = logicalDevice->createGPUDescriptorSet(pool.get(),std::move(layout));
+                recomputeGlobalTransformsDS = logicalDevice->createDescriptorSet(pool.get(),std::move(layout));
                 ttm->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),recomputeGlobalTransformsDS.get(),{0ull,nodeList.buffer});
             }
 
@@ -649,7 +649,7 @@ class LoDSystemApp : public ApplicationBase
                         core::smart_refctd_ptr<video::IGPUCommandBuffer> tferCmdBuf;
                         logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &tferCmdBuf);
                         auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
-                        tferCmdBuf->begin(0u); // TODO some one time submit bit or something
+                        tferCmdBuf->begin(IGPUCommandBuffer::EU_NONE); // TODO some one time submit bit or something
                         {
                             auto ppHandler = utilities->getDefaultPropertyPoolHandler();
                             asset::SBufferBinding<video::IGPUBuffer> scratch;
@@ -692,8 +692,8 @@ class LoDSystemApp : public ApplicationBase
                             cullingParams.indirectDispatchParams,
                             cullingParams.instanceList,
                             cullingParams.scratchBufferRanges,
-                            { 0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,cullingParams.drawcallCount * sizeof(uint32_t),drawCallOffsetsInDWORDs.data()) },
-                            { 0ull,~0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,lodLibraryData.drawCountOffsets.size() * sizeof(uint32_t),lodLibraryData.drawCountOffsets.data()) }
+                            { 0ull,~0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,cullingParams.drawcallCount * sizeof(uint32_t),drawCallOffsetsInDWORDs.data()) },
+                            { 0ull,~0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,lodLibraryData.drawCountOffsets.size() * sizeof(uint32_t),lodLibraryData.drawCountOffsets.data()) }
                         );
                     }
                 }
@@ -763,7 +763,7 @@ class LoDSystemApp : public ApplicationBase
 
             //
             commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-            commandBuffer->begin(0);
+            commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
             // late latch input
             const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);

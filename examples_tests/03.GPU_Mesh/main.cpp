@@ -260,7 +260,7 @@ public:
 		const auto& mvp = camera.getConcatenatedMatrix();
 
 		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-		commandBuffer->begin(0);
+		commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
 		asset::SViewport viewport;
 		viewport.minDepth = 1.f;
@@ -327,27 +327,27 @@ public:
 			//	if (upStreamBuff->needsManualFlushOrInvalidate())
 			//	{
 			//		auto upStreamMem = upStreamBuff->getBuffer()->getBoundMemory();
-			//		driver->flushMappedMemoryRanges({ video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1]) });
+			//		driver->flushMappedMemoryRanges({ video::IDeviceMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDeviceMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1]) });
 			//	}
 
 			//	asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
 
-			//	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
+			//	auto createSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
 			//	{
 			//		auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
-			//		auto unspec = driver->createGPUShader(std::move(spirv));
-			//		return driver->createGPUSpecializedShader(unspec.get(), { nullptr,nullptr,"main",stage });
+			//		auto unspec = driver->createShader(std::move(spirv));
+			//		return driver->createSpecializedShader(unspec.get(), { nullptr,nullptr,"main",stage });
 			//	};
 			//	// origFilepath is only relevant when you have filesystem #includes in your shader
-			//	auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
+			//	auto createSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
 			//	{
 			//		auto resolved_includes = device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
-			//		return createGPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
+			//		return createSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
 			//	};
 			//	core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
 			//	{
-			//		createGPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert"),
-			//		createGPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
+			//		createSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert"),
+			//		createSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
 			//	};
 			//	auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);
 
@@ -370,7 +370,7 @@ public:
 			//	asset::SStencilOpParams defaultStencil;
 			//	asset::SRasterizationParams rasterParams;
 			//	rasterParams.faceCullingMode = asset::EFCM_NONE;
-			//	auto pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, driver->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+			//	auto pipeline = driver->createRenderpassIndependentPipeline(nullptr, driver->createPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
 			//		shadersPtr, shadersPtr + sizeof(shaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
 			//		inputParams, blendParams, assemblyParams, rasterParams);
 

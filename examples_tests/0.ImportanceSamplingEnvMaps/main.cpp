@@ -174,7 +174,7 @@ public:
 			imgViewInfo.subresourceRange.layerCount = 1u;
 			imgViewInfo.subresourceRange.levelCount = 1u;
 
-			gpuImageViewColorBuffer = logicalDevice->createGPUImageView(std::move(imgViewInfo));
+			gpuImageViewColorBuffer = logicalDevice->createImageView(std::move(imgViewInfo));
 		}
 
 		// TODO:
@@ -187,7 +187,7 @@ public:
 	core::smart_refctd_ptr<IGPUImageView> getLUTGPUImageViewFromBuffer(core::smart_refctd_ptr<ICPUBuffer> buffer, IImage::E_TYPE imageType, asset::E_FORMAT format, const asset::VkExtent3D& extent,
 		IGPUImageView::E_TYPE imageViewType)
 	{
-		auto gpuBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], buffer->getSize(), buffer->getPointer());
+		auto gpuBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], buffer->getSize(), buffer->getPointer());
 
 		IGPUImage::SCreationParams params;
 		params.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
@@ -203,7 +203,7 @@ public:
 		region.imageSubresource.layerCount = 1u;
 		region.imageExtent = params.extent;
 
-		auto gpuImage = utilities->createFilledDeviceLocalGPUImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(params), gpuBuffer.get(), 1u, &region);
+		auto gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(params), gpuBuffer.get(), 1u, &region);
 
 		IGPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
@@ -216,7 +216,7 @@ public:
 		viewParams.subresourceRange.baseArrayLayer = 0;
 		viewParams.subresourceRange.layerCount = 1;
 
-		return logicalDevice->createGPUImageView(std::move(viewParams));
+		return logicalDevice->createImageView(std::move(viewParams));
 	}
 
 	void setWindow(core::smart_refctd_ptr<nbl::ui::IWindow>&& wnd) override
@@ -567,9 +567,9 @@ public:
 				}
 			}
 
-			auto gpuSequenceBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sampleSequence->getSize(), sampleSequence->getPointer());
+			auto gpuSequenceBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], sampleSequence->getSize(), sampleSequence->getPointer());
 			auto gpuSequenceBuffer = cpu2gpu.getGPUObjectsFromAssets(&sampleSequence, &sampleSequence + 1u, cpu2gpuParams)->front()->getBuffer();
-			gpuSequenceBufferView = logicalDevice->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
+			gpuSequenceBufferView = logicalDevice->createBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 		}
 
 		smart_refctd_ptr<IGPUImageView> gpuScrambleImageView;
@@ -596,17 +596,17 @@ public:
 					pixel = rng.nextSample();
 			}
 			cpu2gpuParams.beginCommandBuffers();
-			auto buffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], random.size() * sizeof(uint32_t), random.data());
+			auto buffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], random.size() * sizeof(uint32_t), random.data());
 			cpu2gpuParams.waitForCreationToComplete();
 
 			IGPUImageView::SCreationParams viewParams;
 			viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-			viewParams.image = utilities->createFilledDeviceLocalGPUImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(imgParams), buffer.get(), 1u, &region);
+			viewParams.image = utilities->createFilledDeviceLocalImageOnDedMem(queues[CommonAPI::InitOutput::EQT_TRANSFER_UP], std::move(imgParams), buffer.get(), 1u, &region);
 			viewParams.viewType = IGPUImageView::ET_2D;
 			viewParams.format = EF_R32G32_UINT;
 			viewParams.subresourceRange.levelCount = 1u;
 			viewParams.subresourceRange.layerCount = 1u;
-			gpuScrambleImageView = logicalDevice->createGPUImageView(std::move(viewParams));
+			gpuScrambleImageView = logicalDevice->createImageView(std::move(viewParams));
 		}
 
 		auto fullScreenTriangle = ext::FullScreenTriangle::createProtoPipeline(cpu2gpuParams);
@@ -615,7 +615,7 @@ public:
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout> gpuDescriptorSetLayout5 = nullptr;
 		{
 			IGPUDescriptorSetLayout::SBinding uboBinding{ 0, asset::EDT_UNIFORM_BUFFER, 1u, IGPUShader::ESS_FRAGMENT, nullptr };
-			gpuDescriptorSetLayout1 = logicalDevice->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
+			gpuDescriptorSetLayout1 = logicalDevice->createDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
 
 			constexpr uint32_t descriptorCount = 5u;
 			IGPUDescriptorSetLayout::SBinding descriptorSet5Bindings[descriptorCount] =
@@ -626,7 +626,7 @@ public:
 				{ 3u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUShader::ESS_FRAGMENT, nullptr },
 				{ 4u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUShader::ESS_FRAGMENT, nullptr }
 			};
-			gpuDescriptorSetLayout5 = logicalDevice->createGPUDescriptorSetLayout(descriptorSet5Bindings, descriptorSet5Bindings + descriptorCount);
+			gpuDescriptorSetLayout5 = logicalDevice->createDescriptorSetLayout(descriptorSet5Bindings, descriptorSet5Bindings + descriptorCount);
 		}
 
 		const SPushConstantRange pcRange =
@@ -652,8 +652,8 @@ public:
 			cpu2gpuParams.waitForCreationToComplete();
 			IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentSpecialedShader.get() };
 
-			// auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout5));
-			auto gpuPipelineLayout = logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout5));
+			// auto gpuPipelineLayout = driver->createPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout5));
+			auto gpuPipelineLayout = logicalDevice->createPipelineLayout(&pcRange, &pcRange + 1, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout5));
 
 			asset::SBlendParams blendParams;
 			SRasterizationParams rasterParams;
@@ -663,7 +663,7 @@ public:
 			rasterParams.depthWriteEnable = false;
 			rasterParams.depthTestEnable = false;
 
-			auto gpuPipeline = logicalDevice->createGPURenderpassIndependentPipeline(
+			auto gpuPipeline = logicalDevice->createRenderpassIndependentPipeline(
 				nullptr, std::move(gpuPipelineLayout),
 				shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
 				std::get<SVertexInputParams>(fullScreenTriangle), blendParams, std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
@@ -672,7 +672,7 @@ public:
 			graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuPipeline.get()));
 			graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-			auto gpuGraphicsPipeline = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+			auto gpuGraphicsPipeline = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 
 			SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
 			core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuPipeline), nullptr, nullptr, std::move(idxBinding));
@@ -689,7 +689,7 @@ public:
 		gpuEnvmapMeshBuffer = gpuEnvmapResources.second;
 
 		// Create and update DS
-		uboDescriptorSet1 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
+		uboDescriptorSet1 = logicalDevice->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
 			uboWriteDescriptorSet.dstSet = uboDescriptorSet1.get();
@@ -708,7 +708,7 @@ public:
 			logicalDevice->updateDescriptorSets(1u, &uboWriteDescriptorSet, 0u, nullptr);
 		}
 
-		descriptorSet5 = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout5));
+		descriptorSet5 = logicalDevice->createDescriptorSet(descriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSetLayout5));
 		{
 			constexpr auto kDescriptorCount = 5;
 
@@ -716,7 +716,7 @@ public:
 			descriptorInfos[0].desc = envmapImageView;
 			{
 				ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-				descriptorInfos[0].image.sampler = logicalDevice->createGPUSampler(samplerParams);
+				descriptorInfos[0].image.sampler = logicalDevice->createSampler(samplerParams);
 				descriptorInfos[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 			}
 
@@ -725,21 +725,21 @@ public:
 			descriptorInfos[2].desc = gpuScrambleImageView;
 			{
 				ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-				descriptorInfos[2].image.sampler = logicalDevice->createGPUSampler(samplerParams);
+				descriptorInfos[2].image.sampler = logicalDevice->createSampler(samplerParams);
 				descriptorInfos[2].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 			}
 
 			descriptorInfos[3].desc = phiPdfLUTImageView;
 			{
 				ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-				descriptorInfos[3].image.sampler = logicalDevice->createGPUSampler(samplerParams);
+				descriptorInfos[3].image.sampler = logicalDevice->createSampler(samplerParams);
 				descriptorInfos[3].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 			}
 
 			descriptorInfos[4].desc = thetaLUTImageView;
 			{
 				ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
-				descriptorInfos[4].image.sampler = logicalDevice->createGPUSampler(samplerParams);
+				descriptorInfos[4].image.sampler = logicalDevice->createSampler(samplerParams);
 				descriptorInfos[4].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 			}
 
@@ -795,7 +795,7 @@ public:
 			fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
 		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-		commandBuffer->begin(0);
+		commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
 		const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 		{

@@ -41,7 +41,7 @@ core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapch
     vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
     vk_createInfo.imageExtent = { params.width, params.height };
     vk_createInfo.imageArrayLayers = params.arrayLayers;
-    vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
+    vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage.value);
     vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
@@ -75,13 +75,14 @@ core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapch
     for (auto& image : (*images))
     {
         CVulkanForeignImage::SCreationParams creationParams;
-        creationParams.arrayLayers = params.arrayLayers;
-        creationParams.extent = { params.width, params.height, 1u };
         creationParams.flags = static_cast<CVulkanForeignImage::E_CREATE_FLAGS>(0); // Todo(achal)
-        creationParams.format = params.surfaceFormat.format;
-        creationParams.mipLevels = 1u;
-        creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
         creationParams.type = CVulkanImage::ET_2D;
+        creationParams.format = params.surfaceFormat.format;
+        creationParams.extent = { params.width, params.height, 1u };
+        creationParams.mipLevels = 1u;
+        creationParams.arrayLayers = params.arrayLayers;
+        creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
+        creationParams.usage = params.imageUsage;
 
         image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams),
@@ -149,148 +150,93 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
         return IGPUEvent::ES_FAILURE;
 }
 
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDeviceLocalMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
+IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDeviceLocalGPUMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+    IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
 
-    return allocateGPUMemory(additionalReqs);
-}
+    core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
 
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateSpilloverMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    if (additionalReqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
-        return nullptr;
+    VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+    VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
+    VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
 
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getSpilloverGPUMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+    if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
+    else if(allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+    vk_allocateFlagsInfo.deviceMask = 0u; // unused
+    
+    vk_allocateInfo.allocationSize = info.size;
+    vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUpStreamingMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getUpStreamingMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
-
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDownStreamingMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDownStreamingMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
-
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateCPUSideGPUVisibleMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    if (additionalReqs.memoryHeapLocation != IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL)
-        return nullptr;
-
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getCPUSideGPUVisibleGPUMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
-
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGPUMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-    core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
-{
-    VkMemoryPropertyFlags desiredMemoryProperties = static_cast<VkMemoryPropertyFlags>(0u);
-
-    if (reqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-    if ((reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) ||
-        (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE))
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-
-    if (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_COHERENT)
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-    if (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CACHED)
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-
-    const IPhysicalDevice::SMemoryProperties& memoryProperties = m_physicalDevice->getMemoryProperties();
-
-    uint32_t compatibleMemoryTypeCount = 0u;
-    uint32_t compatibleMemoryTypeIndices[VK_MAX_MEMORY_TYPES];
-
-    for (uint32_t i = 0u; i < memoryProperties.memoryTypeCount; ++i)
+    VkDeviceMemory vk_deviceMemory;
+    bool isDedicated = (info.dedication != nullptr);
+    if(isDedicated)
     {
-        const bool memoryTypeSupportedForResource = (reqs.vulkanReqs.memoryTypeBits & (1 << i));
+        // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
+        static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
+        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
 
-        const bool memoryHasDesirableProperties = (memoryProperties.memoryTypes[i].propertyFlags
-            & desiredMemoryProperties) == desiredMemoryProperties;
-
-        if (memoryTypeSupportedForResource && memoryHasDesirableProperties)
-            compatibleMemoryTypeIndices[compatibleMemoryTypeCount++] = i;
+        if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
+            vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
+        else if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
+            vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
     }
 
-    for (uint32_t i = 0u; i < compatibleMemoryTypeCount; ++i)
+    auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
+    if (vk_res == VK_SUCCESS)
     {
-        // Todo(achal): Make use of requiresDedicatedAllocation and prefersDedicatedAllocation
-        VkMemoryAllocateFlagsInfo vk_allocateFlags = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
-        if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
-            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
-        else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
-            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-        else if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT))
-            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT;
-        vk_allocateFlags.deviceMask = 0u; // unused
-
-        VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-        vk_allocateInfo.pNext = &vk_allocateFlags; // No extensions for now
-        vk_allocateInfo.allocationSize = reqs.vulkanReqs.size;
-        vk_allocateInfo.memoryTypeIndex = compatibleMemoryTypeIndices[i];
-
-        VkDeviceMemory vk_deviceMemory;
-        if (m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
+        if(info.memoryTypeIndex < m_physicalDevice->getMemoryProperties().memoryTypeCount)
         {
-            // Todo(achal): Change dedicate to not always be false
-            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory, allocateFlags);
+            auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
+            ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags, memoryPropertyFlags);
+            ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
+
+            if(info.dedication)
+            {
+                bool dedicationSuccess = false;
+                switch (info.dedication->getObjectType())
+                {
+                case IDeviceMemoryBacked::EOT_BUFFER:
+                {
+                    SBindBufferMemoryInfo bindBufferInfo = {};
+                    bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
+                    bindBufferInfo.memory = ret.memory.get();
+                    bindBufferInfo.offset = ret.offset;
+                    dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
+                }
+                    break;
+                case IDeviceMemoryBacked::EOT_IMAGE:
+                {
+                    SBindImageMemoryInfo bindImageInfo = {};
+                    bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
+                    bindImageInfo.memory = ret.memory.get();
+                    bindImageInfo.offset = ret.offset;
+                    dedicationSuccess = bindImageMemory(1u, &bindImageInfo);
+                }
+                    break;
+                default:
+                    assert(false);
+                }
+
+                if(!dedicationSuccess)
+                {
+                    // automatically allocation goes out of scope and frees itself
+                    ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+                }
+            }
+        }
+        else
+        {
+            assert(false);
+            // and probably log memoryTypeIndex is invalid
         }
     }
+    // TODO: Log errors:
+    // else if(vk_res == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+    // else if(vk_res == VK_ERROR_OUT_OF_HOST_MEMORY)
 
-    return nullptr;
+    return ret;
 }
 
 bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
@@ -329,7 +275,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     }
 }
 
-core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::IImage::SCreationParams&& params)
+core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImage::SCreationParams&& params)
 {
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     vk_createInfo.pNext = nullptr; // there are a lot of extensions
@@ -360,18 +306,15 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::II
 
         m_devf.vk.vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
 
-        IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
-        imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
-        imageMemReqs.vulkanReqs.size = vk_memReqs.memoryRequirements.size;
-        imageMemReqs.vulkanReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
-        imageMemReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
-        imageMemReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+        IDeviceMemoryBacked::SDeviceMemoryRequirements imageMemReqs = {};
+        imageMemReqs.size = vk_memReqs.memoryRequirements.size;
+        imageMemReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
+        imageMemReqs.alignmentLog2 = std::log2(vk_memReqs.memoryRequirements.alignment);
         imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
         imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
 
         return core::make_smart_refctd_ptr<CVulkanImage>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
-            vk_image, imageMemReqs);
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_image, imageMemReqs);
     }
     else
     {
@@ -379,18 +322,18 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::II
     }
 }
 
-core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGPUGraphicsPipeline_impl(
+core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGraphicsPipeline_impl(
     IGPUPipelineCache* pipelineCache,
     IGPUGraphicsPipeline::SCreationParams&& params)
 {
     core::smart_refctd_ptr<IGPUGraphicsPipeline> result;
-    if (createGPUGraphicsPipelines_impl(pipelineCache, { &params, &params + 1 }, &result))
+    if (createGraphicsPipelines_impl(pipelineCache, { &params, &params + 1 }, &result))
         return result;
     else
         return nullptr;
 }
 
-bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
+bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
     IGPUPipelineCache* pipelineCache,
     core::SRange<const IGPUGraphicsPipeline::SCreationParams> params,
     core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
@@ -723,7 +666,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     }
 }
 
-core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
+core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
 {
     auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
     auto features = physicalDevice->getFeatures();

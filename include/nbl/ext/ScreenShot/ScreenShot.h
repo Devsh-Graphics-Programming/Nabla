@@ -30,6 +30,12 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 	auto gpuImage = fetchedImageViewParmas.image;
 	auto fetchedGpuImageParams = gpuImage->getCreationParameters();
 
+	if(!fetchedGpuImageParams.usage.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT))
+	{
+		assert(false);
+		return nullptr;
+	}
+
 	if (asset::isBlockCompressionFormat(fetchedGpuImageParams.format))
 		return nullptr;
 
@@ -56,11 +62,12 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		region.imageExtent = { extent.x, extent.y, extent.z };
 
 		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
+		bufferCreationParams.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
-
-		auto deviceLocalGPUMemoryReqs = logicalDevice->getDownStreamingMemoryReqs();
-		deviceLocalGPUMemoryReqs.vulkanReqs.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
-		gpuTexelBuffer = logicalDevice->createGPUBufferOnDedMem(bufferCreationParams,deviceLocalGPUMemoryReqs);
+		gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);
+		auto gpuTexelBufferMemReqs = gpuTexelBuffer->getMemoryReqs();
+		gpuTexelBufferMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, gpuTexelBuffer.get());
 
 		video::IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
 		barrier.barrier.srcAccessMask = accessMask;
@@ -118,8 +125,8 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 	core::smart_refctd_ptr<asset::ICPUImageView> cpuImageView;
 	{
 		const auto gpuTexelBufferSize = gpuTexelBuffer->getSize(); // If you get validation errors from the `invalidateMappedMemoryRanges` we need to expose VK_WHOLE_BUFFER equivalent constant
-		video::IDriverMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuTexelBuffer->getBoundMemory(),0u,gpuTexelBufferSize);
-		logicalDevice->mapMemory(mappedMemoryRange,video::IDriverMemoryAllocation::EMCAF_READ);
+		video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(gpuTexelBuffer->getBoundMemory(),0u,gpuTexelBufferSize);
+		logicalDevice->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
 
 		if (gpuTexelBuffer->getBoundMemory()->haveToMakeVisible())
 			logicalDevice->invalidateMappedMemoryRanges(1u,&mappedMemoryRange);
@@ -199,7 +206,7 @@ inline bool createScreenShot(
 
 #endif
 
-#ifdef OLD_CODE // code from `master` branch:
+#ifdef OLD_CODE // code from old `ditt` branch:
 			/*
 				Download mip level image with gpu image usage and save it to IGPUBuffer.
 				Because of the fence placed by driver the function stalls the CPU 
@@ -245,18 +252,18 @@ inline bool createScreenShot(
 				region.imageOffset = { 0u, 0u, 0u };
 				region.imageExtent = image->getCreationParameters().extent;
 
-				video::IDriverMemoryBacked::SDriverMemoryRequirements memoryRequirements;
+				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memoryRequirements;
 				memoryRequirements.vulkanReqs.alignment = 64u;
 				memoryRequirements.vulkanReqs.memoryTypeBits = 0xffffffffu;
-				memoryRequirements.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-				memoryRequirements.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDriverMemoryAllocation::EMCF_COHERENT | video::IDriverMemoryAllocation::EMCF_CACHED;
+				memoryRequirements.memoryHeapLocation = video::IDeviceMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+				memoryRequirements.mappingCapability = video::IDeviceMemoryAllocation::EMCF_CAN_MAP_FOR_READ | video::IDeviceMemoryAllocation::EMCF_COHERENT | video::IDeviceMemoryAllocation::EMCF_CACHED;
 				memoryRequirements.vulkanReqs.size = image->getImageDataSizeInBytes();
 				auto destinationBuffer = driver->createGPUBufferOnDedMem(memoryRequirements);
 
 				auto mapPointerGetterFence = downloadImageMipLevel(driver, gpuImage.get(), destinationBuffer.get());
 
 				auto destinationBoundMemory = destinationBuffer->getBoundMemory();
-				destinationBoundMemory->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ, { 0u, memoryRequirements.vulkanReqs.size });
+				destinationBoundMemory->mapMemoryRange(video::IDeviceMemoryAllocation::EMCAF_READ, { 0u, memoryRequirements.vulkanReqs.size });
 
 				auto correctedScreenShotTexelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(memoryRequirements.vulkanReqs.size);
 				bool flipImage = true;

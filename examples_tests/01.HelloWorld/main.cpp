@@ -459,7 +459,7 @@ Choose Graphics API:
 		renderPassParams.subpasses = &subpassDescription;
 		renderPassParams.subpassCount = 1u;
 
-		renderpass = device->createGPURenderpass(renderPassParams);
+		renderpass = device->createRenderpass(renderPassParams);
 
 		const auto swapchainImages = swapchain->getImages();
 		const uint32_t swapchainImageCount = swapchain->getImageCount();
@@ -480,7 +480,7 @@ Choose Graphics API:
 				viewParams.subresourceRange.layerCount = 1u;
 				viewParams.image = std::move(img);
 
-				imageView = device->createGPUImageView(std::move(viewParams));
+				imageView = device->createImageView(std::move(viewParams));
 				assert(imageView);
 			}
 
@@ -493,7 +493,7 @@ Choose Graphics API:
 			fbParams.attachmentCount = renderpass->getAttachments().size();
 			fbParams.attachments = &imageView;
 
-			fbos[i] = device->createGPUFramebuffer(std::move(fbParams));
+			fbos[i] = device->createFramebuffer(std::move(fbParams));
 		}
 
 		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; ++i)
@@ -531,7 +531,7 @@ Choose Graphics API:
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		commandBuffer->begin(0u);
+		commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
 		swapchain->acquireNextImage(MAX_TIMEOUT, m_imageAcquire[m_resourceIx].get(), nullptr, &m_acquiredNextFBO);
 

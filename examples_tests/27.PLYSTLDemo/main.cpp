@@ -319,7 +319,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 			creationParams.queueFamilyIndices = nullptr;
 
 			auto gpuubo = logicalDevice->createGPUBufferOnDedMem(creationParams, ubomemreq);
-			auto gpuds1 = logicalDevice->createGPUDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
+			auto gpuds1 = logicalDevice->createDescriptorSet(gpuUBODescriptorPool.get(), std::move(gpuds1layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet write;
 				write.dstSet = gpuds1.get();
@@ -366,7 +366,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 					graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
 					const RENDERPASS_INDEPENDENT_PIPELINE_ADRESS adress = reinterpret_cast<RENDERPASS_INDEPENDENT_PIPELINE_ADRESS>(graphicsPipelineParams.renderpassIndependent.get());
-					container[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+					container[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 				}
 			};
 
@@ -460,7 +460,7 @@ APP_CONSTRUCTOR(PLYSTLDemo)
 		const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
 		commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-		commandBuffer->begin(0);
+		commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
 		asset::SViewport viewport;
 		viewport.minDepth = 1.f;

@@ -114,8 +114,7 @@ public:
         m_threadHandler.waitForInitComplete();
     }
 
-
-    core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override final
+    core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params) override final
     {
         if (!asset::IImage::validateCreationParameters(params))
             return nullptr;
@@ -127,17 +126,17 @@ public:
 
         core::smart_refctd_ptr<IGPUImage> retval;
 
-        SRequestImageCreate req_params;
-        req_params.params = std::move(params);
-        auto& req = m_threadHandler.request(std::move(req_params), &retval);
+        SRequestImageCreate reqParams;
+        reqParams.deviceLocalMemoryTypeBits = m_physicalDevice->getDeviceLocalMemoryTypeBits();
+        reqParams.creationParams = std::move(params);
+        auto& req = m_threadHandler.request(std::move(reqParams), &retval);
         m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestImageCreate>(req);
 
         return retval;
     }
 
-
-    core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override final
+    core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override final
     {
         core::smart_refctd_ptr<IGPUSampler> retval;
 
@@ -151,7 +150,7 @@ public:
         return retval;
     }
 
-    core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override final
+    core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override final
     {
         auto source = cpushader->getSPVorGLSL();
         auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
@@ -161,7 +160,7 @@ public:
             return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), cpushader->getStage(), std::string(cpushader->getFilepathHint()));
     }
 
-    core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) override final
+    core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override final
     {
         return core::make_smart_refctd_ptr<COpenGLRenderpass>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), params);
     }
@@ -181,15 +180,16 @@ public:
         imgci.samples = asset::IImage::ESCF_1_BIT;
         imgci.type = asset::IImage::ET_2D;
         imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
+        imgci.usage = params.imageUsage;
 
-        IDriverMemoryBacked::SDriverMemoryRequirements mreqs;
-        mreqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        mreqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
         auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
         for (auto& img_dst : (*images))
         {
-            img_dst = createGPUImageOnDedMem(IGPUImage::SCreationParams(imgci), mreqs);
-            if (!img_dst)
+            img_dst = createImage(IGPUImage::SCreationParams(imgci));
+            auto mreq = img_dst->getMemoryReqs();
+            mreq.memoryTypeBits &= m_physicalDevice->getDeviceLocalMemoryTypeBits();
+            auto imgMem = IDeviceMemoryAllocator::allocate(mreq, img_dst.get());
+            if (!img_dst || !imgMem.isValid())
                 return nullptr;
         }
 
@@ -225,13 +225,52 @@ public:
     {
         return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),maxSets);
     }
+    
+    SMemoryOffset allocate(const SAllocateInfo& info) override
+    {
+        SMemoryOffset ret =  {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+        if(info.dedication)
+        {
+            IOpenGLMemoryAllocation* glAllocation = nullptr;
+            if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
+            {
+                COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(info.dedication);
+                glAllocation = static_cast<IOpenGLMemoryAllocation*>(buffer);
+            }
+            else if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
+            {
+                COpenGLImage* image = static_cast<COpenGLImage*>(info.dedication);
+                glAllocation = static_cast<IOpenGLMemoryAllocation*>(image);
+            }
 
-    core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IGPUBuffer::SCreationParams& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override
+            if(info.memoryTypeIndex < m_physicalDevice->getMemoryProperties().memoryTypeCount)
+            {
+                SRequestAllocate reqParams;
+                reqParams.dedicationAsAllocation = glAllocation;
+                reqParams.memoryAllocateFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(info.flags);
+                reqParams.memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
+
+                auto& req = m_threadHandler.request(std::move(reqParams),&ret);
+                m_masterContextCallsInvoked++;
+                m_threadHandler.template waitForRequestCompletion<SRequestAllocate>(req);
+                assert(ret.memory && ret.offset != IDeviceMemoryAllocator::InvalidMemoryOffset);
+            }
+            else
+            {
+                assert(false);
+            }
+        }
+        else
+        {
+            assert(false);
+        }
+        return ret;
+    }
+
+    core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
     {
         SRequestBufferCreate reqParams;
-        reqParams.mreqs = initialMreqs;
-        reqParams.cachedCreationParams = params;
-        reqParams.cachedCreationParams.declaredSize = initialMreqs.vulkanReqs.size;
+        reqParams.creationParams = creationParams;
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(reqParams),&output);
         m_masterContextCallsInvoked++;
@@ -336,7 +375,7 @@ public:
             static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
     }
 
-    void flushMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override final
+    void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override final
     {
         SRequestFlushMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
@@ -345,29 +384,32 @@ public:
         m_threadHandler.template waitForRequestCompletion<SRequestFlushMappedMemoryRanges>(req);
     }
 
-    void invalidateMappedMemoryRanges(core::SRange<const video::IDriverMemoryAllocation::MappedMemoryRange> ranges) override final
+    void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override final
     {
         SRequestInvalidateMappedMemoryRanges req_params{ ranges };
         auto& req = m_threadHandler.request(std::move(req_params));
         m_threadHandler.template waitForRequestCompletion<SRequestInvalidateMappedMemoryRanges>(req);
     }
 
-    void* mapMemory(const IDriverMemoryAllocation::MappedMemoryRange& memory, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access = IDriverMemoryAllocation::EMCAF_READ_AND_WRITE) override final
+    void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override final
     {
-        assert(access != IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+        if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_OPENGL)
+            return nullptr;
+
         assert(!memory.memory->isCurrentlyMapped());
+        assert(IDeviceMemoryAllocation::isMappingAccessConsistentWithMemoryType(access, memory.memory->getMemoryPropertyFlags()));
 
         auto* buf = static_cast<COpenGLBuffer*>(memory.memory);
         const GLbitfield storageFlags = buf->getOpenGLStorageFlags();
 
-        GLbitfield flags = GL_MAP_PERSISTENT_BIT | ((access & IDriverMemoryAllocation::EMCAF_READ) ? GL_MAP_READ_BIT : 0);
+        GLbitfield flags = GL_MAP_PERSISTENT_BIT | (access.hasFlags(IDeviceMemoryAllocation::EMCAF_READ) ? GL_MAP_READ_BIT : 0);
         if (storageFlags & GL_MAP_COHERENT_BIT)
-            flags |= GL_MAP_COHERENT_BIT | ((access & IDriverMemoryAllocation::EMCAF_WRITE) ? GL_MAP_WRITE_BIT : 0);
-        else if (access & IDriverMemoryAllocation::EMCAF_WRITE)
+            flags |= GL_MAP_COHERENT_BIT | (access.hasFlags(IDeviceMemoryAllocation::EMCAF_WRITE) ? GL_MAP_WRITE_BIT : 0);
+        else if (access.hasFlags(IDeviceMemoryAllocation::EMCAF_WRITE))
             flags |= GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_WRITE_BIT;
 
         SRequestMapBufferRange req_params;
-        req_params.buf = core::smart_refctd_ptr<IDriverMemoryAllocation>(memory.memory);
+        req_params.buf = core::smart_refctd_ptr<IDeviceMemoryAllocation>(memory.memory);
         req_params.offset = memory.offset;
         req_params.size = memory.length;
         req_params.flags = flags;
@@ -377,23 +419,23 @@ public:
         m_masterContextCallsInvoked++;
         m_threadHandler.template waitForRequestCompletion<SRequestMapBufferRange>(req);
 
-        core::bitflag<IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG> actualAccess = static_cast< IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG>(0);
+        core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> actualAccess(0u);
         if (flags & GL_MAP_READ_BIT)
-            actualAccess |= IDriverMemoryAllocation::EMCAF_READ;
+            actualAccess |= IDeviceMemoryAllocation::EMCAF_READ;
         if (flags & GL_MAP_WRITE_BIT)
-            actualAccess |= IDriverMemoryAllocation::EMCAF_WRITE;
+            actualAccess |= IDeviceMemoryAllocation::EMCAF_WRITE;
         if (retval)
-            post_mapMemory(memory.memory, retval, memory.range, actualAccess.value);
+            post_mapMemory(memory.memory, retval, memory.range, actualAccess);
 
-        return retval;
+        return memory.memory->getMappedPointer(); // so pointer is rewound
     }
 
-    void unmapMemory(IDriverMemoryAllocation* memory) override final
+    void unmapMemory(IDeviceMemoryAllocation* memory) override final
     {
         assert(memory->isCurrentlyMapped());
 
         SRequestUnmapBuffer req_params;
-        req_params.buf = core::smart_refctd_ptr<IDriverMemoryAllocation>(memory);
+        req_params.buf = core::smart_refctd_ptr<IDeviceMemoryAllocation>(memory);
 
         auto& req = m_threadHandler.request(std::move(req_params));
         m_masterContextCallsInvoked++;
@@ -445,10 +487,10 @@ public:
         if(pData != nullptr && qp != nullptr)
         {
             IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
-            bool use64Version = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
-            bool availabilityFlag = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
-            bool waitForAllResults = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
-            bool partialResults = flags.hasValue(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
+            bool use64Version = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+            bool availabilityFlag = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+            bool waitForAllResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+            bool partialResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
 
             assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
 
@@ -458,7 +500,7 @@ public:
                 return false;
             }
             if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
-                assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
+                assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the poolï¿½s queryType is QUERY_TYPE_TIMESTAMP.");
                 return false;
             }
 
@@ -700,7 +742,7 @@ protected:
     {
         return false; // not sure if we even need this method at all...
     }
-    core::smart_refctd_ptr<IGPUFramebuffer> createGPUFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override final
+    core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override final
     {
         // now supporting only single subpass and no input nor resolve attachments
         // obvs preserve attachments are ignored as well
@@ -709,7 +751,7 @@ protected:
 
         return core::make_smart_refctd_ptr<COpenGLFramebuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(params));
     }
-    core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
+    core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
     {
         const COpenGLShader* glUnspec = IBackendObject::device_compatibility_cast<const COpenGLShader*>(_unspecialized, this);
 
@@ -753,7 +795,7 @@ protected:
         auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, std::string(_unspecialized->getFilepathHint()));
 
         asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines()};
-        asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
+        asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
         const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
         if (!introspection)
         {
@@ -772,7 +814,7 @@ protected:
 
         return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList), stage);
     }
-    core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
+    core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
     {
         SRequestBufferViewCreate req_params;
         req_params.buffer = core::smart_refctd_ptr<IGPUBuffer>(_underlying);
@@ -785,7 +827,7 @@ protected:
         m_threadHandler.template waitForRequestCompletion<SRequestBufferViewCreate>(req);
         return retval;
     }
-    core::smart_refctd_ptr<IGPUImageView> createGPUImageView_impl(IGPUImageView::SCreationParams&& params) override final
+    core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override final
     {
         if (!IGPUImageView::validateCreationParameters(params))
             return nullptr;
@@ -807,21 +849,21 @@ protected:
 
         return retval;
     }
-    core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override final
+    core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override final
     {
         // ignoring descriptor pool
         return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(layout));
     }
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override final
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override final
     {
         return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), _begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
     }
-    core::smart_refctd_ptr<IGPUAccelerationStructure> createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params)
+    core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params)
     {
         assert(false && "AccelerationStructures not supported.");
         return nullptr;
     }
-    core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout_impl(
+    core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
         const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
@@ -834,7 +876,7 @@ protected:
             std::move(_layout2), std::move(_layout3)
         );
     }
-    core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline_impl(
+    core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline_impl(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
@@ -855,7 +897,7 @@ protected:
 
         return retval;
     }
-    bool createGPUComputePipelines_impl(
+    bool createComputePipelines_impl(
         IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPUComputePipeline>* output
@@ -871,7 +913,7 @@ protected:
 
         return true;
     }
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline_impl(
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline_impl(
         IGPUPipelineCache* _pipelineCache,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
@@ -905,7 +947,7 @@ protected:
 
         return retval;
     }
-    bool createGPURenderpassIndependentPipelines_impl(
+    bool createRenderpassIndependentPipelines_impl(
         IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
@@ -921,16 +963,16 @@ protected:
 
         return true;
     }
-    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGPUGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override final
+    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) override final
     {
         return core::make_smart_refctd_ptr<IGPUGraphicsPipeline>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(params)); // theres no COpenGLGraphicsPipeline (no need for such)
     }
-    bool createGPUGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override final
+    bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override final
     {
         uint32_t i = 0u;
         for (const auto& ci : params)
         {
-            if (!(output[i++] = createGPUGraphicsPipeline(pipelineCache, IGPUGraphicsPipeline::SCreationParams(ci))))
+            if (!(output[i++] = createGraphicsPipeline(pipelineCache, IGPUGraphicsPipeline::SCreationParams(ci))))
                 return false;
         }
         return true;

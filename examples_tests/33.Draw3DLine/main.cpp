@@ -188,7 +188,7 @@ public:
 			gp_params.renderpassIndependent = core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>(rpIndependentPipeline);
 			gp_params.subpassIx = 0u;
 
-			m_pipeline = device->createGPUGraphicsPipeline(nullptr, std::move(gp_params));
+			m_pipeline = device->createGraphicsPipeline(nullptr, std::move(gp_params));
 		}
 
 		device->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_GRAPHICS].get(), video::IGPUCommandBuffer::EL_PRIMARY, FRAMES_IN_FLIGHT, m_cmdbufs);
@@ -223,7 +223,7 @@ public:
 		else
 			fence = device->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 
 		asset::SViewport vp;
 		vp.minDepth = 1.f;

@@ -39,13 +39,22 @@ class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
             explicit_params.drawCommandBuffer.offset = 0ull;
             // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
             explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.SSBOAlignment);
-            explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, explicit_params.drawCommandBuffer.size);
+
+            creationParams.size = explicit_params.drawCommandBuffer.size;
+            explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(creationParams);
+            auto mreqsDrawCmdBuf = explicit_params.drawCommandBuffer.buffer->getMemoryReqs();
+            mreqsDrawCmdBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, explicit_params.drawCommandBuffer.buffer.get());
+
             explicit_params.drawCountBuffer.offset = 0ull;
             explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
             {
-                const size_t bufferSize = explicit_params.drawCountBuffer.size;
-                explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, bufferSize);
+                creationParams.size = explicit_params.drawCountBuffer.size;
+                explicit_params.drawCountBuffer.buffer = params.device->createBuffer(creationParams);
+                auto mreqsDrawCountBuf = explicit_params.drawCountBuffer.buffer->getMemoryReqs();
+                mreqsDrawCountBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+                auto gpubufMem = params.device->allocate(mreqsDrawCountBuf, explicit_params.drawCountBuffer.buffer.get());
             }
             else
                 explicit_params.drawCountBuffer.buffer = nullptr;

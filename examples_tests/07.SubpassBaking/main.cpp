@@ -143,7 +143,7 @@ public:
     {
         CommonAPI::InitOutput initOutput;
 
-        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT);
+        const auto swapchainImageUsage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_TRANSFER_SRC_BIT);
         const video::ISurface::SFormat surfaceFormat(asset::EF_R8G8B8A8_SRGB, asset::ECP_SRGB, asset::EOTF_sRGB);
 
         CommonAPI::InitWithDefaultExt(initOutput, video::EAT_VULKAN, "SubpassBaking", WIN_W, WIN_H, SC_IMG_COUNT, swapchainImageUsage, surfaceFormat, nbl::asset::EF_D32_SFLOAT);
@@ -248,7 +248,7 @@ public:
             cameraUBOCreationParams.queueFamilyIndices = nullptr;
 
             cameraUBO = logicalDevice->createGPUBufferOnDedMem(cameraUBOCreationParams, ubomemreq);
-            perCameraDescSet = logicalDevice->createGPUDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
+            perCameraDescSet = logicalDevice->createDescriptorSet(descriptorPool.get(), std::move(gpuds1layout));
             {
                 video::IGPUDescriptorSet::SWriteDescriptorSet write;
                 write.dstSet = perCameraDescSet.get();
@@ -354,7 +354,7 @@ public:
                             params.renderpassIndependent = core::smart_refctd_ptr<const video::IGPURenderpassIndependentPipeline>(renderpassIndep);
                             params.renderpass = core::smart_refctd_ptr(renderpass);
                             params.subpassIx = kSubpassIx;
-                            foundPpln = graphicsPipelines.emplace_hint(foundPpln, renderpassIndep, logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(params)));
+                            foundPpln = graphicsPipelines.emplace_hint(foundPpln, renderpassIndep, logicalDevice->createGraphicsPipeline(nullptr, std::move(params)));
                         }
                         drawcall.pipeline = foundPpln->second;
                     }
@@ -411,7 +411,7 @@ public:
                 auto fence = logicalDevice->createFence(video::IGPUFence::ECF_UNSIGNALED);
                 core::smart_refctd_ptr<video::IGPUCommandBuffer> tferCmdBuf;
                 logicalDevice->createCommandBuffers(commandPools[decltype(initOutput)::EQT_TRANSFER_UP].get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &tferCmdBuf);
-                tferCmdBuf->begin(0u); // TODO some one time submit bit or something
+                tferCmdBuf->begin(IGPUCommandBuffer::EU_NONE); // TODO some one time submit bit or something
                 {
                     auto* ppHandler = utilities->getDefaultPropertyPoolHandler();
                     // if we did multiple transfers, we'd reuse the scratch
@@ -503,7 +503,7 @@ public:
 
         //
         commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-        commandBuffer->begin(0);
+        commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
         // late latch input
         const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
@@ -524,7 +524,7 @@ public:
             const auto& viewMatrix = camera.getViewMatrix();
             const auto& viewProjectionMatrix = camera.getConcatenatedMatrix();
 
-            const size_t camUboSize = cameraUBO->getCachedCreationParams().declaredSize;
+            const size_t camUboSize = cameraUBO->getSize();
             core::vector<uint8_t> uboData(camUboSize);
             for (const auto& shdrIn : pipelineMetadata->m_inputSemantics)
             {

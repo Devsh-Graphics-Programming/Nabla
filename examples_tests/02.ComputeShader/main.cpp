@@ -164,7 +164,7 @@ public:
 				viewParams.subresourceRange.layerCount = 1u;
 				viewParams.image = core::smart_refctd_ptr<video::IGPUImage>(img);
 
-				m_swapchainImageViews[i] = logicalDevice->createGPUImageView(std::move(viewParams));
+				m_swapchainImageViews[i] = logicalDevice->createImageView(std::move(viewParams));
 				assert(m_swapchainImageViews[i]);
 			}
 		}
@@ -204,7 +204,7 @@ public:
 			bindings[1].samplers = nullptr;
 		}
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> dsLayout =
-			logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + bindingCount);
+			logicalDevice->createDescriptorSetLayout(bindings, bindings + bindingCount);
 
 		const uint32_t descriptorPoolSizeCount = 1u;
 		video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
@@ -221,7 +221,7 @@ public:
 		m_descriptorSets.resize(swapchainImageCount);
 		for (uint32_t i = 0u; i < swapchainImageCount; ++i)
 		{
-			m_descriptorSets[i] = logicalDevice->createGPUDescriptorSet(descriptorPool.get(),
+			m_descriptorSets[i] = logicalDevice->createDescriptorSet(descriptorPool.get(),
 				core::smart_refctd_ptr(dsLayout));
 		}
 		
@@ -317,7 +317,7 @@ public:
 			viewParams.subresourceRange.layerCount = 1u;
 			viewParams.image = inImage->begin()[0];
 
-			m_inImageView = logicalDevice->createGPUImageView(std::move(viewParams));
+			m_inImageView = logicalDevice->createImageView(std::move(viewParams));
 		}
 		assert(m_inImageView);
 
@@ -364,9 +364,9 @@ public:
 		pcRange.offset = 0u;
 		pcRange.size = 2 * sizeof(uint32_t);
 		core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout =
-			logicalDevice->createGPUPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(dsLayout));
+			logicalDevice->createPipelineLayout(&pcRange, &pcRange + 1, core::smart_refctd_ptr(dsLayout));
 
-		m_pipeline = logicalDevice->createGPUComputePipeline(nullptr,
+		m_pipeline = logicalDevice->createComputePipeline(nullptr,
 			core::smart_refctd_ptr(pipelineLayout), core::smart_refctd_ptr(specializedShader));
 
 		for (uint32_t i = 0u; i < FRAMES_IN_FLIGHT; i++)
@@ -404,7 +404,7 @@ public:
 		swapchain->acquireNextImage(MAX_TIMEOUT, m_imageAcquire[m_resourceIx].get(), nullptr, &imgnum);
 
 		// safe to proceed
-		cb->begin(0);
+		cb->begin(IGPUCommandBuffer::EU_NONE);
 
 		{
 			asset::SViewport vp;

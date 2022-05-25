@@ -156,7 +156,7 @@ int main()
     imgViewInfo.subresourceRange.layerCount = imgInfo.arrayLayers;
     imgViewInfo.subresourceRange.levelCount = imgInfo.mipLevels;
 
-    auto imageView = driver->createGPUImageView(std::move(imgViewInfo));
+    auto imageView = driver->createImageView(std::move(imgViewInfo));
 
     auto* fbo = driver->addFrameBuffer();
     fbo->attach(video::EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(imageView));
@@ -166,10 +166,10 @@ int main()
         auto* file = filesystem->createAndOpenFile("../fullscreen.frag");
 
         auto cpufs_unspec = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_FRAGMENT, "../fullscreen.frag");
-        auto fs_unspec = driver->createGPUShader(std::move(cpufs_unspec));
+        auto fs_unspec = driver->createShader(std::move(cpufs_unspec));
 
         asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT);
-        fs = driver->createGPUSpecializedShader(fs_unspec.get(), info);
+        fs = driver->createSpecializedShader(fs_unspec.get(), info);
     }
 
     struct SPushConsts
@@ -182,7 +182,7 @@ int main()
     rng.offset = 0u;
     rng.size = sizeof(SPushConsts);
     rng.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-    auto fsTri = ext::FullScreenTriangle::createFullScreenTriangle(std::move(fs), driver->createGPUPipelineLayout(&rng,&rng+1), am, driver);
+    auto fsTri = ext::FullScreenTriangle::createFullScreenTriangle(std::move(fs), driver->createPipelineLayout(&rng,&rng+1), am, driver);
 
     uint32_t ssNum = 0u;
     while (device->run() && receiver.keepOpen())

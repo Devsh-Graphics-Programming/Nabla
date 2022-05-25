@@ -204,7 +204,7 @@ class GLTFApp : public ApplicationBase
 			{
 				xferFence = logicalDevice->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
 				logicalDevice->createCommandBuffers(commandPools[CommonAPI::InitOutput::EQT_TRANSFER_UP].get(),nbl::video::IGPUCommandBuffer::EL_PRIMARY,1u,&xferCmdbuf);
-				xferCmdbuf->begin(0);
+				xferCmdbuf->begin(IGPUCommandBuffer::EU_NONE);
 			}
 			auto xferQueue = logicalDevice->getQueue(xferCmdbuf->getQueueFamilyIndex(),0u);
 			asset::SBufferBinding<video::IGPUBuffer> xferScratch;
@@ -352,7 +352,7 @@ class GLTFApp : public ApplicationBase
 				allNodes.insert(allNodes.begin(),allNodes.size());
 				pivotNodesRange.offset += sizeof(uint32_t);
 
-				auto allNodesBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allNodes.size(),allNodes.data());
+				auto allNodesBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(scene::ITransformTree::node_t)*allNodes.size(),allNodes.data());
 				transformTreeManager->updateRecomputeGlobalTransformsDescriptorSet(logicalDevice.get(),ttmDescriptorSets.recomputeGlobal.get(),{0ull,allNodesBuffer});
 				pivotNodesRange.buffer = std::move(allNodesBuffer);
 			}
@@ -448,7 +448,7 @@ class GLTFApp : public ApplicationBase
 			}
 			// transfer compressed aabbs to the GPU
 			{
-				aabbBinding = {0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(CompressedAABB)*aabbPool.size(),aabbPool.data())};
+				aabbBinding = {0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(CompressedAABB)*aabbPool.size(),aabbPool.data())};
 				transformTreeManager->updateDebugDrawDescriptorSet(logicalDevice.get(),ttmDescriptorSets.debugDraw.get(),SBufferBinding(aabbBinding));
 				
 				IGPUBuffer::SCreationParams params = {};
@@ -577,8 +577,8 @@ class GLTFApp : public ApplicationBase
 					std::inclusive_scan(jointCountInclusivePrefixSum.begin(),jointCountInclusivePrefixSum.end(),jointCountInclusivePrefixSum.begin());
 					sicManager->updateCacheUpdateDescriptorSet(
 						logicalDevice.get(),sicDescriptorSets.cacheUpdate.get(),
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCache::skin_instance_t)*skinsToUpdate.size(),skinsToUpdate.data())},
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCache::skin_instance_t)*skinsToUpdate.size(),skinsToUpdate.data())},
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclusivePrefixSum.size(),jointCountInclusivePrefixSum.data())}
 					);
 				}
 				// debug draw skin instances
@@ -626,8 +626,8 @@ class GLTFApp : public ApplicationBase
 					sicManager->updateDebugDrawDescriptorSet(
 						logicalDevice.get(),sicDescriptorSets.debugDraw.get(),
 						transformTree.get(),SBufferBinding(aabbBinding),
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCacheManager::DebugDrawData)*debugData.size(),debugData.data())},
-						{0ull,utilities->createFilledDeviceLocalGPUBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclPrefixSum.size(),jointCountInclPrefixSum.data())}
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(scene::ISkinInstanceCacheManager::DebugDrawData)*debugData.size(),debugData.data())},
+						{0ull,utilities->createFilledDeviceLocalBufferOnDedMem(transferUpQueue,sizeof(uint32_t)*jointCountInclPrefixSum.size(),jointCountInclPrefixSum.data())}
 					);
 				}
 			}
@@ -676,7 +676,7 @@ class GLTFApp : public ApplicationBase
 			gpuubo = logicalDevice->createGPUBufferOnDedMem(uboBufferCreationParams, uboMemoryReqs);
 			gpuUboDescriptorPool = createDescriptorPool(1u, EDT_UNIFORM_BUFFER);
 
-			gpuDescriptorSet1 = logicalDevice->createGPUDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));
+			gpuDescriptorSet1 = logicalDevice->createDescriptorSet(gpuUboDescriptorPool.get(), core::smart_refctd_ptr(gpuDescriptorSet1Layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet write;
 				write.dstSet = gpuDescriptorSet1.get();
@@ -739,7 +739,7 @@ class GLTFApp : public ApplicationBase
 							graphicsPipelineParams.renderpassIndependent = core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>(const_cast<video::IGPURenderpassIndependentPipeline*>(gpuRenderpassIndependentPipeline));
 							graphicsPipelineParams.renderpass = core::smart_refctd_ptr(renderpass);
 
-							gpuPipelines[adress] = logicalDevice->createGPUGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
+							gpuPipelines[adress] = logicalDevice->createGraphicsPipeline(nullptr, std::move(graphicsPipelineParams));
 						}
 
 						graphicsDataMesh.resources[i].gpuGraphicsPipeline = gpuPipelines[adress];
@@ -795,7 +795,7 @@ class GLTFApp : public ApplicationBase
 				fence = logicalDevice->createFence(static_cast<video::IGPUFence::E_CREATE_FLAGS>(0));
 
 			commandBuffer->reset(nbl::video::IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-			commandBuffer->begin(0);
+			commandBuffer->begin(IGPUCommandBuffer::EU_NONE);
 
 			const auto nextPresentationTimestamp = oracle.acquireNextImage(swapchain.get(), imageAcquire[resourceIx].get(), nullptr, &acquiredNextFBO);
 

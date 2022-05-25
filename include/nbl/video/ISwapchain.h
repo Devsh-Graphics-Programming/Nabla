@@ -6,7 +6,7 @@
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IGPUFence.h"
-
+#include "nbl/core/util/bitflag.h"
 
 namespace nbl::video
 {
@@ -28,7 +28,7 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
             uint32_t arrayLayers = 1u;
             uint32_t queueFamilyIndexCount;
             const uint32_t* queueFamilyIndices;
-            asset::IImage::E_USAGE_FLAGS imageUsage;
+            core::bitflag<asset::IImage::E_USAGE_FLAGS> imageUsage;
             asset::E_SHARING_MODE imageSharingMode;
             ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
             ISurface::E_COMPOSITE_ALPHA compositeAlpha;

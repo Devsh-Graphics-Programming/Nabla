@@ -1620,7 +1620,7 @@ public:
 		rp_params.subpasses = &sp;
 		rp_params.subpassCount = 1u;
 
-		return device->createGPURenderpass(rp_params);
+		return device->createRenderpass(rp_params);
 	}
 
 	static auto createFBOWithSwapchainImages(
@@ -1651,7 +1651,7 @@ public:
 				view_params.subresourceRange.layerCount = 1u;
 				view_params.image = std::move(img);
 
-				view[0] = device->createGPUImageView(std::move(view_params));
+				view[0] = device->createImageView(std::move(view_params));
 				assert(view[0]);
 			}
 			
@@ -1665,7 +1665,11 @@ public:
 				imgParams.mipLevels = 1u;
 				imgParams.arrayLayers = 1u;
 				imgParams.samples = asset::IImage::ESCF_1_BIT;
-				nbl::core::smart_refctd_ptr<nbl::video::IGPUImage> depthImg = device->createDeviceLocalGPUImageOnDedMem(std::move(imgParams));
+
+				auto depthImg = device->createImage(std::move(imgParams));
+				auto depthImgMemReqs = depthImg->getMemoryReqs();
+				depthImgMemReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+				auto depthImgMem = device->allocate(depthImgMemReqs, depthImg.get());
 
 				nbl::video::IGPUImageView::SCreationParams view_params;
 				view_params.format = depthFormat;
@@ -1677,7 +1681,7 @@ public:
 				view_params.subresourceRange.layerCount = 1u;
 				view_params.image = std::move(depthImg);
 
-				view[1] = device->createGPUImageView(std::move(view_params));
+				view[1] = device->createImageView(std::move(view_params));
 				assert(view[1]);
 			}
 
@@ -1690,7 +1694,7 @@ public:
 			fb_params.attachmentCount = (useDepth) ? 2u : 1u;
 			fb_params.attachments = view;
 
-			fbo[i] = device->createGPUFramebuffer(std::move(fb_params));
+			fbo[i] = device->createFramebuffer(std::move(fb_params));
 			assert(fbo[i]);
 		}
 		return fbo;
@@ -1758,7 +1762,10 @@ public:
 		gpu_image_params.type = nbl::asset::IImage::ET_2D;
 		gpu_image_params.samples = nbl::asset::IImage::ESCF_1_BIT;
 		gpu_image_params.flags = static_cast<nbl::asset::IImage::E_CREATE_FLAGS>(0u);
-		nbl::core::smart_refctd_ptr image = device->createGPUImageOnDedMem(std::move(gpu_image_params), device->getDeviceLocalGPUMemoryReqs());
+		nbl::core::smart_refctd_ptr image = device->createImage(std::move(gpu_image_params));
+		auto imagereqs = image->getMemoryReqs();
+		imagereqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+		auto imageMem = device->allocate(imagereqs, image.get());
 
 		nbl::video::IGPUImageView::SCreationParams creation_params;
 		creation_params.format = image->getCreationParameters().format;
@@ -1766,7 +1773,7 @@ public:
 		creation_params.viewType = nbl::video::IGPUImageView::ET_2D;
 		creation_params.subresourceRange = { static_cast<nbl::asset::IImage::E_ASPECT_FLAGS>(0u), 0, 1, 0, 1 };
 		creation_params.flags = static_cast<nbl::video::IGPUImageView::E_CREATE_FLAGS>(0u);
-		nbl::core::smart_refctd_ptr image_view = device->createGPUImageView(std::move(creation_params));
+		nbl::core::smart_refctd_ptr image_view = device->createImageView(std::move(creation_params));
 		return std::pair(image, image_view);
 	}
 

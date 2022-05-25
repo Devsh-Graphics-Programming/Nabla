@@ -192,9 +192,13 @@ bool validateResults(ILogicalDevice* device, const uint32_t* inputData, const ui
 	bool success = true;
 
 	auto mem = bufferToRead->getBoundMemory();
-	if (mem->getMappingCaps()&IDriverMemoryAllocation::EMCF_COHERENT)
+	// (Erfan->Cyprian): see this old code below -> we don't have getMappingCaps function anymore because we can deduce it from memorytype's property flags
+	// also since they are now `core::bitflag` you can use .hasFlags instead of using &
+	// if (mem->getMappingCaps()&IDeviceMemoryAllocation::EMCF_COHERENT)
+	// Also I added a ! because the if check should've been the other way around
+	if(!mem->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT))
 	{
-		IDriverMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
+		IDeviceMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
 		device->invalidateMappedMemoryRanges(1u,&rng);
 	}
 
@@ -243,7 +247,7 @@ bool runTest(
 {
 	// TODO: overlap dispatches with memory readbacks (requires multiple copies of `buffers`)
 
-	cmdbuf->begin(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+	cmdbuf->begin(IGPUCommandBuffer::EU_NONE);
 	cmdbuf->bindComputePipeline(pipeline);
 	cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds);
 	const uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
@@ -324,7 +328,10 @@ public:
 				inputData[i] = randGenerator();
 		}
 
-		auto gpuinputDataBuffer = utilities->createFilledDeviceLocalGPUBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], kBufferSize, inputData);
+		IGPUBuffer::SCreationParams inputDataBufferCreationParams = {};
+		inputDataBufferCreationParams.size = kBufferSize;
+		// inputDataBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+		auto gpuinputDataBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], std::move(inputDataBufferCreationParams), inputData);
 
 		//create 8 buffers.
 		constexpr const auto totalBufferCount = outputBufferCount + 1u;
@@ -333,35 +340,69 @@ public:
 		for (auto i = 0; i < outputBufferCount; i++)
 		{
 			IGPUBuffer::SCreationParams params;
+			// (Erfan to Cyprian) note that IGPUBuffer::SCreationParams::size would get ignored before and was passed into the create function as a paramter or in "reqs" but it's very important now and make sure they are set when you're replacing the old usages
+			params.size = kBufferSize;
 			params.queueFamilyIndexCount = 0;
 			params.queueFamilyIndices = nullptr;
 			params.sharingMode = ESM_CONCURRENT;
 			params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_TRANSFER_SRC_BIT;
-			IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-			reqs.vulkanReqs.memoryTypeBits = ~0u;
-			reqs.vulkanReqs.alignment = 256u;
-			reqs.vulkanReqs.size = kBufferSize;
-			reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-			reqs.mappingCapability = IDriverMemoryAllocation::EMCAF_READ;
-			buffers[i] = logicalDevice->createGPUBufferOnDedMem(params, reqs);
-			IDriverMemoryAllocation::MappedMemoryRange mem;
+			
+			// Notes from Erfan to Cyprian (Delete when Read)
+			// 
+			// OLD CODE:
+			// IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
+			// reqs.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
+			// reqs.mappingCapability = IDeviceMemoryAllocation::EMCAF_READ;
+			// 
+			// Mindset about memoryTypeBits:
+			// memoryTypes can each represent a combination of usages, for example HOST_READABLE, DEVICE_LOCAL, ... (see E_MEMORY_TYPE_FLAGS) 
+			// each memoryType (combination of usages) supported by your GPU will be reported in physicalDevice->getMemoryProperties()
+			// each bit in a MemoryTypeBits represents an index that maps to a memoryType
+			// So for example if you use physicalDevice->getDeviceLocalMemoryTypeBits() and it returns 0x0000'0003 means there are 2 memory types that have DEVICE_LOCAL flag (index = 0 and 1)
+			// See IPhysicalDevice::getXXXXXMemoryTypeBits and the comments above the functions
+			// 
+			// Each createXXXOnDedMem is now replaced by 3 steps ->
+			// 1. Create buffer/image
+			// 2. Get It's memory requirements and &= it's memoryTypeBits with the user requested usages 
+			//		for example when you see old API usages that use device->getDownStreamingMemoryReqs, you would replace it by reqs &= physicalDevice->getDownStreamingMemoryTypeBits
+			// 3. use allocate and pass the reqs + image/buffer for dedication
+			// -> note that previously used memoryCapability is now decided by memoryTypeBits which you can query from PhysDev
+			// (see commented code above) Previously memoryHeapLocation was ESMT_DEVICE_LOCAL and mapping capability was EMCAD_READ -> so we're looking for a "DEVICE_LOCAL" AND "HOST_READABLE" memoryType 
+			//
+			// You can access physicalDevice pointer directly in some places or via device->getPhysicalDevice()
+			// 
+			// Note that previously here the writer of example didn't use helper functions device->getXXXRequiremtns and filled in the reqs themselves because probably none of those would return the requiements of their need
+			// In that case you could use physDev->getMemoryTypeBitsFromMemoryTypeFlags and pass in the correct Memory Property Flags to fulfill user's "previous" wish
+			
+			buffers[i] = logicalDevice->createBuffer(params);
+			auto mreq = buffers[i]->getMemoryReqs();
+			mreq.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(video::IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+			mreq.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(video::IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT);
+			
+			// (Erfan to Cyprian) assert memoryTypeBits is not 0 because if it is then it means there is no memoryType that is both DeviceLocal and HostReadable
+			assert(mreq.memoryTypeBits);
+			// (Erfan to Cyprian) We usually don't use the return value (SMemoryOffset) of the allocate function but make sure you set it to some variable named bufferMem or something so we know it's there
+			auto bufferMem = logicalDevice->allocate(mreq, buffers[i].get());
+			assert(bufferMem.isValid());
+
+			IDeviceMemoryAllocation::MappedMemoryRange mem;
 			mem.memory = buffers[i]->getBoundMemory();
 			mem.offset = 0u;
 			mem.length = kBufferSize;
-			logicalDevice->mapMemory(mem, IDriverMemoryAllocation::EMCAF_READ);
+			logicalDevice->mapMemory(mem, IDeviceMemoryAllocation::EMCAF_READ);
 		}
 
 		IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
 		for (uint32_t i = 0u; i < totalBufferCount; i++)
 			binding[i] = { i,EDT_STORAGE_BUFFER,1u,IShader::ESS_COMPUTE,nullptr };
-		auto gpuDSLayout = logicalDevice->createGPUDescriptorSetLayout(binding, binding + totalBufferCount);
+		auto gpuDSLayout = logicalDevice->createDescriptorSetLayout(binding, binding + totalBufferCount);
 
 		constexpr uint32_t pushconstantSize = 8u * totalBufferCount;
 		SPushConstantRange pcRange[1] = { IShader::ESS_COMPUTE,0u,pushconstantSize };
-		auto pipelineLayout = logicalDevice->createGPUPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
+		auto pipelineLayout = logicalDevice->createPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
 
 		auto descPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE, &gpuDSLayout.get(), &gpuDSLayout.get() + 1u);
-		auto descriptorSet = logicalDevice->createGPUDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
+		auto descriptorSet = logicalDevice->createDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
 		{
 			IGPUDescriptorSet::SDescriptorInfo infos[totalBufferCount];
 			infos[0].desc = gpuinputDataBuffer;
@@ -429,7 +470,7 @@ public:
 		{
 			core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
 			for (uint32_t i = 0u; i < kTestTypeCount; i++)
-				pipelines[i] = logicalDevice->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i].get(), workgroupSize)));
+				pipelines[i] = logicalDevice->createComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i].get(), workgroupSize)));
 
 			bool passed = true;
 
