@@ -39,7 +39,14 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(ANDROID)
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
-		add_executable(${EXECUTABLE_NAME} main.cpp ${_EXTRA_SOURCES})
+		set(NBL_EXAMPLE_SOURCES 
+			main.cpp
+			${NBL_ASSEMBLIES_MANIFEST_FILEPATH}
+			${_EXTRA_SOURCES}
+		)
+		
+		add_executable(${EXECUTABLE_NAME} ${NBL_EXAMPLE_SOURCES})
+		add_dependencies(${EXECUTABLE_NAME} Nabla_manifest)
 		
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")

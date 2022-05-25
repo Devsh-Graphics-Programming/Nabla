@@ -455,6 +455,18 @@ if (ANDROID)
 	)
 endif()
 
+if(NOT NBL_STATIC_BUILD)
+	set(NBL_ASSEMBLIES_MANIFEST_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/nabla.manifest)
+	set(NBL_ASSEMBLIES_MANIFEST_FILEPATH ${NBL_ASSEMBLIES_MANIFEST_DIRECTORY}/nabla.manifest CACHE INTERNAL "" FORCE)
+	add_custom_command(OUTPUT "${NBL_ASSEMBLIES_MANIFEST_FILEPATH}"
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_ASSEMBLIES_MANIFEST_DIRECTORY} -DNABLA_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaMSVCManifest.cmake
+		COMMENT "Launching nabla.manifest generation script!"
+		VERBATIM
+	)
+	
+	add_custom_target(Nabla_manifest ALL DEPENDS ${NBL_ASSEMBLIES_MANIFEST_FILEPATH} ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaMSVCManifest.cmake)
+endif()
+
 ## Set up 3rdparty deps
 # Parallel Hashmap
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
