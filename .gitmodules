@@ -87,3 +87,6 @@
 	path = 3rdparty/Vulkan-Headers
 	url = git@github.com:KhronosGroup/Vulkan-Headers.git
 	branch = main
+[submodule "examples_tests"]
+	path = examples_tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
