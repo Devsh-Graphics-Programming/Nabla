@@ -236,7 +236,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SProperties
         {
-            //--> VkPhysicalDeviceProperties:
+            /* Vulkan Core 1.0 */
             APIVersion  apiVersion;
             // uint32_t driverVersion;
             // uint32_t vendorID;
@@ -244,21 +244,21 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             E_TYPE      deviceType;
             // char     deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
             // uint8_t  pipelineCacheUUID[VK_UUID_SIZE];
-            SLimits     limits;
+            SLimits     limits; // Contains Limits on Vulkan Core 1.0, 1.1, 1.2 and extensions
             // VkPhysicalDeviceSparseProperties    sparseProperties;
-
-            //--> VkPhysicalDeviceDriverProperties
-            E_DRIVER_ID driverID;
-            // char driverName[VK_MAX_DRIVER_NAME_SIZE];
-            // char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
-            // VkConformanceVersion conformanceVersion;
-
-            //--> VkPhysicalDeviceIDProperties
+            
+            /* Vulkan Core 1.1 */
             uint8_t deviceUUID[VK_UUID_SIZE];
             // uint8_t driverUUID[VK_UUID_SIZE];
             // uint8_t deviceLUID[VK_LUID_SIZE];
             // uint32_t deviceNodeMask;
             // VkBool32 deviceLUIDValid;
+
+            /* Vulkan Core 1.2 */
+            E_DRIVER_ID driverID;
+            char driverName[VK_MAX_DRIVER_NAME_SIZE];
+            char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
+            VkConformanceVersion conformanceVersion;
         };
 
         const SProperties& getProperties() const { return m_properties; }

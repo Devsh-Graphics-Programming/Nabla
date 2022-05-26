@@ -302,6 +302,50 @@ public:
 		else 
 			m_properties.driverID = E_DRIVER_ID::EDI_UNKNOWN;
 
+		memset(m_properties.deviceUUID, 0, VK_UUID_SIZE);
+		strcpy(m_properties.driverInfo, renderer);
+		// driverName
+		switch (m_properties.driverID)
+		{
+		case E_DRIVER_ID::EDI_AMD_PROPRIETARY: strcpy(m_properties.driverName, "AMD proprietary driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_AMD_OPEN_SOURCE: strcpy(m_properties.driverName, "AMD open-source driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_MESA_RADV: strcpy(m_properties.driverName, "radv"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY: strcpy(m_properties.driverName, "NVIDIA"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS: strcpy(m_properties.driverName, "Intel Corporation"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA: strcpy(m_properties.driverName, "Intel open-source Mesa driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_IMAGINATION_PROPRIETARY: strcpy(m_properties.driverName, "Imagination Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_QUALCOMM_PROPRIETARY: strcpy(m_properties.driverName, "Qualcomm Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_ARM_PROPRIETARY: strcpy(m_properties.driverName, "ARM Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_GOOGLE_SWIFTSHADER: strcpy(m_properties.driverName, "SwiftShader driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_GGP_PROPRIETARY: strcpy(m_properties.driverName, "GGP Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_BROADCOM_PROPRIETARY: strcpy(m_properties.driverName, "BROADCOM Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_MESA_LLVMPIPE: strcpy(m_properties.driverName, "llvmpipe"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_MOLTENVK: strcpy(m_properties.driverName, "MoltenVk Driver"); break;
+		case E_DRIVER_ID::EDI_COREAVI_PROPRIETARY: strcpy(m_properties.driverName, "COREAVI Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_JUICE_PROPRIETARY: strcpy(m_properties.driverName, "JUICE Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_VERISILICON_PROPRIETARY: strcpy(m_properties.driverName, "VERISILICON Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_MESA_TURNIP: strcpy(m_properties.driverName, "turnip Mesa driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_MESA_V3DV: strcpy(m_properties.driverName, "V3DV Mesa driver"); break;
+		case E_DRIVER_ID::EDI_MESA_PANVK: strcpy(m_properties.driverName, "PANVK Mesa driver"); break;
+		case E_DRIVER_ID::EDI_SAMSUNG_PROPRIETARY: strcpy(m_properties.driverName, "Samsung Driver"); break;
+		case E_DRIVER_ID::EDI_MESA_VENUS: strcpy(m_properties.driverName, "venus"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_UNKNOWN:
+		default: strcpy(m_properties.driverName, "UNKNOWN"); break;
+		}
+
+
+		// conformanceVersion
+		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
+			m_properties.conformanceVersion = {3u, 3u, 0u, 0u};
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
+		else
+		{
+			// TODO(Erfan):???
+		}
+
 		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
 
 		// Heuristic to detect Physical Device Type until we have something better:

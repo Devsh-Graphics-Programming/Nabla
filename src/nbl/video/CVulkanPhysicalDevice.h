@@ -29,21 +29,18 @@ public:
         }
 
         // Get physical device's limits/properties
-        VkPhysicalDeviceDriverProperties driverProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES };
-        VkPhysicalDeviceIDProperties deviceIDProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES, &driverProperties };
-        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, &deviceIDProperties };
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &subgroupProperties };
+        VkPhysicalDeviceVulkan13Properties vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES, nullptr };
+        VkPhysicalDeviceVulkan12Properties vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES, &vulkan13Properties };
+        VkPhysicalDeviceVulkan11Properties vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES, &vulkan12Properties };
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &vulkan11Properties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             deviceProperties.pNext = &accelerationStructureProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
-            
-            memcpy(m_properties.deviceUUID, deviceIDProperties.deviceUUID, VK_UUID_SIZE);
-            m_properties.deviceType = static_cast<E_TYPE>(deviceProperties.properties.deviceType);
-            m_properties.driverID = static_cast<E_DRIVER_ID>(driverProperties.driverID);
-            
+
             /* Vulkan Core 1.0 */
+            m_properties.deviceType = static_cast<E_TYPE>(deviceProperties.properties.deviceType);
             m_properties.limits.maxImageDimension1D = deviceProperties.properties.limits.maxImageDimension1D;
             m_properties.limits.maxImageDimension2D = deviceProperties.properties.limits.maxImageDimension2D;
             m_properties.limits.maxImageDimension3D = deviceProperties.properties.limits.maxImageDimension3D;
@@ -78,19 +75,31 @@ public:
             m_properties.limits.lineWidthRange[1] = deviceProperties.properties.limits.lineWidthRange[1];
             m_properties.limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
             
+            /* Vulkan Core 1.1 */
+            memcpy(m_properties.deviceUUID, vulkan11Properties.deviceUUID, VK_UUID_SIZE);
+
             /* SubgroupProperties */
-            m_properties.limits.subgroupSize = subgroupProperties.subgroupSize;
-            m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(subgroupProperties.supportedStages);
-            m_properties.limits.shaderSubgroupBasic = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT;
-            m_properties.limits.shaderSubgroupVote = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_VOTE_BIT;
-            m_properties.limits.shaderSubgroupArithmetic = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
-            m_properties.limits.shaderSubgroupBallot = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT;
-            m_properties.limits.shaderSubgroupShuffle = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_BIT;
-            m_properties.limits.shaderSubgroupShuffleRelative = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
-            m_properties.limits.shaderSubgroupClustered = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_CLUSTERED_BIT;
-            m_properties.limits.shaderSubgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
-            m_properties.limits.shaderSubgroupQuadAllStages = subgroupProperties.quadOperationsInAllStages;
+            m_properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
+            m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
+            m_properties.limits.shaderSubgroupBasic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT;
+            m_properties.limits.shaderSubgroupVote = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_VOTE_BIT;
+            m_properties.limits.shaderSubgroupArithmetic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
+            m_properties.limits.shaderSubgroupBallot = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT;
+            m_properties.limits.shaderSubgroupShuffle = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_BIT;
+            m_properties.limits.shaderSubgroupShuffleRelative = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
+            m_properties.limits.shaderSubgroupClustered = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_CLUSTERED_BIT;
+            m_properties.limits.shaderSubgroupQuad = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
+            m_properties.limits.shaderSubgroupQuadAllStages = vulkan11Properties.subgroupQuadOperationsInAllStages;
             
+            /* Vulkan Core 1.2 */
+            m_properties.driverID = static_cast<E_DRIVER_ID>(vulkan12Properties.driverID);
+            memcpy(m_properties.driverName, vulkan12Properties.driverName, VK_MAX_DRIVER_NAME_SIZE);
+            memcpy(m_properties.driverInfo, vulkan12Properties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
+            m_properties.conformanceVersion = vulkan12Properties.conformanceVersion;
+
+            /* Vulkan Core 1.3 */
+
+
             /* Nabla */
             m_properties.limits.maxBufferSize = core::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
