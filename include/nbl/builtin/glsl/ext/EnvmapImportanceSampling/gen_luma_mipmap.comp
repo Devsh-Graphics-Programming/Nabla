@@ -37,11 +37,7 @@ void main()
 				vec3 envMapSample = texelFetch(envMap, pixelCoord, 0).rgb;
 				// alpha is not 1.0 in all exr images but we need it to be 1 for correct calculations
 				float luma = dot(pc.data.luminanceScales, vec4(envMapSample, 1.0f));
-				if(pc.data.sinFactor > 0)
-				{
-					const float sinTheta = sin(nbl_glsl_PI * (float(pixelCoord.y + 0.5f) / envMapSize.y));
-					luma *= sinTheta;
-				}
+				luma *= sin(nbl_glsl_PI * (float(pixelCoord.y + 0.5f) / envMapSize.y));
 				imageStore(srcLuminance, pixelCoord, vec4(luma));
 			}
 			else if (all(lessThan(pixelCoord,dstMipLevelSize)))

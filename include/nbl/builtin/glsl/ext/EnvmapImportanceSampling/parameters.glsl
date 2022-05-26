@@ -5,8 +5,7 @@ struct LumaMipMapGenShaderData_t
 {
     vec4 luminanceScales;
     uint calcLuma;
-    uint sinFactor;
-    vec2 padding;
+    vec3 padding;
 };
 
 #endif
