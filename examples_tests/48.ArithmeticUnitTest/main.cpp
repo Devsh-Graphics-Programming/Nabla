@@ -187,22 +187,14 @@ constexpr uint32_t kBufferSize = (1u+BUFFER_DWORD_COUNT)*sizeof(uint32_t);
 
 //returns true if result matches
 template<template<class> class Arithmetic, template<class> class OP>
-bool validateResults(ILogicalDevice* device, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToRead, system::ILogger* logger)
+bool validateResults(ILogicalDevice* device, IUtilities* utilities, IGPUQueue* transferDownQueue, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToRead, asset::ICPUBuffer* resultsBuffer, system::ILogger* logger)
 {
 	bool success = true;
 
-	auto mem = bufferToRead->getBoundMemory();
-	// (Erfan->Cyprian): see this old code below -> we don't have getMappingCaps function anymore because we can deduce it from memorytype's property flags
-	// also since they are now `core::bitflag` you can use .hasFlags instead of using &
-	// if (mem->getMappingCaps()&IDeviceMemoryAllocation::EMCF_COHERENT)
-	// Also I added a ! because the if check should've been the other way around
-	if(!mem->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_HOST_COHERENT_BIT))
-	{
-		IDeviceMemoryAllocation::MappedMemoryRange rng = {mem,0u,kBufferSize};
-		device->invalidateMappedMemoryRanges(1u,&rng);
-	}
+	SBufferRange<IGPUBuffer> bufferRange = {0u, kBufferSize, core::smart_refctd_ptr<IGPUBuffer>(bufferToRead)};
+	utilities->downloadBufferRangeViaStagingBuffer(transferDownQueue, bufferRange, resultsBuffer->getPointer());
 
-	auto dataFromBuffer = reinterpret_cast<uint32_t*>(mem->getMappedPointer());
+	auto dataFromBuffer = reinterpret_cast<uint32_t*>(resultsBuffer->getPointer());
 	const uint32_t subgroupSize = (*dataFromBuffer++);
 
 	// TODO: parallel for
@@ -242,7 +234,7 @@ constexpr const auto outputBufferCount = 8u;
 
 template<template<class> class Arithmetic>
 bool runTest(
-	ILogicalDevice* device, IGPUQueue* queue, IGPUFence* reusableFence, IGPUCommandBuffer* cmdbuf, IGPUComputePipeline* pipeline, const IGPUDescriptorSet* ds,
+	ILogicalDevice* device, IUtilities* utilities, IGPUQueue* transferDownQueue, IGPUQueue* queue, IGPUFence* reusableFence, IGPUCommandBuffer* cmdbuf, IGPUComputePipeline* pipeline, const IGPUDescriptorSet* ds,
 	const uint32_t* inputData, const uint32_t workgroupSize, core::smart_refctd_ptr<IGPUBuffer>* const buffers, system::ILogger* logger, bool is_workgroup_test = false)
 {
 	// TODO: overlap dispatches with memory readbacks (requires multiple copies of `buffers`)
@@ -275,18 +267,19 @@ bool runTest(
 	queue->submit(1u,&submit,reusableFence);
 	device->blockForFences(1u,&reusableFence);
 	device->resetFences(1u,&reusableFence);
-
+	
+	auto resultsBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(kBufferSize);
 	//check results 
-	bool passed = validateResults<Arithmetic,and_op>(device, inputData, workgroupSize, workgroupCount, buffers[0].get(),logger);
-	passed = validateResults<Arithmetic,xor_op>(device, inputData, workgroupSize, workgroupCount, buffers[1].get(),logger)&&passed;
-	passed = validateResults<Arithmetic,or_op>(device, inputData, workgroupSize, workgroupCount, buffers[2].get(),logger)&&passed;
-	passed = validateResults<Arithmetic,add_op>(device, inputData, workgroupSize, workgroupCount, buffers[3].get(),logger)&&passed;
-	passed = validateResults<Arithmetic,mul_op>(device, inputData, workgroupSize, workgroupCount, buffers[4].get(),logger)&&passed;
-	passed = validateResults<Arithmetic,min_op>(device, inputData, workgroupSize, workgroupCount, buffers[5].get(),logger)&&passed;
-	passed = validateResults<Arithmetic,max_op>(device, inputData, workgroupSize, workgroupCount, buffers[6].get(),logger)&&passed;
+	bool passed = validateResults<Arithmetic,and_op>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[0].get(), resultsBuffer.get(),logger);
+	passed = validateResults<Arithmetic,xor_op>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[1].get(), resultsBuffer.get(),logger)&&passed;
+	passed = validateResults<Arithmetic,or_op>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[2].get(), resultsBuffer.get(),logger)&&passed;
+	passed = validateResults<Arithmetic,add_op>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[3].get(), resultsBuffer.get(),logger)&&passed;
+	passed = validateResults<Arithmetic,mul_op>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[4].get(), resultsBuffer.get(),logger)&&passed;
+	passed = validateResults<Arithmetic,min_op>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[5].get(), resultsBuffer.get(),logger)&&passed;
+	passed = validateResults<Arithmetic,max_op>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[6].get(), resultsBuffer.get(),logger)&&passed;
 	if(is_workgroup_test)
 	{
-		passed = validateResults<Arithmetic,ballot>(device, inputData, workgroupSize, workgroupCount, buffers[7].get(),logger)&&passed;
+		passed = validateResults<Arithmetic,ballot>(device, utilities, transferDownQueue, inputData, workgroupSize, workgroupCount, buffers[7].get(), resultsBuffer.get(), logger)&&passed;
 	}
 
 	return passed;
@@ -305,7 +298,7 @@ public:
 	void onAppInitialized_impl() override
 	{
 		CommonAPI::InitOutput initOutput;
-		CommonAPI::InitWithNoExt(initOutput, video::EAT_OPENGL, "Subgroup Arithmetic Test");
+		CommonAPI::InitWithNoExt(initOutput, video::EAT_VULKAN, "Subgroup Arithmetic Test");
 		gl = std::move(initOutput.apiConnection);
 		gpuPhysicalDevice = std::move(initOutput.physicalDevice);
 		logicalDevice = std::move(initOutput.logicalDevice);
@@ -319,6 +312,8 @@ public:
 		cpu2gpuParams = std::move(initOutput.cpu2gpuParams);
 		utilities = std::move(initOutput.utilities);
 		
+		auto transferDownQueue = queues[CommonAPI::InitOutput::EQT_TRANSFER_DOWN];
+
 		nbl::video::IGPUObjectFromAssetConverter cpu2gpu;
 
 		inputData = new uint32_t[BUFFER_DWORD_COUNT];
@@ -330,7 +325,7 @@ public:
 
 		IGPUBuffer::SCreationParams inputDataBufferCreationParams = {};
 		inputDataBufferCreationParams.size = kBufferSize;
-		// inputDataBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+		inputDataBufferCreationParams.usage = core::bitflag<IGPUBuffer::E_USAGE_FLAGS>(IGPUBuffer::EUF_STORAGE_BUFFER_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
 		auto gpuinputDataBuffer = utilities->createFilledDeviceLocalBufferOnDedMem(queues[decltype(initOutput)::EQT_TRANSFER_UP], std::move(inputDataBufferCreationParams), inputData);
 
 		//create 8 buffers.
@@ -340,56 +335,19 @@ public:
 		for (auto i = 0; i < outputBufferCount; i++)
 		{
 			IGPUBuffer::SCreationParams params;
-			// (Erfan to Cyprian) note that IGPUBuffer::SCreationParams::size would get ignored before and was passed into the create function as a paramter or in "reqs" but it's very important now and make sure they are set when you're replacing the old usages
 			params.size = kBufferSize;
 			params.queueFamilyIndexCount = 0;
 			params.queueFamilyIndices = nullptr;
-			params.sharingMode = ESM_CONCURRENT;
+			params.sharingMode = ESM_EXCLUSIVE;
 			params.usage = core::bitflag(IGPUBuffer::EUF_STORAGE_BUFFER_BIT)|IGPUBuffer::EUF_TRANSFER_SRC_BIT;
-			
-			// Notes from Erfan to Cyprian (Delete when Read)
-			// 
-			// OLD CODE:
-			// IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
-			// reqs.memoryHeapLocation = IDeviceMemoryAllocation::ESMT_DEVICE_LOCAL;
-			// reqs.mappingCapability = IDeviceMemoryAllocation::EMCAF_READ;
-			// 
-			// Mindset about memoryTypeBits:
-			// memoryTypes can each represent a combination of usages, for example HOST_READABLE, DEVICE_LOCAL, ... (see E_MEMORY_TYPE_FLAGS) 
-			// each memoryType (combination of usages) supported by your GPU will be reported in physicalDevice->getMemoryProperties()
-			// each bit in a MemoryTypeBits represents an index that maps to a memoryType
-			// So for example if you use physicalDevice->getDeviceLocalMemoryTypeBits() and it returns 0x0000'0003 means there are 2 memory types that have DEVICE_LOCAL flag (index = 0 and 1)
-			// See IPhysicalDevice::getXXXXXMemoryTypeBits and the comments above the functions
-			// 
-			// Each createXXXOnDedMem is now replaced by 3 steps ->
-			// 1. Create buffer/image
-			// 2. Get It's memory requirements and &= it's memoryTypeBits with the user requested usages 
-			//		for example when you see old API usages that use device->getDownStreamingMemoryReqs, you would replace it by reqs &= physicalDevice->getDownStreamingMemoryTypeBits
-			// 3. use allocate and pass the reqs + image/buffer for dedication
-			// -> note that previously used memoryCapability is now decided by memoryTypeBits which you can query from PhysDev
-			// (see commented code above) Previously memoryHeapLocation was ESMT_DEVICE_LOCAL and mapping capability was EMCAD_READ -> so we're looking for a "DEVICE_LOCAL" AND "HOST_READABLE" memoryType 
-			//
-			// You can access physicalDevice pointer directly in some places or via device->getPhysicalDevice()
-			// 
-			// Note that previously here the writer of example didn't use helper functions device->getXXXRequiremtns and filled in the reqs themselves because probably none of those would return the requiements of their need
-			// In that case you could use physDev->getMemoryTypeBitsFromMemoryTypeFlags and pass in the correct Memory Property Flags to fulfill user's "previous" wish
 			
 			buffers[i] = logicalDevice->createBuffer(params);
 			auto mreq = buffers[i]->getMemoryReqs();
-			mreq.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(video::IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
-			mreq.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(video::IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT);
-			
-			// (Erfan to Cyprian) assert memoryTypeBits is not 0 because if it is then it means there is no memoryType that is both DeviceLocal and HostReadable
+			mreq.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+
 			assert(mreq.memoryTypeBits);
-			// (Erfan to Cyprian) We usually don't use the return value (SMemoryOffset) of the allocate function but make sure you set it to some variable named bufferMem or something so we know it's there
 			auto bufferMem = logicalDevice->allocate(mreq, buffers[i].get());
 			assert(bufferMem.isValid());
-
-			IDeviceMemoryAllocation::MappedMemoryRange mem;
-			mem.memory = buffers[i]->getBoundMemory();
-			mem.offset = 0u;
-			mem.length = kBufferSize;
-			logicalDevice->mapMemory(mem, IDeviceMemoryAllocation::EMCAF_READ);
 		}
 
 		IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
@@ -399,7 +357,7 @@ public:
 
 		constexpr uint32_t pushconstantSize = 8u * totalBufferCount;
 		SPushConstantRange pcRange[1] = { IShader::ESS_COMPUTE,0u,pushconstantSize };
-		auto pipelineLayout = logicalDevice->createPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
+		auto pipelineLayout = logicalDevice->createPipelineLayout(pcRange, pcRange + 1u, core::smart_refctd_ptr(gpuDSLayout));
 
 		auto descPool = logicalDevice->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_NONE, &gpuDSLayout.get(), &gpuDSLayout.get() + 1u);
 		auto descriptorSet = logicalDevice->createDescriptorSet(descPool.get(), core::smart_refctd_ptr(gpuDSLayout));
@@ -475,17 +433,17 @@ public:
 			bool passed = true;
 
 			const video::IGPUDescriptorSet* ds = descriptorSet.get();
-			passed = runTest<emulatedSubgroupReduction>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[0u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
+			passed = runTest<emulatedSubgroupReduction>(logicalDevice.get(), utilities.get(), transferDownQueue, computeQueue, fence.get(), cmdbuf.get(), pipelines[0u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
 			logTestOutcome(passed, workgroupSize);
-			passed = runTest<emulatedSubgroupScanExclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[1u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
+			passed = runTest<emulatedSubgroupScanExclusive>(logicalDevice.get(), utilities.get(), transferDownQueue, computeQueue, fence.get(), cmdbuf.get(), pipelines[1u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
 			logTestOutcome(passed, workgroupSize);
-			passed = runTest<emulatedSubgroupScanInclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[2u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
+			passed = runTest<emulatedSubgroupScanInclusive>(logicalDevice.get(), utilities.get(), transferDownQueue, computeQueue, fence.get(), cmdbuf.get(), pipelines[2u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get()) && passed;
 			logTestOutcome(passed, workgroupSize);
-			passed = runTest<emulatedWorkgroupReduction>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[3u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
+			passed = runTest<emulatedWorkgroupReduction>(logicalDevice.get(), utilities.get(), transferDownQueue, computeQueue, fence.get(), cmdbuf.get(), pipelines[3u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
 			logTestOutcome(passed, workgroupSize);
-			passed = runTest<emulatedWorkgroupScanExclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[4u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
+			passed = runTest<emulatedWorkgroupScanExclusive>(logicalDevice.get(), utilities.get(), transferDownQueue, computeQueue, fence.get(), cmdbuf.get(), pipelines[4u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
 			logTestOutcome(passed, workgroupSize);
-			passed = runTest<emulatedWorkgroupScanInclusive>(logicalDevice.get(), computeQueue, fence.get(), cmdbuf.get(), pipelines[5u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
+			passed = runTest<emulatedWorkgroupScanInclusive>(logicalDevice.get(), utilities.get(), transferDownQueue, computeQueue, fence.get(), cmdbuf.get(), pipelines[5u].get(), descriptorSet.get(), inputData, workgroupSize, buffers, logger.get(), true) && passed;
 			logTestOutcome(passed, workgroupSize);
 		}
 		computeQueue->endCapture();
