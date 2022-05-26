@@ -425,7 +425,7 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 			avgDir.w = 0.f;
 		}
 		// should it be length or length squared?
-		directionalityMetric = core::dot(avgDir,avgDir)[0];
+		directionalityMetric = core::length(avgDir)[0];
 
 		std::cout << "Final Luminance Directionality = " << directionalityMetric << std::endl;
 		
@@ -433,10 +433,10 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 	}
 
 	float regularizationFactor = core::min(envMapRegularizationFactor*directionalityMetric,envMapRegularizationFactor);
-	std::cout << "New Regularization Factor based on Variance = " << regularizationFactor << std::endl;
+	std::cout << "New Regularization Factor based on Directionality = " << regularizationFactor << std::endl;
 
 	constexpr float regularizationThreshold = 0.001f;
- 	enableRIS = regularizationFactor>=regularizationThreshold;
+	enableRIS = true;// regularizationFactor >= regularizationThreshold;
 
 	// Calc Luma again with Sin Factor and new Regularization Factor
 	{
