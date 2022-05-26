@@ -39,13 +39,25 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(ANDROID)
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
-		set(NBL_EXAMPLE_SOURCES 
+		if(NOT NBL_STATIC_BUILD)
+			set(NBL_CONFIG_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
+			set(NBL_CONFIG_OUTPUT_FILE ${NBL_CONFIG_OUTPUT_DIRECTORY}/${EXECUTABLE_NAME}$<IF:$<CONFIG:Release>,,$<IF:$<CONFIG:Debug>,_d,_rwdi>>.exe.config)
+			
+			add_custom_command(OUTPUT "${NBL_CONFIG_OUTPUT_FILE}"
+				COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_CONFIG_OUTPUT_DIRECTORY} -DNBL_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -DNBL_TARGET_PATH:FILEPATH=$<TARGET_FILE:${EXECUTABLE_NAME}> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake
+				COMMENT "Launching ${EXECUTABLE_NAME}.exe.config generation script!"
+				VERBATIM
+			)
+			
+			add_custom_target(${EXECUTABLE_NAME}_config ALL DEPENDS ${NBL_CONFIG_OUTPUT_FILE} ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake)
+		endif()
+	
+		set(NBL_EXECUTABLE_SOURCES 
 			main.cpp
-			${NBL_ASSEMBLIES_MANIFEST_FILEPATH}
 			${_EXTRA_SOURCES}
 		)
 		
-		add_executable(${EXECUTABLE_NAME} ${NBL_EXAMPLE_SOURCES})
+		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
 		add_dependencies(${EXECUTABLE_NAME} Nabla_manifest)
 		
 		if(NBL_DYNAMIC_MSVC_RUNTIME)

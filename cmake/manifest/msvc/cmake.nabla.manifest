@@ -1,4 +1,0 @@
-<assembly manifestVersion="1.0">
-  <assemblyIdentity type="Win32" name="DevshGraphicsProgramming.Windows.Nabla" version="1.0.0.0" publicKeyToken="0000000000000000" />
-  <file name="@NABLA_DLL@"/>
-</assembly>
