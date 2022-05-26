@@ -287,7 +287,14 @@ public:
 				m_properties.driverID = E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
 		}
 		else if(hasInString(vendor, "intel", true) || hasInString(renderer, "intel", true))
+		{
+#if defined(_NBL_PLATFORM_WINDOWS_)
 			m_properties.driverID = E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS;
+#else
+			m_properties.driverID = E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA;
+			_NBL_DEBUG_BREAK_IF(true); // Should've captured it in the previous if, need to update logic
+#endif
+		}
 		else if(hasInString(vendor, "ati technologies", true) || hasInString(vendor, "amd", true) || hasInString(renderer, "amd", true))
 			m_properties.driverID = E_DRIVER_ID::EDI_AMD_PROPRIETARY;
 		else if(hasInString(vendor, "nvidia", true)) // easiest to detect :D
