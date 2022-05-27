@@ -62,7 +62,15 @@ struct SPhysicalDeviceFeatures
     //VkBool32    sparseResidencyAliased;
     //VkBool32    variableMultisampleRate;
     bool inheritedQueries = false;
-            
+                
+    /* FragmentDensityMapFeaturesEXT */
+    //VkBool32           fragmentDensityMap;
+    //VkBool32           fragmentDensityMapDynamic;
+    //VkBool32           fragmentDensityMapNonSubsampledImages;
+
+    /* FragmentDensityMap2FeaturesEXT */
+    //VkBool32           fragmentDensityMapDeferred;
+
     /* RayQueryFeaturesKHR */
     bool rayQuery = false;
             

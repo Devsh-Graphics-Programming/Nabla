@@ -236,7 +236,7 @@ struct SPhysicalDeviceLimits
 
     /* Vulkan Extensions */
 
-    /* ShaderCorePropertiesAMD */
+    /* ShaderCorePropertiesAMD *//* provided by VK_AMD_shader_core_properties */
     //uint32_t           shaderEngineCount;
     //uint32_t           shaderArraysPerEngineCount;
     //uint32_t           computeUnitsPerShaderArray;
@@ -251,11 +251,12 @@ struct SPhysicalDeviceLimits
     //uint32_t           minVgprAllocation;
     //uint32_t           maxVgprAllocation;
     //uint32_t           vgprAllocationGranularity;
-    /* ShaderCoreProperties2AMD */
+
+    /* ShaderCoreProperties2AMD *//* provided by VK_AMD_shader_core_properties2 */
     //VkShaderCorePropertiesFlagsAMD    shaderCoreFeatures;
     //uint32_t                          activeComputeUnitCount;
 
-    /* BlendOperationAdvancedPropertiesEXT */
+    /* BlendOperationAdvancedPropertiesEXT *//* provided by VK_EXT_blend_operation_advanced */
     //uint32_t           advancedBlendMaxColorAttachments;
     //VkBool32           advancedBlendIndependentBlend;
     //VkBool32           advancedBlendNonPremultipliedSrcColor;
@@ -263,7 +264,7 @@ struct SPhysicalDeviceLimits
     //VkBool32           advancedBlendCorrelatedOverlap;
     //VkBool32           advancedBlendAllOperations;
             
-    /* ConservativeRasterizationPropertiesEXT */
+    /* ConservativeRasterizationPropertiesEXT *//* provided by VK_EXT_conservative_rasterization */
     //float              primitiveOverestimationSize;
     //float              maxExtraPrimitiveOverestimationSize;
     //float              extraPrimitiveOverestimationSizeGranularity;
@@ -274,18 +275,91 @@ struct SPhysicalDeviceLimits
     //VkBool32           fullyCoveredFragmentShaderInputVariable;
     //VkBool32           conservativeRasterizationPostDepthCoverage;
             
-    /* CustomBorderColorPropertiesEXT */
+    /* CustomBorderColorPropertiesEXT *//* provided by VK_EXT_custom_border_color */
     //uint32_t           maxCustomBorderColorSamplers;
 
-    /* DescriptorIndexingPropertiesEXT ---> MOVED TO Vulkan 1.2 Core */
+    /* DescriptorIndexingPropertiesEXT ---> MOVED TO Vulkan Core 1.2 *//* provided by VK_AMD_shader_core_properties */
 
-    /* DiscardRectanglePropertiesEXT */
+    /* DiscardRectanglePropertiesEXT *//* provided by VK_EXT_discard_rectangles */
     //uint32_t           maxDiscardRectangles;
             
-    /* ExternalMemoryHostPropertiesEXT */
+    /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
     //VkDeviceSize       minImportedHostPointerAlignment;
     
-    /* AccelerationStructurePropertiesKHR */
+    /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
+    //VkExtent2D         minFragmentDensityTexelSize;
+    //VkExtent2D         maxFragmentDensityTexelSize;
+    //VkBool32           fragmentDensityInvocations;
+    
+    /* FragmentDensityMap2PropertiesEXT *//* provided by VK_EXT_fragment_density_map2 */
+    //VkBool32           subsampledLoads;
+    //VkBool32           subsampledCoarseReconstructionEarlyAccess;
+    //uint32_t           maxSubsampledArrayLayers;
+    //uint32_t           maxDescriptorSetSubsampledSamplers;
+    
+    /* GraphicsPipelineLibraryPropertiesEXT *//* provided by VK_EXT_graphics_pipeline_library */
+    //VkBool32           graphicsPipelineLibraryFastLinking;
+    //VkBool32           graphicsPipelineLibraryIndependentInterpolationDecoration;
+
+    /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan Core 1.3 */
+
+    /* LineRasterizationPropertiesEXT *//* provided by VK_EXT_line_rasterization */
+    //uint32_t           lineSubPixelPrecisionBits;
+
+    /* MultiDrawPropertiesEXT *//* provided by VK_EXT_multi_draw */
+    //uint32_t           maxMultiDrawCount;
+
+    /* PCIBusInfoPropertiesEXT *//* provided by VK_EXT_pci_bus_info */
+    //uint32_t           pciDomain;
+    //uint32_t           pciBus;
+    //uint32_t           pciDevice;
+    //uint32_t           pciFunction;
+
+    /* DrmPropertiesEXT *//* provided by VK_EXT_physical_device_drm */
+    //VkBool32           hasPrimary;
+    //VkBool32           hasRender;
+    //int64_t            primaryMajor;
+    //int64_t            primaryMinor;
+    //int64_t            renderMajor;
+    //int64_t            renderMinor;
+
+    /* ProvokingVertexPropertiesEXT *//* provided by VK_EXT_provoking_vertex */
+    //VkBool32           provokingVertexModePerPipeline;
+    //VkBool32           transformFeedbackPreservesTriangleFanProvokingVertex;
+
+    /* Robustness2PropertiesEXT *//* provided by VK_EXT_robustness2 */
+    //VkDeviceSize       robustStorageBufferAccessSizeAlignment;
+    //VkDeviceSize       robustUniformBufferAccessSizeAlignment;
+
+    /* SamplerFilterMinmaxPropertiesEXT ---> MOVED TO Vulkan Core 1.2 */
+
+    /* SampleLocationsPropertiesEXT *//* provided by VK_EXT_sample_locations */
+    //VkSampleCountFlags    sampleLocationSampleCounts;
+    //VkExtent2D            maxSampleLocationGridSize;
+    //float                 sampleLocationCoordinateRange[2];
+    //uint32_t              sampleLocationSubPixelBits;
+    //VkBool32              variableSampleLocations;
+
+    /* SubgroupSizeControlPropertiesEXT ---> MOVED TO Vulkan Core 1.3 */
+
+    /* TexelBufferAlignmentPropertiesEXT ---> MOVED TO Vulkan Core 1.3 */
+
+    /* TransformFeedbackPropertiesEXT *//* provided by VK_EXT_transform_feedback */
+    //uint32_t           maxTransformFeedbackStreams;
+    //uint32_t           maxTransformFeedbackBuffers;
+    //VkDeviceSize       maxTransformFeedbackBufferSize;
+    //uint32_t           maxTransformFeedbackStreamDataSize;
+    //uint32_t           maxTransformFeedbackBufferDataSize;
+    //uint32_t           maxTransformFeedbackBufferDataStride;
+    //VkBool32           transformFeedbackQueries;
+    //VkBool32           transformFeedbackStreamsLinesTriangles;
+    //VkBool32           transformFeedbackRasterizationStreamSelect;
+    //VkBool32           transformFeedbackDraw;
+
+    /* VertexAttributeDivisorPropertiesEXT *//* provided by VK_EXT_vertex_attribute_divisor */
+    //uint32_t           maxVertexAttribDivisor;
+
+    /* AccelerationStructurePropertiesKHR *//* provided by VK_KHR_acceleration_structure */
     uint64_t           maxGeometryCount;
     uint64_t           maxInstanceCount;
     uint64_t           maxPrimitiveCount;
@@ -294,7 +368,40 @@ struct SPhysicalDeviceLimits
     uint32_t           maxDescriptorSetAccelerationStructures;
     uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
     uint32_t           minAccelerationStructureScratchOffsetAlignment;
-            
+ 
+    /* DepthStencilResolvePropertiesKHR ---> MOVED TO Vulkan Core 1.2 */
+    /* DriverPropertiesKHR ---> MOVED TO Vulkan Core 1.2 */
+    /* VK_KHR_fragment_shader_barycentric --> Coverage 0% --> no structs defined anywhere in vulkan headers */
+
+    /* FragmentShadingRatePropertiesKHR *//* provided by VK_KHR_fragment_shading_rate */
+    //VkExtent2D               minFragmentShadingRateAttachmentTexelSize;
+    //VkExtent2D               maxFragmentShadingRateAttachmentTexelSize;
+    //uint32_t                 maxFragmentShadingRateAttachmentTexelSizeAspectRatio;
+    //VkBool32                 primitiveFragmentShadingRateWithMultipleViewports;
+    //VkBool32                 layeredShadingRateAttachments;
+    //VkBool32                 fragmentShadingRateNonTrivialCombinerOps;
+    //VkExtent2D               maxFragmentSize;
+    //uint32_t                 maxFragmentSizeAspectRatio;
+    //uint32_t                 maxFragmentShadingRateCoverageSamples;
+    //VkSampleCountFlagBits    maxFragmentShadingRateRasterizationSamples;
+    //VkBool32                 fragmentShadingRateWithShaderDepthStencilWrites;
+    //VkBool32                 fragmentShadingRateWithSampleMask;
+    //VkBool32                 fragmentShadingRateWithShaderSampleMask;
+    //VkBool32                 fragmentShadingRateWithConservativeRasterization;
+    //VkBool32                 fragmentShadingRateWithFragmentShaderInterlock;
+    //VkBool32                 fragmentShadingRateWithCustomSampleLocations;
+    //VkBool32                 fragmentShadingRateStrictMultiplyCombiner;
+    
+    /* Maintenance2PropertiesKHR *//* provided by VK_KHR_maintenance2 *//* MOVED TO Vulkan Core 1.1 */
+    /* Maintenance3PropertiesKHR *//* provided by VK_KHR_maintenance3 *//* MOVED TO Vulkan Core 1.1 */
+    /* Maintenance4PropertiesKHR *//* provided by VK_KHR_maintenance4 *//* MOVED TO Vulkan Core 1.3 */
+    /* MultiviewPropertiesKHR    *//* provided by VK_KHR_multiview    *//* MOVED TO Vulkan Core 1.1 */
+
+    /* PerformanceQueryPropertiesKHR *//* provided by VK_KHR_performance_query */
+    // ! We don't support PerformanceQueries at the moment;
+    // ! But we have a bool with the same name in SFeatures and that is mostly for GL when NBL_ARB_query_buffer_object is reported and that holds for every query 
+    // VkBool32           allowCommandBufferQueryCopies;
+
     /* RayTracingPipelinePropertiesKHR */
     uint32_t           shaderGroupHandleSize;
     uint32_t           maxRayRecursionDepth;
