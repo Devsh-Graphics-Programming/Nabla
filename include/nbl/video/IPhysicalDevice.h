@@ -7,7 +7,6 @@
 
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
-#include "nbl/asset/utils/IGLSLCompiler.h"
 
 #include "nbl/system/ISystem.h"
 
@@ -17,6 +16,9 @@
 
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
+
+#include "SPhysicalDeviceLimits.h"
+#include "SPhysicalDeviceFeatures.h"
 
 namespace nbl::video
 {
@@ -70,169 +72,8 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t patch : 22;
         };
 
-        //
-        struct SLimits
-        {
-            /* Vulkan Core 1.0 */
-            uint32_t maxImageDimension1D;
-            uint32_t maxImageDimension2D;
-            uint32_t maxImageDimension3D;
-            uint32_t maxImageDimensionCube;
-            uint32_t maxImageArrayLayers;
-            uint32_t maxBufferViewSizeTexels;
-            uint32_t maxUBOSize;
-            uint32_t maxSSBOSize;
-            //uint32_t              maxPushConstantsSize;
-            //uint32_t              maxMemoryAllocationCount;
-            //uint32_t              maxSamplerAllocationCount;
-            //VkDeviceSize          bufferImageGranularity;
-            //VkDeviceSize          sparseAddressSpaceSize;
-            //uint32_t              maxBoundDescriptorSets;
-            //uint32_t              maxPerStageDescriptorSamplers;
-            //uint32_t              maxPerStageDescriptorUniformBuffers;
-            uint32_t maxPerStageDescriptorSSBOs;
-            //uint32_t              maxPerStageDescriptorSampledImages;
-            //uint32_t              maxPerStageDescriptorStorageImages;
-            //uint32_t              maxPerStageDescriptorInputAttachments;
-            //uint32_t              maxPerStageResources;
-            //uint32_t              maxDescriptorSetSamplers;
-            uint32_t maxDescriptorSetUBOs;
-            uint32_t maxDescriptorSetDynamicOffsetUBOs;
-            uint32_t maxDescriptorSetSSBOs;
-            uint32_t maxDescriptorSetDynamicOffsetSSBOs;
-            uint32_t maxDescriptorSetImages;
-            uint32_t maxDescriptorSetStorageImages;
-            //uint32_t              maxDescriptorSetInputAttachments;
-            //uint32_t              maxVertexInputAttributes;
-            //uint32_t              maxVertexInputBindings;
-            //uint32_t              maxVertexInputAttributeOffset;
-            //uint32_t              maxVertexInputBindingStride;
-            //uint32_t              maxVertexOutputComponents;
-            //uint32_t              maxTessellationGenerationLevel;
-            //uint32_t              maxTessellationPatchSize;
-            //uint32_t              maxTessellationControlPerVertexInputComponents;
-            //uint32_t              maxTessellationControlPerVertexOutputComponents;
-            //uint32_t              maxTessellationControlPerPatchOutputComponents;
-            //uint32_t              maxTessellationControlTotalOutputComponents;
-            //uint32_t              maxTessellationEvaluationInputComponents;
-            //uint32_t              maxTessellationEvaluationOutputComponents;
-            //uint32_t              maxGeometryShaderInvocations;
-            //uint32_t              maxGeometryInputComponents;
-            //uint32_t              maxGeometryOutputComponents;
-            //uint32_t              maxGeometryOutputVertices;
-            //uint32_t              maxGeometryTotalOutputComponents;
-            //uint32_t              maxFragmentInputComponents;
-            //uint32_t              maxFragmentOutputAttachments;
-            //uint32_t              maxFragmentDualSrcAttachments;
-            //uint32_t              maxFragmentCombinedOutputResources;
-            uint32_t maxComputeSharedMemorySize;
-            //uint32_t              maxComputeWorkGroupCount[3];
-            //uint32_t              maxComputeWorkGroupInvocations;
-            uint32_t maxWorkgroupSize[3];
-            //uint32_t              subPixelPrecisionBits;
-            //uint32_t              subTexelPrecisionBits;
-            //uint32_t              mipmapPrecisionBits;
-            //uint32_t              maxDrawIndexedIndexValue;
-            uint32_t maxDrawIndirectCount;
-            //float                 maxSamplerLodBias;
-            float    maxSamplerAnisotropyLog2;
-            uint32_t maxViewports;
-            uint32_t maxViewportDims[2];
-            //float                 viewportBoundsRange[2];
-            //uint32_t              viewportSubPixelBits;
-            //size_t                minMemoryMapAlignment;
-            uint32_t bufferViewAlignment;
-            uint32_t UBOAlignment;
-            uint32_t SSBOAlignment;
-            //int32_t               minTexelOffset;
-            //uint32_t              maxTexelOffset;
-            //int32_t               minTexelGatherOffset;
-            //uint32_t              maxTexelGatherOffset;
-            //float                 minInterpolationOffset;
-            //float                 maxInterpolationOffset;
-            //uint32_t              subPixelInterpolationOffsetBits;
-            //uint32_t              maxFramebufferWidth;
-            //uint32_t              maxFramebufferHeight;
-            //uint32_t              maxFramebufferLayers;
-            //VkSampleCountFlags    framebufferColorSampleCounts;
-            //VkSampleCountFlags    framebufferDepthSampleCounts;
-            //VkSampleCountFlags    framebufferStencilSampleCounts;
-            //VkSampleCountFlags    framebufferNoAttachmentsSampleCounts;
-            //uint32_t              maxColorAttachments;
-            //VkSampleCountFlags    sampledImageColorSampleCounts;
-            //VkSampleCountFlags    sampledImageIntegerSampleCounts;
-            //VkSampleCountFlags    sampledImageDepthSampleCounts;
-            //VkSampleCountFlags    sampledImageStencilSampleCounts;
-            //VkSampleCountFlags    storageImageSampleCounts;
-            //uint32_t              maxSampleMaskWords;
-            //VkBool32              timestampComputeAndGraphics;
-            float    timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
-            //uint32_t              maxClipDistances;
-            //uint32_t              maxCullDistances;
-            //uint32_t              maxCombinedClipAndCullDistances;
-            //uint32_t              discreteQueuePriorities;
-            float pointSizeRange[2];
-            float lineWidthRange[2];
-            //float                 pointSizeGranularity;
-            //float                 lineWidthGranularity;
-            //VkBool32              strictLines;
-            //VkBool32              standardSampleLocations;
-            //VkDeviceSize          optimalBufferCopyOffsetAlignment;
-            //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
-            uint64_t nonCoherentAtomSize;
-            
-            /* SubgroupProperties */
-            uint32_t subgroupSize;
-            core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
-            //VkSubgroupFeatureFlags    supportedOperations; -> in SFeatures as booleans instead of flags
-            bool shaderSubgroupBasic = false;
-            bool shaderSubgroupVote = false;
-            bool shaderSubgroupArithmetic = false;
-            bool shaderSubgroupBallot = false;
-            bool shaderSubgroupShuffle = false;
-            bool shaderSubgroupShuffleRelative = false;
-            bool shaderSubgroupClustered = false;
-            bool shaderSubgroupQuad = false;
-            bool shaderSubgroupQuadAllStages = false; //quadOperationsInAllStages;
-            
-            /* AccelerationStructurePropertiesKHR */
-            uint64_t           maxGeometryCount;
-            uint64_t           maxInstanceCount;
-            uint64_t           maxPrimitiveCount;
-            uint32_t           maxPerStageDescriptorAccelerationStructures;
-            uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
-            uint32_t           maxDescriptorSetAccelerationStructures;
-            uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
-            uint32_t           minAccelerationStructureScratchOffsetAlignment;
-            
-            /* RayTracingPipelinePropertiesKHR */
-            uint32_t           shaderGroupHandleSize;
-            uint32_t           maxRayRecursionDepth;
-            uint32_t           maxShaderGroupStride;
-            uint32_t           shaderGroupBaseAlignment;
-            uint32_t           shaderGroupHandleCaptureReplaySize;
-            uint32_t           maxRayDispatchInvocationCount;
-            uint32_t           shaderGroupHandleAlignment;
-            uint32_t           maxRayHitAttributeSize;
-            
-            /* Nabla */
-            uint32_t maxBufferSize;
-            uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
-            uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
-            asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
-
-            // utility functions
-            // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),
-            // `workgroupSpinningProtection` is meant to protect against launching a dispatch so wide that
-            // a workgroup of the next cut of the DAG spins for an extended time to wait on a workgroup from a previous one.
-            inline uint32_t computeOptimalPersistentWorkgroupDispatchSize(const uint64_t elementCount, const uint32_t workgroupSize, const uint32_t workgroupSpinningProtection=1u) const
-            {
-                assert(elementCount!=0ull && "Input element count can't be 0!");
-                const uint64_t infinitelyWideDeviceWGCount = (elementCount-1ull)/(static_cast<uint64_t>(workgroupSize)*static_cast<uint64_t>(workgroupSpinningProtection))+1ull;
-                const uint32_t maxResidentWorkgroups = maxResidentInvocations/workgroupSize;
-                return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
-            }
-        };
+        using SLimits = SPhysicalDeviceLimits;
+        using SFeatures = SPhysicalDeviceFeatures;
 
         struct SProperties
         {
@@ -264,100 +105,6 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         const SProperties& getProperties() const { return m_properties; }
         const SLimits& getLimits() const { return m_properties.limits; }
         APIVersion getAPIVersion() const { return m_properties.apiVersion; }
-
-        //
-        struct SFeatures
-        {
-            /* Vulkan Core 1.0 */
-            bool robustBufferAccess = false;
-            //VkBool32    fullDrawIndexUint32;
-            bool imageCubeArray = false;
-            //VkBool32    independentBlend;
-            bool geometryShader    = false;
-            //VkBool32    tessellationShader;
-            //VkBool32    sampleRateShading;
-            //VkBool32    dualSrcBlend;
-            bool logicOp = false;
-            bool multiDrawIndirect = false;
-            //VkBool32    drawIndirectFirstInstance;
-            //VkBool32    depthClamp;
-            //VkBool32    depthBiasClamp;
-            //VkBool32    fillModeNonSolid;
-            //VkBool32    depthBounds;
-            //VkBool32    wideLines;
-            //VkBool32    largePoints;
-            //VkBool32    alphaToOne;
-            bool multiViewport = false;
-            bool samplerAnisotropy = false;
-            //VkBool32    textureCompressionETC2;
-            //VkBool32    textureCompressionASTC_LDR;
-            //VkBool32    textureCompressionBC;
-            //VkBool32    occlusionQueryPrecise;
-            //VkBool32    pipelineStatisticsQuery;
-            //VkBool32    vertexPipelineStoresAndAtomics;
-            //VkBool32    fragmentStoresAndAtomics;
-            //VkBool32    shaderTessellationAndGeometryPointSize;
-            //VkBool32    shaderImageGatherExtended;
-            //VkBool32    shaderStorageImageExtendedFormats;
-            //VkBool32    shaderStorageImageMultisample;
-            //VkBool32    shaderStorageImageReadWithoutFormat;
-            //VkBool32    shaderStorageImageWriteWithoutFormat;
-            //VkBool32    shaderUniformBufferArrayDynamicIndexing;
-            //VkBool32    shaderSampledImageArrayDynamicIndexing;
-            //VkBool32    shaderStorageBufferArrayDynamicIndexing;
-            //VkBool32    shaderStorageImageArrayDynamicIndexing;
-            //VkBool32    shaderClipDistance;
-            //VkBool32    shaderCullDistance;
-            bool vertexAttributeDouble = false; // shaderFloat64
-            //VkBool32    shaderInt64;
-            //VkBool32    shaderInt16;
-            //VkBool32    shaderResourceResidency;
-            //VkBool32    shaderResourceMinLod;
-            //VkBool32    sparseBinding;
-            //VkBool32    sparseResidencyBuffer;
-            //VkBool32    sparseResidencyImage2D;
-            //VkBool32    sparseResidencyImage3D;
-            //VkBool32    sparseResidency2Samples;
-            //VkBool32    sparseResidency4Samples;
-            //VkBool32    sparseResidency8Samples;
-            //VkBool32    sparseResidency16Samples;
-            //VkBool32    sparseResidencyAliased;
-            //VkBool32    variableMultisampleRate;
-            bool inheritedQueries = false;
-            
-            /* RayQueryFeaturesKHR */
-            bool rayQuery = false;
-            
-            /* AccelerationStructureFeaturesKHR */
-            bool accelerationStructure = false;
-            bool accelerationStructureCaptureReplay = false;
-            bool accelerationStructureIndirectBuild = false;
-            bool accelerationStructureHostCommands = false;
-            bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
-            
-            /* RayTracingPipelineFeaturesKHR */
-            bool rayTracingPipeline = false;
-            bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
-            bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
-            bool rayTracingPipelineTraceRaysIndirect = false;
-            bool rayTraversalPrimitiveCulling = false;
-            
-            /* FragmentShaderInterlockFeaturesEXT */
-            bool fragmentShaderSampleInterlock = false;
-            bool fragmentShaderPixelInterlock = false;
-            bool fragmentShaderShadingRateInterlock = false;
-            
-            /* BufferDeviceAddressFeaturesKHR */
-            bool bufferDeviceAddress = false;
-            //VkBool32           bufferDeviceAddressCaptureReplay;
-            //VkBool32           bufferDeviceAddressMultiDevice;
-            
-            bool drawIndirectCount = false; // TODO(Erfan): Move in 1.2 features
-            
-            /* Nabla */
-            bool dispatchBase = false; // true in Vk, false in GL
-            bool allowCommandBufferQueryCopies = false;
-        };
         const SFeatures& getFeatures() const { return m_features; }
 
         struct MemoryType
