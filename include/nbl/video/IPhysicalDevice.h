@@ -79,21 +79,21 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
         {
             /* Vulkan Core 1.0 */
             APIVersion  apiVersion;
-            // uint32_t driverVersion;
-            // uint32_t vendorID;
-            // uint32_t deviceID;
+            uint32_t    driverVersion;
+            uint32_t    vendorID;
+            uint32_t    deviceID;
             E_TYPE      deviceType;
-            // char     deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
-            // uint8_t  pipelineCacheUUID[VK_UUID_SIZE];
+            char        deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
+            uint8_t     pipelineCacheUUID[VK_UUID_SIZE];
             SLimits     limits; // Contains Limits on Vulkan Core 1.0, 1.1, 1.2 and extensions
             // VkPhysicalDeviceSparseProperties    sparseProperties;
             
             /* Vulkan Core 1.1 */
-            uint8_t deviceUUID[VK_UUID_SIZE];
-            // uint8_t driverUUID[VK_UUID_SIZE];
-            // uint8_t deviceLUID[VK_LUID_SIZE];
-            // uint32_t deviceNodeMask;
-            // VkBool32 deviceLUIDValid;
+            uint8_t     deviceUUID[VK_UUID_SIZE];
+            uint8_t     driverUUID[VK_UUID_SIZE];
+            uint8_t     deviceLUID[VK_LUID_SIZE];
+            uint32_t    deviceNodeMask;
+            bool        deviceLUIDValid;
 
             /* Vulkan Core 1.2 */
             E_DRIVER_ID driverID;

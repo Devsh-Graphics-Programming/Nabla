@@ -9,7 +9,7 @@
 #include "nbl/video/SOpenGLContextLocalCache.h"
 
 #include "nbl/video/CEGL.h"
-
+#include "nbl/core/xxHash256.h"
 
 #include "nbl/video/debug/COpenGLDebugCallback.h"
 #ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
@@ -347,6 +347,20 @@ public:
 		}
 
 		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+
+		m_properties.driverVersion = 0u;
+		m_properties.vendorID = ~0u;
+		m_properties.deviceID = 0u;
+		strcpy(m_properties.deviceName, renderer);
+		uint64_t deviceNameHash = 0ull;
+		core::XXHash_256(m_properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, &deviceNameHash);
+		memset(m_properties.pipelineCacheUUID, 0, VK_UUID_SIZE);
+		memcpy(m_properties.pipelineCacheUUID, &deviceNameHash, sizeof(uint64_t));
+		
+		memset(m_properties.driverUUID, 0, VK_UUID_SIZE);
+		memset(m_properties.driverLUID, 0, VK_LUID_SIZE);
+		m_properties.deviceNodeMask = 0x00000001;
+		m_properties.deviceLUIDValid = false;
 
 		// Heuristic to detect Physical Device Type until we have something better:
 		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)

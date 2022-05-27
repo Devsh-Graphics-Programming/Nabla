@@ -40,7 +40,13 @@ public:
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
 
             /* Vulkan Core 1.0 */
+            m_properties.driverVersion = deviceProperties.properties.driverVersion;
+            m_properties.vendorID = deviceProperties.properties.vendorID;
+            m_properties.deviceID = deviceProperties.properties.deviceID;
             m_properties.deviceType = static_cast<E_TYPE>(deviceProperties.properties.deviceType);
+            memcpy(m_properties.deviceName, deviceProperties.properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
+            memcpy(m_properties.pipelineCacheUUID, deviceProperties.properties.pipelineCacheUUID, VK_UUID_SIZE);
+            
             m_properties.limits.maxImageDimension1D = deviceProperties.properties.limits.maxImageDimension1D;
             m_properties.limits.maxImageDimension2D = deviceProperties.properties.limits.maxImageDimension2D;
             m_properties.limits.maxImageDimension3D = deviceProperties.properties.limits.maxImageDimension3D;
@@ -77,6 +83,10 @@ public:
             
             /* Vulkan Core 1.1 */
             memcpy(m_properties.deviceUUID, vulkan11Properties.deviceUUID, VK_UUID_SIZE);
+            memcpy(m_properties.driverUUID, vulkan11Properties.driverUUID, VK_UUID_SIZE);
+            memcpy(m_properties.driverLUID, vulkan11Properties.driverLUID, VK_LUID_SIZE);
+            m_properties.deviceNodeMask = vulkan11Properties.deviceNodeMask;
+            m_properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
 
             /* SubgroupProperties */
             m_properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
