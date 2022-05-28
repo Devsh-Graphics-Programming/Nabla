@@ -11,7 +11,7 @@
 namespace nbl::video
 {
 
-class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IGPUSampler>
+class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IGPUSampler>
 {
     using base_t = asset::IVirtualTexture<IGPUImageView, IGPUSampler>;
 

@@ -10,7 +10,7 @@ namespace nbl {
 namespace asset
 {
 
-class ICPUFramebuffer final : public IAsset, public IFramebuffer<ICPURenderpass, ICPUImageView>
+class NBL_API ICPUFramebuffer final : public IAsset, public IFramebuffer<ICPURenderpass, ICPUImageView>
 {
     using base_t = IFramebuffer<ICPURenderpass, ICPUImageView>;
 

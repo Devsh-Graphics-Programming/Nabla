@@ -23,7 +23,7 @@ Because the ICameraScenNode is a SceneNode, it can be attached to any
 other scene node, and will follow its parents movement, rotation and so
 on.
 */
-class ICameraSceneNode : public ISceneNode
+class NBL_API ICameraSceneNode : public ISceneNode
 {
 	public:
 

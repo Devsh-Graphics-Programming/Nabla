@@ -11,7 +11,7 @@ namespace nbl::scene
 {
 
 template<template<class...> class allocator = core::allocator>
-class CSkinInstanceCache final : public ISkinInstanceCache
+class NBL_API CSkinInstanceCache final : public ISkinInstanceCache
 {
 		using this_t = CSkinInstanceCache<allocator>;
 

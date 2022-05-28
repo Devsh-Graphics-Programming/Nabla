@@ -6,8 +6,10 @@
 
 namespace nbl::ui
 {
-	class IGraphicalApplicationFramework
-	{
+
+// no NBL_API because nothing in Nabla uses it
+class IGraphicalApplicationFramework
+{
 	public:
 		virtual nbl::ui::IWindow* getWindow() = 0;
 		virtual video::IAPIConnection* getAPIConnection() = 0;
@@ -23,6 +25,7 @@ namespace nbl::ui
 		virtual nbl::asset::E_FORMAT getDepthFormat() = 0;
 
 		virtual void recreateSurface() = 0;
-	};
+};
+
 }
 #endif

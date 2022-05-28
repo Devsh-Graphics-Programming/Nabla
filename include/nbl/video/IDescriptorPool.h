@@ -12,7 +12,7 @@
 namespace nbl::video
 {
 
-class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
+class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

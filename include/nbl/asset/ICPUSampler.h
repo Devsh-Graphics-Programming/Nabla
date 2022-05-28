@@ -13,7 +13,7 @@ namespace nbl
 namespace asset
 {
 
-class ICPUSampler : public ISampler, public IAsset
+class NBL_API ICPUSampler : public ISampler, public IAsset
 {
 	protected:
 		virtual ~ICPUSampler() = default;

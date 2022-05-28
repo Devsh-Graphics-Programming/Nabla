@@ -23,7 +23,7 @@
 namespace nbl::asset
 {
 
-class IVirtualTextureBase
+class NBL_API IVirtualTextureBase
 {
 public:
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
@@ -42,7 +42,7 @@ public:
 };
 
 template <typename image_view_t, typename sampler_t>
-class IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
+class NBL_API IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
 {
     using this_type = IVirtualTexture<image_view_t, sampler_t>;
 protected:

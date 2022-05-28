@@ -10,7 +10,7 @@ namespace nbl::system
 
 namespace impl
 {
-class IAsyncQueueDispatcherBase
+class NBL_API IAsyncQueueDispatcherBase
 {
     public:
         IAsyncQueueDispatcherBase() = default;
@@ -110,7 +110,7 @@ class IAsyncQueueDispatcherBase
 * notify_all_ready() takes an r-value reference to an already locked mutex and notifies any waiters then releases the lock
 */
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
-class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, public impl::IAsyncQueueDispatcherBase
+class NBL_API IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, public impl::IAsyncQueueDispatcherBase
 {
         static_assert(std::is_base_of_v<impl::IAsyncQueueDispatcherBase::request_base_t,RequestType>, "Request type must derive from request_base_t!");
         static_assert(BufferSize>0u, "BufferSize must not be 0!");

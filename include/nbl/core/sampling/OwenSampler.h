@@ -15,7 +15,7 @@ namespace core
 
 	//! TODO: make the tree sampler/generator configurable and let RandomSampler be default
 	template<class SequenceSampler=SobolSampler>
-	class OwenSampler : protected SequenceSampler
+	class NBL_API OwenSampler : protected SequenceSampler
 	{
 	public:
 		OwenSampler(uint32_t _dimensions, uint32_t _seed) : SequenceSampler(_dimensions)

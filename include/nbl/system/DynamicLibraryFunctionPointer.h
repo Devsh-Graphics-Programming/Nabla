@@ -15,7 +15,7 @@ namespace nbl::system
 {
 
 template<typename FuncT, class UniqueStringType>
-class DynamicLibraryFunctionPointer
+class NBL_API DynamicLibraryFunctionPointer
 {
 	public:
 		using result_type = typename std::function<FuncT>::result_type;

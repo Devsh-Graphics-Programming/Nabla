@@ -70,4 +70,30 @@
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
+// DDL exports
+#cmakedefine _NBL_SHARED_BUILD_
+#ifdef _NBL_SHARED_BUILD_
+    #if defined(__NBL_BUILDING_NABLA__) // currently compiling nabla, this define is passed through the commandline
+        #if defined(_MSC_VER)
+            #define NBL_API2 __declspec(dllexport)
+        #elif defined(__GNUC__)
+            #define NBL_API2 __attribute__ ((visibility ("default")))
+        #endif
+    #else
+        #if defined(_MSC_VER)
+            #define NBL_API2 __declspec(dllimport)
+        #else
+            #define NBL_API2
+        #endif
+    #endif
+#else
+    #define NBL_API2
 #endif
+#define NBL_API
+
+// any other target definitions for using Nabla as framework in another project
+#ifndef __NBL_BUILDING_NABLA__
+#include "define.h"
+#endif // __NBL_BUILDING_NABLA__
+
+#endif // __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__

@@ -11,7 +11,7 @@ namespace nbl::system
 namespace impl
 {
 
-    class SReadWriteSpinLockBase
+    class NBL_API SReadWriteSpinLockBase
     {
     public:
         static inline constexpr uint32_t LockWriteVal = (1u << 31);
@@ -27,7 +27,7 @@ class read_lock_guard;
 template <std::memory_order, std::memory_order>
 class write_lock_guard;
 
-class SReadWriteSpinLock : protected impl::SReadWriteSpinLockBase
+class NBL_API SReadWriteSpinLock : protected impl::SReadWriteSpinLockBase
 {
     static inline constexpr uint32_t SpinsBeforeYield = 5000u;
 
@@ -104,7 +104,7 @@ namespace impl
 }
 
 template <std::memory_order LoadOrder = std::memory_order_seq_cst, std::memory_order ReadModWriteOrder = std::memory_order_seq_cst>
-class read_lock_guard : public impl::rw_lock_guard_base
+class NBL_API read_lock_guard : public impl::rw_lock_guard_base
 {
 public:
     read_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}
@@ -122,7 +122,7 @@ public:
 };
 
 template <std::memory_order LoadOrder = std::memory_order_seq_cst, std::memory_order ReadModWriteOrder = std::memory_order_seq_cst>
-class write_lock_guard : public impl::rw_lock_guard_base
+class NBL_API write_lock_guard : public impl::rw_lock_guard_base
 {
 public:
     write_lock_guard(SReadWriteSpinLock& lk, std::adopt_lock_t) : impl::rw_lock_guard_base(lk) {}

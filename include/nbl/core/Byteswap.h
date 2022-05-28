@@ -27,7 +27,7 @@
 
 namespace nbl::core
 {
-	class Byteswap
+	class NBL_API Byteswap
 	{
 		Byteswap() = delete;
 	public:

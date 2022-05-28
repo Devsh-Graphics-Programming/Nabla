@@ -14,9 +14,9 @@
 namespace nbl::ext::MitsubaLoader
 {
 
-struct SContext;
+struct NBL_API SContext;
 
-class CMitsubaMaterialCompilerFrontend
+class NBL_API CMitsubaMaterialCompilerFrontend
 {
     public:
         using IRNode = asset::material_compiler::IR::INode;

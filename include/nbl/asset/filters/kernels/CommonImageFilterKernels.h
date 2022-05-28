@@ -16,7 +16,7 @@ namespace asset
 {
 
 // base class for all kernels that require the pixels and arithmetic to be done in precise floats
-class CFloatingPointOnlyImageFilterKernelBase
+class NBL_API CFloatingPointOnlyImageFilterKernelBase
 {
 	public:
 		using value_type = double; // should probably allot `float`s at some point
@@ -33,7 +33,7 @@ class CFloatingPointOnlyImageFilterKernelBase
 };
 
 // base class for all kernels which can be separated into axis-aligned passes
-class CSeparableImageFilterKernelBase
+class NBL_API CSeparableImageFilterKernelBase
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = true;
@@ -44,7 +44,7 @@ class CSeparableImageFilterKernelBase
 
 // base class for all kernels that require pixels and arithmetic to be done in precise floats AND are separable AND have the same kernel function in each dimension AND have a rational support
 template<class CRTP>
-class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<CRTP,typename CFloatingPointOnlyImageFilterKernelBase::value_type>, public CFloatingPointOnlyImageFilterKernelBase, public CSeparableImageFilterKernelBase
+class NBL_API CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<CRTP,typename CFloatingPointOnlyImageFilterKernelBase::value_type>, public CFloatingPointOnlyImageFilterKernelBase, public CSeparableImageFilterKernelBase
 {
 	public:
 		using value_type = typename CFloatingPointOnlyImageFilterKernelBase::value_type;
@@ -99,7 +99,7 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 // base class for all kernels that have the same support in each dimension AND have a rational support
 // there's nothing special about having a rational support, we just use that type because there's no possibility of using `float` as a template parameter in C++
 template<class Support=std::ratio<1,1> >
-class CIsotropicImageFilterKernelBase
+class NBL_API CIsotropicImageFilterKernelBase
 {
 	public:
 		using isotropic_support_as_ratio = Support;
@@ -109,7 +109,7 @@ class CIsotropicImageFilterKernelBase
 
 // same as CFloatingPointSeparableImageFilterKernelBase but with added constraint that support is symmetric around the orign
 template<class CRTP,class Support=std::ratio<1,1> >
-class CFloatingPointIsotropicSeparableImageFilterKernelBase :	public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>,
+class NBL_API CFloatingPointIsotropicSeparableImageFilterKernelBase :	public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>,
 																public CIsotropicImageFilterKernelBase<Support>
 {
 		using Base =  CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>;

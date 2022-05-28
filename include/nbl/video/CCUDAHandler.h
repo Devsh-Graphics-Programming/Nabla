@@ -16,7 +16,7 @@
 namespace nbl::video
 {
 
-class CCUDAHandler : public core::IReferenceCounted
+class NBL_API CCUDAHandler : public core::IReferenceCounted
 {
     public:
 		static bool defaultHandleResult(CUresult result, const system::logger_opt_ptr& logger=nullptr);

@@ -15,7 +15,7 @@ namespace nbl::ui
 class CCursorControlWin32;
 class CWindowManagerWin32;
 
-class CWindowWin32 final : public IWindowWin32
+class NBL_API2 CWindowWin32 final : public IWindowWin32
 {
 public:
 	static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -23,11 +23,11 @@ public:
 
 	CWindowWin32(core::smart_refctd_ptr<CWindowManagerWin32>&& winManager, SCreationParams&& params, native_handle_t hwnd);
 
-	const native_handle_t& getNativeHandle() const override { return m_native; }
+	inline const native_handle_t& getNativeHandle() const override { return m_native; }
 	void setCaption(const std::string_view& caption) override;
 	~CWindowWin32() override;
 private:
-	CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params);
+	inline CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params);
 
     native_handle_t m_native;
 
@@ -45,7 +45,7 @@ private:
 	*  When adding new devices, we return if we didnt have the device in the list before.
 	*/
 	core::map<HANDLE, uint32_t> m_deviceTypes;
-	bool addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
+	inline bool addMouseEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IMouseEventChannel>& channel)
 	{
 		if (m_mouseEventChannels.find(deviceHandle) == m_mouseEventChannels.end())
 		{
@@ -55,7 +55,7 @@ private:
 		}
 		return false;
 	}
-	bool addKeyboardEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
+	inline bool addKeyboardEventChannel(HANDLE deviceHandle, const core::smart_refctd_ptr<IKeyboardEventChannel>& channel)
 	{
 		if (m_keyboardEventChannels.find(deviceHandle) == m_keyboardEventChannels.end())
 		{
@@ -66,7 +66,7 @@ private:
 		return false;
 	}
 
-	core::smart_refctd_ptr<IMouseEventChannel> removeMouseEventChannel(HANDLE deviceHandle)
+	inline core::smart_refctd_ptr<IMouseEventChannel> removeMouseEventChannel(HANDLE deviceHandle)
 	{
 		RAWINPUT;
 		auto it = m_mouseEventChannels.find(deviceHandle);
@@ -76,7 +76,7 @@ private:
 		return channel;
 	}
 
-	core::smart_refctd_ptr<IKeyboardEventChannel> removeKeyboardEventChannel(HANDLE deviceHandle)
+	inline core::smart_refctd_ptr<IKeyboardEventChannel> removeKeyboardEventChannel(HANDLE deviceHandle)
 	{
 		auto it = m_keyboardEventChannels.find(deviceHandle);
 		auto channel = std::move(it->second);
@@ -85,14 +85,14 @@ private:
 		return channel;
 	}
 
-	int32_t getDeviceType(HANDLE h)
+	inline int32_t getDeviceType(HANDLE h)
 	{
 		auto type = m_deviceTypes.find(h);
 		if (type != m_deviceTypes.end()) return type->second;
 		return -1;
 	}
 	
-	IMouseEventChannel* getMouseEventChannel(HANDLE deviceHandle)
+	inline IMouseEventChannel* getMouseEventChannel(HANDLE deviceHandle)
 	{
 		/** 
 		*   This checking is necessary because some devices (like a laptop precision touchpad)
@@ -110,7 +110,7 @@ private:
 		return m_mouseEventChannels.find(deviceHandle)->second.get();
 	}
 
-	IKeyboardEventChannel* getKeyboardEventChannel(HANDLE deviceHandle)
+	inline IKeyboardEventChannel* getKeyboardEventChannel(HANDLE deviceHandle)
 	{
 		auto ch = m_keyboardEventChannels.find(deviceHandle);
 		// anydesk makes windows a special boy

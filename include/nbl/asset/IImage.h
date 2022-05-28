@@ -55,7 +55,7 @@ inline bool operator==(const VkExtent3D& v1, const VkExtent3D& v2)
 }
 
 
-class IImage : public IDescriptor
+class NBL_API IImage : public IDescriptor
 {
 	public:
 		enum E_ASPECT_FLAGS
@@ -149,6 +149,8 @@ class IImage : public IDescriptor
 			uint32_t		mipLevel = 0u;
 			uint32_t		baseArrayLayer = 0u;
 			uint32_t		layerCount = 0u;
+
+			auto operator<=>(const SSubresourceLayers&) const = default;
 		};
 		struct SBufferCopy
 		{
@@ -206,6 +208,8 @@ class IImage : public IDescriptor
 			SSubresourceLayers	imageSubresource;
 			VkOffset3D			imageOffset = {0u,0u,0u};
 			VkExtent3D			imageExtent = {0u,0u,0u};
+
+			auto operator<=>(const SBufferCopy&) const = default;
 		};
 		struct SImageCopy
 		{

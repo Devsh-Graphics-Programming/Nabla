@@ -13,7 +13,7 @@ namespace nbl::core
 
 // TODO: actually implement and test
 //#define NBL_EVENT_DEREGISTER_IMPLEMENTATION_READY
-class SingleEventHandler
+class NBL_API SingleEventHandler
 {
     public:
         using Function = std::function<void()>;
@@ -96,7 +96,7 @@ class SingleEventHandler
 };
 
 //
-class QuitSignalling
+class NBL_API QuitSignalling
 {
     public:
         inline void registerOnQuit(SingleEventHandler::Function&& function)
@@ -120,7 +120,7 @@ class QuitSignalling
 #ifdef NBL_EVENT_DEREGISTER_IMPLEMENTATION_READY
 //
 template<class T>
-class FactoryAndStaticSafeST
+class NBL_API FactoryAndStaticSafeST
 {
         T data = {};
         QuitSignalling* factory = nullptr;
@@ -155,7 +155,7 @@ class FactoryAndStaticSafeST
 
 //
 template<class T, class Lockable=std::mutex>
-class FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
+class NBL_API FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
 {
         static_assert(std::is_standard_layout<Lockable>::value, "Lock class is not standard layout");
         Lockable lock;

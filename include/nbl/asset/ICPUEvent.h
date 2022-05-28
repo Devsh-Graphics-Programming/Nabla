@@ -8,7 +8,7 @@ namespace nbl {
 namespace asset
 {
 
-class ICPUEvent final : public IEvent, public IAsset
+class NBL_API ICPUEvent final : public IEvent, public IAsset
 {
 public:
     using IEvent::IEvent;

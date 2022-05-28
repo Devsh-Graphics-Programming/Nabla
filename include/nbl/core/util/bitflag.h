@@ -9,7 +9,7 @@ namespace nbl::core
 {
 
 template <typename ENUM_TYPE>
-struct bitflag final
+struct NBL_API bitflag final
 {
 	static_assert(std::is_enum<ENUM_TYPE>::value);
 

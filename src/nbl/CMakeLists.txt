@@ -170,7 +170,6 @@ set(_NBL_DEBUG 1)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-
 # a little bit of globbing for headers never hurt anyone
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
@@ -189,8 +188,6 @@ foreach(NBL_CURRENT_HEADER IN LISTS NABLA_HEADERS_PUBLIC2)
 endforeach()
 
 unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
-
-
 #
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
@@ -411,10 +408,9 @@ endforeach()
 list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 
-set(NABLA_HEADERS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
+set(NABLA_HEADERS "${NBL_ROOT_PATH}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
-# declare the library!
-add_library(Nabla STATIC
+set(NBL_LIBRARY_CREATION_SOURCES 
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
@@ -424,8 +420,26 @@ add_library(Nabla STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
+if(NBL_STATIC_BUILD)
+	add_library(Nabla STATIC
+		${NBL_LIBRARY_CREATION_SOURCES}
+	)
+else()
+	add_library(Nabla SHARED
+		${NBL_LIBRARY_CREATION_SOURCES}
+	)
+endif()
+
 nbl_adjust_flags() # macro defined in root CMakeLists
 nbl_adjust_definitions() # macro defined in root CMakeLists
+
+if(NBL_DYNAMIC_MSVC_RUNTIME)
+	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+else()
+	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
+target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -441,9 +455,18 @@ if (ANDROID)
 	)
 endif()
 
-#TODO maybe make a macro/function to do this (note: it's also used in common.cmake)
-set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+if(NOT NBL_STATIC_BUILD)
+	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)
+	set(NBL_ASSEMBLIES_MANIFEST_FILEPATH "${NBL_ASSEMBLY_DIRECTORY}/devshgraphicsprogramming.nabla.manifest" CACHE INTERNAL "" FORCE)
+	add_custom_command(OUTPUT "${NBL_ASSEMBLIES_MANIFEST_FILEPATH}"
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_ASSEMBLY_DIRECTORY} -DNABLA_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaMSVCManifest.cmake
+		COMMENT "Launching nabla.manifest generation script!"
+		VERBATIM
+	)
 
+	add_custom_target(Nabla_with_manifest ALL DEPENDS ${NBL_ASSEMBLIES_MANIFEST_FILEPATH})
+	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
+endif()
 
 ## Set up 3rdparty deps
 # Parallel Hashmap
@@ -471,41 +494,74 @@ endif()
 # zlib
 add_dependencies(zlibstatic zlib_copy)
 add_dependencies(Nabla zlibstatic)
-target_link_libraries(Nabla INTERFACE zlibstatic)
-target_link_libraries(Nabla INTERFACE
-	$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
-	$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-	$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-)
+
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE zlibstatic)
+	target_link_libraries(Nabla INTERFACE
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+	)
+else()
+	target_link_libraries(Nabla PRIVATE zlibstatic)
+	target_link_libraries(Nabla PRIVATE
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
+	)
+endif()
 target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 
 # shaderc
 add_dependencies(Nabla shaderc)
-target_link_libraries(Nabla INTERFACE shaderc)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE shaderc)
+else()
+	target_link_libraries(Nabla PRIVATE shaderc)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
 # spirv tools
 add_dependencies(Nabla SPIRV)
 add_dependencies(Nabla SPIRV-Tools)
 add_dependencies(Nabla SPIRV-Tools-opt)
-target_link_libraries(Nabla INTERFACE SPIRV SPIRV-Tools SPIRV-Tools-opt)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE SPIRV SPIRV-Tools SPIRV-Tools-opt)
+else()
+	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
+endif()
 target_include_directories(Nabla PUBLIC BEFORE ${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include)
 # simdjson
 add_dependencies(Nabla simdjson)
-target_link_libraries(Nabla INTERFACE simdjson)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE simdjson)
+else()
+	target_link_libraries(Nabla PRIVATE simdjson)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
-set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 # libjpeg
 add_dependencies(Nabla jpeg-static)
-target_link_libraries(Nabla INTERFACE jpeg-static)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE jpeg-static)
+else()
+	target_link_libraries(Nabla PRIVATE jpeg-static)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
 # libpng
 add_dependencies(Nabla png_static)
-target_link_libraries(Nabla INTERFACE png_static)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE png_static)
+else()
+	target_link_libraries(Nabla PRIVATE png_static)
+endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	add_dependencies(Nabla OpenEXR::IlmImf)
-	target_link_libraries(Nabla INTERFACE OpenEXR::IlmImf)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE OpenEXR::IlmImf)
+	else()
+		target_link_libraries(Nabla PRIVATE OpenEXR::IlmImf)
+	endif()
 	target_include_directories(
 		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
 		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
@@ -517,7 +573,11 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 if(_NBL_COMPILE_WITH_GLI_)
 	add_dependencies(Nabla gli)
-	target_link_libraries(Nabla INTERFACE gli)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE gli)
+	else()
+		target_link_libraries(Nabla PRIVATE gli)
+	endif()
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
@@ -532,7 +592,8 @@ endif()
 
 # Vulkan
 target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include")
-target_link_libraries(Nabla PUBLIC volk)
+target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/volk")
+target_link_libraries(Nabla PRIVATE volk)
 if(WIN32)
 	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 endif()
@@ -545,7 +606,6 @@ target_link_libraries(Nabla PRIVATE egl)
 if (ANDROID)
 	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
 endif()
-
 
 # Include dirs for self
 target_include_directories(Nabla PUBLIC 
@@ -564,28 +624,15 @@ target_include_directories(Nabla PUBLIC
 target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 
-
 target_compile_definitions(Nabla 
-	PRIVATE	_NBL_STATIC_LIB_ EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PRIVATE EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
-# generate definitions out to a header
+# generate Nabla definitions to a header
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
-
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
-
-add_custom_command(
-	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" 
-	COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/include -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaHeader.cmake
-	DEPENDS ${NBL_ROOT_PATH}/include/nabla.h.in
-	COMMENT "Generating nabla.h"
-	VERBATIM
-)
-
-add_custom_target(generate_nabla_header DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h")
-add_dependencies(Nabla generate_nabla_header)
 
 #on MSVC it won't compile without this option!
 if (MSVC)
@@ -602,14 +649,13 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_dependencies(Nabla builtin_resources)
 endif()
 
-
 # extensions
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
-nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/nabla.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
+nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/define.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
 nbl_install_config_header(BuildConfigOptions.h)
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
@@ -627,7 +673,11 @@ endmacro()
 # Install main lib
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
-nbl_install_lib(Nabla)
+if(NBL_STATIC_BUILD)
+	nbl_install_lib(Nabla)
+else()
+	nbl_install_program(Nabla)
+endif()
 
 #install dependencies
 nbl_install_lib(egl)
