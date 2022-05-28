@@ -49,7 +49,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 				VERBATIM
 			)
 			
-			add_custom_target(${EXECUTABLE_NAME}_config ALL DEPENDS ${NBL_CONFIG_OUTPUT_FILE} ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake)
+			add_custom_target(${EXECUTABLE_NAME}_with_config ALL DEPENDS ${NBL_CONFIG_OUTPUT_FILE} ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake)
 		endif()
 	
 		set(NBL_EXECUTABLE_SOURCES 
@@ -58,7 +58,6 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		)
 		
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
-		add_dependencies(${EXECUTABLE_NAME} Nabla_manifest)
 		
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
@@ -68,7 +67,13 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	endif()
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Nabla)
+	if(NBL_STATIC_BUILD)
+		add_dependencies(${EXECUTABLE_NAME} Nabla)
+	else()
+		add_dependencies(${EXECUTABLE_NAME}_with_config Nabla_with_manifest)
+		#target_link_options(${EXECUTABLE_NAME} PRIVATE "/manifestdependency:\"type='win32' name='devshgraphicsprogramming.nabla' version='1.2.3.4' processorArchitecture='x86' language='*'\"")
+	endif()
+	
 	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
 	
 	target_include_directories(${EXECUTABLE_NAME}

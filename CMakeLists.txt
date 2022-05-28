@@ -15,8 +15,8 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla LANGUAGES CXX C)
 
-option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
-option(NBL_DYNAMIC_MSVC_RUNTIME "" ON)
+option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
+option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
