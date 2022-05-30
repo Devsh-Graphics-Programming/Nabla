@@ -77,7 +77,7 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SProperties
         {
-            /* Vulkan Core 1.0 */
+            /* Vulkan 1.0 Core  */
             APIVersion  apiVersion;
             uint32_t    driverVersion;
             uint32_t    vendorID;
@@ -85,17 +85,17 @@ class IPhysicalDevice : public core::Interface, public core::Unmovable
             E_TYPE      deviceType;
             char        deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
             uint8_t     pipelineCacheUUID[VK_UUID_SIZE];
-            SLimits     limits; // Contains Limits on Vulkan Core 1.0, 1.1, 1.2 and extensions
+            SLimits     limits; // Contains Limits on Vulkan 1.0 Core , 1.1, 1.2 and extensions
             // VkPhysicalDeviceSparseProperties    sparseProperties;
             
-            /* Vulkan Core 1.1 */
+            /* Vulkan 1.1 Core  */
             uint8_t     deviceUUID[VK_UUID_SIZE];
             uint8_t     driverUUID[VK_UUID_SIZE];
             uint8_t     deviceLUID[VK_LUID_SIZE];
             uint32_t    deviceNodeMask;
             bool        deviceLUIDValid;
 
-            /* Vulkan Core 1.2 */
+            /* Vulkan 1.2 Core  */
             E_DRIVER_ID driverID;
             char driverName[VK_MAX_DRIVER_NAME_SIZE];
             char driverInfo[VK_MAX_DRIVER_INFO_SIZE];

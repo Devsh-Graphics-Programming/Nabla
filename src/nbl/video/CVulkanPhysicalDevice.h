@@ -39,7 +39,7 @@ public:
             deviceProperties.pNext = &accelerationStructureProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
 
-            /* Vulkan Core 1.0 */
+            /* Vulkan 1.0 Core  */
             m_properties.driverVersion = deviceProperties.properties.driverVersion;
             m_properties.vendorID = deviceProperties.properties.vendorID;
             m_properties.deviceID = deviceProperties.properties.deviceID;
@@ -81,7 +81,7 @@ public:
             m_properties.limits.lineWidthRange[1] = deviceProperties.properties.limits.lineWidthRange[1];
             m_properties.limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
             
-            /* Vulkan Core 1.1 */
+            /* Vulkan 1.1 Core  */
             memcpy(m_properties.deviceUUID, vulkan11Properties.deviceUUID, VK_UUID_SIZE);
             memcpy(m_properties.driverUUID, vulkan11Properties.driverUUID, VK_UUID_SIZE);
             memcpy(m_properties.driverLUID, vulkan11Properties.driverLUID, VK_LUID_SIZE);
@@ -101,13 +101,13 @@ public:
             m_properties.limits.shaderSubgroupQuad = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
             m_properties.limits.shaderSubgroupQuadAllStages = vulkan11Properties.subgroupQuadOperationsInAllStages;
             
-            /* Vulkan Core 1.2 */
+            /* Vulkan 1.2 Core  */
             m_properties.driverID = static_cast<E_DRIVER_ID>(vulkan12Properties.driverID);
             memcpy(m_properties.driverName, vulkan12Properties.driverName, VK_MAX_DRIVER_NAME_SIZE);
             memcpy(m_properties.driverInfo, vulkan12Properties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
             m_properties.conformanceVersion = vulkan12Properties.conformanceVersion;
 
-            /* Vulkan Core 1.3 */
+            /* Vulkan 1.3 Core  */
 
 
             /* Nabla */
@@ -190,7 +190,7 @@ public:
             vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice, &deviceFeatures);
             const auto& features = deviceFeatures.features;
 
-            /* Vulkan Core 1.0 */
+            /* Vulkan 1.0 Core  */
             m_features.robustBufferAccess = features.robustBufferAccess;
             m_features.imageCubeArray = features.imageCubeArray;
             m_features.geometryShader = features.geometryShader;

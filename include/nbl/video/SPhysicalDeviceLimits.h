@@ -10,7 +10,7 @@ namespace nbl::video
 
 struct SPhysicalDeviceLimits
 {
-    /* Vulkan Core 1.0 */
+    /* Vulkan 1.0 Core  */
     uint32_t maxImageDimension1D;
     uint32_t maxImageDimension2D;
     uint32_t maxImageDimension3D;
@@ -118,7 +118,7 @@ struct SPhysicalDeviceLimits
     //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
     uint64_t nonCoherentAtomSize;
             
-    /* Vulkan Core 1.1 */
+    /* Vulkan 1.1 Core  */
     uint32_t subgroupSize;
     core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
     bool shaderSubgroupBasic = false;
@@ -137,7 +137,7 @@ struct SPhysicalDeviceLimits
     //uint32_t                   maxPerSetDescriptors;
     //VkDeviceSize               maxMemoryAllocationSize;
             
-    /* Vulkan Core 1.2 */
+    /* Vulkan 1.2 Core  */
     //VkShaderFloatControlsIndependence    denormBehaviorIndependence;
     //VkShaderFloatControlsIndependence    roundingModeIndependence;
     //VkBool32                             shaderSignedZeroInfNanPreserveFloat16;
@@ -187,7 +187,7 @@ struct SPhysicalDeviceLimits
     //uint64_t                             maxTimelineSemaphoreValueDifference;
     //VkSampleCountFlags                   framebufferIntegerColorSampleCounts;
             
-    /* Vulkan Core 1.3 */
+    /* Vulkan 1.3 Core  */
     //uint32_t              minSubgroupSize;
     //uint32_t              maxSubgroupSize;
     //uint32_t              maxComputeWorkgroupSubgroups;
@@ -278,7 +278,7 @@ struct SPhysicalDeviceLimits
     /* CustomBorderColorPropertiesEXT *//* provided by VK_EXT_custom_border_color */
     //uint32_t           maxCustomBorderColorSamplers;
 
-    /* DescriptorIndexingPropertiesEXT ---> MOVED TO Vulkan Core 1.2 *//* provided by VK_AMD_shader_core_properties */
+    /* DescriptorIndexingPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  *//* provided by VK_AMD_shader_core_properties */
 
     /* DiscardRectanglePropertiesEXT *//* provided by VK_EXT_discard_rectangles */
     //uint32_t           maxDiscardRectangles;
@@ -301,7 +301,7 @@ struct SPhysicalDeviceLimits
     //VkBool32           graphicsPipelineLibraryFastLinking;
     //VkBool32           graphicsPipelineLibraryIndependentInterpolationDecoration;
 
-    /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan Core 1.3 */
+    /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
 
     /* LineRasterizationPropertiesEXT *//* provided by VK_EXT_line_rasterization */
     //uint32_t           lineSubPixelPrecisionBits;
@@ -331,7 +331,7 @@ struct SPhysicalDeviceLimits
     //VkDeviceSize       robustStorageBufferAccessSizeAlignment;
     //VkDeviceSize       robustUniformBufferAccessSizeAlignment;
 
-    /* SamplerFilterMinmaxPropertiesEXT ---> MOVED TO Vulkan Core 1.2 */
+    /* SamplerFilterMinmaxPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  */
 
     /* SampleLocationsPropertiesEXT *//* provided by VK_EXT_sample_locations */
     //VkSampleCountFlags    sampleLocationSampleCounts;
@@ -340,9 +340,9 @@ struct SPhysicalDeviceLimits
     //uint32_t              sampleLocationSubPixelBits;
     //VkBool32              variableSampleLocations;
 
-    /* SubgroupSizeControlPropertiesEXT ---> MOVED TO Vulkan Core 1.3 */
+    /* SubgroupSizeControlPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
 
-    /* TexelBufferAlignmentPropertiesEXT ---> MOVED TO Vulkan Core 1.3 */
+    /* TexelBufferAlignmentPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
 
     /* TransformFeedbackPropertiesEXT *//* provided by VK_EXT_transform_feedback */
     //uint32_t           maxTransformFeedbackStreams;
@@ -369,8 +369,8 @@ struct SPhysicalDeviceLimits
     uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
     uint32_t           minAccelerationStructureScratchOffsetAlignment;
  
-    /* DepthStencilResolvePropertiesKHR ---> MOVED TO Vulkan Core 1.2 */
-    /* DriverPropertiesKHR ---> MOVED TO Vulkan Core 1.2 */
+    /* DepthStencilResolvePropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
+    /* DriverPropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
     /* VK_KHR_fragment_shader_barycentric --> Coverage 0% --> no structs defined anywhere in vulkan headers */
 
     /* FragmentShadingRatePropertiesKHR *//* provided by VK_KHR_fragment_shading_rate */
@@ -392,17 +392,22 @@ struct SPhysicalDeviceLimits
     //VkBool32                 fragmentShadingRateWithCustomSampleLocations;
     //VkBool32                 fragmentShadingRateStrictMultiplyCombiner;
     
-    /* Maintenance2PropertiesKHR *//* provided by VK_KHR_maintenance2 *//* MOVED TO Vulkan Core 1.1 */
-    /* Maintenance3PropertiesKHR *//* provided by VK_KHR_maintenance3 *//* MOVED TO Vulkan Core 1.1 */
-    /* Maintenance4PropertiesKHR *//* provided by VK_KHR_maintenance4 *//* MOVED TO Vulkan Core 1.3 */
-    /* MultiviewPropertiesKHR    *//* provided by VK_KHR_multiview    *//* MOVED TO Vulkan Core 1.1 */
+    /* Maintenance2PropertiesKHR *//* provided by VK_KHR_maintenance2 *//* MOVED TO Vulkan 1.1 Core  */
+    /* Maintenance3PropertiesKHR *//* provided by VK_KHR_maintenance3 *//* MOVED TO Vulkan 1.1 Core  */
+    /* Maintenance4PropertiesKHR *//* provided by VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core  */
+    /* MultiviewPropertiesKHR    *//* provided by VK_KHR_multiview    *//* MOVED TO Vulkan 1.1 Core  */
 
     /* PerformanceQueryPropertiesKHR *//* provided by VK_KHR_performance_query */
     // ! We don't support PerformanceQueries at the moment;
     // ! But we have a bool with the same name in SFeatures and that is mostly for GL when NBL_ARB_query_buffer_object is reported and that holds for every query 
     // VkBool32           allowCommandBufferQueryCopies;
 
-    /* RayTracingPipelinePropertiesKHR */
+    /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
+
+    /* PushDescriptorPropertiesKHR *//* provided by VK_KHR_push_descriptor */
+    //uint32_t           maxPushDescriptors;
+
+    /* RayTracingPipelinePropertiesKHR *//* provided by VK_KHR_ray_tracing_pipeline */
     uint32_t           shaderGroupHandleSize;
     uint32_t           maxRayRecursionDepth;
     uint32_t           maxShaderGroupStride;
@@ -411,7 +416,63 @@ struct SPhysicalDeviceLimits
     uint32_t           maxRayDispatchInvocationCount;
     uint32_t           shaderGroupHandleAlignment;
     uint32_t           maxRayHitAttributeSize;
-            
+
+    /* FloatControlsPropertiesKHR *//* VK_KHR_shader_float_controls *//* MOVED TO Vulkan 1.2 Core  */
+    /* ShaderIntegerDotProductFeaturesKHR *//* VK_KHR_shader_integer_dot_product *//* MOVED TO Vulkan 1.3 Core  */
+    /* TimelineSemaphorePropertiesKHR *//* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core  */
+    /* VK_KHX_multiview *//* replaced by VK_KHR_multiview */
+
+    /* MultiviewPerViewAttributesPropertiesNVX *//* VK_NVX_multiview_per_view_attributes */
+    // VkBool32           perViewPositionAllComponents;
+
+    /* VK_NVX_raytracing *//* Preview Extension of raytracing, useless*/
+    
+    /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
+    // VkShaderStageFlags    cooperativeMatrixSupportedStages;
+
+    /* DeviceGeneratedCommandsPropertiesNV *//* VK_NV_device_generated_commands */
+    //uint32_t           maxGraphicsShaderGroupCount;
+    //uint32_t           maxIndirectSequenceCount;
+    //uint32_t           maxIndirectCommandsTokenCount;
+    //uint32_t           maxIndirectCommandsStreamCount;
+    //uint32_t           maxIndirectCommandsTokenOffset;
+    //uint32_t           maxIndirectCommandsStreamStride;
+    //uint32_t           minSequencesCountBufferOffsetAlignment;
+    //uint32_t           minSequencesIndexBufferOffsetAlignment;
+    //uint32_t           minIndirectCommandsBufferOffsetAlignment;
+
+    /* FragmentShadingRateEnumsPropertiesNV *//* VK_NV_fragment_shading_rate_enums */
+    // VkSampleCountFlagBits    maxFragmentShadingRateInvocationCount;
+
+    /* MeshShaderPropertiesNV *//* VK_NV_mesh_shader */
+    //uint32_t           maxDrawMeshTasksCount;
+    //uint32_t           maxTaskWorkGroupInvocations;
+    //uint32_t           maxTaskWorkGroupSize[3];
+    //uint32_t           maxTaskTotalMemorySize;
+    //uint32_t           maxTaskOutputCount;
+    //uint32_t           maxMeshWorkGroupInvocations;
+    //uint32_t           maxMeshWorkGroupSize[3];
+    //uint32_t           maxMeshTotalMemorySize;
+    //uint32_t           maxMeshOutputVertices;
+    //uint32_t           maxMeshOutputPrimitives;
+    //uint32_t           maxMeshMultiviewViewCount;
+    //uint32_t           meshOutputPerVertexGranularity;
+    //uint32_t           meshOutputPerPrimitiveGranularity;
+
+    /* VK_NV_ray_tracing *//* useless because of VK_KHR_ray_tracing_pipeline */
+
+    /* ShaderSMBuiltinsPropertiesNV *//* VK_NV_shader_sm_builtins */
+    //uint32_t           shaderSMCount;
+    //uint32_t           shaderWarpsPerSM;
+
+    /* ShadingRateImagePropertiesNV *//* VK_NV_shading_rate_image */
+    //VkExtent2D         shadingRateTexelSize;
+    //uint32_t           shadingRatePaletteSize;
+    //uint32_t           shadingRateMaxCoarseSamples;
+
+    /* FragmentDensityMapOffsetPropertiesQCOM *//* VK_QCOM_fragment_density_map_offset */
+    //VkExtent2D         fragmentDensityOffsetGranularity;
+
     /* Nabla */
     uint32_t maxBufferSize;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion

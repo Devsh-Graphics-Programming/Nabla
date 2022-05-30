@@ -6,7 +6,7 @@ namespace nbl::video
 
 struct SPhysicalDeviceFeatures
 {
-    /* Vulkan Core 1.0 */
+    /* Vulkan 1.0 Core  */
     bool robustBufferAccess = false;
     //VkBool32    fullDrawIndexUint32;
     bool imageCubeArray = false;

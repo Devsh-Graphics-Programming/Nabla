@@ -620,7 +620,7 @@ public:
 			m_properties.apiVersion.minor = minorVer;
 			m_properties.apiVersion.patch = 0u;
 			
-			/* Vulkan Core 1.0 */
+			/* Vulkan 1.0 Core  */
 			GLint64 maxTextureSize = 0u; // 1D + 2D
 			GLint64 max3DTextureSize = 0u; // 1D + 2D
 			GLint64 maxCubeMapTextureSize = 0u;
