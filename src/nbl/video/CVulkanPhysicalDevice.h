@@ -84,7 +84,7 @@ public:
             /* Vulkan 1.1 Core  */
             memcpy(m_properties.deviceUUID, vulkan11Properties.deviceUUID, VK_UUID_SIZE);
             memcpy(m_properties.driverUUID, vulkan11Properties.driverUUID, VK_UUID_SIZE);
-            memcpy(m_properties.driverLUID, vulkan11Properties.driverLUID, VK_LUID_SIZE);
+            memcpy(m_properties.deviceLUID, vulkan11Properties.deviceLUID, VK_LUID_SIZE);
             m_properties.deviceNodeMask = vulkan11Properties.deviceNodeMask;
             m_properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
 

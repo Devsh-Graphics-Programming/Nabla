@@ -358,7 +358,7 @@ public:
 		memcpy(m_properties.pipelineCacheUUID, &deviceNameHash, sizeof(uint64_t));
 		
 		memset(m_properties.driverUUID, 0, VK_UUID_SIZE);
-		memset(m_properties.driverLUID, 0, VK_LUID_SIZE);
+		memset(m_properties.deviceLUID, 0, VK_LUID_SIZE);
 		m_properties.deviceNodeMask = 0x00000001;
 		m_properties.deviceLUIDValid = false;
 
