@@ -18,7 +18,7 @@ namespace MitsubaLoader
 
 class ParserManager;
 
-class CElementFactory
+class NBL_API CElementFactory
 {
 	public:
 		using return_type = std::pair<IElement*,std::string>;

@@ -12,7 +12,7 @@ namespace nbl::video
 {
 
 // TODO: decouple swapchain from queue some more (make presentation a method of swapchain), then we can have fake UE5, Unity, Qt6 swapchains
-class ISwapchain : public core::IReferenceCounted, public IBackendObject
+class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
     public:
         using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;
@@ -51,8 +51,8 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             EPR_ERROR // There are other types of errors as well for if they are ever required in the future
         };
 
-        uint32_t getImageCount() const { return m_images->size(); }
-        core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
+        inline uint32_t getImageCount() const { return m_images->size(); }
+        inline core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
         {
             return { m_images->begin(), m_images->end() };
         }
@@ -74,8 +74,7 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             return result;
         }
 
-        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params,
-            images_array_t&& images)
+        inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, images_array_t&& images)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))
         {}
         

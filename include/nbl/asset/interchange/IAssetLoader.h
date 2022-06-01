@@ -58,7 +58,7 @@ class IMeshManipulator;
 	@see IAssetWriter
 */
 
-class IAssetLoader : public virtual core::IReferenceCounted
+class NBL_API IAssetLoader : public virtual core::IReferenceCounted
 {
 public:
     enum E_CACHING_FLAGS : uint64_t

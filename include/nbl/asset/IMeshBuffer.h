@@ -15,7 +15,7 @@ namespace nbl::asset
 {
 
 template <class BufferType, class DescSetType, class PipelineType>
-class IMeshBuffer : public virtual core::IReferenceCounted
+class NBL_API IMeshBuffer : public virtual core::IReferenceCounted
 {
     public:
         _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;

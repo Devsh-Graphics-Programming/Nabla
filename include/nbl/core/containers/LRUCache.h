@@ -16,7 +16,7 @@ namespace core
 namespace impl
 {
 	template<typename Key, typename Value, typename MapHash, typename MapEquals>
-	class LRUCacheBase
+	class NBL_API LRUCacheBase
 	{
 		public:
 			using list_value_t = std::pair<Key,Value>;
@@ -58,7 +58,7 @@ namespace impl
 // Stores fixed size amount of elements. 
 // When the cache is full inserting will remove the least used entry
 template<typename Key, typename Value, typename MapHash=std::hash<Key>, typename MapEquals=std::equal_to<Key> >
-class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
+class NBL_API LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 {
 		// typedefs
 		typedef impl::LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;

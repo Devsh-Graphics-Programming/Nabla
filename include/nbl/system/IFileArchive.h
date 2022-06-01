@@ -19,7 +19,7 @@ namespace nbl::system
 class IFile;
 
 //! The FileArchive manages archives and provides access to files inside them.
-class IFileArchive : public core::IReferenceCounted
+class NBL_API IFileArchive : public core::IReferenceCounted
 {
 	public:
 		enum E_ALLOCATOR_TYPE
@@ -95,7 +95,7 @@ class IFileArchive : public core::IReferenceCounted
 };
 
 
-class IArchiveLoader : public core::IReferenceCounted
+class NBL_API IArchiveLoader : public core::IReferenceCounted
 {
 	public:
 		IArchiveLoader(system::logger_opt_smart_ptr&& logger) : m_logger(std::move(logger)) {}

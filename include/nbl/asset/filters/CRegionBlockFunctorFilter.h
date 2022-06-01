@@ -18,7 +18,7 @@ namespace asset
 
 // fill a section of the image with a uniform value
 template<typename Functor, bool ConstImage>
-class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<Functor,ConstImage> >
+class NBL_API CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<Functor,ConstImage> >
 {
 	public:
 		virtual ~CRegionBlockFunctorFilter() {}

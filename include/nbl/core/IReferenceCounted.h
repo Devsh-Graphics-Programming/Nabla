@@ -134,7 +134,7 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 		// Old destructor, but needed virtual for abstractness!
 		// _NBL_INTERFACE_CHILD_DEFAULT(IReferenceCounted);
 		//! Destructor, no need to define really, but make it pure virtual to truly prevent instantiation.
-		virtual ~IReferenceCounted() = 0;
+		NBL_API2 virtual ~IReferenceCounted() = 0;
 
 		//! Sets the debug name of the object.
 		/** The Debugname may only be set and changed by the object

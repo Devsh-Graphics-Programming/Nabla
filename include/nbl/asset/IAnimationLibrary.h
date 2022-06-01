@@ -20,7 +20,7 @@ namespace asset
 * named keyframe ranges.
 */
 template <class BufferType>
-class IAnimationLibrary : public virtual core::IReferenceCounted
+class NBL_API IAnimationLibrary : public virtual core::IReferenceCounted
 {
 	public:
 		using keyframe_t = uint32_t;

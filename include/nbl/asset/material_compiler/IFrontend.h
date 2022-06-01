@@ -7,7 +7,7 @@
 namespace nbl::asset::material_compiler
 {
 
-class IFrontend : public core::IReferenceCounted
+class NBL_API IFrontend : public core::IReferenceCounted
 {
     public:
         virtual core::smart_refctd_ptr<IR> compileToIR();

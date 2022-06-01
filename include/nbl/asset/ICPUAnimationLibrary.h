@@ -13,7 +13,7 @@ namespace nbl
 namespace asset
 {
 
-class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
+class NBL_API ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
 {
 	public:
 		using base_t = IAnimationLibrary<ICPUBuffer>;

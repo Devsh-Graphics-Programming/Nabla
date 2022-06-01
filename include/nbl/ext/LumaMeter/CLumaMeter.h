@@ -18,7 +18,7 @@ namespace LumaMeter
 /**
 - Overridable Tonemapping Parameter preparation (for OptiX and stuff)
 **/
-class CLumaMeter : public core::TotalInterface
+class NBL_API CLumaMeter : public core::TotalInterface
 {
     public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_COUNT = 256u;

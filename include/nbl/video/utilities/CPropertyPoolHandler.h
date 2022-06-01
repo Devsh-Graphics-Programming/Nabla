@@ -25,7 +25,7 @@ static_assert(NBL_BUILTIN_PROPERTY_POOL_INVALID==IPropertyPool::invalid);
 
 // property pool factory is externally synchronized
 // TODO: could rename to CSparseStreamingSystem/CSparseStreamingHandler
-class CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
+class NBL_API CPropertyPoolHandler final : public core::IReferenceCounted, public core::Unmovable
 {
 	public:
 		//

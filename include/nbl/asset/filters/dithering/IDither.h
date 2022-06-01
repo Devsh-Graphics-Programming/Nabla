@@ -20,7 +20,7 @@ namespace nbl
             base CRTP class implementation - CDither
         */
 
-        class IDither
+        class NBL_API IDither
         {
             public:
                 virtual ~IDither() {}

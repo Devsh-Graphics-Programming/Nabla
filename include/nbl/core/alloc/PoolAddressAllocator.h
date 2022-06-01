@@ -17,7 +17,7 @@ namespace core
 
 //! Can only allocate up to a size of a single block, no support for allocations larger than blocksize
 template<typename _size_type>
-class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_size_type>,_size_type>
+class NBL_API PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_size_type>,_size_type>
 {
     private:
         typedef AddressAllocatorBase<PoolAddressAllocator<_size_type>,_size_type> Base;

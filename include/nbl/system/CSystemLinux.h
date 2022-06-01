@@ -3,18 +3,18 @@
 
 
 #include "nbl/system/ISystem.h"
+#include "nbl/system/ISystemPOSIX.h"
 
 namespace nbl::system
 {
 #ifdef _NBL_PLATFORM_LINUX_
-#include "nbl/system/ISystemPOSIX.h"
 
 class CSystemLinux final : public ISystemPOSIX
 {
 	public:
-		CSystemLinux() : ISystemPOSIX() {}
+		inline CSystemLinux() : ISystemPOSIX() {}
 
-		SystemInfo getSystemInfo() const override;
+		NBL_API2 SystemInfo getSystemInfo() const override;
 };
 #endif
 }

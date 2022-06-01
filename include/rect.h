@@ -25,7 +25,7 @@ namespace core
 	and to the bottom.
 	*/
 	template <class T>
-	class rect// : public AllocationOverrideDefault
+	class NBL_API rect// : public AllocationOverrideDefault
 	{
 	public:
 

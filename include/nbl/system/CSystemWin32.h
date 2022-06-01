@@ -7,7 +7,7 @@ namespace nbl::system
 {
 
 #ifdef _NBL_PLATFORM_WINDOWS_
-class CSystemWin32 : public ISystem
+class NBL_API2 CSystemWin32 : public ISystem
 {
     protected:
         class CCaller final : public ICaller
@@ -19,7 +19,7 @@ class CSystemWin32 : public ISystem
         };
         
     public:
-        CSystemWin32() : ISystem(core::make_smart_refctd_ptr<CCaller>(this)) {}
+        inline CSystemWin32() : ISystem(core::make_smart_refctd_ptr<CCaller>(this)) {}
 
         SystemInfo getSystemInfo() const override;
 };

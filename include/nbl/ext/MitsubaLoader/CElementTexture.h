@@ -16,7 +16,7 @@ namespace MitsubaLoader
 {
 
 
-class CElementTexture : public IElement
+class NBL_API CElementTexture : public IElement
 {
 	public:
 		struct FloatOrTexture

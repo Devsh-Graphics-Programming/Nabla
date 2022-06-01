@@ -15,6 +15,7 @@
 namespace nbl::video
 {
     
+
 template<class HostAllocator=core::allocator<uint8_t>, class RecursiveLockable=std::recursive_mutex>
 class StreamingTransientDataBufferMT;
 

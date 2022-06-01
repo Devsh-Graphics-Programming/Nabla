@@ -18,16 +18,16 @@ namespace FFT
 {
 
 typedef uint32_t uint;
-struct alignas(16) uvec3
+struct NBL_API alignas(16) uvec3
 {
 	uint x,y,z;
 };
-struct alignas(16) uvec4 {
+struct NBL_API alignas(16) uvec4 {
 	uint x,y,z,w;
 };
 #include "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl";
 
-class FFT final : public core::IReferenceCounted
+class NBL_API FFT final : public core::IReferenceCounted
 {
 	public:
 		struct Parameters_t alignas(16) : nbl_glsl_ext_FFT_Parameters_t

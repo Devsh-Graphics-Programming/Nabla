@@ -16,7 +16,7 @@ namespace MitsubaLoader
 
 class CGlobalMitsubaMetadata;
 
-class CElementSampler : public IElement
+class NBL_API CElementSampler : public IElement
 {
 	public:
 		enum Type

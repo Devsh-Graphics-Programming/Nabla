@@ -40,7 +40,7 @@ namespace asset
 	There are input only, output only (such as fill filter) or input-output filters.
 */
 
-class IImageFilter
+class NBL_API IImageFilter
 {
 	public:
 
@@ -166,7 +166,7 @@ class IImageFilter
 */
 
 template<typename CRTP>
-class CImageFilter : public IImageFilter
+class NBL_API CImageFilter : public IImageFilter
 {
 	public:
 		static inline bool validate(IState* state)

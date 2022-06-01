@@ -14,7 +14,7 @@
 namespace nbl::video
 {
 
-class IUtilities : public core::IReferenceCounted
+class NBL_API IUtilities : public core::IReferenceCounted
 {
     protected:
         static constexpr uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head

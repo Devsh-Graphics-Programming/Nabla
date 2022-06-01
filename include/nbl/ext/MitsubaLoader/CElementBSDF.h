@@ -15,7 +15,7 @@ namespace MitsubaLoader
 {
 
 
-class CElementBSDF : public IElement
+class NBL_API CElementBSDF : public IElement
 {
 	public:
 		enum Type
@@ -191,7 +191,7 @@ class CElementBSDF : public IElement
 		};/*
 		struct HanrahanKrueger
 		{
-			class CPhaseElement
+			class NBL_API CPhaseElement
 			{
 			};
 			HanrahanKrueger(const std::string& material);

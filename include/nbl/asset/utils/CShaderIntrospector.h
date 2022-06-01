@@ -31,7 +31,7 @@ namespace spirv_cross
 namespace nbl::asset
 {
 
-class CIntrospectionData : public core::IReferenceCounted
+class NBL_API CIntrospectionData : public core::IReferenceCounted
 {
 	protected:
 		~CIntrospectionData();
@@ -76,7 +76,7 @@ class CIntrospectionData : public core::IReferenceCounted
 		}
 };
 
-class CShaderIntrospector : public core::Uncopyable
+class NBL_API CShaderIntrospector : public core::Uncopyable
 {
 		using mapId2SpecConst_t = core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>;
 
