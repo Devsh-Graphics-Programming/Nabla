@@ -11,15 +11,15 @@ namespace nbl::core
 {
 
 // Parameter types for special overloaded constructors
-struct dont_grab_t {};
+struct NBL_API dont_grab_t {};
 constexpr dont_grab_t dont_grab{};
-struct dont_drop_t {};
+struct NBL_API dont_drop_t {};
 constexpr dont_drop_t dont_drop{};
 
 // A RAII-like class to help you safeguard against memory leaks.
 // Will automagically drop reference counts when it goes out of scope
 template<class I_REFERENCE_COUNTED>
-class smart_refctd_ptr
+class NBL_API smart_refctd_ptr
 {			
 		mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
 

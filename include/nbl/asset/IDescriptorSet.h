@@ -31,13 +31,13 @@ namespace nbl::asset
 */
 
 template<typename LayoutType>
-class IDescriptorSet : public virtual core::IReferenceCounted
+class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 {
 		using this_type = IDescriptorSet<LayoutType>;
 
 	public:
 		using layout_t = LayoutType;
-		struct SDescriptorInfo
+		struct NBL_API SDescriptorInfo
 		{
                 struct SBufferInfo
                 {
@@ -45,6 +45,8 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
 
 					static constexpr inline size_t WholeBuffer = ~0ull;
+
+					auto operator<=>(const SBufferInfo&) const = default;
                 };
                 struct SImageInfo
                 {
@@ -119,6 +121,13 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 					}
 					return *this;
 				}
+
+				inline bool operator!=(const SDescriptorInfo& other) const
+				{
+					if (desc != desc)
+						return true;
+					return buffer != other.buffer;
+				}
 		};
 
 		struct SWriteDescriptorSet
@@ -162,7 +171,7 @@ namespace impl
 	
 //! Only reason this class exists is because OpenGL back-end implements a similar interface
 template<typename LayoutType>
-class IEmulatedDescriptorSet
+class NBL_API IEmulatedDescriptorSet
 {
 	public:
 		//! Contructor computes the flattened out array of descriptors
@@ -226,6 +235,11 @@ class IEmulatedDescriptorSet
 
 		struct SBindingInfo
 		{
+			inline bool operator!=(const SBindingInfo& other) const
+			{
+				return offset!=other.offset || descriptorType!=other.descriptorType;
+			}
+
 			uint32_t offset;
 			E_DESCRIPTOR_TYPE descriptorType = EDT_INVALID;//whatever, default value
 		};

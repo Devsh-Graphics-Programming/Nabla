@@ -17,7 +17,7 @@ namespace asset
 namespace impl
 {
 
-struct VectorUV
+struct NBL_API VectorUV
 {
 	inline VectorUV(const core::vectorSIMDf& absNormal)
 	{
@@ -35,7 +35,7 @@ struct VectorUV
 	float v;
 };
 
-struct QuantNormalHash
+struct NBL_API QuantNormalHash
 {
 	inline size_t operator()(const VectorUV& vec) const noexcept
 	{
@@ -50,7 +50,7 @@ struct QuantNormalHash
 }
 
 
-class CQuantNormalCache : public CDirQuantCacheBase<impl::VectorUV,impl::QuantNormalHash,EF_A2B10G10R10_SNORM_PACK32,EF_R8G8B8_SNORM,EF_R16G16B16_SNORM>
+class NBL_API CQuantNormalCache : public CDirQuantCacheBase<impl::VectorUV,impl::QuantNormalHash,EF_A2B10G10R10_SNORM_PACK32,EF_R8G8B8_SNORM,EF_R16G16B16_SNORM>
 {
 		using Base = CDirQuantCacheBase<impl::VectorUV,impl::QuantNormalHash,EF_A2B10G10R10_SNORM_PACK32,EF_R8G8B8_SNORM,EF_R16G16B16_SNORM>;
 

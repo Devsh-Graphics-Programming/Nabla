@@ -13,7 +13,7 @@ namespace nbl
 namespace video
 {
 
-class IGPUMesh final : public asset::IMesh<IGPUMeshBuffer>
+class NBL_API IGPUMesh final : public asset::IMesh<IGPUMeshBuffer>
 {
 		using MeshBufferRefContainer = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUMeshBuffer>>;
 		MeshBufferRefContainer m_meshBuffers;

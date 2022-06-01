@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class ISampler : public virtual core::IReferenceCounted
+class NBL_API ISampler : public virtual core::IReferenceCounted
 {
 	public:
 		//! Texture coord clamp mode outside [0.0, 1.0]

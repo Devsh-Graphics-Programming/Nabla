@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 
-class IBuffer : public core::IBuffer, public IDescriptor
+class NBL_API IBuffer : public core::IBuffer, public IDescriptor
 {
 	public:
 		E_CATEGORY getTypeCategory() const override { return EC_BUFFER; }
@@ -45,7 +45,7 @@ class IBuffer : public core::IBuffer, public IDescriptor
 };
 
 template<class BufferType>
-struct SBufferBinding
+struct NBL_API SBufferBinding
 {
 	bool isValid() const
 	{
@@ -60,7 +60,7 @@ struct SBufferBinding
 };
 
 template<typename BufferType>
-struct SBufferRange
+struct NBL_API SBufferRange
 {
 	inline bool isValid() const
 	{

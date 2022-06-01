@@ -17,7 +17,7 @@ namespace nbl::video
 {
 
 	
-class IDescriptorSetCache : public core::IReferenceCounted
+class NBL_API IDescriptorSetCache : public core::IReferenceCounted
 {
 	public:
 		using DescSetAllocator = core::PoolAddressAllocatorST<uint32_t>;

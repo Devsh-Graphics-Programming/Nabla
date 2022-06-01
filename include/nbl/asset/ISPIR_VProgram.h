@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class ISPIR_VProgram : public core::IReferenceCounted
+class NBL_API ISPIR_VProgram : public core::IReferenceCounted
 {
 	protected:
 		virtual ~ISPIR_VProgram() = default;

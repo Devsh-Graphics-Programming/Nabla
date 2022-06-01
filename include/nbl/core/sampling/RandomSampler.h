@@ -11,7 +11,7 @@
 namespace nbl::core
 {
 
-class RandomSampler
+class NBL_API RandomSampler
 {
 	public:
 		RandomSampler(uint32_t _seed)

@@ -26,6 +26,6 @@ doctemp/*
 source/obj
 source/Irrlicht/libIrrlichtServer.a
 # stuff output by examples
-examples_tests/*/bin/*
+examples_tests/*
 examples_tests/tmp/*
 android-sample/bin/*

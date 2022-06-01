@@ -45,7 +45,7 @@ namespace core
 	class vectorSIMD_16;
 	class vectorSIMDf;
 
-	class NBL_FORCE_EBO vectorSIMDIntBase  : public AlignedBase<_NBL_VECTOR_ALIGNMENT>
+	class NBL_API NBL_FORCE_EBO vectorSIMDIntBase  : public AlignedBase<_NBL_VECTOR_ALIGNMENT>
 	{
 	    public:
             inline vectorSIMDIntBase() : vectorSIMDIntBase(_mm_setzero_si128()) {}
@@ -273,7 +273,7 @@ namespace core
 #endif
 
     template <class T>
-    class NBL_FORCE_EBO vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
+    class NBL_API NBL_FORCE_EBO vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 
@@ -539,7 +539,7 @@ namespace core
 	*/
 
 
-    class NBL_FORCE_EBO vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_NBL_VECTOR_ALIGNMENT>
+    class NBL_API NBL_FORCE_EBO vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_NBL_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).
@@ -866,7 +866,7 @@ namespace core
 
 
 	template <class T, class X>
-	class NBL_FORCE_EBO SIMD_8bitSwizzleAble
+	class NBL_API NBL_FORCE_EBO SIMD_8bitSwizzleAble
 	{
 		template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H, size_t I, size_t J, size_t K, size_t L, size_t M, size_t N, size_t O, size_t P>
 		inline T swizzle() const
@@ -877,7 +877,7 @@ namespace core
 	};
 
 	template <class T, class X>
-	class NBL_FORCE_EBO SIMD_16bitSwizzleAble
+	class NBL_API NBL_FORCE_EBO SIMD_16bitSwizzleAble
 	{
 		template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H>
 		inline T swizzle() const

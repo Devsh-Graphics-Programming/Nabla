@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class CDerivativeMapMetadata final : public IAssetMetadata
+class NBL_API CDerivativeMapMetadata final : public IAssetMetadata
 {
     public:
         class CImageView : public IImageViewMetadata

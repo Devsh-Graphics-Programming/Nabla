@@ -13,7 +13,7 @@ namespace nbl::core
 namespace impl
 {
 	template<class allocator>
-	class NBL_FORCE_EBO dynamic_array_typeless_base // : public Uncopyable, public Unmovable // cannot due to diamond inheritance
+	class NBL_API NBL_FORCE_EBO dynamic_array_typeless_base // : public Uncopyable, public Unmovable // cannot due to diamond inheritance
 	{
 		protected:
 			allocator alctr;
@@ -29,7 +29,7 @@ namespace impl
 	};
 
 	template<class allocator, typename... DataTypeAndOverAlignmentTypes>
-	class NBL_FORCE_EBO alignas(ResolveAlignment<dynamic_array_typeless_base<allocator>,AlignedBase<alignof(DataTypeAndOverAlignmentTypes)>...>) dynamic_array_base : public dynamic_array_typeless_base<allocator>
+	class NBL_API NBL_FORCE_EBO alignas(ResolveAlignment<dynamic_array_typeless_base<allocator>,AlignedBase<alignof(DataTypeAndOverAlignmentTypes)>...>) dynamic_array_base : public dynamic_array_typeless_base<allocator>
 	{
 			using Base = dynamic_array_typeless_base<allocator>;
 

@@ -12,7 +12,7 @@ class IGPUFence;
 class IGPUSemaphore;
 class ISwapchain;
 
-class IGPUQueue : public core::Interface, public core::Unmovable
+class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

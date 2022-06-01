@@ -15,7 +15,7 @@
 namespace nbl::video
 {
     
-class CSubpassKiln
+class NBL_API CSubpassKiln
 {
     public:
         // for finding upper and lower bounds of subpass drawcalls

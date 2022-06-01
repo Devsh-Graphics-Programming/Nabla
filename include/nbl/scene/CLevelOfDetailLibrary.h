@@ -11,7 +11,7 @@ namespace nbl::scene
 {
 
 template<typename LoDChoiceParams=ILevelOfDetailLibrary::DefaultLoDChoiceParams, template<class...> class allocator=core::allocator>
-class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
+class NBL_API CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 {
 	public:
 		struct alignas(DrawcallInfo) LoDInfo : LoDInfoBase

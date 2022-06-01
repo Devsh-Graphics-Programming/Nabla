@@ -9,12 +9,12 @@ class IWindow;
 struct SEventBase
 {
     std::chrono::microseconds timeStamp;
-    SEventBase(std::chrono::microseconds ts) : timeStamp(ts) {}
+    inline SEventBase(std::chrono::microseconds ts) : timeStamp(ts) {}
 };
 
 struct SMouseEvent : SEventBase
 {
-    SMouseEvent(std::chrono::microseconds ts) : SEventBase(ts) {}
+    inline SMouseEvent(std::chrono::microseconds ts) : SEventBase(ts) {}
     enum E_EVENT_TYPE : uint8_t
     {
         EET_UNITIALIZED = 0,
@@ -54,7 +54,7 @@ struct SMouseEvent : SEventBase
 
 struct SKeyboardEvent : SEventBase
 {
-    SKeyboardEvent(std::chrono::microseconds ts) : SEventBase(ts) { }
+    inline SKeyboardEvent(std::chrono::microseconds ts) : SEventBase(ts) { }
     enum E_KEY_ACTION : uint8_t
     {
         ECA_UNITIALIZED = 0,

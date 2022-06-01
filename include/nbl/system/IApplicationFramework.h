@@ -9,7 +9,7 @@
 namespace nbl::system
 {
 
-class IApplicationFramework : public core::IReferenceCounted
+class NBL_API IApplicationFramework : public core::IReferenceCounted
 {
 	public:
         virtual void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) = 0;

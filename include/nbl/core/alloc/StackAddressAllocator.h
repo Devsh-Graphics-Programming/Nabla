@@ -16,7 +16,7 @@ namespace core
 {
 
 template<typename _size_type>
-class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
+class NBL_API StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
 {
         typedef LinearAddressAllocator<_size_type>  Base;
     public:

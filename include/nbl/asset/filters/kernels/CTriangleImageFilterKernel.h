@@ -15,7 +15,7 @@ namespace asset
 
 // standard Triangle function, symmetric, peak in the support is 1 and at origin, integral is 1, so support must be [-1,1]
 // to get box filters of different widths we can use it in composition inside `CScaledImageFilterKernel`
-class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel,std::ratio<1,1> >
+class NBL_API CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel,std::ratio<1,1> >
 {
 		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel,std::ratio<1,1> >;
 

@@ -16,7 +16,7 @@ namespace nbl::video
 {
 
 	
-class ICommandPoolCache : public core::IReferenceCounted
+class NBL_API ICommandPoolCache : public core::IReferenceCounted
 {
 	public:
 		using CommandPoolAllocator = core::PoolAddressAllocatorST<uint32_t>;

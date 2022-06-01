@@ -15,7 +15,7 @@ namespace asset
 {
 
 template <typename MDIStructType = DrawElementsIndirectCommand_t>
-class CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
+class NBL_API CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 {
 	using base_t = IMeshPacker<ICPUMeshBuffer, MDIStructType>;
 	using Triangle = typename base_t::Triangle;

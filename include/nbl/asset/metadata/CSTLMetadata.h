@@ -28,7 +28,12 @@ class CSTLMetadata final : public IAssetMetadata
                 inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
                 {
                     IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
-                    return *this;
+                    return *this;   
+                }
+
+                inline bool operator!=(const CRenderpassIndependentPipeline& other) const
+                {
+                    return IRenderpassIndependentPipelineMetadata::operator!=(other);
                 }
         };
             

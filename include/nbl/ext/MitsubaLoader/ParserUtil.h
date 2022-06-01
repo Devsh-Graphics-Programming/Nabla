@@ -28,7 +28,7 @@ namespace MitsubaLoader
 
 	   	  
 
-class ParserLog
+class NBL_API ParserLog
 {
 public:
 	static inline void setLogger(const system::logger_opt_ptr& logger) { ParserLog::logger = logger; };
@@ -44,7 +44,7 @@ private:
 
 
 template<typename... types>
-class ElementPool // : public std::tuple<core::vector<types>...>
+class NBL_API ElementPool // : public std::tuple<core::vector<types>...>
 {
 		core::SimpleBlockBasedAllocator<core::LinearAddressAllocator<uint32_t>,core::aligned_allocator> poolAllocator;
 	public:
@@ -59,7 +59,7 @@ class ElementPool // : public std::tuple<core::vector<types>...>
 };
 
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
-class ParserManager
+class NBL_API ParserManager
 {
 	protected:
 		struct Context

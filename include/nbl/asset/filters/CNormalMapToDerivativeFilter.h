@@ -20,7 +20,7 @@ namespace nbl::asset
 /*
 	NormalMap to DerivativeMap Swizzle
 */
-struct NormalMapToDerivativeMapSwizzle
+struct NBL_API NormalMapToDerivativeMapSwizzle
 {
 	template<typename InT, typename OutT>
 	void operator()(const InT* in, OutT* out) const

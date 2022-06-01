@@ -20,7 +20,7 @@ namespace nbl::video
     @see IDescriptorSetLayout
 */
 
-class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>, public IBackendObject
+class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>, public IBackendObject
 {
         using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 

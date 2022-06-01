@@ -15,6 +15,23 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla LANGUAGES CXX C)
 
+option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
+option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
+
+if(NBL_STATIC_BUILD)
+	message(STATUS "Static Nabla build enabled!")
+else()
+	if(WIN32 AND MSVC)
+		if(NBL_DYNAMIC_MSVC_RUNTIME)
+			message(STATUS "Shared Nabla build enabled!")
+		else()
+			message(FATAL_ERROR "Turn NBL_DYNAMIC_MSVC_RUNTIME on! For dynamic Nabla builds dynamic MSVC runtime is mandatory!")
+		endif()
+	else()
+		message(FATAL_ERROR "Nabla can't be built with shared libraries! Please make sure you are targetting Windows OS and MSVC compiler!")
+	endif()
+endif()
+
 if(NBL_BUILD_ANDROID)
 	enable_language(ASM)
 endif()
@@ -230,6 +247,12 @@ elseif(ANDROID)
 elseif(UNIX)
 	set(_NBL_PLATFORM_LINUX_ 1)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
+endif()
+
+if(NBL_STATIC_BUILD)
+	unset(_NBL_SHARED_BUILD_ CACHE)
+else()
+	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
 endif()
 
 #uncomment in the future

@@ -13,7 +13,7 @@ namespace nbl
 namespace asset
 {
 
-class IMeshPackerBase : public virtual core::IReferenceCounted
+class NBL_API IMeshPackerBase : public virtual core::IReferenceCounted
 {
     public:
         constexpr static uint32_t MAX_TRIANGLES_IN_BATCH_CNT = 21845u;
@@ -155,7 +155,7 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
 };
 
 template <typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
-class IMeshPacker : public IMeshPackerBase
+class NBL_API IMeshPacker : public IMeshPackerBase
 {
     static_assert(std::is_base_of<DrawElementsIndirectCommand_t, MDIStructType>::value);
 

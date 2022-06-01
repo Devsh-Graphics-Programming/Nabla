@@ -20,7 +20,7 @@ namespace core
     passed in has to be normalized in advance. No change to the normal will be
     made by any of the class methods.
 */
-class plane3dSIMDf : private vectorSIMDf
+class NBL_API plane3dSIMDf : private vectorSIMDf
 {
 	public:
 	    inline plane3dSIMDf() : vectorSIMDf() {}

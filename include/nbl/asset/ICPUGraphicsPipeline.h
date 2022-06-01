@@ -10,7 +10,7 @@ namespace nbl {
 namespace asset
 {
 
-class ICPUGraphicsPipeline final : public IAsset, public IGraphicsPipeline<ICPURenderpassIndependentPipeline, ICPURenderpass>
+class NBL_API ICPUGraphicsPipeline final : public IAsset, public IGraphicsPipeline<ICPURenderpassIndependentPipeline, ICPURenderpass>
 {
     using base_t = IGraphicsPipeline<ICPURenderpassIndependentPipeline, ICPURenderpass>;
 

@@ -24,7 +24,7 @@ namespace asset
 	@see IImageFilter
 */
 
-class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
+class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
 

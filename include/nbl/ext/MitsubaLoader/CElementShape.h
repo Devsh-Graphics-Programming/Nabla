@@ -19,7 +19,7 @@ namespace MitsubaLoader
 {
 
 
-class CElementShape : public IElement
+class NBL_API CElementShape : public IElement
 {
 	public:
 		enum Type

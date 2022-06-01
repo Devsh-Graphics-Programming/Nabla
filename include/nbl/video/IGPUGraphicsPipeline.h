@@ -11,7 +11,7 @@
 namespace nbl::video
 {
 
-class IGPUGraphicsPipeline : public core::IReferenceCounted, public asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline, IGPURenderpass>, public IBackendObject
+class NBL_API IGPUGraphicsPipeline : public core::IReferenceCounted, public asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline, IGPURenderpass>, public IBackendObject
 {
         using base_t = asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline, IGPURenderpass>;
 

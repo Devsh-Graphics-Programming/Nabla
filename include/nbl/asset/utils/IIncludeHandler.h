@@ -13,7 +13,7 @@ namespace nbl
 namespace asset
 {
 
-class IIncludeHandler : public core::IReferenceCounted
+class NBL_API IIncludeHandler : public core::IReferenceCounted
 {
 	public:
 		static constexpr const char* BUILTIN_PREFIX = "nbl/builtin/";

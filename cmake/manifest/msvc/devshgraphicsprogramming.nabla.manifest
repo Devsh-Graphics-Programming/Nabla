@@ -1,0 +1,4 @@
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+    <assemblyIdentity name="devshgraphicsprogramming.nabla" version="1.2.3.4" processorArchitecture="x86" type="win32"/>
+    <file name="@NABLA_DLL@"/>
+</assembly>

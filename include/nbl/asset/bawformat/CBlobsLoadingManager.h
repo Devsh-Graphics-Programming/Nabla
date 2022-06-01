@@ -20,7 +20,7 @@ namespace nbl::asset
 	class IAssetManager;
 
 
-	struct BlobLoadingParams
+	struct NBL_API BlobLoadingParams
 	{
         IAssetLoader* const ldr;
         IAssetManager* const manager;
@@ -45,7 +45,7 @@ namespace nbl::asset
 
 	Feature not ready yet. (only loading actually)
 	*/
-	class NBL_FORCE_EBO CBlobsLoadingManager
+	class NBL_API NBL_FORCE_EBO CBlobsLoadingManager
 	{
 	public:
 		core::unordered_set<uint64_t> getNeededDeps(uint32_t _blobType, const void* _blob);

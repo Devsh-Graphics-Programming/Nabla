@@ -8,7 +8,7 @@
 namespace nbl::system
 {
 #ifdef _NBL_PLATFORM_ANDROID_
-class CFileViewAPKAllocator : public IFileViewAllocator
+class NBL_API CFileViewAPKAllocator : public IFileViewAllocator
 {
 	public:
 		using IFileViewAllocator::IFileViewAllocator;
