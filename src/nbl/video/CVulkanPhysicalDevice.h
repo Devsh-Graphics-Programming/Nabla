@@ -179,6 +179,9 @@ public:
         }
         
         // Get physical device's features
+        VkPhysicalDeviceVulkan13Features vulkan13Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES, nullptr };
+        VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &vulkan13Features };
+        VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &vulkan12Features };
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rayTracingPipelineFeatures };
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &accelerationFeatures };
@@ -201,6 +204,13 @@ public:
             m_features.vertexAttributeDouble = features.shaderFloat64;
             m_features.inheritedQueries = features.inheritedQueries;
             
+            /* Vulkan 1.1 Core  */
+            
+            /* Vulkan 1.2 Core  */
+            m_features.drawIndirectCount = vulkan12Features.drawIndirectCount;
+            
+            /* Vulkan 1.3 Core  */
+
             /* RayQueryFeaturesKHR */
             if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
                 m_features.rayQuery = rayQueryFeatures.rayQuery;
@@ -239,7 +249,6 @@ public:
                 m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             }
             
-            m_features.drawIndirectCount = false; // TODO(Erfan)
             m_features.dispatchBase = true;
             m_features.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
         }
