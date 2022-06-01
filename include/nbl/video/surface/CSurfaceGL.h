@@ -71,7 +71,7 @@ class CSurfaceGLImpl : public Base<Window,ISurface>
             capabilities.maxImageCount = ~0u;
             capabilities.currentExtent = { this->getWidth(), this->getHeight() };
             capabilities.minImageExtent = { 1u, 1u };
-            capabilities.maxImageExtent = { static_cast<uint32_t>(physicalDevice->getLimits().maxTextureSize), static_cast<uint32_t>(physicalDevice->getLimits().maxTextureSize) };
+            capabilities.maxImageExtent = { static_cast<uint32_t>(physicalDevice->getLimits().maxImageDimension2D), static_cast<uint32_t>(physicalDevice->getLimits().maxImageDimension2D) };
             capabilities.maxImageArrayLayers = physicalDevice->getLimits().maxImageArrayLayers;
             capabilities.supportedTransforms = ISurface::EST_IDENTITY_BIT;
             capabilities.currentTransform = ISurface::EST_IDENTITY_BIT;

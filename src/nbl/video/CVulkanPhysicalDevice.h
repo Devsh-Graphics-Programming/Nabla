@@ -29,62 +29,79 @@ public:
         }
 
         // Get physical device's limits/properties
-        VkPhysicalDeviceDriverProperties driverProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES };
-        VkPhysicalDeviceIDProperties deviceIDProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES, &driverProperties };
-        VkPhysicalDeviceSubgroupProperties subgroupProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES, &deviceIDProperties };
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &subgroupProperties };
+        VkPhysicalDeviceVulkan13Properties vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES, nullptr };
+        VkPhysicalDeviceVulkan12Properties vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES, &vulkan13Properties };
+        VkPhysicalDeviceVulkan11Properties vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES, &vulkan12Properties };
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &vulkan11Properties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             deviceProperties.pNext = &accelerationStructureProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
-            
-            memcpy(m_properties.deviceUUID, deviceIDProperties.deviceUUID, VK_UUID_SIZE);
+
+            /* Vulkan Core 1.0 */
             m_properties.deviceType = static_cast<E_TYPE>(deviceProperties.properties.deviceType);
-            m_properties.driverID = static_cast<E_DRIVER_ID>(driverProperties.driverID);
-            // TODO fill m_properties
-                    
-            m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
-            m_properties.limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
-            m_properties.limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
-            m_properties.limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
-            
-            m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
-            
+            m_properties.limits.maxImageDimension1D = deviceProperties.properties.limits.maxImageDimension1D;
+            m_properties.limits.maxImageDimension2D = deviceProperties.properties.limits.maxImageDimension2D;
+            m_properties.limits.maxImageDimension3D = deviceProperties.properties.limits.maxImageDimension3D;
+            m_properties.limits.maxImageDimensionCube = deviceProperties.properties.limits.maxImageDimensionCube;
+            m_properties.limits.maxImageArrayLayers = deviceProperties.properties.limits.maxImageArrayLayers;
             m_properties.limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
             m_properties.limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_properties.limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
-            m_properties.limits.maxBufferSize = core::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
-                    
             m_properties.limits.maxPerStageDescriptorSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
-                    
-            m_properties.limits.maxDescriptorSetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
             m_properties.limits.maxDescriptorSetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
-            m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
             m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
+            m_properties.limits.maxDescriptorSetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
+            m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
             m_properties.limits.maxDescriptorSetImages = deviceProperties.properties.limits.maxDescriptorSetSampledImages;
             m_properties.limits.maxDescriptorSetStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
-                    
+            m_properties.limits.maxComputeSharedMemorySize = deviceProperties.properties.limits.maxComputeSharedMemorySize;
+            m_properties.limits.maxWorkgroupSize[0] = deviceProperties.properties.limits.maxComputeWorkGroupSize[0];
+            m_properties.limits.maxWorkgroupSize[1] = deviceProperties.properties.limits.maxComputeWorkGroupSize[1];
+            m_properties.limits.maxWorkgroupSize[2] = deviceProperties.properties.limits.maxComputeWorkGroupSize[2];
+            m_properties.limits.maxDrawIndirectCount = deviceProperties.properties.limits.maxDrawIndirectCount;
+            m_properties.limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
+            m_properties.limits.maxViewports = deviceProperties.properties.limits.maxViewports;
+            m_properties.limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
+            m_properties.limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
+            m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
+            m_properties.limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
+            m_properties.limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
+            m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
             m_properties.limits.pointSizeRange[0] = deviceProperties.properties.limits.pointSizeRange[0];
             m_properties.limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];
             m_properties.limits.lineWidthRange[0] = deviceProperties.properties.limits.lineWidthRange[0];
             m_properties.limits.lineWidthRange[1] = deviceProperties.properties.limits.lineWidthRange[1];
-
-            m_properties.limits.maxViewports = deviceProperties.properties.limits.maxViewports;
-            m_properties.limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
-            m_properties.limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
-            
-            m_properties.limits.maxComputeSharedMemorySize = deviceProperties.properties.limits.maxComputeSharedMemorySize;
-                    
-            m_properties.limits.maxWorkgroupSize[0] = deviceProperties.properties.limits.maxComputeWorkGroupSize[0];
-            m_properties.limits.maxWorkgroupSize[1] = deviceProperties.properties.limits.maxComputeWorkGroupSize[1];
-            m_properties.limits.maxWorkgroupSize[2] = deviceProperties.properties.limits.maxComputeWorkGroupSize[2];
-                    
-            m_properties.limits.subgroupSize = subgroupProperties.subgroupSize;
-            m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(subgroupProperties.supportedStages);
-
             m_properties.limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
             
+            /* Vulkan Core 1.1 */
+            memcpy(m_properties.deviceUUID, vulkan11Properties.deviceUUID, VK_UUID_SIZE);
+
+            /* SubgroupProperties */
+            m_properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
+            m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
+            m_properties.limits.shaderSubgroupBasic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT;
+            m_properties.limits.shaderSubgroupVote = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_VOTE_BIT;
+            m_properties.limits.shaderSubgroupArithmetic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
+            m_properties.limits.shaderSubgroupBallot = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT;
+            m_properties.limits.shaderSubgroupShuffle = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_BIT;
+            m_properties.limits.shaderSubgroupShuffleRelative = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
+            m_properties.limits.shaderSubgroupClustered = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_CLUSTERED_BIT;
+            m_properties.limits.shaderSubgroupQuad = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
+            m_properties.limits.shaderSubgroupQuadAllStages = vulkan11Properties.subgroupQuadOperationsInAllStages;
+            
+            /* Vulkan Core 1.2 */
+            m_properties.driverID = static_cast<E_DRIVER_ID>(vulkan12Properties.driverID);
+            memcpy(m_properties.driverName, vulkan12Properties.driverName, VK_MAX_DRIVER_NAME_SIZE);
+            memcpy(m_properties.driverInfo, vulkan12Properties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
+            m_properties.conformanceVersion = vulkan12Properties.conformanceVersion;
+
+            /* Vulkan Core 1.3 */
+
+
+            /* Nabla */
+            m_properties.limits.maxBufferSize = core::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
             m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
@@ -123,8 +140,8 @@ public:
             m_properties.apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
             m_properties.apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
             m_properties.apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
-
-            // AccelerationStructure
+            
+            /* AccelerationStructurePropertiesKHR */
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
                 m_properties.limits.maxGeometryCount = accelerationStructureProperties.maxGeometryCount;
@@ -136,8 +153,8 @@ public:
                 m_properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
                 m_properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
             }
-
-            // RayTracingPipeline
+            
+            /* RayTracingPipelinePropertiesKHR */
             if (m_availableFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
                 m_properties.limits.shaderGroupHandleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
@@ -162,33 +179,23 @@ public:
             deviceFeatures.pNext = &fragmentShaderInterlockFeatures;
             vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice, &deviceFeatures);
             const auto& features = deviceFeatures.features;
-                    
+
+            /* Vulkan Core 1.0 */
             m_features.robustBufferAccess = features.robustBufferAccess;
             m_features.imageCubeArray = features.imageCubeArray;
+            m_features.geometryShader = features.geometryShader;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
-            m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.multiViewport = features.multiViewport;
+            m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.vertexAttributeDouble = features.shaderFloat64;
-            m_features.dispatchBase = false; // Todo(achal): Umm.. what is this? Whether you can call VkCmdDispatchBase with non zero base args
-            m_features.shaderSubgroupBasic = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT;
-            m_features.shaderSubgroupVote = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_VOTE_BIT;
-            m_features.shaderSubgroupArithmetic = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
-            m_features.shaderSubgroupBallot = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_BALLOT_BIT;
-            m_features.shaderSubgroupShuffle = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_BIT;
-            m_features.shaderSubgroupShuffleRelative = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
-            m_features.shaderSubgroupClustered = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_CLUSTERED_BIT;
-            m_features.shaderSubgroupQuad = subgroupProperties.supportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
-            m_features.shaderSubgroupQuadAllStages = ((subgroupProperties.supportedStages & asset::IShader::E_SHADER_STAGE::ESS_ALL)
-                                                        == asset::IShader::E_SHADER_STAGE::ESS_ALL);
             m_features.inheritedQueries = features.inheritedQueries;
-            m_features.geometryShader = features.geometryShader;
-            // RayQuery
+            
+            /* RayQueryFeaturesKHR */
             if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
                 m_features.rayQuery = rayQueryFeatures.rayQuery;
-            m_features.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
             
-                                                             // AccelerationStructure
+            /* AccelerationStructureFeaturesKHR */                          // AccelerationStructure
             if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
                 m_features.accelerationStructure = accelerationFeatures.accelerationStructure;
@@ -197,8 +204,8 @@ public:
                 m_features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
                 m_features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
             }
-
-            // RayTracingPipeline
+            
+            /* RayTracingPipelineFeaturesKHR */
             if (m_availableFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
                 m_features.rayTracingPipeline = rayTracingPipelineFeatures.rayTracingPipeline;
@@ -207,22 +214,24 @@ public:
                 m_features.rayTracingPipelineTraceRaysIndirect = rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect;
                 m_features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
             }
-
-            // Buffer Device Address
-            if (m_availableFeatureSet.find(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) != m_availableFeatureSet.end())
-            {
-                m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
-                // bufferDeviceAddressFeatures.bufferDeviceAddress;
-                // bufferDeviceAddressFeatures.bufferDeviceAddress;
-            }
             
-            // FragmentShaderInterlock
+            /* FragmentShaderInterlockFeaturesEXT */
             if (m_availableFeatureSet.find(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME) != m_availableFeatureSet.end())
             {
                 m_features.fragmentShaderPixelInterlock = fragmentShaderInterlockFeatures.fragmentShaderPixelInterlock;
                 m_features.fragmentShaderSampleInterlock = fragmentShaderInterlockFeatures.fragmentShaderSampleInterlock;
                 m_features.fragmentShaderShadingRateInterlock = fragmentShaderInterlockFeatures.fragmentShaderShadingRateInterlock;
             }
+            
+            /* BufferDeviceAddressFeaturesKHR */
+            if (m_availableFeatureSet.find(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
+            }
+            
+            m_features.drawIndirectCount = false; // TODO(Erfan)
+            m_features.dispatchBase = true;
+            m_features.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
         }
 
         // Get physical device's memory properties

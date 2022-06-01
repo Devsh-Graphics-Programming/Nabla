@@ -287,13 +287,64 @@ public:
 				m_properties.driverID = E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
 		}
 		else if(hasInString(vendor, "intel", true) || hasInString(renderer, "intel", true))
+		{
+#if defined(_NBL_PLATFORM_WINDOWS_)
 			m_properties.driverID = E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS;
+#else
+			m_properties.driverID = E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA;
+			_NBL_DEBUG_BREAK_IF(true); // Should've captured it in the previous if, need to update logic
+#endif
+		}
 		else if(hasInString(vendor, "ati technologies", true) || hasInString(vendor, "amd", true) || hasInString(renderer, "amd", true))
 			m_properties.driverID = E_DRIVER_ID::EDI_AMD_PROPRIETARY;
 		else if(hasInString(vendor, "nvidia", true)) // easiest to detect :D
 			m_properties.driverID = E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY;
 		else 
 			m_properties.driverID = E_DRIVER_ID::EDI_UNKNOWN;
+
+		memset(m_properties.deviceUUID, 0, VK_UUID_SIZE);
+		strcpy(m_properties.driverInfo, renderer);
+		// driverName
+		switch (m_properties.driverID)
+		{
+		case E_DRIVER_ID::EDI_AMD_PROPRIETARY: strcpy(m_properties.driverName, "AMD proprietary driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_AMD_OPEN_SOURCE: strcpy(m_properties.driverName, "AMD open-source driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_MESA_RADV: strcpy(m_properties.driverName, "radv"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY: strcpy(m_properties.driverName, "NVIDIA"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS: strcpy(m_properties.driverName, "Intel Corporation"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA: strcpy(m_properties.driverName, "Intel open-source Mesa driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_IMAGINATION_PROPRIETARY: strcpy(m_properties.driverName, "Imagination Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_QUALCOMM_PROPRIETARY: strcpy(m_properties.driverName, "Qualcomm Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_ARM_PROPRIETARY: strcpy(m_properties.driverName, "ARM Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_GOOGLE_SWIFTSHADER: strcpy(m_properties.driverName, "SwiftShader driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_GGP_PROPRIETARY: strcpy(m_properties.driverName, "GGP Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_BROADCOM_PROPRIETARY: strcpy(m_properties.driverName, "BROADCOM Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_MESA_LLVMPIPE: strcpy(m_properties.driverName, "llvmpipe"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_MOLTENVK: strcpy(m_properties.driverName, "MoltenVk Driver"); break;
+		case E_DRIVER_ID::EDI_COREAVI_PROPRIETARY: strcpy(m_properties.driverName, "COREAVI Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_JUICE_PROPRIETARY: strcpy(m_properties.driverName, "JUICE Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_VERISILICON_PROPRIETARY: strcpy(m_properties.driverName, "VERISILICON Proprietary driver"); break;
+		case E_DRIVER_ID::EDI_MESA_TURNIP: strcpy(m_properties.driverName, "turnip Mesa driver"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_MESA_V3DV: strcpy(m_properties.driverName, "V3DV Mesa driver"); break;
+		case E_DRIVER_ID::EDI_MESA_PANVK: strcpy(m_properties.driverName, "PANVK Mesa driver"); break;
+		case E_DRIVER_ID::EDI_SAMSUNG_PROPRIETARY: strcpy(m_properties.driverName, "Samsung Driver"); break;
+		case E_DRIVER_ID::EDI_MESA_VENUS: strcpy(m_properties.driverName, "venus"); break; // from vulkan.gpuinfo.org
+		case E_DRIVER_ID::EDI_UNKNOWN:
+		default: strcpy(m_properties.driverName, "UNKNOWN"); break;
+		}
+
+
+		// conformanceVersion
+		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
+			m_properties.conformanceVersion = {3u, 3u, 0u, 0u};
+		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
+		else
+		{
+			// TODO(Erfan):???
+		}
 
 		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
 
@@ -488,7 +539,6 @@ public:
 		{
 			m_features.allowCommandBufferQueryCopies = true;
 		}
-		m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 		{
@@ -528,33 +578,14 @@ public:
 
 		// physical device features
 		{
-			m_features.logicOp = !IsGLES;
-			m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
-			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
-			m_features.vertexAttributeDouble = !IsGLES;
+			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
+			m_features.logicOp = !IsGLES;
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
+			m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
+			m_features.vertexAttributeDouble = !IsGLES;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
-
-			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
-			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
-			{
-				GLboolean subgroupQuadAllStages = GL_FALSE;
-				GetBooleanv(GL_SUBGROUP_QUAD_ALL_STAGES_KHR, &subgroupQuadAllStages);
-				m_features.shaderSubgroupQuadAllStages = static_cast<bool>(subgroupQuadAllStages);
-
-				GLint subgroup = 0;
-				GetIntegerv(GL_SUBGROUP_SUPPORTED_FEATURES_KHR, &subgroup);
-
-				m_features.shaderSubgroupBasic = (subgroup & GL_SUBGROUP_FEATURE_BASIC_BIT_KHR);
-				m_features.shaderSubgroupVote = (subgroup & GL_SUBGROUP_FEATURE_VOTE_BIT_KHR);
-				m_features.shaderSubgroupArithmetic = (subgroup & GL_SUBGROUP_FEATURE_ARITHMETIC_BIT_KHR);
-				m_features.shaderSubgroupBallot = (subgroup & GL_SUBGROUP_FEATURE_BALLOT_BIT_KHR);
-				m_features.shaderSubgroupShuffle = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_BIT_KHR);
-				m_features.shaderSubgroupShuffleRelative = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR);
-				m_features.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
-				m_features.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
-			}
+			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
 			{
@@ -567,8 +598,6 @@ public:
 
 		// physical device limits
 		{
-			// TODO: get deviceUUID
-			// TODO: get deviceType
 			int majorVer = 0;
 			int minorVer = 0;
 			GetIntegerv(GL_MAJOR_VERSION, &majorVer);
@@ -577,21 +606,22 @@ public:
 			m_properties.apiVersion.minor = minorVer;
 			m_properties.apiVersion.patch = 0u;
 			
-			// GL doesnt have any limit on this (???)
-			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
-
-			m_properties.limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
-			m_properties.limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
-			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
-
+			/* Vulkan Core 1.0 */
+			GLint64 maxTextureSize = 0u; // 1D + 2D
+			GLint64 max3DTextureSize = 0u; // 1D + 2D
+			GLint64 maxCubeMapTextureSize = 0u;
+			GetInteger64v(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+			GetInteger64v(GL_MAX_3D_TEXTURE_SIZE, &max3DTextureSize);
+			GetInteger64v(GL_MAX_CUBE_MAP_TEXTURE_SIZE, &maxCubeMapTextureSize);
+			m_properties.limits.maxImageDimension1D = maxTextureSize;
+			m_properties.limits.maxImageDimension2D	= maxTextureSize;
+			m_properties.limits.maxImageDimension3D	= max3DTextureSize;
+			m_properties.limits.maxImageDimensionCube =	maxCubeMapTextureSize;
+			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
+			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
 			m_properties.limits.maxUBOSize = m_glfeatures.maxUBOSize;
 			m_properties.limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
-			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
-			m_properties.limits.maxBufferSize = std::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
-
-			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
-			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
-
+			
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
 			GetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, max_ssbos + 1);
@@ -599,53 +629,48 @@ public:
 			GetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, max_ssbos + 3);
 			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, max_ssbos + 4);
 			uint32_t maxSSBOsPerStage = static_cast<uint32_t>(*std::min_element(max_ssbos, max_ssbos + 5));
-
 			m_properties.limits.maxPerStageDescriptorSSBOs = maxSSBOsPerStage;
-
-			m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
+			
 			m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
-			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
 			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
+			m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
+			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
 			m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
 			m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
-			GetInteger64v(GL_MAX_TEXTURE_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxTextureSize));
-
-			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
-			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_properties.limits.lineWidthRange);
-
-			GLint maxViewportExtent[2]{0,0};
-			GetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewportExtent);
-
-			GLint maxViewports = 16;
-			GetIntegerv(GL_MAX_VIEWPORTS, &maxViewports);
-
-			m_properties.limits.maxViewports = maxViewports;
-
-			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
-			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
-
+			
 			GLint maxComputeSharedMemorySize = 0;
 			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
 			m_properties.limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
-
 			m_properties.limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
 			m_properties.limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
 			m_properties.limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
+			
+			// GL doesnt have any limit on this (???)
+			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
+			
+			GLint maxViewportExtent[2]{0,0};
+			GetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewportExtent);
+			GLint maxViewports = 16;
+			GetIntegerv(GL_MAX_VIEWPORTS, &maxViewports);
+			m_properties.limits.maxViewports = maxViewports;
+			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
+			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
 
-			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
-			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_properties.limits.maxOptimallyResidentWorkgroupInvocations));
-			m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_properties.limits.maxOptimallyResidentWorkgroupInvocations),512u);
-			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
-			m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
+			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
+			m_properties.limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
+			m_properties.limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
+			
+			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
-			// TODO: better subgroup exposal
+			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
+			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_properties.limits.lineWidthRange);
+			
+			m_properties.limits.nonCoherentAtomSize = 256ull;
+			
+			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;
 			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 			
-			m_properties.limits.nonCoherentAtomSize = 256ull;
-
-			m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
-
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLint subgroupSize = 0;
@@ -666,6 +691,39 @@ public:
 				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
 					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
 			}
+			
+			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
+			{
+				GLboolean subgroupQuadAllStages = GL_FALSE;
+				GetBooleanv(GL_SUBGROUP_QUAD_ALL_STAGES_KHR, &subgroupQuadAllStages);
+				m_properties.limits.shaderSubgroupQuadAllStages = static_cast<bool>(subgroupQuadAllStages);
+
+				GLint subgroup = 0;
+				GetIntegerv(GL_SUBGROUP_SUPPORTED_FEATURES_KHR, &subgroup);
+
+				m_properties.limits.shaderSubgroupBasic = (subgroup & GL_SUBGROUP_FEATURE_BASIC_BIT_KHR);
+				m_properties.limits.shaderSubgroupVote = (subgroup & GL_SUBGROUP_FEATURE_VOTE_BIT_KHR);
+				m_properties.limits.shaderSubgroupArithmetic = (subgroup & GL_SUBGROUP_FEATURE_ARITHMETIC_BIT_KHR);
+				m_properties.limits.shaderSubgroupBallot = (subgroup & GL_SUBGROUP_FEATURE_BALLOT_BIT_KHR);
+				m_properties.limits.shaderSubgroupShuffle = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_BIT_KHR);
+				m_properties.limits.shaderSubgroupShuffleRelative = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR);
+				m_properties.limits.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
+				m_properties.limits.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
+			}
+
+			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
+			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
+			
+			/* Nabla */
+			m_properties.limits.maxBufferSize = std::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
+			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_properties.limits.maxOptimallyResidentWorkgroupInvocations));
+			m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_properties.limits.maxOptimallyResidentWorkgroupInvocations),512u);
+			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
+			m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
+
+			m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
 		}
 
 		std::ostringstream pool;

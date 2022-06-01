@@ -147,6 +147,7 @@ void IUtilities::updateImageViaStagingBuffer(
             }
         }
 
+        // TODO(Erfan): apply changes from updateBufferRangeViaStagingBuffer to here regarding allocation size
         uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;
         uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), allocationAlignment), memoryNeededForRemainingRegions));
         subSize = std::max(subSize, memoryLowerBound);

@@ -73,10 +73,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct SLimits
         {
-            //uint32_t              maxImageDimension1D;
-            //uint32_t              maxImageDimension2D;
-            //uint32_t              maxImageDimension3D;
-            //uint32_t              maxImageDimensionCube;
+            /* Vulkan Core 1.0 */
+            uint32_t maxImageDimension1D;
+            uint32_t maxImageDimension2D;
+            uint32_t maxImageDimension3D;
+            uint32_t maxImageDimensionCube;
             uint32_t maxImageArrayLayers;
             uint32_t maxBufferViewSizeTexels;
             uint32_t maxUBOSize;
@@ -179,14 +180,22 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             //VkDeviceSize          optimalBufferCopyOffsetAlignment;
             //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
             uint64_t nonCoherentAtomSize;
-
-            //--> VkPhysicalDeviceSubgroupProperties
+            
+            /* SubgroupProperties */
             uint32_t subgroupSize;
             core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
             //VkSubgroupFeatureFlags    supportedOperations; -> in SFeatures as booleans instead of flags
-            //VkBool32                  quadOperationsInAllStages;
+            bool shaderSubgroupBasic = false;
+            bool shaderSubgroupVote = false;
+            bool shaderSubgroupArithmetic = false;
+            bool shaderSubgroupBallot = false;
+            bool shaderSubgroupShuffle = false;
+            bool shaderSubgroupShuffleRelative = false;
+            bool shaderSubgroupClustered = false;
+            bool shaderSubgroupQuad = false;
+            bool shaderSubgroupQuadAllStages = false; //quadOperationsInAllStages;
             
-            //--> VkPhysicalDeviceAccelerationStructurePropertiesKHR
+            /* AccelerationStructurePropertiesKHR */
             uint64_t           maxGeometryCount;
             uint64_t           maxInstanceCount;
             uint64_t           maxPrimitiveCount;
@@ -195,8 +204,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t           maxDescriptorSetAccelerationStructures;
             uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
             uint32_t           minAccelerationStructureScratchOffsetAlignment;
-
-            //--> VkPhysicalDeviceRayTracingPipelinePropertiesKHR
+            
+            /* RayTracingPipelinePropertiesKHR */
             uint32_t           shaderGroupHandleSize;
             uint32_t           maxRayRecursionDepth;
             uint32_t           maxShaderGroupStride;
@@ -205,10 +214,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t           maxRayDispatchInvocationCount;
             uint32_t           shaderGroupHandleAlignment;
             uint32_t           maxRayHitAttributeSize;
-
-            //--> Nabla:
+            
+            /* Nabla */
             uint32_t maxBufferSize;
-            uint64_t maxTextureSize; // TODO: Use maxImageDimensions1D/2D/3D/Cube instead for gl and get rid of this
             uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
             uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
             asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
@@ -228,7 +236,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SProperties
         {
-            //--> VkPhysicalDeviceProperties:
+            /* Vulkan Core 1.0 */
             APIVersion  apiVersion;
             // uint32_t driverVersion;
             // uint32_t vendorID;
@@ -236,21 +244,21 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             E_TYPE      deviceType;
             // char     deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
             // uint8_t  pipelineCacheUUID[VK_UUID_SIZE];
-            SLimits     limits;
+            SLimits     limits; // Contains Limits on Vulkan Core 1.0, 1.1, 1.2 and extensions
             // VkPhysicalDeviceSparseProperties    sparseProperties;
-
-            //--> VkPhysicalDeviceDriverProperties
-            E_DRIVER_ID driverID;
-            // char driverName[VK_MAX_DRIVER_NAME_SIZE];
-            // char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
-            // VkConformanceVersion conformanceVersion;
-
-            //--> VkPhysicalDeviceIDProperties
+            
+            /* Vulkan Core 1.1 */
             uint8_t deviceUUID[VK_UUID_SIZE];
             // uint8_t driverUUID[VK_UUID_SIZE];
             // uint8_t deviceLUID[VK_LUID_SIZE];
             // uint32_t deviceNodeMask;
             // VkBool32 deviceLUIDValid;
+
+            /* Vulkan Core 1.2 */
+            E_DRIVER_ID driverID;
+            char driverName[VK_MAX_DRIVER_NAME_SIZE];
+            char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
+            VkConformanceVersion conformanceVersion;
         };
 
         const SProperties& getProperties() const { return m_properties; }
@@ -260,6 +268,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct SFeatures
         {
+            /* Vulkan Core 1.0 */
             bool robustBufferAccess = false;
             //VkBool32    fullDrawIndexUint32;
             bool imageCubeArray = false;
@@ -315,51 +324,38 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             //VkBool32    sparseResidencyAliased;
             //VkBool32    variableMultisampleRate;
             bool inheritedQueries = false;
-
-            //--> VkPhysicalDeviceSubgroupProperties: // TODO(Erfan): I think we should move these into SProperties::SLimits since it's part of properties and not features
-            bool shaderSubgroupBasic = false;
-            bool shaderSubgroupVote = false;
-            bool shaderSubgroupArithmetic = false;
-            bool shaderSubgroupBallot = false;
-            bool shaderSubgroupShuffle = false;
-            bool shaderSubgroupShuffleRelative = false;
-            bool shaderSubgroupClustered = false;
-            bool shaderSubgroupQuad = false;
-            // Whether `shaderSubgroupQuad` flag refer to all stages where subgroup ops are reported to be supported.
-            // See SLimit::subgroupOpsShaderStages.
-            bool shaderSubgroupQuadAllStages = false;
-
-            //--> VkPhysicalDeviceRayQueryFeaturesKHR
+            
+            /* RayQueryFeaturesKHR */
             bool rayQuery = false;
-
-            //--> VkPhysicalDeviceAccelerationStructureFeaturesKHR
+            
+            /* AccelerationStructureFeaturesKHR */
             bool accelerationStructure = false;
             bool accelerationStructureCaptureReplay = false;
             bool accelerationStructureIndirectBuild = false;
             bool accelerationStructureHostCommands = false;
             bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
-
-            //--> VkPhysicalDeviceRayTracingPipelineFeaturesKHR
+            
+            /* RayTracingPipelineFeaturesKHR */
             bool rayTracingPipeline = false;
             bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
             bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
             bool rayTracingPipelineTraceRaysIndirect = false;
             bool rayTraversalPrimitiveCulling = false;
-
-            //--> VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT
+            
+            /* FragmentShaderInterlockFeaturesEXT */
             bool fragmentShaderSampleInterlock = false;
             bool fragmentShaderPixelInterlock = false;
             bool fragmentShaderShadingRateInterlock = false;
-
-
-            //--> VkPhysicalDeviceBufferDeviceAddressFeaturesKHR
+            
+            /* BufferDeviceAddressFeaturesKHR */
             bool bufferDeviceAddress = false;
             //VkBool32           bufferDeviceAddressCaptureReplay;
             //VkBool32           bufferDeviceAddressMultiDevice;
             
-            //--> Nabla:
-            bool dispatchBase = false;
-            bool drawIndirectCount = false;
+            bool drawIndirectCount = false; // TODO(Erfan): Move in 1.2 features
+            
+            /* Nabla */
+            bool dispatchBase = false; // true in Vk, false in GL
             bool allowCommandBufferQueryCopies = false;
         };
         const SFeatures& getFeatures() const { return m_features; }
