@@ -17,8 +17,8 @@ namespace nbl::video
 class NBL_API IUtilities : public core::IReferenceCounted
 {
     protected:
-        static constexpr uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        static constexpr uint32_t minStreamingBufferAllocationSize = 1024u;
+        constexpr static inline uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
+        constexpr static inline uint32_t minStreamingBufferAllocationSize = 1024u;
 
     public:
         IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(_device))
@@ -133,7 +133,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
         {
-            // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
+            // Todo: Remove this API check once OpenGL(ES) does its format usage reporting correctly
             if (srcBuffer->getAPIType() == EAT_VULKAN)
             {
                 const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(params.format);
@@ -369,7 +369,17 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 // due to coherent flushing atom sizes, we need to pad
                 const size_t paddedSize = core::alignUp(size,alignment);
                 // how large we can make the allocation
-                uint32_t maxFreeBlock = core::alignDown(m_defaultUploadBuffer.get()->max_size(),alignment);
+                uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
+                // if we aim to make a "slightly" smaller allocation we need to assume worst case about fragmentation
+                if (!core::is_aligned_to(maxFreeBlock,alignment) || maxFreeBlock>paddedSize)
+                {
+                    // two freeblocks might be spawned, one for the front (due to alignment) and one for the end
+                    const auto maxWastedSpace = (minStreamingBufferAllocationSize<<1)+alignment-1u;
+                    if (maxFreeBlock>maxWastedSpace)
+                        maxFreeBlock = core::alignDown(maxFreeBlock-maxWastedSpace,alignment);
+                    else
+                        maxFreeBlock = 0;
+                }
                 // don't want to be stuck doing tiny copies, better defragment the allocator by forcing an allocation failure
                 const bool largeEnoughTransfer = maxFreeBlock>=paddedSize || maxFreeBlock>=optimalTransferAtom;
                 // how big of an allocation we'll make
@@ -533,7 +543,17 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 const size_t notDownloadedSize = srcBufferRange.size - downloadedSize;
                 const size_t notDownloadedSizePadded = core::alignUp(notDownloadedSize, alignment);
                 // how large we can make the allocation
-                const uint32_t maxFreeBlock = core::alignDown(m_defaultDownloadBuffer.get()->max_size(), alignment);
+                uint32_t maxFreeBlock = m_defaultDownloadBuffer.get()->max_size();
+                // if we aim to make a "slightly" smaller allocation we need to assume worst case about fragmentation
+                if (!core::is_aligned_to(maxFreeBlock,alignment) || maxFreeBlock>notDownloadedSizePadded)
+                {
+                    // two freeblocks might be spawned, one for the front (due to alignment) and one for the end
+                    const auto maxWastedSpace = (minStreamingBufferAllocationSize<<1)+alignment-1u;
+                    if (maxFreeBlock>maxWastedSpace)
+                        maxFreeBlock = core::alignDown(maxFreeBlock-maxWastedSpace,alignment);
+                    else
+                        maxFreeBlock = 0;
+                }
                 const bool largeEnoughTransfer = maxFreeBlock >= notDownloadedSizePadded || maxFreeBlock >= optimalTransferAtom;
                 const uint32_t allocationSize = static_cast<uint32_t>(
                     core::min<size_t>(largeEnoughTransfer ? maxFreeBlock : optimalTransferAtom,
