@@ -167,10 +167,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32           borderColorSwizzle;
     //VkBool32           borderColorSwizzleFromImage;
 
-    /* BufferDeviceAddressFeaturesKHR *//* VK_EXT_buffer_device_address */
-    bool bufferDeviceAddress = false;
-    //VkBool32           bufferDeviceAddressCaptureReplay;
-    //VkBool32           bufferDeviceAddressMultiDevice;
+    /* VK_EXT_buffer_device_address *//* HAS KHR VERSION */
 
     /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
     //VkBool32           colorWriteEnable;
@@ -328,16 +325,52 @@ struct SPhysicalDeviceFeatures
     //VkBool32           vertexAttributeInstanceRateDivisor;
     //VkBool32           vertexAttributeInstanceRateZeroDivisor;
 
-    /* RayQueryFeaturesKHR */
-    bool rayQuery = false;
-            
-    /* AccelerationStructureFeaturesKHR */
+    /* VertexInputDynamicStateFeaturesEXT *//* VK_EXT_vertex_input_dynamic_state */
+    //VkBool32           vertexInputDynamicState;
+
+    /* Ycbcr2Plane444FormatsFeaturesEXT *//* VK_EXT_ycbcr_2plane_444_formats */
+    //VkBool32           ycbcr2plane444Formats;
+
+    /* YcbcrImageArraysFeaturesEXT *//* VK_EXT_ycbcr_image_arrays */
+    //VkBool32           ycbcrImageArrays;
+
+    /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
+    //VkBool32           shaderIntegerFunctions2;
+
+    /* 16BitStorageFeaturesKHR *//* VK_KHR_16bit_storage *//* MOVED TO Vulkan 1.1 Core */
+    /* 8BitStorageFeaturesKHR *//* VK_KHR_8bit_storage *//* MOVED TO Vulkan 1.2 Core */
+
+    /* AccelerationStructureFeaturesKHR *//* VK_KHR_acceleration_structure */
     bool accelerationStructure = false;
     bool accelerationStructureCaptureReplay = false;
     bool accelerationStructureIndirectBuild = false;
     bool accelerationStructureHostCommands = false;
     bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
             
+    /* BufferDeviceAddressFeaturesKHR *//* VK_KHR_buffer_device_address */
+    bool bufferDeviceAddress = false;
+    //VkBool32           bufferDeviceAddressCaptureReplay;
+    //VkBool32           bufferDeviceAddressMultiDevice;
+
+    /* DynamicRenderingFeaturesKHR *//* VK_KHR_dynamic_rendering *//* MOVED TO Vulkan 1.3 Core */
+
+    /* [!!NV Version below, struct doesn't exist in vk headers] VK_KHR_fragment_shader_barycentric */
+
+    /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
+    //VkBool32           pipelineFragmentShadingRate;
+    //VkBool32           primitiveFragmentShadingRate;
+    //VkBool32           attachmentFragmentShadingRate;
+    
+    /* FragmentShadingRateFeaturesKHR *//* VK_KHR_global_priority */
+    //VkBool32           globalPriorityQuery;
+
+
+
+    /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
+    //VkBool32           fragmentShaderBarycentric;
+    /* RayQueryFeaturesKHR */
+    bool rayQuery = false;
+          
     /* RayTracingPipelineFeaturesKHR */
     bool rayTracingPipeline = false;
     bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
