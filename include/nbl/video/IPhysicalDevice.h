@@ -236,8 +236,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     Basically same as VkFromatProperties but the flag type is VkFormatFeatureFlagBits2
                     VkFormatFeatureFlagBits2 is basically compensating for the fuckup when `VkFormatFeatureFlagBits` could only have 31 flags
                     this type is VkFlags64 and added two extra flags, namely:
-                        1. VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT_KHR and VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT_KHR indicate that an implementation supports respectively reading and writing a given VkFormat through storage operations without specifying the format in the shader.
-                        2. VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT_KHR indicates that an implementation supports depth comparison performed by OpImage*Dref* instructions on a given VkFormat. Previously the result of executing a OpImage*Dref* instruction on an image view, where the format was not one of the depth/stencil formats with a depth component, was undefined. This bit clarifies on which formats such instructions can be used.
+                        1. VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT_KHR and VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT_KHR 
+                            indicate that an implementation supports respectively reading and writing
+                            a given VkFormat through storage operations without specifying the format in the shader.
+
+                        2. VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT_KHR indicates that an implementation supports 
+                            depth comparison performed by OpImage*Dref* instructions on a given VkFormat.
+                            Previously the result of executing a OpImage*Dref* instruction on an image view,
+                            where the format was not one of the depth/stencil formats with a depth component,
+                            was undefined. This bit clarifies on which formats such instructions can be used.
+
                 - VkVideoDecodeH264ProfileEXT(video stuff)
                 - VkVideoDecodeH265ProfileEXT(video stuff)
                 - VkVideoEncodeH264ProfileEXT(video stuff)
