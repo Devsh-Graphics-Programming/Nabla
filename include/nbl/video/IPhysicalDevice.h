@@ -119,6 +119,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS> flags;
         };
 
+        /* MemoryProperties2
+            - VkPhysicalDeviceMemoryBudgetPropertiesEXT
+                provided by VK_EXT_memory_budget
+                devices not supporting this seem to be mostly mobile
+
+                VkDeviceSize       heapBudget[VK_MAX_MEMORY_HEAPS];
+                VkDeviceSize       heapUsage[VK_MAX_MEMORY_HEAPS];
+        */
         //
         struct SMemoryProperties
         {
@@ -204,6 +212,39 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t deviceLocal = getMemoryTypeBitsFromMemoryTypeFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
             return (hostWritable & hostReadable) & (~deviceLocal);
         }
+
+        /* ImageFormatProperties2
+                !! Exposing this ImageFormatProperties is not straightforward 
+                !! because it depends on multiple parameters other than `format` including
+                !! type, tiling, usage, flags and also whatever you put in it's pNextchain
+                !! basically these could be only queried if we knew all the creation params of an image
+
+                - VkAndroidHardwareBufferUsageANDROID,
+                - VkExternalImageFormatProperties,
+                - VkFilterCubicImageViewImageFormatPropertiesEXT,
+                - VkImageCompressionPropertiesEXT,
+                - VkSamplerYcbcrConversionImageFormatProperties,
+                - VkTextureLODGatherFormatPropertiesAMD
+
+            !! Same goes for `vkGetPhysicalDeviceSparseImageFormatProperties2`
+        */
+
+        /* FormatProperties2 
+                - VkDrmFormatModifierPropertiesListEXT(linux stuff)
+                - VkDrmFormatModifierPropertiesList2EXT(linux stuff)
+                - VkFormatProperties3: (available in Vulkan Core 1.1)
+                    Basically same as VkFromatProperties but the flag type is VkFormatFeatureFlagBits2
+                    VkFormatFeatureFlagBits2 is basically compensating for the fuckup when `VkFormatFeatureFlagBits` could only have 31 flags
+                    this type is VkFlags64 and added two extra flags, namely:
+                        1. VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT_KHR and VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT_KHR indicate that an implementation supports respectively reading and writing a given VkFormat through storage operations without specifying the format in the shader.
+                        2. VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT_KHR indicates that an implementation supports depth comparison performed by OpImage*Dref* instructions on a given VkFormat. Previously the result of executing a OpImage*Dref* instruction on an image view, where the format was not one of the depth/stencil formats with a depth component, was undefined. This bit clarifies on which formats such instructions can be used.
+                - VkVideoDecodeH264ProfileEXT(video stuff)
+                - VkVideoDecodeH265ProfileEXT(video stuff)
+                - VkVideoEncodeH264ProfileEXT(video stuff)
+                - VkVideoEncodeH265ProfileEXT(video stuff)
+                - VkVideoProfileKHR (video stuff)
+                - VkVideoProfilesKHR(video stuff)
+        */
 
         //
         struct SFormatBufferUsage
@@ -352,6 +393,32 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             EQF_SPARSE_BINDING_BIT = 0x08,
             EQF_PROTECTED_BIT = 0x10
         };
+
+        
+        /* QueueFamilyProperties2
+                - VkQueueFamilyCheckpointProperties2NV, VkQueueFamilyCheckpointPropertiesNV: 
+                    These extensions allows applications to insert markers in the command stream and associate them with custom data.
+                    The one with the 2 suffix is provided by VK_KHR_synchronization2 other than VK_NV_device_diagnostic_checkpoints
+                
+                - VkQueueFamilyGlobalPriorityPropertiesKHR 
+                    Related to VK_KHR_global_priority (bool in features)
+                        VK_QUEUE_GLOBAL_PRIORITY_LOW_KHR = 128,
+                        VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR = 256,
+                        VK_QUEUE_GLOBAL_PRIORITY_HIGH_KHR = 512,
+                        VK_QUEUE_GLOBAL_PRIORITY_REALTIME_KHR = 1024,
+                    This extension is basically for querying the queue family's supported global priorities 
+                    In Vulkan, users can specify device-scope queue priorities.
+                    In some cases it may be useful to extend this concept to a system-wide scope.
+                    This device extension allows applications to query the global queue priorities supported by a queue family, and then set a priority when creating queues. The default queue priority is VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT.
+
+
+                - VkQueueFamilyQueryResultStatusProperties2KHR
+                    Related to Queries 
+                    `supported` reports VK_TRUE if query type VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR and use of VK_QUERY_RESULT_WITH_STATUS_BIT_KHR are supported.
+                
+                - VkVideoQueueFamilyProperties2KHR
+                    videoCodecOperations is a bitmask of VkVideoCodecOperationFlagBitsKHR specifying supported video codec operation(s).
+        */
         struct SQueueFamilyProperties
         {
             core::bitflag<E_QUEUE_FLAGS> queueFlags;
