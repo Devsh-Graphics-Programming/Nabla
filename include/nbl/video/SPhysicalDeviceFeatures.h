@@ -361,22 +361,86 @@ struct SPhysicalDeviceFeatures
     //VkBool32           primitiveFragmentShadingRate;
     //VkBool32           attachmentFragmentShadingRate;
     
-    /* FragmentShadingRateFeaturesKHR *//* VK_KHR_global_priority */
+    /* GlobalPriorityQueryFeaturesKHR *//* VK_KHR_global_priority */
     //VkBool32           globalPriorityQuery;
 
+    /* ImagelessFramebufferFeaturesKHR *//* VK_KHR_imageless_framebuffer *//* MOVED TO Vulkan 1.2 Core */
+    /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
+    /* MultiviewFeaturesKHR *//* VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
 
+    /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
+    //VkBool32           performanceCounterQueryPools;
+    //VkBool32           performanceCounterMultipleQueryPools;
 
-    /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
-    //VkBool32           fragmentShaderBarycentric;
-    /* RayQueryFeaturesKHR */
+    /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
+    //VkBool32           pipelineExecutableInfo;
+    
+    /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
+
+    /* PresentIdFeaturesKHR *//* VK_KHR_present_id */
+    //VkBool32           presentId;
+
+    /* PresentWaitFeaturesKHR *//* VK_KHR_present_wait */
+    //VkBool32           presentWait;
+    
+    /* RayQueryFeaturesKHR *//* VK_KHR_ray_query */
     bool rayQuery = false;
-          
-    /* RayTracingPipelineFeaturesKHR */
+
+    /* VK_KHR_ray_tracing !! Replaced/Removed */
+    /* VK_KHR_ray_tracing_maintenance1 *//* added in vk 1.3.213, the SDK isn't released yet at this moment :D */
+
+    /* RayTracingPipelineFeaturesKHR *//* VK_KHR_ray_tracing_pipeline */
     bool rayTracingPipeline = false;
     bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
     bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
     bool rayTracingPipelineTraceRaysIndirect = false;
     bool rayTraversalPrimitiveCulling = false;
+
+    /* SamplerYcbcrConversionFeaturesKHR *//* VK_KHR_sampler_ycbcr_conversion *//* MOVED TO Vulkan 1.1 Core */
+    /* SeparateDepthStencilLayoutsFeaturesKHR *//* VK_KHR_separate_depth_stencil_layouts *//* MOVED TO Vulkan 1.2 Core */
+    /* ShaderAtomicInt64FeaturesKHR *//* VK_KHR_shader_atomic_int64 *//* MOVED TO Vulkan 1.2 Core */
+
+    /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
+    //VkBool32           shaderSubgroupClock;
+    //VkBool32           shaderDeviceClock;
+
+    /* VK_KHR_shader_draw_parameters *//* MOVED TO Vulkan 1.1 Core */
+    /* VK_KHR_shader_float16_int8 *//* MOVED TO Vulkan 1.2 Core */
+    /* VK_KHR_shader_integer_dot_product *//* MOVED TO Vulkan 1.3 Core */
+    /* VK_KHR_shader_subgroup_extended_types *//* MOVED TO Vulkan 1.2 Core */
+
+    /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
+    //VkBool32           shaderSubgroupUniformControlFlow;
+    
+    /* VK_KHR_shader_terminate_invocation *//* MOVED TO Vulkan 1.3 Core */
+    /* VK_KHR_synchronization2 *//* MOVED TO Vulkan 1.3 Core */
+    /* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core */
+    /* VK_KHR_uniform_buffer_standard_layout *//* MOVED TO Vulkan 1.2 Core */
+    /* VK_KHR_variable_pointers *//* MOVED TO Vulkan 1.1 Core */
+    /* VK_KHR_vulkan_memory_model *//* MOVED TO Vulkan 1.2 Core */
+
+    /* WorkgroupMemoryExplicitLayoutFeaturesKHR *//* VK_KHR_workgroup_memory_explicit_layout */
+    //VkBool32           workgroupMemoryExplicitLayout;
+    //VkBool32           workgroupMemoryExplicitLayoutScalarBlockLayout;
+    //VkBool32           workgroupMemoryExplicitLayout8BitAccess;
+    //VkBool32           workgroupMemoryExplicitLayout16BitAccess;
+    
+    /* VK_KHR_zero_initialize_workgroup_memory *//* MOVED TO Vulkan 1.3 Core */
+    /* VK_KHX_multiview *//* see VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
+
+    /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
+    //VkBool32           computeDerivativeGroupQuads;
+    //VkBool32           computeDerivativeGroupLinear;
+
+    /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
+    //VkBool32           cooperativeMatrix;
+    //VkBool32           cooperativeMatrixRobustBufferAccess;
+
+    /* CornerSampledImageFeaturesNV *//* VK_NV_corner_sampled_image */
+    //VkBool32           cornerSampledImage;
+
+    /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
+    //VkBool32           fragmentShaderBarycentric;
 
     /* Nabla */
     bool dispatchBase = false; // true in Vk, false in GL
