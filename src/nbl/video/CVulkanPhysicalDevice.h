@@ -240,6 +240,7 @@ public:
             m_features.inheritedQueries = features.inheritedQueries;
             
             /* Vulkan 1.1 Core  */
+            m_features.shaderDrawParameters = vulkan11Features.shaderDrawParameters;
             
             /* Vulkan 1.2 Core  */
             m_features.drawIndirectCount = vulkan12Features.drawIndirectCount;

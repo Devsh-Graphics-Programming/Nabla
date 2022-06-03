@@ -75,7 +75,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32           variablePointers;
     //VkBool32           protectedMemory;
     //VkBool32           samplerYcbcrConversion;
-    //VkBool32           shaderDrawParameters;
+    bool shaderDrawParameters = false;
 
     /* Vulkan 1.2 Core */
     //VkBool32           samplerMirrorClampToEdge;
