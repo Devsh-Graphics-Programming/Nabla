@@ -439,8 +439,67 @@ struct SPhysicalDeviceFeatures
     /* CornerSampledImageFeaturesNV *//* VK_NV_corner_sampled_image */
     //VkBool32           cornerSampledImage;
 
+    /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
+    //VkCoverageReductionModeNV                        coverageReductionMode;
+
+    /* DedicatedAllocationImageAliasingFeaturesNV *//* VK_NV_dedicated_allocation_image_aliasing */
+    //VkBool32           dedicatedAllocationImageAliasing;
+
+    /* DiagnosticsConfigFeaturesNV *//* VK_NV_device_diagnostics_config */
+    //VkBool32           diagnosticsConfig;
+
+    /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
+    //VkBool32           deviceGeneratedCommands;
+
+    /* ExternalMemoryRDMAFeaturesNV *//* VK_NV_external_memory_rdma */
+    //VkBool32           externalMemoryRDMA;
+    
     /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
     //VkBool32           fragmentShaderBarycentric;
+
+    /* FragmentShadingRateEnumsFeaturesNV *//* VK_NV_fragment_shading_rate_enums */
+    //VkBool32           fragmentShadingRateEnums;
+    //VkBool32           supersampleFragmentShadingRates;
+    //VkBool32           noInvocationFragmentShadingRates;
+
+    /* InheritedViewportScissorFeaturesNV *//* VK_NV_inherited_viewport_scissor */
+    //VkBool32           inheritedViewportScissor2D;
+
+    /* LinearColorAttachmentFeaturesNV *//* VK_NV_linear_color_attachment */
+    //VkBool32           linearColorAttachment;
+    
+    /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
+    //VkBool32           taskShader;
+    //VkBool32           meshShader;
+    
+    /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
+    //VkBool32           rayTracingMotionBlur;
+    //VkBool32           rayTracingMotionBlurPipelineTraceRaysIndirect;
+
+    /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
+    //VkBool32           representativeFragmentTest;
+    
+    /* ExclusiveScissorFeaturesNV *//* VK_NV_scissor_exclusive */
+    //VkBool32           exclusiveScissor;
+
+    /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
+    //VkBool32           imageFootprint;
+
+    /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
+    //VkBool32           shaderSMBuiltins;
+    
+    /* ShadingRateImageFeaturesNV *//* VK_NV_shading_rate_image */
+    //VkBool32           shadingRateImage;
+    //VkBool32           shadingRateCoarseSampleOrder;
+
+    /* FragmentDensityMapOffsetFeaturesQCOM *//* VK_QCOM_fragment_density_map_offset */
+    //VkBool32           fragmentDensityMapOffset;
+
+    /* DescriptorSetHostMappingFeaturesVALVE *//* VK_VALVE_descriptor_set_host_mapping */
+    //VkBool32           descriptorSetHostMapping;
+
+    /* MutableDescriptorTypeFeaturesVALVE *//* VK_VALVE_mutable_descriptor_type */
+    //VkBool32           mutableDescriptorType;
 
     /* Nabla */
     bool dispatchBase = false; // true in Vk, false in GL
