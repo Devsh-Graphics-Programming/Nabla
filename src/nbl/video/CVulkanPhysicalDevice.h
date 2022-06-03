@@ -92,6 +92,7 @@ public:
             m_properties.limits.maxTexelOffset = deviceProperties.properties.limits.maxTexelOffset;
             m_properties.limits.minTexelGatherOffset = deviceProperties.properties.limits.minTexelGatherOffset;
             m_properties.limits.maxTexelGatherOffset = deviceProperties.properties.limits.maxTexelGatherOffset;
+            m_properties.limits.maxColorAttachments = deviceProperties.properties.limits.maxColorAttachments;
             m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
             m_properties.limits.pointSizeRange[0] = deviceProperties.properties.limits.pointSizeRange[0];
             m_properties.limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];

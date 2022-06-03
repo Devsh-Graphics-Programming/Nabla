@@ -95,7 +95,7 @@ struct SPhysicalDeviceLimits
     //VkSampleCountFlags    framebufferDepthSampleCounts;
     //VkSampleCountFlags    framebufferStencilSampleCounts;
     //VkSampleCountFlags    framebufferNoAttachmentsSampleCounts;
-    //uint32_t              maxColorAttachments;
+    uint32_t maxColorAttachments = 0u;
     //VkSampleCountFlags    sampledImageColorSampleCounts;
     //VkSampleCountFlags    sampledImageIntegerSampleCounts;
     //VkSampleCountFlags    sampledImageDepthSampleCounts;
