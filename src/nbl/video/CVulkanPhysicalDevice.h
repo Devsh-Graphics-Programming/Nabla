@@ -215,6 +215,14 @@ public:
             m_features.tessellationShader = features.tessellationShader;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
+            m_features.drawIndirectFirstInstance = features.drawIndirectFirstInstance;
+            m_features.depthClamp = features.depthClamp;
+            m_features.depthBiasClamp = features.depthBiasClamp;
+            m_features.fillModeNonSolid = features.fillModeNonSolid;
+            m_features.depthBounds = features.depthBounds;
+            m_features.wideLines = features.wideLines;
+            m_features.largePoints = features.largePoints;
+            m_features.alphaToOne = features.alphaToOne;
             m_features.multiViewport = features.multiViewport;
             m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.vertexAttributeDouble = features.shaderFloat64;

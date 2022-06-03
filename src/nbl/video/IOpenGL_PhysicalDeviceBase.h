@@ -561,6 +561,8 @@ public:
 		}
 		else m_glfeatures.MaxAnisotropy = 0u;
 
+		m_features.fullDrawIndexUint32 = false; // TODO
+		m_features.independentBlend = false; // TODO
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
 		{
 			m_features.geometryShader = true;
@@ -587,6 +589,16 @@ public:
 			GetIntegerv(GL_MAX_TESS_EVALUATION_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationInputComponents));
 			GetIntegerv(GL_MAX_TESS_EVALUATION_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationOutputComponents));
 		}
+
+		m_features.drawIndirectFirstInstance = false; // TODO
+		m_features.depthClamp = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_depth_clamp);
+		m_features.depthBiasClamp = false; // TODO
+
+		m_features.fillModeNonSolid = false; //TODO
+		m_features.depthBounds = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_bounds_test);
+		m_features.wideLines = false; //TODO
+		m_features.largePoints = false; //TODO
+		m_features.alphaToOne = false; //TODO
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
 			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);

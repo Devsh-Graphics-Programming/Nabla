@@ -117,7 +117,14 @@ struct SPhysicalDeviceLimits
     //VkDeviceSize          optimalBufferCopyOffsetAlignment;
     //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
     uint64_t nonCoherentAtomSize;
-            
+
+    /* VkPhysicalDeviceSparseProperties */ 
+    //VkBool32    residencyStandard2DBlockShape;
+    //VkBool32    residencyStandard2DMultisampleBlockShape;
+    //VkBool32    residencyStandard3DBlockShape;
+    //VkBool32    residencyAlignedMipSize;
+    //VkBool32    residencyNonResidentStrict;
+    
     /* Vulkan 1.1 Core  */
     uint32_t subgroupSize;
     core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;

@@ -86,7 +86,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             char        deviceName[VK_MAX_PHYSICAL_DEVICE_NAME_SIZE];
             uint8_t     pipelineCacheUUID[VK_UUID_SIZE];
             SLimits     limits; // Contains Limits on Vulkan 1.0 Core , 1.1, 1.2 and extensions
-            // VkPhysicalDeviceSparseProperties    sparseProperties;
             
             /* Vulkan 1.1 Core  */
             uint8_t     deviceUUID[VK_UUID_SIZE];
