@@ -84,9 +84,14 @@ public:
             m_properties.limits.maxViewports = deviceProperties.properties.limits.maxViewports;
             m_properties.limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
             m_properties.limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
+            m_properties.limits.minMemoryMapAlignment = deviceProperties.properties.limits.minMemoryMapAlignment;
             m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
-            m_properties.limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;
-            m_properties.limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment;
+            m_properties.limits.UBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;  // TODO: name these correctly-> add "min" before
+            m_properties.limits.SSBOAlignment = deviceProperties.properties.limits.minStorageBufferOffsetAlignment; // TODO: name these correctly-> add "min" before
+            m_properties.limits.minTexelOffset = deviceProperties.properties.limits.minTexelOffset;
+            m_properties.limits.maxTexelOffset = deviceProperties.properties.limits.maxTexelOffset;
+            m_properties.limits.minTexelGatherOffset = deviceProperties.properties.limits.minTexelGatherOffset;
+            m_properties.limits.maxTexelGatherOffset = deviceProperties.properties.limits.maxTexelGatherOffset;
             m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
             m_properties.limits.pointSizeRange[0] = deviceProperties.properties.limits.pointSizeRange[0];
             m_properties.limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];

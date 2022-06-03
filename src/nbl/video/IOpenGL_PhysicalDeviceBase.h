@@ -699,11 +699,21 @@ public:
 			m_properties.limits.maxViewports = maxViewports;
 			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
 			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
+			
+			if(IsGLES)
+				m_properties.limits.minMemoryMapAlignment = 16ull;
+			else
+				GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minMemoryMapAlignment));
 
 			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
 			m_properties.limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
 			m_properties.limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
 			
+			GetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelOffset));
+			GetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelOffset));
+			GetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelGatherOffset));
+			GetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelGatherOffset));
+	
 			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
