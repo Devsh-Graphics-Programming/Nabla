@@ -352,10 +352,10 @@ public:
 		m_properties.vendorID = ~0u;
 		m_properties.deviceID = 0u;
 		strcpy(m_properties.deviceName, renderer);
-		uint64_t deviceNameHash = 0ull;
+		uint64_t deviceNameHash[4] = {};
+		static_assert(VK_MAX_PHYSICAL_DEVICE_NAME_SIZE == sizeof(uint64_t)*4);
 		core::XXHash_256(m_properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, &deviceNameHash);
-		memset(m_properties.pipelineCacheUUID, 0, VK_UUID_SIZE);
-		memcpy(m_properties.pipelineCacheUUID, &deviceNameHash, sizeof(uint64_t));
+		memcpy(m_properties.pipelineCacheUUID, &deviceNameHash, sizeof(uint64_t)*4);
 		
 		memset(m_properties.driverUUID, 0, VK_UUID_SIZE);
 		memset(m_properties.deviceLUID, 0, VK_LUID_SIZE);
