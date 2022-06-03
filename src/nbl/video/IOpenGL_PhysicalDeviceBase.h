@@ -342,9 +342,7 @@ public:
 		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
 			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
 		else
-		{
-			// TODO(Erfan):???
-		}
+			m_properties.conformanceVersion = {3u, 1u, 0u, 0u};
 
 		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
 
