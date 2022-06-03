@@ -8,11 +8,11 @@ struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
     bool robustBufferAccess = false;
-    //VkBool32    fullDrawIndexUint32;
+    bool fullDrawIndexUint32 = false;
     bool imageCubeArray = false;
-    //VkBool32    independentBlend;
+    bool independentBlend = false;
     bool geometryShader    = false;
-    //VkBool32    tessellationShader;
+    bool tessellationShader = false;
     //VkBool32    sampleRateShading;
     //VkBool32    dualSrcBlend;
     bool logicOp = false;

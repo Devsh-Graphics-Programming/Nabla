@@ -351,8 +351,8 @@ public:
 		m_properties.deviceID = 0u;
 		strcpy(m_properties.deviceName, renderer);
 		uint64_t deviceNameHash[4] = {};
-		static_assert(VK_MAX_PHYSICAL_DEVICE_NAME_SIZE == sizeof(uint64_t)*4);
-		core::XXHash_256(m_properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, &deviceNameHash);
+		static_assert(VK_MAX_PHYSICAL_DEVICE_NAME_SIZE >= sizeof(uint64_t)*4);
+		core::XXHash_256(m_properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, deviceNameHash);
 		memcpy(m_properties.pipelineCacheUUID, &deviceNameHash, sizeof(uint64_t)*4);
 		
 		memset(m_properties.driverUUID, 0, VK_UUID_SIZE);
@@ -563,9 +563,29 @@ public:
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
 		{
-			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &num);
-			m_glfeatures.MaxGeometryVerticesOut = static_cast<uint32_t>(num);
 			m_features.geometryShader = true;
+			GetIntegerv(GL_MAX_GEOMETRY_SHADER_INVOCATIONS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryShaderInvocations));
+			GetIntegerv(GL_MAX_GEOMETRY_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryInputComponents));
+			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputComponents));
+			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputVertices));
+			GetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryTotalOutputComponents));
+			m_glfeatures.MaxGeometryVerticesOut = m_properties.limits.maxGeometryOutputVertices;
+		}
+		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_tessellation_shader))
+		{
+			m_features.tessellationShader = true;
+			GetIntegerv(GL_MAX_TESS_GEN_LEVEL, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationGenerationLevel));
+			// GL_MAX_PATCH_VERTICES => maximum patch size
+			GetIntegerv(GL_MAX_PATCH_VERTICES, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationPatchSize));
+			// GL_MAX_TESS_CONTROL_INPUT_COMPONENTS => num. components for per-vertex inputs in tess.
+			GetIntegerv(GL_MAX_TESS_CONTROL_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlPerVertexInputComponents));
+			// GL_MAX_TESS_CONTROL_OUTPUT_COMPONENTS => num. components for per-vertex outputs in tess. 
+			GetIntegerv(GL_MAX_TESS_CONTROL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlPerVertexOutputComponents)); 
+			// GL_MAX_TESS_PATCH_COMPONENTS => num. components for per-patch output varyings
+			GetIntegerv(GL_MAX_TESS_PATCH_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlPerPatchOutputComponents));
+			GetIntegerv(GL_MAX_TESS_CONTROL_TOTAL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlTotalOutputComponents));
+			GetIntegerv(GL_MAX_TESS_EVALUATION_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationInputComponents));
+			GetIntegerv(GL_MAX_TESS_EVALUATION_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationOutputComponents));
 		}
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))

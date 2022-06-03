@@ -62,6 +62,19 @@ public:
             m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
             m_properties.limits.maxDescriptorSetImages = deviceProperties.properties.limits.maxDescriptorSetSampledImages;
             m_properties.limits.maxDescriptorSetStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
+            m_properties.limits.maxTessellationGenerationLevel = deviceProperties.properties.limits.maxTessellationGenerationLevel;
+            m_properties.limits.maxTessellationPatchSize = deviceProperties.properties.limits.maxTessellationPatchSize;
+            m_properties.limits.maxTessellationControlPerVertexInputComponents = deviceProperties.properties.limits.maxTessellationControlPerVertexInputComponents;
+            m_properties.limits.maxTessellationControlPerVertexOutputComponents = deviceProperties.properties.limits.maxTessellationControlPerVertexOutputComponents;
+            m_properties.limits.maxTessellationControlPerPatchOutputComponents = deviceProperties.properties.limits.maxTessellationControlPerPatchOutputComponents;
+            m_properties.limits.maxTessellationControlTotalOutputComponents = deviceProperties.properties.limits.maxTessellationControlTotalOutputComponents;
+            m_properties.limits.maxTessellationEvaluationInputComponents = deviceProperties.properties.limits.maxTessellationEvaluationInputComponents;
+            m_properties.limits.maxTessellationEvaluationOutputComponents = deviceProperties.properties.limits.maxTessellationEvaluationOutputComponents;
+            m_properties.limits.maxGeometryShaderInvocations = deviceProperties.properties.limits.maxGeometryShaderInvocations;
+            m_properties.limits.maxGeometryInputComponents = deviceProperties.properties.limits.maxGeometryInputComponents;
+            m_properties.limits.maxGeometryOutputComponents = deviceProperties.properties.limits.maxGeometryOutputComponents;
+            m_properties.limits.maxGeometryOutputVertices = deviceProperties.properties.limits.maxGeometryOutputVertices;
+            m_properties.limits.maxGeometryTotalOutputComponents = deviceProperties.properties.limits.maxGeometryTotalOutputComponents;
             m_properties.limits.maxComputeSharedMemorySize = deviceProperties.properties.limits.maxComputeSharedMemorySize;
             m_properties.limits.maxWorkgroupSize[0] = deviceProperties.properties.limits.maxComputeWorkGroupSize[0];
             m_properties.limits.maxWorkgroupSize[1] = deviceProperties.properties.limits.maxComputeWorkGroupSize[1];
@@ -195,8 +208,11 @@ public:
 
             /* Vulkan 1.0 Core  */
             m_features.robustBufferAccess = features.robustBufferAccess;
+            m_features.fullDrawIndexUint32 = features.fullDrawIndexUint32;
             m_features.imageCubeArray = features.imageCubeArray;
+            m_features.independentBlend = features.independentBlend;
             m_features.geometryShader = features.geometryShader;
+            m_features.tessellationShader = features.tessellationShader;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
             m_features.multiViewport = features.multiViewport;
