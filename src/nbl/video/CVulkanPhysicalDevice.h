@@ -93,6 +93,9 @@ public:
             m_properties.limits.minTexelGatherOffset = deviceProperties.properties.limits.minTexelGatherOffset;
             m_properties.limits.maxTexelGatherOffset = deviceProperties.properties.limits.maxTexelGatherOffset;
             m_properties.limits.maxColorAttachments = deviceProperties.properties.limits.maxColorAttachments;
+            m_properties.limits.maxClipDistances = deviceProperties.properties.limits.maxClipDistances;
+            m_properties.limits.maxCullDistances = deviceProperties.properties.limits.maxCullDistances;
+            m_properties.limits.maxCombinedClipAndCullDistances = deviceProperties.properties.limits.maxCombinedClipAndCullDistances;
             m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
             m_properties.limits.pointSizeRange[0] = deviceProperties.properties.limits.pointSizeRange[0];
             m_properties.limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];
@@ -231,6 +234,8 @@ public:
             m_features.alphaToOne = features.alphaToOne;
             m_features.multiViewport = features.multiViewport;
             m_features.samplerAnisotropy = features.samplerAnisotropy;
+            m_features.shaderClipDistance = features.shaderClipDistance;
+            m_features.shaderCullDistance = features.shaderCullDistance;
             m_features.vertexAttributeDouble = features.shaderFloat64;
             m_features.inheritedQueries = features.inheritedQueries;
             

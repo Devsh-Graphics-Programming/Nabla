@@ -599,6 +599,15 @@ public:
 		m_features.wideLines = false; //TODO
 		m_features.largePoints = false; //TODO
 		m_features.alphaToOne = false; //TODO
+		
+		m_features.shaderClipDistance = true;
+		GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
+		if(m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
+		{
+			m_features.shaderCullDistance = true;
+			GetIntegerv(GL_MAX_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+			GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+		}
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
 			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);

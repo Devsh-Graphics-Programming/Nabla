@@ -104,9 +104,9 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxSampleMaskWords;
     //VkBool32              timestampComputeAndGraphics;
     float    timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
-    //uint32_t              maxClipDistances;
-    //uint32_t              maxCullDistances;
-    //uint32_t              maxCombinedClipAndCullDistances;
+    uint32_t              maxClipDistances;
+    uint32_t              maxCullDistances;
+    uint32_t              maxCombinedClipAndCullDistances;
     //uint32_t              discreteQueuePriorities;
     float pointSizeRange[2];
     float lineWidthRange[2];

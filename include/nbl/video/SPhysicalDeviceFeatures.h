@@ -44,8 +44,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32    shaderSampledImageArrayDynamicIndexing;
     //VkBool32    shaderStorageBufferArrayDynamicIndexing;
     //VkBool32    shaderStorageImageArrayDynamicIndexing;
-    //VkBool32    shaderClipDistance;
-    //VkBool32    shaderCullDistance;
+    bool shaderClipDistance = false;
+    bool shaderCullDistance = false;
     bool vertexAttributeDouble = false; // shaderFloat64
     //VkBool32    shaderInt64;
     //VkBool32    shaderInt16;
