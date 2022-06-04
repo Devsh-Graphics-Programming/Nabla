@@ -246,6 +246,7 @@ public:
 	"GL_EXT_framebuffer_multisample_blit_scaled",
 	"GL_EXT_framebuffer_object",
 	"GL_EXT_framebuffer_sRGB",
+	"GL_EXT_geometry_shader",
 	"GL_EXT_geometry_shader4",
 	"GL_EXT_gpu_program_parameters",
 	"GL_EXT_gpu_shader4",
@@ -535,6 +536,7 @@ public:
 	"GL_OES_copy_image",
 	"GL_OES_viewport_array",
 	"GL_OES_draw_elements_base_vertex"
+	"GL_OES_geometry_shader",
 };
 	enum EOpenGLFeatures {
 		NBL_3DFX_multisample = 0,
@@ -768,6 +770,7 @@ public:
 		NBL_EXT_framebuffer_multisample_blit_scaled,
 		NBL_EXT_framebuffer_object,
 		NBL_EXT_framebuffer_sRGB,
+		NBL_EXT_geometry_shader,
 		NBL_EXT_geometry_shader4,
 		NBL_EXT_gpu_program_parameters,
 		NBL_EXT_gpu_shader4,
@@ -1056,6 +1059,7 @@ public:
 		NBL_OES_copy_image,
 		NBL_OES_viewport_array,
 		NBL_OES_draw_elements_base_vertex,
+		NBL_OES_geometry_shader,
 
 		NBL_OpenGL_Feature_Count
 	};
