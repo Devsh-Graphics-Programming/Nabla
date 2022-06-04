@@ -7,6 +7,8 @@ from pathlib import *
 NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
 NBL_SCENES_INPUT_TXT = Path('@_NBL_SCENES_INPUT_TXT_@')
+NBL_PRIVATE_SCENES_INPUT_TXT = Path('@_NBL_PRIVATE_SCENES_INPUT_TXT_@')
+
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 64          
 CLOSE_TO_ZERO = "0.000001"         
@@ -127,6 +129,10 @@ if __name__ == '__main__':
     if NBL_PATHTRACER_EXE.is_file() and NBL_SCENES_INPUT_TXT.is_file():
         with open(NBL_SCENES_INPUT_TXT.absolute()) as aFile:
             inputLines = aFile.readlines()
+            
+        if NBL_PRIVATE_SCENES_INPUT_TXT.is_file() :
+            with open(NBL_PRIVATE_SCENES_INPUT_TXT.absolute()) as aFile:
+                inputLines += aFile.readlines()
 
         os.chdir(NBL_PATHTRACER_EXE.parent.absolute())
 
