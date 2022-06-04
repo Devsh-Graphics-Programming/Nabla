@@ -197,9 +197,7 @@ void EnvmapImportanceSampling::initResources(core::smart_refctd_ptr<IGPUImageVie
 		}
 
 		{
-			
-			SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(WarpMapGenShaderData_t)};
-			m_warpPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(m_warpDSLayout));
+			m_warpPipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_warpDSLayout));
 		
 		 	m_warpDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_warpDSLayout));
 			
@@ -326,11 +324,10 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 	
 	m_driver->bindComputePipeline(m_lumaPipeline.get());
 
-	// Calc Luma without Sin Factor
+	// Calc Luma without regularization factor
 	{
-		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0] * envMapRegularizationFactor, lumaScales[1] * envMapRegularizationFactor, lumaScales[2] * envMapRegularizationFactor, (1.0f-envMapRegularizationFactor));
+		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0], lumaScales[1], lumaScales[2], 0.f);
 		pcData.calcLuma = 1;
-		pcData.sinFactor = 0;
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[0].get(),nullptr);
 
 		
@@ -347,8 +344,10 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
 
-	// Download Luma Image and caclulate Variance and new Regularization Factor
-	float variance = 0.0f;
+	// Download Luma Image and caclulate directionality metric (0 uniform, 1 totally unidirectional) and new Regularization Factor
+	// ideally would want a better metric of how "concentrated" the energy is in one direction rather than variance,
+	// it turns out that the first order spherical harmonic band and weighted (by luma) average of directions are the same thing.
+	float directionalityMetric = 0.0f;
 	{
 		uint32_t width, height = 0u;
 		getEnvmapResolutionFromMipLevel(m_mipCountLuminance - 1, width, height);
@@ -399,33 +398,50 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 		}
 
 		float* fltData = reinterpret_cast<float*>(data);
-		float avg_x2 = 0.0f;
-		float avg_x = 0.0f;
-		for(uint32_t i = 0; i < width * height; ++i)
+		core::vectorSIMDf avgDir;
 		{
-			const float x = fltData[i]; 
-			const float x2 = x*x;
-			const float n = float(i + 1);
-			avg_x = avg_x + (x-avg_x)/(n);
-			avg_x2 = avg_x2 + (x2-avg_x2)/(n);
-		}
+			core::vector<core::vectorSIMDf> texelAccumulator(width);
+			core::vector<core::vectorSIMDf> scanlineAccumulator(height);
 
-		variance = avg_x2 - avg_x * avg_x; // V[x] = E[X^2]-E[X]^2
-		std::cout << "Final Luminance Variance = " << variance << std::endl;
+			const float toTheta = core::PI<double>()/double(height);
+			const float toPhi = 2.0*core::PI<double>()/double(width);
+			for (uint32_t j=0; j<height; ++j)
+			{
+				const float cosTheta = cos((float(j)+0.5f)*toTheta);
+				const float sinTheta = sqrt(1.f-cosTheta*cosTheta);
+
+				for (uint32_t i=0; i<width; ++i)
+				{
+					const float luma = fltData[j*width+i];
+
+					const float phi = (float(i)+0.5f)*toPhi;
+
+					texelAccumulator[i] = core::vectorSIMDf(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta, 1.f) * luma;
+				}
+				scanlineAccumulator[j] = std::reduce(texelAccumulator.begin(),texelAccumulator.end());
+			}
+			avgDir = std::reduce(scanlineAccumulator.begin(),scanlineAccumulator.end());
+			avgDir /= avgDir.wwww();
+			avgDir.w = 0.f;
+		}
+		// should it be length or length squared?
+		directionalityMetric = core::length(avgDir)[0];
+
+		std::cout << "Final Luminance Directionality = " << directionalityMetric << std::endl;
 		
 		downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
 	}
 
-	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+variance));
-	std::cout << "New Regularization Factor based on Variance = " << regularizationFactor << std::endl;
-	constexpr float varianceThreshold = 0.001f;
-	enableRIS = (variance >= varianceThreshold);
+	float regularizationFactor = core::min(envMapRegularizationFactor*directionalityMetric,envMapRegularizationFactor);
+	std::cout << "New Regularization Factor based on Directionality = " << regularizationFactor << std::endl;
+
+	constexpr float regularizationThreshold = 0.001f;
+	enableRIS = true;// regularizationFactor >= regularizationThreshold;
 
 	// Calc Luma again with Sin Factor and new Regularization Factor
 	{
 		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0] * regularizationFactor, lumaScales[1] * regularizationFactor, lumaScales[2] * regularizationFactor, (1.0f-regularizationFactor));
 		pcData.calcLuma = 1;
-		pcData.sinFactor = 1;
 
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[0].get(),nullptr);
 		
@@ -464,9 +480,6 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 	// Generate WarpMap
 	{
 		m_driver->bindComputePipeline(m_warpPipeline.get());
-
-		WarpMapGenShaderData_t warpPcData = {};
-		warpPcData.lumaMipCount = m_mipCountLuminance;
 	
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_warpPipeline->getLayout(),0u,1u,&m_warpDS.get(),nullptr);
 		
@@ -477,8 +490,6 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 			(warpMapWidth-1u)/m_warpMapGenWorkgroupDimension+1u,
 			(warpMapHeight-1u)/m_warpMapGenWorkgroupDimension+1u
 		};
-
-		m_driver->pushConstants(m_warpPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(warpPcData),&warpPcData);
 		m_driver->dispatch(workGroups[0],workGroups[1],1);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}

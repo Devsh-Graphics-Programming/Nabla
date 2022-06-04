@@ -19,38 +19,49 @@ void main()
 {
 	const ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 	
-	ivec2 envMapSize = textureSize(envMap, 0).xy;
-	const uint maxLevel = uint(log2(envMapSize.x));
-	ivec2 srcMipLevelSize = imageSize(srcLuminance).xy;
-	ivec2 dstMipLevelSize = imageSize(dstluminance).xy;
-
+	const ivec2 envMapSize = textureSize(envMap, 0).xy;
 	if (all(lessThan(pixelCoord,envMapSize)))
 	{
-		if(maxLevel >= MAX_LUMINANCE_LEVELS || srcMipLevelSize.x > envMapSize.x || dstMipLevelSize.x > srcMipLevelSize.x)
+		// all this should have been validated in the C++, but eh, should have used pyramid mip-mapper anyway
+		const uint maxLevel = uint(log2(envMapSize.x));
+		if(maxLevel >= MAX_LUMINANCE_LEVELS)
 		{
-			imageStore(dstluminance, pixelCoord, vec4(1.0, 0.0, 0.0, 0.0)); // Error
+			imageStore(dstluminance, pixelCoord, vec4(0.f/0.f, 0.0, 0.0, 0.0)); // Error
 		}
 
 		// Copy EnvMap to Last Luma MipMap Level
 		{
+			const ivec2 dstMipLevelSize = imageSize(dstluminance).xy;
 			if(pc.data.calcLuma > 0)
 			{
-				float sinTheta = sin(nbl_glsl_PI * (float(pixelCoord.y + 0.5f) / envMapSize.y));
 				vec3 envMapSample = texelFetch(envMap, pixelCoord, 0).rgb;
 				// alpha is not 1.0 in all exr images but we need it to be 1 for correct calculations
 				float luma = dot(pc.data.luminanceScales, vec4(envMapSample, 1.0f));
-				if(pc.data.sinFactor > 0)
-					luma *= sinTheta;
+				luma *= sin(nbl_glsl_PI * (float(pixelCoord.y + 0.5f) / envMapSize.y));
 				imageStore(srcLuminance, pixelCoord, vec4(luma));
 			}
 			else if (all(lessThan(pixelCoord,dstMipLevelSize)))
 			{
+				// just because the output is in range, doesn't mean 2x2 neighbourhood of the input will be
+				// and using out of bounds unnormalized coordinates for non sampler image functions is UB
+/* Proper way to do it, but the shader and code in the `ext` is too tightly coupled to refactor quickly!
+				const vec2 gatherCoordinate = (vec2(pixelCoord)+vec2(0.5f))/vec2(dstMipLevelSize);
+				const vec4 neighbourhood = textureGather(srcLuminance,gatherCoordinate);
+				imageStore(dstluminance, pixelCoord, vec4(neighbourhood[0]+neighbourhood[1]+neighbourhood[2]+neighbourhood[3],0.f,0.f,0.f));
+*/
 				ivec2 gatherCoordinate = pixelCoord*2;
-
+				
+				const ivec2 srcMipLevelSize = imageSize(srcLuminance).xy;
+				// assuming that `gatherCoordinate<srcMipLevelSize` which will be the case for PoT textures
 				float luma = imageLoad(srcLuminance, gatherCoordinate + ivec2(0,0)).r;
-				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,0)).r;
-				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(0,1)).r;
-				luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,1)).r;
+				if (gatherCoordinate.x<srcMipLevelSize.x)
+					luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,0)).r;
+				if (gatherCoordinate.y<srcMipLevelSize.y)
+				{
+					luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(0,1)).r;
+					if (gatherCoordinate.x<srcMipLevelSize.x)
+						luma += imageLoad(srcLuminance, gatherCoordinate + ivec2(1,1)).r;
+				}
 
 				imageStore(dstluminance, pixelCoord, vec4(luma));
 			}

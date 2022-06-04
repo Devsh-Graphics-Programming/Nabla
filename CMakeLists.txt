@@ -73,9 +73,7 @@ macro(nbl_adjust_flags)
 	option(NBL_GCC_SANITIZE_THREAD OFF) # @Anastazluk did MSVC finally include the thread sanitizer?
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		if (NOT NBL_BUILD_CEGUI)
-			add_compile_options(-fno-exceptions)
-		endif()
+		add_compile_options(-fno-exceptions)
 
 		add_compile_options(
 			-Wextra
@@ -206,8 +204,6 @@ else()
 		message(FATAL_ERROR "You cannot build Optix without enabled CUDA! NBL_COMPILE_WITH_CUDA must be ON!")
 	endif()
 endif()
-
-option(NBL_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 

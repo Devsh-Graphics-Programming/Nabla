@@ -9,124 +9,67 @@ layout(local_size_x = WARP_MAP_GEN_WORKGROUP_DIM, local_size_y = WARP_MAP_GEN_WO
 layout(set = 0, binding = 0) uniform sampler2D luminance;
 layout(set = 0, binding = 1, rg32f) uniform image2D warpMap;
 
-layout(push_constant) uniform PushConstants
+bool choseSecond(inout float xi, in float first, in float second)
 {
-	WarpMapGenShaderData_t data;
-} pc;
+	// numerical resilience against IEEE754
+	float firstProb = 1.0f/(1.0f+second/first);
+	float dummy = 0.0f;
+	return nbl_glsl_partitionRandVariable(firstProb,xi,dummy);
+}
 
 void main()
 {
 	const ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 	
-	ivec2 warpMapSize = imageSize(warpMap).xy;
+	const ivec2 warpMapSize = imageSize(warpMap).xy;
 	const ivec2 lastWarpMapPixel = warpMapSize-ivec2(1);
 
 	if (all(lessThan(pixelCoord,warpMapSize)))
 	{
 		// Corner Sampling, this is why it was important to have the envmap be PoT-1, so you can have xi both 0% and 100%
 		vec2 xi = vec2(pixelCoord)/vec2(lastWarpMapPixel);
-		ivec2 p = ivec2(0, 0);
-		ivec2 prevLuminanceMipSize = ivec2(0);
-		// WARP
+		
+		ivec2 p; p.y = 0;
+		// envmap needs to be 2:1 ratio for this to work
+		//assert(warpMapSize.x==(warpMapSize.y<<1));
+		
 		// (skip 0 which is 1x1 and useless in warping)
-		for(int i = int(pc.data.lumaMipCount - 1); i >= 1; --i)
+		const int lastMip = textureQueryLevels(luminance)-2;
+		// do one split in the X axis first cause second to last mip will be 2x1
+		p.x = choseSecond(xi.x,texelFetchOffset(luminance,ivec2(0,0),lastMip,ivec2(0,0)).r,texelFetchOffset(luminance,ivec2(0,0),lastMip,ivec2(1,0)).r) ? 1:0;
+		for (int i=lastMip-1; i>=0; --i)
 		{
-			ivec2 luminanceMipSize = textureSize(luminance, i).xy;
+			p <<= 1;
+			const vec4 values = vec4(
+				texelFetchOffset(luminance, p, i, ivec2(0, 1)).r,
+				texelFetchOffset(luminance, p, i, ivec2(1, 1)).r,
+				texelFetchOffset(luminance, p, i, ivec2(1, 0)).r,
+				texelFetchOffset(luminance, p, i, ivec2(0, 0)).r
+			);
 
-			vec4 values = vec4(0);
-			values[0] = texelFetch(luminance, p + ivec2(0, 1), i).r;
-			values[1] = texelFetch(luminance, p + ivec2(1, 1), i).r;
-			values[2] = texelFetch(luminance, p + ivec2(1, 0), i).r;
-			values[3] = texelFetch(luminance, p + ivec2(0, 0), i).r;
-
-			float wy_0 = 0.0f;
-			float wy_1 = 0.0f;
-			if(luminanceMipSize.x > prevLuminanceMipSize.x)
+			float wx_0,wx_1;
 			{
-				p.x *= 2;
-				float wx_0 = values[3] + values[0]; // Left Weight (0,0) + (0,1) 
-				float wx_1 = values[2] + values[1]; // Right Weight (1,0) + (1,1)
-
-				float leftProb = 1.0f/(1.0f+wx_1/wx_0);
-				float dummy = 0.0f;
-				if(nbl_glsl_partitionRandVariable(leftProb, xi.x, dummy))
+				const float wy_0 = values[3]+values[2];
+				const float wy_1 = values[1]+values[0];
+				if (choseSecond(xi.y,wy_0,wy_1))
 				{
-					// Picked Right
-					p.x += 1;
-					wy_0 = values[2]; // (1, 0)
-					wy_1 = values[1]; // (1, 1)
+					p.y |= 1;
+					wx_0 = values[0];
+					wx_1 = values[1];
 				}
-				else
+				else // picked y=0
 				{
-					// Picked Left
-					wy_0 = values[3]; // (0, 0)
-					wy_1 = values[0]; // (0, 1)
+					wx_0 = values[3];
+					wx_1 = values[2];
 				}
 			}
 			
-			if(luminanceMipSize.y > prevLuminanceMipSize.y)
-			{
-				p.y *= 2;
-				float upProb = 1.0f/(1.0f+wy_1/wy_0);
-				float dummy = 0.0f;
-				if(nbl_glsl_partitionRandVariable(upProb, xi.y, dummy))
-				{
-					// Picked Down
-					p.y += 1;
-				}
-			}
-
-			prevLuminanceMipSize = luminanceMipSize;
+			if (choseSecond(xi.x,wx_0,wx_1))
+				p.x |= 1;
 		}
 
 		const vec2 directionUV = (vec2(p.x,p.y)+xi)/vec2(warpMapSize);
 		imageStore(warpMap,pixelCoord, vec4(directionUV, 0, 0));
-
-		/*
-		mips are reversed:
-		
-		const vec2 directionUV = vec2(p.x,p.y)/vec2(warpMapSize);
-
-		vec4 lumNeighbourhood = textureGather(luminance[pc.data.lumaMipCount-1], directionUV, 0);
-
-		vec2 bMin = vec2(0);
-		vec2 bMax = vec2(0);
-
-		for(int i = pc.data.lumaMipCount; i < 24; ++i)
-		{
-			float extent = exp2(pc.data.lumaMipCount-i);
-
-			float wx_0 = values[3] + values[0]; // Left Weight (0,0) + (0,1) 
-			float wx_1 = values[2] + values[1]; // Right Weight (1,0) + (1,1)
-			float wy_0 = 0.0f;
-			float wy_1 = 0.0f;
-
-			float leftProb = 1.0f/(1.0f+wx_1/wx_0);
-			float dummy = 0.0f;
-			if(nbl_glsl_partitionRandVariable(leftProb, xi.x, dummy))
-			{
-				// Picked Right
-				p.x += 1;
-				wy_0 = values[2]; // (1, 0)
-				wy_1 = values[1]; // (1, 1)
-			}
-			else
-			{
-				// Picked Left
-				wy_0 = values[3]; // (0, 0)
-				wy_1 = values[0]; // (0, 1)
-			}
-			
-			float upProb = 1.0f/(1.0f+wy_1/wy_0);
-			if(nbl_glsl_partitionRandVariable(upProb, xi.y, dummy))
-			{
-				// Picked Down
-				p.y += 1;
-			}
-		}
-
-		imageStore(warpMap,pixelCoord, vec4(vec2(p)/vec2(1u << 23u, 1u << 22u), 0, 0));
-		*/
 	}
 
 }
