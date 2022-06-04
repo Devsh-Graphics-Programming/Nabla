@@ -19,7 +19,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxBufferViewSizeTexels;
     uint32_t maxUBOSize;
     uint32_t maxSSBOSize;
-    //uint32_t              maxPushConstantsSize;
+    uint32_t maxPushConstantsSize;
     //uint32_t              maxMemoryAllocationCount;
     //uint32_t              maxSamplerAllocationCount;
     //VkDeviceSize          bufferImageGranularity;
@@ -39,12 +39,21 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetDynamicOffsetSSBOs;
     uint32_t maxDescriptorSetImages;
     uint32_t maxDescriptorSetStorageImages;
-    //uint32_t              maxDescriptorSetInputAttachments;
-    //uint32_t              maxVertexInputAttributes;
-    //uint32_t              maxVertexInputBindings;
-    //uint32_t              maxVertexInputAttributeOffset;
-    //uint32_t              maxVertexInputBindingStride;
+    //! uint32_t              maxDescriptorSetInputAttachments;
+
+    //! DON'T EXPOSE 
+    //! maxVertexInputAttributes and maxVertexInputBindings: In OpenGL (and ES) the de-jure (legal) minimum is 16, and de-facto (in practice) Vulkan reports begin at 16.
+    //! maxVertexInputAttributeOffset and maxVertexInputBindingStride: In OpenGL (and ES) the de-jure (legal) minimum is 2047 for both, and de-facto (in practice) Vulkan reports begin at 2047.
+    //! Asset Conversion:
+    //! An ICPUMeshBuffer is an IAsset and for reasons of serialization and conversion we've hardcoded the attribute and binding count to 16 (the bitfields, array sizes, etc.)
+    //! variable attribute count meshes would be a mess.
+    //! uint32_t              maxVertexInputAttributes;
+    //! uint32_t              maxVertexInputBindings;
+    //! uint32_t              maxVertexInputAttributeOffset;
+    //! uint32_t              maxVertexInputBindingStride;
+    
     //uint32_t              maxVertexOutputComponents;
+
     uint32_t maxTessellationGenerationLevel = 0u;
     uint32_t maxTessellationPatchSize = 0u;
     uint32_t maxTessellationControlPerVertexInputComponents = 0u;

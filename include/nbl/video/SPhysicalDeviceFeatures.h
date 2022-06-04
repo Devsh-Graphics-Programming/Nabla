@@ -116,7 +116,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32           separateDepthStencilLayouts;
     //VkBool32           hostQueryReset;
     //VkBool32           timelineSemaphore;
-    //VkBool32           bufferDeviceAddress;
+    bool bufferDeviceAddress = false;
     //VkBool32           bufferDeviceAddressCaptureReplay;
     //VkBool32           bufferDeviceAddressMultiDevice;
     //VkBool32           vulkanMemoryModel;
@@ -347,10 +347,7 @@ struct SPhysicalDeviceFeatures
     bool accelerationStructureHostCommands = false;
     bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
             
-    /* BufferDeviceAddressFeaturesKHR *//* VK_KHR_buffer_device_address */
-    bool bufferDeviceAddress = false;
-    //VkBool32           bufferDeviceAddressCaptureReplay;
-    //VkBool32           bufferDeviceAddressMultiDevice;
+    /* BufferDeviceAddressFeaturesKHR *//* VK_KHR_buffer_device_address *//* MOVED TO Vulkan 1.2 Core */
 
     /* DynamicRenderingFeaturesKHR *//* VK_KHR_dynamic_rendering *//* MOVED TO Vulkan 1.3 Core */
 

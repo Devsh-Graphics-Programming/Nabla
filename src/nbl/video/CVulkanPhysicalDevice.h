@@ -55,6 +55,7 @@ public:
             m_properties.limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
             m_properties.limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_properties.limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
+            m_properties.limits.maxPushConstantsSize = deviceProperties.properties.limits.maxPushConstantsSize;
             m_properties.limits.maxPerStageDescriptorSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
             m_properties.limits.maxDescriptorSetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
             m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;

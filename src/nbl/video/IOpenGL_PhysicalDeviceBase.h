@@ -675,6 +675,8 @@ public:
 			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
 			m_properties.limits.maxUBOSize = m_glfeatures.maxUBOSize;
 			m_properties.limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
+
+			m_properties.limits.maxPushConstantsSize = 128u;
 			
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
