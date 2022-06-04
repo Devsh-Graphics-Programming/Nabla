@@ -110,6 +110,8 @@ public:
             m_properties.limits.pointSizeRange[1] = deviceProperties.properties.limits.pointSizeRange[1];
             m_properties.limits.lineWidthRange[0] = deviceProperties.properties.limits.lineWidthRange[0];
             m_properties.limits.lineWidthRange[1] = deviceProperties.properties.limits.lineWidthRange[1];
+            m_properties.limits.pointSizeGranularity = deviceProperties.properties.limits.pointSizeGranularity;
+            m_properties.limits.lineWidthGranularity = deviceProperties.properties.limits.lineWidthGranularity;
             m_properties.limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
             
             /* Vulkan 1.1 Core  */

@@ -751,6 +751,9 @@ public:
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
 			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_properties.limits.lineWidthRange);
 			
+			GetFloatv(GL_POINT_SIZE_GRANULARITY, m_properties.limits.pointSizeGranularity);
+			GetFloatv(GL_LINE_WIDTH_GRANULARITY, m_properties.limits.lineWidthGranularity);
+
 			m_properties.limits.nonCoherentAtomSize = 256ull;
 			
 			/* SubgroupProperties */

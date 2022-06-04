@@ -119,8 +119,8 @@ struct SPhysicalDeviceLimits
     //uint32_t              discreteQueuePriorities;
     float pointSizeRange[2];
     float lineWidthRange[2];
-    //float                 pointSizeGranularity;
-    //float                 lineWidthGranularity;
+    float pointSizeGranularity = 0.f;
+    float lineWidthGranularity = 0.f;
     //VkBool32              strictLines;
     //VkBool32              standardSampleLocations;
     //VkDeviceSize          optimalBufferCopyOffsetAlignment;
