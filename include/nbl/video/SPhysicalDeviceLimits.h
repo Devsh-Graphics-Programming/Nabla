@@ -3,7 +3,7 @@
 
 #include <type_traits>
 #include "nbl/asset/utils/IGLSLCompiler.h" // asset::IGLSLCompiler::E_SPIRV_VERSION
-
+#include "nbl/asset/IImage.h"
 
 namespace nbl::video
 {
@@ -97,13 +97,13 @@ struct SPhysicalDeviceLimits
     //float                 minInterpolationOffset;
     //float                 maxInterpolationOffset;
     //uint32_t              subPixelInterpolationOffsetBits;
-    //uint32_t              maxFramebufferWidth;
-    //uint32_t              maxFramebufferHeight;
-    //uint32_t              maxFramebufferLayers;
-    //VkSampleCountFlags    framebufferColorSampleCounts;
-    //VkSampleCountFlags    framebufferDepthSampleCounts;
-    //VkSampleCountFlags    framebufferStencilSampleCounts;
-    //VkSampleCountFlags    framebufferNoAttachmentsSampleCounts;
+    uint32_t maxFramebufferWidth;
+    uint32_t maxFramebufferHeight;
+    uint32_t maxFramebufferLayers;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferColorSampleCounts;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts;
     uint32_t maxColorAttachments = 0u;
     //VkSampleCountFlags    sampledImageColorSampleCounts;
     //VkSampleCountFlags    sampledImageIntegerSampleCounts;

@@ -726,6 +726,22 @@ public:
 			GetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelGatherOffset));
 			GetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelGatherOffset));
 	
+			GetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferWidth));
+			GetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferHeight));
+
+			if(!IsGLES)
+				GetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferLayers));
+			else if(m_glfeatures.Version >= 320u || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_shader) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_shader))
+				GetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS_OES, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferLayers));
+
+			GLint maxFramebufferSamples = 0;
+			GetIntegerv(GL_MAX_FRAMEBUFFER_SAMPLES, &maxFramebufferSamples);
+			auto sampleCountFlags = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>((0x1u<<(1+core::findMSB(maxFramebufferSamples)))-1u);
+			m_properties.limits.framebufferColorSampleCounts = sampleCountFlags;
+			m_properties.limits.framebufferDepthSampleCounts = sampleCountFlags;
+			m_properties.limits.framebufferStencilSampleCounts = sampleCountFlags;
+			m_properties.limits.framebufferNoAttachmentsSampleCounts = sampleCountFlags;
+
 			GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxColorAttachments));
 			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 

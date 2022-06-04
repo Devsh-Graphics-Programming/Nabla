@@ -93,6 +93,13 @@ public:
             m_properties.limits.maxTexelOffset = deviceProperties.properties.limits.maxTexelOffset;
             m_properties.limits.minTexelGatherOffset = deviceProperties.properties.limits.minTexelGatherOffset;
             m_properties.limits.maxTexelGatherOffset = deviceProperties.properties.limits.maxTexelGatherOffset;
+            m_properties.limits.maxFramebufferWidth = deviceProperties.properties.limits.maxFramebufferWidth;
+            m_properties.limits.maxFramebufferHeight = deviceProperties.properties.limits.maxFramebufferHeight;
+            m_properties.limits.maxFramebufferLayers = deviceProperties.properties.limits.maxFramebufferLayers;
+            m_properties.limits.framebufferColorSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferColorSampleCounts);
+            m_properties.limits.framebufferDepthSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferDepthSampleCounts);
+            m_properties.limits.framebufferStencilSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferStencilSampleCounts);
+            m_properties.limits.framebufferNoAttachmentsSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferNoAttachmentsSampleCounts);
             m_properties.limits.maxColorAttachments = deviceProperties.properties.limits.maxColorAttachments;
             m_properties.limits.maxClipDistances = deviceProperties.properties.limits.maxClipDistances;
             m_properties.limits.maxCullDistances = deviceProperties.properties.limits.maxCullDistances;
