@@ -52,7 +52,7 @@ struct SPhysicalDeviceLimits
     //! uint32_t              maxVertexInputAttributeOffset;
     //! uint32_t              maxVertexInputBindingStride;
     
-    //uint32_t              maxVertexOutputComponents;
+    uint32_t maxVertexOutputComponents = 0u;
 
     uint32_t maxTessellationGenerationLevel = 0u;
     uint32_t maxTessellationPatchSize = 0u;

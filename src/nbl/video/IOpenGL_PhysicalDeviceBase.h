@@ -563,16 +563,7 @@ public:
 
 		m_features.fullDrawIndexUint32 = false; // TODO
 		m_features.independentBlend = false; // TODO
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
-		{
-			m_features.geometryShader = true;
-			GetIntegerv(GL_MAX_GEOMETRY_SHADER_INVOCATIONS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryShaderInvocations));
-			GetIntegerv(GL_MAX_GEOMETRY_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryInputComponents));
-			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputComponents));
-			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputVertices));
-			GetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryTotalOutputComponents));
-			m_glfeatures.MaxGeometryVerticesOut = m_properties.limits.maxGeometryOutputVertices;
-		}
+
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_tessellation_shader))
 		{
 			m_features.tessellationShader = true;
@@ -588,6 +579,16 @@ public:
 			GetIntegerv(GL_MAX_TESS_CONTROL_TOTAL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlTotalOutputComponents));
 			GetIntegerv(GL_MAX_TESS_EVALUATION_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationInputComponents));
 			GetIntegerv(GL_MAX_TESS_EVALUATION_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationOutputComponents));
+		}
+		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
+		{
+			m_features.geometryShader = true;
+			GetIntegerv(GL_MAX_GEOMETRY_SHADER_INVOCATIONS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryShaderInvocations));
+			GetIntegerv(GL_MAX_GEOMETRY_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryInputComponents));
+			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputComponents));
+			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputVertices));
+			GetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryTotalOutputComponents));
+			m_glfeatures.MaxGeometryVerticesOut = m_properties.limits.maxGeometryOutputVertices;
 		}
 
 		m_features.drawIndirectFirstInstance = false; // TODO
@@ -694,6 +695,8 @@ public:
 			m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
 			m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
 			
+			GetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxVertexOutputComponents));
+
 			GLint maxComputeSharedMemorySize = 0;
 			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
 			m_properties.limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
