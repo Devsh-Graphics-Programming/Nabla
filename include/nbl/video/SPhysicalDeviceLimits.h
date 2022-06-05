@@ -154,6 +154,8 @@ struct SPhysicalDeviceLimits
     //VkDeviceSize               maxMemoryAllocationSize;
             
     /* Vulkan 1.2 Core  */
+
+    //      or VK_KHR_shader_float_controls:
     //VkShaderFloatControlsIndependence    denormBehaviorIndependence;
     //VkShaderFloatControlsIndependence    roundingModeIndependence;
     //VkBool32                             shaderSignedZeroInfNanPreserveFloat16;
@@ -171,6 +173,8 @@ struct SPhysicalDeviceLimits
     //VkBool32                             shaderRoundingModeRTZFloat16;
     //VkBool32                             shaderRoundingModeRTZFloat32;
     //VkBool32                             shaderRoundingModeRTZFloat64;
+ 
+    //      or VK_EXT_descriptor_indexing:
     //uint32_t                             maxUpdateAfterBindDescriptorsInAllPools;
     //VkBool32                             shaderUniformBufferArrayNonUniformIndexingNative;
     //VkBool32                             shaderSampledImageArrayNonUniformIndexingNative;
@@ -194,25 +198,42 @@ struct SPhysicalDeviceLimits
     //uint32_t                             maxDescriptorSetUpdateAfterBindSampledImages;
     //uint32_t                             maxDescriptorSetUpdateAfterBindStorageImages;
     //uint32_t                             maxDescriptorSetUpdateAfterBindInputAttachments;
+    
+    //      or VK_KHR_depth_stencil_resolve:
     //VkResolveModeFlags                   supportedDepthResolveModes;
     //VkResolveModeFlags                   supportedStencilResolveModes;
     //VkBool32                             independentResolveNone;
     //VkBool32                             independentResolve;
+
+    //      or VK_EXT_sampler_filter_minmax:
     //VkBool32                             filterMinmaxSingleComponentFormats;
     //VkBool32                             filterMinmaxImageComponentMapping;
+ 
+    //      or VK_KHR_timeline_semaphore:
     //uint64_t                             maxTimelineSemaphoreValueDifference;
+
+    //      Only Core 1.2 -> VkPhysicalDeviceVulkan12Properties should be used for this variable
     //VkSampleCountFlags                   framebufferIntegerColorSampleCounts;
-            
+
+
+
+
     /* Vulkan 1.3 Core  */
+    
+    //      or VK_EXT_subgroup_size_control:
     //uint32_t              minSubgroupSize;
     //uint32_t              maxSubgroupSize;
     //uint32_t              maxComputeWorkgroupSubgroups;
     //VkShaderStageFlags    requiredSubgroupSizeStages;
-    //uint32_t              maxInlineUniformBlockSize;
+    
+    //      or VK_EXT_inline_uniform_block:
+    //uint32_t              maxInlineUniformBlockSize; 
     //uint32_t              maxPerStageDescriptorInlineUniformBlocks;
     //uint32_t              maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks;
     //uint32_t              maxDescriptorSetInlineUniformBlocks;
     //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
+    
+    //      Only Core 1.3 -> VkPhysicalDeviceVulkan13Properties should be used for these variables
     //uint32_t              maxInlineUniformTotalSize;
     //VkBool32              integerDotProduct8BitUnsignedAccelerated;
     //VkBool32              integerDotProduct8BitSignedAccelerated;
@@ -249,6 +270,9 @@ struct SPhysicalDeviceLimits
     //VkDeviceSize          uniformTexelBufferOffsetAlignmentBytes;
     //VkBool32              uniformTexelBufferOffsetSingleTexelAlignment;
     //VkDeviceSize          maxBufferSize;
+
+
+
 
     /* Vulkan Extensions */
 

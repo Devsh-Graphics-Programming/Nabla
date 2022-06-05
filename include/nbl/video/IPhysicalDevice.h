@@ -94,7 +94,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t    deviceNodeMask;
             bool        deviceLUIDValid;
 
-            /* Vulkan 1.2 Core  */
+            /* Vulkan 1.2 Core  or VK_KHR_driver_properties */
             E_DRIVER_ID driverID;
             char driverName[VK_MAX_DRIVER_NAME_SIZE];
             char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
