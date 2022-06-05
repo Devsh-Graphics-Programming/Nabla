@@ -535,7 +535,7 @@ public:
 	"GL_OES_sample_shading",
 	"GL_OES_copy_image",
 	"GL_OES_viewport_array",
-	"GL_OES_draw_elements_base_vertex"
+	"GL_OES_draw_elements_base_vertex",
 	"GL_OES_geometry_shader",
 };
 	enum EOpenGLFeatures {

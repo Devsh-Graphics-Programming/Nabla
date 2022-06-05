@@ -560,9 +560,12 @@ public:
 			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
 		}
 		else m_glfeatures.MaxAnisotropy = 0u;
-
-		m_features.fullDrawIndexUint32 = false; // TODO
-		m_features.independentBlend = false; // TODO
+		
+		GLint64 maxElementIndex = 0;
+		GetInteger64v(GL_MAX_ELEMENT_INDEX, &maxElementIndex);
+		 
+		m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
+		m_features.independentBlend = (!IsGLES); // TODO
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_tessellation_shader))
 		{
@@ -739,7 +742,7 @@ public:
 
 			GLint maxFramebufferSamples = 0;
 			GetIntegerv(GL_MAX_FRAMEBUFFER_SAMPLES, &maxFramebufferSamples);
-			auto sampleCountFlags = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>((0x1u<<(1+core::findMSB(maxFramebufferSamples)))-1u);
+			auto sampleCountFlags = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>((0x1u<<(1+core::findMSB(static_cast<uint32_t>(maxFramebufferSamples))))-1u);
 			m_properties.limits.framebufferColorSampleCounts = sampleCountFlags;
 			m_properties.limits.framebufferDepthSampleCounts = sampleCountFlags;
 			m_properties.limits.framebufferStencilSampleCounts = sampleCountFlags;
@@ -751,8 +754,8 @@ public:
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
 			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_properties.limits.lineWidthRange);
 			
-			GetFloatv(GL_POINT_SIZE_GRANULARITY, m_properties.limits.pointSizeGranularity);
-			GetFloatv(GL_LINE_WIDTH_GRANULARITY, m_properties.limits.lineWidthGranularity);
+			GetFloatv(GL_POINT_SIZE_GRANULARITY, &m_properties.limits.pointSizeGranularity);
+			GetFloatv(GL_LINE_WIDTH_GRANULARITY, &m_properties.limits.lineWidthGranularity);
 
 			m_properties.limits.nonCoherentAtomSize = 256ull;
 			
