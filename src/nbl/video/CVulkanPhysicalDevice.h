@@ -29,9 +29,22 @@ public:
         }
 
         // Get physical device's limits/properties
-        VkPhysicalDeviceVulkan13Properties vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES, nullptr };
-        VkPhysicalDeviceVulkan12Properties vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES, &vulkan13Properties };
-        VkPhysicalDeviceVulkan11Properties vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES, &vulkan12Properties };
+        
+        // !! Always check the API version is >= 1.3 before using `vulkan13Properties`
+        VkPhysicalDeviceVulkan13Properties              vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES, nullptr };
+        VkPhysicalDeviceInlineUniformBlockProperties    inlineUniformBlockProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES, &vulkan13Properties };
+        VkPhysicalDeviceSubgroupSizeControlProperties   subgroupSizeControlProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES, &inlineUniformBlockProperties };
+        // !! Always check the API version is >= 1.2 before using `vulkan12Properties`
+        VkPhysicalDeviceVulkan12Properties              vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES, &subgroupSizeControlProperties };
+        VkPhysicalDeviceDriverProperties                driverProperties              = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES, &vulkan12Properties };
+        VkPhysicalDeviceFloatControlsProperties         floatControlsProperties       = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES, &driverProperties };
+        VkPhysicalDeviceDescriptorIndexingProperties    descriptorIndexingProperties  = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES, &floatControlsProperties };
+        VkPhysicalDeviceDepthStencilResolveProperties   depthStencilResolveProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES, &descriptorIndexingProperties };
+        VkPhysicalDeviceSamplerFilterMinmaxProperties   samplerFilterMinmaxProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES, &depthStencilResolveProperties };
+        VkPhysicalDeviceTimelineSemaphoreProperties     timelineSemaphoreProperties   = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES, &samplerFilterMinmaxProperties };
+
+        // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Properties`
+        VkPhysicalDeviceVulkan11Properties vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES, &timelineSemaphoreProperties };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &vulkan11Properties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
@@ -135,10 +148,10 @@ public:
             m_properties.limits.shaderSubgroupQuadAllStages = vulkan11Properties.subgroupQuadOperationsInAllStages;
             
             /* Vulkan 1.2 Core  */
-            m_properties.driverID = static_cast<E_DRIVER_ID>(vulkan12Properties.driverID);
-            memcpy(m_properties.driverName, vulkan12Properties.driverName, VK_MAX_DRIVER_NAME_SIZE);
-            memcpy(m_properties.driverInfo, vulkan12Properties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
-            m_properties.conformanceVersion = vulkan12Properties.conformanceVersion;
+            m_properties.driverID = static_cast<E_DRIVER_ID>(driverProperties.driverID);
+            memcpy(m_properties.driverName, driverProperties.driverName, VK_MAX_DRIVER_NAME_SIZE);
+            memcpy(m_properties.driverInfo, driverProperties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
+            m_properties.conformanceVersion = driverProperties.conformanceVersion;
 
             /* Vulkan 1.3 Core  */
 
