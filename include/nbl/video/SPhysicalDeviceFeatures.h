@@ -127,21 +127,28 @@ struct SPhysicalDeviceFeatures
     //VkBool32           subgroupBroadcastDynamicId;
 
     /* Vulkan 1.3 Core */
-    //VkBool32           robustImageAccess;
+
+    //VkBool32           robustImageAccess;                 //  or VK_EXT_image_robustness
+    
+    //  or VK_EXT_inline_uniform_block:
     //VkBool32           inlineUniformBlock;
     //VkBool32           descriptorBindingInlineUniformBlockUpdateAfterBind;
-    //VkBool32           pipelineCreationCacheControl;
-    //VkBool32           privateData;
-    //VkBool32           shaderDemoteToHelperInvocation;
-    //VkBool32           shaderTerminateInvocation;
+    
+    //VkBool32           pipelineCreationCacheControl;      // or VK_EXT_pipeline_creation_cache_control
+    //VkBool32           privateData;                       // or VK_EXT_private_data
+    //VkBool32           shaderDemoteToHelperInvocation;    // or VK_EXT_shader_demote_to_helper_invocation
+    //VkBool32           shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
+    
+    // or VK_EXT_subgroup_size_control
     //VkBool32           subgroupSizeControl;
     //VkBool32           computeFullSubgroups;
-    //VkBool32           synchronization2;
-    //VkBool32           textureCompressionASTC_HDR;
-    //VkBool32           shaderZeroInitializeWorkgroupMemory;
-    //VkBool32           dynamicRendering;
-    //VkBool32           shaderIntegerDotProduct;
-    //VkBool32           maintenance4; -> Doesn't make sense to expose, too vulkan specific
+    
+    //VkBool32           synchronization2;                      // or VK_KHR_synchronization2
+    //VkBool32           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
+    //VkBool32           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
+    //VkBool32           dynamicRendering;                      // or VK_KHR_dynamic_rendering
+    //VkBool32           shaderIntegerDotProduct;               // or VK_KHR_shader_integer_dot_product
+    //VkBool32           maintenance4;                          // ! Doesn't make sense to expose, too vulkan specific // or VK_KHR_maintenance4
 
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
     //VkBool32           deviceCoherentMemory;
