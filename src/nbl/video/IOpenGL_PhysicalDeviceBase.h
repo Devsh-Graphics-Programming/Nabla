@@ -587,21 +587,36 @@ public:
 		}
 		// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_tessellation_shader))
 		{
+			//!! no _INTEL suffix
 			#define GLENUM_WITH_SUFFIX(X) X##_INTEL
-			// no _INTEL suffix
 			// #include "src/nbl/video/GL/limit_queries/tessellation_shader.h"
 			#undef GLENUM_WITH_SUFFIX
 		}
-
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
+		
+		if (!IsGLES || m_glfeatures.Version >= 320u)
 		{
-			m_features.geometryShader = true;
-			GetIntegerv(GL_MAX_GEOMETRY_SHADER_INVOCATIONS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryShaderInvocations));
-			GetIntegerv(GL_MAX_GEOMETRY_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryInputComponents));
-			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputComponents));
-			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputVertices));
-			GetIntegerv(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryTotalOutputComponents));
-			m_glfeatures.MaxGeometryVerticesOut = m_properties.limits.maxGeometryOutputVertices;
+			#define GLENUM_WITH_SUFFIX(X) X
+			#include "nbl/video/GL/limit_queries/geometry_shader.h"
+			#undef GLENUM_WITH_SUFFIX
+		}
+		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_geometry_shader))
+		{
+			#define GLENUM_WITH_SUFFIX(X) X##_OES
+			#include "nbl/video/GL/limit_queries/geometry_shader.h"
+			#undef GLENUM_WITH_SUFFIX
+		}
+		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_geometry_shader))
+		{
+			#define GLENUM_WITH_SUFFIX(X) X##_EXT
+			#include "nbl/video/GL/limit_queries/geometry_shader.h"
+			#undef GLENUM_WITH_SUFFIX
+		}
+		// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_geometry_shader))
+		{
+			//!! no _INTEL suffix
+			#define GLENUM_WITH_SUFFIX(X) X##_INTEL
+			// #include "nbl/video/GL/limit_queries/geometry_shader.h"
+			#undef GLENUM_WITH_SUFFIX
 		}
 
 		m_features.drawIndirectFirstInstance = false; // TODO
