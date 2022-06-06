@@ -280,6 +280,7 @@ public:
 	"GL_EXT_stencil_two_side",
 	"GL_EXT_stencil_wrap",
 	"GL_EXT_subtexture",
+	"GL_EXT_tessellation_shader",
 	"GL_EXT_texture",
 	"GL_EXT_texture3D",
 	"GL_EXT_texture_array",
@@ -537,6 +538,7 @@ public:
 	"GL_OES_viewport_array",
 	"GL_OES_draw_elements_base_vertex",
 	"GL_OES_geometry_shader",
+	"GL_OES_tessellation_shader"
 };
 	enum EOpenGLFeatures {
 		NBL_3DFX_multisample = 0,
@@ -804,6 +806,7 @@ public:
 		NBL_EXT_stencil_two_side,
 		NBL_EXT_stencil_wrap,
 		NBL_EXT_subtexture,
+		NBL_EXT_tessellation_shader,
 		NBL_EXT_texture,
 		NBL_EXT_texture3D,
 		NBL_EXT_texture_array,
@@ -1060,6 +1063,7 @@ public:
 		NBL_OES_viewport_array,
 		NBL_OES_draw_elements_base_vertex,
 		NBL_OES_geometry_shader,
+		NBL_OES_tessellation_shader,
 
 		NBL_OpenGL_Feature_Count
 	};

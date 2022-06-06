@@ -567,22 +567,32 @@ public:
 		m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
 		m_features.independentBlend = (!IsGLES); // TODO
 
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_tessellation_shader))
+		if (!IsGLES || m_glfeatures.Version >= 320u)
 		{
-			m_features.tessellationShader = true;
-			GetIntegerv(GL_MAX_TESS_GEN_LEVEL, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationGenerationLevel));
-			// GL_MAX_PATCH_VERTICES => maximum patch size
-			GetIntegerv(GL_MAX_PATCH_VERTICES, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationPatchSize));
-			// GL_MAX_TESS_CONTROL_INPUT_COMPONENTS => num. components for per-vertex inputs in tess.
-			GetIntegerv(GL_MAX_TESS_CONTROL_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlPerVertexInputComponents));
-			// GL_MAX_TESS_CONTROL_OUTPUT_COMPONENTS => num. components for per-vertex outputs in tess. 
-			GetIntegerv(GL_MAX_TESS_CONTROL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlPerVertexOutputComponents)); 
-			// GL_MAX_TESS_PATCH_COMPONENTS => num. components for per-patch output varyings
-			GetIntegerv(GL_MAX_TESS_PATCH_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlPerPatchOutputComponents));
-			GetIntegerv(GL_MAX_TESS_CONTROL_TOTAL_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationControlTotalOutputComponents));
-			GetIntegerv(GL_MAX_TESS_EVALUATION_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationInputComponents));
-			GetIntegerv(GL_MAX_TESS_EVALUATION_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxTessellationEvaluationOutputComponents));
+			#define GLENUM_WITH_SUFFIX(X) X
+			#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+			#undef GLENUM_WITH_SUFFIX
 		}
+		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_tessellation_shader))
+		{
+			#define GLENUM_WITH_SUFFIX(X) X##_OES
+			#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+			#undef GLENUM_WITH_SUFFIX
+		}
+		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_tessellation_shader))
+		{
+			#define GLENUM_WITH_SUFFIX(X) X##_EXT
+			#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+			#undef GLENUM_WITH_SUFFIX
+		}
+		// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_tessellation_shader))
+		{
+			#define GLENUM_WITH_SUFFIX(X) X##_INTEL
+			// no _INTEL suffix
+			// #include "src/nbl/video/GL/limit_queries/tessellation_shader.h"
+			#undef GLENUM_WITH_SUFFIX
+		}
+
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
 		{
 			m_features.geometryShader = true;
@@ -606,11 +616,17 @@ public:
 		
 		m_features.shaderClipDistance = true;
 		GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
-		if(m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
+		if(m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
 		{
 			m_features.shaderCullDistance = true;
+			// no ARB suffix, is that ok?
 			GetIntegerv(GL_MAX_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
 			GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+		} else if(m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance))
+		{
+			m_features.shaderCullDistance = true;
+			GetIntegerv(GL_MAX_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+			GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
 		}
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
