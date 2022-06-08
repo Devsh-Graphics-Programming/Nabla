@@ -81,8 +81,11 @@ struct SPhysicalDeviceFeatures
     //VkBool32           multiview;
     //VkBool32           multiviewGeometryShader;
     //VkBool32           multiviewTessellationShader;
+    
+    // [Future TODO]:
     //VkBool32           variablePointersStorageBuffer;
     //VkBool32           variablePointers;
+    
     //VkBool32           protectedMemory;
     //VkBool32           samplerYcbcrConversion;
     bool shaderDrawParameters = false;

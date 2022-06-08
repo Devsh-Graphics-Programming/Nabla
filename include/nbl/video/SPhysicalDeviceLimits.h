@@ -133,7 +133,10 @@ struct SPhysicalDeviceLimits
     //VkBool32    residencyStandard3DBlockShape;
     //VkBool32    residencyAlignedMipSize;
     //VkBool32    residencyNonResidentStrict;
-    
+
+
+
+
     /* Vulkan 1.1 Core  */
     uint32_t subgroupSize;
     core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
@@ -155,7 +158,10 @@ struct SPhysicalDeviceLimits
     
     uint32_t maxPerSetDescriptors = 0u;
     size_t maxMemoryAllocationSize = 0ull;
-            
+
+
+
+
     /* Vulkan 1.2 Core  */
 
     //      or VK_KHR_shader_float_controls:
@@ -213,7 +219,7 @@ struct SPhysicalDeviceLimits
     //VkBool32                             filterMinmaxImageComponentMapping;
  
     //      or VK_KHR_timeline_semaphore:
-    //uint64_t                             maxTimelineSemaphoreValueDifference;
+    //uint64_t                             maxTimelineSemaphoreValueDifference; //  we don't expose or want timeline semaphore currently
 
     //      Only Core 1.2 -> VkPhysicalDeviceVulkan12Properties should be used for this variable
     //VkSampleCountFlags                   framebufferIntegerColorSampleCounts;
@@ -229,7 +235,8 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxComputeWorkgroupSubgroups;
     //VkShaderStageFlags    requiredSubgroupSizeStages;
     
-    //      or VK_EXT_inline_uniform_block:
+    // [Future TODO]: we don't expose inline uniform blocks right now
+    //      or VK_EXT_inline_uniform_block: 
     //uint32_t              maxInlineUniformBlockSize; 
     //uint32_t              maxPerStageDescriptorInlineUniformBlocks;
     //uint32_t              maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks;
@@ -278,6 +285,9 @@ struct SPhysicalDeviceLimits
     //VkBool32              uniformTexelBufferOffsetSingleTexelAlignment;
     
     size_t                  maxBufferSize = 0ull; // or VK_KHR_maintenance4
+
+
+
 
     /* Vulkan Extensions */
 
