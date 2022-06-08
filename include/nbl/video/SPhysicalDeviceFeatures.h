@@ -6,6 +6,16 @@ namespace nbl::video
 
 struct SPhysicalDeviceFeatures
 {
+    // ! In Vulkan: These will be reported based on availability of an extension and will be enabled by enabling an extension
+    // Table 51. Extension Feature Aliases (vkspec 1.3.211)
+    // Extension                               Feature(s)
+    // VK_KHR_shader_draw_parameters           shaderDrawParameters
+    // VK_KHR_draw_indirect_count              drawIndirectCount
+    // VK_KHR_sampler_mirror_clamp_to_edge     samplerMirrorClampToEdge
+    // VK_EXT_descriptor_indexing              descriptorIndexing
+    // VK_EXT_sampler_filter_minmax            samplerFilterMinmax
+    // VK_EXT_shader_viewport_index_layer      shaderOutputViewportIndex, shaderOutputLayer
+    
     /* Vulkan 1.0 Core  */
     bool robustBufferAccess = false;
     bool fullDrawIndexUint32 = false;
@@ -78,15 +88,24 @@ struct SPhysicalDeviceFeatures
     bool shaderDrawParameters = false;
 
     /* Vulkan 1.2 Core */
-    //VkBool32           samplerMirrorClampToEdge;
-    bool drawIndirectCount = false;
+
+    //VkBool32           samplerMirrorClampToEdge;  // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
+    bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
+
+    // or VK_KHR_8bit_storage:
     //VkBool32           storageBuffer8BitAccess;
     //VkBool32           uniformAndStorageBuffer8BitAccess;
     //VkBool32           storagePushConstant8;
+    
+    // or VK_KHR_shader_atomic_int64:
     //VkBool32           shaderBufferInt64Atomics;
     //VkBool32           shaderSharedInt64Atomics;
+   
+    // or VK_KHR_shader_float16_int8:
     //VkBool32           shaderFloat16;
     //VkBool32           shaderInt8;
+    
+    // or VK_EXT_descriptor_indexing
     //VkBool32           descriptorIndexing;
     //VkBool32           shaderInputAttachmentArrayDynamicIndexing;
     //VkBool32           shaderUniformTexelBufferArrayDynamicIndexing;
@@ -108,23 +127,36 @@ struct SPhysicalDeviceFeatures
     //VkBool32           descriptorBindingPartiallyBound;
     //VkBool32           descriptorBindingVariableDescriptorCount;
     //VkBool32           runtimeDescriptorArray;
-    //VkBool32           samplerFilterMinmax;
-    //VkBool32           scalarBlockLayout;
-    //VkBool32           imagelessFramebuffer;
-    //VkBool32           uniformBufferStandardLayout;
-    //VkBool32           shaderSubgroupExtendedTypes;
-    //VkBool32           separateDepthStencilLayouts;
-    //VkBool32           hostQueryReset;
-    //VkBool32           timelineSemaphore;
+    
+    //VkBool32           samplerFilterMinmax;   // ALIAS: VK_EXT_sampler_filter_minmax
+    
+    //VkBool32           scalarBlockLayout;     // or VK_EXT_scalar_block_layout
+    
+    //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer
+    
+    //VkBool32           uniformBufferStandardLayout;   // or VK_KHR_uniform_buffer_standard_layout
+    
+    //VkBool32           shaderSubgroupExtendedTypes;   // or VK_KHR_shader_subgroup_extended_types
+    
+    //VkBool32           separateDepthStencilLayouts;   // or VK_KHR_separate_depth_stencil_layouts
+    
+    //VkBool32           hostQueryReset;                // or VK_EXT_host_query_reset
+    
+    //VkBool32           timelineSemaphore;             // or VK_KHR_timeline_semaphore
+    
+    // or VK_KHR_timeline_semaphore:
     bool bufferDeviceAddress = false;
     //VkBool32           bufferDeviceAddressCaptureReplay;
     //VkBool32           bufferDeviceAddressMultiDevice;
+    
+    // or VK_KHR_vulkan_memory_model
     //VkBool32           vulkanMemoryModel;
     //VkBool32           vulkanMemoryModelDeviceScope;
     //VkBool32           vulkanMemoryModelAvailabilityVisibilityChains;
-    //VkBool32           shaderOutputViewportIndex;
-    //VkBool32           shaderOutputLayer;
-    //VkBool32           subgroupBroadcastDynamicId;
+    
+    //VkBool32           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    //VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
+    //VkBool32           subgroupBroadcastDynamicId;    // if Vulkan 1.2 is supported
 
     /* Vulkan 1.3 Core */
 
