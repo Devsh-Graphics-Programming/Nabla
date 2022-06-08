@@ -32,8 +32,10 @@ public:
         
         // !! Always check the API version is >= 1.3 before using `vulkan13Properties`
         VkPhysicalDeviceVulkan13Properties              vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES, nullptr };
-        VkPhysicalDeviceInlineUniformBlockProperties    inlineUniformBlockProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES, &vulkan13Properties };
+        VkPhysicalDeviceMaintenance4Properties          maintanance4Properties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES, &vulkan13Properties};
+        VkPhysicalDeviceInlineUniformBlockProperties    inlineUniformBlockProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES, &maintanance4Properties };
         VkPhysicalDeviceSubgroupSizeControlProperties   subgroupSizeControlProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES, &inlineUniformBlockProperties };
+        
         // !! Always check the API version is >= 1.2 before using `vulkan12Properties`
         VkPhysicalDeviceVulkan12Properties              vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES, &subgroupSizeControlProperties };
         VkPhysicalDeviceDriverProperties                driverProperties              = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES, &vulkan12Properties };
@@ -71,6 +73,7 @@ public:
             m_properties.limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_properties.limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
             m_properties.limits.maxPushConstantsSize = deviceProperties.properties.limits.maxPushConstantsSize;
+            m_properties.limits.bufferImageGranularity = deviceProperties.properties.limits.bufferImageGranularity;
             m_properties.limits.maxPerStageDescriptorSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
             m_properties.limits.maxDescriptorSetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
             m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
@@ -135,6 +138,7 @@ public:
             memcpy(m_properties.deviceLUID, vulkan11Properties.deviceLUID, VK_LUID_SIZE);
             m_properties.deviceNodeMask = vulkan11Properties.deviceNodeMask;
             m_properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
+            m_properties.limits.maxMemoryAllocationSize = vulkan11Properties.maxMemoryAllocationSize;
 
             /* SubgroupProperties */
             m_properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
@@ -156,10 +160,13 @@ public:
             m_properties.conformanceVersion = driverProperties.conformanceVersion;
 
             /* Vulkan 1.3 Core  */
+            if(isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+                m_properties.limits.maxBufferSize = maintanance4Properties.maxBufferSize;
+            else
+                m_properties.limits.maxBufferSize = vulkan11Properties.maxMemoryAllocationSize;
 
 
             /* Nabla */
-            m_properties.limits.maxBufferSize = core::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
             m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;

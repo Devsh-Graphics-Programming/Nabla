@@ -526,7 +526,7 @@ public:
 		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
 		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));
 		GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxTBOSizeInTexels));
-		m_glfeatures.maxBufferSize = std::max(m_glfeatures.maxUBOSize, m_glfeatures.maxSSBOSize);
+		m_glfeatures.maxBufferSize = std::max(std::max(m_glfeatures.maxUBOSize, m_glfeatures.maxSSBOSize), m_glfeatures.maxTBOSizeInTexels);
 
 		GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
 		GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
@@ -713,6 +713,8 @@ public:
 
 			m_properties.limits.maxPushConstantsSize = 128u;
 			
+			m_properties.limits.bufferImageGranularity = std::numeric_limits<size_t>::max(); // buffer and image in the same memory can't be done in gl
+
 			GLint max_ssbos[5];
 			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
 			GetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, max_ssbos + 1);
@@ -792,6 +794,15 @@ public:
 
 			m_properties.limits.nonCoherentAtomSize = 256ull;
 			
+
+			/* Vulkan 1.1 Core  */
+			m_properties.limits.maxMemoryAllocationSize = m_glfeatures.maxBufferSize; // TODO(Erfan): 
+
+			/* Vulkan 1.2 Core  */
+
+			/* Vulkan 1.3 Core  */
+			m_properties.limits.maxBufferSize = m_glfeatures.maxBufferSize;
+
 			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;
 			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
@@ -841,7 +852,6 @@ public:
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
 			
 			/* Nabla */
-			m_properties.limits.maxBufferSize = std::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
 			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
 			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_properties.limits.maxOptimallyResidentWorkgroupInvocations));
 			m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_properties.limits.maxOptimallyResidentWorkgroupInvocations),512u);

@@ -22,17 +22,17 @@ struct SPhysicalDeviceLimits
     uint32_t maxPushConstantsSize;
     //uint32_t              maxMemoryAllocationCount;
     //uint32_t              maxSamplerAllocationCount;
-    //VkDeviceSize          bufferImageGranularity;
-    //VkDeviceSize          sparseAddressSpaceSize;
-    //uint32_t              maxBoundDescriptorSets;
-    //uint32_t              maxPerStageDescriptorSamplers;
+    size_t bufferImageGranularity;
+    //VkDeviceSize          sparseAddressSpaceSize;         // We support none of the sparse memory operations
+    //uint32_t              maxBoundDescriptorSets;         // DON'T EXPOSE: we've kinda hardcoded the engine to 4 currently
+    //uint32_t              maxPerStageDescriptorSamplers;  // DON'T EXPOSE: we only support combined image samples
     //uint32_t              maxPerStageDescriptorUniformBuffers;
     uint32_t maxPerStageDescriptorSSBOs;
     //uint32_t              maxPerStageDescriptorSampledImages;
     //uint32_t              maxPerStageDescriptorStorageImages;
     //uint32_t              maxPerStageDescriptorInputAttachments;
     //uint32_t              maxPerStageResources;
-    //uint32_t              maxDescriptorSetSamplers;
+    //uint32_t              maxDescriptorSetSamplers; // DON'T EXPOSE: we only support combined image samples
     uint32_t maxDescriptorSetUBOs;
     uint32_t maxDescriptorSetDynamicOffsetUBOs;
     uint32_t maxDescriptorSetSSBOs;
@@ -151,7 +151,7 @@ struct SPhysicalDeviceLimits
     //uint32_t                   maxMultiviewInstanceIndex;
     //VkBool32                   protectedNoFault;
     //uint32_t                   maxPerSetDescriptors;
-    //VkDeviceSize               maxMemoryAllocationSize;
+    size_t maxMemoryAllocationSize = 0ull;
             
     /* Vulkan 1.2 Core  */
 
@@ -233,8 +233,10 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxDescriptorSetInlineUniformBlocks;
     //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
     
-    //      Only Core 1.3 -> VkPhysicalDeviceVulkan13Properties should be used for these variables
+    //      Only Core 1.3 -> VkPhysicalDeviceVulkan13Properties should be used for this variable
     //uint32_t              maxInlineUniformTotalSize;
+    
+    // or VK_KHR_shader_integer_dot_product
     //VkBool32              integerDotProduct8BitUnsignedAccelerated;
     //VkBool32              integerDotProduct8BitSignedAccelerated;
     //VkBool32              integerDotProduct8BitMixedSignednessAccelerated;
@@ -265,14 +267,14 @@ struct SPhysicalDeviceLimits
     //VkBool32              integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
     //VkBool32              integerDotProductAccumulatingSaturating64BitSignedAccelerated;
     //VkBool32              integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
+    
+    // or VK_EXT_texel_buffer_alignment:
     //VkDeviceSize          storageTexelBufferOffsetAlignmentBytes;
     //VkBool32              storageTexelBufferOffsetSingleTexelAlignment;
     //VkDeviceSize          uniformTexelBufferOffsetAlignmentBytes;
     //VkBool32              uniformTexelBufferOffsetSingleTexelAlignment;
-    //VkDeviceSize          maxBufferSize;
-
-
-
+    
+    size_t                  maxBufferSize = 0ull; // or VK_KHR_maintenance4
 
     /* Vulkan Extensions */
 
@@ -514,7 +516,6 @@ struct SPhysicalDeviceLimits
     //VkExtent2D         fragmentDensityOffsetGranularity;
 
     /* Nabla */
-    uint32_t maxBufferSize;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
     asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
