@@ -147,10 +147,13 @@ struct SPhysicalDeviceLimits
     bool shaderSubgroupQuad = false;
     bool shaderSubgroupQuadAllStages = false; //quadOperationsInAllStages;
     //VkPointClippingBehavior    pointClippingBehavior;
+    
+    // TODO: If needed 
     //uint32_t                   maxMultiviewViewCount;
     //uint32_t                   maxMultiviewInstanceIndex;
     //VkBool32                   protectedNoFault;
-    //uint32_t                   maxPerSetDescriptors;
+    
+    uint32_t maxPerSetDescriptors = 0u;
     size_t maxMemoryAllocationSize = 0ull;
             
     /* Vulkan 1.2 Core  */

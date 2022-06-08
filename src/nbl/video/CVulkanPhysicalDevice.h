@@ -138,6 +138,7 @@ public:
             memcpy(m_properties.deviceLUID, vulkan11Properties.deviceLUID, VK_LUID_SIZE);
             m_properties.deviceNodeMask = vulkan11Properties.deviceNodeMask;
             m_properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
+            m_properties.limits.maxPerSetDescriptors = vulkan11Properties.maxPerSetDescriptors;
             m_properties.limits.maxMemoryAllocationSize = vulkan11Properties.maxMemoryAllocationSize;
 
             /* SubgroupProperties */

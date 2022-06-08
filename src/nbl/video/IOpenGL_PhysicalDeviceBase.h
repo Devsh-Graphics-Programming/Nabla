@@ -783,7 +783,7 @@ public:
 			m_properties.limits.framebufferStencilSampleCounts = sampleCountFlags;
 			m_properties.limits.framebufferNoAttachmentsSampleCounts = sampleCountFlags;
 
-			GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxColorAttachments));
+			m_properties.limits.maxColorAttachments = m_glfeatures.MaxColorAttachments;
 			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
@@ -796,6 +796,8 @@ public:
 			
 
 			/* Vulkan 1.1 Core  */
+			
+			m_properties.limits.maxPerSetDescriptors = m_glfeatures.maxUBOBindings + m_glfeatures.maxSSBOBindings + m_glfeatures.maxTextureBindings + m_glfeatures.maxImageBindings;
 			m_properties.limits.maxMemoryAllocationSize = m_glfeatures.maxBufferSize; // TODO(Erfan): 
 
 			/* Vulkan 1.2 Core  */
