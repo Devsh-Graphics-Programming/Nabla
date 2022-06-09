@@ -677,7 +677,7 @@ public:
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
 			
-			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_texture_mirror_clamp_to_edge) : true;
+			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
 			m_features.bufferDeviceAddress = false;
