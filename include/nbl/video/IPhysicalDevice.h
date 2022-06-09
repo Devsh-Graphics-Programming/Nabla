@@ -118,6 +118,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS> flags;
         };
 
+        // Decision: do not expose as of this moment
         /* MemoryProperties2
             - VkPhysicalDeviceMemoryBudgetPropertiesEXT
                 provided by VK_EXT_memory_budget

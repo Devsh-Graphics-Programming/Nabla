@@ -230,10 +230,10 @@ struct SPhysicalDeviceLimits
     /* Vulkan 1.3 Core  */
     
     //      or VK_EXT_subgroup_size_control:
-    //uint32_t              minSubgroupSize;
-    //uint32_t              maxSubgroupSize;
-    //uint32_t              maxComputeWorkgroupSubgroups;
-    //VkShaderStageFlags    requiredSubgroupSizeStages;
+    uint32_t                                        minSubgroupSize = 0u;
+    uint32_t                                        maxSubgroupSize = 0u;
+    uint32_t                                        maxComputeWorkgroupSubgroups = 0u;
+    core::bitflag<asset::IShader::E_SHADER_STAGE>   requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
     
     // [Future TODO]: we don't expose inline uniform blocks right now
     //      or VK_EXT_inline_uniform_block: 

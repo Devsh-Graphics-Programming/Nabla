@@ -333,18 +333,21 @@ public:
 		default: strcpy(m_properties.driverName, "UNKNOWN"); break;
 		}
 
+		bool isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+		bool isAMDGPU = (m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+		bool isNVIDIAGPU = (m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
 
 		// conformanceVersion
-		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+		if(isIntelGPU)
 			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
+		else if(isAMDGPU)
 			m_properties.conformanceVersion = {3u, 3u, 0u, 0u};
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+		else if(isNVIDIAGPU)
 			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
 		else
 			m_properties.conformanceVersion = {3u, 1u, 0u, 0u};
 
-		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+		m_glfeatures.isIntelGPU = isIntelGPU;
 
 		m_properties.driverVersion = 0u;
 		m_properties.vendorID = ~0u;
@@ -361,11 +364,9 @@ public:
 		m_properties.deviceLUIDValid = false;
 
 		// Heuristic to detect Physical Device Type until we have something better:
-		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+		if(isIntelGPU)
 			m_properties.deviceType = E_TYPE::ET_INTEGRATED_GPU;
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
-			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+		else if(isAMDGPU || isNVIDIAGPU)
 			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
 		else if(hasInString(renderer, "virgl", true))
 			m_properties.deviceType = E_TYPE::ET_VIRTUAL_GPU;
@@ -526,7 +527,8 @@ public:
 		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
 		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));
 		GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxTBOSizeInTexels));
-		m_glfeatures.maxBufferSize = std::max(std::max(m_glfeatures.maxUBOSize, m_glfeatures.maxSSBOSize), m_glfeatures.maxTBOSizeInTexels);
+		auto maxTBOSizeInBytes = (IsGLES) ? (m_glfeatures.maxTBOSizeInTexels * 16u) : (m_glfeatures.maxTBOSizeInTexels * 32u);
+		m_glfeatures.maxBufferSize = std::max(std::max(m_glfeatures.maxUBOSize, m_glfeatures.maxSSBOSize), maxTBOSizeInBytes);
 
 		GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
 		GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
@@ -672,9 +674,15 @@ public:
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 			m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
 			m_features.vertexAttributeDouble = !IsGLES;
-			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
-			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
+			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
+			
+			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_texture_mirror_clamp_to_edge) : true;
+			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
+			m_features.samplerFilterMinmax = false; // no such sampler in GL
+			m_features.bufferDeviceAddress = false;
+			m_features.subgroupSizeControl = false;
+			m_features.computeFullSubgroups = false;
 
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
 			{
@@ -804,6 +812,31 @@ public:
 
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = m_glfeatures.maxBufferSize;
+			
+			if(isIntelGPU)
+			{
+				m_properties.limits.minSubgroupSize = 8u;
+				m_properties.limits.maxSubgroupSize = 32u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			}
+			else if(isAMDGPU)
+			{
+				m_properties.limits.minSubgroupSize = 32u;
+				m_properties.limits.maxSubgroupSize = 64u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			}
+			else if(isNVIDIAGPU)
+			{
+				m_properties.limits.minSubgroupSize = 32u;
+				m_properties.limits.maxSubgroupSize = 32u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			}
+			else
+			{
+				m_properties.limits.minSubgroupSize = 4u;
+				m_properties.limits.maxSubgroupSize = 64u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			}
+
+			uint32_t maxWorkgroupSize = std::max(std::max(m_properties.limits.maxWorkgroupSize[0], m_properties.limits.maxWorkgroupSize[1]), m_properties.limits.maxWorkgroupSize[2]);
+			m_properties.limits.maxComputeWorkgroupSubgroups = maxWorkgroupSize/m_properties.limits.minSubgroupSize;
+			m_properties.limits.requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
 
 			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;
@@ -813,6 +846,7 @@ public:
 			{
 				GLint subgroupSize = 0;
 				GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
+				m_properties.limits.maxSubgroupSize = subgroupSize;
 
 				GLint subgroupOpsStages = 0;
 				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);

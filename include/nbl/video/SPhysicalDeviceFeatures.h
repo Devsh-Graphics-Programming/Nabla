@@ -90,9 +90,12 @@ struct SPhysicalDeviceFeatures
     //VkBool32           samplerYcbcrConversion;
     bool shaderDrawParameters = false;
 
+
+
+
     /* Vulkan 1.2 Core */
 
-    //VkBool32           samplerMirrorClampToEdge;  // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
+    bool samplerMirrorClampToEdge = false;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
     bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
     // or VK_KHR_8bit_storage:
@@ -129,20 +132,22 @@ struct SPhysicalDeviceFeatures
     //VkBool32           descriptorBindingUpdateUnusedWhilePending;
     //VkBool32           descriptorBindingPartiallyBound;
     //VkBool32           descriptorBindingVariableDescriptorCount;
-    //VkBool32           runtimeDescriptorArray;
+    //VkBool32           runtimeDescriptorArray; // [FUTURE TODO]
     
-    //VkBool32           samplerFilterMinmax;   // ALIAS: VK_EXT_sampler_filter_minmax
+    bool                 samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
     
-    //VkBool32           scalarBlockLayout;     // or VK_EXT_scalar_block_layout
+    //VkBool32           scalarBlockLayout;     // or VK_EXT_scalar_block_layout // [FUTURE TODO]
     
-    //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer
+    //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer 
     
     //VkBool32           uniformBufferStandardLayout;   // or VK_KHR_uniform_buffer_standard_layout
     
+    // Don't expose:
     //VkBool32           shaderSubgroupExtendedTypes;   // or VK_KHR_shader_subgroup_extended_types
     
     //VkBool32           separateDepthStencilLayouts;   // or VK_KHR_separate_depth_stencil_layouts
     
+    // [TODO] And add implementation to engine
     //VkBool32           hostQueryReset;                // or VK_EXT_host_query_reset
     
     //VkBool32           timelineSemaphore;             // or VK_KHR_timeline_semaphore
@@ -161,6 +166,9 @@ struct SPhysicalDeviceFeatures
     //VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
     //VkBool32           subgroupBroadcastDynamicId;    // if Vulkan 1.2 is supported
 
+
+
+
     /* Vulkan 1.3 Core */
 
     //VkBool32           robustImageAccess;                 //  or VK_EXT_image_robustness
@@ -175,8 +183,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32           shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
     
     // or VK_EXT_subgroup_size_control
-    //VkBool32           subgroupSizeControl;
-    //VkBool32           computeFullSubgroups;
+    bool subgroupSizeControl  = false;
+    bool computeFullSubgroups = false;
     
     //VkBool32           synchronization2;                      // or VK_KHR_synchronization2
     //VkBool32           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
@@ -184,6 +192,11 @@ struct SPhysicalDeviceFeatures
     //VkBool32           dynamicRendering;                      // or VK_KHR_dynamic_rendering
     //VkBool32           shaderIntegerDotProduct;               // or VK_KHR_shader_integer_dot_product
     //VkBool32           maintenance4;                          // ! Doesn't make sense to expose, too vulkan specific // or VK_KHR_maintenance4
+
+
+
+
+    /* Vulkan Extensions */
 
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
     //VkBool32           deviceCoherentMemory;

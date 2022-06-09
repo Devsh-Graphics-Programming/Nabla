@@ -143,7 +143,7 @@ public:
 
             /* SubgroupProperties */
             m_properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
-            m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
+            m_properties.limits.subgroupOpsShaderStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
             m_properties.limits.shaderSubgroupBasic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT;
             m_properties.limits.shaderSubgroupVote = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_VOTE_BIT;
             m_properties.limits.shaderSubgroupArithmetic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
@@ -166,6 +166,36 @@ public:
             else
                 m_properties.limits.maxBufferSize = vulkan11Properties.maxMemoryAllocationSize;
 
+            if(isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
+            {
+                m_properties.limits.minSubgroupSize = subgroupSizeControlProperties.minSubgroupSize;
+                m_properties.limits.maxSubgroupSize = subgroupSizeControlProperties.maxSubgroupSize;
+                m_properties.limits.maxComputeWorkgroupSubgroups = subgroupSizeControlProperties.maxComputeWorkgroupSubgroups;
+                m_properties.limits.requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(subgroupSizeControlProperties.requiredSubgroupSizeStages);
+            }
+            else
+            {
+                if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+                {
+                    m_properties.limits.minSubgroupSize = 8u;
+                    m_properties.limits.maxSubgroupSize = 32u;
+                }
+                else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
+                {
+                    m_properties.limits.minSubgroupSize = 32u;
+                    m_properties.limits.maxSubgroupSize = 64u;
+                }
+                else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+                {
+                    m_properties.limits.minSubgroupSize = 32u;
+                    m_properties.limits.maxSubgroupSize = 32u;
+                }
+                else
+                {
+                    m_properties.limits.minSubgroupSize = 4u;
+                    m_properties.limits.maxSubgroupSize = 64u;
+                }
+            }
 
             /* Nabla */
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
@@ -239,7 +269,8 @@ public:
         VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
 
         // Extensions
-        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &vulkan11Features };
+        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &vulkan11Features };
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &subgroupSizeControlFeatures };
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rayTracingPipelineFeatures };
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &accelerationFeatures };
         VkPhysicalDeviceBufferDeviceAddressFeaturesKHR bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR, &rayQueryFeatures };
@@ -278,9 +309,16 @@ public:
             m_features.shaderDrawParameters = vulkan11Features.shaderDrawParameters;
             
             /* Vulkan 1.2 Core  */
+            m_features.samplerMirrorClampToEdge = isExtensionSupported(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
             m_features.drawIndirectCount = isExtensionSupported(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+            m_features.samplerFilterMinmax = isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
             
             /* Vulkan 1.3 Core  */
+            if(isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
+            {
+                m_features.subgroupSizeControl  = subgroupSizeControlFeatures.subgroupSizeControl;
+                m_features.computeFullSubgroups = subgroupSizeControlFeatures.computeFullSubgroups;
+            }
 
             /* RayQueryFeaturesKHR */
             if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
