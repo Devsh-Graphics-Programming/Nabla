@@ -25,14 +25,14 @@ struct SPhysicalDeviceLimits
     size_t bufferImageGranularity;
     //VkDeviceSize          sparseAddressSpaceSize;         // We support none of the sparse memory operations
     //uint32_t              maxBoundDescriptorSets;         // DON'T EXPOSE: we've kinda hardcoded the engine to 4 currently
-    //uint32_t              maxPerStageDescriptorSamplers;  // Descriptors with a type of VK_DESCRIPTOR_TYPE_SAMPLER(!!WE DON'T SUPPORT!!) or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER(!!We Support!!) count against this limit
+    //uint32_t              maxPerStageDescriptorSamplers;  // Descriptors with a type of DESCRIPTOR_TYPE_SAMPLER(!!WE DON'T SUPPORT!!) or DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER count against this limit
     //uint32_t              maxPerStageDescriptorUniformBuffers;
     uint32_t maxPerStageDescriptorSSBOs;
-    //uint32_t              maxPerStageDescriptorSampledImages;
+    //uint32_t              maxPerStageDescriptorSampledImages; // Descriptors with a type of DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, DESCRIPTOR_TYPE_SAMPLED_IMAGE(!!WE DON'T SUPPORT!!), or DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER count against this limit.
     //uint32_t              maxPerStageDescriptorStorageImages;
     //uint32_t              maxPerStageDescriptorInputAttachments;
     //uint32_t              maxPerStageResources;
-    //uint32_t              maxDescriptorSetSamplers; // Descriptors with a type of VK_DESCRIPTOR_TYPE_SAMPLER(!!WE DON'T SUPPORT!!) or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER(!!We Support!!) count against this limit
+    //uint32_t              maxDescriptorSetSamplers; // Descriptors with a type of DESCRIPTOR_TYPE_SAMPLER(!!WE DON'T SUPPORT!!) or DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxDescriptorSetUBOs;
     uint32_t maxDescriptorSetDynamicOffsetUBOs;
     uint32_t maxDescriptorSetSSBOs;
