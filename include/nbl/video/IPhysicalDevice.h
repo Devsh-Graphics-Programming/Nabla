@@ -404,11 +404,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         
         /* QueueFamilyProperties2
-                - VkQueueFamilyCheckpointProperties2NV, VkQueueFamilyCheckpointPropertiesNV: 
+* 
+                - VkQueueFamilyCheckpointProperties2NV, VkQueueFamilyCheckpointPropertiesNV [DON'T EXPOSE]: 
                     These extensions allows applications to insert markers in the command stream and associate them with custom data.
                     The one with the 2 suffix is provided by VK_KHR_synchronization2 other than VK_NV_device_diagnostic_checkpoints
                 
-                - VkQueueFamilyGlobalPriorityPropertiesKHR 
+                - VkQueueFamilyGlobalPriorityPropertiesKHR[FUTURE TODO]
                     Related to VK_KHR_global_priority (bool in features)
                         VK_QUEUE_GLOBAL_PRIORITY_LOW_KHR = 128,
                         VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_KHR = 256,

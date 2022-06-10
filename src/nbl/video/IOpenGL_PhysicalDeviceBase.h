@@ -843,6 +843,14 @@ public:
 			uint32_t maxWorkgroupSize = std::max(std::max(m_properties.limits.maxWorkgroupSize[0], m_properties.limits.maxWorkgroupSize[1]), m_properties.limits.maxWorkgroupSize[2]);
 			m_properties.limits.maxComputeWorkgroupSubgroups = maxWorkgroupSize/m_properties.limits.minSubgroupSize;
 			m_properties.limits.requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
+			
+			
+			// https://github.com/KhronosGroup/OpenGL-API/issues/51
+			// https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Clipping
+			if(isNVIDIAGPU || IsGLES)
+				m_properties.limits.pointClippingBehavior = SLimits::EPCB_USER_CLIP_PLANES_ONLY;
+			else
+				m_properties.limits.pointClippingBehavior = SLimits::EPCB_ALL_CLIP_PLANES;
 
 			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;

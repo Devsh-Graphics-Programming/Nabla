@@ -149,7 +149,13 @@ struct SPhysicalDeviceLimits
     bool shaderSubgroupClustered = false;
     bool shaderSubgroupQuad = false;
     bool shaderSubgroupQuadAllStages = false; //quadOperationsInAllStages;
-    //VkPointClippingBehavior    pointClippingBehavior;
+
+    
+    enum E_POINT_CLIPPING_BEHAVIOR : uint8_t {
+        EPCB_ALL_CLIP_PLANES = 0,
+        EPCB_USER_CLIP_PLANES_ONLY = 1,
+    };
+    E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior;
     
     // TODO: If needed 
     //uint32_t                   maxMultiviewViewCount;
