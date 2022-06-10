@@ -771,8 +771,8 @@ public:
 				GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minMemoryMapAlignment));
 
 			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
-			m_properties.limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
-			m_properties.limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
+			m_properties.limits.minUBOAlignment = m_glfeatures.reqUBOAlignment;
+			m_properties.limits.minSSBOAlignment = m_glfeatures.reqSSBOAlignment;
 			
 			GetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelOffset));
 			GetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelOffset));

@@ -797,7 +797,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 		static inline uint64_t getDefaultValueBufferOffset(const video::IPhysicalDevice::SLimits& limits, uint32_t prop_ix)
 		{
 			uint64_t offset = 0u;
-			const uint64_t ssboOffsetAlignment = limits.SSBOAlignment;
+			const uint64_t ssboOffsetAlignment = limits.minSSBOAlignment;
 			if (prop_ix!=ITransformTree::relative_transform_prop_ix)
 			{
 				offset = core::roundUp(offset+sizeof(ITransformTree::relative_transform_t),ssboOffsetAlignment);

@@ -88,8 +88,8 @@ struct SPhysicalDeviceLimits
     //uint32_t              viewportSubPixelBits;
     size_t   minMemoryMapAlignment = 0ull;
     uint32_t bufferViewAlignment;
-    uint32_t UBOAlignment;
-    uint32_t SSBOAlignment;
+    uint32_t minUBOAlignment;
+    uint32_t minSSBOAlignment;
     int32_t  minTexelOffset;
     uint32_t maxTexelOffset;
     int32_t  minTexelGatherOffset;
