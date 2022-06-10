@@ -857,8 +857,10 @@ public:
 			GetFloatv(GL_LINE_WIDTH_GRANULARITY, &m_properties.limits.lineWidthGranularity);
 
 			m_properties.limits.nonCoherentAtomSize = 256ull;
-			
-			const uint64_t maxTBOSizeInBytes = (IsGLES) ? (m_glfeatures.maxTBOSizeInTexels * 16u) : (m_glfeatures.maxTBOSizeInTexels * 32u);
+			const uint64_t maxTBOSizeInBytes = (IsGLES) 
+				? (m_glfeatures.maxTBOSizeInTexels * getTexelOrBlockBytesize(asset::EF_R32G32B32A32_UINT))     // maxTBOSizeInTexels * GLES Fattest Format 
+				: (m_glfeatures.maxTBOSizeInTexels * getTexelOrBlockBytesize(asset::EF_R64G64B64A64_SFLOAT)); // maxTBOSizeInTexels * GL Fattest Format 
+
 			const uint64_t maxBufferSize = std::max(std::max((uint64_t)m_properties.limits.maxUBOSize, (uint64_t)m_properties.limits.maxSSBOSize), maxTBOSizeInBytes);
 
 			/* Vulkan 1.1 Core  */
