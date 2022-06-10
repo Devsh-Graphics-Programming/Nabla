@@ -25,21 +25,23 @@ struct SPhysicalDeviceLimits
     size_t bufferImageGranularity;
     //VkDeviceSize          sparseAddressSpaceSize;         // We support none of the sparse memory operations
     //uint32_t              maxBoundDescriptorSets;         // DON'T EXPOSE: we've kinda hardcoded the engine to 4 currently
-    //uint32_t              maxPerStageDescriptorSamplers;  // Descriptors with a type of DESCRIPTOR_TYPE_SAMPLER(!!WE DON'T SUPPORT!!) or DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER count against this limit
-    //uint32_t              maxPerStageDescriptorUniformBuffers;
-    uint32_t maxPerStageDescriptorSSBOs;
-    //uint32_t              maxPerStageDescriptorSampledImages; // Descriptors with a type of DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, DESCRIPTOR_TYPE_SAMPLED_IMAGE(!!WE DON'T SUPPORT!!), or DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER count against this limit.
-    //uint32_t              maxPerStageDescriptorStorageImages;
-    //uint32_t              maxPerStageDescriptorInputAttachments;
-    //uint32_t              maxPerStageResources;
-    //uint32_t              maxDescriptorSetSamplers; // Descriptors with a type of DESCRIPTOR_TYPE_SAMPLER(!!WE DON'T SUPPORT!!) or DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER count against this limit
-    uint32_t maxDescriptorSetUBOs;
-    uint32_t maxDescriptorSetDynamicOffsetUBOs;
-    uint32_t maxDescriptorSetSSBOs;
-    uint32_t maxDescriptorSetDynamicOffsetSSBOs;
-    uint32_t maxDescriptorSetImages;
-    uint32_t maxDescriptorSetStorageImages;
-    //! uint32_t              maxDescriptorSetInputAttachments;
+
+    uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
+    uint32_t maxPerStageDescriptorUBOs = 0u;
+    uint32_t maxPerStageDescriptorSSBOs = 0u;
+    uint32_t maxPerStageDescriptorImages = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER, EDT_UNIFORM_TEXEL_BUFFER count against this limit.
+    uint32_t maxPerStageDescriptorStorageImages = 0u;
+    uint32_t maxPerStageDescriptorInputAttachments = 0u;
+    uint32_t maxPerStageResources = 0u;
+
+    uint32_t maxDescriptorSetSamplers = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
+    uint32_t maxDescriptorSetUBOs = 0u;
+    uint32_t maxDescriptorSetDynamicOffsetUBOs = 0u;
+    uint32_t maxDescriptorSetSSBOs = 0u;
+    uint32_t maxDescriptorSetDynamicOffsetSSBOs = 0u;
+    uint32_t maxDescriptorSetImages = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER, EDT_UNIFORM_TEXEL_BUFFER count against this limit.
+    uint32_t maxDescriptorSetStorageImages = 0u;
+    uint32_t maxDescriptorSetInputAttachments = 0u;
 
     //! DON'T EXPOSE 
     //! maxVertexInputAttributes and maxVertexInputBindings: In OpenGL (and ES) the de-jure (legal) minimum is 16, and de-facto (in practice) Vulkan reports begin at 16.

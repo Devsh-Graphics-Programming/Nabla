@@ -76,13 +76,26 @@ public:
             m_properties.limits.maxMemoryAllocationCount = deviceProperties.properties.limits.maxMemoryAllocationCount;
             m_properties.limits.maxSamplerAllocationCount = deviceProperties.properties.limits.maxSamplerAllocationCount;
             m_properties.limits.bufferImageGranularity = deviceProperties.properties.limits.bufferImageGranularity;
+
+            // Max PerStage Descriptors
+            m_properties.limits.maxPerStageDescriptorSamplers = deviceProperties.properties.limits.maxPerStageDescriptorSamplers;
+            m_properties.limits.maxPerStageDescriptorUBOs = deviceProperties.properties.limits.maxPerStageDescriptorUniformBuffers;
             m_properties.limits.maxPerStageDescriptorSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
+            m_properties.limits.maxPerStageDescriptorImages = deviceProperties.properties.limits.maxPerStageDescriptorSampledImages;
+            m_properties.limits.maxPerStageDescriptorStorageImages = deviceProperties.properties.limits.maxPerStageDescriptorStorageImages;
+            m_properties.limits.maxPerStageDescriptorInputAttachments = deviceProperties.properties.limits.maxPerStageDescriptorInputAttachments;
+            m_properties.limits.maxPerStageResources = deviceProperties.properties.limits.maxPerStageResources;
+            
+            // Max Descriptors
+            m_properties.limits.maxDescriptorSetSamplers = deviceProperties.properties.limits.maxDescriptorSetSamplers;
             m_properties.limits.maxDescriptorSetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;
             m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffersDynamic;
             m_properties.limits.maxDescriptorSetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffers;
             m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = deviceProperties.properties.limits.maxDescriptorSetStorageBuffersDynamic;
             m_properties.limits.maxDescriptorSetImages = deviceProperties.properties.limits.maxDescriptorSetSampledImages;
             m_properties.limits.maxDescriptorSetStorageImages = deviceProperties.properties.limits.maxDescriptorSetStorageImages;
+            m_properties.limits.maxDescriptorSetInputAttachments = deviceProperties.properties.limits.maxDescriptorSetInputAttachments;
+
             m_properties.limits.maxVertexOutputComponents = deviceProperties.properties.limits.maxVertexOutputComponents;
             m_properties.limits.maxTessellationGenerationLevel = deviceProperties.properties.limits.maxTessellationGenerationLevel;
             m_properties.limits.maxTessellationPatchSize = deviceProperties.properties.limits.maxTessellationPatchSize;

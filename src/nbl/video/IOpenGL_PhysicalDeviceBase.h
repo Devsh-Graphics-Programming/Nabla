@@ -729,15 +729,75 @@ public:
 			
 			m_properties.limits.bufferImageGranularity = std::numeric_limits<size_t>::max(); // buffer and image in the same memory can't be done in gl
 
-			GLint max_ssbos[5];
-			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
-			GetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, max_ssbos + 1);
-			GetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, max_ssbos + 2);
-			GetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, max_ssbos + 3);
-			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, max_ssbos + 4);
-			uint32_t maxSSBOsPerStage = static_cast<uint32_t>(*std::min_element(max_ssbos, max_ssbos + 5));
-			m_properties.limits.maxPerStageDescriptorSSBOs = maxSSBOsPerStage;
+			GLint maxSSBO[6];
+			GetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS, maxSSBO + 0);
+			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, maxSSBO + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, maxSSBO + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, maxSSBO + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, maxSSBO + 4);
+			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, maxSSBO + 5);
+			uint32_t maxPerStageSSBOs = static_cast<uint32_t>(*std::min_element(maxSSBO, maxSSBO + 6));
+
+			GLint maxSampler[5];
+			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, maxSSBO + 0);
+			GetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, maxSSBO + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS, maxSSBO + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS, maxSSBO + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS, maxSSBO + 4);
+			uint32_t maxPerStageSamplers = static_cast<uint32_t>(*std::min_element(maxSampler, maxSampler + 5));
 			
+			GLint maxUBOs[6];
+			GetIntegerv(GL_MAX_COMPUTE_UNIFORM_BLOCKS, maxSSBO + 0);
+			GetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, maxSSBO + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_UNIFORM_BLOCKS, maxSSBO + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_UNIFORM_BLOCKS, maxSSBO + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_UNIFORM_BLOCKS, maxSSBO + 4);
+			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, maxSSBO + 5);
+			uint32_t maxPerStageUBOs = static_cast<uint32_t>(*std::min_element(maxUBOs, maxUBOs + 6));
+			
+			GLint maxStorageImages[6];
+			GetIntegerv(GL_MAX_COMPUTE_IMAGE_UNIFORMS, maxStorageImages + 0);
+			GetIntegerv(GL_MAX_VERTEX_IMAGE_UNIFORMS, maxStorageImages + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_IMAGE_UNIFORMS, maxStorageImages + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_IMAGE_UNIFORMS, maxStorageImages + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_IMAGE_UNIFORMS, maxStorageImages + 4);
+			GetIntegerv(GL_MAX_FRAGMENT_IMAGE_UNIFORMS, maxSSBO + 5);
+			uint32_t maxPerStageStorageImages = static_cast<uint32_t>(*std::min_element(maxStorageImages, maxStorageImages + 6));
+			
+			// Max PerStage Descriptors
+			m_properties.limits.maxPerStageDescriptorSamplers = maxPerStageSamplers;
+			m_properties.limits.maxPerStageDescriptorUBOs = maxPerStageUBOs;
+			m_properties.limits.maxPerStageDescriptorSSBOs = maxPerStageSSBOs;
+			m_properties.limits.maxPerStageDescriptorImages = m_properties.limits.maxPerStageDescriptorSamplers; // OpenGL glBindTextures is used to bind a BufferView (UTB), so they use the same slots as regular textures
+			m_properties.limits.maxPerStageDescriptorStorageImages = maxPerStageStorageImages;
+			m_properties.limits.maxPerStageDescriptorInputAttachments = 0u;
+			
+			GLint maxCombinedShaderOutputResources;
+			GLint maxFragmentShaderUniformBlocks;
+			GLint maxTextureImageUnits;
+			GetIntegerv(GL_MAX_COMBINED_SHADER_OUTPUT_RESOURCES, &maxCombinedShaderOutputResources);
+			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &maxFragmentShaderUniformBlocks);
+			GetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureImageUnits);
+			
+			m_properties.limits.maxPerStageResources = core::max(
+				maxCombinedShaderOutputResources + maxFragmentShaderUniformBlocks + maxTextureImageUnits,
+				m_properties.limits.maxPerStageDescriptorSamplers +
+				m_properties.limits.maxPerStageDescriptorUBOs +
+				m_properties.limits.maxPerStageDescriptorSSBOs +
+				m_properties.limits.maxPerStageDescriptorImages +
+				m_properties.limits.maxPerStageDescriptorStorageImages
+			);
+			
+			// Max Descriptors
+			GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetSamplers));
+			GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetUBOs));
+			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = m_properties.limits.maxDescriptorSetUBOs;
+			GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetSSBOs));
+			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = m_properties.limits.maxDescriptorSetSSBOs;
+			m_properties.limits.maxDescriptorSetImages = m_properties.limits.maxDescriptorSetSamplers; // OpenGL glBindTextures is used to bind a BufferView (UTB), so they use the same slots as regular textures
+			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetStorageImages));
+			m_properties.limits.maxDescriptorSetInputAttachments = 0u;
+
 			m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
 			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
 			m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
