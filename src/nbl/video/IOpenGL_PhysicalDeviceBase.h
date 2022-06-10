@@ -532,7 +532,6 @@ public:
 		GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindings));
 		GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
 		GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
-		GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_glfeatures.MaxColorAttachments));
 
 		if constexpr (!IsGLES)
 			GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &m_glfeatures.minMemoryMapAlignment);
@@ -848,7 +847,7 @@ public:
 			m_properties.limits.framebufferStencilSampleCounts = sampleCountFlags;
 			m_properties.limits.framebufferNoAttachmentsSampleCounts = sampleCountFlags;
 
-			m_properties.limits.maxColorAttachments = m_glfeatures.MaxColorAttachments;
+			GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxColorAttachments));;
 			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
