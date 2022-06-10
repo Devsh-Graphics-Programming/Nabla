@@ -554,19 +554,13 @@ public:
 			m_features.allowCommandBufferQueryCopies = true;
 		}
 
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
-		{
-			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
-			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
-			m_features.samplerAnisotropy = true;
-			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
-		}
-		else m_glfeatures.MaxAnisotropy = 0u;
-		
 		GLint64 maxElementIndex = 0;
 		GetInteger64v(GL_MAX_ELEMENT_INDEX, &maxElementIndex);
-		 
+		
+		
+		m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
 		m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
+		m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 		m_features.independentBlend = (!IsGLES); // TODO
 
 		if (!IsGLES || m_glfeatures.Version >= 320u)
@@ -621,6 +615,9 @@ public:
 			#undef GLENUM_WITH_SUFFIX
 		}
 
+		m_features.logicOp = !IsGLES;
+		m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
+
 		m_features.drawIndirectFirstInstance = false; // TODO
 		m_features.depthClamp = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_depth_clamp);
 		m_features.depthBiasClamp = false; // TODO
@@ -631,6 +628,19 @@ public:
 		m_features.largePoints = false; //TODO
 		m_features.alphaToOne = false; //TODO
 		
+		m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
+
+		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
+		{
+			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
+			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
+			m_features.samplerAnisotropy = true;
+			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
+		}
+		else m_glfeatures.MaxAnisotropy = 0u;
+		
+		m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
+
 		m_features.shaderClipDistance = true;
 		GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
 		if(m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
@@ -644,6 +654,25 @@ public:
 			m_features.shaderCullDistance = true;
 			GetIntegerv(GL_MAX_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
 			GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+		}
+		
+		m_features.vertexAttributeDouble = !IsGLES;
+		m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
+		m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
+		m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
+		m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
+			
+		m_features.samplerFilterMinmax = false; // no such sampler in GL
+		m_features.bufferDeviceAddress = false;
+		m_features.subgroupSizeControl = false;
+		m_features.computeFullSubgroups = false;
+
+		if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
+		{
+			// Can't check individualy (???)
+			m_features.fragmentShaderPixelInterlock = true;
+			m_features.fragmentShaderSampleInterlock = true;
+			m_features.fragmentShaderShadingRateInterlock = true;
 		}
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
@@ -665,33 +694,6 @@ public:
 		// TODO: move this to IPhysicalDevice::SFeatures
 		const bool runningInRenderDoc = (m_rdoc_api != nullptr);
 		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
-
-		// physical device features
-		{
-			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
-			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
-			m_features.logicOp = !IsGLES;
-			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
-			m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
-			m_features.vertexAttributeDouble = !IsGLES;
-			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
-			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
-			
-			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
-			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
-			m_features.samplerFilterMinmax = false; // no such sampler in GL
-			m_features.bufferDeviceAddress = false;
-			m_features.subgroupSizeControl = false;
-			m_features.computeFullSubgroups = false;
-
-			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
-			{
-				// Can't check individualy (???)
-				m_features.fragmentShaderPixelInterlock = true;
-				m_features.fragmentShaderSampleInterlock = true;
-				m_features.fragmentShaderShadingRateInterlock = true;
-			}
-		}
 
 		// physical device limits
 		{
