@@ -73,6 +73,8 @@ public:
             m_properties.limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_properties.limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
             m_properties.limits.maxPushConstantsSize = deviceProperties.properties.limits.maxPushConstantsSize;
+            m_properties.limits.maxMemoryAllocationCount = deviceProperties.properties.limits.maxMemoryAllocationCount;
+            m_properties.limits.maxSamplerAllocationCount = deviceProperties.properties.limits.maxSamplerAllocationCount;
             m_properties.limits.bufferImageGranularity = deviceProperties.properties.limits.bufferImageGranularity;
             m_properties.limits.maxPerStageDescriptorSSBOs = deviceProperties.properties.limits.maxPerStageDescriptorStorageBuffers;
             m_properties.limits.maxDescriptorSetUBOs = deviceProperties.properties.limits.maxDescriptorSetUniformBuffers;

@@ -16,6 +16,8 @@
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
 #endif
 
+#include "nbl/asset/ICPUMeshBuffer.h" // for MAX_PUSH_CONSTANT_BYTESIZE
+
 namespace nbl::video
 {
 
@@ -663,7 +665,7 @@ public:
 		m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 			
 		m_features.samplerFilterMinmax = false; // no such sampler in GL
-		m_features.bufferDeviceAddress = false;
+		m_features.bufferDeviceAddress = false; // no such capability in GL
 		m_features.subgroupSizeControl = false;
 		m_features.computeFullSubgroups = false;
 
@@ -721,7 +723,9 @@ public:
 			m_properties.limits.maxUBOSize = m_glfeatures.maxUBOSize;
 			m_properties.limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
 
-			m_properties.limits.maxPushConstantsSize = 128u;
+			m_properties.limits.maxPushConstantsSize = asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
+			m_properties.limits.maxMemoryAllocationCount = 1000'000'000;
+			m_properties.limits.maxSamplerAllocationCount = 1000'000;
 			
 			m_properties.limits.bufferImageGranularity = std::numeric_limits<size_t>::max(); // buffer and image in the same memory can't be done in gl
 

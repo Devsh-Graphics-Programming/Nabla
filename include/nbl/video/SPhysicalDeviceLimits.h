@@ -20,8 +20,8 @@ struct SPhysicalDeviceLimits
     uint32_t maxUBOSize;
     uint32_t maxSSBOSize;
     uint32_t maxPushConstantsSize;
-    //uint32_t              maxMemoryAllocationCount;
-    //uint32_t              maxSamplerAllocationCount;
+    uint32_t maxMemoryAllocationCount;
+    uint32_t maxSamplerAllocationCount;
     size_t bufferImageGranularity;
     //VkDeviceSize          sparseAddressSpaceSize;         // We support none of the sparse memory operations
     //uint32_t              maxBoundDescriptorSets;         // DON'T EXPOSE: we've kinda hardcoded the engine to 4 currently
