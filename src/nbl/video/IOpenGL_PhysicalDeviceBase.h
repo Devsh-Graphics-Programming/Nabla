@@ -525,12 +525,7 @@ public:
 			m_glfeatures.reqTBOAlignment = 16u;
 		//assert(core::is_alignment(m_glfeatures.reqTBOAlignment)); 
 		//m_glfeatures.reqSSBOAlignment = 64u; // uncomment to emulate chromebook
-
-		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
-		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));
 		GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxTBOSizeInTexels));
-		auto maxTBOSizeInBytes = (IsGLES) ? (m_glfeatures.maxTBOSizeInTexels * 16u) : (m_glfeatures.maxTBOSizeInTexels * 32u);
-		m_glfeatures.maxBufferSize = std::max(std::max(m_glfeatures.maxUBOSize, m_glfeatures.maxSSBOSize), maxTBOSizeInBytes);
 
 		GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
 		GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
@@ -543,10 +538,6 @@ public:
 			GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &m_glfeatures.minMemoryMapAlignment);
 		else
 			m_glfeatures.minMemoryMapAlignment = 0; // TODO: probably wise to set it to 4
-
-		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, m_glfeatures.MaxComputeWGSize);
-		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, m_glfeatures.MaxComputeWGSize + 1);
-		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, m_glfeatures.MaxComputeWGSize + 2);
 
 		GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 		m_glfeatures.MaxArrayTextureLayers = num;
@@ -720,8 +711,8 @@ public:
 			m_properties.limits.maxImageDimensionCube =	maxCubeMapTextureSize;
 			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
 			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
-			m_properties.limits.maxUBOSize = m_glfeatures.maxUBOSize;
-			m_properties.limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
+			GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxUBOSize));
+			GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxSSBOSize));
 
 			m_properties.limits.maxPushConstantsSize = asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
 			m_properties.limits.maxMemoryAllocationCount = 1000'000'000;
@@ -798,21 +789,21 @@ public:
 			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetStorageImages));
 			m_properties.limits.maxDescriptorSetInputAttachments = 0u;
 
-			m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
-			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
-			m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
-			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
-			m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
-			m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
+			// m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
+			// m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
+			// m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
+			// m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
+			// m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
+			// m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
 			
 			GetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxVertexOutputComponents));
 
 			GLint maxComputeSharedMemorySize = 0;
 			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
 			m_properties.limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
-			m_properties.limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
-			m_properties.limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
-			m_properties.limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 1));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 2));
 			
 			// GL doesnt have any limit on this (???)
 			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
@@ -868,16 +859,18 @@ public:
 
 			m_properties.limits.nonCoherentAtomSize = 256ull;
 			
+			const uint64_t maxTBOSizeInBytes = (IsGLES) ? (m_glfeatures.maxTBOSizeInTexels * 16u) : (m_glfeatures.maxTBOSizeInTexels * 32u);
+			const uint64_t maxBufferSize = std::max(std::max((uint64_t)m_properties.limits.maxUBOSize, (uint64_t)m_properties.limits.maxSSBOSize), maxTBOSizeInBytes);
 
 			/* Vulkan 1.1 Core  */
 			
 			m_properties.limits.maxPerSetDescriptors = m_glfeatures.maxUBOBindings + m_glfeatures.maxSSBOBindings + m_glfeatures.maxTextureBindings + m_glfeatures.maxImageBindings;
-			m_properties.limits.maxMemoryAllocationSize = m_glfeatures.maxBufferSize; // TODO(Erfan): 
+			m_properties.limits.maxMemoryAllocationSize = maxBufferSize; // TODO(Erfan): 
 
 			/* Vulkan 1.2 Core  */
 
 			/* Vulkan 1.3 Core  */
-			m_properties.limits.maxBufferSize = m_glfeatures.maxBufferSize;
+			m_properties.limits.maxBufferSize = maxBufferSize;
 			
 			if(isIntelGPU)
 			{

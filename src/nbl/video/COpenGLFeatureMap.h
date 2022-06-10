@@ -1156,13 +1156,7 @@ public:
 	//!
 	int32_t reqTBOAlignment;
 	//!
-	uint64_t maxUBOSize;
-	//!
-	uint64_t maxSSBOSize;
-	//!
 	uint64_t maxTBOSizeInTexels;
-	//!
-	uint64_t maxBufferSize;
 	//!
 	uint32_t maxUBOBindings;
 	//!
@@ -1176,8 +1170,6 @@ public:
 	uint32_t maxImageBindings;
 	//!
 	int32_t minMemoryMapAlignment;
-	//!
-	int32_t MaxComputeWGSize[3];
 	//!
 	uint32_t MaxArrayTextureLayers;
 	//! Maxmimum texture layers supported by the engine
