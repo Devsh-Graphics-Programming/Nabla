@@ -27,7 +27,7 @@ public:
             for (const auto& vk_extension : vk_extensions)
                 m_availableFeatureSet.insert(vk_extension.extensionName);
         }
-
+        
         // Get physical device's limits/properties
         
         // !! Always check the API version is >= 1.3 before using `vulkan13Properties`
@@ -265,6 +265,17 @@ public:
         }
         
         // Get physical device's features
+        // ! In Vulkan: These will be reported based on availability of an extension and will be enabled by enabling an extension
+        // Table 51. Extension Feature Aliases (vkspec 1.3.211)
+        // Extension                               Feature(s)
+        // VK_KHR_shader_draw_parameters           shaderDrawParameters
+        // VK_KHR_draw_indirect_count              drawIndirectCount
+        // VK_KHR_sampler_mirror_clamp_to_edge     samplerMirrorClampToEdge
+        // VK_EXT_descriptor_indexing              descriptorIndexing
+        // VK_EXT_sampler_filter_minmax            samplerFilterMinmax
+        // VK_EXT_shader_viewport_index_layer      shaderOutputViewportIndex, shaderOutputLayer
+    
+
         // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Features`
         VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
 

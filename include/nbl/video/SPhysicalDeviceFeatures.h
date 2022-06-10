@@ -6,16 +6,6 @@ namespace nbl::video
 
 struct SPhysicalDeviceFeatures
 {
-    // ! In Vulkan: These will be reported based on availability of an extension and will be enabled by enabling an extension
-    // Table 51. Extension Feature Aliases (vkspec 1.3.211)
-    // Extension                               Feature(s)
-    // VK_KHR_shader_draw_parameters           shaderDrawParameters
-    // VK_KHR_draw_indirect_count              drawIndirectCount
-    // VK_KHR_sampler_mirror_clamp_to_edge     samplerMirrorClampToEdge
-    // VK_EXT_descriptor_indexing              descriptorIndexing
-    // VK_EXT_sampler_filter_minmax            samplerFilterMinmax
-    // VK_EXT_shader_viewport_index_layer      shaderOutputViewportIndex, shaderOutputLayer
-    
     /* Vulkan 1.0 Core  */
     bool robustBufferAccess = false;
     bool fullDrawIndexUint32 = false;
@@ -47,7 +37,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32    shaderTessellationAndGeometryPointSize;
     //VkBool32    shaderImageGatherExtended;
     //VkBool32    shaderStorageImageExtendedFormats;
-    //VkBool32    shaderStorageImageMultisample;
+    bool shaderStorageImageMultisample = false;
     //VkBool32    shaderStorageImageReadWithoutFormat;
     //VkBool32    shaderStorageImageWriteWithoutFormat;
     //VkBool32    shaderUniformBufferArrayDynamicIndexing;
