@@ -237,6 +237,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
   # blit
+  "nbl/builtin/glsl/blit/formats_encode.glsl"
   "nbl/builtin/glsl/blit/parameters.glsl"
   "nbl/builtin/glsl/blit/default_compute_common.comp"
 
@@ -251,22 +252,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/blit/default_compute_normalization.comp"
   "nbl/builtin/glsl/blit/normalization/normalization.glsl"
   "nbl/builtin/glsl/blit/normalization/descriptors.glsl"
-
-  # Todo(achal): Remove
-  "nbl/builtin/glsl/blit/blit/formats/r8.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/r11f_g11f_b10f.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/r16.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/r16_snorm.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/r16f.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rg8.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rg8_snorm.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rg16.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rg16_snorm.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rg16f.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rg32f.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rgb10_a2.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rgba16.glsl"
-  "nbl/builtin/glsl/blit/blit/formats/rgba16_snorm.glsl"
 
 PARENT_SCOPE)
 

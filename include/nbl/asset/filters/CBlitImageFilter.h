@@ -58,10 +58,10 @@ class CBlitUtilities : public IBlitUtilities
 	static_assert(std::is_same<typename KernelX::value_type, typename KernelY::value_type>::value&& std::is_same<typename KernelZ::value_type, typename KernelY::value_type>::value, "Kernel value_type need to be identical");
 
 public:
-	using value_type = typename KernelX::value_type;
 	_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = KernelX::MaxChannels > KernelY::MaxChannels ? (KernelX::MaxChannels > KernelZ::MaxChannels ? KernelX::MaxChannels : KernelZ::MaxChannels) : (KernelY::MaxChannels > KernelZ::MaxChannels ? KernelY::MaxChannels : KernelZ::MaxChannels);
 
-	static inline size_t getRequiredPhaseSupportLUTSize(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
+	template <typename lut_value_type = KernelX::value_type>
+	static inline size_t getScaledKernelPhasedLUTSize(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ)
 	{
 		const auto scaledKernelX = constructScaledKernel(kernelX, inExtent, outExtent);
@@ -69,10 +69,12 @@ public:
 		const auto scaledKernelZ = constructScaledKernel(kernelZ, inExtent, outExtent);
 
 		const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
-		return ((phaseCount[0] * scaledKernelX.getWindowSize().x) + (phaseCount[1] * scaledKernelY.getWindowSize().y) + (phaseCount[2] * scaledKernelZ.getWindowSize().z)) * sizeof(value_type) * MaxChannels;
+
+		return ((phaseCount[0] * scaledKernelX.getWindowSize().x) + (phaseCount[1] * scaledKernelY.getWindowSize().y) + (phaseCount[2] * scaledKernelZ.getWindowSize().z)) * sizeof(lut_value_type) * MaxChannels;
 	}
 
-	static bool computePhaseSupportLUT(void* outKernelWeights, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
+	template <typename lut_value_type = KernelX::value_type>
+	static bool computeScaledKernelPhasedLUT(void* outKernelWeights, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ)
 	{
 		const core::vectorSIMDu32 phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
@@ -88,7 +90,7 @@ public:
 		const auto scaledKernelZ = constructScaledKernel(kernelZ, inExtent, outExtent);
 
 		const auto windowDims = getRealWindowSize(inImageType, scaledKernelX, scaledKernelY, scaledKernelZ);
-		const auto axisOffsets = getPhaseSupportLUTAxisOffsets(phaseCount, windowDims);
+		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets<lut_value_type>(phaseCount, windowDims);
 
 		const core::vectorSIMDf fInExtent(inExtent);
 		const core::vectorSIMDf fOutExtent(outExtent);
@@ -99,53 +101,69 @@ public:
 		// weights when eventually `windowSample` gets multiplied by them later in
 		// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()`
 		// this exists only because `evaluateImpl` expects a pre filtering step.
-		auto dummyLoad = [](value_type* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
+		auto dummyLoad = [](double* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
 		{
 			for (auto h = 0; h < MaxChannels; h++)
-				windowSample[h] = value_type(1);
+				windowSample[h] = 1.0;
 		};
 
-		value_type kernelWeight[MaxChannels];
+		double kernelWeight[MaxChannels];
 		// actually used to put values in the LUT
-		auto dummyEvaluate = [&kernelWeight](const value_type* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
+		auto dummyEvaluate = [&kernelWeight](const double* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
 		{
 			for (auto h = 0; h < MaxChannels; h++)
 				kernelWeight[h] = windowSample[h];
 		};
 
-		auto computeForAxis = [&](const asset::IImage::E_TYPE axis, const auto& kernel)
+		auto computeForAxis = [&](const asset::IImage::E_TYPE axis, const auto& scaledKernel)
 		{
 			if (axis > inImageType)
 				return;
 
-			const auto windowSize = kernel.getWindowSize()[axis];
+			const auto windowSize = scaledKernel.getWindowSize()[axis];
 
 			IImageFilterKernel::ScaleFactorUserData scale(1.f / fScale[axis]);
-			const IImageFilterKernel::ScaleFactorUserData* otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
-
+			const IImageFilterKernel::ScaleFactorUserData* otherScale = nullptr;
+			switch (axis)
+			{
+			case IImage::ET_1D:
+				otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
+				break;
+			case IImage::ET_2D:
+				otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelY.getUserData());
+				break;
+			case IImage::ET_3D:
+				otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelZ.getUserData());
+				break;
+			}
 			if (otherScale)
 			{
 				for (auto k = 0; k < MaxChannels; k++)
 					scale.factor[k] *= otherScale->factor[k];
 			}
 
-			// state->scratchMemory + getPhaseSupportLUTByteOffset(state)
-			value_type* outKernelWeightsPixel = reinterpret_cast<value_type*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
+			lut_value_type* outKernelWeightsPixel = reinterpret_cast<lut_value_type*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
 			for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
 			{
 				core::vectorSIMDf tmp(0.f);
 				tmp[axis] = float(i) + 0.5f;
 
-				const int32_t windowCoord = kernel.getWindowMinCoord(tmp * fScale, tmp)[axis];
+				const int32_t windowCoord = scaledKernel.getWindowMinCoord(tmp * fScale, tmp)[axis];
 
 				float relativePos = tmp[axis] - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
 
 				for (int32_t j = 0; j < windowSize; ++j)
 				{
 					core::vectorSIMDf tmp(relativePos, 0.f, 0.f);
-					kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), &scale);
+					scaledKernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), &scale);
 					for (uint32_t ch = 0; ch < MaxChannels; ++ch)
-						outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = kernelWeight[ch];
+					{
+						if constexpr (std::is_same_v<lut_value_type, uint16_t>)
+							outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = core::Float16Compressor::compress(float(kernelWeight[ch]));
+						else
+							outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = lut_value_type(kernelWeight[ch]);
+
+					}
 					relativePos -= 1.f;
 				}
 			}
@@ -171,13 +189,14 @@ public:
 		return last;
 	}
 
-	static inline core::vectorSIMDu32 getPhaseSupportLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& real_window_size)
+	template <typename lut_value_type = KernelX::value_type>
+	static inline core::vectorSIMDu32 getScaledKernelPhasedLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& real_window_size)
 	{
 		core::vectorSIMDu32 result;
 		result.x = 0u;
 		result.y = (phaseCount[0] * real_window_size.x);
 		result.z = ((phaseCount[0] * real_window_size.x) + (phaseCount[1] * real_window_size.y));
-		return result * sizeof(value_type) * MaxChannels;
+		return result * sizeof(lut_value_type) * MaxChannels;
 	}
 };
 
@@ -251,15 +270,17 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 };
 
 // copy while filtering the input into the output, a rare filter where the input and output extents can be different, still works one mip level at a time
-template<typename Swizzle=DefaultSwizzle, typename Dither=CWhiteNoiseDither, typename Normalization=void, bool Clamp=true, class KernelX=CBoxImageFilterKernel, class KernelY=KernelX, class KernelZ=KernelX>
-class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename CBlitUtilities<KernelX, KernelY, KernelZ>::value_type,Swizzle,Dither,Normalization,Clamp>
+template<typename Swizzle=DefaultSwizzle, typename Dither=CWhiteNoiseDither, typename Normalization=void, bool Clamp=true, class KernelX=CBoxImageFilterKernel, class KernelY=KernelX, class KernelZ=KernelX, typename lut_value_type = typename KernelX::value_type>
+class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelY::value_type,Swizzle,Dither,Normalization,Clamp>
 {
+	public:
+		using utils_t = CBlitUtilities<KernelX, KernelY, KernelZ>;
+
 	private:
-		using blit_utils_t = CBlitUtilities<KernelX, KernelY, KernelZ>;
-		using value_type = blit_utils_t::value_type;
+		using value_type = typename KernelX::value_type;
 		using base_t = CBlitImageFilterBase<value_type,Swizzle,Dither,Normalization,Clamp>;
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = blit_utils_t::MaxChannels;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = utils_t::MaxChannels;
 
 	public:
 		// we'll probably never remove this requirement
@@ -342,20 +363,20 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
 		{
 			// need to add the memory for ping pong buffers
-			uint32_t retval = getPhaseSupportLUTByteOffset(state);
+			uint32_t retval = getScaledKernelPhasedLUTByteOffset(state);
 			
 			// need to add the memory for phase support LUT
-			retval += blit_utils_t::getRequiredPhaseSupportLUTSize(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type,
+			retval += utils_t::template getScaledKernelPhasedLUTSize<lut_value_type>(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type,
 				state->kernelX, state->kernelY, state->kernelZ);
 
 			return retval;
 		}
 
-		static inline uint32_t getPhaseSupportLUTByteOffset(const state_type* state)
+		static inline uint32_t getScaledKernelPhasedLUTByteOffset(const state_type* state)
 		{
-			const auto scaledKernelX = blit_utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelY = blit_utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelZ = blit_utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelX = utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelY = utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelZ = utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
 
 			const uint32_t retval = getScratchOffset(state, true) + base_t::getRequiredScratchByteSize(state->alphaSemantic, state->outExtentLayerCount);
 			return retval;
@@ -395,7 +416,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			return state->kernelX.validate(state->inImage,state->outImage)&&state->kernelY.validate(state->inImage,state->outImage)&&state->kernelZ.validate(state->inImage,state->outImage);
 		}
 
-		// CBlitUtilities::computePhaseSupportLUT stores the kernel entries, in the LUT, in reverse, which are then forward iterated to compute the CONVOLUTION.
+		// CBlitUtilities::computeScaledKernelPhasedLUT stores the kernel entries, in the LUT, in reverse, which are then forward iterated to compute the CONVOLUTION.
 		template<class ExecutionPolicy>
 		static inline bool execute(ExecutionPolicy&& policy, state_type* state)
 		{
@@ -442,13 +463,13 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			const auto alphaChannel = state->alphaChannel;
 			
 			// prepare kernel
-			const auto scaledKernelX = blit_utils_t::constructScaledKernel(state->kernelX, inExtentLayerCount, outExtentLayerCount);
-			const auto scaledKernelY = blit_utils_t::constructScaledKernel(state->kernelY, inExtentLayerCount, outExtentLayerCount);
-			const auto scaledKernelZ = blit_utils_t::constructScaledKernel(state->kernelZ, inExtentLayerCount, outExtentLayerCount);
+			const auto scaledKernelX = utils_t::constructScaledKernel(state->kernelX, inExtentLayerCount, outExtentLayerCount);
+			const auto scaledKernelY = utils_t::constructScaledKernel(state->kernelY, inExtentLayerCount, outExtentLayerCount);
+			const auto scaledKernelZ = utils_t::constructScaledKernel(state->kernelZ, inExtentLayerCount, outExtentLayerCount);
 
 			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
 			const auto inImageType = inParams.type;
-			const auto real_window_size = blit_utils_t::getRealWindowSize(inImageType,scaledKernelX,scaledKernelY,scaledKernelZ);
+			const auto real_window_size = utils_t::getRealWindowSize(inImageType,scaledKernelX,scaledKernelY,scaledKernelZ);
 			core::vectorSIMDi32 intermediateExtent[3];
 			getIntermediateExtents(intermediateExtent, state, real_window_size);
 			const core::vectorSIMDi32 intermediateLastCoord[3] = {
@@ -537,11 +558,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 
 			core::vectorSIMDu32 phaseCount = IBlitUtilities::getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
 			phaseCount = core::max(phaseCount, core::vectorSIMDu32(1, 1, 1));
-			const core::vectorSIMDu32 axisOffsets = blit_utils_t::getPhaseSupportLUTAxisOffsets(phaseCount, real_window_size);
+			const core::vectorSIMDu32 axisOffsets = utils_t::template getScaledKernelPhasedLUTAxisOffsets<lut_value_type>(phaseCount, real_window_size);
 			constexpr auto MaxAxisCount = 3;
-			value_type* phaseSupportLUTPixel[MaxAxisCount];
+			lut_value_type* scaledKernelPhasedLUTPixel[MaxAxisCount];
 			for (auto i = 0; i < MaxAxisCount; ++i)
-				phaseSupportLUTPixel[i] = reinterpret_cast<value_type*>(state->scratchMemory + getPhaseSupportLUTByteOffset(state) + axisOffsets[i]);
+				scaledKernelPhasedLUTPixel[i] = reinterpret_cast<lut_value_type*>(state->scratchMemory + getScaledKernelPhasedLUTByteOffset(state) + axisOffsets[i]);
 
 			for (uint32_t layer=0; layer!=layerCount; layer++) // TODO: could be parallelized
 			{
@@ -677,9 +698,16 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							}
 						}
 
-						auto getWeightedSample = [phaseSupportLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_type
+						auto getWeightedSample = [scaledKernelPhasedLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_type
 						{
-							return phaseSupportLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel] * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + channel];
+							value_type kernelWeight;
+							if constexpr (std::is_same_v<lut_value_type, uint16_t>)
+								kernelWeight = value_type(core::Float16Compressor::decompress(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel]));
+							else
+								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel];
+
+							return kernelWeight * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + channel];
+							// return lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + channel];
 						};
 
 						uint32_t phaseIndex = 0;
@@ -756,11 +784,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong)
 		{
 			const auto inType = state->inImage->getCreationParameters().type;
-			const auto scaledKernelX = blit_utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelY = blit_utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelZ = blit_utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelX = utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelY = utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelZ = utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
 
-			const auto real_window_size = blit_utils_t::getRealWindowSize(inType,scaledKernelX,scaledKernelY,scaledKernelZ);
+			const auto real_window_size = utils_t::getRealWindowSize(inType,scaledKernelX,scaledKernelY,scaledKernelZ);
 			// TODO: account for the size needed for coverage adjustment
 			// the first pass will be along X, so new temporary image will have the width of the output extent, but the height and depth will need to be padded
 			// but the last pass will be along Z and the new temporary image will have the exact dimensions of `outExtent` which is why there is a `core::max`
@@ -773,7 +801,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 			if (secondPong)
 				texelCount += core::max<uint32_t>(intermediateExtent[1].x * intermediateExtent[1].y * intermediateExtent[1].z, (state->inExtent.width + real_window_size[0]) * std::thread::hardware_concurrency() * VectorizationBoundSTL);
 			// obviously we have multiple channels and each channel has a certain type for arithmetic
-			return texelCount*blit_utils_t::MaxChannels*sizeof(value_type);
+			return texelCount*utils_t::MaxChannels*sizeof(value_type);
 		}
 };
 

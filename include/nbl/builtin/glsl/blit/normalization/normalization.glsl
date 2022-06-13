@@ -22,7 +22,7 @@ uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint di
 #include <nbl/builtin/glsl/blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
-vec4 nbl_glsl_blit_normalization_getPaddedData(in ivec3 coord);
+vec4 nbl_glsl_blit_normalization_getData(in ivec3 coord);
 void nbl_glsl_blit_normalization_setData(in vec4 data, in ivec3 coord);
 uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint layerIdx);
 uint nbl_glsl_blit_normalization_getPassedInputPixelCountData(in uint layerIdx);
@@ -90,12 +90,14 @@ void nbl_glsl_blit_normalization_main()
 	// const uint bucketIndex = lower_bound_scratchShared_NBL_GLSL_LESS(0u, _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_, pixelsShouldFailCount);
 
 	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
-
 	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
 
-	const vec4 pixel = nbl_glsl_blit_normalization_getPaddedData(ivec3(gl_GlobalInvocationID));
-	vec4 scaledPixel = vec4(pixel.rgb, pixel.a * alphaScale);
-	nbl_glsl_blit_normalization_setData(scaledPixel, ivec3(gl_GlobalInvocationID));
+	if (all(lessThan(gl_GlobalInvocationID, params.outDim)))
+	{
+		const vec4 pixel = nbl_glsl_blit_normalization_getData(ivec3(gl_GlobalInvocationID));
+		const vec4 scaledPixel = vec4(pixel.rgb, pixel.a * alphaScale);
+		nbl_glsl_blit_normalization_setData(scaledPixel, ivec3(gl_GlobalInvocationID));
+	}
 }
 
 #undef scratchShared

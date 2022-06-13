@@ -123,8 +123,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
 			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
 
-			using blit_utils_t = asset::CBlitUtilities<KernelX, KernelY, KernelZ>;
-			blit_utils_t::computePhaseSupportLUT(blit.scratchMemory + pseudo_base_t::getPhaseSupportLUTByteOffset(&blit), blit.inExtentLayerCount, blit.outExtentLayerCount, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ);
+			pseudo_base_t::utils_t::computeScaledKernelPhasedLUT(blit.scratchMemory + pseudo_base_t::getScaledKernelPhasedLUTByteOffset(&blit), blit.inExtentLayerCount, blit.outExtentLayerCount, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ);
 			return blit;
 		}
 };

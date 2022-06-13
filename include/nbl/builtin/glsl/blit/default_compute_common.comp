@@ -35,8 +35,6 @@ struct nbl_glsl_blit_AlphaStatistics_t
 #define _NBL_GLSL_BLIT_ALPHA_STATISTICS_DEFINED_ nbl_glsl_blit_AlphaStatistics_t
 #endif
 
-
-
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
 	#define _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_ sampler1DArray
 	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_ image1DArray
@@ -51,7 +49,7 @@ struct nbl_glsl_blit_AlphaStatistics_t
 #endif
 
 #ifdef _NBL_GLSL_BLIT_SOFTWARE_CODEC_
-	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ u##_NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_
+	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ NBL_GLSL_CONCATENATE2(u, _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_)
 #else
 	#define _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_ _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_IMPL_
 #endif
