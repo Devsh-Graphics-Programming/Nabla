@@ -7,56 +7,28 @@
 
 #include <nbl/builtin/glsl/math/functions.glsl>
 
-struct SphRect {
-    mat3 basis;
-    vec3 r0;
-    vec3 r1;
-};
-
-SphRect nbl_glsl_shapes_getSphericalRectangle(in vec3 start, in vec3 ex, in vec3 ey, in vec3 origin) 
+vec3 nbl_glsl_shapes_getSphericalRectangle(in vec3 observer, in vec3 rectangleOrigin, in mat3 rectangleNormalBasis)
 {
-    const float exl = length(ex);
-    const float eyl = length(ey);
-    const vec3 x = ex / exl;
-    const vec3 y = ey / eyl;
-    vec3 z = normalize(cross(x, y));
-    if (dot(start-origin, z) > 0) {
-        z*=-1;
-    }
-
-    const mat3 basis = mat3(x, y, z);
-    const vec3 r0 = (start-origin) * basis;
-    const vec3 r1 = r0 + vec3(exl, eyl, 0);
-
-    SphRect rect;
-    rect.basis = basis;
-    rect.r0 = r0;
-    rect.r1 = r1;
-    return rect;
+    return (rectangleOrigin-observer) * rectangleNormalBasis;
 }
 
-float nbl_glsl_shapes_SolidAngleOfRectangle(in vec3 r0, in vec3 r1, out float b0, out float b1, out float k) 
+float nbl_glsl_shapes_SolidAngleOfRectangle(in vec3 r0, in vec2 rectangleExtents, out float b0, out float b1, out float k) 
 {
-    const vec3 v00 = vec3(r0.x, r0.y, r0.z);
-    const vec3 v01 = vec3(r0.x, r1.y, r0.z);
-    const vec3 v10 = vec3(r1.x, r0.y, r0.z);
-    const vec3 v11 = vec3(r1.x, r1.y, r0.z);
+    const vec4 denorm_n_z = vec4(-r0.y, r0.x+rectangleExtents.x, r0.y+rectangleExtents.y, -r0.x);
+    const vec4 n_z = denorm_n_z*inversesqrt(vec4(r0.z*r0.z)+denorm_n_z*denorm_n_z);
+    const vec4 cosGamma = vec4(
+        -n_z[0]*n_z[1],
+        -n_z[1]*n_z[2],
+        -n_z[2]*n_z[3],
+        -n_z[3]*n_z[0]
+    );
+    
+    const vec4 g = acos(cosGamma);
 
-    const vec3 n0 = normalize(cross(v00, v10));
-    const vec3 n1 = normalize(cross(v10, v11));
-    const vec3 n2 = normalize(cross(v11, v01));
-    const vec3 n3 = normalize(cross(v01, v00));
-
-    const float g0 = acos(-n0.z * n1.z);
-    const float g1 = acos(-n1.z * n2.z);
-    const float g2 = acos(-n2.z * n3.z);
-    const float g3 = acos(-n3.z * n0.z);
-
-    k = 2*nbl_glsl_PI - g2 - g3;
-    b0 = n0.z;
-    b1 = n2.z;
-
-    return g0 + g1 + g2 + g3 - 2*nbl_glsl_PI;
+    k = 2*nbl_glsl_PI - g[2] - g[3];
+    b0 = n_z[0];
+    b1 = n_z[2];
+    return g[0] + g[1] + g[2] + g[3] - 2*nbl_glsl_PI;
 }
 
 #endif
