@@ -6,8 +6,8 @@
 #include <nbl/builtin/glsl/blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
-vec4 nbl_glsl_blit_getData(in vec3 texCoord);
-void nbl_glsl_blit_setData(in vec4 data, in ivec3 coord);
+vec4 nbl_glsl_blit_getData(in vec3 texCoord, in uint layerIdx);
+void nbl_glsl_blit_setData(in vec4 data, in uvec3 coord, in uint layerIdx);
 
 vec4 nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord);
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx);
@@ -55,21 +55,14 @@ void nbl_glsl_blit_main()
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
 	const uvec3 outputTexelsPerWG = params.outputTexelsPerWG;
-	// const vec3 positiveSupport = abs(params.negativeSupport); // won't work for skewed kernels
 
 	const vec3 scale = params.fScale;
 	const vec3 halfScale = scale * vec3(0.5f);
 
 	const uvec3 minOutputPixel = gl_WorkGroupID * outputTexelsPerWG;
 	const vec3 minOutputPixelCenterOfWG = vec3(minOutputPixel)*scale + halfScale;
-	// const vec3 maxOutputPixelCenterOfWG = vec3(minOutputPixel + outputTexelsPerWG) * scale - halfScale;
-
-	// This can be calculated per axis.
 	const ivec3 regionStartCoord = getMinKernelWindowCoord(minOutputPixelCenterOfWG, params.negativeSupport); // this can be negative, in which case we wrap
 
-	// const ivec3 regionEndCoord = getMaxKernelWindowCoord(maxOutputPixelCenterOfWG, positiveSupport); // this can go out of bounds of input image, in which case we wrap
-
-	// uvec3 preloadRegion = regionEndCoord - regionStartCoord + ivec3(1); // upper limit of regionEndCoord is inclusive
 	const uvec3 preloadRegion = params.preloadRegion;
 
 	for (uint virtualInvocation = gl_LocalInvocationIndex; virtualInvocation < preloadRegion.x * preloadRegion.y * preloadRegion.z; virtualInvocation += _NBL_GLSL_WORKGROUP_SIZE_)
@@ -77,10 +70,8 @@ void nbl_glsl_blit_main()
 		const ivec3 inputPixelCoord = regionStartCoord + ivec3(linearIndexTo3DIndex(virtualInvocation, preloadRegion));
 
 		vec3 inputTexCoord = (inputPixelCoord + vec3(0.5f)) / params.inDim;
-		if (_NBL_GLSL_BLIT_DIM_COUNT_ < 3)
-			inputTexCoord[2] = gl_GlobalInvocationID[2]; // layer index, when present
-
-		const vec4 loadedData = nbl_glsl_blit_getData(inputTexCoord);
+		
+		const vec4 loadedData = nbl_glsl_blit_getData(inputTexCoord, gl_WorkGroupID.z);
 		for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 			scratchShared[ch][virtualInvocation] = loadedData[ch];
 	}
@@ -170,7 +161,10 @@ void nbl_glsl_blit_main()
 					outCoord = virtualInvocationID.xyz;
 				outCoord += minOutputPixel;
 
-				nbl_glsl_blit_setData(accum, ivec3(outCoord));
+				const uint bucketIndex = packUnorm4x8(vec4(accum.a, 0.f, 0.f, 0.f));
+				nbl_glsl_blit_addToHistogram(bucketIndex, gl_WorkGroupID.z);
+
+				nbl_glsl_blit_setData(accum, outCoord, gl_WorkGroupID.z);
 			}
 			else
 			{

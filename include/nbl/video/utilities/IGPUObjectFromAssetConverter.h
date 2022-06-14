@@ -949,7 +949,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             copyRegion.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT; // Todo(achal): all bits?
             copyRegion.imageSubresource.mipLevel = 0u;
             copyRegion.imageSubresource.baseArrayLayer = 0u;
-            copyRegion.imageSubresource.layerCount = 1u;
+            copyRegion.imageSubresource.layerCount = cpuimg->getCreationParameters().arrayLayers;
             copyRegion.imageOffset = { 0u,0u,0u };
             copyRegion.imageExtent = cpuimg->getCreationParameters().extent;
 

@@ -27,12 +27,16 @@ shared float nbl_glsl_blit_scratchShared[_NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_][_NBL
 #error _NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-vec4 nbl_glsl_blit_getData(in vec3 texCoord)
+vec4 nbl_glsl_blit_getData(in vec3 texCoord, in uint layerIdx)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	return textureLod(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, texCoord.xy, 0.f);
-#else
+	return textureLod(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, vec2(texCoord.x, layerIdx), 0.f);
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	return textureLod(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, vec3(texCoord.xy, layerIdx), 0.f);
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
 	return textureLod(_NBL_GLSL_BLIT_IN_DESCRIPTOR_DEFINED_, texCoord, 0.f);
+#else
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 }
 
@@ -52,12 +56,16 @@ vec4 nbl_glsl_blit_encode(in vec4 value)
 }
 #endif
 
-void nbl_glsl_blit_setData(in vec4 value, in ivec3 coord)
+void nbl_glsl_blit_setData(in vec4 value, in uvec3 coord, in uint layerIdx)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, coord.xy, nbl_glsl_blit_encode(value));
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, ivec2(coord.x, layerIdx), nbl_glsl_blit_encode(value));
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, ivec3(coord.xy, layerIdx), nbl_glsl_blit_encode(value));
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, ivec3(coord.xyz), nbl_glsl_blit_encode(value));
 #else
-	imageStore(_NBL_GLSL_BLIT_OUT_DESCRIPTOR_DEFINED_, coord, nbl_glsl_blit_encode(value));
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 }
 
@@ -66,24 +74,8 @@ void nbl_glsl_blit_setData(in vec4 value, in ivec3 coord)
 
 #ifndef _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
 
-// #ifndef _NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_
-// #error _NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_ must be defined
-// #endif
-
 vec4 nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 {
-#if 0
-	vec4 weight[3];
-	weight[0] = _NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_.kernelWeights[lutCoord.x];
-	weight[1] = _NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_.kernelWeights[lutCoord.y];
-	weight[2] = _NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_.kernelWeights[lutCoord.z];
-
-	vec4 result = vec4(1.f);
-	for (uint d = 0u; d < _NBL_GLSL_BLIT_DIM_COUNT_; ++d)
-		result *= weight[d];
-
-	return result;
-#endif
 	return vec4(0.f);
 }
 #define _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
@@ -93,11 +85,11 @@ vec4 nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx)
 {
 #ifdef _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_
-	#ifndef _NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_
-		#error _NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_ must be defined
+	#ifndef _NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_
+		#error _NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_ must be defined
 	#endif
 
-	atomicAdd(_NBL_GLSL_BLIT_SCRATCH_DESCRIPTOR_DEFINED_.alphaStatistics[layerIdx].histogram[bucketIndex], 1u);
+	atomicAdd(_NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_.alphaStatistics[layerIdx].histogram[bucketIndex], 1u);
 #endif
 }
 #define _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_

@@ -22,6 +22,7 @@ using ScaledMitchellKernel = asset::CScaledImageFilterKernel<CMitchellImageFilte
 using ScaledMitchellDerivativeKernel = asset::CDerivativeImageFilterKernel<ScaledMitchellKernel>;
 using ScaledChannelIndependentKernel = asset::CChannelIndependentImageFilterKernel<ScaledBoxKernel, ScaledMitchellKernel, ScaledKaiserKernel>;
 
+// dims[3] is layer count
 core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims, const asset::IImage::E_TYPE imageType, const asset::E_FORMAT format, const bool fillWithTestData = false)
 {
 	IImage::SCreationParams imageParams = {};
@@ -30,7 +31,7 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims
 	imageParams.format = format;
 	imageParams.extent = { dims[0], dims[1], dims[2] };
 	imageParams.mipLevels = 1u;
-	imageParams.arrayLayers = 1u;
+	imageParams.arrayLayers = dims[3];
 	imageParams.samples = asset::ICPUImage::ESCF_1_BIT;
 	imageParams.usage = asset::IImage::EUF_SAMPLED_BIT;
 
@@ -42,10 +43,10 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims
 	region.imageExtent = { dims[0], dims[1], dims[2] };
 	region.imageOffset = { 0u, 0u, 0u };
 	region.imageSubresource.baseArrayLayer = 0u;
-	region.imageSubresource.layerCount = 1u;
+	region.imageSubresource.layerCount = imageParams.arrayLayers;
 	region.imageSubresource.mipLevel = 0;
 
-	size_t bufferSize = asset::getTexelOrBlockBytesize(imageParams.format) * static_cast<size_t>(region.imageExtent.width) * region.imageExtent.height * region.imageExtent.depth;
+	size_t bufferSize = imageParams.arrayLayers * asset::getTexelOrBlockBytesize(imageParams.format) * static_cast<size_t>(region.imageExtent.width) * region.imageExtent.height * region.imageExtent.depth;
 	auto imageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferSize);
 	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imageParams));
 	image->setBufferAndRegions(core::smart_refctd_ptr(imageBuffer), imageRegions);
@@ -59,22 +60,28 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims
 		std::uniform_real_distribution<double> dist(0.0, pixelValueUpperBound);
 		std::mt19937 prng;
 
-		double dummyVal = 1.0;
 		uint8_t* bytePtr = reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer());
-		for (uint64_t k = 0u; k < dims[2]; ++k)
-		{
-			for (uint64_t j = 0u; j < dims[1]; ++j)
-			{
-				for (uint64_t i = 0; i < dims[0]; ++i)
-				{
-					const double dummyValToPut = dummyVal++;
-					double decodedPixel[4] = { 0 };
-					for (uint32_t ch = 0u; ch < asset::getFormatChannelCount(format); ++ch)
-						decodedPixel[ch] = dummyValToPut;
-						// decodedPixel[ch] = dist(prng);
+		const auto layerSize = bufferSize / imageParams.arrayLayers;
 
-					const uint64_t pixelIndex = (k * dims[1] * dims[0]) + (j * dims[0]) + i;
-					asset::encodePixelsRuntime(format, bytePtr + pixelIndex * asset::getTexelOrBlockBytesize(format), decodedPixel);
+		for (auto layer = 0; layer < image->getCreationParameters().arrayLayers; ++layer)
+		{
+			double dummyVal = 1.0;
+
+			for (uint64_t k = 0u; k < dims[2]; ++k)
+			{
+				for (uint64_t j = 0u; j < dims[1]; ++j)
+				{
+					for (uint64_t i = 0; i < dims[0]; ++i)
+					{
+						const double dummyValToPut = dummyVal++;
+						double decodedPixel[4] = { 0 };
+						for (uint32_t ch = 0u; ch < asset::getFormatChannelCount(format); ++ch)
+							decodedPixel[ch] = dummyValToPut;
+							// decodedPixel[ch] = dist(prng);
+
+						const uint64_t pixelIndex = (k * dims[1] * dims[0]) + (j * dims[0]) + i;
+						asset::encodePixelsRuntime(format, bytePtr + layer*layerSize + pixelIndex * asset::getTexelOrBlockBytesize(format), decodedPixel);
+					}
 				}
 			}
 		}
@@ -146,12 +153,13 @@ public:
 		{
 			logger->log("Test #1");
 
-			const core::vectorSIMDu32 inImageDim(59u, 1u, 1u);
+			const auto layerCount = 10;
+			const core::vectorSIMDu32 inImageDim(59u, 1u, 1u, layerCount);
 			const asset::IImage::E_TYPE inImageType = asset::IImage::ET_1D;
 			const asset::E_FORMAT inImageFormat = asset::EF_R32G32B32A32_SFLOAT;
 			auto inImage = createCPUImage(inImageDim, inImageType, inImageFormat, true);
 
-			const core::vectorSIMDu32 outImageDim(800u, 1u, 1u);
+			const core::vectorSIMDu32 outImageDim(800u, 1u, 1u, layerCount);
 			const IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic = IBlitUtilities::EAS_NONE_OR_PREMULTIPLIED;
 
 			const core::vectorSIMDf scaleX(0.35f, 1.f, 1.f, 1.f);
@@ -176,7 +184,8 @@ public:
 				FATAL_LOG("Failed to load the image at path %s\n", pathToInputImage);
 
 			const auto& inExtent = inImage->getCreationParameters().extent;
-			const core::vectorSIMDu32 outImageDim(inExtent.width / 3u, inExtent.height / 7u, inExtent.depth);
+			const auto layerCount = inImage->getCreationParameters().arrayLayers;
+			const core::vectorSIMDu32 outImageDim(inExtent.width / 3u, inExtent.height / 7u, inExtent.depth, layerCount);
 			const IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic = IBlitUtilities::EAS_NONE_OR_PREMULTIPLIED;
 
 			const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
@@ -195,16 +204,17 @@ public:
 		{
 			logger->log("Test #3");
 
-			const core::vectorSIMDu32 inImageDim(2u, 3u, 4u);
-			// const core::vectorSIMDu32 inImageDim(5u, 4u, 1u);
-			// const core::vectorSIMDu32 inImageDim(4u, 1u, 1u);
+			const auto layerCount = 1u;
+			const core::vectorSIMDu32 inImageDim(2u, 3u, 4u, layerCount);
+			// const core::vectorSIMDu32 inImageDim(5u, 4u, 1u, layerCount);
+			// const core::vectorSIMDu32 inImageDim(4u, 1u, 1u, layerCount);
 			const asset::IImage::E_TYPE inImageType = asset::IImage::ET_3D;
 			const asset::E_FORMAT inImageFormat = asset::EF_R32G32B32A32_SFLOAT;
 			auto inImage = createCPUImage(inImageDim, inImageType, inImageFormat, true);
 
-			const core::vectorSIMDu32 outImageDim(3u, 4u, 2u);
-			// const core::vectorSIMDu32 outImageDim(2u, 3u, 1u);
-			// const core::vectorSIMDu32 outImageDim(5u, 1u, 1u);
+			const core::vectorSIMDu32 outImageDim(3u, 4u, 2u, layerCount);
+			// const core::vectorSIMDu32 outImageDim(2u, 3u, 1u, layerCount);
+			// const core::vectorSIMDu32 outImageDim(5u, 1u, 1u, layerCount);
 			const IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic = IBlitUtilities::EAS_NONE_OR_PREMULTIPLIED;
 
 			// const core::vectorSIMDf scaleX(0.35f, 1.f, 1.f, 1.f);
@@ -222,7 +232,7 @@ public:
 			blitTest<LutDataType>(std::move(inImage), outImageDim, kernelX, kernelY, kernelZ, alphaSemantic);
 		}
 
-		if (false)
+		// if (false)
 		{
 			logger->log("Test #4");
 
@@ -232,7 +242,8 @@ public:
 				FATAL_LOG("Failed to load the image at path %s\n", pathToInputImage);
 
 			const auto& inExtent = inImage->getCreationParameters().extent;
-			const core::vectorSIMDu32 outImageDim(inExtent.width / 3u, inExtent.height / 7u, inExtent.depth);
+			const auto layerCount = inImage->getCreationParameters().arrayLayers;
+			const core::vectorSIMDu32 outImageDim(inExtent.width / 3u, inExtent.height / 7u, inExtent.depth, layerCount);
 			const IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic = IBlitUtilities::EAS_REFERENCE_OR_COVERAGE;
 			const float referenceAlpha = 0.5f;
 
@@ -318,9 +329,11 @@ private:
 
 		const asset::E_FORMAT inImageFormat = inImageCPU->getCreationParameters().format;
 		const asset::E_FORMAT outImageFormat = inImageFormat; // I can test with different input and output image formats later
+		const auto layerCount = inImageCPU->getCreationParameters().arrayLayers;
+		assert(outExtent.w == layerCount);
 
 		// CPU
-		core::vector<uint8_t> cpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(outImageFormat));
+		core::vector<uint8_t> cpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(outImageFormat) * layerCount);
 		{
 			auto outImageCPU = createCPUImage(outExtent, inImageCPU->getCreationParameters().type, outImageFormat);
 
@@ -330,13 +343,13 @@ private:
 			typename BlitFilter::state_type blitFilterState(std::move(kernelX_), std::move(kernelY_), std::move(kernelZ_));
 
 			blitFilterState.inOffsetBaseLayer = core::vectorSIMDu32();
-			blitFilterState.inExtentLayerCount = core::vectorSIMDu32(0u, 0u, 0u, inImageCPU->getCreationParameters().arrayLayers) + inImageCPU->getMipSize();
+			blitFilterState.inExtentLayerCount = core::vectorSIMDu32(0u, 0u, 0u, layerCount) + inImageCPU->getMipSize();
 			blitFilterState.inImage = inImageCPU.get();
 			blitFilterState.outImage = outImageCPU.get();
 
 			blitFilterState.outOffsetBaseLayer = core::vectorSIMDu32();
-			const uint32_t outImageLayerCount = 1u;
-			blitFilterState.outExtentLayerCount = core::vectorSIMDu32(outExtent[0], outExtent[1], outExtent[2], 1u);
+			const uint32_t outImageLayerCount = inImageCPU->getCreationParameters().arrayLayers;
+			blitFilterState.outExtentLayerCount = core::vectorSIMDu32(outExtent[0], outExtent[1], outExtent[2], outImageLayerCount);
 
 			blitFilterState.axisWraps[0] = asset::ISampler::ETC_CLAMP_TO_EDGE;
 			blitFilterState.axisWraps[1] = asset::ISampler::ETC_CLAMP_TO_EDGE;
@@ -390,7 +403,7 @@ private:
 		}
 
 		// GPU
-		core::vector<uint8_t> gpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(outImageFormat));
+		core::vector<uint8_t> gpuOutput(static_cast<uint64_t>(outExtent[0]) * outExtent[1] * outExtent[2] * asset::getTexelOrBlockBytesize(outImageFormat) * layerCount);
 		{
 			assert(inImageCPU->getCreationParameters().mipLevels == 1);
 
@@ -445,8 +458,8 @@ private:
 				creationParams.type = inImage->getCreationParameters().type;
 				creationParams.format = outImageFormat;
 				creationParams.extent = { outExtent.x, outExtent.y, outExtent.z };
-				creationParams.mipLevels = inImageCPU->getCreationParameters().mipLevels; // Asset converter will make the mip levels 10 for inImage
-				creationParams.arrayLayers = inImage->getCreationParameters().arrayLayers;
+				creationParams.mipLevels = inImageCPU->getCreationParameters().mipLevels; // Asset converter will make the mip levels 10 for inImage, so use the original value of inImageCPU
+				creationParams.arrayLayers = layerCount;
 				creationParams.samples = video::IGPUImage::ESCF_1_BIT;
 				creationParams.tiling = video::IGPUImage::ET_OPTIMAL;
 				creationParams.usage = static_cast<video::IGPUImage::E_USAGE_FLAGS>(video::IGPUImage::EUF_STORAGE_BIT | video::IGPUImage::EUF_TRANSFER_SRC_BIT);
@@ -460,7 +473,7 @@ private:
 
 			const asset::E_FORMAT outImageViewFormat = blitFilter->getOutImageViewFormat(outImageFormat);
 
-			const auto layersToBlit = inImage->getCreationParameters().arrayLayers;
+			const auto layersToBlit = layerCount;
 			core::smart_refctd_ptr<video::IGPUImageView> inImageView = nullptr;
 			core::smart_refctd_ptr<video::IGPUImageView> outImageView = nullptr;
 			{
@@ -510,7 +523,7 @@ private:
 					normalizationInImageView = logicalDevice->createGPUImageView(std::move(viewCreationParams));
 				}
 			}
-			
+
 			const core::vectorSIMDu32 inExtent(inImage->getCreationParameters().extent.width, inImage->getCreationParameters().extent.height, inImage->getCreationParameters().extent.depth, 1);
 			const auto inImageType = inImage->getCreationParameters().type;
 
@@ -574,7 +587,7 @@ private:
 			auto blitPipelineLayout = blitFilter->getDefaultBlitPipelineLayout(alphaSemantic);
 
 			video::IGPUDescriptorSetLayout* blitDSLayouts_raw[] = { blitDSLayout.get(), kernelWeightsDSLayout.get() };
-			uint32_t dsCounts[] = { 2, 1 }; 
+			uint32_t dsCounts[] = { 2, 1 };
 			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &blitDSLayout.get(), &blitDSLayout.get() + 1ull, dsCounts);
 
 			core::smart_refctd_ptr<video::IGPUComputePipeline> blitPipeline = nullptr;
@@ -685,7 +698,7 @@ private:
 
 				asset::ICPUImage::SBufferCopy downloadRegion = {};
 				downloadRegion.imageSubresource.aspectMask = video::IGPUImage::EAF_COLOR_BIT;
-				downloadRegion.imageSubresource.layerCount = 1u;
+				downloadRegion.imageSubresource.layerCount = layerCount;
 				downloadRegion.imageExtent = outImage->getCreationParameters().extent;
 
 				// Todo(achal): Transition layout to TRANSFER_SRC_OPTIMAL
@@ -717,45 +730,50 @@ private:
 		double sqErr = 0.0;
 		uint8_t* cpuBytePtr = cpuOutput.data();
 		uint8_t* gpuBytePtr = gpuOutput.data();
-		for (uint64_t k = 0u; k < outExtent[2]; ++k)
+		const auto layerSize = outExtent[2]*outExtent[1]*outExtent[0]*asset::getTexelOrBlockBytesize(outImageFormat);
+		for (auto layer = 0; layer < layerCount; ++layer)
 		{
-			for (uint64_t j = 0u; j < outExtent[1]; ++j)
+			for (uint64_t k = 0u; k < outExtent[2]; ++k)
 			{
-				for (uint64_t i = 0; i < outExtent[0]; ++i)
+				for (uint64_t j = 0u; j < outExtent[1]; ++j)
 				{
-					const uint64_t pixelIndex = (k * outExtent[1] * outExtent[0]) + (j * outExtent[0]) + i;
-					core::vectorSIMDu32 dummy;
-
-					const void* cpuEncodedPixel = cpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
-					const void* gpuEncodedPixel = gpuBytePtr + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
-
-					double cpuDecodedPixel[4];
-					asset::decodePixelsRuntime(outImageFormat, &cpuEncodedPixel, cpuDecodedPixel, dummy.x, dummy.y);
-
-					double gpuDecodedPixel[4];
-					asset::decodePixelsRuntime(outImageFormat, &gpuEncodedPixel, gpuDecodedPixel, dummy.x, dummy.y);
-
-					for (uint32_t ch = 0u; ch < outChannelCount; ++ch)
+					for (uint64_t i = 0; i < outExtent[0]; ++i)
 					{
+						const uint64_t pixelIndex = (k * outExtent[1] * outExtent[0]) + (j * outExtent[0]) + i;
+						core::vectorSIMDu32 dummy;
+
+						// Todo(achal): I can't seem to make the CPU blit filter work with multiple layers right now!!
+						const void* cpuEncodedPixel = cpuBytePtr /* + layer * layerSize*/ + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
+						const void* gpuEncodedPixel = gpuBytePtr + layer*layerSize + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
+
+						double cpuDecodedPixel[4];
+						asset::decodePixelsRuntime(outImageFormat, &cpuEncodedPixel, cpuDecodedPixel, dummy.x, dummy.y);
+
+						double gpuDecodedPixel[4];
+						asset::decodePixelsRuntime(outImageFormat, &gpuEncodedPixel, gpuDecodedPixel, dummy.x, dummy.y);
+
+						for (uint32_t ch = 0u; ch < outChannelCount; ++ch)
+						{
 #if 0
-						if (std::isnan(cpuDecodedPixel[ch]) || std::isinf(cpuDecodedPixel[ch]))
-							__debugbreak();
+							if (std::isnan(cpuDecodedPixel[ch]) || std::isinf(cpuDecodedPixel[ch]))
+								__debugbreak();
 
-						if (std::isnan(gpuDecodedPixel[ch]) || std::isinf(gpuDecodedPixel[ch]))
-							__debugbreak();
+							if (std::isnan(gpuDecodedPixel[ch]) || std::isinf(gpuDecodedPixel[ch]))
+								__debugbreak();
 
-						if (std::abs(cpuDecodedPixel[ch]-gpuDecodedPixel[ch]) > 1e-5f)
-							__debugbreak();
+							if (std::abs(cpuDecodedPixel[ch] - gpuDecodedPixel[ch]) > 1e-5f)
+								__debugbreak();
 #endif
 
-						sqErr += (cpuDecodedPixel[ch] - gpuDecodedPixel[ch]) * (cpuDecodedPixel[ch] - gpuDecodedPixel[ch]);
+							sqErr += (cpuDecodedPixel[ch] - gpuDecodedPixel[ch]) * (cpuDecodedPixel[ch] - gpuDecodedPixel[ch]);
 					}
 				}
 			}
 		}
+	}
 
 		// compute alpha coverage
-		const uint64_t totalPixelCount = static_cast<uint64_t>(outExtent[2]) * outExtent[1] * outExtent[0];
+		const uint64_t totalPixelCount = static_cast<uint64_t>(outExtent[2]) * outExtent[1] * outExtent[0]*layerCount;
 		const double RMSE = core::sqrt(sqErr / totalPixelCount);
 		logger->log("RMSE: %f\n", system::ILogger::ELL_DEBUG, RMSE);
 	}
@@ -765,28 +783,33 @@ private:
 		const uint32_t mipLevel = 0u;
 
 		uint32_t alphaTestPassCount = 0u;
+
 		const auto& extent = image->getCreationParameters().extent;
+		const auto layerCount = image->getCreationParameters().arrayLayers;
 
-		for (uint32_t z = 0u; z < extent.depth; ++z)
+		for (auto layer = 0; layer < layerCount; ++layer)
 		{
-			for (uint32_t y = 0u; y < extent.height; ++y)
+			for (uint32_t z = 0u; z < extent.depth; ++z)
 			{
-				for (uint32_t x = 0u; x < extent.width; ++x)
+				for (uint32_t y = 0u; y < extent.height; ++y)
 				{
-					const core::vectorSIMDu32 texCoord(x, y, z);
-					core::vectorSIMDu32 dummy;
-					const void* encodedPixel = image->getTexelBlockData(mipLevel, texCoord, dummy);
+					for (uint32_t x = 0u; x < extent.width; ++x)
+					{
+						const core::vectorSIMDu32 texCoord(x, y, z, layer);
+						core::vectorSIMDu32 dummy;
+						const void* encodedPixel = image->getTexelBlockData(mipLevel, texCoord, dummy);
 
-					double decodedPixel[4];
-					asset::decodePixelsRuntime(image->getCreationParameters().format, &encodedPixel, decodedPixel, dummy.x, dummy.y);
+						double decodedPixel[4];
+						asset::decodePixelsRuntime(image->getCreationParameters().format, &encodedPixel, decodedPixel, dummy.x, dummy.y);
 
-					if (decodedPixel[3] > referenceAlpha)
-						++alphaTestPassCount;
+						if (decodedPixel[3] > referenceAlpha)
+							++alphaTestPassCount;
+					}
 				}
 			}
 		}
 
-		const float alphaCoverage = float(alphaTestPassCount) / float(extent.width * extent.height * extent.depth);
+		const float alphaCoverage = float(alphaTestPassCount) / float(extent.width * extent.height * extent.depth*layerCount);
 		return alphaCoverage;
 	};
 
