@@ -89,7 +89,7 @@ void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx)
 		#error _NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_ must be defined
 	#endif
 
-	atomicAdd(_NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_.alphaStatistics[layerIdx].histogram[bucketIndex], 1u);
+	atomicAdd(_NBL_GLSL_BLIT_ALPHA_STATISTICS_DESCRIPTOR_DEFINED_.data[layerIdx].histogram[bucketIndex], 1u);
 #endif
 }
 #define _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_

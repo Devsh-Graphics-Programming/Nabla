@@ -60,12 +60,15 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims
 		std::uniform_real_distribution<double> dist(0.0, pixelValueUpperBound);
 		std::mt19937 prng;
 
+		std::uniform_int_distribution<int> dist2(0, 4);
+
 		uint8_t* bytePtr = reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer());
 		const auto layerSize = bufferSize / imageParams.arrayLayers;
 
+		double dummyVal = 1.0;
 		for (auto layer = 0; layer < image->getCreationParameters().arrayLayers; ++layer)
 		{
-			double dummyVal = 1.0;
+			// double dummyVal = 1.0;
 
 			for (uint64_t k = 0u; k < dims[2]; ++k)
 			{
@@ -76,8 +79,8 @@ core::smart_refctd_ptr<ICPUImage> createCPUImage(const core::vectorSIMDu32& dims
 						const double dummyValToPut = dummyVal++;
 						double decodedPixel[4] = { 0 };
 						for (uint32_t ch = 0u; ch < asset::getFormatChannelCount(format); ++ch)
-							decodedPixel[ch] = dummyValToPut;
-							// decodedPixel[ch] = dist(prng);
+							// decodedPixel[ch] = dummyValToPut;
+							decodedPixel[ch] = dist(prng);
 
 						const uint64_t pixelIndex = (k * dims[1] * dims[0]) + (j * dims[0]) + i;
 						asset::encodePixelsRuntime(format, bytePtr + layer*layerSize + pixelIndex * asset::getTexelOrBlockBytesize(format), decodedPixel);
@@ -259,15 +262,17 @@ public:
 			blitTest<LutDataType>(std::move(inImage), outImageDim, kernelX, kernelY, kernelZ, alphaSemantic, referenceAlpha);
 		}
 
-		if (false)
+		// if (false)
 		{
 			logger->log("Test #5");
-			const core::vectorSIMDu32 inImageDim(257u, 129u, 63u);
+
+			const auto layerCount = 1;
+			const core::vectorSIMDu32 inImageDim(257u, 129u, 63u, layerCount);
 			const asset::IImage::E_TYPE inImageType = asset::IImage::ET_3D;
 			const asset::E_FORMAT inImageFormat = asset::EF_B10G11R11_UFLOAT_PACK32;
 			auto inImage = createCPUImage(inImageDim, inImageType, inImageFormat, true);
 
-			const core::vectorSIMDu32 outImageDim(256u, 128u, 64u);
+			const core::vectorSIMDu32 outImageDim(256u, 128u, 64u, layerCount);
 			const IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic = IBlitUtilities::EAS_NONE_OR_PREMULTIPLIED;
 
 			const core::vectorSIMDf scaleX(1.f, 1.f, 1.f, 1.f);
@@ -282,15 +287,16 @@ public:
 			blitTest<LutDataType>(std::move(inImage), outImageDim, kernelX, kernelY, kernelZ, alphaSemantic);
 		}
 
-		if (false)
+		// if (false)
 		{
+			const auto layerCount = 1;
 			logger->log("Test #6");
-			const core::vectorSIMDu32 inImageDim(511u, 1024u, 1u);
+			const core::vectorSIMDu32 inImageDim(511u, 1024u, 1u, layerCount);
 			const asset::IImage::E_TYPE inImageType = asset::IImage::ET_2D;
 			const asset::E_FORMAT inImageFormat = EF_R16G16B16A16_SNORM;
 			auto inImage = createCPUImage(inImageDim, inImageType, inImageFormat, true);
 
-			const core::vectorSIMDu32 outImageDim(512u, 257u, 1u);
+			const core::vectorSIMDu32 outImageDim(512u, 257u, 1u, layerCount);
 			const IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic = IBlitUtilities::EAS_REFERENCE_OR_COVERAGE;
 			const float referenceAlpha = 0.5f;
 
@@ -588,7 +594,7 @@ private:
 
 			video::IGPUDescriptorSetLayout* blitDSLayouts_raw[] = { blitDSLayout.get(), kernelWeightsDSLayout.get() };
 			uint32_t dsCounts[] = { 2, 1 };
-			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, &blitDSLayout.get(), &blitDSLayout.get() + 1ull, dsCounts);
+			auto descriptorPool = logicalDevice->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE, blitDSLayouts_raw, blitDSLayouts_raw + 2ull, dsCounts);
 
 			core::smart_refctd_ptr<video::IGPUComputePipeline> blitPipeline = nullptr;
 			core::smart_refctd_ptr<video::IGPUDescriptorSet> blitDS = nullptr;
@@ -742,9 +748,8 @@ private:
 						const uint64_t pixelIndex = (k * outExtent[1] * outExtent[0]) + (j * outExtent[0]) + i;
 						core::vectorSIMDu32 dummy;
 
-						// Todo(achal): I can't seem to make the CPU blit filter work with multiple layers right now!!
-						const void* cpuEncodedPixel = cpuBytePtr /* + layer * layerSize*/ + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
-						const void* gpuEncodedPixel = gpuBytePtr + layer*layerSize + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
+						const void* cpuEncodedPixel = cpuBytePtr + (layer * layerSize) + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
+						const void* gpuEncodedPixel = gpuBytePtr + (layer * layerSize) + pixelIndex * asset::getTexelOrBlockBytesize(outImageFormat);
 
 						double cpuDecodedPixel[4];
 						asset::decodePixelsRuntime(outImageFormat, &cpuEncodedPixel, cpuDecodedPixel, dummy.x, dummy.y);

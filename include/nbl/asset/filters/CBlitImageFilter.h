@@ -735,7 +735,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 							}
 							if (lastPass)
 							{
-								const core::vectorSIMDu32 localOutPos = localTexCoord+outOffsetBaseLayer;
+								const core::vectorSIMDu32 localOutPos = localTexCoord+outOffsetBaseLayer+vLayer;
 								if (needsNormalization)
 									state->normalization.prepass(value,localOutPos,0u,0u,MaxChannels);
 								else // store to image, we're done

@@ -77,7 +77,6 @@ void nbl_glsl_blit_main()
 	}
 	barrier();
 
-#if 1
 	const uvec3 iterationRegions[3] = uvec3[]( uvec3(outputTexelsPerWG.x, preloadRegion.yz), uvec3(outputTexelsPerWG.yx, preloadRegion.z), outputTexelsPerWG.yxz );
 
 	uint readOffset = 0;
@@ -183,7 +182,6 @@ void nbl_glsl_blit_main()
 		readOffset ^= 1;
 		barrier();
 	}
-#endif
 
 #if 0
 	// X pass
