@@ -64,12 +64,11 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 			
 			if(WIN32 AND MSVC)
-				file(RELATIVE_PATH REL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/bin" "C:/work/programming/Nabla/build_DLL/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla/$<TARGET_FILE_NAME:Nabla>")
-				cmake_path(GET REL_PATH PARENT_PATH _NABLA_OUTPUT_DIR_)
+				set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
 				
 				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
 				target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
-					_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}/";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}/"
+					_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
 				)
 			endif()
 		else()

@@ -24,23 +24,23 @@ class NBL_API IApplicationFramework : public core::IReferenceCounted
             const system::path& _sharedOutputCWD) : 
             localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
 		{
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_SHARED_BUILD_)
             HMODULE res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
             if (!res)
             {
-                const std::string nablaOutputBuildPath = std::filesystem::path(std::string(_NABLA_OUTPUT_DIR_) + std::string(_NABLA_DLL_NAME_)).make_preferred().string();
-                res = LoadLibraryExA(nablaOutputBuildPath.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+                const auto nablaBuiltDLL = (system::path(_NABLA_OUTPUT_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
+                res = LoadLibraryExA(nablaBuiltDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
             }
             if (!res)
             {
-                const std::string nablaInstallPath = std::filesystem::path(std::string(_NABLA_INSTALL_DIR_) + std::string(_NABLA_DLL_NAME_)).make_preferred().string();
-                res = LoadLibraryExA(nablaInstallPath.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+                const auto nablaInstalledDLL = (system::path(_NABLA_INSTALL_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
+                res = LoadLibraryExA(nablaInstalledDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
             }
             if (!res)
                 res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
             HRESULT hr = __HrLoadAllImportsForDll(_NABLA_DLL_NAME_);
             assert(res && SUCCEEDED(hr));
-#endif // _NBL_PLATFORM_WINDOWS_
+#endif // _NBL_PLATFORM_WINDOWS_ && _NBL_SHARED_BUILD_
 		}
 
         void onAppInitialized()
