@@ -291,6 +291,31 @@ float nbl_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float
 	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? nbl_glsl_PI:(-nbl_glsl_PI));
 }
 
+vec2 nbl_glsl_combineCosForSumOfAcos(in vec2 cosA, in vec2 cosB) 
+{
+   const float bias = cosA.y + cosB.y;
+   const float a = cosA.x;
+   const float b = cosB.x;
+   const bool reverse = abs(min(a,b)) > max(a,b);
+   const float c = a*b - sqrt((1.0f-a*a)*(1.0f-b*b));
+   return reverse ? vec2(-c, bias + nbl_glsl_PI) : vec2(c, bias);
+}
+
+// returns acos(a) + acos(b)
+float nbl_glsl_getSumofArccosAB(in float cosA, in float cosB) 
+{
+   const vec2 combinedCos = nbl_glsl_combineCosForSumOfAcos(vec2(cosA, 0.0f), vec2(cosB, 0.0f));
+   return acos(combinedCos.x) + combinedCos.y;
+}
+
+// returns acos(a) + acos(b) + acos(c) + acos(d)
+float nbl_glsl_getSumofArccosABCD(in float cosA, in float cosB, in float cosC, in float cosD) 
+{
+   const vec2 combinedCos0 = nbl_glsl_combineCosForSumOfAcos(vec2(cosA, 0.0f), vec2(cosB, 0.0f));
+   const vec2 combinedCos1 = nbl_glsl_combineCosForSumOfAcos(vec2(cosC, 0.0f), vec2(cosD, 0.0f));
+   const vec2 combinedCos = nbl_glsl_combineCosForSumOfAcos(combinedCos0, combinedCos1);
+   return acos(combinedCos.x) + combinedCos.y;
+}
 
 //! MVC
 
