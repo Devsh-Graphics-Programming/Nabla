@@ -40,16 +40,17 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
 		if(NOT NBL_STATIC_BUILD)
-			set(NBL_CONFIG_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
-			set(NBL_CONFIG_OUTPUT_FILE ${NBL_CONFIG_OUTPUT_DIRECTORY}/${EXECUTABLE_NAME}$<IF:$<CONFIG:Release>,,$<IF:$<CONFIG:Debug>,_d,_rwdi>>.exe.config)
-			
-			add_custom_command(OUTPUT "${NBL_CONFIG_OUTPUT_FILE}"
-				COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_CONFIG_OUTPUT_DIRECTORY} -DNBL_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -DNBL_TARGET_PATH:FILEPATH=$<TARGET_FILE:${EXECUTABLE_NAME}> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake
-				COMMENT "Launching ${EXECUTABLE_NAME}.exe.config generation script!"
-				VERBATIM
-			)
-			
-			add_custom_target(${EXECUTABLE_NAME}_with_config ALL DEPENDS ${NBL_CONFIG_OUTPUT_FILE} ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake)
+			if(NBL_MSVC_GENERATE_APPLICATION_CONFIGS)
+				set(NBL_CONFIG_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
+				set(NBL_CONFIG_OUTPUT_FILE ${NBL_CONFIG_OUTPUT_DIRECTORY}/${EXECUTABLE_NAME}$<IF:$<CONFIG:Release>,,$<IF:$<CONFIG:Debug>,_d,_rwdi>>.exe.config)
+				
+				add_custom_command(OUTPUT "${NBL_CONFIG_OUTPUT_FILE}"
+					COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_CONFIG_OUTPUT_DIRECTORY} -DNBL_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -DNBL_TARGET_PATH:FILEPATH=$<TARGET_FILE:${EXECUTABLE_NAME}> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake
+					COMMENT "Launching ${EXECUTABLE_NAME}.exe.config generation script!"
+					VERBATIM
+				)
+				add_custom_target(${EXECUTABLE_NAME}_with_config ALL DEPENDS ${NBL_CONFIG_OUTPUT_FILE} ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake)
+			endif()
 		endif()
 	
 		set(NBL_EXECUTABLE_SOURCES 
@@ -61,6 +62,16 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+			
+			if(WIN32 AND MSVC)
+				file(RELATIVE_PATH REL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/bin" "C:/work/programming/Nabla/build_DLL/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla/$<TARGET_FILE_NAME:Nabla>")
+				cmake_path(GET REL_PATH PARENT_PATH _NABLA_OUTPUT_DIR_)
+				
+				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
+				target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
+					_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}/";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}/"
+				)
+			endif()
 		else()
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 		endif()
@@ -70,8 +81,10 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(NBL_STATIC_BUILD)
 		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
-		add_dependencies(${EXECUTABLE_NAME}_with_config Nabla_with_manifest)
-		#target_link_options(${EXECUTABLE_NAME} PRIVATE "/manifestdependency:\"type='win32' name='devshgraphicsprogramming.nabla' version='1.2.3.4' processorArchitecture='x86' language='*'\"")
+		if(NBL_MSVC_GENERATE_APPLICATION_CONFIGS)
+			add_dependencies(${EXECUTABLE_NAME}_with_config Nabla_with_manifest)
+			#target_link_options(${EXECUTABLE_NAME} PRIVATE "/manifestdependency:\"type='win32' name='devshgraphicsprogramming.nabla' version='1.2.3.4' processorArchitecture='x86' language='*'\"")
+		endif()
 	endif()
 	
 	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)

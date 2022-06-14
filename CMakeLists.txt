@@ -17,6 +17,7 @@ project(Nabla LANGUAGES CXX C)
 
 option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
+option(NBL_MSVC_GENERATE_APPLICATION_CONFIGS "" OFF) # do not try to use this, only for Nabla developers for now
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
