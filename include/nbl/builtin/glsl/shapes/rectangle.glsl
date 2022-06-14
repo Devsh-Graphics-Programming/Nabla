@@ -12,7 +12,7 @@ vec3 nbl_glsl_shapes_getSphericalRectangle(in vec3 observer, in vec3 rectangleOr
     return (rectangleOrigin-observer) * rectangleNormalBasis;
 }
 
-float nbl_glsl_shapes_SolidAngleOfRectangle(in vec3 r0, in vec2 rectangleExtents, out float b0, out float b1, out float k) 
+float nbl_glsl_shapes_SolidAngleOfRectangle(in vec3 r0, in vec2 rectangleExtents) 
 {
     const vec4 denorm_n_z = vec4(-r0.y, r0.x+rectangleExtents.x, r0.y+rectangleExtents.y, -r0.x);
     const vec4 n_z = denorm_n_z*inversesqrt(vec4(r0.z*r0.z)+denorm_n_z*denorm_n_z);
@@ -22,13 +22,7 @@ float nbl_glsl_shapes_SolidAngleOfRectangle(in vec3 r0, in vec2 rectangleExtents
         -n_z[2]*n_z[3],
         -n_z[3]*n_z[0]
     );
-    
-    const vec4 g = acos(cosGamma);
-
-    k = 2*nbl_glsl_PI - g[2] - g[3];
-    b0 = n_z[0];
-    b1 = n_z[2];
-    return g[0] + g[1] + g[2] + g[3] - 2*nbl_glsl_PI;
+    return nbl_glsl_getSumofArccosABCD(cosGamma[0], cosGamma[1], cosGamma[2], cosGamma[3]) - 2*nbl_glsl_PI;
 }
 
 #endif

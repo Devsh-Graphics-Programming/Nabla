@@ -9,8 +9,25 @@
 #include <nbl/builtin/glsl/shapes/rectangle.glsl>
 
 // Code from https://www.arnoldrenderer.com/research/egsr2013_spherical_rectangle.pdf
-vec2 nbl_glsl_sampling_generateSphericalRectangleSample(vec3 r0, in vec2 rectangleExtents, in float S, in float b0, float b1, in float k, vec2 uv)
+vec2 nbl_glsl_sampling_generateSphericalRectangleSample(vec3 r0, in vec2 rectangleExtents, in vec2 uv, out float S)
 {
+    const vec4 denorm_n_z = vec4(-r0.y, r0.x+rectangleExtents.x, r0.y+rectangleExtents.y, -r0.x);
+    const vec4 n_z = denorm_n_z*inversesqrt(vec4(r0.z*r0.z)+denorm_n_z*denorm_n_z);
+    const vec4 cosGamma = vec4(
+        -n_z[0]*n_z[1],
+        -n_z[1]*n_z[2],
+        -n_z[2]*n_z[3],
+        -n_z[3]*n_z[0]
+    );
+    
+    float p = nbl_glsl_getSumofArccosAB(cosGamma[0], cosGamma[1]);
+    float q = nbl_glsl_getSumofArccosAB(cosGamma[2], cosGamma[3]);
+
+    const float k = 2*nbl_glsl_PI - q;
+    const float b0 = n_z[0];
+    const float b1 = n_z[2];
+    S = p + q - 2*nbl_glsl_PI;
+
     const float CLAMP_EPS = 1e-5f;
 
     // flip z axsis if r0.z > 0
