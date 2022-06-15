@@ -1169,8 +1169,6 @@ public:
 	//!
 	uint32_t maxImageBindings;
 	//!
-	int32_t minMemoryMapAlignment;
-	//!
 	uint32_t MaxArrayTextureLayers;
 	//! Maxmimum texture layers supported by the engine
 	uint8_t MaxTextureUnits;
