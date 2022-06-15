@@ -3,8 +3,10 @@
 
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 
+//! WARNING: ONLY WORKS FOR `dividendMsb<=2^23` DUE TO FP32 ABUSE !!!
 uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint divisor)
 {
+	//assert(dividendMsb<=(0x1u<<23));
 	const uint MAX_UINT = ~0u;
 	const float msbRatio = float(dividendMsb) / float(divisor);
 	const uint quotient = uint((msbRatio * MAX_UINT) + msbRatio) + dividendLsb / divisor;
