@@ -7,7 +7,7 @@
 
 
 #include "dimension2d.h"
-#include "IDriverMemoryBacked.h"
+#include "IDeviceMemoryBacked.h"
 
 #include "nbl/asset/IImage.h"
 
@@ -18,14 +18,16 @@
 namespace nbl::video
 {
 
-class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>, public IBackendObject
+class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacked,asset::IImage>, public IBackendObject
 {
 	private:
-		using base_t = core::impl::ResolveAlignment<IDriverMemoryBacked, asset::IImage>;
+		using base_t = core::impl::ResolveAlignment<IDeviceMemoryBacked, asset::IImage>;
 
-    public:
-        _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
+	public:
+		_NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDeviceMemoryBacked,asset::IImage)
 			
+		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
+
 		//!
 		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const IGPUBuffer* src) const
 		{
@@ -53,23 +55,21 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			return true;
 		}
 
-		inline const SDriverMemoryRequirements& getMemoryReqs() const { return base_t::getMemoryReqs(); }
-
 		// OpenGL: const GLuint* handle of a texture target
 		// Vulkan: const VkImage*
 		virtual const void* getNativeHandle() const = 0;
 
-    protected:
-        _NBL_INTERFACE_CHILD(IGPUImage) {}
+	protected:
+		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
-        //! constructor
+		//! constructor
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			SCreationParams&& _params,
-			const IDriverMemoryBacked::SDriverMemoryRequirements reqs = IDriverMemoryBacked::SDriverMemoryRequirements())
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements reqs,
+			SCreationParams&& _params)
 			: base_t(reqs), IBackendObject(std::move(dev))
-        {
+		{
 			params = std::move(_params);
-        }
+		}
 };
 
 

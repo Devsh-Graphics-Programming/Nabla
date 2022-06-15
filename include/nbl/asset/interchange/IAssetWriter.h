@@ -68,7 +68,7 @@ enum E_WRITER_FLAGS : uint32_t
 	@see IAssetLoader
 	@see E_WRITER_FLAGS
 */
-class IAssetWriter : public virtual core::IReferenceCounted
+class NBL_API IAssetWriter : public virtual core::IReferenceCounted
 {
 public:
 	//! Struct storing important data used for Asset writing process

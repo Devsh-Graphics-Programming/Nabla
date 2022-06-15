@@ -15,7 +15,7 @@ namespace nbl {
 namespace asset
 {
 
-class ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView, ICPUSampler>
+class NBL_API ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView, ICPUSampler>
 {
     using base_t = IVirtualTexture<ICPUImageView, ICPUSampler>;
 

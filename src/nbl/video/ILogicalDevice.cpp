@@ -6,7 +6,7 @@ using namespace nbl::video;
 
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
 {
     uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
     for (auto b=_begin; b!=_end; ++b)
@@ -24,7 +24,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createGPUDescrip
         }
     }
     const auto& limits = m_physicalDevice->getLimits();
-    if (dynamicSSBOCount>limits.maxDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDynamicOffsetUBOs)
+    if (dynamicSSBOCount>limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDescriptorSetDynamicOffsetUBOs)
         return nullptr;
-    return createGPUDescriptorSetLayout_impl(_begin,_end);
+    return createDescriptorSetLayout_impl(_begin,_end);
 }

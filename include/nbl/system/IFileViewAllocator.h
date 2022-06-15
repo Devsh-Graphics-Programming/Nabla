@@ -10,7 +10,7 @@ namespace nbl::system
 {
 
 // This interface class provides the callbacks for `CFileView` which creates a mapped file over some memory
-class IFileViewAllocator
+class NBL_API IFileViewAllocator
 {
 	public:
 		IFileViewAllocator(void* _state) : m_state(_state) {}
@@ -23,7 +23,7 @@ class IFileViewAllocator
 };
 
 // Regular old file in RAM
-class CPlainHeapAllocator : public IFileViewAllocator
+class NBL_API CPlainHeapAllocator : public IFileViewAllocator
 {
 	public:
 		using IFileViewAllocator::IFileViewAllocator;
@@ -41,7 +41,7 @@ class CPlainHeapAllocator : public IFileViewAllocator
 
 // This allocator is useful to create an `IFile` over memory that already contains something or is owned by some other component
 // e.g. memory mapped IGPUBuffer, string_view or a string, or buffers handed out by other APIs
-class CNullAllocator : public IFileViewAllocator
+class NBL_API CNullAllocator : public IFileViewAllocator
 {
 	public:
 		using IFileViewAllocator::IFileViewAllocator;

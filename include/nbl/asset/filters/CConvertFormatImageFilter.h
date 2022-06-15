@@ -30,7 +30,7 @@ namespace nbl::asset
 
 // copy while converting format from input image to output image
 template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, class Dither=IdentityDither, typename Normalization=void, bool Clamp=false>
-class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,Dither,Normalization,Clamp>
+class NBL_API CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,Dither,Normalization,Clamp>
 {
 	public:
 		virtual ~CConvertFormatImageFilter() {}

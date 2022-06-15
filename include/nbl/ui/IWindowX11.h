@@ -10,18 +10,18 @@
 namespace nbl::ui
 {
 
-class IWindowX11 : public IWindow
+class NBL_API2 IWindowX11 : public IWindow
 {
-protected:
-    virtual ~IWindowX11() = default;
+    protected:
+        virtual ~IWindowX11() = default;
 
-public:
-    using IWindow::IWindow;
+    public:
+        using IWindow::IWindow;
 
-    using native_handle_t = Window;
+        using native_handle_t = Window;
 
-    virtual const native_handle_t& getNativeHandle() const = 0;
-    virtual Display* getDisplay() const = 0;
+        virtual const native_handle_t& getNativeHandle() const = 0;
+        virtual Display* getDisplay() const = 0;
 };
 
 }

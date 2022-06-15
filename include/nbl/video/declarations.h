@@ -16,8 +16,7 @@
 //#include "nbl/video/asset_traits.h"
 
 // alloc
-#include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
-#include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
+#include "nbl/video/alloc/CStreamingBufferAllocator.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // platform and API specific stuff

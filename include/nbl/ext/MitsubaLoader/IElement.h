@@ -19,7 +19,7 @@ namespace MitsubaLoader
 
 class CMitsubaMetadata;
 
-class IElement
+class NBL_API IElement
 {
 	public:
 		enum class Type

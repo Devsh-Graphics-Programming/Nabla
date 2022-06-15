@@ -11,7 +11,7 @@ namespace nbl::system
 namespace impl
 {
 
-class ICancellableAsyncQueueDispatcherBase
+class NBL_API ICancellableAsyncQueueDispatcherBase
 {
     public:
         class future_base_t;
@@ -126,7 +126,7 @@ class ICancellableAsyncQueueDispatcherBase
 
 
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
-class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>, public impl::ICancellableAsyncQueueDispatcherBase
+class NBL_API ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>, public impl::ICancellableAsyncQueueDispatcherBase
 {
         using this_async_queue_t = ICancellableAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>;
         using base_t = IAsyncQueueDispatcher<CRTP, RequestType, BufferSize, InternalStateType>;

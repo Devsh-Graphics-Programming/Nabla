@@ -16,7 +16,7 @@ namespace nbl::video
 
 
 // property pool is inherently single threaded
-class IPropertyPool : public core::IReferenceCounted
+class NBL_API IPropertyPool : public core::IReferenceCounted
 {
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
@@ -207,7 +207,7 @@ class IPropertyPool : public core::IReferenceCounted
 		{
 			IGPUDescriptorSetLayout::SBinding bindings[PropertyCount];
 			fillDescriptorLayoutBindings<IGPUDescriptorSetLayout,PropertyCount>(bindings,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+PropertyCount);
+			return device->createDescriptorSetLayout(bindings,bindings+PropertyCount);
 		}
 
     protected:

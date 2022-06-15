@@ -20,7 +20,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-	struct SContext
+	struct NBL_API SContext
 	{
 		SContext(
 			const asset::IGeometryCreator* _geomCreator,

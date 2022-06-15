@@ -12,12 +12,13 @@
 
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/video/IOpenGLMemoryAllocation.h"
 
 
 namespace nbl::video
 {
 
-class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
+class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 {
 	protected:
 		virtual ~COpenGLImage();
@@ -27,38 +28,41 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		GLuint name;
 	public:
 		//! constructor
-		COpenGLImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, IOpenGL_FunctionTable* gl, IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(dev), std::move(_params)),
-			IDriverMemoryAllocation(getOriginDevice()), internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+		COpenGLImage(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			const uint32_t deviceLocalMemoryTypeBits,
+			IGPUImage::SCreationParams&& _params,
+			GLenum internalFormat,
+			GLenum target,
+			GLuint name
+		) : IGPUImage(std::move(dev), SDeviceMemoryRequirements{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
+			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
 		{
-			#ifdef OPENGL_LEAK_DEBUG
-				COpenGLExtensionHandler::textureLeaker.registerObj(this);
-			#endif // OPENGL_LEAK_DEBUG
-			internalFormat = getSizedOpenGLFormatFromOurFormat(gl, params.format);
-
+		}
+		
+	
+		bool initMemory(
+			IOpenGL_FunctionTable* gl,
+			core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags,
+			core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags) override
+		{
+			if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
+				return false;
 			GLsizei samples = params.samples;
 			switch (params.type) // TODO what about multisample targets?
 			{
 				case IGPUImage::ET_1D:
-					target = GL_TEXTURE_1D_ARRAY;
-					gl->extGlCreateTextures(target, 1, &name);
-					gl->extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
+					gl->extGlTextureStorage2D(name, target, params.mipLevels, internalFormat,
 																	params.extent.width, params.arrayLayers);
 					break;
 				case IGPUImage::ET_2D:
-					if (params.flags & ECF_CUBE_COMPATIBLE_BIT)
-						target = GL_TEXTURE_CUBE_MAP_ARRAY;
-					else
-						target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;
-					gl->extGlCreateTextures(target, 1, &name);
 					if (samples == 1)
 						gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat, params.extent.width, params.extent.height, params.arrayLayers);
 					else
 						gl->extGlTextureStorage3DMultisample(name, target, samples, internalFormat, params.extent.width, params.extent.height, params.arrayLayers, GL_TRUE);
 					break;
 				case IGPUImage::ET_3D:
-					target = GL_TEXTURE_3D;
-					gl->extGlCreateTextures(target, 1, &name);
-					gl->extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
+					gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat,
 																	params.extent.width, params.extent.height, params.extent.depth);
 					break;
 				default:
@@ -81,11 +85,10 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 
 
 		inline size_t getAllocationSize() const override { return this->getImageDataSizeInBytes(); }
-		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }
-		inline const IDriverMemoryAllocation* getBoundMemory() const override { return this; }
+		inline IDeviceMemoryAllocation* getBoundMemory() override { return this; }
+		inline const IDeviceMemoryAllocation* getBoundMemory() const override { return this; }
 		inline size_t getBoundMemoryOffset() const override { return 0ull; }
 
-		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
 		inline bool isDedicated() const override { return true; }
 };
 

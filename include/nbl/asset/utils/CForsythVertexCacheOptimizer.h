@@ -33,7 +33,7 @@
 namespace nbl::asset
 {
 
-class NBL_FORCE_EBO CForsythVertexCacheOptimizer
+class NBL_API NBL_FORCE_EBO CForsythVertexCacheOptimizer
 {
 	struct VertData
 	{

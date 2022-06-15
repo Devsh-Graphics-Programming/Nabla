@@ -12,7 +12,7 @@
 namespace nbl::system
 {
 
-class IFileBase : public core::IReferenceCounted
+class NBL_API IFileBase : public core::IReferenceCounted
 {
 	public:
 		enum E_CREATE_FLAGS : uint32_t

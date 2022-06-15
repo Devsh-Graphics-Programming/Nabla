@@ -20,6 +20,13 @@ class IOpenGLPipelineBase
         {
             GLuint GLname = 0u;
             bool uniformsSetForTheVeryFirstTime = true;
+
+            inline bool operator!=(const SShaderProgram& other) const
+            {
+                if (GLname != other.GLname)
+                    return true;
+                return uniformsSetForTheVeryFirstTime != other.uniformsSetForTheVeryFirstTime;
+            }
         };
 };
 

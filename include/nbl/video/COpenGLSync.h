@@ -9,7 +9,7 @@ namespace nbl::video
 class IOpenGL_LogicalDevice;
 class IOpenGL_FunctionTable;
 
-class COpenGLSync final : public core::IReferenceCounted
+class NBL_API COpenGLSync final : public core::IReferenceCounted
 {
     protected:
         virtual ~COpenGLSync();

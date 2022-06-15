@@ -15,7 +15,7 @@ using ScanClass = ext::Scan::Scan<uint32_t>;
 typedef uint32_t uint;
 #include "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
 
-class RadixSort final : public core::IReferenceCounted
+class NBL_API RadixSort final : public core::IReferenceCounted
 {
 public:
 	static inline const uint32_t DEFAULT_WORKGROUP_SIZE = 256u;

@@ -11,7 +11,7 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class IBackendObject
+class NBL_API IBackendObject
 {
     public:
         constexpr static inline size_t MAX_DEBUG_NAME_LENGTH = 255ull;

@@ -18,7 +18,7 @@ namespace nbl::video
 static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
 
 //
-class CScanner final : public core::IReferenceCounted
+class NBL_API CScanner final : public core::IReferenceCounted
 {
 	public:		
 		enum E_SCAN_TYPE : uint8_t
@@ -138,8 +138,8 @@ class CScanner final : public core::IReferenceCounted
 				{ 1u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUShader::ESS_COMPUTE, nullptr } // scratch
 			};
 
-			m_ds_layout = m_device->createGPUDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
-			m_pipeline_layout = m_device->createGPUPipelineLayout(&pc_range,&pc_range+1,core::smart_refctd_ptr(m_ds_layout));
+			m_ds_layout = m_device->createDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
+			m_pipeline_layout = m_device->createPipelineLayout(&pc_range,&pc_range+1,core::smart_refctd_ptr(m_ds_layout));
 		}
 
 		//
@@ -170,9 +170,9 @@ class CScanner final : public core::IReferenceCounted
 				cpuShader->setFilePathHint("nbl/builtin/glsl/scan/direct.comp");
 				cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
 
-				auto gpushader = m_device->createGPUShader(std::move(cpuShader));
+				auto gpushader = m_device->createShader(std::move(cpuShader));
 
-				m_specialized_shaders[scanType][dataType][op] = m_device->createGPUSpecializedShader(
+				m_specialized_shaders[scanType][dataType][op] = m_device->createSpecializedShader(
 					gpushader.get(),{nullptr,nullptr,"main"});
 				// , asset::IShader::ESS_COMPUTE, "nbl/builtin/glsl/scan/direct.comp"
 			}
@@ -184,7 +184,7 @@ class CScanner final : public core::IReferenceCounted
 		{
 			// ondemand
 			if (!m_pipelines[scanType][dataType][op])
-				m_pipelines[scanType][dataType][op] = m_device->createGPUComputePipeline(
+				m_pipelines[scanType][dataType][op] = m_device->createComputePipeline(
 					nullptr,core::smart_refctd_ptr(m_pipeline_layout),
 					core::smart_refctd_ptr<IGPUSpecializedShader>(getDefaultSpecializedShader(scanType,dataType,op))
 				);

@@ -15,7 +15,7 @@ namespace MitsubaLoader
 {
 
 //! Meshloader capable of loading obj meshes.
-class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoader
+class NBL_API CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoader
 {
 	protected:
 		//! Destructor

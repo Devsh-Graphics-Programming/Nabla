@@ -20,7 +20,7 @@ TO COPY BETWEEN MEMORY ALLOCATIONS you need to have them bound to
 one or two IGPUBuffers and execute IVideoDriver::copyBuffer between them.
 We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
-class IDriverMemoryAllocation : public virtual core::IReferenceCounted
+class NBL_API IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 {
         friend class ILogicalDevice;
 
@@ -38,9 +38,9 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         struct MappedMemoryRange
         {
             MappedMemoryRange() : memory(nullptr), range(0u,0u) {}
-            MappedMemoryRange(IDriverMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range(off,len) {}
+            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range(off,len) {}
 
-            IDriverMemoryAllocation* memory;
+            IDeviceMemoryAllocation* memory;
             union
             {
                 MemoryRange range;
@@ -52,17 +52,6 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
             };
         };
 
-        //! Enumeration for Driver allocated memory location
-        /**  For specifying your wish as to where you want the memory to live.
-        This can only be guaranteed on Vulkan, in OpenGL these are just hints.
-        ESMT_DONT_CARE is for OpenGL usage only, illegal in Vulkan. */
-        enum E_SOURCE_MEMORY_TYPE
-        {
-            ESMT_DEVICE_LOCAL=0u,
-            ESMT_NOT_DEVICE_LOCAL,
-            ESMT_DONT_KNOW, ///< invalid in Vulkan
-            ESMT_COUNT
-        };
         //! Access flags for how the application plans to use mapped memory (if any)
         /** When you create the memory you can allow for it to be mapped (be given a pointer)
         for reading and writing directly from it, however the driver needs to know up-front
@@ -70,49 +59,55 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         from the correct heap.
         If you don't match your creation and mapping flags then
         you will get errors and undefined behaviour. */
-        enum E_MAPPING_CPU_ACCESS_FLAG
+        enum E_MAPPING_CPU_ACCESS_FLAGS
         {
             EMCAF_NO_MAPPING_ACCESS=0x0u,
             EMCAF_READ=0x1u,
             EMCAF_WRITE=0x2u,
-            EMCAF_READ_AND_WRITE=0x3u
-        };
-        //! Memory mapping capability flags
-        /** Depending on their creation flags (E_MAPPING_CPU_ACCESS_FLAG) memory allocations
-        will have different capabilities in terms of mapping (direct memory transfer). */
-        enum E_MAPPING_CAPABILITY_FLAGS
-        {
-            EMCF_CANNOT_MAP=EMCAF_NO_MAPPING_ACCESS,
-            EMCF_CAN_MAP_FOR_READ=EMCAF_READ,
-            EMCF_CAN_MAP_FOR_WRITE=EMCAF_WRITE,
-            EMCF_COHERENT=0x04u, ///< whether mapping is coherent, i.e. no need to flush, which always true on read-enabled mappings.
-            EMCF_CACHED=0x08u, ///< whether mapping is cached, i.e. if cpu reads go through cache, this is relevant to Vulkan only and is transparent to program operation.
+            EMCAF_READ_AND_WRITE=(EMCAF_READ|EMCAF_WRITE)
         };
 
         //! Memory allocate flags
-        enum E_MEMORY_ALLOCATE_FLAGS
+        enum E_MEMORY_ALLOCATE_FLAGS : uint32_t
         {
             EMAF_NONE = 0x00000000,
             EMAF_DEVICE_MASK_BIT = 0x00000001,
             EMAF_DEVICE_ADDRESS_BIT = 0x00000002,
-            EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004,
+            // EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT = 0x00000004, // See notes in VulkanSpec and IDeviceMemoryAllocator::SAllocateInfo
+        };
+        
+        enum E_MEMORY_PROPERTY_FLAGS : uint32_t
+        {
+            EMPF_NONE               = 0x00000000,
+            EMPF_DEVICE_LOCAL_BIT   = 0x00000001,
+            EMPF_HOST_READABLE_BIT  = 0x00000002, 
+            EMPF_HOST_WRITABLE_BIT  = 0x00000004, 
+            EMPF_HOST_COHERENT_BIT  = 0x00000008,
+            EMPF_HOST_CACHED_BIT    = 0x000000010,
+            //EMPF_LAZILY_ALLOCATED_BIT = 0x00000020,
+            //EMPF_PROTECTED_BIT = 0x00000040,
+            //EMPF_DEVICE_COHERENT_BIT_AMD = 0x00000080,
+            //EMPF_DEVICE_UNCACHED_BIT_AMD = 0x00000100,
+            //EMPF_RDMA_CAPABLE_BIT_NV = 0x00000200,
+        };
+        
+        enum E_MEMORY_HEAP_FLAGS : uint32_t
+        {
+            EMHF_DEVICE_LOCAL_BIT = 0x00000001,
+            EMHF_MULTI_INSTANCE_BIT = 0x00000002,
         };
 
         E_API_TYPE getAPIType() const;
 
-        //! Where the memory was actually allocated
-        virtual E_SOURCE_MEMORY_TYPE getType() const {return ESMT_DONT_KNOW;}
-
         //! Utility function, tells whether the allocation can be mapped (whether mapMemory will ever return anything other than nullptr)
-        inline bool isMappable() const {return this->getMappingCaps()!=EMCF_CANNOT_MAP;}
+        inline bool isMappable() const {return memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT) || memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT);}
 
         //! Utility function, tell us if writes by the CPU or GPU need extra visibility operations to become visible for reading on the other processor
         /** Only execute flushes or invalidations if the allocation requires them, and batch them (flush one combined range instead of two or more)
         for greater efficiency. To execute a flush or invalidation, use IDriver::flushMappedAllocationRanges and IDriver::invalidateMappedAllocationRanges respectively. */
         inline bool haveToMakeVisible() const
         {
-            auto caps = this->getMappingCaps();
-            return (caps&EMCF_COHERENT)==0u;
+            return (!memoryPropertyFlags.hasFlags(EMPF_HOST_COHERENT_BIT));
         }
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
@@ -121,14 +116,12 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! Returns the size of the memory allocation
         virtual size_t getAllocationSize() const = 0;
 
-        //! For details @see E_MAPPING_CAPABILITY_FLAGS
-        virtual E_MAPPING_CAPABILITY_FLAGS getMappingCaps() const {return EMCF_CANNOT_MAP;}
-
-        //!
-        inline E_MAPPING_CPU_ACCESS_FLAG getCurrentMappingCaps() const {return currentMappingAccess;}
-        
+        //! returns current mapping access based on latest mapMemory's "accessHint", has no effect on Nabla's Vulkan Backend
+        inline core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> getCurrentMappingAccess() const {return currentMappingAccess;}
         //!
         inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const {return allocateFlags;}
+        //!
+        inline core::bitflag<E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlags() const {return memoryPropertyFlags; }
 
         inline bool isCurrentlyMapped() const { return mappedPtr != nullptr; }
 
@@ -147,24 +140,43 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
         //! Constant variant of getMappedPointer
         inline const void* getMappedPointer() const { return mappedPtr; }
 
+        static inline bool isMappingAccessConsistentWithMemoryType(core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> access, core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
+        {
+            if(access.hasFlags(EMCAF_READ))
+                if(!memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT))
+                    return false;
+            if(access.hasFlags(EMCAF_WRITE))
+                if(!memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT))
+                    return false;
+            return true;
+        }
+
     protected:
-        inline void postMapSetMembers(void* ptr, MemoryRange rng, E_MAPPING_CPU_ACCESS_FLAG access)
+        inline void postMapSetMembers(void* ptr, MemoryRange rng, core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> access)
         {
             mappedPtr = reinterpret_cast<uint8_t*>(ptr);
             mappedRange = rng;
             currentMappingAccess = access;
         }
 
-        IDriverMemoryAllocation(const ILogicalDevice* originDevice, core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
-            : m_originDevice(originDevice), mappedPtr(nullptr), mappedRange(0,0),
-            currentMappingAccess(EMCAF_NO_MAPPING_ACCESS), allocateFlags(flags)
+        IDeviceMemoryAllocation(
+            const ILogicalDevice* originDevice,
+            core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
+            core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE)
+            : m_originDevice(originDevice)
+            , mappedPtr(nullptr)
+            , mappedRange(0,0)
+            , currentMappingAccess(EMCAF_NO_MAPPING_ACCESS)
+            , allocateFlags(allocateFlags)
+            , memoryPropertyFlags(memoryPropertyFlags)
         {}
 
         const ILogicalDevice* m_originDevice = nullptr;
         uint8_t* mappedPtr;
-        MemoryRange                 mappedRange;
-        E_MAPPING_CPU_ACCESS_FLAG   currentMappingAccess;
-        const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags;
+        MemoryRange mappedRange;
+        core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS>    currentMappingAccess;
+        core::bitflag<E_MEMORY_ALLOCATE_FLAGS>      allocateFlags;
+        core::bitflag<E_MEMORY_PROPERTY_FLAGS>      memoryPropertyFlags;
 };
 
 } // end namespace nbl::video

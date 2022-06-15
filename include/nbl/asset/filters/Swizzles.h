@@ -18,7 +18,7 @@ namespace nbl::asset
 /*
 	Default Swizzle for compile time cases
 */
-struct DefaultSwizzle
+struct NBL_API DefaultSwizzle
 {
 	ICPUImageView::SComponentMapping swizzle;
 
@@ -61,7 +61,7 @@ struct DefaultSwizzle
 	Compile time Swizzle
 */
 template<ICPUImageView::SComponentMapping::E_SWIZZLE... swizzle>
-struct StaticSwizzle
+struct NBL_API StaticSwizzle
 {
 	static_assert(sizeof...(swizzle)<=SwizzleBase::MaxChannels);
 

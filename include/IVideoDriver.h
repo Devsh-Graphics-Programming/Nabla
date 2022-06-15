@@ -13,7 +13,7 @@ namespace video
 {
 #if 0
 	//! Legacy and deprecated system
-	class IVideoDriver : public IDriver
+	class NBL_API IVideoDriver : public IDriver
 	{
 	public:
 		//!

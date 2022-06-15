@@ -45,7 +45,7 @@ namespace impl
 
 
     template<class AddrAllocator, class OtherAllocator, class HostAllocator>
-    class HeterogenousMemoryAddressAllocatorAdaptorBase
+    class NBL_API HeterogenousMemoryAddressAllocatorAdaptorBase
     {
         public:
             typedef AddrAllocator AddressAllocator;
@@ -71,7 +71,7 @@ namespace impl
     };
 
 
-    class FriendOfHeterogenousMemoryAddressAllocatorAdaptor
+    class NBL_API FriendOfHeterogenousMemoryAddressAllocatorAdaptor
     {
         protected:
             FriendOfHeterogenousMemoryAddressAllocatorAdaptor() = default;
@@ -94,7 +94,7 @@ namespace impl
 
 
 template<class AddressAllocator, class BufferAllocator, class HostAllocator=core::allocator<uint8_t> >
-class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator>, /* This is supposed to be private inheritance */protected AddressAllocator
+class NBL_API HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator>, /* This is supposed to be private inheritance */protected AddressAllocator
 {
         typedef impl::HeterogenousMemoryAddressAllocatorAdaptorBase<AddressAllocator,BufferAllocator,HostAllocator> ImplBase;
     protected:

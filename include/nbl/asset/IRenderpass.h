@@ -12,7 +12,7 @@
 namespace nbl::asset
 {
 
-class IRenderpass
+class NBL_API IRenderpass
 {
 public:
     static constexpr inline uint32_t ATTACHMENT_UNUSED = 0xffFFffFFu;
@@ -45,6 +45,8 @@ public:
             E_STORE_OP storeOp = ESO_DONT_CARE;
             E_IMAGE_LAYOUT initialLayout = EIL_UNDEFINED;
             E_IMAGE_LAYOUT finalLayout = EIL_UNDEFINED;
+
+            auto operator<=>(const SAttachmentDescription&) const = default;
         };
 
         struct SSubpassDescription
@@ -53,6 +55,8 @@ public:
             {
                 uint32_t attachment = ATTACHMENT_UNUSED;
                 E_IMAGE_LAYOUT layout = EIL_UNDEFINED;
+
+                auto operator<=>(const SAttachmentRef&) const = default;
             };
 
             E_SUBPASS_DESCRIPTION_FLAGS flags = ESDF_NONE;
@@ -66,6 +70,8 @@ public:
             const SAttachmentRef* resolveAttachments;
             uint32_t preserveAttachmentCount;
             const uint32_t* preserveAttachments;
+
+            auto operator<=>(const SSubpassDescription&) const = default;
         };
 
         struct SSubpassDependency
@@ -77,6 +83,8 @@ public:
             E_ACCESS_FLAGS srcAccessMask;
             E_ACCESS_FLAGS dstAccessMask;
             E_DEPENDENCY_FLAGS dependencyFlags;
+
+            auto operator<=>(const SSubpassDependency&) const = default;
         };
 
         static inline constexpr auto MaxColorAttachments = 8u;

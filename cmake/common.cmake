@@ -39,14 +39,41 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(ANDROID)
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
-		add_executable(${EXECUTABLE_NAME} main.cpp ${_EXTRA_SOURCES})
+		if(NOT NBL_STATIC_BUILD)
+			set(NBL_CONFIG_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
+			set(NBL_CONFIG_OUTPUT_FILE ${NBL_CONFIG_OUTPUT_DIRECTORY}/${EXECUTABLE_NAME}$<IF:$<CONFIG:Release>,,$<IF:$<CONFIG:Debug>,_d,_rwdi>>.exe.config)
+			
+			add_custom_command(OUTPUT "${NBL_CONFIG_OUTPUT_FILE}"
+				COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_CONFIG_OUTPUT_DIRECTORY} -DNBL_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -DNBL_TARGET_PATH:FILEPATH=$<TARGET_FILE:${EXECUTABLE_NAME}> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake
+				COMMENT "Launching ${EXECUTABLE_NAME}.exe.config generation script!"
+				VERBATIM
+			)
+			
+			add_custom_target(${EXECUTABLE_NAME}_with_config ALL DEPENDS ${NBL_CONFIG_OUTPUT_FILE} ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake)
+		endif()
+	
+		set(NBL_EXECUTABLE_SOURCES 
+			main.cpp
+			${_EXTRA_SOURCES}
+		)
+		
+		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
+		
+		if(NBL_DYNAMIC_MSVC_RUNTIME)
+			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+		else()
+			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+		endif()
 	endif()
 	
-	set_property(TARGET ${EXECUTABLE_NAME} PROPERTY
-             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Nabla)
+	if(NBL_STATIC_BUILD)
+		add_dependencies(${EXECUTABLE_NAME} Nabla)
+	else()
+		add_dependencies(${EXECUTABLE_NAME}_with_config Nabla_with_manifest)
+		#target_link_options(${EXECUTABLE_NAME} PRIVATE "/manifestdependency:\"type='win32' name='devshgraphicsprogramming.nabla' version='1.2.3.4' processorArchitecture='x86' language='*'\"")
+	endif()
+	
 	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
 	
 	target_include_directories(${EXECUTABLE_NAME}
@@ -582,13 +609,17 @@ macro(glue_source_definitions NBL_TARGET NBL_REFERENCE_RETURN_VARIABLE)
 	foreach(_NBL_DEF_ IN LISTS ${NBL_REFERENCE_RETURN_VARIABLE})
 		string(FIND "${_NBL_DEF_}" "=" _NBL_POSITION_ REVERSE)
 		
+		# put target compile definitions without any value into wrapper file
 		if(_NBL_POSITION_ STREQUAL -1)
-			string(APPEND WRAPPER_CODE 
-				"#ifndef ${_NBL_DEF_}\n"
-				"#define ${_NBL_DEF_}\n"
-				"#endif // ${_NBL_DEF_}\n\n"
-			)
+			if(NOT ${_NBL_DEF_} STREQUAL "__NBL_BUILDING_NABLA__")
+				string(APPEND WRAPPER_CODE 
+					"#ifndef ${_NBL_DEF_}\n"
+					"#define ${_NBL_DEF_}\n"
+					"#endif // ${_NBL_DEF_}\n\n"
+				)
+			endif()
 		else()
+			# put target compile definitions with an assigned value into wrapper file
 			string(SUBSTRING "${_NBL_DEF_}" 0 ${_NBL_POSITION_} _NBL_CLEANED_DEF_)
 			
 			string(LENGTH "${_NBL_DEF_}" _NBL_DEF_LENGTH_)

@@ -19,7 +19,7 @@ namespace nbl::video
 namespace impl
 {
 template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunctor=void>
-class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
+class NBL_API SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
     public:
         typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType GPUBufferAllocator;
@@ -282,7 +282,7 @@ class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryA
 
 // this buffer is not growable
 template< typename _size_type=uint32_t, class BasicAddressAllocator=core::GeneralpurposeAddressAllocator<_size_type>, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
-class SubAllocatedDataBufferST : public core::IReferenceCounted, public impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator, GPUBufferAllocator, CPUAllocator> >
+class NBL_API SubAllocatedDataBufferST : public core::IReferenceCounted, public impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator, GPUBufferAllocator, CPUAllocator> >
 {
         using Base = impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> >;
     protected:

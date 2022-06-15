@@ -15,7 +15,7 @@
 namespace nbl::asset
 {
 namespace impl{
-	class IAssetMetadata_base : public core::IReferenceCounted{
+	class NBL_API IAssetMetadata_base : public core::IReferenceCounted{
 	protected:
 		template<class Asset>
 		struct asset_metadata;
@@ -23,22 +23,22 @@ namespace impl{
 	};
 
 		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUImage>
+		struct NBL_API IAssetMetadata_base::asset_metadata<ICPUImage>
 		{
 			using type = IImageMetadata;
 		};
 		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUImageView>
+		struct NBL_API IAssetMetadata_base::asset_metadata<ICPUImageView>
 		{
 			using type = IImageViewMetadata;
 		};
 		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPURenderpassIndependentPipeline>
+		struct NBL_API IAssetMetadata_base::asset_metadata<ICPURenderpassIndependentPipeline>
 		{
 			using type = IRenderpassIndependentPipelineMetadata;
 		};
 		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUMesh>
+		struct NBL_API IAssetMetadata_base::asset_metadata<ICPUMesh>
 		{
 			using type = IMeshMetadata;
 		};

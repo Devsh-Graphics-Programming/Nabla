@@ -75,7 +75,7 @@ namespace nbl
 					assert(false);
 
 				video::IGPUSpecializedShader* gpuShaders[] = { std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader>>(protoPipeline).get(), gpuFragmentShader.get() };
-				auto gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+				auto gpuRenderpassIndependentPipeline = logicalDevice->createRenderpassIndependentPipeline
 				(	
 					nullptr,
 					std::move(pipelineLayout),

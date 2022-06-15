@@ -17,7 +17,7 @@ namespace MitsubaLoader
 {
 
 
-class CElementFilm : public IElement
+class NBL_API CElementFilm : public IElement
 {
 	public:
 		enum Type

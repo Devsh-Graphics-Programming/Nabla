@@ -8,7 +8,7 @@ namespace nbl::asset
 {
 
 template<typename RenderpassIndependentType, typename RenderpassType>
-class IGraphicsPipeline
+class NBL_API IGraphicsPipeline
 {
 protected:
     using renderpass_t = RenderpassType;

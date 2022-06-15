@@ -23,7 +23,7 @@ namespace nbl
 		*/
 
 		template<class CRTP>
-		class CDither : public IDither
+		class NBL_API CDither : public IDither
 		{
 			public:
 				CDither() {}
@@ -62,7 +62,7 @@ namespace nbl
 			Identity Dither is used for not providing any Dither in a state.
 		*/
 
-		class IdentityDither : public CDither<IdentityDither>
+		class NBL_API IdentityDither : public CDither<IdentityDither>
 		{
 			public:
 				IdentityDither() {}

@@ -177,6 +177,22 @@ Contact `newclients@devsh.eu` with inquires into contracting.
 
 - [ ] **iOS**
 
+## Build summary
+
+|    ![][BUILD_STATUS]     |   Release    |     RWDI     |    Debug     |
+| :----------------------: | :----------: | :----------: | :----------: |
+|   **Windows MSVC x64**   | ![][MSVC_1]  | ![][MSVC_2]  | ![][MSVC_3]  |
+| **Android Clang x86_64** | ![][CLANG_1] | ![][CLANG_2] | ![][CLANG_3] |
+|    **Linux GCC x64**     |   ![][NA]    |   ![][NA]    |   ![][NA]    |
+
+[MSVC_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[MSVC_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[MSVC_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[CLANG_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[CLANG_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[CLANG_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[NA]: https://img.shields.io/badge/free%20slot-n%2Fa-red
+[BUILD_STATUS]: https://img.shields.io/badge/build-status-blueviolet
 
 ## Required Build Tools and SDK's
 

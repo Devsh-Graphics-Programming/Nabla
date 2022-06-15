@@ -140,7 +140,7 @@ namespace std
 {
 
     template <typename T>
-    struct hash<nbl::core::smart_refctd_ptr<T>>
+    struct NBL_API hash<nbl::core::smart_refctd_ptr<T>>
     {
         std::size_t operator()(const nbl::core::smart_refctd_ptr<T>& k) const
         {

@@ -16,7 +16,7 @@ namespace nbl::scene
 {
 
 
-class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
+class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 {
 	public:
 		// creation
@@ -32,8 +32,8 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, ""));
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
+				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, ""));
+				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			auto updateSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/skinning/cache_update.comp")());
@@ -45,7 +45,12 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			const auto& limits = device->getPhysicalDevice()->getLimits();
 			core::vector<uint8_t> tmp(limits.SSBOAlignment);
 			*reinterpret_cast<ISkinInstanceCache::recomputed_stamp_t*>(tmp.data()) = ISkinInstanceCache::initial_recomputed_timestamp;
-			auto initTimestampValue = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),tmp.data());
+			
+			video::IGPUBuffer::SCreationParams initTimestampValueBufferCreationParams = {};
+			initTimestampValueBufferCreationParams.size = tmp.size();
+			// initTimestampValueBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+
+			auto initTimestampValue = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(initTimestampValueBufferCreationParams),tmp.data());
 			if (!initTimestampValue)
 				return nullptr;
 			initTimestampValue->setObjectDebugName("ISkinInstanceCacheManager::m_initTimestampValue");
@@ -56,14 +61,14 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			if (!cacheDsLayout || !cacheUpdateDsLayout || !debugDrawDsLayout)
 				return nullptr;
 			
-			auto cacheUpdateLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(cacheDsLayout),std::move(cacheUpdateDsLayout));
+			auto cacheUpdateLayout = device->createPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(cacheDsLayout),std::move(cacheUpdateDsLayout));
 			asset::SPushConstantRange pcRange;
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(DebugPushConstants);
 			pcRange.stageFlags = asset::IShader::ESS_VERTEX;
-			auto debugDrawLayout = device->createGPUPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(cacheDsLayout),std::move(debugDrawDsLayout));
+			auto debugDrawLayout = device->createPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(cacheDsLayout),std::move(debugDrawDsLayout));
 
-			auto cacheUpdatePipeline = device->createGPUComputePipeline(nullptr,std::move(cacheUpdateLayout),std::move(updateSpec));
+			auto cacheUpdatePipeline = device->createComputePipeline(nullptr,std::move(cacheUpdateLayout),std::move(updateSpec));
 			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDrawIndepenedentPipeline;
 			{
 				asset::SVertexInputParams vertexInputParams = {};
@@ -74,7 +79,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				rasterizationParams.depthTestEnable = false;
 
 				video::IGPUSpecializedShader* const debugDrawShaders[] = {debugDrawVertexSpec.get(),debugDrawFragmentSpec.get()};
-				debugDrawIndepenedentPipeline = device->createGPURenderpassIndependentPipeline(
+				debugDrawIndepenedentPipeline = device->createRenderpassIndependentPipeline(
 					nullptr,std::move(debugDrawLayout),debugDrawShaders,debugDrawShaders+2u,vertexInputParams,blendParams,primitiveAssemblyParams,rasterizationParams
 				);
 			}
@@ -360,7 +365,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[CacheUpdateDescriptorBindingCount];
 			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheUpdateDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+CacheUpdateDescriptorBindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+CacheUpdateDescriptorBindingCount);
 		}
 		// first uint in the `skinsToUpdate` buffer tells us how many skinCache entries to update we have
 		// rest is filled wtih `ISkinInstanceCache::skin_instance_t` (offset to the cont array allocated to store the cache for a skin)
@@ -408,7 +413,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = m_debugDrawRenderpassIndependent;
 			graphicsPipelineParams.renderpass = std::move(renderpass);
-			return m_device->createGPUGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
+			return m_device->createGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
 		}
 
 		//
@@ -417,7 +422,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[DebugDrawDescriptorBindingCount];
 			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,DebugDrawDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+DebugDrawDescriptorBindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+DebugDrawDescriptorBindingCount);
 		}
 		//
 		struct DebugDrawData
@@ -491,8 +496,8 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+2u);
 
 			DescriptorSets descSets;
-			descSets.cacheUpdate = device->createGPUDescriptorSet(pool.get(),std::move(layouts[0]));
-			descSets.debugDraw = device->createGPUDescriptorSet(pool.get(),std::move(layouts[1]));
+			descSets.cacheUpdate = device->createDescriptorSet(pool.get(),std::move(layouts[0]));
+			descSets.debugDraw = device->createDescriptorSet(pool.get(),std::move(layouts[1]));
 			return descSets;
 		}
 	protected:

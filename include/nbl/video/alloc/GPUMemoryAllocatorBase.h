@@ -10,7 +10,7 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class GPUMemoryAllocatorBase
+class NBL_API GPUMemoryAllocatorBase
 {
     protected:
         ILogicalDevice* mDriver; // TODO: change to smartpointer backlink (after declarations_and_definitions branch merge)

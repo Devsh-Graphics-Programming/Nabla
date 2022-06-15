@@ -8,7 +8,7 @@
 namespace nbl::ext::OIT
 {
 
-class COIT
+class NBL_API COIT
 {
     public:
         static inline constexpr auto ColorImageFormat = NBL_GLSL_OIT_IMG_FORMAT_COLOR;
@@ -65,11 +65,13 @@ class COIT
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
 
-                    video::IDriverMemoryBacked::SDriverMemoryRequirements mreq; //ignored on GL
-
-                    img = dev->createGPUImageOnDedMem(std::move(params), mreq);
+                    img = dev->createImage(std::move(params));
                     assert(img);
-                    if (!img)
+                    auto mreq = img->getMemoryReqs();
+                    mreq.memoryTypeBits &= dev->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+                    auto imgMem = dev->allocate(mreq, img.get());
+
+                    if (!img || !imgMem.isValid())
                         return nullptr;
 
                     video::IGPUImageView::SCreationParams vparams;
@@ -81,7 +83,7 @@ class COIT
                     vparams.subresourceRange.baseMipLevel = 0u;
                     vparams.subresourceRange.levelCount = 1u;
                     vparams.image = img;
-                    view = dev->createGPUImageView(std::move(vparams));
+                    view = dev->createImageView(std::move(vparams));
                     assert(view);
                 }
                 return view;
@@ -115,7 +117,7 @@ class COIT
                 m_images.spinlock = createOITImage(SpinlockImageFormat);
 
             auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, "oit_resolve.frag");
-            auto shader = dev->createGPUShader(std::move(cpushader));
+            auto shader = dev->createShader(std::move(cpushader));
             if (!shader)
                 return false;
 
@@ -142,7 +144,7 @@ class COIT
             info.entryPoint = "main";
             info.m_backingBuffer = nullptr;
             info.m_entries = nullptr;
-            m_proto_pipeline.fs = dev->createGPUSpecializedShader(shader.get(), info);
+            m_proto_pipeline.fs = dev->createSpecializedShader(shader.get(), info);
             if (!m_proto_pipeline.fs)
                 return false;
 
@@ -208,7 +210,7 @@ class COIT
             video::IGPUDescriptorSetLayout::SBinding b[MaxImgBindingCount];
             const auto bindingCount = getDSLayoutBindings<video::IGPUDescriptorSetLayout>(b, _colorBinding, _depthBinding, _visBinding, _spinlockBinding);
 
-            return dev->createGPUDescriptorSetLayout(b,b+bindingCount);
+            return dev->createDescriptorSetLayout(b,b+bindingCount);
         }
 
         // should be required in first frame only

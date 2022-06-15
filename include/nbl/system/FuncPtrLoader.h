@@ -10,7 +10,7 @@
 namespace nbl::system
 {
 
-class FuncPtrLoader : public core::Uncopyable
+class NBL_API FuncPtrLoader : public core::Uncopyable
 {
 	protected:
 		FuncPtrLoader() = default;

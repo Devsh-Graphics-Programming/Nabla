@@ -12,7 +12,7 @@ namespace nbl::asset
 {
 
 //! 
-class IImageViewMetadata : public core::Interface
+class NBL_API IImageViewMetadata : public core::Interface
 {
 	public:
 		struct ColorSemantic

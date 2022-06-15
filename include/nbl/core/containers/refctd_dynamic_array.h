@@ -36,7 +36,7 @@ namespace nbl::core
 	@see core::dynamic_array
 */
 template<typename T, class allocator=core::allocator<typename std::remove_const<T>::type>, typename... OverAlignmentTypes>
-class NBL_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator,OverAlignmentTypes...>,OverAlignmentTypes...>
+class NBL_API NBL_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator,OverAlignmentTypes...>,OverAlignmentTypes...>
 {
 	public:
 		using this_type = refctd_dynamic_array<T,allocator,OverAlignmentTypes...>;

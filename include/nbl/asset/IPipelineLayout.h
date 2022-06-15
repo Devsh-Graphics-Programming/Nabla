@@ -35,7 +35,7 @@ namespace asset
     - Unique per DrawCall indices or bit-flags
 */
 
-struct SPushConstantRange
+struct NBL_API SPushConstantRange
 {
 	IShader::E_SHADER_STAGE stageFlags;
     uint32_t offset;
@@ -88,7 +88,7 @@ struct SPushConstantRange
 */
 
 template<typename DescLayoutType>
-class IPipelineLayout
+class NBL_API IPipelineLayout
 {
 public:
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t DESCRIPTOR_SET_COUNT = 4u;
