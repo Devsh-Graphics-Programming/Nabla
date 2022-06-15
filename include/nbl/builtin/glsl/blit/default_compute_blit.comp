@@ -72,15 +72,6 @@ void nbl_glsl_blit_setData(in vec4 value, in uvec3 coord, in uint layerIdx)
 #define _NBL_GLSL_BLIT_SET_DATA_DEFINED_
 #endif
 
-#ifndef _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
-
-vec4 nbl_glsl_blit_getCachedWeightsPremultiplied(in uvec3 lutCoord)
-{
-	return vec4(0.f);
-}
-#define _NBL_GLSL_BLIT_GET_CACHED_WEIGHTS_PREMULTIPLIED_DEFINED_
-#endif
-
 #ifndef _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx)
 {
