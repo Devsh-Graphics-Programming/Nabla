@@ -195,26 +195,7 @@ public:
             }
             else
             {
-                if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
-                {
-                    m_properties.limits.minSubgroupSize = 8u;
-                    m_properties.limits.maxSubgroupSize = 32u;
-                }
-                else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
-                {
-                    m_properties.limits.minSubgroupSize = 32u;
-                    m_properties.limits.maxSubgroupSize = 64u;
-                }
-                else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
-                {
-                    m_properties.limits.minSubgroupSize = 32u;
-                    m_properties.limits.maxSubgroupSize = 32u;
-                }
-                else
-                {
-                    m_properties.limits.minSubgroupSize = 4u;
-                    m_properties.limits.maxSubgroupSize = 64u;
-                }
+                getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, m_properties.limits.minSubgroupSize, m_properties.limits.maxSubgroupSize);
             }
 
             /* Nabla */

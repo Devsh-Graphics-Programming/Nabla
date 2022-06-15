@@ -869,26 +869,8 @@ public:
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;
 			
-			if(isIntelGPU)
-			{
-				m_properties.limits.minSubgroupSize = 8u;
-				m_properties.limits.maxSubgroupSize = 32u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
-			}
-			else if(isAMDGPU)
-			{
-				m_properties.limits.minSubgroupSize = 32u;
-				m_properties.limits.maxSubgroupSize = 64u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
-			}
-			else if(isNVIDIAGPU)
-			{
-				m_properties.limits.minSubgroupSize = 32u;
-				m_properties.limits.maxSubgroupSize = 32u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
-			}
-			else
-			{
-				m_properties.limits.minSubgroupSize = 4u;
-				m_properties.limits.maxSubgroupSize = 64u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
-			}
+			// maxSubgroupSize can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, m_properties.limits.minSubgroupSize, m_properties.limits.maxSubgroupSize);
 
 			m_properties.limits.maxComputeWorkgroupSubgroups = m_properties.limits.maxComputeWorkGroupInvocations/m_properties.limits.minSubgroupSize;
 			m_properties.limits.requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);

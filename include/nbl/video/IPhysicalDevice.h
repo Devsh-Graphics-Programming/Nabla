@@ -508,6 +508,33 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             }
         }
 
+        static inline void getMinMaxSubgroupSizeFromDriverID(E_DRIVER_ID driverID, uint32_t& minSubgroupSize, uint32_t& maxSubgroupSize)
+        {
+            bool isIntelGPU = (driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+            bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+            bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
+            if(isIntelGPU)
+            {
+                minSubgroupSize = 8u;
+                maxSubgroupSize = 32u;
+            }
+            else if(isAMDGPU)
+            {
+                minSubgroupSize = 32u;
+                maxSubgroupSize = 64u;
+            }
+            else if(isNVIDIAGPU)
+            {
+                minSubgroupSize = 32u;
+                maxSubgroupSize = 32u;
+            }
+            else
+            {
+                minSubgroupSize = 4u;
+                maxSubgroupSize = 64u;
+            }
+        }
+
         core::smart_refctd_ptr<system::ISystem> m_system;
         core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
