@@ -627,19 +627,27 @@ public:
 		
 		m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
 
-		m_features.shaderClipDistance = true;
-		GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
-		if(m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
+		if constexpr (IsGLES)
 		{
-			m_features.shaderCullDistance = true;
-			// no ARB suffix, is that ok?
-			GetIntegerv(GL_MAX_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
-			GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
-		} else if(m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance))
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance))
+			{
+				m_features.shaderClipDistance = true;
+				m_features.shaderCullDistance = true;
+				GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
+				GetIntegerv(GL_MAX_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+				GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+			}
+		}
+		else
 		{
-			m_features.shaderCullDistance = true;
-			GetIntegerv(GL_MAX_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
-			GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+			m_features.shaderClipDistance = true;
+			GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
+			if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
+			{
+				m_features.shaderCullDistance = true;
+				GetIntegerv(GL_MAX_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+				GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+			}
 		}
 		
 		m_features.vertexAttributeDouble = !IsGLES;
@@ -663,16 +671,6 @@ public:
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
 			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);
-
-		if constexpr (!IsGLES)
-		{
-			GetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
-		}
-		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance)) // ES
-		{
-				GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &num);
-		}
-		m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
 
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);

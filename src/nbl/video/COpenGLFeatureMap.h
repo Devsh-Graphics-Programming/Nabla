@@ -1174,8 +1174,6 @@ public:
 	uint8_t MaxTextureUnits;
 	//! Maximal Anisotropy
 	uint8_t MaxAnisotropy;
-	//! Number of user clipplanes
-	uint8_t MaxUserClipPlanes;
 	//! Number of rendertargets available as MRTs
 	uint8_t MaxMultipleRenderTargets;
 	//! Optimal number of indices per meshbuffer
