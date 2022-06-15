@@ -74,8 +74,8 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxFragmentDualSrcAttachments;
     //uint32_t              maxFragmentCombinedOutputResources;
     uint32_t maxComputeSharedMemorySize;
-    //uint32_t              maxComputeWorkGroupCount[3];
-    //uint32_t              maxComputeWorkGroupInvocations;
+    uint32_t maxComputeWorkGroupCount[3];
+    uint32_t maxComputeWorkGroupInvocations = 0u;
     uint32_t maxWorkgroupSize[3];
     //uint32_t              subPixelPrecisionBits;
     //uint32_t              subTexelPrecisionBits;

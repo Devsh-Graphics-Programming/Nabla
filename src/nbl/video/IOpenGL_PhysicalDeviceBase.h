@@ -789,9 +789,13 @@ public:
 			
 			GetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxVertexOutputComponents));
 
-			GLint maxComputeSharedMemorySize = 0;
-			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
-			m_properties.limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
+			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, reinterpret_cast<GLint*>(&m_properties.limits.maxComputeSharedMemorySize));
+			
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, reinterpret_cast<GLint*>(&m_properties.limits.maxComputeWorkGroupInvocations));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, reinterpret_cast<GLint*>(m_properties.limits.maxComputeWorkGroupCount));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, reinterpret_cast<GLint*>(m_properties.limits.maxComputeWorkGroupCount + 1));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, reinterpret_cast<GLint*>(m_properties.limits.maxComputeWorkGroupCount + 2));
+
 			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize));
 			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 1));
 			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 2));
@@ -886,8 +890,7 @@ public:
 				m_properties.limits.maxSubgroupSize = 64u; // Can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
 			}
 
-			uint32_t maxWorkgroupSize = std::max(std::max(m_properties.limits.maxWorkgroupSize[0], m_properties.limits.maxWorkgroupSize[1]), m_properties.limits.maxWorkgroupSize[2]);
-			m_properties.limits.maxComputeWorkgroupSubgroups = maxWorkgroupSize/m_properties.limits.minSubgroupSize;
+			m_properties.limits.maxComputeWorkgroupSubgroups = m_properties.limits.maxComputeWorkGroupInvocations/m_properties.limits.minSubgroupSize;
 			m_properties.limits.requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
 			
 			
