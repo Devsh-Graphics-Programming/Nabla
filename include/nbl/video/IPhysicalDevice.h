@@ -425,6 +425,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     Related to Queries 
                     `supported` reports VK_TRUE if query type VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR and use of VK_QUERY_RESULT_WITH_STATUS_BIT_KHR are supported.
                 
+                [FUTURE TODO]
                 - VkVideoQueueFamilyProperties2KHR
                     videoCodecOperations is a bitmask of VkVideoCodecOperationFlagBitsKHR specifying supported video codec operation(s).
         */
