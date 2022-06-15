@@ -710,6 +710,20 @@ public:
 			m_properties.limits.maxSamplerAllocationCount = 1000'000;
 			
 			m_properties.limits.bufferImageGranularity = std::numeric_limits<size_t>::max(); // buffer and image in the same memory can't be done in gl
+			
+			GLuint maxCombinedShaderOutputResources;
+			GLuint maxFragmentShaderUniformBlocks;
+			GLuint maxTextureImageUnits;
+			GetIntegerv(GL_MAX_COMBINED_SHADER_OUTPUT_RESOURCES, reinterpret_cast<GLint*>(&maxCombinedShaderOutputResources));
+			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&maxFragmentShaderUniformBlocks));
+			GetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&maxTextureImageUnits));
+
+			uint32_t maxFragmentShaderResources = maxCombinedShaderOutputResources + maxFragmentShaderUniformBlocks + maxTextureImageUnits;
+			uint32_t maxComputeShaderResources = 0u;
+			uint32_t maxVertexShaderResources = 0u;
+			uint32_t maxTessControlShaderResources = 0u;
+			uint32_t maxTessEvalShaderResources = 0u;
+			uint32_t maxGeometryShaderResources = 0u;
 
 			GLint maxSSBO[6];
 			GetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS, maxSSBO + 0);
@@ -718,23 +732,39 @@ public:
 			GetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, maxSSBO + 3);
 			GetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, maxSSBO + 4);
 			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, maxSSBO + 5);
+			maxComputeShaderResources += maxSSBO[0u];
+			maxVertexShaderResources += maxSSBO[1u];
+			maxTessControlShaderResources += maxSSBO[2u];
+			maxTessEvalShaderResources += maxSSBO[3u];
+			maxGeometryShaderResources += maxSSBO[4u];
+
 			uint32_t maxPerStageSSBOs = static_cast<uint32_t>(*std::min_element(maxSSBO, maxSSBO + 6));
 
 			GLint maxSampler[5];
-			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, maxSSBO + 0);
-			GetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, maxSSBO + 1);
-			GetIntegerv(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS, maxSSBO + 2);
-			GetIntegerv(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS, maxSSBO + 3);
-			GetIntegerv(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS, maxSSBO + 4);
+			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, maxSampler + 0);
+			GetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, maxSampler + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS, maxSampler + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS, maxSampler + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS, maxSampler + 4);
+			maxComputeShaderResources += maxSampler[0u];
+			maxVertexShaderResources += maxSampler[1u];
+			maxTessControlShaderResources += maxSampler[2u];
+			maxTessEvalShaderResources += maxSampler[3u];
+			maxGeometryShaderResources += maxSampler[4u];
 			uint32_t maxPerStageSamplers = static_cast<uint32_t>(*std::min_element(maxSampler, maxSampler + 5));
 			
 			GLint maxUBOs[6];
-			GetIntegerv(GL_MAX_COMPUTE_UNIFORM_BLOCKS, maxSSBO + 0);
-			GetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, maxSSBO + 1);
-			GetIntegerv(GL_MAX_TESS_CONTROL_UNIFORM_BLOCKS, maxSSBO + 2);
-			GetIntegerv(GL_MAX_TESS_EVALUATION_UNIFORM_BLOCKS, maxSSBO + 3);
-			GetIntegerv(GL_MAX_GEOMETRY_UNIFORM_BLOCKS, maxSSBO + 4);
-			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, maxSSBO + 5);
+			GetIntegerv(GL_MAX_COMPUTE_UNIFORM_BLOCKS, maxUBOs + 0);
+			GetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, maxUBOs + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_UNIFORM_BLOCKS, maxUBOs + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_UNIFORM_BLOCKS, maxUBOs + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_UNIFORM_BLOCKS, maxUBOs + 4);
+			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, maxUBOs + 5);
+			maxComputeShaderResources += maxUBOs[0u];
+			maxVertexShaderResources += maxUBOs[1u];
+			maxTessControlShaderResources += maxUBOs[2u];
+			maxTessEvalShaderResources += maxUBOs[3u];
+			maxGeometryShaderResources += maxUBOs[4u];
 			uint32_t maxPerStageUBOs = static_cast<uint32_t>(*std::min_element(maxUBOs, maxUBOs + 6));
 			
 			GLint maxStorageImages[6];
@@ -743,7 +773,12 @@ public:
 			GetIntegerv(GL_MAX_TESS_CONTROL_IMAGE_UNIFORMS, maxStorageImages + 2);
 			GetIntegerv(GL_MAX_TESS_EVALUATION_IMAGE_UNIFORMS, maxStorageImages + 3);
 			GetIntegerv(GL_MAX_GEOMETRY_IMAGE_UNIFORMS, maxStorageImages + 4);
-			GetIntegerv(GL_MAX_FRAGMENT_IMAGE_UNIFORMS, maxSSBO + 5);
+			GetIntegerv(GL_MAX_FRAGMENT_IMAGE_UNIFORMS, maxStorageImages + 5);
+			maxComputeShaderResources += maxStorageImages[0u];
+			maxVertexShaderResources += maxStorageImages[1u];
+			maxTessControlShaderResources += maxStorageImages[2u];
+			maxTessEvalShaderResources += maxStorageImages[3u];
+			maxGeometryShaderResources += maxStorageImages[4u];
 			uint32_t maxPerStageStorageImages = static_cast<uint32_t>(*std::min_element(maxStorageImages, maxStorageImages + 6));
 			
 			// Max PerStage Descriptors
@@ -754,22 +789,16 @@ public:
 			m_properties.limits.maxPerStageDescriptorStorageImages = maxPerStageStorageImages;
 			m_properties.limits.maxPerStageDescriptorInputAttachments = 0u;
 			
-			GLint maxCombinedShaderOutputResources;
-			GLint maxFragmentShaderUniformBlocks;
-			GLint maxTextureImageUnits;
-			GetIntegerv(GL_MAX_COMBINED_SHADER_OUTPUT_RESOURCES, &maxCombinedShaderOutputResources);
-			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &maxFragmentShaderUniformBlocks);
-			GetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &maxTextureImageUnits);
-			
-			m_properties.limits.maxPerStageResources = core::max(
-				maxCombinedShaderOutputResources + maxFragmentShaderUniformBlocks + maxTextureImageUnits,
-				m_properties.limits.maxPerStageDescriptorSamplers +
-				m_properties.limits.maxPerStageDescriptorUBOs +
-				m_properties.limits.maxPerStageDescriptorSSBOs +
-				m_properties.limits.maxPerStageDescriptorImages +
-				m_properties.limits.maxPerStageDescriptorStorageImages
-			);
-			
+			//m_properties.limits.maxPerStageResources
+			{
+				m_properties.limits.maxPerStageResources = maxFragmentShaderResources;
+				m_properties.limits.maxPerStageResources = core::min(maxComputeShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::min(maxVertexShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::min(maxTessControlShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::min(maxTessEvalShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::min(maxGeometryShaderResources, m_properties.limits.maxPerStageResources);
+			}
+
 			// Max Descriptors
 			GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetSamplers));
 			GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetUBOs));
