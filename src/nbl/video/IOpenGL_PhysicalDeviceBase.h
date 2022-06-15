@@ -541,8 +541,8 @@ public:
 			m_features.allowCommandBufferQueryCopies = true;
 		}
 
-		GLint maxElementIndex = 0;
-		GetIntegerv(GL_MAX_ELEMENT_INDEX, &maxElementIndex);
+		GLuint maxElementIndex = 0u;
+		GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
 		m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
 		m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
