@@ -23,8 +23,12 @@ public:
 		uint32_t wgCount[3];
 	};
 
-	CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = 16 * 1024u) : m_device(std::move(logicalDevice)), m_availableSharedMemory(smemSize)
+	//! Set smemSize param to ~0u to use all the shared memory available.
+	CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u) : m_device(std::move(logicalDevice)), m_availableSharedMemory(smemSize)
 	{
+		if (m_availableSharedMemory == ~0u)
+			m_availableSharedMemory = m_device->getPhysicalDevice()->getProperties().limits.maxComputeSharedMemorySize;
+
 		sampler = nullptr;
 		{
 			video::IGPUSampler::SParams params = {};
@@ -757,7 +761,7 @@ private:
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
 
-	const uint32_t m_availableSharedMemory;
+	uint32_t m_availableSharedMemory;
 	core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 
 	core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
