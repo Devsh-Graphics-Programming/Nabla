@@ -17,12 +17,12 @@ void nbl_glsl_blit_alpha_test_main()
 {
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
-	float alpha = 0.f;
 	if (all(lessThan(gl_GlobalInvocationID, params.inDim)))
-		alpha = nbl_glsl_blit_alpha_test_getData(gl_GlobalInvocationID, gl_WorkGroupID.z);
-
-	if (alpha > params.referenceAlpha)
-		atomicAdd(_NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_.data[gl_WorkGroupID.z].passedPixelCount, 1u);
+	{
+		const float alpha = nbl_glsl_blit_alpha_test_getData(gl_GlobalInvocationID, gl_WorkGroupID.z);
+		if (alpha > params.referenceAlpha)
+			atomicAdd(_NBL_GLSL_BLIT_ALPHA_TEST_PASSED_COUNTER_DESCRIPTOR_DEFINED_.data[gl_WorkGroupID.z].passedPixelCount, 1u);
+	}
 }
 
 #define _NBL_GLSL_BLIT_ALPHA_TEST_MAIN_DEFINED_
