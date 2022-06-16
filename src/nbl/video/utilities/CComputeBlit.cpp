@@ -17,9 +17,9 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createAlphaTe
 		<< "#include <nbl/builtin/glsl/blit/default_compute_alpha_test.comp>\n";
 
 	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, "CComputeBlit::createAlphaTestSpecializedShader");
-	auto gpuUnspecShader = m_device->createGPUShader(std::move(cpuShader));
+	auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 
-	return m_device->createGPUSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 }
 
 core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outImageFormat,
@@ -43,7 +43,7 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormali
 	shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_normalization.comp>\n";
 
 	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, "CComputeBlit::createNormalizationSpecializedShader");
-	auto gpuUnspecShader = m_device->createGPUShader(std::move(cpuShader));
+	auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 
-	return m_device->createGPUSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 }

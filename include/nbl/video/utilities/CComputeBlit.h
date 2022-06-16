@@ -38,7 +38,7 @@ public:
 			params.AnisotropicFilter = 0u;
 			params.CompareEnable = 0u;
 			params.CompareFunc = asset::ISampler::ECO_ALWAYS;
-			sampler = m_device->createGPUSampler(std::move(params));
+			sampler = m_device->createSampler(std::move(params));
 		}
 
 		{
@@ -63,9 +63,9 @@ public:
 		}
 
 		for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
-			m_blitPipelineLayout[i] = m_device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(m_blitDSLayout[i]), core::smart_refctd_ptr(m_kernelWeightsDSLayout));
+			m_blitPipelineLayout[i] = m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(m_blitDSLayout[i]), core::smart_refctd_ptr(m_kernelWeightsDSLayout));
 
-		m_coverageAdjustmentPipelineLayout = m_device->createGPUPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
+		m_coverageAdjustmentPipelineLayout = m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
 	}
 
 	inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultBlitDescriptorSetLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
@@ -162,8 +162,8 @@ public:
 		shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_blit.comp>\n";
 
 		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, "CComputeBlit::createBlitSpecializedShader");
-		auto gpuUnspecShader = m_device->createGPUShader(std::move(cpuShader));
-		auto specShader = m_device->createGPUSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+		auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
+		auto specShader = m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 
 		return specShader;
 	}
@@ -231,54 +231,6 @@ public:
 		}
 
 		return !failed;
-
-#if 0
-		while (requiredSmem < m_availableSharedMemory)
-		{
-			std::sort(minDimAxes, minDimAxes + imageType+1, [&outputTexelsPerWG](const asset::IImage::E_TYPE a, const asset::IImage::E_TYPE b) -> bool { return outputTexelsPerWG[a] < outputTexelsPerWG[b]; });
-			
-			int i = 0;
-			for (; i < imageType + 1; ++i)
-			{
-				const auto axis = minDimAxes[i];
-
-				core::vectorSIMDu32 delta(0, 0, 0, 0);
-				delta[axis] = 1;
-
-				if (outputTexelsPerWG[axis] < outExtent[axis])
-				{
-					// Note: we use outImageFormat's channel count as opposed to its image view's format because, even in the event that they are different, we blit
-					// as if we will be writing to a storage image of out
-					const auto outTest = outputTexelsPerWG + delta;
-					if (outTest.x == 1 && outTest.y == 1)
-						__debugbreak();
-					requiredSmem = getRequiredSharedMemorySize(outputTexelsPerWG + delta, outExtent, imageType, minSupport, maxSupport, scale, asset::getFormatChannelCount(outImageFormat));
-
-					if (requiredSmem <= m_availableSharedMemory)
-					{
-						outputTexelsPerWG += delta;
-						break;
-					}
-				}
-			}
-			if (i == imageType + 1) // If we cannot find any axis to increment outputTexelsPerWG along, then break
-				break;
-		}
-
-		// Fail if we cannot process any output texels in any dimension at all
-		bool failed = true;
-		for (auto axis = 0; axis < imageType+1; ++axis)
-			failed = (failed && (outputTexelsPerWG[axis] == 0));
-
-		if (failed)
-			return false;
-
-		// Set the texels per WG equal to 1 for unused dimensions to avoid weird behaviours.
-		for (auto axis = imageType + 1; axis < 3; ++axis)
-			outputTexelsPerWG[axis] = 1;
-
-		return true;
-#endif
 	}
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
@@ -484,7 +436,7 @@ public:
 			{
 				infos[2].desc = coverageAdjustmentScratchBuffer;
 				infos[2].buffer.offset = 0;
-				infos[2].buffer.size = coverageAdjustmentScratchBuffer->getCachedCreationParams().declaredSize;
+				infos[2].buffer.size = coverageAdjustmentScratchBuffer->getSize();
 			}
 
 			updateDS(blitDS, infos);
@@ -495,7 +447,7 @@ public:
 			video::IGPUDescriptorSet::SDescriptorInfo info = {};
 			info.desc = kernelWeightsUTB;
 			info.buffer.offset = 0ull;
-			info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getCachedCreationParams().declaredSize;
+			info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getSize();
 
 			updateDS(kernelWeightsDS, &info);
 		}
@@ -566,7 +518,7 @@ public:
 			alphaTestBarrier.srcQueueFamilyIndex = ~0u;
 			alphaTestBarrier.dstQueueFamilyIndex = ~0u;
 			alphaTestBarrier.buffer = coverageAdjustmentScratchBuffer;
-			alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getCachedCreationParams().declaredSize;
+			alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getSize();
 			alphaTestBarrier.offset = 0;
 
 			// Memory dependency to ensure that the previous compute pass has finished writing to the output image
@@ -834,7 +786,7 @@ private:
 				bindings[i].samplers = &sampler;
 		}
 
-		auto dsLayout = logicalDevice->createGPUDescriptorSetLayout(bindings, bindings + descriptorCount);
+		auto dsLayout = logicalDevice->createDescriptorSetLayout(bindings, bindings + descriptorCount);
 		return dsLayout;
 	}
 
