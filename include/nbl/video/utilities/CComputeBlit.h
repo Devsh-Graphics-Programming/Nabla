@@ -143,8 +143,8 @@ public:
 
 			// inFormat should support SAMPLED_BIT format feature
 		}
-		const char* outImageFormatGLSLString = getGLSLFormatStringFromFormat(outImageFormat);
-		const char* glslFormatQualifier = getGLSLFormatStringFromFormat(outImageViewFormat);
+		const char* outImageFormatGLSLString = asset::IGLSLCompiler::getStorageImageFormatQualifier(outImageFormat);
+		const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(outImageViewFormat);
 
 		shaderSourceStream
 			<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
@@ -558,30 +558,8 @@ public:
 	}
 
 	//! WARNING: This function blocks and stalls the GPU!
-	template <typename KernelX, typename KernelY, typename KernelZ>
-	void blit(
-		video::IGPUQueue* computeQueue,
-		const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic,
-		video::IGPUDescriptorSet* alphaTestDS,
-		video::IGPUComputePipeline* alphaTestPipeline,
-		video::IGPUDescriptorSet* blitDS,
-		video::IGPUDescriptorSet* blitKernelWeightsDS,
-		video::IGPUComputePipeline* blitPipeline,
-		video::IGPUDescriptorSet* normalizationDS,
-		video::IGPUComputePipeline* normalizationPipeline,
-		const core::vectorSIMDu32& inImageExtent,
-		const asset::IImage::E_TYPE inImageType,
-		const asset::E_FORMAT inImageFormat,
-		core::smart_refctd_ptr<video::IGPUImage> normalizationInImage,
-		const KernelX& kernelX,
-		const KernelY& kernelY,
-		const KernelZ& kernelZ,
-		const core::vectorSIMDu32& outputTexelsPerWG,
-		const uint32_t layersToBlit = 1,
-		core::smart_refctd_ptr<video::IGPUBuffer> coverageAdjustmentScratchBuffer = nullptr,
-		const float referenceAlpha = 0.f,
-		const uint32_t alphaBinCount = DefaultAlphaBinCount,
-		const uint32_t workgroupSize = DefaultBlitWorkgroupSize)
+	template <typename KernelX, typename KernelY, typename KernelZ, typename... Args>
+	inline void blit(video::IGPUQueue* computeQueue, Args&&... args)
 	{
 		auto cmdpool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
@@ -590,13 +568,7 @@ public:
 		auto fence = m_device->createFence(video::IGPUFence::ECF_UNSIGNALED);
 
 		cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-		blit(
-			cmdbuf.get(), alphaSemantic,
-			alphaTestDS, alphaTestPipeline,
-			blitDS, blitKernelWeightsDS, blitPipeline,
-			normalizationDS, normalizationPipeline,
-			inImageExtent, inImageType, inImageFormat, normalizationInImage, kernelX, kernelY, kernelZ, outputTexelsPerWG, layersToBlit,
-			coverageAdjustmentScratchBuffer, referenceAlpha, alphaBinCount, workgroupSize);
+		blit(cmdbuf.get(), std::forward<Args>(args)...);
 		cmdbuf->end();
 
 		video::IGPUQueue::SSubmitInfo submitInfo = {};
@@ -673,90 +645,6 @@ public:
 		default:
 			return EF_UNKNOWN;
 		}
-	}
-
-	static inline const char* getGLSLFormatStringFromFormat(const asset::E_FORMAT format)
-	{
-		const char* result;
-		switch (format)
-		{
-		case asset::EF_R32G32B32A32_SFLOAT:
-			result = "rgba32f";
-			break;
-		case asset::EF_R16G16B16A16_SFLOAT:
-			result = "rgba16f";
-			break;
-		case asset::EF_R32G32_SFLOAT:
-			result = "rg32f";
-			break;
-		case asset::EF_R16G16_SFLOAT:
-			result = "rg16f";
-			break;
-		case asset::EF_B10G11R11_UFLOAT_PACK32:
-			result = "r11f_g11f_b10f";
-			break;
-		case asset::EF_R32_SFLOAT:
-			result = "r32f";
-			break;
-		case asset::EF_R16_SFLOAT:
-			result = "r16f";
-			break;
-		case asset::EF_R16G16B16A16_UNORM:
-			result = "rgba16";
-			break;
-		case asset::EF_A2B10G10R10_UNORM_PACK32:
-			result = "rgb10_a2";
-			break;
-		case asset::EF_R8G8B8A8_UNORM:
-			result = "rgba8";
-			break;
-		case asset::EF_R16G16_UNORM:
-			result = "rg16";
-			break;
-		case asset::EF_R8G8_UNORM:
-			result = "rg8";
-			break;
-		case asset::EF_R16_UNORM:
-			result = "r16";
-			break;
-		case asset::EF_R8_UNORM:
-			result = "r8";
-			break;
-		case asset::EF_R16G16B16A16_SNORM:
-			result = "rgba16_snorm";
-			break;
-		case asset::EF_R8G8B8A8_SNORM:
-			result = "rgba8_snorm";
-			break;
-		case asset::EF_R16G16_SNORM:
-			result = "rg16_snorm";
-			break;
-		case asset::EF_R8G8_SNORM:
-			result = "rg8_snorm";
-			break;
-		case asset::EF_R16_SNORM:
-			result = "r16_snorm";
-			break;
-		case asset::EF_R8_UINT:
-			result = "r8ui";
-			break;
-		case asset::EF_R16_UINT:
-			result = "r16ui";
-			break;
-		case asset::EF_R32_UINT:
-			result = "r32ui";
-			break;
-		case asset::EF_R32G32_UINT:
-			result = "rg32ui";
-			break;
-		case asset::EF_R32G32B32A32_UINT:
-			result = "rgba32ui";
-			break;
-		default:
-			__debugbreak();
-		}
-
-		return result;
 	}
 
 private:

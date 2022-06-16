@@ -25,8 +25,8 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createAlphaTe
 core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outImageFormat,
 	const asset::E_FORMAT outImageViewFormat, const core::vectorSIMDu32& workgroupDims, const uint32_t alphaBinCount)
 {
-	const char* outImageFormatGLSLString = getGLSLFormatStringFromFormat(outImageFormat);
-	const char* glslFormatQualifier = getGLSLFormatStringFromFormat(outImageViewFormat);
+	const char* outImageFormatGLSLString = asset::IGLSLCompiler::getStorageImageFormatQualifier(outImageFormat);
+	const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(outImageViewFormat);
 
 	std::ostringstream shaderSourceStream;
 	shaderSourceStream

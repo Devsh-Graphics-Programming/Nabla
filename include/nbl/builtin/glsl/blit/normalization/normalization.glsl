@@ -29,9 +29,6 @@ void nbl_glsl_blit_normalization_setData(in vec4 data, in uvec3 coord, in uint l
 uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint layerIdx);
 uint nbl_glsl_blit_normalization_getPassedInputPixelCount(in uint layerIdx);
 
-// #include <nbl/builtin/glsl/algorithm.glsl>
-// NBL_GLSL_DEFINE_LOWER_BOUND(scratchShared, uint);
-
 void nbl_glsl_blit_normalization_main()
 {
 	uint histogramVal = 0u;
@@ -54,34 +51,16 @@ void nbl_glsl_blit_normalization_main()
 	const uint pixelsShouldPassCount = integerDivide_64_32_32(productMsb, productLsb, params.inPixelCount);
 	const uint pixelsShouldFailCount = outputPixelCount - pixelsShouldPassCount;
 
-	uint bucketIndex;
+	if ((pixelsShouldFailCount <= cumHistogramVal) && ((gl_LocalInvocationIndex == 0) || (scratchShared[gl_LocalInvocationIndex - 1] < pixelsShouldFailCount)))
 	{
-		uint begin = 0u;
-		const uint end = _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_;
-		const uint value = pixelsShouldFailCount;
-		uint len = end - begin;
-		if (NBL_GLSL_IS_NOT_POT(len))
-		{
-			const uint newLen = 0x1u << findMSB(len);
-			const uint diff = len - newLen;
+		const uint bucketIndex = gl_LocalInvocationIndex;
+		const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
 
-			begin = NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[newLen]) ? 0u : diff;
-			len = newLen;
-		}
-
-		while (len != 0u)
-		{
-			begin += NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[begin + (len >>= 1u)]) ? 0u : len;
-			begin += NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[begin + (len >>= 1u)]) ? 0u : len;
-		}
-
-		bucketIndex = begin + (NBL_GLSL_LESS(value, NBL_GLSL_EVAL(scratchShared)[begin]) ? 0u : 1u);
+		scratchShared[0] = floatBitsToUint(params.referenceAlpha / newReferenceAlpha);
 	}
+	barrier();
 
-	// const uint bucketIndex = lower_bound_scratchShared_NBL_GLSL_LESS(0u, _NBL_GLSL_BLIT_NORMALIZATION_BIN_COUNT_, pixelsShouldFailCount);
-
-	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
-	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
+	const float alphaScale = uintBitsToFloat(scratchShared[0]);
 
 	if (all(lessThan(gl_GlobalInvocationID, params.outDim)))
 	{
