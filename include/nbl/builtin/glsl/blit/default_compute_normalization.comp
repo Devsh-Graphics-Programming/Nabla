@@ -18,12 +18,16 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WOR
 #error _NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-vec4 nbl_glsl_blit_normalization_getData(in ivec3 coord)
+vec4 nbl_glsl_blit_normalization_getData(in uvec3 coord, in uint layerIdx)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	return texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, coord.xy, 0);
+	return texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, ivec2(coord.x, layerIdx));
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	return texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, ivec3(coord.xy, layerIdx), 0);
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	return texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, ivec3(coord), 0);
 #else
-	return texelFetch(_NBL_GLSL_BLIT_NORMALIZATION_IN_IMAGE_DESCRIPTOR_DEFINED_, coord, 0);
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 }
 #define _NBL_GLSL_BLIT_NORMALIZATION_GET_DATA_DEFINED_
@@ -41,12 +45,16 @@ vec4 nbl_glsl_blit_formats_encode(in vec4 value)
 	return value;
 }
 
-void nbl_glsl_blit_normalization_setData(in vec4 value, in ivec3 coord)
+void nbl_glsl_blit_normalization_setData(in vec4 value, in uvec3 coord, in uint layerIdx)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, coord.xy, nbl_glsl_blit_formats_encode(value));
+	imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, ivec2(coord.x, layerIdx), nbl_glsl_blit_formats_encode(value));
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
+	imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, ivec3(coord.xy, layerIdx), nbl_glsl_blit_formats_encode(value));
+#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
+	imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, ivec3(coord), nbl_glsl_blit_formats_encode(value));
 #else
-	imageStore(_NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_DESCRIPTOR_DEFINED_, coord, nbl_glsl_blit_formats_encode(value));
+	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
 }
 #endif
@@ -70,8 +78,7 @@ uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint la
 #error _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-// Todo(achal): Why is there a data in the function name??!!
-uint nbl_glsl_blit_normalization_getPassedInputPixelCountData(in uint layerIdx)
+uint nbl_glsl_blit_normalization_getPassedInputPixelCount(in uint layerIdx)
 {
 	return _NBL_GLSL_BLIT_NORMALIZATION_PASSED_COUNTER_ALPHA_HISTOGRAM_DESCRIPTOR_DEFINED_.data[layerIdx].passedPixelCount;
 }

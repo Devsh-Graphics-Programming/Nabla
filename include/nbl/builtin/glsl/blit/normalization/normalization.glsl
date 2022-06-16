@@ -24,30 +24,19 @@ uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint di
 #include <nbl/builtin/glsl/blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
-vec4 nbl_glsl_blit_normalization_getData(in ivec3 coord);
-void nbl_glsl_blit_normalization_setData(in vec4 data, in ivec3 coord);
+vec4 nbl_glsl_blit_normalization_getData(in uvec3 coord, in uint layerIdx);
+void nbl_glsl_blit_normalization_setData(in vec4 data, in uvec3 coord, in uint layerIdx);
 uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint layerIdx);
-uint nbl_glsl_blit_normalization_getPassedInputPixelCountData(in uint layerIdx);
+uint nbl_glsl_blit_normalization_getPassedInputPixelCount(in uint layerIdx);
 
 // #include <nbl/builtin/glsl/algorithm.glsl>
 // NBL_GLSL_DEFINE_LOWER_BOUND(scratchShared, uint);
 
 void nbl_glsl_blit_normalization_main()
 {
-	// Todo(achal): Need to pull this out
-#if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define LAYER_IDX gl_GlobalInvocationID.y
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
-	#define LAYER_IDX gl_GlobalInvocationID.z
-#elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
-	#define LAYER_IDX 0
-#else
-	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
-#endif
-
 	uint histogramVal = 0u;
 	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)
-		histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(gl_LocalInvocationIndex, LAYER_IDX);
+		histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(gl_LocalInvocationIndex, gl_WorkGroupID.z);
 
 	const uint cumHistogramVal = nbl_glsl_workgroupInclusiveAdd(histogramVal);
 
@@ -60,7 +49,7 @@ void nbl_glsl_blit_normalization_main()
 	const uint outputPixelCount = params.outPixelCount;
 
 	uint productMsb, productLsb;
-	umulExtended(nbl_glsl_blit_normalization_getPassedInputPixelCountData(LAYER_IDX), outputPixelCount, productMsb, productLsb);
+	umulExtended(nbl_glsl_blit_normalization_getPassedInputPixelCount(gl_WorkGroupID.z), outputPixelCount, productMsb, productLsb);
 
 	const uint pixelsShouldPassCount = integerDivide_64_32_32(productMsb, productLsb, params.inPixelCount);
 	const uint pixelsShouldFailCount = outputPixelCount - pixelsShouldPassCount;
@@ -96,9 +85,9 @@ void nbl_glsl_blit_normalization_main()
 
 	if (all(lessThan(gl_GlobalInvocationID, params.outDim)))
 	{
-		const vec4 pixel = nbl_glsl_blit_normalization_getData(ivec3(gl_GlobalInvocationID));
+		const vec4 pixel = nbl_glsl_blit_normalization_getData(gl_GlobalInvocationID, gl_WorkGroupID.z);
 		const vec4 scaledPixel = vec4(pixel.rgb, pixel.a * alphaScale);
-		nbl_glsl_blit_normalization_setData(scaledPixel, ivec3(gl_GlobalInvocationID));
+		nbl_glsl_blit_normalization_setData(scaledPixel, gl_GlobalInvocationID, gl_WorkGroupID.z);
 	}
 }
 

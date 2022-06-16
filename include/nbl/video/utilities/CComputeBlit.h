@@ -250,6 +250,13 @@ public:
 	{
 		outPC.inDim = { inImageExtent.x , inImageExtent.y, inImageExtent.z };
 		outPC.outDim = { outImageExtent.x, outImageExtent.y, outImageExtent.z };
+
+		if (imageType < asset::IImage::ET_3D)
+		{
+			outPC.inDim.z = layersToBlit;
+			outPC.outDim.z = layersToBlit;
+		}
+
 		outPC.referenceAlpha = referenceAlpha;
 
 		using blit_utils_t = asset::CBlitUtilities<KernelX, KernelY, KernelZ>;
@@ -268,7 +275,7 @@ public:
 
 		outPC.negativeSupport.x = minSupport.x; outPC.negativeSupport.y = minSupport.y; outPC.negativeSupport.z = minSupport.z;
 
-		outPC.outPixelCount = outPC.outDim.x * outPC.outDim.y * outPC.outDim.z;
+		outPC.outPixelCount = outImageExtent.x*outImageExtent.y*outImageExtent.z;
 
 		const core::vectorSIMDi32 windowDim = core::max(blit_utils_t::getRealWindowSize(imageType, scaledKernelX, scaledKernelY, scaledKernelZ), core::vectorSIMDi32(1, 1, 1, 1));
 		outPC.windowDim.x = windowDim.x; outPC.windowDim.y = windowDim.y; outPC.windowDim.z = windowDim.z;
@@ -291,13 +298,17 @@ public:
 		outPC.offset = preloadRegion.x*preloadRegion.y*preloadRegion.z;
 	}
 
-	static inline void buildAlphaTestDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& inImageExtent, const asset::IImage::E_TYPE inImageType, const uint32_t layersToBlit = 1)
+	static inline void buildAlphaTestDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& inImageExtent, const asset::IImage::E_TYPE imageType, const uint32_t layersToBlit = 1)
 	{
-		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType, layersToBlit);
+		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(imageType);
 		const core::vectorSIMDu32 workgroupCount = (inImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
+
 		outDispatchInfo.wgCount[0] = workgroupCount.x;
 		outDispatchInfo.wgCount[1] = workgroupCount.y;
-		outDispatchInfo.wgCount[2] = workgroupCount.z;
+		if (imageType < asset::IImage::ET_3D)
+			outDispatchInfo.wgCount[2] = layersToBlit;
+		else
+			outDispatchInfo.wgCount[2] = workgroupCount[2];
 	}
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
@@ -306,7 +317,7 @@ public:
 		const core::vectorSIMDu32& inImageExtent,
 		const core::vectorSIMDu32& outImageExtent,
 		const asset::E_FORMAT inImageFormat,
-		const asset::IImage::E_TYPE inImageType,
+		const asset::IImage::E_TYPE imageType,
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ,
 		const core::vectorSIMDu32& outputTexelsPerWG,
 		const uint32_t workgroupSize = DefaultBlitWorkgroupSize,
@@ -318,7 +329,7 @@ public:
 		const auto scaledKernelZ = blit_utils_t::constructScaledKernel(kernelZ, inImageExtent, outImageExtent);
 		
 		// Todo(achal): Now defunct, remove!
-		const core::vectorSIMDi32 windowDim = core::max(blit_utils_t::getRealWindowSize(inImageType, scaledKernelX, scaledKernelY, scaledKernelZ), core::vectorSIMDi32(1, 1, 1, 1));
+		const core::vectorSIMDi32 windowDim = core::max(blit_utils_t::getRealWindowSize(imageType, scaledKernelX, scaledKernelY, scaledKernelZ), core::vectorSIMDi32(1, 1, 1, 1));
 
 		const uint32_t windowPixelCount = windowDim.x * windowDim.y * windowDim.z;
 		const uint32_t smemPerWindow = windowPixelCount * (asset::getFormatChannelCount(inImageFormat) * sizeof(float));
@@ -327,34 +338,36 @@ public:
 		const auto wgCount = (outImageExtent + outputTexelsPerWG - core::vectorSIMDu32(1, 1, 1)) / core::vectorSIMDu32(outputTexelsPerWG.x, outputTexelsPerWG.y, outputTexelsPerWG.z, 1);
 
 		dispatchInfo.wgCount[0] = wgCount[0];
-		dispatchInfo.wgCount[1] = wgCount[1]; // Todo(achal): What does this evaluate to for 1D images? Test with 1D image having multiple layers.
-		if (inImageType < asset::IImage::ET_3D)
+		dispatchInfo.wgCount[1] = wgCount[1];
+		if (imageType < asset::IImage::ET_3D)
 			dispatchInfo.wgCount[2] = layersToBlit;
 		else
 			dispatchInfo.wgCount[2] = wgCount[2];
 	}
 
-	static inline void buildNormalizationDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = DefaultAlphaBinCount, const uint32_t layersToBlit = 1)
+	static inline void buildNormalizationDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount = DefaultAlphaBinCount, const uint32_t layersToBlit = 1)
 	{
-		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(inImageType, layersToBlit);
-		assert(workgroupDims.x * workgroupDims.y * workgroupDims.z <= alphaBinCount);
+		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(imageType);
+		assert(workgroupDims.x * workgroupDims.y * workgroupDims.z <= alphaBinCount*layersToBlit);
 		const core::vectorSIMDu32 workgroupCount = (outImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
 
 		outDispatchInfo.wgCount[0] = workgroupCount.x;
 		outDispatchInfo.wgCount[1] = workgroupCount.y;
-		outDispatchInfo.wgCount[2] = workgroupCount.z;
+		if (imageType < asset::IImage::ET_3D)
+			outDispatchInfo.wgCount[2] = layersToBlit;
+		else
+			outDispatchInfo.wgCount[2] = workgroupCount[2];
 	}
 
-	static inline core::vectorSIMDu32 getDefaultWorkgroupDims(const asset::IImage::E_TYPE inImageType, const uint32_t layersToBlit = 1)
+	static inline core::vectorSIMDu32 getDefaultWorkgroupDims(const asset::IImage::E_TYPE imageType)
 	{
-		switch (inImageType)
+		switch (imageType)
 		{
 		case asset::IImage::ET_1D:
-			return core::vectorSIMDu32(256, layersToBlit, 1, 1);
+			return core::vectorSIMDu32(256, 1, 1, 1);
 		case asset::IImage::ET_2D:
-			return core::vectorSIMDu32(16, 16, layersToBlit, 1);
+			return core::vectorSIMDu32(16, 16, 1, 1);
 		case asset::IImage::ET_3D:
-			assert(layersToBlit == 1);
 			return core::vectorSIMDu32(8, 8, 4, 1);
 		default:
 			return core::vectorSIMDu32(1, 1, 1, 1);
@@ -399,7 +412,6 @@ public:
 	{
 		constexpr auto MAX_DESCRIPTOR_COUNT = 3;
 
-		// Todo(achal): Now we can get rid of this lambda
 		auto updateDS = [this, coverageAdjustmentScratchBuffer](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos)
 		{
 			const auto& bindings = ds->getLayout()->getBindings();

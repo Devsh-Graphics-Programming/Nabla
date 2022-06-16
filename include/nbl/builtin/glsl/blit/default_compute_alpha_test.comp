@@ -7,31 +7,25 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WOR
 #include <nbl/builtin/glsl/blit/alpha_test/descriptors.glsl>
 #include <nbl/builtin/glsl/blit/alpha_test/alpha_test.glsl>
 
-#ifndef _NBL_GLSL_BLIT_ALPHA_TEST_GET_PADDED_DATA_DEFINED_
+#ifndef _NBL_GLSL_BLIT_ALPHA_TEST_GET_DATA_DEFINED_
 
 #ifndef _NBL_GLSL_BLIT_ALPHA_TEST_IN_DESCRIPTOR_DEFINED_
 #error _NBL_GLSL_BLIT_ALPHA_TEST_IN_DESCRIPTOR_DEFINED_ must be defined
 #endif
 
-float nbl_glsl_blit_alpha_test_getPaddedData(in ivec3 coord)
+float nbl_glsl_blit_alpha_test_getData(in uvec3 coord, in uint layerIdx)
 {
 #if NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 1)
-	#define COORD coord.xy
+	return texelFetch(_NBL_GLSL_BLIT_ALPHA_TEST_IN_DESCRIPTOR_DEFINED_, ivec2(coord.x, layerIdx), 0).a;
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 2)
-	#define COORD coord
+	return texelFetch(_NBL_GLSL_BLIT_ALPHA_TEST_IN_DESCRIPTOR_DEFINED_, ivec3(coord.xy, layerIdx), 0).a;
 #elif NBL_GLSL_EQUAL(_NBL_GLSL_BLIT_DIM_COUNT_, 3)
-	#define COORD coord
+	return texelFetch(_NBL_GLSL_BLIT_ALPHA_TEST_IN_DESCRIPTOR_DEFINED_, ivec3(coord), 0).a;
 #else
 	#error _NBL_GLSL_BLIT_DIM_COUNT_ not supported
 #endif
-
-	float alpha = 0.f;
-	if (all(lessThan(COORD, textureSize(_NBL_GLSL_BLIT_ALPHA_TEST_IN_DESCRIPTOR_DEFINED_, 0))))
-		alpha = texelFetch(_NBL_GLSL_BLIT_ALPHA_TEST_IN_DESCRIPTOR_DEFINED_, COORD, 0).a;
-
-	return alpha;
 }
-#define _NBL_GLSL_BLIT_ALPHA_TEST_GET_PADDED_DATA_DEFINED_
+#define _NBL_GLSL_BLIT_ALPHA_TEST_GET_DATA_DEFINED_
 #endif
 
 void main()
