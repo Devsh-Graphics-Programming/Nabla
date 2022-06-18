@@ -382,26 +382,6 @@ public:
 			return 0;
 	}
 
-	// getCoverageAdjustmentScratchSize() portion of the scratch buffer should be cleared to 0s by the user.
-	// The default blit descriptors assume first coverage adjustment scratch data comes, then the scaled kernel phased LUT.
-	template <typename value_type, typename KernelX, typename KernelY, typename KernelZ>
-	inline size_t getScratchSize(
-		const core::vectorSIMDu32& inImageExtent,
-		const core::vectorSIMDu32& outImageExtent,
-		const asset::IImage::E_TYPE inImageType,
-		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ,
-		const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic,
-		const uint32_t alphaBinCount,
-		const uint32_t layersToBlit)
-	{
-		using blit_utils_t = asset::CBlitUtilities<KernelX, KernelY, KernelZ>;
-		const size_t lutSize = blit_utils_t::template getScaledKernelPhasedLUTSize<value_type>(inImageExtent, outImageExtent, inImageType, kernelX, kernelY, kernelZ);
-
-		size_t coverageAdjustmentScratchSize = getCoverageAdjustmentScratchSize(alphaSemantic, alphaBinCount, layersToBlit);
-
-		return lutSize + coverageAdjustmentScratchSize;
-	}
-
 	void updateDescriptorSet(
 		video::IGPUDescriptorSet* blitDS,
 		video::IGPUDescriptorSet* kernelWeightsDS,

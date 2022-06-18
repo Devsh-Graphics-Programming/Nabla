@@ -11,6 +11,10 @@ void nbl_glsl_blit_setData(in vec4 data, in uvec3 coord, in uint layerIdx);
 
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx);
 
+#ifndef _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_
+#error _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ must be defined
+#endif
+
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
 uvec3 linearIndexTo3DIndex(in uint linearIndex, in uvec3 gridDim)
@@ -145,7 +149,7 @@ void nbl_glsl_blit_main()
 					outCoord = virtualInvocationID.xyz;
 				outCoord += minOutputPixel;
 
-				const uint bucketIndex = packUnorm4x8(vec4(accum.a, 0.f, 0.f, 0.f));
+				const uint bucketIndex = uint(round(clamp(accum.a, 0, 1) * float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)));
 				nbl_glsl_blit_addToHistogram(bucketIndex, gl_WorkGroupID.z);
 
 				nbl_glsl_blit_setData(accum, outCoord, gl_WorkGroupID.z);

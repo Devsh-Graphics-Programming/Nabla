@@ -1,3 +1,4 @@
+
 #include <nbl/builtin/glsl/blit/default_compute_common.comp>
 
 #define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_
