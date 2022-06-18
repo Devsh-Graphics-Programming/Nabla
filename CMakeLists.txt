@@ -17,13 +17,26 @@ project(Nabla LANGUAGES CXX C)
 
 option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
-option(NBL_MSVC_GENERATE_APPLICATION_CONFIGS "" OFF) # do not try to use this, only for Nabla developers for now
+option(NBL_MSVC_GENERATE_NABLA_MANIFEST "" OFF) # only for Nabla developers - do not turn this ON
+option(NBL_MSVC_GENERATE_APPLICATION_CONFIGS "" OFF) # only for Nabla developers - do not turn this ON
 
 if(NBL_STATIC_BUILD)
+	if(NBL_MSVC_GENERATE_NABLA_MANIFEST)
+		message(FATAL_ERROR "You cannot generate Nabla manifest with static build!")
+	elseif(NBL_MSVC_GENERATE_APPLICATION_CONFIGS)
+		message(FATAL_ERROR "You cannot generate application configs with static build!")
+	endif()
+	
 	message(STATUS "Static Nabla build enabled!")
 else()
 	if(WIN32 AND MSVC)
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
+			if(NBL_MSVC_GENERATE_APPLICATION_CONFIGS)
+				if(NOT NBL_MSVC_GENERATE_NABLA_MANIFEST)
+					message(FATAL_ERROR "You must enable NBL_MSVC_GENERATE_NABLA_MANIFEST to generate application configs!")
+				endif()
+			endif()
+		
 			message(STATUS "Shared Nabla build enabled!")
 		else()
 			message(FATAL_ERROR "Turn NBL_DYNAMIC_MSVC_RUNTIME on! For dynamic Nabla builds dynamic MSVC runtime is mandatory!")
@@ -269,7 +282,7 @@ option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
-option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
+option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)

@@ -336,6 +336,12 @@ function(nbl_install_headers _HEADERS _BASE_HEADERS_DIR)
 	endforeach()
 endfunction()
 
+function(nbl_install_file _FILE _RELATIVE_DESTINATION)
+	install(FILES ${_FILE} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
+	install(FILES ${_FILE} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
+	install(FILES ${_FILE} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+endfunction()
+
 function(nbl_install_config_header _CONF_HDR_NAME)
 	nbl_get_conf_dir(dir_deb Debug)
 	nbl_get_conf_dir(dir_rel Release)
