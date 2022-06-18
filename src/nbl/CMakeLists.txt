@@ -456,19 +456,7 @@ if (ANDROID)
 endif()
 
 if(NOT NBL_STATIC_BUILD)
-	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)
-	set(NBL_ASSEMBLIES_MANIFEST_FILEPATH "${NBL_ASSEMBLY_DIRECTORY}/devshgraphicsprogramming.nabla.manifest" CACHE INTERNAL "" FORCE)
-	
-	if(NBL_MSVC_GENERATE_NABLA_MANIFEST)
-		add_custom_command(OUTPUT "${NBL_ASSEMBLIES_MANIFEST_FILEPATH}"
-			COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_ASSEMBLY_DIRECTORY} -DNABLA_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaMSVCManifest.cmake
-			COMMENT "Launching nabla.manifest generation script!"
-			VERBATIM
-		)
-
-		add_custom_target(Nabla_with_manifest ALL DEPENDS ${NBL_ASSEMBLIES_MANIFEST_FILEPATH})
-	endif()
-	
+	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
 endif()
 

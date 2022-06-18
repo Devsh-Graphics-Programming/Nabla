@@ -39,20 +39,6 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(ANDROID)
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
-		if(NOT NBL_STATIC_BUILD)
-			if(NBL_MSVC_GENERATE_APPLICATION_CONFIGS)
-				set(NBL_CONFIG_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
-				set(NBL_CONFIG_OUTPUT_FILE ${NBL_CONFIG_OUTPUT_DIRECTORY}/${EXECUTABLE_NAME}$<IF:$<CONFIG:Release>,,$<IF:$<CONFIG:Debug>,_d,_rwdi>>.exe.config)
-				
-				add_custom_command(OUTPUT "${NBL_CONFIG_OUTPUT_FILE}"
-					COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_CONFIG_OUTPUT_DIRECTORY} -DNBL_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -DNBL_TARGET_PATH:FILEPATH=$<TARGET_FILE:${EXECUTABLE_NAME}> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake
-					COMMENT "Launching ${EXECUTABLE_NAME}.exe.config generation script!"
-					VERBATIM
-				)
-				add_custom_target(${EXECUTABLE_NAME}_with_config ALL DEPENDS ${NBL_CONFIG_OUTPUT_FILE} ${NBL_ROOT_PATH}/cmake/scripts/nbl/applicationMSVCConfig.cmake)
-			endif()
-		endif()
-	
 		set(NBL_EXECUTABLE_SOURCES 
 			main.cpp
 			${_EXTRA_SOURCES}
@@ -77,15 +63,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	endif()
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	if(NBL_STATIC_BUILD)
-		add_dependencies(${EXECUTABLE_NAME} Nabla)
-	else()
-		if(NBL_MSVC_GENERATE_APPLICATION_CONFIGS)
-			add_dependencies(${EXECUTABLE_NAME}_with_config Nabla_with_manifest)
-			#target_link_options(${EXECUTABLE_NAME} PRIVATE "/manifestdependency:\"type='win32' name='devshgraphicsprogramming.nabla' version='1.2.3.4' processorArchitecture='x86' language='*'\"")
-		endif()
-	endif()
-	
+	add_dependencies(${EXECUTABLE_NAME} Nabla)
 	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
 	
 	target_include_directories(${EXECUTABLE_NAME}
