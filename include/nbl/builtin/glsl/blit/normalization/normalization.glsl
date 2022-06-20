@@ -1,6 +1,7 @@
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_INCLUDED_
 #define _NBL_GLSL_BLIT_NORMALIZATION_INCLUDED_
 
+#include <nbl/builtin/glsl/blit/normalization/shared_normalization.glsl>
 #include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
 
 //! WARNING: ONLY WORKS FOR `dividendMsb<=2^23` DUE TO FP32 ABUSE !!!
@@ -15,10 +16,6 @@ uint integerDivide_64_32_32(in uint dividendMsb, in uint dividendLsb, in uint di
 
 #ifndef _NBL_GLSL_BLIT_NORMALIZATION_MAIN_DEFINED_
 
-#ifndef _NBL_GLSL_SCRATCH_SHARED_DEFINED_
-#error "_NBL_GLSL_SCRATCH_SHARED_DEFINED_ must be defined"
-#endif
-
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
 
 #include <nbl/builtin/glsl/blit/parameters.glsl>
@@ -28,11 +25,6 @@ vec4 nbl_glsl_blit_normalization_getData(in uvec3 coord, in uint layerIdx);
 void nbl_glsl_blit_normalization_setData(in vec4 data, in uvec3 coord, in uint layerIdx);
 uint nbl_glsl_blit_normalization_getAlphaHistogramData(in uint index, in uint layerIdx);
 uint nbl_glsl_blit_normalization_getPassedInputPixelCount(in uint layerIdx);
-
-shared uint temp;
-
-// 1. _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ >= _NBL_GLSL_WORKGROUP_SIZE_
-// 2. _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ /_NBL_GLSL_WORKGROUP_SIZE_ == integer
 
 void nbl_glsl_blit_normalization_main()
 {
@@ -69,14 +61,12 @@ void nbl_glsl_blit_normalization_main()
 		{
 			const uint previousBucketVal = bool(gl_LocalInvocationIndex) ? scratchShared[previousInvocationIndex] : previousBlockSum;
 			if (pixelsShouldFailCount > previousBucketVal)
-			{
-				temp = virtualInvocation;
-			}
+				scratchShared[_NBL_GLSL_BLIT_NORMALIZATION_SHARED_SIZE_NEEDED_-1] = virtualInvocation;
 		}
 	}
 	barrier();
 
-	const uint bucketIndex = temp;
+	const uint bucketIndex = scratchShared[_NBL_GLSL_BLIT_NORMALIZATION_SHARED_SIZE_NEEDED_ - 1];
 	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
 	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
 

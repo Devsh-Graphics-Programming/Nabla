@@ -252,6 +252,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/blit/default_compute_normalization.comp"
   "nbl/builtin/glsl/blit/normalization/normalization.glsl"
   "nbl/builtin/glsl/blit/normalization/descriptors.glsl"
+  "nbl/builtin/glsl/blit/normalization/shared_normalization.glsl"
 
 PARENT_SCOPE)
 
