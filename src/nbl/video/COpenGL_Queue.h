@@ -185,16 +185,7 @@ class COpenGL_Queue final : public IGPUQueue
                 // defaults once set and not tracked by engine (should never change)
                 gl.glGeneral.pglEnable(GL_FRAMEBUFFER_SRGB);
                 gl.glFragment.pglDepthRangef(1.f, 0.f);
-                if constexpr (IsGLES)
-                {
-                    if (gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control)) // if not supported, modifications to spir-v will be applied to emulate this
-                        gl.extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
-                }
-                else
-                {
-                    // on desktop GL clip control is assumed to be always supported
-                    gl.extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
-                }
+                gl.clipControlUpperLeft();
 
                 if constexpr (!IsGLES)
                 {

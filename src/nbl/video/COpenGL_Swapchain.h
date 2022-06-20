@@ -242,6 +242,7 @@ private:
                 gl.extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
 
             gl.glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
+            gl.clipControlUpperLeft();
 
             gl.extGlCreateFramebuffers(fboCount, fbos);
             for (uint32_t i = 0u; i < fboCount; ++i)
