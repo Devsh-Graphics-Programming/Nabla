@@ -88,3 +88,9 @@
 	path = examples_tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
 	branch = ditt
+[submodule "examples_tests/media"]
+	branch = ditt
+[submodule "ci"]
+	path = ci
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-CI.git
+	branch = ditt
