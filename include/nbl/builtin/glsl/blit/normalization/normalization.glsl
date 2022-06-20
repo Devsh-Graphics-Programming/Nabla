@@ -31,7 +31,8 @@ uint nbl_glsl_blit_normalization_getPassedInputPixelCount(in uint layerIdx);
 
 shared uint temp;
 
-shared uint tempA[4];
+// 1. _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ >= _NBL_GLSL_WORKGROUP_SIZE_
+// 2. _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ /_NBL_GLSL_WORKGROUP_SIZE_ == integer
 
 void nbl_glsl_blit_normalization_main()
 {
@@ -79,47 +80,11 @@ void nbl_glsl_blit_normalization_main()
 	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
 	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
 
-
-
-#if 0
-	uint histogramVal = 0u;
-	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)
-		histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(gl_LocalInvocationIndex, gl_WorkGroupID.z);
-
-	const uint cumHistogramVal = nbl_glsl_workgroupInclusiveAdd(histogramVal);
-
-	if (gl_LocalInvocationIndex < _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)
-		scratchShared[gl_LocalInvocationIndex] = cumHistogramVal;
-	barrier();
-
-	if ((pixelsShouldFailCount <= cumHistogramVal) && ((gl_LocalInvocationIndex == 0) || (scratchShared[gl_LocalInvocationIndex - 1] < pixelsShouldFailCount)))
-	{
-		const uint bucketIndex = gl_LocalInvocationIndex;
-		const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
-		nbl_glsl_blit_normalization_setData(vec4(bucketIndex, newReferenceAlpha, -77.f, -77.f), uvec3(0), gl_WorkGroupID.z);
-
-		scratchShared[0] = floatBitsToUint(params.referenceAlpha / newReferenceAlpha);
-	}
-	barrier();
-
-	const float alphaScale = uintBitsToFloat(scratchShared[0]);
-#endif
-
 	if (all(lessThan(gl_GlobalInvocationID, params.outDim)))
 	{
 		const vec4 pixel = nbl_glsl_blit_normalization_getData(gl_GlobalInvocationID, gl_WorkGroupID.z);
 		const vec4 scaledPixel = vec4(pixel.rgb, pixel.a * alphaScale);
-		// nbl_glsl_blit_normalization_setData(scaledPixel, gl_GlobalInvocationID, gl_WorkGroupID.z);
-		
-		// nbl_glsl_blit_normalization_setData(vec4(tempA[0], tempA[1], tempA[2], tempA[3]), gl_GlobalInvocationID, gl_WorkGroupID.z);
-
-		const uint globalIndex = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y*params.outDim.x;
-
-		uint histogramVal = ~0u;
-		if (globalIndex < _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)
-			histogramVal = nbl_glsl_blit_normalization_getAlphaHistogramData(globalIndex, gl_WorkGroupID.z);
-
-		nbl_glsl_blit_normalization_setData(vec4(histogramVal), gl_GlobalInvocationID, gl_WorkGroupID.z);
+		nbl_glsl_blit_normalization_setData(scaledPixel, gl_GlobalInvocationID, gl_WorkGroupID.z);
 	}
 }
 

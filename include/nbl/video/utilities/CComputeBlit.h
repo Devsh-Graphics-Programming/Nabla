@@ -98,13 +98,13 @@ public:
 		return m_coverageAdjustmentPipelineLayout;
 	}
 
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType,
-		const core::vectorSIMDu32& workgroupDims, const uint32_t alphaBinCount = DefaultAlphaBinCount);
+	// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = DefaultAlphaBinCount);
 
-	// outImageFormat dictates encoding.
-	// outImageViewFormat dictates the GLSL storage image format qualifier.
+	// @param `outImageFormat` dictates encoding.
+	// @param `outImageViewFormat` dictates the GLSL storage image format qualifier.
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outImageFormat,
-		const asset::E_FORMAT outImageViewFormat, const core::vectorSIMDu32& workgroupDims, const uint32_t alphaBinCount = DefaultAlphaBinCount);
+		const asset::E_FORMAT outImageViewFormat, const uint32_t alphaBinCount = DefaultAlphaBinCount);
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(
@@ -120,6 +120,9 @@ public:
 		const uint32_t workgroupSize = DefaultBlitWorkgroupSize,
 		const uint32_t alphaBinCount = DefaultAlphaBinCount)
 	{
+		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
+		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
+
 		using blit_utils_t = asset::CBlitUtilities<KernelX, KernelY, KernelZ>;
 
 		const auto scaledKernelX = blit_utils_t::constructScaledKernel(kernelX, inExtent, outExtent);
@@ -133,7 +136,7 @@ public:
 			<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << 1 << "\n"
 			<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << 1 << "\n"
 			<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-			<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << alphaBinCount << "\n";
+			<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n";
 
 		const uint32_t outChannelCount = asset::getFormatChannelCount(outImageFormat);
 		// Todo(achal): All this belongs in validation
@@ -218,9 +221,6 @@ public:
 				{
 					// Note: we use outImageFormat's channel count as opposed to its image view's format because, even in the event that they are different, we blit
 					// as if we will be writing to a storage image of out
-					const auto outTest = outputTexelsPerWG + delta;
-					if (outTest.x == 1 && outTest.y == 1)
-						__debugbreak();
 					requiredSmem = getRequiredSharedMemorySize(outputTexelsPerWG + delta, outExtent, imageType, minSupport, maxSupport, scale, asset::getFormatChannelCount(outImageFormat));
 
 					if (requiredSmem <= m_availableSharedMemory)
@@ -290,7 +290,6 @@ public:
 
 		outPC.outputTexelsPerWG = { outputTexelsPerWG.x, outputTexelsPerWG.y, outputTexelsPerWG.z };
 
-		// Todo(achal): This is not upper bound, it is actually reachable by some cases
 		const auto preloadRegion = getPreloadRegion(outputTexelsPerWG, imageType, minSupport, maxSupport, scale);
 		outPC.preloadRegion = { preloadRegion.x, preloadRegion.y, preloadRegion.z };
 
@@ -345,10 +344,9 @@ public:
 			dispatchInfo.wgCount[2] = wgCount[2];
 	}
 
-	static inline void buildNormalizationDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount = DefaultAlphaBinCount, const uint32_t layersToBlit = 1)
+	static inline void buildNormalizationDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE imageType, const uint32_t layersToBlit = 1)
 	{
 		const core::vectorSIMDu32 workgroupDims = getDefaultWorkgroupDims(imageType);
-		assert(workgroupDims.x * workgroupDims.y * workgroupDims.z <= alphaBinCount*layersToBlit);
 		const core::vectorSIMDu32 workgroupCount = (outImageExtent + workgroupDims - core::vectorSIMDu32(1u, 1u, 1u, 1u)) / workgroupDims;
 
 		outDispatchInfo.wgCount[0] = workgroupCount.x;
@@ -374,12 +372,15 @@ public:
 		}
 	}
 
-	static inline size_t getCoverageAdjustmentScratchSize(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic, const uint32_t alphaBinCount, const uint32_t layersToBlit)
+	static inline size_t getCoverageAdjustmentScratchSize(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic, const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount, const uint32_t layersToBlit)
 	{
-		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			return (sizeof(uint32_t) + alphaBinCount * sizeof(uint32_t)) * layersToBlit;
-		else
+		if (alphaSemantic != asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			return 0;
+
+		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
+		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
+		const auto requiredSize = (sizeof(uint32_t) + paddedAlphaBinCount * sizeof(uint32_t)) * layersToBlit;
+		return requiredSize;
 	}
 
 	void updateDescriptorSet(
@@ -503,7 +504,7 @@ public:
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 		{
 			dispatch_info_t dispatchInfo;
-			buildNormalizationDispatchInfo(dispatchInfo, outImageExtent, inImageType, alphaBinCount, layersToBlit);
+			buildNormalizationDispatchInfo(dispatchInfo, outImageExtent, inImageType, layersToBlit);
 
 			assert(coverageAdjustmentScratchBuffer);
 
@@ -728,6 +729,16 @@ private:
 		const size_t requiredSmem = ((preloadRegion.x * preloadRegion.y * preloadRegion.z) + core::max(outputTexelsPerWG.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x * outputTexelsPerWG.y * preloadRegion.z)) * channelCount * sizeof(float);
 		return requiredSmem;
 	};
+
+	static inline uint32_t getPaddedAlphaBinCount(const core::vectorSIMDu32& workgroupDims, const uint32_t oldAlphaBinCount)
+	{
+		// For the normalization shader, it should be that:
+		//	alphaBinCount = k*workGroupSize, k is integer, k >= 1, 
+		assert(workgroupDims.x != 0 && workgroupDims.y != 0 && workgroupDims.z != 0);
+		const auto wgSize = workgroupDims.x * workgroupDims.y * workgroupDims.z;
+		const auto paddedAlphaBinCount = core::roundUp(oldAlphaBinCount, wgSize);
+		return paddedAlphaBinCount;
+	}
 };
 }
 
