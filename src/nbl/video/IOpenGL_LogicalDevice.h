@@ -486,6 +486,7 @@ protected:
             #endif
             if (m_dbgCb)
                 gl->extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
+            gl->clipControlUpperLeft();
 
             gl->glGeneral.pglFinish();
         }
