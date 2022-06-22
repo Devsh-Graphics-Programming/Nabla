@@ -1,6 +1,6 @@
 #ifndef _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
 
-#include "nbl/asset/filters/CBlitImageFilter.h"
+#include "nbl/asset/filters/CBlitUtilities.h"
 
 namespace nbl::video
 {
