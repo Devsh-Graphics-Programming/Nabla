@@ -27,24 +27,28 @@ public:
 	};
 
 	//! Set smemSize param to ~0u to use all the shared memory available.
-	CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u) : m_device(std::move(logicalDevice)), m_availableSharedMemory(smemSize)
+	static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
 	{
-		setAvailableSharedMemory(smemSize);
+		auto result = core::smart_refctd_ptr<CComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
 
-		sampler = nullptr;
+		result->setAvailableSharedMemory(smemSize);
+
 		{
 			video::IGPUSampler::SParams params = {};
 			params.TextureWrapU = asset::ISampler::ETC_CLAMP_TO_EDGE;
 			params.TextureWrapV = asset::ISampler::ETC_CLAMP_TO_EDGE;
 			params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_EDGE;
 			params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+
 			params.MinFilter = asset::ISampler::ETF_NEAREST;
 			params.MaxFilter = asset::ISampler::ETF_NEAREST;
 			params.MipmapMode = asset::ISampler::ESMM_NEAREST;
 			params.AnisotropicFilter = 0u;
 			params.CompareEnable = 0u;
 			params.CompareFunc = asset::ISampler::ECO_ALWAYS;
-			sampler = m_device->createSampler(std::move(params));
+			result->sampler = result->m_device->createSampler(std::move(params));
+			if (!result->sampler)
+				return nullptr;
 		}
 
 		{
@@ -52,13 +56,20 @@ public:
 			const asset::E_DESCRIPTOR_TYPE types[BlitDescriptorCount] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input image, output image, alpha statistics
 
 			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
-				m_blitDSLayout[i] = getDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, m_device.get(), sampler);
+			{
+				result->m_blitDSLayout[i] = result->getDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, result->m_device.get(), result->sampler);
+				if (!result->m_blitDSLayout[i])
+					return nullptr;
+			}
 		}
 
 		{
 			constexpr auto KernelWeightsDescriptorCount = 1;
 			asset::E_DESCRIPTOR_TYPE types[KernelWeightsDescriptorCount] = { asset::EDT_UNIFORM_TEXEL_BUFFER };
-			m_kernelWeightsDSLayout = getDSLayout(KernelWeightsDescriptorCount, types, m_device.get(), nullptr);
+			result->m_kernelWeightsDSLayout = result->getDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get(), nullptr);
+
+			if (!result->m_kernelWeightsDSLayout)
+				return nullptr;
 		}
 
 		asset::SPushConstantRange pcRange = {};
@@ -69,9 +80,17 @@ public:
 		}
 
 		for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
-			m_blitPipelineLayout[i] = m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(m_blitDSLayout[i]), core::smart_refctd_ptr(m_kernelWeightsDSLayout));
+		{
+			result->m_blitPipelineLayout[i] = result->m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(result->m_blitDSLayout[i]), core::smart_refctd_ptr(result->m_kernelWeightsDSLayout));
+			if (!result->m_blitPipelineLayout[i])
+				return nullptr;
+		}
 
-		m_coverageAdjustmentPipelineLayout = m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
+		result->m_coverageAdjustmentPipelineLayout = result->m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(result->m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
+		if (!result->m_coverageAdjustmentPipelineLayout)
+			return nullptr;
+
+		return result;
 	}
 
 	inline void setAvailableSharedMemory(const uint32_t smemSize)
@@ -777,6 +796,8 @@ private:
 	core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 
 	core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
+
+	CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
 
 	static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl_glsl_blit_parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
 	{
