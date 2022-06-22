@@ -370,11 +370,6 @@ public:
 		const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
 		outPC.phaseCount.x = phaseCount.x; outPC.phaseCount.y = phaseCount.y; outPC.phaseCount.z = phaseCount.z;
 
-		// Todo(achal): Now defunct, remove!
-		const uint32_t windowPixelCount = outPC.windowDim.x * outPC.windowDim.y * outPC.windowDim.z;
-		const uint32_t smemPerWindow = windowPixelCount * (asset::getFormatChannelCount(inImageFormat) * sizeof(float));
-		outPC.windowsPerWG = m_availableSharedMemory / smemPerWindow;
-
 		core::vectorSIMDu32 outputTexelsPerWG;
 		getOutputTexelsPerWorkGroup(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernelX, kernelY, kernelZ);
 		outPC.outputTexelsPerWG = { outputTexelsPerWG.x, outputTexelsPerWG.y, outputTexelsPerWG.z };
@@ -409,18 +404,6 @@ public:
 		const uint32_t workgroupSize = DefaultBlitWorkgroupSize,
 		const uint32_t layersToBlit = 1)
 	{
-		using blit_utils_t = asset::CBlitUtilities<KernelX, KernelY, KernelZ>;
-		const auto scaledKernelX = blit_utils_t::constructScaledKernel(kernelX, inImageExtent, outImageExtent);
-		const auto scaledKernelY = blit_utils_t::constructScaledKernel(kernelY, inImageExtent, outImageExtent);
-		const auto scaledKernelZ = blit_utils_t::constructScaledKernel(kernelZ, inImageExtent, outImageExtent);
-		
-		// Todo(achal): Now defunct, remove!
-		const core::vectorSIMDi32 windowDim = core::max(blit_utils_t::getRealWindowSize(imageType, scaledKernelX, scaledKernelY, scaledKernelZ), core::vectorSIMDi32(1, 1, 1, 1));
-
-		const uint32_t windowPixelCount = windowDim.x * windowDim.y * windowDim.z;
-		const uint32_t smemPerWindow = windowPixelCount * (asset::getFormatChannelCount(inImageFormat) * sizeof(float));
-		auto windowsPerWG = m_availableSharedMemory / smemPerWindow;
-
 		core::vectorSIMDu32 outputTexelsPerWG;
 		getOutputTexelsPerWorkGroup(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernelX, kernelY, kernelZ);
 		const auto wgCount = (outImageExtent + outputTexelsPerWG - core::vectorSIMDu32(1, 1, 1)) / core::vectorSIMDu32(outputTexelsPerWG.x, outputTexelsPerWG.y, outputTexelsPerWG.z, 1);
@@ -511,7 +494,7 @@ public:
 			video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
 			
 			infos[0].desc = inImageView;
-			infos[0].image.imageLayout = asset::EIL_GENERAL; // Todo(achal): Make it not GENERAL, this is a sampled image
+			infos[0].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 			infos[0].image.sampler = nullptr;
 
 			infos[1].desc = outImageView;
@@ -606,18 +589,19 @@ public:
 			alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getSize();
 			alphaTestBarrier.offset = 0;
 
-			// Memory dependency to ensure that the previous compute pass has finished writing to the output image
+			// Memory dependency to ensure that the previous compute pass has finished writing to the output image,
+			// also transitions the layout of said image: GENERAL -> SHADER_READ_ONLY_OPTIMAL
 			video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
 			readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-			readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT | asset::EAF_SHADER_WRITE_BIT);
+			readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
 			readyForNorm.oldLayout = asset::EIL_GENERAL;
-			readyForNorm.newLayout = asset::EIL_GENERAL;
+			readyForNorm.newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 			readyForNorm.srcQueueFamilyIndex = ~0u;
 			readyForNorm.dstQueueFamilyIndex = ~0u;
 			readyForNorm.image = normalizationInImage;
 			readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			readyForNorm.subresourceRange.levelCount = 1u;
-			readyForNorm.subresourceRange.layerCount = 1u;
+			readyForNorm.subresourceRange.layerCount = normalizationInImage->getCreationParameters().arrayLayers;
 			cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 1u, &readyForNorm);
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
