@@ -57,6 +57,8 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
             return { m_images->begin(), m_images->end() };
         }
 
+        inline video::ISurface::E_SURFACE_TRANSFORM_FLAGS getSurfaceTransform() const { return m_params.preTransform; }
+
         virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
         // 100% blocking version, guaranteed to **not** return TIMEOUT or NOT_READY
         virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
