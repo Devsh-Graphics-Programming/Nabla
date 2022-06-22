@@ -102,9 +102,10 @@ class NBL_API IImage : public IDescriptor
 		};
 		enum E_TYPE : uint32_t
 		{
-			ET_1D,
+			ET_1D = 0,
 			ET_2D,
-			ET_3D
+			ET_3D,
+			ET_COUNT
 		};
 		enum E_SAMPLE_COUNT_FLAGS : uint32_t
 		{

@@ -1,12 +1,7 @@
-
 #include <nbl/builtin/glsl/blit/default_compute_common.comp>
 
 #define _NBL_GLSL_BLIT_NORMALIZATION_IN_SAMPLER_TYPE_ _NBL_GLSL_BLIT_IN_SAMPLER_TYPE_
 #define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_TYPE_ _NBL_GLSL_BLIT_OUT_IMAGE_TYPE_
-
-#ifndef _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_
-#error _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ must be defined
-#endif
 
 layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_X_, local_size_y = _NBL_GLSL_WORKGROUP_SIZE_Y_, local_size_z = _NBL_GLSL_WORKGROUP_SIZE_Z_) in;
 

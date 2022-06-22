@@ -24,9 +24,9 @@ struct nbl_glsl_blit_parameters_t
 
 	uvec3 preloadRegion;
 
-	//! Offset into the shared memory array which tells us from where the second buffer of shared memory begins.
+	//! Offset into the shared memory array which tells us from where the second buffer of shared memory begins
 	//! Given by max(memory_for_preload_region, memory_for_result_of_y_pass)
-	uint offset; 
+	uint secondScratchOffset; 
 };
 
 #ifdef __cplusplus
