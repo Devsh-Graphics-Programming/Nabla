@@ -96,13 +96,13 @@ template<typename Swizzle=DefaultSwizzle, typename Dither=CWhiteNoiseDither, typ
 class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelY::value_type,Swizzle,Dither,Normalization,Clamp>
 {
 	public:
-		using utils_t = CBlitUtilities<KernelX, KernelY, KernelZ>;
+		using blit_utils_t = CBlitUtilities<KernelX, KernelY, KernelZ>;
 
 	private:
 		using value_type = typename KernelX::value_type;
 		using base_t = CBlitImageFilterBase<value_type,Swizzle,Dither,Normalization,Clamp>;
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = utils_t::MaxChannels;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = blit_utils_t::MaxChannels;
 
 	public:
 		// we'll probably never remove this requirement
@@ -188,7 +188,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			uint32_t retval = getScaledKernelPhasedLUTByteOffset(state);
 			
 			// need to add the memory for phase support LUT
-			retval += utils_t::template getScaledKernelPhasedLUTSize<lut_value_type>(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type,
+			retval += blit_utils_t::template getScaledKernelPhasedLUTSize<lut_value_type>(state->inExtentLayerCount, state->outExtentLayerCount, state->inImage->getCreationParameters().type,
 				state->kernelX, state->kernelY, state->kernelZ);
 
 			return retval;
@@ -196,9 +196,9 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 
 		static inline uint32_t getScaledKernelPhasedLUTByteOffset(const state_type* state)
 		{
-			const auto scaledKernelX = utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelY = utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelZ = utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelX = blit_utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelY = blit_utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelZ = blit_utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
 
 			const uint32_t retval = getScratchOffset(state, true) + base_t::getRequiredScratchByteSize(state->alphaSemantic, state->outExtentLayerCount);
 			return retval;
@@ -285,13 +285,13 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			const auto alphaChannel = state->alphaChannel;
 			
 			// prepare kernel
-			const auto scaledKernelX = utils_t::constructScaledKernel(state->kernelX, inExtentLayerCount, outExtentLayerCount);
-			const auto scaledKernelY = utils_t::constructScaledKernel(state->kernelY, inExtentLayerCount, outExtentLayerCount);
-			const auto scaledKernelZ = utils_t::constructScaledKernel(state->kernelZ, inExtentLayerCount, outExtentLayerCount);
+			const auto scaledKernelX = blit_utils_t::constructScaledKernel(state->kernelX, inExtentLayerCount, outExtentLayerCount);
+			const auto scaledKernelY = blit_utils_t::constructScaledKernel(state->kernelY, inExtentLayerCount, outExtentLayerCount);
+			const auto scaledKernelZ = blit_utils_t::constructScaledKernel(state->kernelZ, inExtentLayerCount, outExtentLayerCount);
 
 			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
 			const auto inImageType = inParams.type;
-			const auto real_window_size = utils_t::getRealWindowSize(inImageType,scaledKernelX,scaledKernelY,scaledKernelZ);
+			const auto real_window_size = blit_utils_t::getRealWindowSize(inImageType,scaledKernelX,scaledKernelY,scaledKernelZ);
 			core::vectorSIMDi32 intermediateExtent[3];
 			getIntermediateExtents(intermediateExtent, state, real_window_size);
 			const core::vectorSIMDi32 intermediateLastCoord[3] = {
@@ -380,7 +380,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 
 			core::vectorSIMDu32 phaseCount = IBlitUtilities::getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
 			phaseCount = core::max(phaseCount, core::vectorSIMDu32(1, 1, 1));
-			const core::vectorSIMDu32 axisOffsets = utils_t::template getScaledKernelPhasedLUTAxisOffsets<lut_value_type>(phaseCount, real_window_size);
+			const core::vectorSIMDu32 axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets<lut_value_type>(phaseCount, real_window_size);
 			constexpr auto MaxAxisCount = 3;
 			lut_value_type* scaledKernelPhasedLUTPixel[MaxAxisCount];
 			for (auto i = 0; i < MaxAxisCount; ++i)
@@ -606,11 +606,11 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong)
 		{
 			const auto inType = state->inImage->getCreationParameters().type;
-			const auto scaledKernelX = utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelY = utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelZ = utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelX = blit_utils_t::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelY = blit_utils_t::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
+			const auto scaledKernelZ = blit_utils_t::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
 
-			const auto real_window_size = utils_t::getRealWindowSize(inType,scaledKernelX,scaledKernelY,scaledKernelZ);
+			const auto real_window_size = blit_utils_t::getRealWindowSize(inType,scaledKernelX,scaledKernelY,scaledKernelZ);
 			// TODO: account for the size needed for coverage adjustment
 			// the first pass will be along X, so new temporary image will have the width of the output extent, but the height and depth will need to be padded
 			// but the last pass will be along Z and the new temporary image will have the exact dimensions of `outExtent` which is why there is a `core::max`
@@ -623,7 +623,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			if (secondPong)
 				texelCount += core::max<uint32_t>(intermediateExtent[1].x * intermediateExtent[1].y * intermediateExtent[1].z, (state->inExtent.width + real_window_size[0]) * std::thread::hardware_concurrency() * VectorizationBoundSTL);
 			// obviously we have multiple channels and each channel has a certain type for arithmetic
-			return texelCount*utils_t::MaxChannels*sizeof(value_type);
+			return texelCount*blit_utils_t::MaxChannels*sizeof(value_type);
 		}
 };
 

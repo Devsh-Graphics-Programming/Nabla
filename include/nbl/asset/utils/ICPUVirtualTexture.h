@@ -133,7 +133,6 @@ public:
         upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
 
         using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false,asset::CMitchellImageFilterKernel<>>;
-        using blit_utils_t = asset::CBlitUtilities<asset::CMitchellImageFilterKernel<>>;
         blit_filter_t::state_type blit;
         blit.inOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
         blit.inExtent = params.extent;
@@ -148,7 +147,7 @@ public:
 
         const core::vectorSIMDu32 inExtent(blit.inExtent.width, blit.inExtent.height, blit.inExtent.depth, 1);
         const core::vectorSIMDu32 outExtent(blit.outExtent.width, blit.outExtent.height, blit.outExtent.depth, 1);
-        if (!blit_utils_t::computeScaledKernelPhasedLUT(blit.scratchMemory + blit_filter_t::getScaledKernelPhasedLUTByteOffset(&blit), inExtent, outExtent, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ))
+        if (!blit_filter_t::blit_utils_t::computeScaledKernelPhasedLUT(blit.scratchMemory + blit_filter_t::getScaledKernelPhasedLUTByteOffset(&blit), inExtent, outExtent, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ))
             return nullptr;
 
         const bool blit_succeeded = blit_filter_t::execute(&blit);
