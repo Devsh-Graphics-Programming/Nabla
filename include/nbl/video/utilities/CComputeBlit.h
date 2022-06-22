@@ -147,21 +147,20 @@ public:
 		return m_alphaTestPipelines[pipelineIndex][imageType];
 	}
 
-	// @param `outImageFormat` dictates encoding.
-	// @param `outImageViewFormat` dictates the GLSL storage image format qualifier.
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outImageFormat,
-		const asset::E_FORMAT outImageViewFormat, const uint32_t alphaBinCount = DefaultAlphaBinCount);
+	// @param `outFormat` dictates encoding.
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
+		const uint32_t alphaBinCount = DefaultAlphaBinCount);
 
-	core::smart_refctd_ptr<video::IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outImageFormat,
-		const asset::E_FORMAT outImageViewFormat, const uint32_t alphaBinCount = DefaultAlphaBinCount)
+	core::smart_refctd_ptr<video::IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
+		const uint32_t alphaBinCount = DefaultAlphaBinCount)
 	{
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 		const uint32_t paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
-		const SNormalizationCacheKey key = { imageType, paddedAlphaBinCount, outImageFormat, outImageViewFormat };
+		const SNormalizationCacheKey key = { imageType, paddedAlphaBinCount, outFormat };
 
 		if (m_normalizationPipelines.find(key) == m_normalizationPipelines.end())
 		{
-			auto specShader = createNormalizationSpecializedShader(imageType, outImageFormat, outImageViewFormat, paddedAlphaBinCount);
+			auto specShader = createNormalizationSpecializedShader(imageType, outFormat, paddedAlphaBinCount);
 			m_normalizationPipelines[key] = m_device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT]), std::move(specShader));
 		}
 
@@ -170,9 +169,8 @@ public:
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(
-		const asset::E_FORMAT inImageFormat,
-		const asset::E_FORMAT outImageFormat,
-		const asset::E_FORMAT outImageViewFormat,
+		const asset::E_FORMAT inFormat,
+		const asset::E_FORMAT outFormat,
 		const asset::IImage::E_TYPE imageType,
 		const core::vectorSIMDu32& inExtent,
 		const core::vectorSIMDu32& outExtent,
@@ -199,15 +197,16 @@ public:
 			<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
 			<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n";
 
-		const uint32_t outChannelCount = asset::getFormatChannelCount(outImageFormat);
+		const auto castedFormat = getOutImageViewFormat(outFormat);
+		const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
 		// Todo(achal): All this belongs in validation
 		{
-			const uint32_t inChannelCount = asset::getFormatChannelCount(inImageFormat);
+			const uint32_t inChannelCount = asset::getFormatChannelCount(inFormat);
 			assert(outChannelCount <= inChannelCount);
 
 			// inFormat should support SAMPLED_BIT format feature
 		}
-		const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(outImageViewFormat);
+		const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 		shaderSourceStream
 			<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
@@ -223,8 +222,8 @@ public:
 
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			shaderSourceStream << "#define _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_\n";
-		if (outImageFormat != outImageViewFormat)
-			shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outImageFormat << "\n";
+		if (outFormat != castedFormat)
+			shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
 		shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_blit.comp>\n";
 
 		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, "CComputeBlit::createBlitSpecializedShader");
@@ -236,9 +235,8 @@ public:
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
 	core::smart_refctd_ptr<video::IGPUComputePipeline> getBlitPipeline(
-		const asset::E_FORMAT inImageFormat,
-		const asset::E_FORMAT outImageFormat,
-		const asset::E_FORMAT outImageViewFormat,
+		const asset::E_FORMAT inFormat,
+		const asset::E_FORMAT outFormat,
 		const asset::IImage::E_TYPE imageType,
 		const core::vectorSIMDu32& inExtent,
 		const core::vectorSIMDu32& outExtent,
@@ -254,8 +252,7 @@ public:
 			.wgSize = workgroupSize,
 			.imageType = imageType,
 			.alphaBinCount = paddedAlphaBinCount,
-			.outImageFormat = outImageFormat,
-			.outImageViewFormat = outImageViewFormat,
+			.outImageFormat = outFormat,
 			.smemSize = m_availableSharedMemory,
 			.coverageAdjustment = (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 		};
@@ -265,9 +262,8 @@ public:
 			const auto blitType = (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE) ? EBT_COVERAGE_ADJUSTMENT : EBT_REGULAR;
 
 			auto specShader = createBlitSpecializedShader(
-				inImageFormat,
-				outImageFormat,
-				outImageViewFormat,
+				inFormat,
+				outFormat,
 				imageType,
 				inExtent,
 				outExtent,
@@ -651,6 +647,7 @@ public:
 		m_device->blockForFences(1u, &fence.get());
 	}
 
+	//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
 	inline asset::E_FORMAT getOutImageViewFormat(const asset::E_FORMAT format)
 	{
 		const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
@@ -740,11 +737,10 @@ private:
 		asset::IImage::E_TYPE imageType;
 		uint32_t alphaBinCount;
 		asset::E_FORMAT outImageFormat;
-		asset::E_FORMAT outImageViewFormat;
 
 		inline bool operator==(const SNormalizationCacheKey& other) const
 		{
-			return (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outImageFormat == other.outImageFormat) && (outImageViewFormat == other.outImageViewFormat);
+			return (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outImageFormat == other.outImageFormat);
 		}
 	};
 	struct SNormalizationCacheHash
@@ -754,8 +750,7 @@ private:
 			return
 				std::hash<decltype(key.imageType)>{}(key.imageType) ^
 				std::hash<decltype(key.alphaBinCount)>{}(key.alphaBinCount) ^
-				std::hash<decltype(key.outImageFormat)>{}(key.outImageFormat) ^
-				std::hash<decltype(key.outImageViewFormat)>{}(key.outImageViewFormat);
+				std::hash<decltype(key.outImageFormat)>{}(key.outImageFormat);
 		}
 	};
 	core::unordered_map<SNormalizationCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SNormalizationCacheHash> m_normalizationPipelines;

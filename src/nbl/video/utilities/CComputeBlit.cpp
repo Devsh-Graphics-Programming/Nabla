@@ -24,13 +24,14 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createAlphaTe
 	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormalizationSpecializedShader(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outImageFormat,
-	const asset::E_FORMAT outImageViewFormat, const uint32_t alphaBinCount)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormalizationSpecializedShader(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
+	const uint32_t alphaBinCount)
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 	const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
 
-	const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(outImageViewFormat);
+	const auto castedFormat = getOutImageViewFormat(outFormat);
+	const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 	std::ostringstream shaderSourceStream;
 	shaderSourceStream
@@ -41,8 +42,8 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormali
 		<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
 		<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
 		<< "#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
-	if (outImageFormat != outImageViewFormat)
-		shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outImageFormat << "\n";
+	if (outFormat != castedFormat)
+		shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
 	shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_normalization.comp>\n";
 
 	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, "CComputeBlit::createNormalizationSpecializedShader");
