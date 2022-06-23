@@ -15,7 +15,7 @@ namespace nbl
 		{
 			using NBL_PROTO_PIPELINE = std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>, asset::SVertexInputParams, asset::SPrimitiveAssemblyParams, asset::SBlendParams, nbl::asset::SRasterizationParams, asset::SPushConstantRange>;
 
-			inline NBL_PROTO_PIPELINE createProtoPipeline(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
+			inline NBL_PROTO_PIPELINE createProtoPipeline(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, uint32_t pushConstantOffset)
 			{
 				if (!cpu2gpuParams.assetManager)
 					assert(false);
@@ -69,7 +69,7 @@ namespace nbl
 				// Push constant for surface transform and screen size, used in VS
 				auto& swapchainOrientationConstants = std::get<asset::SPushConstantRange>(protoPipeline);
 				swapchainOrientationConstants.stageFlags = asset::IShader::ESS_VERTEX;
-				swapchainOrientationConstants.offset = 0u;
+				swapchainOrientationConstants.offset = pushConstantOffset;
 				swapchainOrientationConstants.size = 1 * sizeof(uint32_t);
 
 				return protoPipeline;
@@ -102,15 +102,17 @@ namespace nbl
 				records.
 			*/
 
-			inline bool recordDrawCalls(core::smart_refctd_ptr<nbl::video::IGPUGraphicsPipeline> gpuGraphicsPipeline, core::smart_refctd_ptr<nbl::video::ISwapchain> swapchain, video::IGPUCommandBuffer* commandBuffer)
-			{
+			inline bool recordDrawCalls(
+				core::smart_refctd_ptr<nbl::video::IGPUGraphicsPipeline> gpuGraphicsPipeline, 
+				uint32_t pushConstantOffset,
+				video::ISurface::E_SURFACE_TRANSFORM_FLAGS swapchainTransform, 
+				video::IGPUCommandBuffer* commandBuffer
+			) {
 				_NBL_STATIC_INLINE_CONSTEXPR auto VERTEX_COUNT = 3;
 				_NBL_STATIC_INLINE_CONSTEXPR auto INSTANCE_COUNT = 1;
 
 				auto layout = gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout();
-				const asset::SPushConstantRange& pcRange = layout->getPushConstantRanges().begin()[0];
-				uint32_t surfaceTransform = swapchain->getSurfaceTransform();
-				commandBuffer->pushConstants(layout, pcRange.stageFlags, pcRange.offset, pcRange.size, &surfaceTransform);
+				commandBuffer->pushConstants(layout, asset::IShader::ESS_VERTEX, pushConstantOffset, 1 * sizeof(uint32_t), &swapchainTransform);
 
 				return commandBuffer->draw(VERTEX_COUNT, INSTANCE_COUNT, 0, 0);
 			}
