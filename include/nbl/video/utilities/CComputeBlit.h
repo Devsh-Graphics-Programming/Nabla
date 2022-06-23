@@ -34,30 +34,12 @@ public:
 		result->setAvailableSharedMemory(smemSize);
 
 		{
-			video::IGPUSampler::SParams params = {};
-			params.TextureWrapU = asset::ISampler::ETC_CLAMP_TO_EDGE;
-			params.TextureWrapV = asset::ISampler::ETC_CLAMP_TO_EDGE;
-			params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_EDGE;
-			params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-
-			params.MinFilter = asset::ISampler::ETF_NEAREST;
-			params.MaxFilter = asset::ISampler::ETF_NEAREST;
-			params.MipmapMode = asset::ISampler::ESMM_NEAREST;
-			params.AnisotropicFilter = 0u;
-			params.CompareEnable = 0u;
-			params.CompareFunc = asset::ISampler::ECO_ALWAYS;
-			result->sampler = result->m_device->createSampler(std::move(params));
-			if (!result->sampler)
-				return nullptr;
-		}
-
-		{
 			constexpr auto BlitDescriptorCount = 3;
 			const asset::E_DESCRIPTOR_TYPE types[BlitDescriptorCount] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input image, output image, alpha statistics
 
 			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
 			{
-				result->m_blitDSLayout[i] = result->getDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, result->m_device.get(), result->sampler);
+				result->m_blitDSLayout[i] = result->getDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, result->m_device.get());
 				if (!result->m_blitDSLayout[i])
 					return nullptr;
 			}
@@ -66,7 +48,7 @@ public:
 		{
 			constexpr auto KernelWeightsDescriptorCount = 1;
 			asset::E_DESCRIPTOR_TYPE types[KernelWeightsDescriptorCount] = { asset::EDT_UNIFORM_TEXEL_BUFFER };
-			result->m_kernelWeightsDSLayout = result->getDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get(), nullptr);
+			result->m_kernelWeightsDSLayout = result->getDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get());
 
 			if (!result->m_kernelWeightsDSLayout)
 				return nullptr;
@@ -252,7 +234,7 @@ public:
 			.wgSize = workgroupSize,
 			.imageType = imageType,
 			.alphaBinCount = paddedAlphaBinCount,
-			.outImageFormat = outFormat,
+			.outFormat = outFormat,
 			.smemSize = m_availableSharedMemory,
 			.coverageAdjustment = (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 		};
@@ -470,21 +452,25 @@ public:
 		return requiredSize;
 	}
 
-	void updateDescriptorSet(
+	bool updateDescriptorSet(
 		video::IGPUDescriptorSet* blitDS,
 		video::IGPUDescriptorSet* kernelWeightsDS,
 		core::smart_refctd_ptr<video::IGPUImageView> inImageView,
 		core::smart_refctd_ptr<video::IGPUImageView> outImageView,
 		core::smart_refctd_ptr<video::IGPUBuffer> coverageAdjustmentScratchBuffer,
-		core::smart_refctd_ptr<video::IGPUBufferView> kernelWeightsUTB)
+		core::smart_refctd_ptr<video::IGPUBufferView> kernelWeightsUTB,
+		const asset::ISampler::E_TEXTURE_CLAMP wrapU = asset::ISampler::ETC_CLAMP_TO_EDGE,
+		const asset::ISampler::E_TEXTURE_CLAMP wrapV = asset::ISampler::ETC_CLAMP_TO_EDGE,
+		const asset::ISampler::E_TEXTURE_CLAMP wrapW = asset::ISampler::ETC_CLAMP_TO_EDGE,
+		const asset::ISampler::E_TEXTURE_BORDER_COLOR borderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK)
 	{
 		constexpr auto MAX_DESCRIPTOR_COUNT = 3;
 
-		auto updateDS = [this, coverageAdjustmentScratchBuffer](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos)
+		auto updateDS = [this, coverageAdjustmentScratchBuffer](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos) -> bool
 		{
 			const auto& bindings = ds->getLayout()->getBindings();
-			if (bindings.size() == 3)
-				assert(coverageAdjustmentScratchBuffer);
+			if ((bindings.size() == 3) && !coverageAdjustmentScratchBuffer)
+				return false;
 
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
 
@@ -499,18 +485,39 @@ public:
 			}
 
 			m_device->updateDescriptorSets(bindings.size(), writes, 0u, nullptr);
+
+			return true;
 		};
 
 		if (blitDS)
 		{
-			assert(inImageView);
-			assert(outImageView);
+			if (!inImageView || !outImageView)
+				return false;
 
 			video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
+
+			if (!samplers[wrapU][wrapV][wrapW][borderColor])
+			{
+				video::IGPUSampler::SParams params = {};
+				params.TextureWrapU = wrapU;
+				params.TextureWrapV = wrapV;
+				params.TextureWrapW = wrapW;
+				params.BorderColor = borderColor;
+				params.MinFilter = asset::ISampler::ETF_NEAREST;
+				params.MaxFilter = asset::ISampler::ETF_NEAREST;
+				params.MipmapMode = asset::ISampler::ESMM_NEAREST;
+				params.AnisotropicFilter = 0u;
+				params.CompareEnable = 0u;
+				params.CompareFunc = asset::ISampler::ECO_ALWAYS;
+
+				samplers[wrapU][wrapV][wrapW][borderColor] = m_device->createSampler(params);
+				if (!samplers[wrapU][wrapV][wrapW][borderColor])
+					return false;
+			}
 			
 			infos[0].desc = inImageView;
 			infos[0].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			infos[0].image.sampler = nullptr;
+			infos[0].image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 			infos[1].desc = outImageView;
 			infos[1].image.imageLayout = asset::EIL_GENERAL;
@@ -523,7 +530,8 @@ public:
 				infos[2].buffer.size = coverageAdjustmentScratchBuffer->getSize();
 			}
 
-			updateDS(blitDS, infos);
+			if (!updateDS(blitDS, infos))
+				return false;
 		}
 
 		if (kernelWeightsDS)
@@ -533,8 +541,11 @@ public:
 			info.buffer.offset = 0ull;
 			info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getSize();
 
-			updateDS(kernelWeightsDS, &info);
+			if (!updateDS(kernelWeightsDS, &info))
+				return false;
 		}
+
+		return true;
 	}
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
@@ -736,11 +747,11 @@ private:
 	{
 		asset::IImage::E_TYPE imageType;
 		uint32_t alphaBinCount;
-		asset::E_FORMAT outImageFormat;
+		asset::E_FORMAT outFormat;
 
 		inline bool operator==(const SNormalizationCacheKey& other) const
 		{
-			return (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outImageFormat == other.outImageFormat);
+			return (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outFormat == other.outFormat);
 		}
 	};
 	struct SNormalizationCacheHash
@@ -750,7 +761,7 @@ private:
 			return
 				std::hash<decltype(key.imageType)>{}(key.imageType) ^
 				std::hash<decltype(key.alphaBinCount)>{}(key.alphaBinCount) ^
-				std::hash<decltype(key.outImageFormat)>{}(key.outImageFormat);
+				std::hash<decltype(key.outFormat)>{}(key.outFormat);
 		}
 	};
 	core::unordered_map<SNormalizationCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SNormalizationCacheHash> m_normalizationPipelines;
@@ -760,15 +771,14 @@ private:
 		uint32_t wgSize;
 		asset::IImage::E_TYPE imageType;
 		uint32_t alphaBinCount;
-		asset::E_FORMAT outImageFormat;
-		asset::E_FORMAT outImageViewFormat;
+		asset::E_FORMAT outFormat;
 		uint32_t smemSize;
 		bool coverageAdjustment;
 
 		inline bool operator==(const SBlitCacheKey& other) const
 		{
-			return (wgSize == other.wgSize) && (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outImageFormat == other.outImageFormat)
-				&& (outImageViewFormat == other.outImageViewFormat) && (smemSize == other.smemSize) && (coverageAdjustment == other.coverageAdjustment);
+			return (wgSize == other.wgSize) && (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outFormat == other.outFormat)
+				&& (smemSize == other.smemSize) && (coverageAdjustment == other.coverageAdjustment);
 		}
 	};
 	struct SBlitCacheHash
@@ -779,8 +789,7 @@ private:
 				std::hash<decltype(key.wgSize)>{}(key.wgSize) ^
 				std::hash<decltype(key.imageType)>{}(key.imageType) ^
 				std::hash<decltype(key.alphaBinCount)>{}(key.alphaBinCount) ^
-				std::hash<decltype(key.outImageFormat)>{}(key.outImageFormat) ^
-				std::hash<decltype(key.outImageViewFormat)>{}(key.outImageViewFormat) ^
+				std::hash<decltype(key.outFormat)>{}(key.outFormat) ^
 				std::hash<decltype(key.smemSize)>{}(key.smemSize) ^
 				std::hash<decltype(key.coverageAdjustment)>{}(key.coverageAdjustment);
 		}
@@ -790,7 +799,7 @@ private:
 	uint32_t m_availableSharedMemory;
 	core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 
-	core::smart_refctd_ptr<video::IGPUSampler> sampler = nullptr;
+	core::smart_refctd_ptr<video::IGPUSampler> samplers[video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETBC_COUNT] = { nullptr };
 
 	CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
 
@@ -800,7 +809,7 @@ private:
 		cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 	}
 
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice, core::smart_refctd_ptr<video::IGPUSampler> sampler) const
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
 	{
 		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5;
 		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
@@ -813,9 +822,6 @@ private:
 			bindings[i].count = 1u;
 			bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 			bindings[i].type = descriptorTypes[i];
-
-			if (bindings[i].type == asset::EDT_COMBINED_IMAGE_SAMPLER)
-				bindings[i].samplers = &sampler;
 		}
 
 		auto dsLayout = logicalDevice->createDescriptorSetLayout(bindings, bindings + descriptorCount);
