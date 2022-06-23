@@ -79,7 +79,7 @@ ivec2 nbl_glsl_swapchain_transform_preTransformExtents(in uint swapchainTransfor
     }
 }
 
-vec2 nbl_glsl_swapchain_transform_postTransformMatrix(in uint swapchainTransform, in vec2 ndc) {
+vec2 nbl_glsl_swapchain_transform_postTransformNdc(in uint swapchainTransform, in vec2 ndc) {
     const float sin90 = 1.0, cos90 = 0.0,
         sin180 = 0.0, cos180 = -1.0,
         sin270 = -1.0, cos270 = 0.0;

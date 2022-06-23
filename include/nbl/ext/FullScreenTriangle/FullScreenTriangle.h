@@ -112,7 +112,8 @@ namespace nbl
 				_NBL_STATIC_INLINE_CONSTEXPR auto INSTANCE_COUNT = 1;
 
 				auto layout = gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout();
-				commandBuffer->pushConstants(layout, asset::IShader::ESS_VERTEX, pushConstantOffset, 1 * sizeof(uint32_t), &swapchainTransform);
+				uint32_t surfaceTransform = uint32_t(swapchainTransform);
+				commandBuffer->pushConstants(layout, asset::IShader::ESS_VERTEX, pushConstantOffset, 1 * sizeof(uint32_t), &surfaceTransform);
 
 				return commandBuffer->draw(VERTEX_COUNT, INSTANCE_COUNT, 0, 0);
 			}

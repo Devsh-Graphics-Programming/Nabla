@@ -18,7 +18,7 @@ layout (push_constant) uniform pushConstants
 
 void main()
 {
-    vec2 pos = nbl_glsl_swapchain_transform_postTransformMatrix(u_pushConstants.swapchainTransform, pos[gl_VertexIndex]);
+    vec2 pos = nbl_glsl_swapchain_transform_postTransformNdc(u_pushConstants.swapchainTransform, pos[gl_VertexIndex]);
     gl_Position = vec4(pos, 0.0, 1.0);
     TexCoord = tc[gl_VertexIndex];
 }
