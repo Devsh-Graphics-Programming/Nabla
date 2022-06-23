@@ -50,6 +50,7 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
                 };
                 struct SImageInfo
                 {
+					// This will be ignored if the DS layout already has an immutable sampler specified for the binding.
                     core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
                     //! Irrelevant in OpenGL backend
                     E_IMAGE_LAYOUT imageLayout;
