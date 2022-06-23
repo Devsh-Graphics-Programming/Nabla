@@ -8,7 +8,7 @@ nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
 vec4 nbl_glsl_blit_getData(in vec3 texCoord, in uint layerIdx);
 void nbl_glsl_blit_setData(in vec4 data, in uvec3 coord, in uint layerIdx);
-
+vec4 nbl_glsl_blit_getKernelWeight(in uint index);
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx);
 
 #ifndef _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_
@@ -120,9 +120,7 @@ void nbl_glsl_blit_main()
 				uint kernelWeightIndex = uint(dot(kernelWeightLUTCoord, params.windowDim));
 			*/
 
-			// Todo(achal): getter here
-			vec4 kernelWeight = texelFetch(_NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_, int(kernelWeightIndex));
-			// vec4 kernelWeight = vec4(1.f);
+			vec4 kernelWeight = nbl_glsl_blit_getKernelWeight(kernelWeightIndex);
 
 			vec4 accum = vec4(0.f);
 			for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
@@ -133,7 +131,7 @@ void nbl_glsl_blit_main()
 				kernelWeightIndex++;
 				offset++;
 
-				kernelWeight = texelFetch(_NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_, int(kernelWeightIndex));
+				kernelWeight = nbl_glsl_blit_getKernelWeight(kernelWeightIndex);
 				for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 					accum[ch] += scratchShared[ch][params.secondScratchOffset*read + offset] * kernelWeight[ch];
 			}

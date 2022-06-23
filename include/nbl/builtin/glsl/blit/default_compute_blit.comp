@@ -72,6 +72,20 @@ void nbl_glsl_blit_setData(in vec4 value, in uvec3 coord, in uint layerIdx)
 #define _NBL_GLSL_BLIT_SET_DATA_DEFINED_
 #endif
 
+#ifndef _NBL_GLSL_BLIT_GET_KERNEL_WEIGHT_DEFINED_
+
+#ifndef _NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_
+#error _NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_ must be defined
+#endif
+
+vec4 nbl_glsl_blit_getKernelWeight(in uint index)
+{
+	return texelFetch(_NBL_GLSL_BLIT_KERNEL_WEIGHTS_DESCRIPTOR_DEFINED_, int(index));
+}
+
+#define _NBL_GLSL_BLIT_GET_KERNEL_WEIGHT_DEFINED_
+#endif
+
 #ifndef _NBL_GLSL_BLIT_ADD_TO_HISTOGRAM_DEFINED_
 void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx)
 {
