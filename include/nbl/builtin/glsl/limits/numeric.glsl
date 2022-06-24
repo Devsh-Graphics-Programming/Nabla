@@ -39,22 +39,7 @@
 #define	nbl_glsl_FLT_EPSILON 5.96046447754e-08
 #endif 
 
-
-// TODO: move to some other header (maybe ieee754.glsl)
-uint nbl_glsl_ieee754_extract_biased_exponent(float x)
-{
-	return bitfieldExtract(floatBitsToUint(x),23,8);
-}
-float nbl_glsl_ieee754_replace_biased_exponent(float x, uint exp_plus_bias)
-{
-	return uintBitsToFloat(bitfieldInsert(floatBitsToUint(x),exp_plus_bias,23,8));
-}
-// performs no overflow tests, returns x*exp2(n)
-float nbl_glsl_ieee754_fast_mul_exp2(float x, int n)
-{
-	return nbl_glsl_ieee754_replace_biased_exponent(x,nbl_glsl_ieee754_extract_biased_exponent(x)+uint(n));
-}
-
+#include <nbl/builtin/glsl/ieee754.glsl>
 
 float nbl_glsl_numeric_limits_float_epsilon(float n)
 {
@@ -68,7 +53,6 @@ float nbl_glsl_numeric_limits_float_epsilon()
 {
 	return nbl_glsl_FLT_EPSILON;
 }
-
 
 float nbl_glsl_ieee754_gamma(float n)
 {
@@ -93,24 +77,24 @@ float nbl_glsl_ieee754_rcpgamma(uint n)
 // TODO: move to some other header (maybe ieee754.glsl)
 vec3 nbl_glsl_ieee754_add_with_bounds_wo_gamma(out vec3 error, in vec3 a, in vec3 a_error, in vec3 b, in vec3 b_error)
 {
-	error = (a_error+b_error)/nbl_glsl_numeric_limits_float_epsilon(1u);
-	vec3 sum = a+b;
+	error = (a_error + b_error) / nbl_glsl_numeric_limits_float_epsilon(1u);
+	vec3 sum = a + b;
 	error += abs(sum);
 	return sum;
 }
 vec3 nbl_glsl_ieee754_sub_with_bounds_wo_gamma(out vec3 error, in vec3 a, in vec3 a_error, in vec3 b, in vec3 b_error)
 {
-	error = (a_error+b_error)/nbl_glsl_numeric_limits_float_epsilon(1u);
-	vec3 sum = a-b;
+	error = (a_error + b_error) / nbl_glsl_numeric_limits_float_epsilon(1u);
+	vec3 sum = a - b;
 	error += abs(sum);
 	return sum;
 }
 vec3 nbl_glsl_ieee754_mul_with_bounds_wo_gamma(out vec3 error, in vec3 a, in vec3 a_error, in float b, in float b_error)
 {
-	vec3 crossCorrelationA = abs(a)*b_error;
-	vec3 crossCorrelationB = a_error*abs(b);
-	error = (crossCorrelationB+crossCorrelationA+crossCorrelationB*crossCorrelationA)/nbl_glsl_numeric_limits_float_epsilon(1u);
-	vec3 product = a*b;
+	vec3 crossCorrelationA = abs(a) * b_error;
+	vec3 crossCorrelationB = a_error * abs(b);
+	error = (crossCorrelationB + crossCorrelationA + crossCorrelationB * crossCorrelationA) / nbl_glsl_numeric_limits_float_epsilon(1u);
+	vec3 product = a * b;
 	error += abs(product);
 	return product;
 }

@@ -51,6 +51,7 @@ set(nbl_resources_to_embed
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
+  "nbl/builtin/glsl/ieee754.glsl"
   # barycentric
   "nbl/builtin/glsl/barycentric/extensions.glsl"
   "nbl/builtin/glsl/barycentric/frag.glsl"

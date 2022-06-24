@@ -46,7 +46,7 @@ class CBlitUtilities : public IBlitUtilities
 	static_assert(std::is_same<typename KernelX::value_type, typename KernelY::value_type>::value&& std::is_same<typename KernelZ::value_type, typename KernelY::value_type>::value, "Kernel value_type need to be identical");
 
 public:
-	_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = KernelX::MaxChannels > KernelY::MaxChannels ? (KernelX::MaxChannels > KernelZ::MaxChannels ? KernelX::MaxChannels : KernelZ::MaxChannels) : (KernelY::MaxChannels > KernelZ::MaxChannels ? KernelY::MaxChannels : KernelZ::MaxChannels);
+	_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = std::max<decltype(KernelX::MaxChannels)>(std::max<decltype(KernelX::MaxChannels)>(KernelX::MaxChannels, KernelY::MaxChannels), KernelZ::MaxChannels);
 
 	template <typename lut_value_type = KernelX::value_type>
 	static inline size_t getScaledKernelPhasedLUTSize(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
