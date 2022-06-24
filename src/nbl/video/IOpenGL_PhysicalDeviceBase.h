@@ -892,8 +892,11 @@ public:
 			
 			GetFloatv(GL_POINT_SIZE_GRANULARITY, &m_properties.limits.pointSizeGranularity);
 			GetFloatv(GL_LINE_WIDTH_GRANULARITY, &m_properties.limits.lineWidthGranularity);
-
+			
+            m_properties.limits.optimalBufferCopyOffsetAlignment = 8ull;
+            m_properties.limits.optimalBufferCopyRowPitchAlignment = 8ull;
 			m_properties.limits.nonCoherentAtomSize = 256ull;
+
 			const uint64_t maxTBOSizeInBytes = (IsGLES) 
 				? (m_glfeatures.maxTBOSizeInTexels * getTexelOrBlockBytesize(asset::EF_R32G32B32A32_UINT))     // maxTBOSizeInTexels * GLES Fattest Format 
 				: (m_glfeatures.maxTBOSizeInTexels * getTexelOrBlockBytesize(asset::EF_R64G64B64A64_SFLOAT)); // maxTBOSizeInTexels * GL Fattest Format 

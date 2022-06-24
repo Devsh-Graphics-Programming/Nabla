@@ -125,9 +125,9 @@ struct SPhysicalDeviceLimits
     float lineWidthGranularity = 0.f;
     //VkBool32              strictLines;
     //VkBool32              standardSampleLocations;
-    //VkDeviceSize          optimalBufferCopyOffsetAlignment;
-    //VkDeviceSize          optimalBufferCopyRowPitchAlignment;
-    uint64_t nonCoherentAtomSize;
+    uint64_t optimalBufferCopyOffsetAlignment = 0ull;
+    uint64_t optimalBufferCopyRowPitchAlignment = 0ull;
+    uint64_t nonCoherentAtomSize = 0ull;
 
     /* VkPhysicalDeviceSparseProperties */ 
     //VkBool32    residencyStandard2DBlockShape;
@@ -287,7 +287,7 @@ struct SPhysicalDeviceLimits
     //VkBool32              integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
     
     // or VK_EXT_texel_buffer_alignment:
-    //VkDeviceSize          storageTexelBufferOffsetAlignmentBytes;
+    VkDeviceSize          storageTexelBufferOffsetAlignmentBytes;
     //VkBool32              storageTexelBufferOffsetSingleTexelAlignment;
     //VkDeviceSize          uniformTexelBufferOffsetAlignmentBytes;
     //VkBool32              uniformTexelBufferOffsetSingleTexelAlignment;
