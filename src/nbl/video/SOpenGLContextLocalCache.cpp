@@ -54,10 +54,7 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(IOpenGL_Functio
     }
 
     raster_dst.depthFunc = getGLcmpFunc(raster_src.depthCompareOp);
-    // We do glClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE) should have the effect of flipping the winding order, but GL does its tests before the flipping
-    // So glClipControl(GL_UPPER_LEFT,...) does not have the same effect as `gl_Position.y *= -1.f;` in the vertex shader (workaround path used by GLES without clip control ext)
-    const bool needs_y_flip_in_vx_shader = gl->isGLES() && !gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
-    raster_dst.frontFace = raster_src.frontFaceIsCCW != needs_y_flip_in_vx_shader ? GL_CW : GL_CCW;
+    raster_dst.frontFace = raster_src.frontFaceIsCCW ? GL_CCW : GL_CW;
     raster_dst.depthClampEnable = raster_src.depthClampEnable;
     raster_dst.rasterizerDiscardEnable = raster_src.rasterizerDiscard;
 

@@ -486,7 +486,6 @@ protected:
             #endif
             if (m_dbgCb)
                 gl->extGlDebugMessageCallback(m_dbgCb->m_callback,m_dbgCb);
-            gl->clipControlUpperLeft();
 
             gl->glGeneral.pglFinish();
         }
@@ -802,12 +801,6 @@ protected:
             GLuint GLnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
             COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT];
 
-            bool needClipControlWorkaround = false;
-            if (gl.isGLES())
-            {
-                needClipControlWorkaround = !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
-            }
-
             COpenGLPipelineCache* cache = IBackendObject::device_compatibility_cast<COpenGLPipelineCache*>(_pipelineCache, device);
             COpenGLPipelineLayout* gllayout = IBackendObject::device_compatibility_cast<COpenGLPipelineLayout*>(layout.get(), device);
             for (auto shdr = shaders.begin(); shdr != shaders.end(); ++shdr)
@@ -833,7 +826,7 @@ protected:
 
                     continue;
                 }
-                std::tie(GLnames[ix], bin) = glshdr->compile(&gl, needClipControlWorkaround && (stage == lastVertexLikeStage), gllayout, cache ? cache->findParsedSpirv(key.hash) : nullptr);
+                std::tie(GLnames[ix], bin) = glshdr->compile(&gl, gllayout, cache ? cache->findParsedSpirv(key.hash) : nullptr);
                 binaries[ix] = bin;
 
                 if (cache)
@@ -846,13 +839,6 @@ protected:
             }
 
             auto raster = params.rasterization;
-            if (gl.isGLES() && !gl.getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control))
-            {
-                if (raster.faceCullingMode == asset::EFCM_BACK_BIT)
-                    raster.faceCullingMode = asset::EFCM_FRONT_BIT;
-                else if (raster.faceCullingMode == asset::EFCM_FRONT_BIT)
-                    raster.faceCullingMode = asset::EFCM_BACK_BIT;
-            }
 
             return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
                 core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), &gl,
@@ -886,7 +872,7 @@ protected:
             }
             else
             {
-                std::tie(GLname, bin) = glshdr->compile(&gl, false, layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
+                std::tie(GLname, bin) = glshdr->compile(&gl, layout.get(), cache ? cache->findParsedSpirv(key.hash) : nullptr);
                 binary = bin;
 
                 if (cache)

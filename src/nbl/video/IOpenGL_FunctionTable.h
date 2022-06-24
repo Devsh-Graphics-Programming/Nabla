@@ -583,23 +583,6 @@ namespace nbl::video
 
 			system::logger_opt_smart_ptr m_logger;
 
-			inline bool clipControlUpperLeft() 
-			{
-				if (isGLES())
-				{
-					bool clipControlSupported = getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_clip_control);
-					if (clipControlSupported) // if not supported, modifications to spir-v will be applied to emulate this
-						extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
-					return clipControlSupported;
-				}
-				else
-				{
-					// on desktop GL clip control is assumed to be always supported
-					extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
-					return true;
-				}
-			}
-
 			// constructor
 			IOpenGL_FunctionTable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features, system::logger_opt_smart_ptr&& logger) :
 				m_logger(std::move(logger)),

@@ -114,7 +114,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		asset::IShader::E_SHADER_STAGE getStage() const override { return m_stage; }
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
-		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger = nullptr) const;
+		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger = nullptr) const;
 
 		const SInfo& getSpecializationInfo() const { return m_specInfo; }
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }

@@ -185,7 +185,6 @@ class COpenGL_Queue final : public IGPUQueue
                 // defaults once set and not tracked by engine (should never change)
                 gl.glGeneral.pglEnable(GL_FRAMEBUFFER_SRGB);
                 gl.glFragment.pglDepthRangef(1.f, 0.f);
-                gl.clipControlUpperLeft();
 
                 if constexpr (!IsGLES)
                 {
