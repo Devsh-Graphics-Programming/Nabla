@@ -840,6 +840,8 @@ public:
 			// GL doesnt have any limit on this (???)
 			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
 			
+			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &m_properties.limits.maxSamplerLodBias);
+
 			GLint maxViewportExtent[2]{0,0};
 			GetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewportExtent);
 			GLint maxViewports = 16;
