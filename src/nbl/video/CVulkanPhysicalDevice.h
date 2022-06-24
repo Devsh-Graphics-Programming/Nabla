@@ -122,11 +122,13 @@ public:
             m_properties.limits.maxWorkgroupSize[0] = deviceProperties.properties.limits.maxComputeWorkGroupSize[0];
             m_properties.limits.maxWorkgroupSize[1] = deviceProperties.properties.limits.maxComputeWorkGroupSize[1];
             m_properties.limits.maxWorkgroupSize[2] = deviceProperties.properties.limits.maxComputeWorkGroupSize[2];
+            m_properties.limits.subPixelPrecisionBits = deviceProperties.properties.limits.subPixelPrecisionBits;
             m_properties.limits.maxDrawIndirectCount = deviceProperties.properties.limits.maxDrawIndirectCount;
             m_properties.limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
             m_properties.limits.maxViewports = deviceProperties.properties.limits.maxViewports;
             m_properties.limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
             m_properties.limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
+            m_properties.limits.viewportSubPixelBits = deviceProperties.properties.limits.viewportSubPixelBits;
             m_properties.limits.minMemoryMapAlignment = deviceProperties.properties.limits.minMemoryMapAlignment;
             m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
             m_properties.limits.minUBOAlignment = deviceProperties.properties.limits.minUniformBufferOffsetAlignment;

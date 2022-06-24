@@ -834,6 +834,9 @@ public:
 			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 1));
 			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 2));
 			
+			
+			GetIntegerv(GL_SUBPIXEL_BITS, reinterpret_cast<GLint*>(&m_properties.limits.subPixelPrecisionBits));
+
 			// GL doesnt have any limit on this (???)
 			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
 			
@@ -845,6 +848,8 @@ public:
 			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
 			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
 			
+			GetIntegerv(GL_VIEWPORT_SUBPIXEL_BITS, reinterpret_cast<GLint*>(&m_properties.limits.viewportSubPixelBits));
+
 			if(IsGLES)
 				m_properties.limits.minMemoryMapAlignment = 16ull;
 			else

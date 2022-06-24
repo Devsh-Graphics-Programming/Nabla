@@ -76,8 +76,8 @@ struct SPhysicalDeviceLimits
     uint32_t maxComputeSharedMemorySize;
     uint32_t maxComputeWorkGroupCount[3];
     uint32_t maxComputeWorkGroupInvocations = 0u;
-    uint32_t maxWorkgroupSize[3];
-    //uint32_t              subPixelPrecisionBits;
+    uint32_t maxWorkgroupSize[3] = {};
+    uint32_t subPixelPrecisionBits = 0u;
     //uint32_t              subTexelPrecisionBits;
     //uint32_t              mipmapPrecisionBits;
     //uint32_t              maxDrawIndexedIndexValue;
@@ -87,7 +87,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxViewports;
     uint32_t maxViewportDims[2];
     //float                 viewportBoundsRange[2];
-    //uint32_t              viewportSubPixelBits;
+    uint32_t viewportSubPixelBits = 0u;
     size_t   minMemoryMapAlignment = 0ull;
     uint32_t bufferViewAlignment;
     uint32_t minUBOAlignment;
