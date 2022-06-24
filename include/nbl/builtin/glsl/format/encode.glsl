@@ -85,8 +85,8 @@ uint nbl_glsl_encodeRGB10A2_SNORM(in vec4 col)
 // TODO: break it down into uint nbl_glsl_encode_ufloat_exponent(in float _f32) and nbl_glsl_encode_ufloat_mantissa(in float _f32, in uint mantissaBits, in bool leadingOne)
 uint nbl_glsl_encode_ufloat(in float _f32, in uint mantissaBits)
 {
-	uint minSinglePrecisionVal = floatBitsToUint(6.10 * 1e-5);
-	uint maxSinglePrecisionVal = floatBitsToUint(6.50 * 1e4);
+	uint minSinglePrecisionVal = floatBitsToUint(nbl_glsl_R11G11B10_MIN);
+	uint maxSinglePrecisionVal = floatBitsToUint(nbl_glsl_R11G11B10_MAX);
 
 	if (_f32 < uintBitsToFloat(maxSinglePrecisionVal))
 	{
@@ -95,16 +95,15 @@ uint nbl_glsl_encode_ufloat(in float _f32, in uint mantissaBits)
 
 		const int exp = int(nbl_glsl_ieee754_extract_biased_exponent(_f32) - 127);
 		const uint mantissa = nbl_glsl_ieee754_extract_mantissa(_f32);
-		const uint bias = 15;
 
-		const uint e = uint(exp + bias);
+		const uint e = uint(exp + nbl_glsl_R11G11B10_BIAS);
 		const uint m = mantissa >> (23 - mantissaBits);
 		const uint encodedValue = (e << mantissaBits) | m;
 
 		return encodedValue;
 	}
 
-	const uint expMask = 0x1fu << mantissaBits;
+	const uint expMask = ((1 << nbl_glsl_R11G11B10_EXPONENT_BITS) - 1) << mantissaBits;
 	const uint mantissaMask = nbl_glsl_ieee754_compute_mantissa_mask(mantissaBits);
 
 	return expMask | (isnan(_f32) ? mantissaMask : 0u);

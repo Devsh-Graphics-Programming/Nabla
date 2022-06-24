@@ -30,4 +30,10 @@
 #define nbl_glsl_RGB18E7S3_COMPONENT_BITOFFSETS ivec4(0,nbl_glsl_RGB18E7S3_MANTISSA_BITS,(2*nbl_glsl_RGB18E7S3_MANTISSA_BITS)&31,(3*nbl_glsl_RGB18E7S3_MANTISSA_BITS)&31)
 #define nbl_glsl_RGB18E7S3_G_COMPONENT_SPLIT (32-nbl_glsl_RGB18E7S3_MANTISSA_BITS)
 
+// From: https://www.khronos.org/opengl/wiki/Small_Float_Formats#R11F_G11F_B10F
+#define nbl_glsl_R11G11B10_MIN (6.10 * 1e-5)
+#define nbl_glsl_R11G11B10_MAX (6.50 * 1e4)
+#define nbl_glsl_R11G11B10_BIAS 15
+#define nbl_glsl_R11G11B10_EXPONENT_BITS 5
+
 #endif
