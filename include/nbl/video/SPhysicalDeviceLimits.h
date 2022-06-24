@@ -69,10 +69,10 @@ struct SPhysicalDeviceLimits
     uint32_t maxGeometryOutputComponents = 0u;
     uint32_t maxGeometryOutputVertices = 0u;
     uint32_t maxGeometryTotalOutputComponents = 0u;
-    //uint32_t              maxFragmentInputComponents;
-    //uint32_t              maxFragmentOutputAttachments;
-    //uint32_t              maxFragmentDualSrcAttachments;
-    //uint32_t              maxFragmentCombinedOutputResources;
+    uint32_t maxFragmentInputComponents = 0u;
+    uint32_t maxFragmentOutputAttachments = 0u;
+    uint32_t maxFragmentDualSrcAttachments = 0u;
+    uint32_t maxFragmentCombinedOutputResources = 0u;
     uint32_t maxComputeSharedMemorySize;
     uint32_t maxComputeWorkGroupCount[3];
     uint32_t maxComputeWorkGroupInvocations = 0u;
