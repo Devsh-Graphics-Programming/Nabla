@@ -792,11 +792,11 @@ public:
 			//m_properties.limits.maxPerStageResources
 			{
 				m_properties.limits.maxPerStageResources = maxFragmentShaderResources;
-				m_properties.limits.maxPerStageResources = core::min(maxComputeShaderResources, m_properties.limits.maxPerStageResources);
-				m_properties.limits.maxPerStageResources = core::min(maxVertexShaderResources, m_properties.limits.maxPerStageResources);
-				m_properties.limits.maxPerStageResources = core::min(maxTessControlShaderResources, m_properties.limits.maxPerStageResources);
-				m_properties.limits.maxPerStageResources = core::min(maxTessEvalShaderResources, m_properties.limits.maxPerStageResources);
-				m_properties.limits.maxPerStageResources = core::min(maxGeometryShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxComputeShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxVertexShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxTessControlShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxTessEvalShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxGeometryShaderResources, m_properties.limits.maxPerStageResources);
 			}
 
 			// Max Descriptors
