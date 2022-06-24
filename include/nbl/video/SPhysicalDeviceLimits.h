@@ -79,7 +79,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxWorkgroupSize[3] = {};
     uint32_t subPixelPrecisionBits = 0u;
     //uint32_t              subTexelPrecisionBits;
-    //uint32_t              mipmapPrecisionBits;
+    //uint32_t              mipmapPrecisionBits; // TODO: require investigation GL+ES spec
     //uint32_t              maxDrawIndexedIndexValue;
     uint32_t maxDrawIndirectCount;
     //float                 maxSamplerLodBias;
