@@ -430,14 +430,6 @@ Renderdoc therefore serializes all calls, and presents them inside the capture i
 
 Furthermore it has no idea what constitutes a frame, because swap-buffers call happens on a separate thread than all the other API calls. **So use the `IGPUQueue` start/end capture methods!**
 
-### `ARB_clip_control` is schizophrenic about triangle winding
-
-Backface culling is done using "pre-flip" coordinates, i.e. the NDC coordinates don't really change until all the culling is complete.
-
-This means that for a triangle whose vertices are really clockwise when drawn on screen, OpenGL will claim its counterclockwise and vice versa.
-
-Also RenderDoc will correctly flip the VS_OUT MeshViewer debug view, but will report whatever the GL state is as CCW vs CW. So you will have clockwise vertices while iterating through visible triangle's vertices, while the PipelineState->Rasterizer inspector will keep telling you FrontFace is CCW.
-
 ### RenderDoc flips images for display in the ImageViewer tab on OpenGL captures
 
 Ctrl+F `localRenderer in https://github.com/baldurk/renderdoc/blob/4103f6a5455b9734e9bf74e254577f5c03188136/renderdoc/core/image_viewer.cpp
