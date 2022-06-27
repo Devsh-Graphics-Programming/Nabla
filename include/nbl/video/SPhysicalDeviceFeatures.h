@@ -205,6 +205,7 @@ struct SPhysicalDeviceFeatures
     /* ASTCDecodeFeaturesEXT *//* VK_EXT_astc_decode_mode */
     //VkFormat           decodeMode;
 
+    // DO NOT EXPOSE right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
     //VkBool32           advancedBlendCoherentOperations;
 

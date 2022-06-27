@@ -315,10 +315,12 @@ struct SPhysicalDeviceLimits
     //uint32_t           maxVgprAllocation;
     //uint32_t           vgprAllocationGranularity;
 
+    // We will never expose this vendor specific meta-data (no new feature) to the user, but might use the extension to provide some cross platform meta-info in the Nabla section
     /* ShaderCoreProperties2AMD *//* provided by VK_AMD_shader_core_properties2 */
     //VkShaderCorePropertiesFlagsAMD    shaderCoreFeatures;
     //uint32_t                          activeComputeUnitCount;
-
+    
+    // DO NOT EXPOSE right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedPropertiesEXT *//* provided by VK_EXT_blend_operation_advanced */
     //uint32_t           advancedBlendMaxColorAttachments;
     //VkBool32           advancedBlendIndependentBlend;
