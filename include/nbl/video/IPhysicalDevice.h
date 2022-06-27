@@ -421,6 +421,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     This device extension allows applications to query the global queue priorities supported by a queue family, and then set a priority when creating queues. The default queue priority is VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT.
 
 
+                [FUTURE TODO] [Currently Beta Extension in Vk Provided by VK_KHR_video_queue]
                 - VkQueueFamilyQueryResultStatusProperties2KHR
                     Related to Queries 
                     `supported` reports VK_TRUE if query type VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR and use of VK_QUERY_RESULT_WITH_STATUS_BIT_KHR are supported.
