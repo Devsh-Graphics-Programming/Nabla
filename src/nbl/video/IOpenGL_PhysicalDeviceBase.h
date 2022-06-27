@@ -606,13 +606,13 @@ public:
 
 		m_features.drawIndirectFirstInstance = (IsGLES) ? false : true; // GLES?
 		m_features.depthClamp = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_depth_clamp);
-		m_features.depthBiasClamp = (IsGLES) ? false : true; // GLES?
+		m_features.depthBiasClamp = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp) : true;
 
-		m_features.fillModeNonSolid = (IsGLES) ? false : true; //GLES?
+		m_features.fillModeNonSolid = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_polygon_mode) : true;
 		m_features.depthBounds = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_bounds_test);
-		m_features.wideLines = (IsGLES) ? false : true; // GLES?
-		m_features.largePoints = (IsGLES) ? false : true; // GLES?
-		m_features.alphaToOne = (IsGLES) ? false : true; // GLES?
+		m_features.wideLines = true;
+		m_features.largePoints = true;
+		m_features.alphaToOne = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_multisample_compatibility) : true; // GLES?
 		
 		m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
 
