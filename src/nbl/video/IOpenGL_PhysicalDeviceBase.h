@@ -604,7 +604,10 @@ public:
 		m_features.logicOp = !IsGLES;
 		m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 
-		m_features.drawIndirectFirstInstance = (IsGLES) ? false : true; // GLES?
+		m_features.drawIndirectFirstInstance = (IsGLES)
+			? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance)) 
+			: true;
+
 		m_features.depthClamp = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp);
 		m_features.depthBiasClamp = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp) : true;
 
