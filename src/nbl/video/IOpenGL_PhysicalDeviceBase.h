@@ -826,7 +826,7 @@ public:
 			GetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxVertexOutputComponents));
 
 			GetIntegerv(GL_MAX_FRAGMENT_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentInputComponents));
-			GetIntegerv(GL_MAX_DRAW_BUFFERS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentOutputAttachments)); // TODO: Same as colorAttachment?
+			GetIntegerv(GL_MAX_DRAW_BUFFERS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentOutputAttachments));
 			GetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentDualSrcAttachments));
 			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNITS_AND_FRAGMENT_OUTPUTS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentCombinedOutputResources));
 
