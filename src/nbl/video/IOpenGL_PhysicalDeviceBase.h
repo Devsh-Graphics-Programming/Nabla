@@ -547,7 +547,9 @@ public:
 		m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
 		m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
 		m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
-		m_features.independentBlend = (!IsGLES); // TODO
+		m_features.independentBlend = IsGLES 
+			? (m_glfeatures.Version >= 320u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_draw_buffers_indexed) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_draw_buffers_indexed))
+			: true;
 
 		if (!IsGLES || m_glfeatures.Version >= 320u)
 		{
