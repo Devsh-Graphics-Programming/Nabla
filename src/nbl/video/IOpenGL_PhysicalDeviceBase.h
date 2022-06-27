@@ -617,7 +617,9 @@ public:
 		m_features.largePoints = true;
 		m_features.alphaToOne = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_multisample_compatibility) : true; // GLES?
 		
-		m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
+		m_features.multiViewport = IsGLES 
+			? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array))
+			: true;
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 		{
