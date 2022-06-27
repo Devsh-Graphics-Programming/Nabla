@@ -536,6 +536,9 @@ struct SPhysicalDeviceLimits
     /* FragmentDensityMapOffsetPropertiesQCOM *//* VK_QCOM_fragment_density_map_offset */
     //VkExtent2D         fragmentDensityOffsetGranularity;
 
+    /* SubpassShadingPropertiesHUAWEI *//* VK_HUAWEI_subpass_shading */
+    // uint32_t           maxSubpassShadingWorkgroupSizeAspectRatio;
+
     /* Nabla */
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.

@@ -543,6 +543,9 @@ struct SPhysicalDeviceFeatures
     /* MutableDescriptorTypeFeaturesVALVE *//* VK_VALVE_mutable_descriptor_type */
     //VkBool32           mutableDescriptorType;
 
+    /* SubpassShadingFeaturesHUAWEI *//* VK_HUAWEI_subpass_shading */
+    // VkBool32           subpassShading;
+
     /* Nabla */
     bool dispatchBase = false; // true in Vk, false in GL
     bool allowCommandBufferQueryCopies = false;
