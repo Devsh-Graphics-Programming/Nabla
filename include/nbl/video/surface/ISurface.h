@@ -156,6 +156,24 @@ class NBL_API ISurface : public core::IReferenceCounted
             }
         }
 
+        static inline float surfaceTransformAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)
+        {
+            switch (transform)
+            {
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_90_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_270_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_90_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_270_BIT:
+                return float(h) / w;
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_180_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT:
+                return float(w) / h;
+            default:
+                return float(w) / h;
+            }
+        }
+
         enum E_COMPOSITE_ALPHA : uint32_t
         {
             ECA_OPAQUE_BIT = 0x00000001,
