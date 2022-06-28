@@ -513,8 +513,6 @@ public:
 			}
 		}
 
-		GLint num = 0;
-
 		GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
 		GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
 		GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindings));
@@ -610,12 +608,11 @@ public:
 
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 		{
-			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
-			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
+			GLint maxAnisotropy = 0;
+			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
+			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)maxAnisotropy);
 			m_features.samplerAnisotropy = true;
-			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
 		}
-		else m_glfeatures.MaxAnisotropy = 0u;
 		
 		m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
 
@@ -664,6 +661,7 @@ public:
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
 			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);
 
+		GLint num = 0;
 		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
 		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
 

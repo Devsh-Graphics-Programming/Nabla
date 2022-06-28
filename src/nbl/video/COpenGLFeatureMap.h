@@ -1170,8 +1170,6 @@ public:
 	uint32_t maxTextureBindingsCompute;
 	//!
 	uint32_t maxImageBindings;
-	//! Maximal Anisotropy
-	uint8_t MaxAnisotropy;
 	//! Number of rendertargets available as MRTs
 	uint8_t MaxMultipleRenderTargets;
 	//! Maximal LOD Bias

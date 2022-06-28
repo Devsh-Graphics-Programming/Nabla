@@ -75,7 +75,11 @@ class COpenGLSampler : public IGPUSampler
 			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_MAG_FILTER, m_params.MaxFilter==ETF_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 			if (m_params.AnisotropicFilter && gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_filter_anisotropic))
-				gl->glTexture.pglSamplerParameteri(m_GLname, gl->TEXTURE_MAX_ANISOTROPY, std::min(1u<<m_params.AnisotropicFilter, uint32_t(gl->getFeatures()->MaxAnisotropy)));
+			{
+				// @devsh Verify Please (maxSamplerAnisotropyLog2 is float should I use exp2?):
+				uint32_t maxSamplerAnisotropy = 1u<<uint32_t(dev->getPhysicalDevice()->getLimits().maxSamplerAnisotropyLog2);
+				gl->glTexture.pglSamplerParameteri(m_GLname, gl->TEXTURE_MAX_ANISOTROPY, std::min(1u<<m_params.AnisotropicFilter, maxSamplerAnisotropy));
+			}
 
 			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_S, getTextureWrapMode(m_params.TextureWrapU, gl));
 			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_T, getTextureWrapMode(m_params.TextureWrapV, gl));
