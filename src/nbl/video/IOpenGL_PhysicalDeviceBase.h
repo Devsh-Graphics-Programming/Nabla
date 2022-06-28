@@ -601,12 +601,15 @@ public:
 			? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array))
 			: true;
 
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
+		if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 		{
 			GLint maxAnisotropy = 0;
 			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
-			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)maxAnisotropy);
-			m_features.samplerAnisotropy = true;
+			if(maxAnisotropy)
+			{
+				m_features.samplerAnisotropy = true;
+				m_properties.limits.maxSamplerAnisotropyLog2 = core::findMSB(static_cast<uint32_t>(maxAnisotropy));
+			}
 		}
 		
 		m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
@@ -854,14 +857,10 @@ public:
 			// TODO: GLES has a problem with reporting this
 			GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.bufferViewAlignment));
 
-			// DO WE STILL NEED These next few lines?
 			if (!core::is_alignment(m_properties.limits.bufferViewAlignment))
 				m_properties.limits.bufferViewAlignment = 16u;
-			//assert(core::is_alignment(m_properties.limits.bufferViewAlignment)); 
-			
-			// DO WE STILL NEED THIS?
-			//m_glfeatures.reqSSBOAlignment = 64u; // uncomment to emulate chromebook
-			
+			// assert(core::is_alignment(m_properties.limits.bufferViewAlignment)); 
+
 			GetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelOffset));
 			GetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelOffset));
 			GetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelGatherOffset));

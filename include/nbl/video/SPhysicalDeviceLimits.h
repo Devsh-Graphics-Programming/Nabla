@@ -83,7 +83,7 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxDrawIndexedIndexValue;
     uint32_t maxDrawIndirectCount = 0u;
     float    maxSamplerLodBias = 0.0f;
-    float    maxSamplerAnisotropyLog2 = 0.0f;
+    uint8_t  maxSamplerAnisotropyLog2 = 0.0f;
     uint32_t maxViewports = 0u;
     uint32_t maxViewportDims[2] = {};
     float    viewportBoundsRange[2]; // [min, max]

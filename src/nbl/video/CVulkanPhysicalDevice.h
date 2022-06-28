@@ -125,7 +125,7 @@ public:
             m_properties.limits.subPixelPrecisionBits = deviceProperties.properties.limits.subPixelPrecisionBits;
             m_properties.limits.maxDrawIndirectCount = deviceProperties.properties.limits.maxDrawIndirectCount;
             m_properties.limits.maxSamplerLodBias = deviceProperties.properties.limits.maxSamplerLodBias;
-            m_properties.limits.maxSamplerAnisotropyLog2 = std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy);
+            m_properties.limits.maxSamplerAnisotropyLog2 = static_cast<uint8_t>(std::log2(deviceProperties.properties.limits.maxSamplerAnisotropy));
             m_properties.limits.maxViewports = deviceProperties.properties.limits.maxViewports;
             m_properties.limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
             m_properties.limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
