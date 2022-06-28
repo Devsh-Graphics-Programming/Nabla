@@ -129,6 +129,8 @@ public:
             m_properties.limits.maxViewports = deviceProperties.properties.limits.maxViewports;
             m_properties.limits.maxViewportDims[0] = deviceProperties.properties.limits.maxViewportDimensions[0];
             m_properties.limits.maxViewportDims[1] = deviceProperties.properties.limits.maxViewportDimensions[1];
+            m_properties.limits.viewportBoundsRange[0] = deviceProperties.properties.limits.viewportBoundsRange[0];
+            m_properties.limits.viewportBoundsRange[1] = deviceProperties.properties.limits.viewportBoundsRange[1];
             m_properties.limits.viewportSubPixelBits = deviceProperties.properties.limits.viewportSubPixelBits;
             m_properties.limits.minMemoryMapAlignment = deviceProperties.properties.limits.minMemoryMapAlignment;
             m_properties.limits.bufferViewAlignment = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;

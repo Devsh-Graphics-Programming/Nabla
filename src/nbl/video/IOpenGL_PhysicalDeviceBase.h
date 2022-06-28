@@ -840,6 +840,10 @@ public:
 			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
 			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
 			
+			int32_t maxDim = static_cast<int32_t>(core::max(m_properties.limits.maxViewportDims[0], m_properties.limits.maxViewportDims[1]));
+			m_properties.limits.viewportBoundsRange[0] = -2 * maxDim;
+			m_properties.limits.viewportBoundsRange[1] = 2 * maxDim - 1;
+
 			GetIntegerv(GL_VIEWPORT_SUBPIXEL_BITS, reinterpret_cast<GLint*>(&m_properties.limits.viewportSubPixelBits));
 
 			if(IsGLES)
@@ -895,8 +899,8 @@ public:
 			GetFloatv(GL_POINT_SIZE_GRANULARITY, &m_properties.limits.pointSizeGranularity);
 			GetFloatv(GL_LINE_WIDTH_GRANULARITY, &m_properties.limits.lineWidthGranularity);
 			
-            m_properties.limits.optimalBufferCopyOffsetAlignment = 8ull;
-            m_properties.limits.optimalBufferCopyRowPitchAlignment = 8ull;
+			m_properties.limits.optimalBufferCopyOffsetAlignment = 8ull;
+			m_properties.limits.optimalBufferCopyRowPitchAlignment = 8ull;
 			m_properties.limits.nonCoherentAtomSize = 256ull;
 
 			const uint64_t maxTBOSizeInBytes = (IsGLES) 

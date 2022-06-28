@@ -86,7 +86,7 @@ struct SPhysicalDeviceLimits
     float    maxSamplerAnisotropyLog2 = 0.0f;
     uint32_t maxViewports = 0u;
     uint32_t maxViewportDims[2] = {};
-    //float                 viewportBoundsRange[2];
+    float    viewportBoundsRange[2]; // [min, max]
     uint32_t viewportSubPixelBits = 0u;
     size_t   minMemoryMapAlignment = 0ull;
     uint32_t bufferViewAlignment;
