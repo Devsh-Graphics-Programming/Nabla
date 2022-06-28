@@ -1160,14 +1160,6 @@ public:
 	uint16_t ShaderLanguageVersion = 0;
 
 	//!
-	int32_t reqUBOAlignment;
-	//!
-	int32_t reqSSBOAlignment;
-	//!
-	int32_t reqTBOAlignment;
-	//!
-	uint64_t maxTBOSizeInTexels;
-	//!
 	uint32_t maxUBOBindings;
 	//!
 	uint32_t maxSSBOBindings;

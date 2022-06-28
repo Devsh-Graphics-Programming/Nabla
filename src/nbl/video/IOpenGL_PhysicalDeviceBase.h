@@ -515,18 +515,6 @@ public:
 
 		GLint num = 0;
 
-		GetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqUBOAlignment);
-		assert(core::is_alignment(m_glfeatures.reqUBOAlignment));
-		GetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqSSBOAlignment);
-		assert(core::is_alignment(m_glfeatures.reqSSBOAlignment));
-		// TODO: GLES has a problem with reporting this
-		GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqTBOAlignment);
-		if (!core::is_alignment(m_glfeatures.reqTBOAlignment))
-			m_glfeatures.reqTBOAlignment = 16u;
-		//assert(core::is_alignment(m_glfeatures.reqTBOAlignment)); 
-		//m_glfeatures.reqSSBOAlignment = 64u; // uncomment to emulate chromebook
-		GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxTBOSizeInTexels));
-
 		GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
 		GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
 		GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindings));
@@ -708,7 +696,8 @@ public:
 			m_properties.limits.maxImageDimension3D	= max3DTextureSize;
 			m_properties.limits.maxImageDimensionCube =	maxCubeMapTextureSize;
 			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
-			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
+			
+			GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxBufferViewSizeTexels));
 			GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxUBOSize));
 			GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxSSBOSize));
 
@@ -864,9 +853,21 @@ public:
 			else
 				GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minMemoryMapAlignment));
 
-			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
-			m_properties.limits.minUBOAlignment = m_glfeatures.reqUBOAlignment;
-			m_properties.limits.minSSBOAlignment = m_glfeatures.reqSSBOAlignment;
+			
+			GetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minUBOAlignment));
+			assert(core::is_alignment(m_properties.limits.minUBOAlignment));
+			GetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minSSBOAlignment));
+			assert(core::is_alignment(m_properties.limits.minSSBOAlignment));
+			// TODO: GLES has a problem with reporting this
+			GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.bufferViewAlignment));
+
+			// DO WE STILL NEED These next few lines?
+			if (!core::is_alignment(m_properties.limits.bufferViewAlignment))
+				m_properties.limits.bufferViewAlignment = 16u;
+			//assert(core::is_alignment(m_properties.limits.bufferViewAlignment)); 
+			
+			// DO WE STILL NEED THIS?
+			//m_glfeatures.reqSSBOAlignment = 64u; // uncomment to emulate chromebook
 			
 			GetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelOffset));
 			GetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelOffset));
@@ -905,8 +906,8 @@ public:
 			m_properties.limits.nonCoherentAtomSize = 256ull;
 
 			const uint64_t maxTBOSizeInBytes = (IsGLES) 
-				? (m_glfeatures.maxTBOSizeInTexels * getTexelOrBlockBytesize(asset::EF_R32G32B32A32_UINT))     // maxTBOSizeInTexels * GLES Fattest Format 
-				: (m_glfeatures.maxTBOSizeInTexels * getTexelOrBlockBytesize(asset::EF_R64G64B64A64_SFLOAT)); // maxTBOSizeInTexels * GL Fattest Format 
+				? (m_properties.limits.maxBufferViewSizeTexels * getTexelOrBlockBytesize(asset::EF_R32G32B32A32_UINT))     // m_properties.limits.maxBufferViewSizeTexels * GLES Fattest Format 
+				: (m_properties.limits.maxBufferViewSizeTexels * getTexelOrBlockBytesize(asset::EF_R64G64B64A64_SFLOAT)); // m_properties.limits.maxBufferViewSizeTexels * GL Fattest Format 
 
 			const uint64_t maxBufferSize = std::max(std::max((uint64_t)m_properties.limits.maxUBOSize, (uint64_t)m_properties.limits.maxSSBOSize), maxTBOSizeInBytes);
 
