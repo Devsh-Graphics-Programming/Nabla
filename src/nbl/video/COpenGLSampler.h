@@ -90,22 +90,22 @@ class COpenGLSampler : public IGPUSampler
 			gl->glTexture.pglSamplerParameterf(m_GLname, GL_TEXTURE_MIN_LOD, m_params.MinLod);
 			gl->glTexture.pglSamplerParameterf(m_GLname, GL_TEXTURE_MAX_LOD, m_params.MaxLod);
 
-            if (m_params.CompareEnable)
-            {
-                gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+			if (m_params.CompareEnable)
+			{
+				gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
-                constexpr GLenum compareFuncMap[8]{
-                    GL_NEVER,
-                    GL_LESS,
-                    GL_EQUAL,
-                    GL_LEQUAL,
-                    GL_GREATER,
-                    GL_NOTEQUAL,
-                    GL_GEQUAL,
-                    GL_ALWAYS
-                };
-                gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_FUNC, compareFuncMap[m_params.CompareFunc]);
-            }
+				constexpr GLenum compareFuncMap[8]{
+					GL_NEVER,
+					GL_LESS,
+					GL_EQUAL,
+					GL_LEQUAL,
+					GL_GREATER,
+					GL_NOTEQUAL,
+					GL_GEQUAL,
+					GL_ALWAYS
+				};
+				gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_FUNC, compareFuncMap[m_params.CompareFunc]);
+			}
 
 			if (!gl->isGLES() || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_border_clamp))
 			{
