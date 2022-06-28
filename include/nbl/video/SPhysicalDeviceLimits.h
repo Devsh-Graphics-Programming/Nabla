@@ -465,7 +465,7 @@ struct SPhysicalDeviceLimits
 
     /* PerformanceQueryPropertiesKHR *//* provided by VK_KHR_performance_query */
     // ! We don't support PerformanceQueries at the moment;
-    // ! But we have a bool with the same name in SFeatures and that is mostly for GL when NBL_ARB_query_buffer_object is reported and that holds for every query 
+    // ! But we have a bool with the same name below under Nabla and that is mostly for GL when NBL_ARB_query_buffer_object is reported and that holds for every query 
     // VkBool32           allowCommandBufferQueryCopies;
 
     /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
@@ -543,6 +543,7 @@ struct SPhysicalDeviceLimits
     // uint32_t           maxSubpassShadingWorkgroupSizeAspectRatio;
 
     /* Nabla */
+    bool allowCommandBufferQueryCopies = false;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
     asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;

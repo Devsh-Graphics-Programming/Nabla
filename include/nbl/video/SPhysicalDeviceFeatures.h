@@ -550,7 +550,6 @@ struct SPhysicalDeviceFeatures
 
     /* Nabla */
     bool dispatchBase = false; // true in Vk, false in GL
-    bool allowCommandBufferQueryCopies = false;
 };
 
 } // nbl::video

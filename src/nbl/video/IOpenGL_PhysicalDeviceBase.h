@@ -519,11 +519,6 @@ public:
 		GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
 		GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
 
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
-		{
-			m_features.allowCommandBufferQueryCopies = true;
-		}
-
 		GLuint maxElementIndex = 0u;
 		GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
@@ -983,6 +978,10 @@ public:
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
 			
 			/* Nabla */
+			
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
+				m_properties.limits.allowCommandBufferQueryCopies = true;
+
 			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
 			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_properties.limits.maxOptimallyResidentWorkgroupInvocations));
 			m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_properties.limits.maxOptimallyResidentWorkgroupInvocations),512u);
