@@ -69,7 +69,7 @@ public:
             m_properties.limits.maxImageDimension3D = deviceProperties.properties.limits.maxImageDimension3D;
             m_properties.limits.maxImageDimensionCube = deviceProperties.properties.limits.maxImageDimensionCube;
             m_properties.limits.maxImageArrayLayers = deviceProperties.properties.limits.maxImageArrayLayers;
-            m_properties.limits.maxBufferViewSizeTexels = deviceProperties.properties.limits.maxTexelBufferElements;
+            m_properties.limits.maxBufferViewTexels = deviceProperties.properties.limits.maxTexelBufferElements;
             m_properties.limits.maxUBOSize = deviceProperties.properties.limits.maxUniformBufferRange;
             m_properties.limits.maxSSBOSize = deviceProperties.properties.limits.maxStorageBufferRange;
             m_properties.limits.maxPushConstantsSize = deviceProperties.properties.limits.maxPushConstantsSize;

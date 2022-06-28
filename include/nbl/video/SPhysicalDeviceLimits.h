@@ -16,7 +16,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxImageDimension3D;
     uint32_t maxImageDimensionCube;
     uint32_t maxImageArrayLayers;
-    uint32_t maxBufferViewSizeTexels;
+    uint32_t maxBufferViewTexels;
     uint32_t maxUBOSize;
     uint32_t maxSSBOSize;
     uint32_t maxPushConstantsSize;

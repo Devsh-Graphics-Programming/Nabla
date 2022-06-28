@@ -697,7 +697,7 @@ public:
 			m_properties.limits.maxImageDimensionCube =	maxCubeMapTextureSize;
 			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
 			
-			GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxBufferViewSizeTexels));
+			GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxBufferViewTexels));
 			GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxUBOSize));
 			GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxSSBOSize));
 
@@ -906,8 +906,8 @@ public:
 			m_properties.limits.nonCoherentAtomSize = 256ull;
 
 			const uint64_t maxTBOSizeInBytes = (IsGLES) 
-				? (m_properties.limits.maxBufferViewSizeTexels * getTexelOrBlockBytesize(asset::EF_R32G32B32A32_UINT))     // m_properties.limits.maxBufferViewSizeTexels * GLES Fattest Format 
-				: (m_properties.limits.maxBufferViewSizeTexels * getTexelOrBlockBytesize(asset::EF_R64G64B64A64_SFLOAT)); // m_properties.limits.maxBufferViewSizeTexels * GL Fattest Format 
+				? (m_properties.limits.maxBufferViewTexels * getTexelOrBlockBytesize(asset::EF_R32G32B32A32_UINT))     // m_properties.limits.maxBufferViewTexels * GLES Fattest Format 
+				: (m_properties.limits.maxBufferViewTexels * getTexelOrBlockBytesize(asset::EF_R64G64B64A64_SFLOAT)); // m_properties.limits.maxBufferViewTexels * GL Fattest Format 
 
 			const uint64_t maxBufferSize = std::max(std::max((uint64_t)m_properties.limits.maxUBOSize, (uint64_t)m_properties.limits.maxSSBOSize), maxTBOSizeInBytes);
 
