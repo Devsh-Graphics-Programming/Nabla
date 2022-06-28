@@ -438,6 +438,7 @@ struct SPhysicalDeviceLimits
     /* DriverPropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
     /* VK_KHR_fragment_shader_barycentric --> Coverage 0% --> no structs defined anywhere in vulkan headers */
 
+    // DO NOT EXPOSE: not implementing or exposing VRS in near or far future
     /* FragmentShadingRatePropertiesKHR *//* provided by VK_KHR_fragment_shading_rate */
     //VkExtent2D               minFragmentShadingRateAttachmentTexelSize;
     //VkExtent2D               maxFragmentShadingRateAttachmentTexelSize;

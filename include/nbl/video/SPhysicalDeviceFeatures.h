@@ -398,7 +398,8 @@ struct SPhysicalDeviceFeatures
     /* DynamicRenderingFeaturesKHR *//* VK_KHR_dynamic_rendering *//* MOVED TO Vulkan 1.3 Core */
 
     /* [!!NV Version below, struct doesn't exist in vk headers] VK_KHR_fragment_shader_barycentric */
-
+    
+    // DO NOT EXPOSE: not implementing or exposing VRS in near or far future
     /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
     //VkBool32           pipelineFragmentShadingRate;
     //VkBool32           primitiveFragmentShadingRate;
