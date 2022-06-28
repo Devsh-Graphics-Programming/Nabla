@@ -1192,8 +1192,6 @@ public:
 	uint32_t MaxXFormFeedbackComponents;
 	//!
 	uint32_t MaxGPUWaitTimeout;
-	//! Gives the upper and lower bound on warp/wavefront/SIMD-lane size
-	uint32_t InvocationSubGroupSize[2];
 
 	bool isIntelGPU = false;
 	// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)
