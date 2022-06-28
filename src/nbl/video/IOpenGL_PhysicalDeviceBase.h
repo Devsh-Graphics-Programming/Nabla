@@ -521,9 +521,6 @@ public:
 		GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
 		GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
 
-		GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
-		m_glfeatures.MaxArrayTextureLayers = num;
-		
 		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
 		{
 			m_features.allowCommandBufferQueryCopies = true;
@@ -695,8 +692,7 @@ public:
 			m_properties.limits.maxImageDimension2D	= maxTextureSize;
 			m_properties.limits.maxImageDimension3D	= max3DTextureSize;
 			m_properties.limits.maxImageDimensionCube =	maxCubeMapTextureSize;
-			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
-			
+			GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, reinterpret_cast<GLint*>(&m_properties.limits.maxImageArrayLayers));
 			GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxBufferViewTexels));
 			GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxUBOSize));
 			GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxSSBOSize));

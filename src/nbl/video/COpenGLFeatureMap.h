@@ -1170,28 +1170,12 @@ public:
 	uint32_t maxTextureBindingsCompute;
 	//!
 	uint32_t maxImageBindings;
-	//!
-	uint32_t MaxArrayTextureLayers;
-	//! Maxmimum texture layers supported by the engine
-	uint8_t MaxTextureUnits;
 	//! Maximal Anisotropy
 	uint8_t MaxAnisotropy;
 	//! Number of rendertargets available as MRTs
 	uint8_t MaxMultipleRenderTargets;
-	//! Optimal number of indices per meshbuffer
-	uint32_t MaxIndices;
-	//! Optimal number of vertices per meshbuffer
-	uint32_t MaxVertices;
-	//! Maximal vertices handled by geometry shaders
-	uint32_t MaxGeometryVerticesOut;
 	//! Maximal LOD Bias
 	float MaxTextureLODBias;
-	//!
-	uint32_t MaxVertexStreams;
-	//!
-	uint32_t MaxXFormFeedbackComponents;
-	//!
-	uint32_t MaxGPUWaitTimeout;
 
 	bool isIntelGPU = false;
 	// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)

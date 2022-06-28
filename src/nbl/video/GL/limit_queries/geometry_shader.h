@@ -5,4 +5,3 @@ GetIntegerv(GLENUM_WITH_SUFFIX(GL_MAX_GEOMETRY_INPUT_COMPONENTS), reinterpret_ca
 GetIntegerv(GLENUM_WITH_SUFFIX(GL_MAX_GEOMETRY_OUTPUT_COMPONENTS), reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputComponents));
 GetIntegerv(GLENUM_WITH_SUFFIX(GL_MAX_GEOMETRY_OUTPUT_VERTICES), reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryOutputVertices));
 GetIntegerv(GLENUM_WITH_SUFFIX(GL_MAX_GEOMETRY_TOTAL_OUTPUT_COMPONENTS), reinterpret_cast<GLint*>(&m_properties.limits.maxGeometryTotalOutputComponents));
-			m_glfeatures.MaxGeometryVerticesOut = m_properties.limits.maxGeometryOutputVertices;
