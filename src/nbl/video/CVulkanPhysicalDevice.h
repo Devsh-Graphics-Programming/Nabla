@@ -140,6 +140,8 @@ public:
             m_properties.limits.maxTexelOffset = deviceProperties.properties.limits.maxTexelOffset;
             m_properties.limits.minTexelGatherOffset = deviceProperties.properties.limits.minTexelGatherOffset;
             m_properties.limits.maxTexelGatherOffset = deviceProperties.properties.limits.maxTexelGatherOffset;
+            m_properties.limits.minInterpolationOffset = deviceProperties.properties.limits.minInterpolationOffset;
+            m_properties.limits.maxInterpolationOffset = deviceProperties.properties.limits.maxInterpolationOffset;
             m_properties.limits.maxFramebufferWidth = deviceProperties.properties.limits.maxFramebufferWidth;
             m_properties.limits.maxFramebufferHeight = deviceProperties.properties.limits.maxFramebufferHeight;
             m_properties.limits.maxFramebufferLayers = deviceProperties.properties.limits.maxFramebufferLayers;

@@ -866,6 +866,12 @@ public:
 			GetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelGatherOffset));
 			GetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelGatherOffset));
 	
+			if(!IsGLES || m_glfeatures.Version >= 320u)
+			{
+				GetFloatv(GL_MIN_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.minInterpolationOffset);
+				GetFloatv(GL_MAX_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.maxInterpolationOffset);
+			}
+
 			GetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferWidth));
 			GetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferHeight));
 

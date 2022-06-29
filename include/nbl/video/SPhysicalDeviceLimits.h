@@ -96,8 +96,8 @@ struct SPhysicalDeviceLimits
     uint32_t maxTexelOffset;
     int32_t  minTexelGatherOffset;
     uint32_t maxTexelGatherOffset;
-    //float                 minInterpolationOffset;
-    //float                 maxInterpolationOffset;
+    float    minInterpolationOffset;
+    float    maxInterpolationOffset;
     //uint32_t              subPixelInterpolationOffsetBits;
     uint32_t maxFramebufferWidth;
     uint32_t maxFramebufferHeight;
