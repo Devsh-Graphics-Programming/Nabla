@@ -150,6 +150,12 @@ public:
             m_properties.limits.framebufferStencilSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferStencilSampleCounts);
             m_properties.limits.framebufferNoAttachmentsSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferNoAttachmentsSampleCounts);
             m_properties.limits.maxColorAttachments = deviceProperties.properties.limits.maxColorAttachments;
+            m_properties.limits.sampledImageColorSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageColorSampleCounts);
+            m_properties.limits.sampledImageIntegerSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageIntegerSampleCounts);
+            m_properties.limits.sampledImageDepthSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageDepthSampleCounts);
+            m_properties.limits.sampledImageStencilSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageStencilSampleCounts);
+            m_properties.limits.storageImageSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.storageImageSampleCounts);
+            m_properties.limits.maxSampleMaskWords = deviceProperties.properties.limits.maxSampleMaskWords;
             m_properties.limits.maxClipDistances = deviceProperties.properties.limits.maxClipDistances;
             m_properties.limits.maxCullDistances = deviceProperties.properties.limits.maxCullDistances;
             m_properties.limits.maxCombinedClipAndCullDistances = deviceProperties.properties.limits.maxCombinedClipAndCullDistances;

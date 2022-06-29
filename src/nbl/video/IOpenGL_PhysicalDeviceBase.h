@@ -882,15 +882,35 @@ public:
 			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_shader))
 				GetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferLayers));
 
+			auto getSampleCountFlagsFromSampleCount = [](GLint samples) -> core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>
+			{
+				return core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>((0x1u<<(1+core::findMSB(static_cast<uint32_t>(samples))))-1u);
+			};
+
 			GLint maxFramebufferSamples = 0;
 			GetIntegerv(GL_MAX_FRAMEBUFFER_SAMPLES, &maxFramebufferSamples);
-			auto sampleCountFlags = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>((0x1u<<(1+core::findMSB(static_cast<uint32_t>(maxFramebufferSamples))))-1u);
-			m_properties.limits.framebufferColorSampleCounts = sampleCountFlags;
-			m_properties.limits.framebufferDepthSampleCounts = sampleCountFlags;
-			m_properties.limits.framebufferStencilSampleCounts = sampleCountFlags;
-			m_properties.limits.framebufferNoAttachmentsSampleCounts = sampleCountFlags;
+			auto framebufferSampleCountFlags = getSampleCountFlagsFromSampleCount(maxFramebufferSamples);
+			m_properties.limits.framebufferColorSampleCounts = framebufferSampleCountFlags;
+			m_properties.limits.framebufferDepthSampleCounts = framebufferSampleCountFlags;
+			m_properties.limits.framebufferStencilSampleCounts = framebufferSampleCountFlags;
+			m_properties.limits.framebufferNoAttachmentsSampleCounts = framebufferSampleCountFlags;
 
-			GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxColorAttachments));;
+			GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxColorAttachments));
+			
+			GLint maxColorTextureSamples = 0;
+			GetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &maxColorTextureSamples);
+			auto colorSampleCountFlags = getSampleCountFlagsFromSampleCount(maxColorTextureSamples);
+			GLint maxDepthTextureSamples = 0;
+			GetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &maxDepthTextureSamples);
+			auto depthSampleCountFlags = getSampleCountFlagsFromSampleCount(maxDepthTextureSamples);
+			m_properties.limits.sampledImageColorSampleCounts = colorSampleCountFlags;
+			m_properties.limits.sampledImageIntegerSampleCounts = colorSampleCountFlags;
+			m_properties.limits.sampledImageDepthSampleCounts = depthSampleCountFlags;
+			m_properties.limits.sampledImageStencilSampleCounts = depthSampleCountFlags;
+			m_properties.limits.storageImageSampleCounts = colorSampleCountFlags;
+			
+			GetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleMaskWords));
+
 			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
