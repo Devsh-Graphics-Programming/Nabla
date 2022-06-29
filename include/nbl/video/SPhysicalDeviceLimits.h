@@ -118,12 +118,12 @@ struct SPhysicalDeviceLimits
     uint32_t maxClipDistances;
     uint32_t maxCullDistances;
     uint32_t maxCombinedClipAndCullDistances;
-    //uint32_t              discreteQueuePriorities;
+    uint32_t discreteQueuePriorities = 0u;
     float pointSizeRange[2];
     float lineWidthRange[2];
     float pointSizeGranularity = 0.f;
     float lineWidthGranularity = 0.f;
-    //VkBool32              strictLines;
+    bool strictLines = false;
     //VkBool32              standardSampleLocations;
     uint64_t optimalBufferCopyOffsetAlignment = 0ull;
     uint64_t optimalBufferCopyRowPitchAlignment = 0ull;
