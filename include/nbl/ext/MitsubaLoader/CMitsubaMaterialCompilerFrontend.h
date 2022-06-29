@@ -19,7 +19,7 @@ struct SContext;
 class CMitsubaMaterialCompilerFrontend
 {
     public:
-        using IRNode = asset::material_compiler::IR::INode;
+        using node_handle_t = asset::material_compiler::IR::node_handle_t;
         enum E_IMAGE_VIEW_SEMANTIC : uint8_t
         {
             EIVS_IDENTITIY,
@@ -31,8 +31,8 @@ class CMitsubaMaterialCompilerFrontend
 
         struct front_and_back_t
         {
-            IRNode* front;
-            IRNode* back;
+            node_handle_t front;
+            node_handle_t back;
         };
 
         explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
@@ -50,7 +50,7 @@ class CMitsubaMaterialCompilerFrontend
 
         tex_ass_type getErrorTexture() const;
 
-        IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        node_handle_t createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 };
 
 }

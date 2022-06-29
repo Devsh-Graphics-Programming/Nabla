@@ -150,30 +150,42 @@ class IR : public core::IReferenceCounted
 
                 //
                 virtual uint32_t getChildCount() const = 0;
-                struct children_range_t
+                class children_range_t
                 {
                     public:
-                        struct iterator_t
+                        class iterator_t
                         {
-                            node_handle_t cursor;
-                            uint32_t itemsTillEnd;
+                            public:
+                                iterator_t() : cursor{0xdeadbeefu}, itemsTillEnd(0u) {}
+                                iterator_t(const node_handle_t _begin, const uint32_t count) : cursor(_begin), itemsTillEnd(count) {}
 
-                            inline bool operator!=(const iterator_t rhs) const
-                            {
-                                return itemsTillEnd!=rhs.itemsTillEnd;
-                            }
-                        } m_begin;
+                                inline node_handle_t operator*() const
+                                {
+                                    return cursor;
+                                }
+
+                                inline bool operator!=(const iterator_t rhs) const
+                                {
+                                    return itemsTillEnd!=rhs.itemsTillEnd;
+                                }
+
+                            protected:
+                                friend class children_range_t;
+                                node_handle_t cursor;
+                                uint32_t itemsTillEnd;
+                        };
+                        iterator_t m_begin;
 
                         inline operator bool() const {return m_begin.itemsTillEnd;}
 
                         iterator_t begin() {return m_begin;}
                         //const INode* const* begin() const { return array; }
-                        iterator_t end() {return {0xdeadbeefu,0u};}
+                        iterator_t end() {return {};}
                         //const INode* const* end() const { return array + count; }
                 };
                 inline children_range_t getChildren() const
                 {
-                    return {getFirstChild(),getChildCount()};
+                    return {children_range_t::iterator_t({getFirstChild()},getChildCount())};
                 }
 
                 //
@@ -207,11 +219,17 @@ class IR : public core::IReferenceCounted
                 virtual node_handle_t getFirstChild() const = 0;
         };
 
-        inline const INode* getNode(const node_handle_t handle) const
+        template<class NodeType=INode>
+        inline const NodeType* getNode(const node_handle_t handle) const
         {
             if (handle.byteOffset<memMgr.getAllocatedSize())
-                return reinterpret_cast<const INode*>(memMgr.data()+handle.byteOffset);
+                return reinterpret_cast<const NodeType*>(memMgr.data()+handle.byteOffset);
             return nullptr;
+        }
+        template<class NodeType=INode>
+        inline NodeType* getNode(const node_handle_t handle)
+        {
+            return const_cast<NodeType*>(const_cast<const IR*>(this)->getNode<NodeType>(handle));
         }
 
         template <typename NodeType, typename ...Args>
@@ -264,6 +282,11 @@ class IR : public core::IReferenceCounted
             }
             firstTmp.byteOffset = memMgr.getAllocatedSize();
             return allocation;
+        }
+        template<class NodeT>
+        inline NodeT* copyNode(const INode* _rhs)
+        {
+            return getNode<NodeT>(copyNode(_rhs));
         }
 
         //
@@ -350,7 +373,7 @@ class IR : public core::IReferenceCounted
             SParameter<color_t> opacity;
         };
 
-        struct CBSDFCombinerNode : IInternalNode
+        struct IBSDFCombinerNode : IInternalNode
         {
             public:
                 enum E_TYPE
@@ -367,14 +390,14 @@ class IR : public core::IReferenceCounted
 
                 E_SYMBOL getSymbol() const override { return ES_BSDF_COMBINER; }
             protected:
-                CBSDFCombinerNode(E_TYPE t, const node_handle_t firstChild, const uint32_t childCount)
+                IBSDFCombinerNode(E_TYPE t, const node_handle_t firstChild, const uint32_t childCount)
                     : IInternalNode(firstChild,childCount), type(t) {}
 
                 E_TYPE type;
         };
-        struct CBSDFBlendNode final : CBSDFCombinerNode
+        struct CBSDFBlendNode final : IBSDFCombinerNode
         {
-            CBSDFBlendNode(const node_handle_t firstChild) : CBSDFCombinerNode(ET_WEIGHT_BLEND,firstChild,2u) {}
+            CBSDFBlendNode(const node_handle_t firstChild) : IBSDFCombinerNode(ET_WEIGHT_BLEND,firstChild,2u) {}
 
             inline size_t getSize() const override { return sizeof(*this); }
 
@@ -385,10 +408,10 @@ class IR : public core::IReferenceCounted
 
             SParameter<color_t> weight;
         };
-        struct CBSDFMixNode final : CBSDFCombinerNode
+        struct CBSDFMixNode final : IBSDFCombinerNode
         {
             CBSDFMixNode(const node_handle_t firstChild, const uint32_t childCount)
-                : CBSDFCombinerNode(ET_MIX,firstChild,childCount) {}
+                : IBSDFCombinerNode(ET_MIX,firstChild,childCount) {}
 
             inline size_t getSize() const override { return sizeof(*this); }
 
@@ -428,7 +451,7 @@ class IR : public core::IReferenceCounted
             color_t intensity = color_t(1.f); // TODO: hoist?
         };
 
-        struct CBSDFNode : ILeafNode
+        struct IBSDFNode : ILeafNode
         {
             enum E_TYPE
             {
@@ -441,23 +464,30 @@ class IR : public core::IReferenceCounted
                 //ET_SHEEN,
             };
 
-            inline CBSDFNode(E_TYPE t) : ILeafNode(), type(t) {}
+            inline IBSDFNode(E_TYPE t) : ILeafNode(), type(t) {}
 
             inline E_SYMBOL getSymbol() const override { return ES_BSDF; }
 
             E_TYPE type;
         };
-        struct CMicrofacetDiffuseBxDFBase : CBSDFNode
+        struct IMicrofacetBSDFNode : IBSDFNode
         {
-            CMicrofacetDiffuseBxDFBase(const E_TYPE t) : CBSDFNode(t)
-            {
-                assert(t == ET_MICROFACET_DIFFTRANS || t == ET_MICROFACET_DIFFUSE);
-            }
+            using IBSDFNode::IBSDFNode;
 
-            void setSmooth()
+            virtual void setSmooth()
             {
                 alpha_u = 0.f;
                 alpha_v = alpha_u;
+            }
+
+            SParameter<float> alpha_u = 0.f;
+            SParameter<float> alpha_v = 0.f;
+        };
+        struct CMicrofacetDiffuseBxDFBase : IMicrofacetBSDFNode
+        {
+            CMicrofacetDiffuseBxDFBase(const E_TYPE t) : IMicrofacetBSDFNode(t)
+            {
+                assert(t == ET_MICROFACET_DIFFTRANS || t == ET_MICROFACET_DIFFUSE);
             }
 
             inline size_t getSize() const override { return sizeof(*this); }
@@ -466,9 +496,6 @@ class IR : public core::IReferenceCounted
             {
                 return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
             }
-
-            SParameter<float> alpha_u = 0.f;
-            SParameter<float> alpha_v = 0.f;
         };
         struct CMicrofacetDiffuseBSDFNode final : CMicrofacetDiffuseBxDFBase
         {
@@ -496,7 +523,7 @@ class IR : public core::IReferenceCounted
 
             SParameter<color_t> transmittance = color_t(0.5f); // TODO: optimization, hoist Energy Loss Parameters out of BxDFs
         };
-        struct CMicrofacetBSDFNode
+        struct ICookTorranceBSDFNode : IMicrofacetBSDFNode
         {
             public:
                 enum E_NDF : uint8_t
@@ -507,24 +534,21 @@ class IR : public core::IReferenceCounted
                     ENDF_PHONG
                 };
 
-                void setSmooth(E_NDF _ndf = ENDF_GGX)
+                void setSmooth() override
                 {
-                    ndf = _ndf;
-                    alpha_u = 0.f;
-                    alpha_v = alpha_u;
+                    ndf = ENDF_GGX;
                 }
 
-                INode::SParameter<float> alpha_u = 0.f;
-                INode::SParameter<float> alpha_v = 0.f;
                 INode::color_t eta, etaK;
                 E_NDF ndf = ENDF_GGX;
 
             protected:
-                CMicrofacetBSDFNode() : eta(1.33f), etaK(0.f) {}
+                ICookTorranceBSDFNode(const IBSDFNode::E_TYPE t)
+                    : IMicrofacetBSDFNode(t), eta(1.33f), etaK(0.f) {}
         };
-        struct CMicrofacetSpecularBSDFNode final : CBSDFNode, CMicrofacetBSDFNode
+        struct CMicrofacetSpecularBSDFNode final : ICookTorranceBSDFNode
         {
-            CMicrofacetSpecularBSDFNode() : CBSDFNode(ET_MICROFACET_SPECULAR) {}
+            CMicrofacetSpecularBSDFNode() : ICookTorranceBSDFNode(ET_MICROFACET_SPECULAR) {}
 
             inline size_t getSize() const override { return sizeof(*this); }
 
@@ -533,9 +557,9 @@ class IR : public core::IReferenceCounted
                 return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
             }
         };
-        struct CMicrofacetCoatingBSDFNode final : CBSDFNode, CMicrofacetBSDFNode
+        struct CMicrofacetCoatingBSDFNode final : ICookTorranceBSDFNode
         {
-            CMicrofacetCoatingBSDFNode(const node_handle_t coated) : CBSDFNode(ET_MICROFACET_COATING) {}
+            CMicrofacetCoatingBSDFNode(const node_handle_t coated) : ICookTorranceBSDFNode(ET_MICROFACET_COATING) {}
 
             inline size_t getSize() const override { return sizeof(*this); }
 
@@ -546,9 +570,9 @@ class IR : public core::IReferenceCounted
 
             SParameter<color_t> thicknessSigmaA;
         };
-        struct CMicrofacetDielectricBSDFNode final : CBSDFNode, CMicrofacetBSDFNode
+        struct CMicrofacetDielectricBSDFNode final : ICookTorranceBSDFNode
         {
-            CMicrofacetDielectricBSDFNode() : CBSDFNode(ET_MICROFACET_DIELECTRIC) {}
+            CMicrofacetDielectricBSDFNode() : ICookTorranceBSDFNode(ET_MICROFACET_DIELECTRIC) {}
 
             inline size_t getSize() const override { return sizeof(*this); }
 
@@ -602,10 +626,6 @@ class IR : public core::IReferenceCounted
                 }
         };
         SBackingMemManager memMgr;
-        inline INode* getNode(const node_handle_t handle)
-        {
-            return const_cast<INode*>(const_cast<const IR*>(this)->getNode(handle));
-        }
         // this stuff assumes the use of a linear allocator
         inline void deleteRange(const node_handle_t begin)
         {
