@@ -45,6 +45,7 @@ public:
 		int offsetX, int offsetY,
 		uint32_t glyphCount,
 		SGlyphData const* glyphs,
+		// Offset into allocated parts of m_stringDataPropertyPool & m_geomDataBuffer
 		uint32_t* outStringOffset,
 		uint32_t* outGeometryOffset
 	);
