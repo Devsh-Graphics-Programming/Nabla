@@ -922,7 +922,7 @@ public:
 			GetFloatv(GL_LINE_WIDTH_GRANULARITY, &m_properties.limits.lineWidthGranularity);
 			
 			m_properties.limits.strictLines = false;
-            m_properties.limits.standardSampleLocations = false; // TODO: Investigate
+			m_properties.limits.standardSampleLocations = false; // TODO: Investigate
 
 			m_properties.limits.optimalBufferCopyOffsetAlignment = 8ull;
 			m_properties.limits.optimalBufferCopyRowPitchAlignment = 8ull;
@@ -942,21 +942,63 @@ public:
 			/* Vulkan 1.2 Core  */
 
 			/*		VK_KHR_shader_float_controls */
-            m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = false;
-            m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = false;
-            m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = false;
-            m_properties.limits.shaderDenormPreserveFloat16             = false;
-            m_properties.limits.shaderDenormPreserveFloat32             = false;
-            m_properties.limits.shaderDenormPreserveFloat64             = false;
-            m_properties.limits.shaderDenormFlushToZeroFloat16          = false;
-            m_properties.limits.shaderDenormFlushToZeroFloat32          = false;
-            m_properties.limits.shaderDenormFlushToZeroFloat64          = false;
-            m_properties.limits.shaderRoundingModeRTEFloat16            = false;
-            m_properties.limits.shaderRoundingModeRTEFloat32            = false;
-            m_properties.limits.shaderRoundingModeRTEFloat64            = false;
-            m_properties.limits.shaderRoundingModeRTZFloat16            = false;
-            m_properties.limits.shaderRoundingModeRTZFloat32            = false;
-            m_properties.limits.shaderRoundingModeRTZFloat64            = false;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = false;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = false;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = false;
+			m_properties.limits.shaderDenormPreserveFloat16             = false;
+			m_properties.limits.shaderDenormPreserveFloat32             = false;
+			m_properties.limits.shaderDenormPreserveFloat64             = false;
+			m_properties.limits.shaderDenormFlushToZeroFloat16          = false;
+			m_properties.limits.shaderDenormFlushToZeroFloat32          = false;
+			m_properties.limits.shaderDenormFlushToZeroFloat64          = false;
+			m_properties.limits.shaderRoundingModeRTEFloat16            = false;
+			m_properties.limits.shaderRoundingModeRTEFloat32            = false;
+			m_properties.limits.shaderRoundingModeRTEFloat64            = false;
+			m_properties.limits.shaderRoundingModeRTZFloat16            = false;
+			m_properties.limits.shaderRoundingModeRTZFloat32            = false;
+			m_properties.limits.shaderRoundingModeRTZFloat64            = false;
+
+			/*		VK_EXT_descriptor_indexing */
+			m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools					= ~0u;
+			bool nonUniformIndexing = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_nonuniform_qualifier);
+			m_properties.limits.shaderUniformBufferArrayNonUniformIndexingNative		= nonUniformIndexing;
+			m_properties.limits.shaderSampledImageArrayNonUniformIndexingNative			= nonUniformIndexing;
+			m_properties.limits.shaderStorageBufferArrayNonUniformIndexingNative		= nonUniformIndexing;
+			m_properties.limits.shaderStorageImageArrayNonUniformIndexingNative			= nonUniformIndexing;
+			m_properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative		= false; //	No Input Attachments in	GL
+			m_properties.limits.robustBufferAccessUpdateAfterBind						= false; //	TODO
+			m_properties.limits.quadDivergentImplicitLod								= false;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers			= m_properties.limits.maxPerStageDescriptorSamplers;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs				= m_properties.limits.maxPerStageDescriptorUBOs;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs				= m_properties.limits.maxPerStageDescriptorSSBOs;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindImages				= m_properties.limits.maxPerStageDescriptorImages;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindStorageImages		= m_properties.limits.maxPerStageDescriptorStorageImages;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindInputAttachments	= 0u;  // No Input Attachments in GL
+			m_properties.limits.maxPerStageUpdateAfterBindResources						= m_properties.limits.maxPerStageResources;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindSamplers					= m_properties.limits.maxDescriptorSetSamplers;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindUBOs						= m_properties.limits.maxDescriptorSetUBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs		= m_properties.limits.maxDescriptorSetDynamicOffsetUBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindSSBOs					= m_properties.limits.maxDescriptorSetSSBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs		= m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindImages					= m_properties.limits.maxDescriptorSetImages;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindStorageImages			= m_properties.limits.maxDescriptorSetStorageImages;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments			= 0u; // No	Input Attachments in GL
+			
+	uint32_t maxPerStageDescriptorUpdateAfterBindSamplers;
+	uint32_t ;
+	uint32_t ;
+	uint32_t maxPerStageDescriptorUpdateAfterBindSampledImages;
+	uint32_t maxPerStageDescriptorUpdateAfterBindStorageImages;
+	uint32_t maxPerStageDescriptorUpdateAfterBindInputAttachments;
+	uint32_t maxPerStageUpdateAfterBindResources;
+	uint32_t maxDescriptorSetUpdateAfterBindSamplers;
+	uint32_t maxDescriptorSetUpdateAfterBindUBOs;
+	uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs;
+	uint32_t maxDescriptorSetUpdateAfterBindSSBOs;
+	uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs;
+	uint32_t maxDescriptorSetUpdateAfterBindImages;
+	uint32_t maxDescriptorSetUpdateAfterBindStorageImages;
+	uint32_t maxDescriptorSetUpdateAfterBindInputAttachments;
 
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;

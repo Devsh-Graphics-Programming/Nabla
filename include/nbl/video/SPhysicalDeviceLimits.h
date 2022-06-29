@@ -192,29 +192,29 @@ struct SPhysicalDeviceLimits
     bool shaderRoundingModeRTZFloat64;
  
     //      or VK_EXT_descriptor_indexing:
-    //uint32_t                             maxUpdateAfterBindDescriptorsInAllPools;
-    //VkBool32                             shaderUniformBufferArrayNonUniformIndexingNative;
-    //VkBool32                             shaderSampledImageArrayNonUniformIndexingNative;
-    //VkBool32                             shaderStorageBufferArrayNonUniformIndexingNative;
-    //VkBool32                             shaderStorageImageArrayNonUniformIndexingNative;
-    //VkBool32                             shaderInputAttachmentArrayNonUniformIndexingNative;
-    //VkBool32                             robustBufferAccessUpdateAfterBind;
-    //VkBool32                             quadDivergentImplicitLod;
-    //uint32_t                             maxPerStageDescriptorUpdateAfterBindSamplers;
-    //uint32_t                             maxPerStageDescriptorUpdateAfterBindUniformBuffers;
-    //uint32_t                             maxPerStageDescriptorUpdateAfterBindStorageBuffers;
-    //uint32_t                             maxPerStageDescriptorUpdateAfterBindSampledImages;
-    //uint32_t                             maxPerStageDescriptorUpdateAfterBindStorageImages;
-    //uint32_t                             maxPerStageDescriptorUpdateAfterBindInputAttachments;
-    //uint32_t                             maxPerStageUpdateAfterBindResources;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindSamplers;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindUniformBuffers;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindUniformBuffersDynamic;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindStorageBuffers;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindStorageBuffersDynamic;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindSampledImages;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindStorageImages;
-    //uint32_t                             maxDescriptorSetUpdateAfterBindInputAttachments;
+    uint32_t maxUpdateAfterBindDescriptorsInAllPools;
+    bool shaderUniformBufferArrayNonUniformIndexingNative;
+    bool shaderSampledImageArrayNonUniformIndexingNative;
+    bool shaderStorageBufferArrayNonUniformIndexingNative;
+    bool shaderStorageImageArrayNonUniformIndexingNative;
+    bool shaderInputAttachmentArrayNonUniformIndexingNative;
+    bool robustBufferAccessUpdateAfterBind;
+    bool quadDivergentImplicitLod;
+    uint32_t maxPerStageDescriptorUpdateAfterBindSamplers;
+    uint32_t maxPerStageDescriptorUpdateAfterBindUBOs;
+    uint32_t maxPerStageDescriptorUpdateAfterBindSSBOs;
+    uint32_t maxPerStageDescriptorUpdateAfterBindImages;
+    uint32_t maxPerStageDescriptorUpdateAfterBindStorageImages;
+    uint32_t maxPerStageDescriptorUpdateAfterBindInputAttachments;
+    uint32_t maxPerStageUpdateAfterBindResources;
+    uint32_t maxDescriptorSetUpdateAfterBindSamplers;
+    uint32_t maxDescriptorSetUpdateAfterBindUBOs;
+    uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs;
+    uint32_t maxDescriptorSetUpdateAfterBindSSBOs;
+    uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs;
+    uint32_t maxDescriptorSetUpdateAfterBindImages;
+    uint32_t maxDescriptorSetUpdateAfterBindStorageImages;
+    uint32_t maxDescriptorSetUpdateAfterBindInputAttachments;
     
     //      or VK_KHR_depth_stencil_resolve:
     //VkResolveModeFlags                   supportedDepthResolveModes;
