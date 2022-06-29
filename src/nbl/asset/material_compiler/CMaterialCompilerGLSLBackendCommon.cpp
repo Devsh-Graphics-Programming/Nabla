@@ -37,7 +37,7 @@ class CInterpreter
 				return found->second;
 
 			// the coating is a dielectric, but it cannot transmit so make it a conductor
-			auto* coat = ir->allocTmpNode<IR::CMicrofacetSpecularBSDFNode>();
+			auto coat = ir->allocTmpNode<IR::CMicrofacetSpecularBSDFNode>();
 			{
 				coat->alpha_u = coat_blend->alpha_u;
 				coat->alpha_v = coat_blend->alpha_v;
@@ -54,7 +54,7 @@ class CInterpreter
 			if (auto found = cache->find(coat_blend); found != cache->end())
 				return found->second;
 
-			auto* coat = ir->allocTmpNode<IR::CBSDFNode>(IR::CBSDFNode::ET_DELTA_TRANSMISSION);
+			auto coat = ir->allocTmpNode<IR::CBSDFNode>(IR::CBSDFNode::ET_DELTA_TRANSMISSION);
 			cache->insert({ coat_blend, coat });
 
 			return coat;
