@@ -113,8 +113,8 @@ struct SPhysicalDeviceLimits
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageStencilSampleCounts;
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> storageImageSampleCounts;
     uint32_t maxSampleMaskWords = 0u;
-    //VkBool32              timestampComputeAndGraphics;
-    float    timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
+    bool timestampComputeAndGraphics;
+    float timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
     uint32_t maxClipDistances;
     uint32_t maxCullDistances;
     uint32_t maxCombinedClipAndCullDistances;

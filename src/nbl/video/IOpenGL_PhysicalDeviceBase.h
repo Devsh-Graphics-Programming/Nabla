@@ -910,7 +910,8 @@ public:
 			m_properties.limits.storageImageSampleCounts = colorSampleCountFlags;
 			
 			GetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleMaskWords));
-
+			
+			m_properties.limits.timestampComputeAndGraphics = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_disjoint_timer_query) : true;
 			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
 
 			m_properties.limits.discreteQueuePriorities = 1u;

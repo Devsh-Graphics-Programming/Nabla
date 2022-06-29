@@ -156,6 +156,7 @@ public:
             m_properties.limits.sampledImageStencilSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageStencilSampleCounts);
             m_properties.limits.storageImageSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.storageImageSampleCounts);
             m_properties.limits.maxSampleMaskWords = deviceProperties.properties.limits.maxSampleMaskWords;
+            m_properties.limits.timestampComputeAndGraphics = deviceProperties.properties.limits.timestampComputeAndGraphics;
             m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
             m_properties.limits.maxClipDistances = deviceProperties.properties.limits.maxClipDistances;
             m_properties.limits.maxCullDistances = deviceProperties.properties.limits.maxCullDistances;
