@@ -50,6 +50,12 @@ public:
 		uint32_t* outGeometryOffset
 	);
 
+	void freeString(
+		uint32_t glyphCount,
+		uint32_t stringOffset,
+		uint32_t geometryOffset
+	);
+
 	// Creates the pipeline layout and the pipeline for rendering text
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
 		video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
