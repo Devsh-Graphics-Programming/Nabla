@@ -941,6 +941,23 @@ public:
 
 			/* Vulkan 1.2 Core  */
 
+			/*		VK_KHR_shader_float_controls */
+            m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = false;
+            m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = false;
+            m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = false;
+            m_properties.limits.shaderDenormPreserveFloat16             = false;
+            m_properties.limits.shaderDenormPreserveFloat32             = false;
+            m_properties.limits.shaderDenormPreserveFloat64             = false;
+            m_properties.limits.shaderDenormFlushToZeroFloat16          = false;
+            m_properties.limits.shaderDenormFlushToZeroFloat32          = false;
+            m_properties.limits.shaderDenormFlushToZeroFloat64          = false;
+            m_properties.limits.shaderRoundingModeRTEFloat16            = false;
+            m_properties.limits.shaderRoundingModeRTEFloat32            = false;
+            m_properties.limits.shaderRoundingModeRTEFloat64            = false;
+            m_properties.limits.shaderRoundingModeRTZFloat16            = false;
+            m_properties.limits.shaderRoundingModeRTZFloat32            = false;
+            m_properties.limits.shaderRoundingModeRTZFloat64            = false;
+
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;
 			

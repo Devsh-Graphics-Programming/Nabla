@@ -173,23 +173,23 @@ struct SPhysicalDeviceLimits
     /* Vulkan 1.2 Core  */
 
     //      or VK_KHR_shader_float_controls:
-    //VkShaderFloatControlsIndependence    denormBehaviorIndependence;
-    //VkShaderFloatControlsIndependence    roundingModeIndependence;
-    //VkBool32                             shaderSignedZeroInfNanPreserveFloat16;
-    //VkBool32                             shaderSignedZeroInfNanPreserveFloat32;
-    //VkBool32                             shaderSignedZeroInfNanPreserveFloat64;
-    //VkBool32                             shaderDenormPreserveFloat16;
-    //VkBool32                             shaderDenormPreserveFloat32;
-    //VkBool32                             shaderDenormPreserveFloat64;
-    //VkBool32                             shaderDenormFlushToZeroFloat16;
-    //VkBool32                             shaderDenormFlushToZeroFloat32;
-    //VkBool32                             shaderDenormFlushToZeroFloat64;
-    //VkBool32                             shaderRoundingModeRTEFloat16;
-    //VkBool32                             shaderRoundingModeRTEFloat32;
-    //VkBool32                             shaderRoundingModeRTEFloat64;
-    //VkBool32                             shaderRoundingModeRTZFloat16;
-    //VkBool32                             shaderRoundingModeRTZFloat32;
-    //VkBool32                             shaderRoundingModeRTZFloat64;
+    //VkShaderFloatControlsIndependence    denormBehaviorIndependence; // TODO: need to implement ways to set them
+    //VkShaderFloatControlsIndependence    roundingModeIndependence;   // TODO: need to implement ways to set them
+    bool shaderSignedZeroInfNanPreserveFloat16;
+    bool shaderSignedZeroInfNanPreserveFloat32;
+    bool shaderSignedZeroInfNanPreserveFloat64;
+    bool shaderDenormPreserveFloat16;
+    bool shaderDenormPreserveFloat32;
+    bool shaderDenormPreserveFloat64;
+    bool shaderDenormFlushToZeroFloat16;
+    bool shaderDenormFlushToZeroFloat32;
+    bool shaderDenormFlushToZeroFloat64;
+    bool shaderRoundingModeRTEFloat16;
+    bool shaderRoundingModeRTEFloat32;
+    bool shaderRoundingModeRTEFloat64;
+    bool shaderRoundingModeRTZFloat16;
+    bool shaderRoundingModeRTZFloat32;
+    bool shaderRoundingModeRTZFloat64;
  
     //      or VK_EXT_descriptor_indexing:
     //uint32_t                             maxUpdateAfterBindDescriptorsInAllPools;

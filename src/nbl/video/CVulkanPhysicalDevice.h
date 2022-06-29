@@ -201,6 +201,25 @@ public:
             memcpy(m_properties.driverName, driverProperties.driverName, VK_MAX_DRIVER_NAME_SIZE);
             memcpy(m_properties.driverInfo, driverProperties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
             m_properties.conformanceVersion = driverProperties.conformanceVersion;
+            
+            if(isExtensionSupported(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
+            {
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat32;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat64;
+                m_properties.limits.shaderDenormPreserveFloat16             = floatControlsProperties.shaderDenormPreserveFloat16;
+                m_properties.limits.shaderDenormPreserveFloat32             = floatControlsProperties.shaderDenormPreserveFloat32;
+                m_properties.limits.shaderDenormPreserveFloat64             = floatControlsProperties.shaderDenormPreserveFloat64;
+                m_properties.limits.shaderDenormFlushToZeroFloat16          = floatControlsProperties.shaderDenormFlushToZeroFloat16;
+                m_properties.limits.shaderDenormFlushToZeroFloat32          = floatControlsProperties.shaderDenormFlushToZeroFloat32;
+                m_properties.limits.shaderDenormFlushToZeroFloat64          = floatControlsProperties.shaderDenormFlushToZeroFloat64;
+                m_properties.limits.shaderRoundingModeRTEFloat16            = floatControlsProperties.shaderRoundingModeRTEFloat16;
+                m_properties.limits.shaderRoundingModeRTEFloat32            = floatControlsProperties.shaderRoundingModeRTEFloat32;
+                m_properties.limits.shaderRoundingModeRTEFloat64            = floatControlsProperties.shaderRoundingModeRTEFloat64;
+                m_properties.limits.shaderRoundingModeRTZFloat16            = floatControlsProperties.shaderRoundingModeRTZFloat16;
+                m_properties.limits.shaderRoundingModeRTZFloat32            = floatControlsProperties.shaderRoundingModeRTZFloat32;
+                m_properties.limits.shaderRoundingModeRTZFloat64            = floatControlsProperties.shaderRoundingModeRTZFloat64;
+            }
 
             /* Vulkan 1.3 Core  */
             if(isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
@@ -218,6 +237,32 @@ public:
             else
             {
                 getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, m_properties.limits.minSubgroupSize, m_properties.limits.maxSubgroupSize);
+            }
+            
+            /* AccelerationStructurePropertiesKHR */
+            if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+            {
+                m_properties.limits.maxGeometryCount = accelerationStructureProperties.maxGeometryCount;
+                m_properties.limits.maxInstanceCount = accelerationStructureProperties.maxInstanceCount;
+                m_properties.limits.maxPrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
+                m_properties.limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
+                m_properties.limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
+                m_properties.limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
+                m_properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
+                m_properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+            }
+            
+            /* RayTracingPipelinePropertiesKHR */
+            if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
+            {
+                m_properties.limits.shaderGroupHandleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
+                m_properties.limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
+                m_properties.limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
+                m_properties.limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;
+                m_properties.limits.shaderGroupHandleCaptureReplaySize = rayTracingPipelineProperties.shaderGroupHandleCaptureReplaySize;
+                m_properties.limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
+                m_properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
+                m_properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
             }
 
             /* Nabla */
@@ -260,32 +305,6 @@ public:
             m_properties.apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
             m_properties.apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
             m_properties.apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
-            
-            /* AccelerationStructurePropertiesKHR */
-            if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
-            {
-                m_properties.limits.maxGeometryCount = accelerationStructureProperties.maxGeometryCount;
-                m_properties.limits.maxInstanceCount = accelerationStructureProperties.maxInstanceCount;
-                m_properties.limits.maxPrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
-                m_properties.limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
-                m_properties.limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
-                m_properties.limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
-                m_properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-            }
-            
-            /* RayTracingPipelinePropertiesKHR */
-            if (m_availableFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_availableFeatureSet.end())
-            {
-                m_properties.limits.shaderGroupHandleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
-                m_properties.limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
-                m_properties.limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
-                m_properties.limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;
-                m_properties.limits.shaderGroupHandleCaptureReplaySize = rayTracingPipelineProperties.shaderGroupHandleCaptureReplaySize;
-                m_properties.limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
-                m_properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
-                m_properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
-            }
         }
         
         // Get physical device's features
