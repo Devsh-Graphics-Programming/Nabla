@@ -967,7 +967,7 @@ public:
 			m_properties.limits.shaderStorageImageArrayNonUniformIndexingNative			= nonUniformIndexing;
 			m_properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative		= false; //	No Input Attachments in	GL
 			m_properties.limits.robustBufferAccessUpdateAfterBind						= false; //	TODO
-			m_properties.limits.quadDivergentImplicitLod								= false;
+			m_properties.limits.quadDivergentImplicitLod								= nonUniformIndexing;
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers			= m_properties.limits.maxPerStageDescriptorSamplers;
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs				= m_properties.limits.maxPerStageDescriptorUBOs;
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs				= m_properties.limits.maxPerStageDescriptorSSBOs;
