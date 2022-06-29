@@ -124,7 +124,7 @@ struct SPhysicalDeviceLimits
     float pointSizeGranularity = 0.f;
     float lineWidthGranularity = 0.f;
     bool strictLines = false;
-    //VkBool32              standardSampleLocations;
+    bool standardSampleLocations = false;
     uint64_t optimalBufferCopyOffsetAlignment = 0ull;
     uint64_t optimalBufferCopyRowPitchAlignment = 0ull;
     uint64_t nonCoherentAtomSize = 0ull;

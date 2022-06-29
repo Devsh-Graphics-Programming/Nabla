@@ -922,6 +922,7 @@ public:
 			GetFloatv(GL_LINE_WIDTH_GRANULARITY, &m_properties.limits.lineWidthGranularity);
 			
 			m_properties.limits.strictLines = false;
+            m_properties.limits.standardSampleLocations = false; // TODO: Investigate
 
 			m_properties.limits.optimalBufferCopyOffsetAlignment = 8ull;
 			m_properties.limits.optimalBufferCopyRowPitchAlignment = 8ull;

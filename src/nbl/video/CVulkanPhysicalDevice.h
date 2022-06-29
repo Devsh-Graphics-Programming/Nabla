@@ -168,6 +168,7 @@ public:
             m_properties.limits.pointSizeGranularity = deviceProperties.properties.limits.pointSizeGranularity;
             m_properties.limits.lineWidthGranularity = deviceProperties.properties.limits.lineWidthGranularity;
             m_properties.limits.strictLines = deviceProperties.properties.limits.strictLines;
+            m_properties.limits.standardSampleLocations = deviceProperties.properties.limits.standardSampleLocations;
             m_properties.limits.optimalBufferCopyOffsetAlignment = deviceProperties.properties.limits.optimalBufferCopyOffsetAlignment;
             m_properties.limits.optimalBufferCopyRowPitchAlignment = deviceProperties.properties.limits.optimalBufferCopyRowPitchAlignment;
             m_properties.limits.nonCoherentAtomSize = deviceProperties.properties.limits.nonCoherentAtomSize;
