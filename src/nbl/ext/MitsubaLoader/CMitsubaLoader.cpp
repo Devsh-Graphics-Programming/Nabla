@@ -724,8 +724,16 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		auto loadParams = ctx.inner.params;
 		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
 		auto retval = interm_getAssetInHierarchy(m_assetMgr, filename.svalue, loadParams, hierarchyLevel/*+ICPUScene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override_);
-		if (retval.getAssetType()!=asset::IAsset::ET_MESH)
+		if (retval.getContents().empty())
+		{
+			os::Printer::log(std::string("[ERROR] Could Not Find Mesh: ") + filename.svalue, ELL_ERROR);
 			return nullptr;
+		}
+		if (retval.getAssetType()!=asset::IAsset::ET_MESH)
+		{
+			os::Printer::log("[ERROR] Loaded an Asset but it wasn't a mesh, was E_ASSET_TYPE " + std::to_string(retval.getAssetType()), ELL_ERROR);
+			return nullptr;
+		}
 		auto contentRange = retval.getContents();
 		auto serializedMeta = retval.getMetadata()->selfCast<CMitsubaSerializedMetadata>();
 		//

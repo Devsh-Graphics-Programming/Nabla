@@ -155,14 +155,14 @@ class ITraversalGenerator
 			case instr_stream::OP_DIFFUSE:
 			{
 				auto* node = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(_node);
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.diffuse.alpha.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
+				if (!node->alpha_u.isConstant())
+					_dst.diffuse.alpha.setTexture(packTexture(node->alpha_u.texture), node->alpha_u.texture.scale);
 				else
-					_dst.diffuse.alpha.setConst(node->alpha_u.value.constant);
-				if (node->reflectance.source == IR::INode::EPS_TEXTURE)
-					_dst.diffuse.reflectance.setTexture(packTexture(node->reflectance.value.texture), node->reflectance.value.texture.scale);
+					_dst.diffuse.alpha.setConst(node->alpha_u.constant);
+				if (!node->reflectance.isConstant())
+					_dst.diffuse.reflectance.setTexture(packTexture(node->reflectance.texture), node->reflectance.texture.scale);
 				else
-					_dst.diffuse.reflectance.setConst(node->reflectance.value.constant.pointer);
+					_dst.diffuse.reflectance.setConst(node->reflectance.constant.pointer);
 			}
 			break;
 			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
@@ -170,14 +170,14 @@ class ITraversalGenerator
 			{
 				auto* node = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(_node);
 
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.dielectric.alpha_u.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
+				if (!node->alpha_u.isConstant())
+					_dst.dielectric.alpha_u.setTexture(packTexture(node->alpha_u.texture), node->alpha_u.texture.scale);
 				else
-					_dst.dielectric.alpha_u.setConst(node->alpha_u.value.constant);
-				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.dielectric.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
+					_dst.dielectric.alpha_u.setConst(node->alpha_u.constant);
+				if (!node->alpha_v.isConstant())
+					_dst.dielectric.alpha_v.setTexture(packTexture(node->alpha_v.texture), node->alpha_v.texture.scale);
 				else
-					_dst.dielectric.alpha_v.setConst(node->alpha_v.value.constant);
+					_dst.dielectric.alpha_v.setConst(node->alpha_v.constant);
 				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(node->eta.pointer);
 			}
 			break;
@@ -185,14 +185,14 @@ class ITraversalGenerator
 			{
 				auto* node = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(_node);
 				
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.conductor.alpha_u.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
+				if (!node->alpha_u.isConstant())
+					_dst.conductor.alpha_u.setTexture(packTexture(node->alpha_u.texture), node->alpha_u.texture.scale);
 				else
-					_dst.conductor.alpha_u.setConst(node->alpha_u.value.constant);
-				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.conductor.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
+					_dst.conductor.alpha_u.setConst(node->alpha_u.constant);
+				if (!node->alpha_v.isConstant())
+					_dst.conductor.alpha_v.setTexture(packTexture(node->alpha_v.texture), node->alpha_v.texture.scale);
 				else
-					_dst.conductor.alpha_v.setConst(node->alpha_v.value.constant);
+					_dst.conductor.alpha_v.setConst(node->alpha_v.constant);
 				_dst.conductor.eta[0] = core::rgb32f_to_rgb19e7(node->eta.pointer);
 				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
 			}
@@ -202,19 +202,19 @@ class ITraversalGenerator
 				auto* coat = static_cast<const IR::CMicrofacetCoatingBSDFNode*>(_node);
 
 				/*
-				if (coat->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.coating.alpha_u.setTexture(packTexture(coat->alpha_u.value.texture), coat->alpha_u.value.texture.scale);
+				if (!coat->alpha_u.isConstant())
+					_dst.coating.alpha_u.setTexture(packTexture(coat->alpha_u.texture), coat->alpha_u.texture.scale);
 				else
-					_dst.coating.alpha_u.setConst(coat->alpha_u.value.constant);
-				if (coat->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.coating.alpha_v.setTexture(packTexture(coat->alpha_v.value.texture), coat->alpha_v.value.texture.scale);
+					_dst.coating.alpha_u.setConst(coat->alpha_u.constant);
+				if (!coat->alpha_v.isConstant())
+					_dst.coating.alpha_v.setTexture(packTexture(coat->alpha_v.texture), coat->alpha_v.texture.scale);
 				else
-					_dst.coating.alpha_v.setConst(coat->alpha_v.value.constant);
+					_dst.coating.alpha_v.setConst(coat->alpha_v.constant);
 				*/
-				if (coat->thicknessSigmaA.source == IR::INode::EPS_TEXTURE)
-					_dst.coating.sigmaA.setTexture(packTexture(coat->thicknessSigmaA.value.texture), coat->thicknessSigmaA.value.texture.scale);
+				if (!coat->thicknessSigmaA.isConstant())
+					_dst.coating.sigmaA.setTexture(packTexture(coat->thicknessSigmaA.texture), coat->thicknessSigmaA.texture.scale);
 				else
-					_dst.coating.sigmaA.setConst(coat->thicknessSigmaA.value.constant.pointer);
+					_dst.coating.sigmaA.setConst(coat->thicknessSigmaA.constant.pointer);
 
 				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
 				//_dst.coating.thickness = coat->thickness;
@@ -226,24 +226,24 @@ class ITraversalGenerator
 				assert(b->type == IR::CBSDFCombinerNode::ET_WEIGHT_BLEND);
 				auto* blend = static_cast<const IR::CBSDFBlendNode*>(b);
 
-				if (blend->weight.source == IR::INode::EPS_TEXTURE)
-					_dst.blend.weight.setTexture(packTexture(blend->weight.value.texture), blend->weight.value.texture.scale);
+				if (!blend->weight.isConstant())
+					_dst.blend.weight.setTexture(packTexture(blend->weight.texture), blend->weight.texture.scale);
 				else
-					_dst.blend.weight.setConst(blend->weight.value.constant.pointer);
+					_dst.blend.weight.setConst(blend->weight.constant.pointer);
 			}
 			break;
 			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
 
-				if (difftrans->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.difftrans.alpha.setTexture(packTexture(difftrans->alpha_u.value.texture), difftrans->alpha_u.value.texture.scale);
+				if (!difftrans->alpha_u.isConstant())
+					_dst.difftrans.alpha.setTexture(packTexture(difftrans->alpha_u.texture), difftrans->alpha_u.texture.scale);
 				else
-					_dst.difftrans.alpha.setConst(difftrans->alpha_u.value.constant);
-				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
-					_dst.difftrans.transmittance.setTexture(packTexture(difftrans->transmittance.value.texture), difftrans->transmittance.value.texture.scale);
+					_dst.difftrans.alpha.setConst(difftrans->alpha_u.constant);
+				if (!difftrans->transmittance.isConstant())
+					_dst.difftrans.transmittance.setTexture(packTexture(difftrans->transmittance.texture), difftrans->transmittance.texture.scale);
 				else
-					_dst.difftrans.transmittance.setConst(difftrans->transmittance.value.constant.pointer);
+					_dst.difftrans.transmittance.setConst(difftrans->transmittance.constant.pointer);
 			}
 			break;
 			case instr_stream::OP_BUMPMAP:
@@ -365,9 +365,9 @@ class ITraversalGenerator
 			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node) -> instr_t
 			{
 				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF);
-				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
+				if (!node->alpha_v.isConstant())
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
+				if (!node->alpha_u.isConstant())
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 
 				return dst;
@@ -379,9 +379,9 @@ class ITraversalGenerator
 			case instr_stream::OP_DIFFUSE:
 			{
 				auto* node = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(_node);
-				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
+				if (!node->alpha_u.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
-				if (node->reflectance.source == IR::INode::EPS_TEXTURE)
+				if (!node->reflectance.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
 			break;
@@ -398,7 +398,7 @@ class ITraversalGenerator
 				auto* coat = static_cast<const IR::CMicrofacetCoatingBSDFNode*>(_node);
 
 				//_instr = handleSpecularBitfields(_instr, coat);
-				if (coat->thicknessSigmaA.source == IR::INode::EPS_TEXTURE)
+				if (!coat->thicknessSigmaA.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 			}
 			break;
@@ -407,16 +407,16 @@ class ITraversalGenerator
 				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
 				assert(blend->type == IR::CBSDFCombinerNode::ET_WEIGHT_BLEND);
 
-				if (static_cast<const IR::CBSDFBlendNode*>(_node)->weight.source == IR::INode::EPS_TEXTURE)
+				if (!static_cast<const IR::CBSDFBlendNode*>(_node)->weight.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 			}
 			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
 
-				if (difftrans->alpha_u.source == IR::INode::EPS_TEXTURE)
+				if (!difftrans->alpha_u.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
-				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
+				if (!difftrans->transmittance.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
 			}
 			break;
@@ -618,7 +618,6 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 	while (q.size()>1ull)
 	{
 		auto* blend = ir->allocTmpNode<IR::CBSDFBlendNode>();
-		blend->weight.source = IR::INode::EPS_CONSTANT;
 
 		auto left = q.front();
 		q.pop();
@@ -626,7 +625,7 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 		q.pop();
 
 		q_el el{blend, left.weightsSum+right.weightsSum};
-		blend->weight.value.constant = right.weightsSum/el.weightsSum;
+		blend->weight = right.weightsSum/el.weightsSum;
 		blend->children = IR::INode::createChildrenArray(left.node,right.node);
 
 		q.push(el);

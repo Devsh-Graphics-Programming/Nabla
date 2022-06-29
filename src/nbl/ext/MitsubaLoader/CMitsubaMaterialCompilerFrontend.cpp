@@ -257,10 +257,10 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
 
             const float thickness = _bsdf->coating.thickness;
             getSpectrumOrTexture(_bsdf->coating.sigmaA, node->thicknessSigmaA);
-            if (node->thicknessSigmaA.source == IR::INode::EPS_CONSTANT)
-                node->thicknessSigmaA.value.constant *= thickness;
+            if (node->thicknessSigmaA.isConstant())
+                node->thicknessSigmaA.constant *= thickness;
             else
-                node->thicknessSigmaA.value.texture.scale *= thickness;
+                node->thicknessSigmaA.texture.scale *= thickness;
 
             node->eta = IR::INode::color_t(eta);
             node->shadowing = IR::CMicrofacetCoatingBSDFNode::EST_SMITH;
@@ -287,15 +287,12 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             auto* node = static_cast<IR::CBSDFBlendNode*>(ir_node);
             if (_bsdf->blendbsdf.weight.value.type == SPropertyElementData::INVALID)
             {
-                std::tie(node->weight.value.texture.image, node->weight.value.texture.sampler, node->weight.value.texture.scale) =
+                std::tie(node->weight.texture.image, node->weight.texture.sampler, node->weight.texture.scale) =
                     getTexture(_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
-                node->weight.source = IR::INode::EPS_TEXTURE;
+                assert(!core::isnan(node->weight.texture.scale));
             }
             else
-            {
-                node->weight.value.constant = IR::INode::color_t(_bsdf->blendbsdf.weight.value.fvalue);
-                node->weight.source = IR::INode::EPS_CONSTANT;
-            }
+                node->weight = IR::INode::color_t(_bsdf->blendbsdf.weight.value.fvalue);
         }
         break;
         case CElementBSDF::MIXTURE_BSDF:
