@@ -448,15 +448,16 @@ To account for this inconsistency, we expect the user to apply swapchain transfo
     - [`float surfaceTransformAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/video/surface/ISurface.h#L159)
     - [`nbl_glsl_swapchain_transform_preTransformExtents`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L64)
 
-- When rendering **directly to the swapchain**, apply the (post) transform matrix to your projection or combined view-projection matrix **for rendering** (don't pre-multiply with projection matrix for use outside rendering):
-    - [`matrix4SIMD ISurface::surfaceTransformForward(const E_SURFACE_TRANSFORM_FLAGS transform)`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/video/surface/ISurface.h#L95)
-    - [`nbl_glsl_swapchain_transform_postTransformNdc`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L82) (This takes in an NDC coordinate and multiplies it with the transform matrix in one function)
+- On the swapchain rendering pass, perform **one** of the following transforms:
+    - If rendering **directly to the swapchain**, you can apply the (post) transform matrix to your projection or combined view-projection matrix **for rendering** (don't pre-multiply with projection matrix for use outside rendering):
+        - [`matrix4SIMD ISurface::surfaceTransformForward(const E_SURFACE_TRANSFORM_FLAGS transform)`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/video/surface/ISurface.h#L95)
+        - [`nbl_glsl_swapchain_transform_postTransformNdc`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L82) (This takes in an NDC coordinate and multiplies it with the transform matrix in one function)
 
-- When using a `imageStore` to write **directly to the swapchain**, you can either:
-    - Apply a **post** transform to the coordinates being written to the swapchain:
-        - [`nbl_glsl_swapchain_transform_postTransform`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L60)
-    - Apply a **pre** transform to the UVs (taken from `gl_GlobalInvocationID.xy`) before using them for rendering:
-        - [`nbl_glsl_swapchain_transform_preTransform`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L56)
+    - If using `imageStore` to write **directly to the swapchain**, you can either:
+        - Apply a **post** transform to the coordinates being written to the swapchain:
+            - [`nbl_glsl_swapchain_transform_postTransform`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L60)
+        - Apply a **pre** transform to the UVs (taken from `gl_GlobalInvocationID.xy`) before using them for rendering:
+            - [`nbl_glsl_swapchain_transform_preTransform`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L56)
 
 ## Automated Builds (TODO)
 
