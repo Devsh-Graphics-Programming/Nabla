@@ -22,25 +22,28 @@ namespace ext
 namespace TextRendering
 {
 
+struct SPixelCoord
+{
+	uint16_t x, y;
+};
+
 struct SGlyphData 
 {
-	// Offset in pixels from the start of the string
-	int offsetX, offsetY;
+	SPixelCoord offsetFromStringMin;
 	uint32_t textureAtlasGlyphIndex;
 };
 
 struct StringBoundingBox
 {
-	int minX, minY, 
-		maxX, maxY;
+	SPixelCoord min, max;
 };
 
 class NBL_API TextRenderer
 {
 public:
-	TextRenderer(ILogicalDevice* device, uint32_t maxGlyphCount, uint32_t maxStringCount);
+	TextRenderer(core::smart_refctd_ptr<ILogicalDevice> device, uint32_t maxGlyphCount, uint32_t maxStringCount);
 
-	bool poolString(
+	bool allocateString(
 		// Offset in pixels from top left in the screen
 		int offsetX, int offsetY,
 		uint32_t glyphCount,
@@ -73,7 +76,7 @@ public:
 private:
 
 private:
-	ILogicalDevice* m_device;
+	core::smart_refctd_ptr<ILogicalDevice> m_device;
 	
 	core::smart_refctd_ptr<video::CPropertyPool<core::allocator, uint32_t, StringBoundingBox>> m_stringDataPropertyPool;
 	core::smart_refctd_ptr<video::SubAllocatedDataBufferST<>> m_geomDataBuffer;
