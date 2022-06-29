@@ -38,25 +38,31 @@ struct StringBoundingBox
 	SPixelCoord min, max;
 };
 
+struct SStringCreationParams
+{
+	SPixelCoord offset;
+	uint32_t glyphCount;
+	SGlyphData const* glyphs;
+};
+
 class NBL_API TextRenderer
 {
 public:
+	typedef typename uint32_t size_type;
+
 	TextRenderer(core::smart_refctd_ptr<ILogicalDevice> device, uint32_t maxGlyphCount, uint32_t maxStringCount);
 
-	bool allocateString(
-		// Offset in pixels from top left in the screen
-		int offsetX, int offsetY,
-		uint32_t glyphCount,
-		SGlyphData const* glyphs,
-		// Offset into allocated parts of m_stringDataPropertyPool & m_geomDataBuffer
-		uint32_t* outStringOffset,
-		uint32_t* outGeometryOffset
+	template<typename... Args>
+	size_type allocateStrings(
+		uint32_t count,
+		size_type* outStrings,
+		const Args&&... args
 	);
 
-	void freeString(
-		uint32_t glyphCount,
-		uint32_t stringOffset,
-		uint32_t geometryOffset
+	void freeStrings(
+		uint32_t count,
+		const size_type* strings,
+		const size_type* stringGlyphCounts
 	);
 
 	// Creates the pipeline layout and the pipeline for rendering text
