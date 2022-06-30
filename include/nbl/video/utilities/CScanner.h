@@ -17,16 +17,59 @@ namespace nbl::video
 #include "nbl/builtin/glsl/scan/default_scheduler.glsl"
 static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
 
-//
+/**
+Utility class to help you perform the equivalent of `std::inclusive_scan` and `std::exclusive_scan` with data on the GPU.
+
+The basic building block is a Blelloch-Scan, the `nbl_glsl_workgroup{Add/Mul/And/Xor/Or/Min/Max}{Exclusive/Inclusive}`:
+https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+https://classes.engineering.wustl.edu/cse231/core/index.php/Scan
+
+The workgroup scan is itself probably built out of Hillis-Steele subgroup scans, we use `KHR_shader_subgroup_arithmetic` whenever available,
+but fall back to our own "software" emulation of subgroup arithmetic using Hillis-Steele and some scratch shared memory.
+
+The way the workgroup scans are combined is amongst the most advanced in its class, because it performs the scan as a single dispatch
+via some clever scheduling which allows it to also be used in "indirect mode", which is when you don't know the number of elements
+that you'll be scanning on the CPU side. This is why it provides two flavours of the compute shader.
+
+The scheduling relies on two principles:
+- Virtual and Persistent Workgroups
+- Atomic Counters as Sempahores
+
+# Virtual Workgroups
+TODO: Move this Paragraph somewhere else.
+Generally speaking, launching a new workgroup has non-trivial overhead.
+
+Also most IHVs, especially AMD have silly limits on the ranges of dispatches (like 64k workgroups), which also apply to 1D dispatches.
+
+It becomes impossible to keep a simple 1 invocation to 1 data element relationship when processing a large buffer without reusing workgroups.
+
+Virtual Persistent Workgroups is a $20 term for a $0.25 idea, its simply to do the following:
+1. Launch a 1D dispatch "just big enough" to saturate your GPU, `SPhysicalDeviceLimits::maxResidentInvocations` helps you figure out this number
+2. Make a single workgroup perform the task of multiple workgroups by repeating itself
+3. Instead of relying on `gl_WorkGroupID` or `gl_GlobalInvocationID` to find your work items, use your own ID unique for the virtual workgroup
+
+This usually has the form of
+```glsl
+for (uint virtualWorkgroupIndex=gl_GlobalInvocationID.x; virtualWorkgroupIndex<virtualWorkgroupCount; virtualWorkgroupIndex++)
+{
+   // do actual work for a single workgroup
+}
+```
+**/
 class NBL_API CScanner final : public core::IReferenceCounted
 {
 	public:		
 		enum E_SCAN_TYPE : uint8_t
 		{
+			 // computes output[n] = Sum_{i<=n}(input[i])
 			 EST_INCLUSIVE = _NBL_GLSL_SCAN_TYPE_INCLUSIVE_,
+			 // computes output[n] = Sum_{i<n}(input[i]), meaning first element is identity
 			 EST_EXCLUSIVE = _NBL_GLSL_SCAN_TYPE_EXCLUSIVE_,
 			 EST_COUNT
 		};
+		// Only 4 byte wide data types supported due to need to trade the via shared memory,
+		// different combinations of data type and operator have different identity elements.
+		// `EDT_INT` and `EO_MIN` will have `INT_MAX` as identity, while `EDT_UINT` would have `UINT_MAX`  
 		enum E_DATA_TYPE : uint8_t
 		{
 			EDT_UINT=0u,
