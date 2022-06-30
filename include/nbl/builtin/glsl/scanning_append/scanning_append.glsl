@@ -19,7 +19,7 @@ struct nbl_glsl_scanning_append_result_t
 
 // Elements with value 0 do not get appended
 // Note: If NBL_GLSL_EXT_shader_atomic_int64 is not present, then the call to this function needs to be subgroup uniform
-nbl_glsl_scanning_append_result_t NBL_GLSL_CONCATENATE(nbl_glsl_scanning_append,NBL_GLSL_SCANNING_APPEND_FUNCNAME_SUFFFIX)(in uint value)
+nbl_glsl_scanning_append_result_t NBL_GLSL_CONCATENATE2(nbl_glsl_scanning_append,NBL_GLSL_SCANNING_APPEND_FUNCNAME_SUFFFIX)(in uint value)
 {
 #ifndef NBL_GLSL_SCANNING_APPEND_COUNTER_NAME
 #error "Need to define NBL_GLSL_SCANNING_APPEND_COUNTER_NAME for the `nbl_glsl_scanning_append` function, cause GLSL is dumb and `buffer` cannot be passed around."
@@ -58,7 +58,7 @@ nbl_glsl_scanning_append_result_t NBL_GLSL_CONCATENATE(nbl_glsl_scanning_append,
 }
 
 // optimized version which tries to omit the atomicAdd and locks if it can, in return it may return garbage/invalid value when invocation's `value==0`
-nbl_glsl_scanning_append_result_t NBL_GLSL_CONCATENATE(nbl_glsl_scanning_append,NBL_GLSL_SCANNING_APPEND_FUNCNAME_SUFFFIX)(in uint value)
+nbl_glsl_scanning_append_result_t NBL_GLSL_CONCATENATE2(nbl_glsl_scanning_append,NBL_GLSL_SCANNING_APPEND_FUNCNAME_SUFFFIX)(in uint value)
 {
   const bool willAppend = bool(value);
 #ifdef NBL_GLSL_EXT_shader_atomic_int64
@@ -66,7 +66,7 @@ nbl_glsl_scanning_append_result_t NBL_GLSL_CONCATENATE(nbl_glsl_scanning_append,
 #else
   if (subgroupAny(willAppend))
 #endif
-    return NBL_GLSL_CONCATENATE(nbl_glsl_scanning_append,NBL_GLSL_SCANNING_APPEND_FUNCNAME_SUFFFIX)(value);
+    return NBL_GLSL_CONCATENATE2(nbl_glsl_scanning_append,NBL_GLSL_SCANNING_APPEND_FUNCNAME_SUFFFIX)(value);
 
   return nbl_glsl_scanning_append_result_t{~0u,~0u};
 }
