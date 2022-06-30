@@ -23,6 +23,8 @@ Utility class to help you perform the equivalent of `std::inclusive_scan` and `s
 The basic building block is a Blelloch-Scan, the `nbl_glsl_workgroup{Add/Mul/And/Xor/Or/Min/Max}{Exclusive/Inclusive}`:
 https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
 https://classes.engineering.wustl.edu/cse231/core/index.php/Scan
+Also referred to as an "Upsweep-Downsweep Scan" due to the fact it computes Reductions hierarchically until there's only one block left,
+then does Prefix Sums and propagates the results into more blocks until we're back at 1 element of a block for 1 element of the input.
 
 The workgroup scan is itself probably built out of Hillis-Steele subgroup scans, we use `KHR_shader_subgroup_arithmetic` whenever available,
 but fall back to our own "software" emulation of subgroup arithmetic using Hillis-Steele and some scratch shared memory.
@@ -35,7 +37,7 @@ The scheduling relies on two principles:
 - Virtual and Persistent Workgroups
 - Atomic Counters as Sempahores
 
-# Virtual Workgroups TODO: Move this Paragraph somewhere else.
+## Virtual Workgroups TODO: Move this Paragraph somewhere else.
 Generally speaking, launching a new workgroup has non-trivial overhead.
 
 Also most IHVs, especially AMD have silly limits on the ranges of dispatches (like 64k workgroups), which also apply to 1D dispatches.
@@ -70,7 +72,7 @@ atomicMax(nextWorkgroup,gl_GlobalInvocationID.x+1);
 ```
 has the potential to deadlock and TDR your GPU.
 
-However if you use a global counter of dispatched workgroups in an SSBO and `atomicAdd` to assign the `virtualWorkgroupIndex`
+However if you use such an atomic to assign the `virtualWorkgroupIndex` in lieu of spinning
 ```glsl
 uint virtualWorkgroupIndex;
 for ((virtualWorkgroupIndex=atomicAdd(nextWorkgroup,1u))<virtualWorkgroupCount)
@@ -80,7 +82,66 @@ for ((virtualWorkgroupIndex=atomicAdd(nextWorkgroup,1u))<virtualWorkgroupCount)
 ```
 the ordering of starting work is now enforced (still wont guarantee the order of completion).
 
-# Atomic Counters as Semaphores
+## Atomic Counters as Semaphores
+To scan arbitrarily large arrays, we already use Virtual Workgroups.
+
+For improved cache coherence and more bandwidth on the higher level reduction and scan blocks,
+its best to use a temporary scratch buffer roughly of size `O(2 log_{WorkgroupSize}(n))`.
+
+We can however turn the BrainWorm(TM) up to 11, and do the whole scan in a single dispatch.
+
+First, we assign a Linear Index using the trick outlined in Virtual Workgroups section, to every scan block (workgroup)
+such that if executed serially, **the lower index block would have finished before any higher index block.**
+https://developer.nvidia.com/sites/all/modules/custom/gpugems/books/GPUGems3/elementLinks/39fig06.jpg
+It would be also useful to keep some table that would let us map the Linear Index to the scan level.
+
+Then we use a little bit more scratch for some atomic counters.
+
+A naive scheduler would have one atomic counter per upsweep-downsweep level, which would be incremented AFTER the workgroup
+is finished with the scan and writes its outputs, this would tell us how many workgroups have completed at the level so far.
+
+Then we could figure out the scan level given workgroup Linear Index, then spinwait until the atomic counter mapped to the
+previous scan level tells us all workgroups have completed.
+
+HOWEVER, this naive approach is really no better than separate dispatches with pipeline barriers in the middle.
+
+Subsequently we turn up the BrainWorm(TM) to 12, and notice that we don't really need to wait on an entire previous level,
+just the workgroups that will produce the data that the current one will process.
+
+So there's one atomic per workgroup above the second level while sweeping up (top block included as it waits for reduction results),
+this atomic is incremented by immediately lower level workgroups which provide the inputs to the current workgroup. The current
+workgroup will have to spinwait on its atomic until it reaches WORKGROUP_SIZE (with the exception of the last workgroup in the level,
+where the value might be different when the number of workgroups in previous level is not divisible by WORKGROUP_SIZE).
+
+In the downsweep phase (waiting for scan results), multiple lower level workgroups spin on the same atomic until it reaches 1, since
+a single input is needed by multiple outputs.
+
+## So what's an Indirect Scan?
+
+It is when you don't know the count of the elements to scan, because lets say another GPU dispatch produces the list to scan and its
+variable length, for example culling systems.
+
+Naturally because of this, you won't know:
+- the number of workgroups to dispatch, so DispatchIndirect is needed
+- the number of upsweep/downsweep levels
+- the number of workgroups in each level
+- the size and offsets of the auxillary output data array for each level
+- the size and offsets of the atomics for each level
+
+## Further Work
+
+We could reduce auxillary memory size some more, by noting that only two levels need to access the same intermediate result and
+only workgroups from 3 immediately consecutive levels can ever work simultaneously due to our scheduler.
+
+Right now we allocate and don't alias the auxillary memory used for storage of the intermediate workgroup results.
+
+# I hear you say Nabla is too complex...
+
+If you think that AAA Engines have similar and less complicated utilities, you're gravely mistaken, the AMD GPUs in the
+Playstation and Xbox have hardware workgroup ordered dispatch and a `mbcnt` instruction which allows you do to single dispatch
+prefix sum with subgroup sized workgroups at peak Bandwidth efficiency in about 6 lines of HLSL.
+
+Console devs get to bring a gun to a knife fight...
 **/
 class NBL_API CScanner final : public core::IReferenceCounted
 {
@@ -115,8 +176,8 @@ class NBL_API CScanner final : public core::IReferenceCounted
 			EO_COUNT = _NBL_GLSL_SCAN_OP_COUNT_
 		};
 
-		//
-		struct Parameters : nbl_glsl_scan_Parameters_t
+		// This struct is only for managing where to store intermediate results of the scans
+		struct Parameters : nbl_glsl_scan_Parameters_t // this struct and its methods are also available in GLSL so you can launch indirect dispatches
 		{
 			static inline constexpr uint32_t MaxScanLevels = NBL_BUILTIN_MAX_SCAN_LEVELS;
 
@@ -125,6 +186,7 @@ class NBL_API CScanner final : public core::IReferenceCounted
 				std::fill_n(lastElement,MaxScanLevels/2+1,0u);
 				std::fill_n(temporaryStorageOffset,MaxScanLevels/2,0u);
 			}
+			// build the constant tables for each level given the number of elements to scan and workgroupSize
 			Parameters(const uint32_t _elementCount, const uint32_t workgroupSize) : Parameters()
 			{
 				assert(_elementCount!=0u && "Input element count can't be 0!");
@@ -137,7 +199,7 @@ class NBL_API CScanner final : public core::IReferenceCounted
 				
 				std::exclusive_scan(temporaryStorageOffset,temporaryStorageOffset+sizeof(temporaryStorageOffset)/sizeof(uint32_t),temporaryStorageOffset,0u);
 			}
-
+                        // given already computed tables of lastElement indices per level, number of levels, and storage offsets, tell us total auxillary buffer size needed
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
 				uint32_t uint_count = 1u; // workgroup enumerator
@@ -146,13 +208,17 @@ class NBL_API CScanner final : public core::IReferenceCounted
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
-		struct SchedulerParameters : nbl_glsl_scan_DefaultSchedulerParameters_t
+                // the default scheduler we provide works as described above in the big documentation block
+		struct SchedulerParameters : nbl_glsl_scan_DefaultSchedulerParameters_t  // this struct and its methods are also available in GLSL so you can launch indirect dispatches
 		{
 			SchedulerParameters()
 			{
 				std::fill_n(finishedFlagOffset,Parameters::MaxScanLevels-1,0u);
 				std::fill_n(cumulativeWorkgroupCount,Parameters::MaxScanLevels,0u);
 			}
+                        // given the number of elements and workgroup size, figure out how many atomics we need
+                        // also account for the fact that we will want to use the same scratch buffer both for the
+                        // scheduler's atomics and the aux data storage
 			SchedulerParameters(Parameters& outScanParams, const uint32_t _elementCount, const uint32_t workgroupSize) : SchedulerParameters()
 			{
 				outScanParams = Parameters(_elementCount,workgroupSize);
@@ -175,6 +241,7 @@ class NBL_API CScanner final : public core::IReferenceCounted
 				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+Parameters::MaxScanLevels,cumulativeWorkgroupCount);
 			}
 		};
+                // push constants of the default direct scan pipeline provide both aux memory offset params and scheduling params
 		struct DefaultPushConstants
 		{
 			Parameters scanParams;
@@ -185,9 +252,10 @@ class NBL_API CScanner final : public core::IReferenceCounted
 			DispatchInfo() : wg_count(0u)
 			{
 			}
+                        // in case we scan very few elements, you don't want to launch workgroups that wont do anything
 			DispatchInfo(const IPhysicalDevice::SLimits& limits, const uint32_t elementCount, const uint32_t workgroupSize)
 			{
-				constexpr auto workgroupSpinningProtection = 4u;
+				constexpr auto workgroupSpinningProtection = 4u; // to prevent first workgroup starving/idling on level 1 after finishing level 0 early
 				wg_count = limits.computeOptimalPersistentWorkgroupDispatchSize(elementCount,workgroupSize,workgroupSpinningProtection);
 			}
 
