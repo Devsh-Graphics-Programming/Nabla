@@ -86,18 +86,33 @@ public:
 	// Creates the pipeline using the cached pipeline layout
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams);
 
-	// The data in these buffers is provided by the frustum culling system before calling drawText
-	void updateDescriptorSet(
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipelineIndexed(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams);
+
+	// Visible strings are provided by the user's culling system
+	void updateVisibleStringDS(
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
 		core::smart_refctd_ptr<video::IGPUBuffer> visibleStrings,
-		core::smart_refctd_ptr<video::IGPUBuffer> visibleStringMvps,
-		core::smart_refctd_ptr<video::IGPUBuffer> visibleStringGlyphCount,
-		core::smart_refctd_ptr<video::IGPUBuffer> prefixSumOutput,
+		core::smart_refctd_ptr<video::IGPUBuffer> visibleStringGlyphCounts,
+		core::smart_refctd_ptr<video::IGPUBuffer> cumulativeGlyphCount
+	);
+
+	void prefixSumHelper(
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf, 
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS, 
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> indirectDrawDS
+	);
+	
+	void drawText(
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf,
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
 		core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawArgs
 	);
 
-	void drawText(core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf, core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawArgs);
-
-	void drawTextIndexed(core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf, core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawArgs);
+	void drawTextIndexed(
+		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf,
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
+		core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawArgs
+	);
 
 private:
 
@@ -105,7 +120,7 @@ private:
 	core::smart_refctd_ptr<ILogicalDevice> m_device;
 
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_pipelineLayout;
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_globalStringDS;
 
 	core::smart_refctd_ptr<glyph_geometry_pool_t> m_geomDataBuffer;
 	core::smart_refctd_ptr<string_pool_t> m_stringDataPropertyPool;
@@ -115,8 +130,6 @@ private:
 	core::smart_refctd_ptr<video::IGPUBuffer> m_glyphIndexBuffer;
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_expansionPipeline;
-
-	void prefixSumHelper(core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf);
 };
 
 }
