@@ -143,6 +143,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/scan/indirect.comp"
   "nbl/builtin/glsl/scan/parameters_struct.glsl"
   "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
+  # faster and easier scan
+  "nbl/builtin/glsl/scanning_append/scanning_append.glsl"
   # scene
   "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
