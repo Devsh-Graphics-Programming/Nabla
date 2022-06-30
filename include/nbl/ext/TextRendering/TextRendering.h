@@ -83,10 +83,16 @@ public:
 		core::smart_refctd_ptr<IGPUFence>&& fence // for a deferred free
 	);
 
-	// Creates the pipeline using the cached pipeline layout
-	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams);
+	// One of the sets would be our global DS, and the other would be the user provided visible strings DS
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
+		video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, 
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> visibleStringLayout
+	);
 
-	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipelineIndexed(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams);
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipelineIndexed(
+		video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, 
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> visibleStringLayout
+	);
 
 	// Visible strings are provided by the user's culling system
 	void updateVisibleStringDS(
