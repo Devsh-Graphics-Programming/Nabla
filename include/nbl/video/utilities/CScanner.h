@@ -35,8 +35,7 @@ The scheduling relies on two principles:
 - Virtual and Persistent Workgroups
 - Atomic Counters as Sempahores
 
-# Virtual Workgroups
-TODO: Move this Paragraph somewhere else.
+# Virtual Workgroups TODO: Move this Paragraph somewhere else.
 Generally speaking, launching a new workgroup has non-trivial overhead.
 
 Also most IHVs, especially AMD have silly limits on the ranges of dispatches (like 64k workgroups), which also apply to 1D dispatches.
@@ -55,6 +54,33 @@ for (uint virtualWorkgroupIndex=gl_GlobalInvocationID.x; virtualWorkgroupIndex<v
    // do actual work for a single workgroup
 }
 ```
+
+This actually opens some avenues to abusing the system to achieve customized scheduling.
+
+The GLSL and underlying spec give no guarantees and explicitly warn AGAINST assuming that a workgroup with a lower ID will begin executing
+no later than a workgroup with a higher ID. Actually attempting to enforce this, such as this
+```glsl
+layout() buffer coherent Sched
+{
+   uint nextWorkgroup; // initial value is 0 before the dispatch
+};
+
+while (nextWorkgroup!=gl_GlobalInvocationID.x) {}
+atomicMax(nextWorkgroup,gl_GlobalInvocationID.x+1);
+```
+has the potential to deadlock and TDR your GPU.
+
+However if you use a global counter of dispatched workgroups in an SSBO and `atomicAdd` to assign the `virtualWorkgroupIndex`
+```glsl
+uint virtualWorkgroupIndex;
+for ((virtualWorkgroupIndex=atomicAdd(nextWorkgroup,1u))<virtualWorkgroupCount)
+{
+   // do actual work for a single workgroup
+}
+```
+the ordering of starting work is now enforced (still wont guarantee the order of completion).
+
+# Atomic Counters as Semaphores
 **/
 class NBL_API CScanner final : public core::IReferenceCounted
 {
