@@ -125,7 +125,7 @@ private:
 private:
 	core::smart_refctd_ptr<ILogicalDevice> m_device;
 
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_pipelineLayout;
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_globalStringDSLayout;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_globalStringDS;
 
 	core::smart_refctd_ptr<glyph_geometry_pool_t> m_geomDataBuffer;
