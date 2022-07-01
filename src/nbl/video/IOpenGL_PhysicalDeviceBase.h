@@ -985,6 +985,9 @@ public:
 			m_properties.limits.maxDescriptorSetUpdateAfterBindStorageImages			= m_properties.limits.maxDescriptorSetStorageImages;
 			m_properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments			= 0u; // No	Input Attachments in GL
 			
+			m_properties.limits.filterMinmaxSingleComponentFormats = false;
+			m_properties.limits.filterMinmaxImageComponentMapping = false;
+
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;
 			

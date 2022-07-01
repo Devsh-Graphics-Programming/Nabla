@@ -224,8 +224,8 @@ struct SPhysicalDeviceLimits
     //VkBool32                             independentResolve;
 
     //      or VK_EXT_sampler_filter_minmax:
-    //VkBool32                             filterMinmaxSingleComponentFormats;
-    //VkBool32                             filterMinmaxImageComponentMapping;
+    bool filterMinmaxSingleComponentFormats;
+    bool filterMinmaxImageComponentMapping;
  
     //      or VK_KHR_timeline_semaphore:
     //uint64_t                             maxTimelineSemaphoreValueDifference; //  we don't expose or want timeline semaphore currently
