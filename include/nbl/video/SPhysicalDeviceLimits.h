@@ -331,15 +331,15 @@ struct SPhysicalDeviceLimits
     //VkBool32           advancedBlendAllOperations;
             
     /* ConservativeRasterizationPropertiesEXT *//* provided by VK_EXT_conservative_rasterization */
-    //float              primitiveOverestimationSize;
-    //float              maxExtraPrimitiveOverestimationSize;
-    //float              extraPrimitiveOverestimationSizeGranularity;
-    //VkBool32           primitiveUnderestimation;
-    //VkBool32           conservativePointAndLineRasterization;
-    //VkBool32           degenerateTrianglesRasterized;
-    //VkBool32           degenerateLinesRasterized;
-    //VkBool32           fullyCoveredFragmentShaderInputVariable;
-    //VkBool32           conservativeRasterizationPostDepthCoverage;
+    float   primitiveOverestimationSize;
+    float   maxExtraPrimitiveOverestimationSize;
+    float   extraPrimitiveOverestimationSizeGranularity;
+    bool    primitiveUnderestimation;
+    bool    conservativePointAndLineRasterization;
+    bool    degenerateTrianglesRasterized;
+    bool    degenerateLinesRasterized;
+    bool    fullyCoveredFragmentShaderInputVariable;
+    bool    conservativeRasterizationPostDepthCoverage;
             
     /* CustomBorderColorPropertiesEXT *//* provided by VK_EXT_custom_border_color */
     //uint32_t           maxCustomBorderColorSamplers;

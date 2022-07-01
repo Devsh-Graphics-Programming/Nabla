@@ -1064,6 +1064,41 @@ public:
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_thread_group) || (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_ballot)))
 				m_properties.limits.shaderSubgroupBallot = true;
 
+			/* ConservativeRasterizationPropertiesEXT */
+			m_properties.limits.primitiveOverestimationSize = 0.f;
+			m_properties.limits.maxExtraPrimitiveOverestimationSize = 0.f;
+			m_properties.limits.extraPrimitiveOverestimationSizeGranularity = 0.f;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_dilate))
+			{
+				GetFloatv(GL_CONSERVATIVE_RASTER_DILATE_RANGE_NV, &m_properties.limits.maxExtraPrimitiveOverestimationSize);
+				GetFloatv(GL_CONSERVATIVE_RASTER_DILATE_GRANULARITY_NV, &m_properties.limits.extraPrimitiveOverestimationSizeGranularity);
+			}
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
+				m_properties.limits.primitiveOverestimationSize = 1.f/512.f;
+
+			m_properties.limits.primitiveUnderestimation = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_underestimation))
+				m_properties.limits.primitiveUnderestimation = true;
+
+			m_properties.limits.conservativePointAndLineRasterization = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster))
+				m_properties.limits.conservativePointAndLineRasterization = true;
+
+			m_properties.limits.degenerateTrianglesRasterized = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_pre_snap_triangles) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
+				m_properties.limits.degenerateTrianglesRasterized = true;
+			m_properties.limits.degenerateLinesRasterized = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_pre_snap))
+				m_properties.limits.degenerateLinesRasterized = true;
+
+			m_properties.limits.fullyCoveredFragmentShaderInputVariable = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_underestimation))
+				m_properties.limits.fullyCoveredFragmentShaderInputVariable = true;
+
+			m_properties.limits.conservativeRasterizationPostDepthCoverage = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
+				m_properties.limits.conservativeRasterizationPostDepthCoverage = true;
+
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
 			
