@@ -1660,6 +1660,17 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
     const bool _signed = isSignedFormat(format);
     if (isIntegerFormat(format) || isScaledFormat(format))
     {
+        switch (format)
+        {
+        case EF_A2R10G10B10_UINT_PACK32:
+        case EF_A2B10G10R10_UINT_PACK32:
+            return (channel == 3u) ? (1u << 2) : (1u << 10);
+        case EF_A2R10G10B10_SINT_PACK32:
+        case EF_A2B10G10R10_SINT_PACK32:
+            return (channel == 3u) ? (1u << 2) : (1u << 9);
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         if (_signed)
         {
@@ -1710,6 +1721,14 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
         return 0;
     if (isIntegerFormat(format) || isScaledFormat(format))
     {
+        switch (format)
+        {
+        case EF_A2R10G10B10_SINT_PACK32:
+        case EF_A2B10G10R10_SINT_PACK32:
+            return (channel == 3u) ? (0u) : -(1u << 9);
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
