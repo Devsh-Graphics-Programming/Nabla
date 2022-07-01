@@ -460,6 +460,28 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             return {begin,begin+m_extraGLSLDefines.size()};
         }
 
+        template<typename FORMAT_USAGE>
+        struct FormatPromotionRequest
+        {
+            asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
+            core::bitflag<FORMAT_USAGE> usages;
+
+            // pack into 64bit for easy hashing 
+            uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
+            {
+                uint64_t msb = r.usages.value;
+                return (msb << 32u) | r.originalFormat;
+            }
+
+            bool operator()(const FormatPromotionRequest<FORMAT_USAGE>& l, const FormatPromotionRequest<FORMAT_USAGE>& r) const
+            {
+                return l.originalFormat == r.originalFormat && l.usages.value == r.usages.value;
+            }
+        };
+
+        asset::E_FORMAT promoteBufferFormat(const FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS> req);
+        asset::E_FORMAT promoteImageFormat(const FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS> req, const asset::IImage::E_TILING tiling);
+
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
         inline asset::IGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
@@ -554,6 +576,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         core::vector<char> m_GLSLDefineStringPool;
         core::vector<const char*> m_extraGLSLDefines;
+
+        typedef core::unordered_map<FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS>, asset::E_FORMAT, FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS>, FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS>> format_buffer_cache_t;
+        typedef core::unordered_map<FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS>, asset::E_FORMAT, FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS>, FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS>> format_image_cache_t;
+
+        struct format_promotion_cache_t
+        {
+            format_buffer_cache_t buffers;
+            format_image_cache_t optimalTilingImages;
+            format_image_cache_t linearTilingImages;
+        } m_formatPromotionCache;
 };
 
 }

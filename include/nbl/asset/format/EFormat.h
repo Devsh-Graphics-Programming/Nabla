@@ -484,6 +484,16 @@ const core::vector3du32_SIMD getBlockDimensions()
     }
 }
 
+inline uint32_t getMaxChannelBitDepth(asset::E_FORMAT _fmt)
+{
+#include "nbl/asset/format/impl/EFormat_getMaxChannelBitDepth.h"
+}
+template<asset::E_FORMAT _fmt>
+constexpr uint32_t getMaxChannelBitDepth()
+{
+#include "nbl/asset/format/impl/EFormat_getMaxChannelBitDepth.h"
+}
+
 // TODO: do it via `getFormatClassBlockBytesize(getFormatClass(_fmt))`
 inline uint32_t getTexelOrBlockBytesize(asset::E_FORMAT _fmt)
 {
@@ -523,8 +533,6 @@ constexpr const uint8_t getBitsPerChannel()
 #include "nbl/asset/format/impl/EFormat_getBitsPerChannel.h"
 }
 */
-
-
 
 /*
     It provides some useful functions for dealing
@@ -1738,7 +1746,7 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
 template <typename value_type>
 inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_type value)
 {
-    _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
+    //_NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
 
     if (isIntegerFormat(format))
         return 1;
