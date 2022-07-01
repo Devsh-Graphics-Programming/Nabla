@@ -232,6 +232,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         /* FormatProperties2 
                 - VkDrmFormatModifierPropertiesListEXT(linux stuff)
                 - VkDrmFormatModifierPropertiesList2EXT(linux stuff)
+
+                [TODO][SOON] Add new flags to our own enum and implement for all backends
                 - VkFormatProperties3: (available in Vulkan Core 1.1)
                     Basically same as VkFromatProperties but the flag type is VkFormatFeatureFlagBits2
                     VkFormatFeatureFlagBits2 is basically compensating for the fuckup when `VkFormatFeatureFlagBits` could only have 31 flags
