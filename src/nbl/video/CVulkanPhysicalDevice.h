@@ -265,7 +265,7 @@ public:
 
             if(apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
             {
-                m_properties.limits.framebufferIntegerColorSampleCounts = vulkan12Properties.framebufferIntegerColorSampleCounts;
+                m_properties.limits.framebufferIntegerColorSampleCounts =  core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(vulkan12Properties.framebufferIntegerColorSampleCounts);
             }
 
             /* Vulkan 1.3 Core  */
