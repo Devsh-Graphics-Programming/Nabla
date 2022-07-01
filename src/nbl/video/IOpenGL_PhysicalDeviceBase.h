@@ -988,6 +988,8 @@ public:
 			m_properties.limits.filterMinmaxSingleComponentFormats = false;
 			m_properties.limits.filterMinmaxImageComponentMapping = false;
 
+			m_properties.limits.framebufferIntegerColorSampleCounts = framebufferSampleCountFlags;
+
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;
 			

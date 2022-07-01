@@ -231,7 +231,7 @@ struct SPhysicalDeviceLimits
     //uint64_t                             maxTimelineSemaphoreValueDifference; //  we don't expose or want timeline semaphore currently
 
     //      Only Core 1.2 -> VkPhysicalDeviceVulkan12Properties should be used for this variable
-    //VkSampleCountFlags                   framebufferIntegerColorSampleCounts;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts;
 
 
 

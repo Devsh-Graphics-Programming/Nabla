@@ -57,6 +57,13 @@ public:
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
 
             /* Vulkan 1.0 Core  */
+            
+            uint32_t apiVersion = std::min(instanceApiVersion, deviceProperties.properties.apiVersion);
+            assert(apiVersion >= MinimumVulkanApiVersion);
+            m_properties.apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
+            m_properties.apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
+            m_properties.apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
+
             m_properties.driverVersion = deviceProperties.properties.driverVersion;
             m_properties.vendorID = deviceProperties.properties.vendorID;
             m_properties.deviceID = deviceProperties.properties.deviceID;
@@ -255,6 +262,11 @@ public:
                 m_properties.limits.filterMinmaxImageComponentMapping = samplerFilterMinmaxProperties.filterMinmaxImageComponentMapping;
             }
 
+            if(m_properties.apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
+            {
+                m_properties.limits.framebufferIntegerColorSampleCounts = vulkan12Properties.framebufferIntegerColorSampleCounts;
+            }
+
             /* Vulkan 1.3 Core  */
             if(isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
                 m_properties.limits.maxBufferSize = maintanance4Properties.maxBufferSize;
@@ -312,8 +324,6 @@ public:
                 A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
             */
 
-            uint32_t apiVersion = std::min(instanceApiVersion, deviceProperties.properties.apiVersion);
-            assert(apiVersion >= MinimumVulkanApiVersion);
             m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
 
             switch (VK_API_VERSION_MINOR(apiVersion))
@@ -335,10 +345,6 @@ public:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
                 break;
             }
-
-            m_properties.apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
-            m_properties.apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
-            m_properties.apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
         }
         
         // Get physical device's features
