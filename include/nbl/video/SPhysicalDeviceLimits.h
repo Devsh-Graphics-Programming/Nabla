@@ -216,6 +216,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetUpdateAfterBindStorageImages;
     uint32_t maxDescriptorSetUpdateAfterBindInputAttachments;
     
+    // TODO: Needs API work to expose -> https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html
     //      or VK_KHR_depth_stencil_resolve:
     //VkResolveModeFlags                   supportedDepthResolveModes;
     //VkResolveModeFlags                   supportedStencilResolveModes;
