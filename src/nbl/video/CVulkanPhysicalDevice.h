@@ -263,7 +263,7 @@ public:
                 m_properties.limits.filterMinmaxImageComponentMapping = samplerFilterMinmaxProperties.filterMinmaxImageComponentMapping;
             }
 
-            if(m_properties.apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
+            if(apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
             {
                 m_properties.limits.framebufferIntegerColorSampleCounts = vulkan12Properties.framebufferIntegerColorSampleCounts;
             }
