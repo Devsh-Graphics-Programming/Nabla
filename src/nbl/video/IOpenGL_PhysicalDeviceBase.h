@@ -1053,11 +1053,11 @@ public:
 			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1351
 			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1352
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_thread_group) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_ballot))
-				shaderSubgroupBasic = true;
+				m_properties.limits.shaderSubgroupBasic = true;
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_group_vote) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gcn_shader))
-				shaderSubgroupVote = true;
+				m_properties.limits.shaderSubgroupVote = true;
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_thread_group) || (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_ballot)))
-				shaderSubgroupBallot = true;
+				m_properties.limits.shaderSubgroupBallot = true;
 
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
