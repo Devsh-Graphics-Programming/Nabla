@@ -103,6 +103,18 @@ inline core::bitflag<asset::IImage::E_ASPECT_FLAGS> getImageAspects(asset::E_FOR
     return flags;
 }
 
+float getFullPrecisionValue(asset::E_FORMAT f, uint32_t channels)
+{
+    float min = std::numeric_limits<float>::infinity();
+
+    for (uint32_t i = 0; i < channels; i++)
+    {
+        min = std::min(min, asset::getFormatPrecision<float>(f, i, 0.0));
+    }
+
+    return min;
+}
+
 // Rules for promotion:
 // - Cannot convert to block format
 // - Aspects: Preserved or added
@@ -121,7 +133,7 @@ asset::E_FORMAT narrowDownFormatPromotion(core::bitflag<asset::E_FORMAT> validFo
     auto srcAspects = getImageAspects(srcFormat);
     auto srcBitDepth = asset::getMaxChannelBitDepth(srcFormat);
     // TODO "Magic" value of 128.0 until I figure out a value-independent way of comparing precision
-    auto srcPrecision = asset::getFormatPrecision(srcFormat, srcChannels, 128.0);
+    auto srcPrecision = getFullPrecisionValue(srcFormat, srcChannels);
 
     // Better way to iterate the bitflags here?
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
@@ -139,7 +151,7 @@ asset::E_FORMAT narrowDownFormatPromotion(core::bitflag<asset::E_FORMAT> validFo
         promotionValid = promotionValid && dstChannels >= srcChannels; // Channel count
         promotionValid = promotionValid && (getImageAspects(f) & srcAspects).value == srcAspects.value; // Aspects
         promotionValid = promotionValid && asset::getMaxChannelBitDepth(f) >= srcBitDepth; // Data range
-        promotionValid = promotionValid && asset::getFormatPrecision(f, dstChannels, 128.0) >= srcPrecision; // Precision
+        promotionValid = promotionValid && getFullPrecisionValue(f, dstChannels) >= srcPrecision; // Precision
 
         uint32_t texelBlockSize = getTexelOrBlockBytesize(f);
         if (promotionValid && texelBlockSize < smallestTexelBlockSize)
