@@ -24,7 +24,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxSamplerAllocationCount;
     size_t bufferImageGranularity;
     //VkDeviceSize          sparseAddressSpaceSize;         // We support none of the sparse memory operations
-    //uint32_t              maxBoundDescriptorSets;         // DON'T EXPOSE: we've kinda hardcoded the engine to 4 currently
+    //uint32_t              maxBoundDescriptorSets;         // DO NOT EXPOSE: we've kinda hardcoded the engine to 4 currently
 
     uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxPerStageDescriptorUBOs = 0u;
@@ -43,7 +43,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetStorageImages = 0u;
     uint32_t maxDescriptorSetInputAttachments = 0u;
 
-    //! DON'T EXPOSE 
+    //! DO NOT EXPOSE 
     //! maxVertexInputAttributes and maxVertexInputBindings: In OpenGL (and ES) the de-jure (legal) minimum is 16, and de-facto (in practice) Vulkan reports begin at 16.
     //! maxVertexInputAttributeOffset and maxVertexInputBindingStride: In OpenGL (and ES) the de-jure (legal) minimum is 2047 for both, and de-facto (in practice) Vulkan reports begin at 2047.
     //! Asset Conversion:
