@@ -27,9 +27,12 @@ struct SPhysicalDeviceFeatures
     bool alphaToOne = false;
     bool multiViewport = false;
     bool samplerAnisotropy = false;
+
+    // DO NOT EXPOSE These 3: Doesn't make a difference, just shorcut from Querying support from PhysicalDevice
     //VkBool32    textureCompressionETC2;
     //VkBool32    textureCompressionASTC_LDR;
     //VkBool32    textureCompressionBC;
+    
     //VkBool32    occlusionQueryPrecise;
     //VkBool32    pipelineStatisticsQuery;
     //VkBool32    vertexPipelineStoresAndAtomics;
@@ -77,6 +80,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32           variablePointers;
     
     //VkBool32           protectedMemory;
+    
+    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //VkBool32           samplerYcbcrConversion;
     bool shaderDrawParameters = false;
 
@@ -177,7 +182,10 @@ struct SPhysicalDeviceFeatures
     bool computeFullSubgroups = false;
     
     //VkBool32           synchronization2;                      // or VK_KHR_synchronization2
+    
+    // DO NOT EXPOSE: Doesn't make a difference, just shorcut from Querying support from PhysicalDevice
     //VkBool32           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
+    
     //VkBool32           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
     //VkBool32           dynamicRendering;                      // or VK_KHR_dynamic_rendering
     //VkBool32           shaderIntegerDotProduct;               // or VK_KHR_shader_integer_dot_product
@@ -198,9 +206,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32           rasterizationOrderDepthAttachmentAccess;
     //VkBool32           rasterizationOrderStencilAttachmentAccess;
     
+    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
-    //VkBool32           formatA4R4G4B4;
-    //VkBool32           formatA4B4G4R4;
     
     /* ASTCDecodeFeaturesEXT *//* VK_EXT_astc_decode_mode */
     //VkFormat           decodeMode;
@@ -374,8 +381,8 @@ struct SPhysicalDeviceFeatures
     /* VertexInputDynamicStateFeaturesEXT *//* VK_EXT_vertex_input_dynamic_state */
     //VkBool32           vertexInputDynamicState;
 
+    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* Ycbcr2Plane444FormatsFeaturesEXT *//* VK_EXT_ycbcr_2plane_444_formats */
-    //VkBool32           ycbcr2plane444Formats;
 
     /* YcbcrImageArraysFeaturesEXT *//* VK_EXT_ycbcr_image_arrays */
     //VkBool32           ycbcrImageArrays;
@@ -547,6 +554,14 @@ struct SPhysicalDeviceFeatures
 
     /* SubpassShadingFeaturesHUAWEI *//* VK_HUAWEI_subpass_shading */
     // VkBool32           subpassShading;
+
+    
+    /* Extensions Exposed as Features: */
+
+    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
+    /* VK_IMG_format_pvrtc */
+    
+
 
     /* Nabla */
     bool dispatchBase = false; // true in Vk, false in GL
