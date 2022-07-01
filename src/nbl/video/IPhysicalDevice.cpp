@@ -302,8 +302,8 @@ asset::E_FORMAT narrowDownFormatPromotion(core::unordered_set<asset::E_FORMAT> v
             auto c = 0;
             while (c < srcChannels)
             {
-                // Can't have less precision than source
-                if (asset::getFormatPrecision(f, c, 0.f) < srcPrecision[c])
+                // Can't have less precision (higher precision value from getFormatPrecision) than source
+                if (asset::getFormatPrecision(f, c, 0.f) > srcPrecision[c])
                     break;
                 // Can't have less range than source
                 if (asset::getFormatMinValue<float>(f, c) > srcMinVal[c] || asset::getFormatMaxValue<float>(f, c) < srcMaxVal[c])
@@ -317,7 +317,7 @@ asset::E_FORMAT narrowDownFormatPromotion(core::unordered_set<asset::E_FORMAT> v
         }
 
         // Can't have less aspects
-        if ((getImageAspects(f) & srcAspects).value == srcAspects.value)
+        if (!getImageAspects(f).hasFlags(srcAspects))
             continue;
 
         // Pick smallest valid format
