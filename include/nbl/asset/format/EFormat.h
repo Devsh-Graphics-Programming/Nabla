@@ -484,16 +484,6 @@ const core::vector3du32_SIMD getBlockDimensions()
     }
 }
 
-inline uint32_t getMaxChannelBitDepth(asset::E_FORMAT _fmt)
-{
-#include "nbl/asset/format/impl/EFormat_getMaxChannelBitDepth.h"
-}
-template<asset::E_FORMAT _fmt>
-constexpr uint32_t getMaxChannelBitDepth()
-{
-#include "nbl/asset/format/impl/EFormat_getMaxChannelBitDepth.h"
-}
-
 // TODO: do it via `getFormatClassBlockBytesize(getFormatClass(_fmt))`
 inline uint32_t getTexelOrBlockBytesize(asset::E_FORMAT _fmt)
 {
@@ -1224,6 +1214,7 @@ constexpr bool isBGRALayoutFormat()
     {
         switch (_fmt)
         {
+            case EF_S8_UINT:
             case EF_R8_SINT:
             case EF_R8_UINT:
             case EF_R8G8_SINT:
@@ -1276,6 +1267,7 @@ constexpr bool isBGRALayoutFormat()
     {
         switch (_fmt)
         {
+        case EF_D32_SFLOAT:
         case EF_R16_SFLOAT:
         case EF_R16G16_SFLOAT:
         case EF_R16G16B16_SFLOAT:
@@ -1301,6 +1293,10 @@ constexpr bool isBGRALayoutFormat()
     {
         switch (_fmt)
         {
+        case EF_D16_UNORM:
+        case EF_X8_D24_UNORM_PACK32:
+        case EF_D16_UNORM_S8_UINT:
+        case EF_D24_UNORM_S8_UINT:
         case EF_R4G4_UNORM_PACK8:
         case EF_R4G4B4A4_UNORM_PACK16:
         case EF_B4G4R4A4_UNORM_PACK16:
@@ -1746,7 +1742,7 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
 template <typename value_type>
 inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_type value)
 {
-    //_NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
+    _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
 
     if (isIntegerFormat(format))
         return 1;

@@ -267,6 +267,20 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint8_t storageBufferViewAtomic : 1u; // imageBuffer
             uint8_t accelerationStructureVertex : 1u;
 
+            SFormatBufferUsage()
+                : isInitialized(0)
+            {}
+
+            SFormatBufferUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages)
+                : isInitialized(1),
+                vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT)),
+                bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT)),
+                storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)),
+                // Other way of getting these flags?
+                accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)),
+                storageBufferViewAtomic(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT))
+            {}
+
             inline SFormatBufferUsage operator & (const SFormatBufferUsage& other) const
             {
                 SFormatBufferUsage result;
@@ -300,6 +314,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 return result;
             }
 
+            inline bool operator<(const SFormatBufferUsage& other) const
+            {
+                if (vertexAttribute && !other.vertexAttribute) return false;
+                if (bufferView && !other.bufferView) return false;
+                if (storageBufferView && !other.storageBufferView) return false;
+                if (storageBufferViewAtomic && !other.storageBufferViewAtomic) return false;
+                if (accelerationStructureVertex && !other.accelerationStructureVertex) return false;
+                return true;
+            }
+
             inline bool operator == (const SFormatBufferUsage& other) const
             {
                 return
@@ -327,6 +351,24 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint16_t transferSrc : 1u;
             uint16_t transferDst : 1u;
             uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
+
+            SFormatImageUsage()
+                : isInitialized(0)
+            {}
+
+            SFormatImageUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages)
+                : isInitialized(1), 
+                sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
+                storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
+                transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
+                transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
+                attachment((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
+                // Other way of getting these flags?
+                blitSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
+                blitDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
+                storageImageAtomic(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
+                attachmentBlend((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0)
+            {}
 
             inline SFormatImageUsage operator & (const SFormatImageUsage& other) const
             {
@@ -374,6 +416,21 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 result.transferDst = transferDst ^ other.transferDst;
                 result.log2MaxSamples = log2MaxSamples ^ other.log2MaxSamples;
                 return result;
+            }
+
+            inline bool operator<(const SFormatImageUsage& other) const
+            {
+                if (sampledImage && !other.sampledImage) return false;
+                if (storageImage && !other.storageImage) return false;
+                if (storageImageAtomic && !other.storageImageAtomic) return false;
+                if (attachment && !other.attachment) return false;
+                if (attachmentBlend && !other.attachmentBlend) return false;
+                if (blitSrc && !other.blitSrc) return false;
+                if (blitDst && !other.blitDst) return false;
+                if (transferSrc && !other.transferSrc) return false;
+                if (transferDst && !other.transferDst) return false;
+                if (other.log2MaxSamples < log2MaxSamples) return false;
+                return true;
             }
 
             inline bool operator == (const SFormatImageUsage& other) const

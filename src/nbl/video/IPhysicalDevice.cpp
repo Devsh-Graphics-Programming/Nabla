@@ -103,58 +103,226 @@ inline core::bitflag<asset::IImage::E_ASPECT_FLAGS> getImageAspects(asset::E_FOR
     return flags;
 }
 
-float getFullPrecisionValue(asset::E_FORMAT f, uint32_t channels)
+// Assumes no loss of precision due to block compression, only the endpoints
+float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
 {
-    float min = std::numeric_limits<float>::infinity();
-
-    for (uint32_t i = 0; i < channels; i++)
+    if (channel == 3u)
     {
-        min = std::min(min, asset::getFormatPrecision<float>(f, i, 0.0));
+        switch (format)
+        {
+        // BC2 has 4 bit alpha
+        case asset::EF_BC2_UNORM_BLOCK:
+        case asset::EF_BC2_SRGB_BLOCK:
+            return 1.f / 15.f;
+        // BC3, BC7 and all ASTC formats have up to 8 bit alpha
+        case asset::EF_BC3_UNORM_BLOCK:
+        case asset::EF_BC3_SRGB_BLOCK:
+        case asset::EF_BC7_UNORM_BLOCK:
+        case asset::EF_BC7_SRGB_BLOCK:
+        case asset::EF_ASTC_4x4_UNORM_BLOCK:
+        case asset::EF_ASTC_4x4_SRGB_BLOCK:
+        case asset::EF_ASTC_5x4_UNORM_BLOCK:
+        case asset::EF_ASTC_5x4_SRGB_BLOCK:
+        case asset::EF_ASTC_5x5_UNORM_BLOCK:
+        case asset::EF_ASTC_5x5_SRGB_BLOCK:
+        case asset::EF_ASTC_6x5_UNORM_BLOCK:
+        case asset::EF_ASTC_6x5_SRGB_BLOCK:
+        case asset::EF_ASTC_6x6_UNORM_BLOCK:
+        case asset::EF_ASTC_6x6_SRGB_BLOCK:
+        case asset::EF_ASTC_8x5_UNORM_BLOCK:
+        case asset::EF_ASTC_8x5_SRGB_BLOCK:
+        case asset::EF_ASTC_8x6_UNORM_BLOCK:
+        case asset::EF_ASTC_8x6_SRGB_BLOCK:
+        case asset::EF_ASTC_8x8_UNORM_BLOCK:
+        case asset::EF_ASTC_8x8_SRGB_BLOCK:
+        case asset::EF_ASTC_10x5_UNORM_BLOCK:
+        case asset::EF_ASTC_10x5_SRGB_BLOCK:
+        case asset::EF_ASTC_10x6_UNORM_BLOCK:
+        case asset::EF_ASTC_10x6_SRGB_BLOCK:
+        case asset::EF_ASTC_10x8_UNORM_BLOCK:
+        case asset::EF_ASTC_10x8_SRGB_BLOCK:
+        case asset::EF_ASTC_10x10_UNORM_BLOCK:
+        case asset::EF_ASTC_10x10_SRGB_BLOCK:
+        case asset::EF_ASTC_12x10_UNORM_BLOCK:
+        case asset::EF_ASTC_12x10_SRGB_BLOCK:
+        case asset::EF_ASTC_12x12_UNORM_BLOCK:
+        case asset::EF_ASTC_12x12_SRGB_BLOCK:
+            return 1.0 / 255.0;
+
+        // Otherwise, assume binary (1 bit) alpha
+        default:
+            return 1.f;
+        }
     }
 
-    return min;
+    float rcpUnit = 0.0;
+    switch (format)
+    {
+    case asset::EF_BC1_RGB_UNORM_BLOCK:
+    case asset::EF_BC1_RGB_SRGB_BLOCK:
+    case asset::EF_BC1_RGBA_UNORM_BLOCK:
+    case asset::EF_BC1_RGBA_SRGB_BLOCK:
+    case asset::EF_BC2_UNORM_BLOCK:
+    case asset::EF_BC2_SRGB_BLOCK:
+    case asset::EF_BC3_UNORM_BLOCK:
+    case asset::EF_BC3_SRGB_BLOCK:
+        rcpUnit = (channel == 1u) ? (1.0 / 63.0) : (1.0 / 31.0);
+        break;
+    case asset::EF_BC4_UNORM_BLOCK:
+    case asset::EF_BC4_SNORM_BLOCK:
+    case asset::EF_BC5_UNORM_BLOCK:
+    case asset::EF_BC5_SNORM_BLOCK:
+    case asset::EF_BC7_UNORM_BLOCK:
+    case asset::EF_BC7_SRGB_BLOCK:
+        rcpUnit = 1.0 / 255.0;
+        break;
+    case asset::EF_ASTC_4x4_UNORM_BLOCK:
+    case asset::EF_ASTC_4x4_SRGB_BLOCK:
+    case asset::EF_ASTC_5x4_UNORM_BLOCK:
+    case asset::EF_ASTC_5x4_SRGB_BLOCK:
+    case asset::EF_ASTC_5x5_UNORM_BLOCK:
+    case asset::EF_ASTC_5x5_SRGB_BLOCK:
+    case asset::EF_ASTC_6x5_UNORM_BLOCK:
+    case asset::EF_ASTC_6x5_SRGB_BLOCK:
+    case asset::EF_ASTC_6x6_UNORM_BLOCK:
+    case asset::EF_ASTC_6x6_SRGB_BLOCK:
+    case asset::EF_ASTC_8x5_UNORM_BLOCK:
+    case asset::EF_ASTC_8x5_SRGB_BLOCK:
+    case asset::EF_ASTC_8x6_UNORM_BLOCK:
+    case asset::EF_ASTC_8x6_SRGB_BLOCK:
+    case asset::EF_ASTC_8x8_UNORM_BLOCK:
+    case asset::EF_ASTC_8x8_SRGB_BLOCK:
+    case asset::EF_ASTC_10x5_UNORM_BLOCK:
+    case asset::EF_ASTC_10x5_SRGB_BLOCK:
+    case asset::EF_ASTC_10x6_UNORM_BLOCK:
+    case asset::EF_ASTC_10x6_SRGB_BLOCK:
+    case asset::EF_ASTC_10x8_UNORM_BLOCK:
+    case asset::EF_ASTC_10x8_SRGB_BLOCK:
+    case asset::EF_ASTC_10x10_UNORM_BLOCK:
+    case asset::EF_ASTC_10x10_SRGB_BLOCK:
+    case asset::EF_ASTC_12x10_UNORM_BLOCK:
+    case asset::EF_ASTC_12x10_SRGB_BLOCK:
+    case asset::EF_ASTC_12x12_UNORM_BLOCK:
+    case asset::EF_ASTC_12x12_SRGB_BLOCK:
+        // (All of these could be using HDR. Take extra flag to assume FP16 precision?)
+        rcpUnit = 1.0 / 255.0;
+        break;
+    case asset::EF_EAC_R11_UNORM_BLOCK:
+    case asset::EF_EAC_R11_SNORM_BLOCK:
+    case asset::EF_EAC_R11G11_UNORM_BLOCK:
+    case asset::EF_EAC_R11G11_SNORM_BLOCK:
+        rcpUnit = 1.0 / 2047.0;
+        break;
+    case asset::EF_ETC2_R8G8B8_UNORM_BLOCK:
+    case asset::EF_ETC2_R8G8B8_SRGB_BLOCK:
+    case asset::EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+    case asset::EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+    case asset::EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+    case asset::EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+        rcpUnit = 1.0 / 31.0;
+        break;
+    case asset::EF_BC6H_UFLOAT_BLOCK:
+    case asset::EF_BC6H_SFLOAT_BLOCK:
+    {
+        // BC6 isn't really FP16, so this is an over-estimation
+        float f = 0.0;
+        uint16_t f16 = core::Float16Compressor::compress(f);
+        uint16_t dir = core::Float16Compressor::compress(2.f * (f + 1.f));
+        return core::Float16Compressor::decompress(core::nextafter16(f16, dir)) - f;
+    }
+    case asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+    case asset::EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+    case asset::EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+    case asset::EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+    case asset::EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+    case asset::EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+    case asset::EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+    case asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
+        // TODO
+        // I couldn't find any documentation on how this works
+        return 0.0;
+    }
+
+    if (isSRGBFormat(format))
+    {
+        return core::srgb2lin(0.0 + rcpUnit) - core::srgb2lin(0.0);
+    }
+
+    return rcpUnit;
 }
 
 // Rules for promotion:
-// - Cannot convert to block format
+// - Cannot convert to block or planar format
 // - Aspects: Preserved or added
 // - Channel count: Preserved or increased
 // - Data range: Preserved or increased (per channel)
 // - Data precision: Preserved or improved (per channel)
 //     - Bit depth when comparing non srgb
 // If there are multiple matches: Pick smallest texel block
-asset::E_FORMAT narrowDownFormatPromotion(core::bitflag<asset::E_FORMAT> validFormats, asset::E_FORMAT srcFormat)
+// srcFormat can't be in validFormats (no promotion should be made if the format itself is valid)
+asset::E_FORMAT narrowDownFormatPromotion(core::unordered_set<asset::E_FORMAT> validFormats, asset::E_FORMAT srcFormat)
 {
     asset::E_FORMAT smallestTexelBlock = asset::E_FORMAT::EF_UNKNOWN;
     uint32_t smallestTexelBlockSize = -1;
 
     auto srcChannels = asset::getFormatChannelCount(srcFormat);
-    if (!srcChannels) return asset::EF_UNKNOWN;
+    assert(srcChannels);
     auto srcAspects = getImageAspects(srcFormat);
-    auto srcBitDepth = asset::getMaxChannelBitDepth(srcFormat);
-    // TODO "Magic" value of 128.0 until I figure out a value-independent way of comparing precision
-    auto srcPrecision = getFullPrecisionValue(srcFormat, srcChannels);
+    bool srcBc = asset::isBlockCompressionFormat(srcFormat);
+
+    float srcPrecision[4];
+    float srcMinVal[4];
+    float srcMaxVal[4];
+    for (uint32_t channel = 0; channel < srcChannels; channel++)
+    {
+        srcPrecision[channel] = srcBc ? getBcFormatMaxPrecision(srcFormat, channel) : asset::getFormatPrecision(srcFormat, channel, 0.f);
+        srcMinVal[channel] = asset::getFormatMinValue<float>(srcFormat, channel);
+        srcMaxVal[channel] = asset::getFormatMaxValue<float>(srcFormat, channel);
+    }
 
     // Better way to iterate the bitflags here?
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
     {
         auto f = static_cast<asset::E_FORMAT>(format);
-        if (!validFormats.hasFlags(f))
-        {
+        if (!validFormats.contains(f))
             continue;
+
+        // Can't transcode to BC or planar
+        if (asset::isBlockCompressionFormat(f))
+            continue;
+        if (asset::isPlanarFormat(f))
+            continue;
+
+        // Can't have less channels
+        auto dstChannels = asset::getFormatChannelCount(f);
+        if (dstChannels < srcChannels)
+            continue;
+
+        {
+            auto c = 0;
+            while (c < srcChannels)
+            {
+                // Can't have less precision than source
+                if (asset::getFormatPrecision(f, c, 0.f) < srcPrecision[c])
+                    break;
+                // Can't have less range than source
+                if (asset::getFormatMinValue<float>(f, c) > srcMinVal[c] || asset::getFormatMaxValue<float>(f, c) < srcMaxVal[c])
+                    break;
+
+                c++;
+            }
+            // If we hit a break in the while loop
+            if (c != srcChannels)
+                continue;
         }
 
-        auto dstChannels = asset::getFormatChannelCount(f);
-        // Verify if promotion is valid from srcFormat -> format
-        bool promotionValid;
-        promotionValid = asset::isBlockCompressionFormat(f) ? f == srcFormat : true; // Can't transcode to compressed formats
-        promotionValid = promotionValid && dstChannels >= srcChannels; // Channel count
-        promotionValid = promotionValid && (getImageAspects(f) & srcAspects).value == srcAspects.value; // Aspects
-        promotionValid = promotionValid && asset::getMaxChannelBitDepth(f) >= srcBitDepth; // Data range
-        promotionValid = promotionValid && getFullPrecisionValue(f, dstChannels) >= srcPrecision; // Precision
+        // Can't have less aspects
+        if ((getImageAspects(f) & srcAspects).value == srcAspects.value)
+            continue;
 
-        uint32_t texelBlockSize = getTexelOrBlockBytesize(f);
-        if (promotionValid && texelBlockSize < smallestTexelBlockSize)
+        // Pick smallest valid format
+        uint32_t texelBlockSize = asset::getTexelOrBlockBytesize(f);
+        if (texelBlockSize < smallestTexelBlockSize)
         {
             smallestTexelBlockSize = texelBlockSize;
             smallestTexelBlock = f;
@@ -164,115 +332,88 @@ asset::E_FORMAT narrowDownFormatPromotion(core::bitflag<asset::E_FORMAT> validFo
     return smallestTexelBlock;
 }
 
-video::IPhysicalDevice::SFormatBufferUsage convBufferUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages)
-{
-    video::IPhysicalDevice::SFormatBufferUsage formatBufUsg;
-    formatBufUsg.isInitialized = 1;
-    formatBufUsg.vertexAttribute = usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
-    formatBufUsg.bufferView = usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-    formatBufUsg.storageBufferView = usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
-    // Special flags for these?
-    formatBufUsg.accelerationStructureVertex = usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT);
-    formatBufUsg.storageBufferViewAtomic = usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
-
-    return formatBufUsg;
-}
-
 asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS> req)
 {
-    auto buf_cache = this->m_formatPromotionCache.buffers;
+    auto& buf_cache = this->m_formatPromotionCache.buffers;
     auto cached = buf_cache.find(req);
     if (cached != buf_cache.end())
         return cached->second;
 
-    auto srcUsages = convBufferUsage(req.usages);
+    video::IPhysicalDevice::SFormatBufferUsage srcUsages(req.usages);
+    if (srcUsages < getBufferFormatUsages(req.originalFormat))
+    {
+        buf_cache.insert(cached, { req,req.originalFormat });
+        return req.originalFormat;
+    }
 
     // Cache valid formats per usage?
-    core::bitflag<asset::E_FORMAT> validFormats;
+    core::unordered_set<asset::E_FORMAT> validFormats;
 
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
     {
         auto f = static_cast<asset::E_FORMAT>(format);
-        auto formatUsages = this->getBufferFormatUsages(f);
-        if ((srcUsages & formatUsages) == srcUsages)
+        // Checked earlier
+        if (f == req.originalFormat)
+            continue;
+
+        if (srcUsages < getBufferFormatUsages(f))
         {
-            validFormats |= f;
+            validFormats.insert(f);
         }
     }
 
-    //if (validFormats.hasFlags(req.originalFormat)) return req.originalFormat;
-
-    return narrowDownFormatPromotion(validFormats, req.originalFormat);
-}
-
-video::IPhysicalDevice::SFormatImageUsage convImageUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages)
-{
-    video::IPhysicalDevice::SFormatImageUsage formatImgUsg;
-    formatImgUsg.isInitialized = 1;
-    formatImgUsg.sampledImage = usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT);
-    formatImgUsg.storageImage = usages.hasFlags(asset::IImage::EUF_STORAGE_BIT);
-    formatImgUsg.transferSrc = usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT);
-    formatImgUsg.transferDst = usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT);
-    formatImgUsg.attachment = (usages & core::bitflag<asset::IImage::E_USAGE_FLAGS>(
-        asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0;
-    // Special flags for these?
-    formatImgUsg.blitSrc = usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT);
-    formatImgUsg.blitDst = usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT);
-    formatImgUsg.storageImageAtomic = usages.hasFlags(asset::IImage::EUF_STORAGE_BIT);
-    formatImgUsg.attachmentBlend = (usages & core::bitflag<asset::IImage::E_USAGE_FLAGS>(
-        asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0;
-
-    return formatImgUsg;
+    auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
+    buf_cache.insert(cached, { req,promoted });
+    return promoted;
 }
 
 asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS> req, const asset::IImage::E_TILING tiling)
 {
-    format_image_cache_t cache;
-    switch (tiling)
-    {
-    case asset::IImage::E_TILING::ET_LINEAR:
-        cache = this->m_formatPromotionCache.linearTilingImages;
-        break;
-    case asset::IImage::E_TILING::ET_OPTIMAL:
-        cache = this->m_formatPromotionCache.optimalTilingImages;
-        break;
-    default:
-        return asset::E_FORMAT::EF_UNKNOWN;
-    }
+    format_image_cache_t& cache = tiling == asset::IImage::E_TILING::ET_LINEAR 
+        ? this->m_formatPromotionCache.linearTilingImages 
+        : this->m_formatPromotionCache.optimalTilingImages;
     auto cached = cache.find(req);
     if (cached != cache.end())
         return cached->second;
-    auto srcUsages = convImageUsage(req.usages);
+    video::IPhysicalDevice::SFormatImageUsage srcUsages(req.usages);
+    auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f) {
+        switch (tiling)
+        {
+        case asset::IImage::E_TILING::ET_LINEAR:
+            return getImageFormatUsagesLinear(f);
+        case asset::IImage::E_TILING::ET_OPTIMAL:
+            return getImageFormatUsagesOptimal(f);
+        default:
+            assert(false); // Invalid tiling
+        }
+    };
+
+    if (srcUsages < getImageFormatUsagesTiling(req.originalFormat))
+    {
+        cache.insert(cached, { req,req.originalFormat });
+        return req.originalFormat;
+    }
 
     // Cache valid formats per usage?
-    core::bitflag<asset::E_FORMAT> validFormats;
+    core::unordered_set<asset::E_FORMAT> validFormats;
 
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
     {
         auto f = static_cast<asset::E_FORMAT>(format);
-        video::IPhysicalDevice::SFormatImageUsage formatUsages;
-        switch (tiling)
+        // Checked earlier
+        if (f == req.originalFormat)
+            continue;
+
+        if (srcUsages < getImageFormatUsagesTiling(f))
         {
-        case asset::IImage::E_TILING::ET_LINEAR:
-            formatUsages = this->getImageFormatUsagesLinear(f);
-            break;
-        case asset::IImage::E_TILING::ET_OPTIMAL:
-            formatUsages = this->getImageFormatUsagesOptimal(f);
-            break;
-        default:
-            return asset::E_FORMAT::EF_UNKNOWN;
-        }
-        auto commonUsages = srcUsages & formatUsages;
-        commonUsages.log2MaxSamples = srcUsages.log2MaxSamples; // TODO: Handle sample counts
-        if (commonUsages == srcUsages)
-        {
-            validFormats |= f;
+            validFormats.insert(f);
         }
     }
 
-    //if (validFormats.hasFlags(req.originalFormat)) return req.originalFormat;
 
-    return narrowDownFormatPromotion(validFormats, req.originalFormat);
+    auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
+    cache.insert(cached, { req,promoted });
+    return promoted;
 }
 
 }
