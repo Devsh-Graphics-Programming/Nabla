@@ -253,6 +253,26 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     return rcpUnit;
 }
 
+// Returns true if 'a' has >= precision & value range than 'b'
+bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t srcChannels)
+{
+    auto c = 0;
+    while (c < srcChannels)
+    {
+        // break if a has less precision (higher precision value from getFormatPrecision) than b
+        if (asset::getFormatPrecision(a, c, 0.f) > asset::getFormatPrecision(b, c, 0.f))
+            break;
+        // break if a has less range than b
+        if (asset::getFormatMinValue<double>(a, c) > asset::getFormatMinValue<double>(b, c)
+            || asset::getFormatMaxValue<double>(a, c) < asset::getFormatMinValue<double>(b, c))
+            break;
+
+        c++;
+    }
+    // If we hit a break in the while loop, return false
+    return c == srcChannels;
+}
+
 // Rules for promotion:
 // - Cannot convert to block or planar format
 // - Aspects: Preserved or added
@@ -264,8 +284,8 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
 // srcFormat can't be in validFormats (no promotion should be made if the format itself is valid)
 asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FORMAT>& validFormats, asset::E_FORMAT srcFormat)
 {
-    asset::E_FORMAT smallestTexelBlock = asset::E_FORMAT::EF_UNKNOWN;
-    uint32_t smallestTexelBlockSize = -1;
+    asset::E_FORMAT bestFitFmt = asset::E_FORMAT::EF_UNKNOWN;
+    uint32_t bestFitSize = -1;
 
     auto srcChannels = asset::getFormatChannelCount(srcFormat);
     assert(srcChannels);
@@ -327,21 +347,24 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
 
         uint32_t texelBlockSize = asset::getTexelOrBlockBytesize(f);
         // Don't promote if we have a better valid format already
-        if (texelBlockSize > smallestTexelBlockSize) {
+        if (texelBlockSize > bestFitSize) {
             continue;
         }
 
-        if (texelBlockSize == smallestTexelBlockSize)
+        if (texelBlockSize == bestFitSize)
         {
-            // TODO: Here, place tie-breaking for the different matches
-            // (continue; if the smallestTexelBlock is a better fit than f)
+            // Tie-breaking rules:
+            // - Precision
+            // - Value range
+            if (!higherPrecisionOrValueRange(bestFitFmt, f, srcChannels))
+                continue;
         }
 
-        smallestTexelBlockSize = texelBlockSize;
-        smallestTexelBlock = f;
+        bestFitSize = texelBlockSize;
+        bestFitFmt = f;
     }
 
-    return smallestTexelBlock;
+    return bestFitFmt;
 }
 
 asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req)

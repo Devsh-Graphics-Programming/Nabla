@@ -1664,10 +1664,10 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
         {
         case EF_A2R10G10B10_UINT_PACK32:
         case EF_A2B10G10R10_UINT_PACK32:
-            return (channel == 3u) ? (1u << 2) : (1u << 10);
+            return (channel == 3u) ? 3 : 1023;
         case EF_A2R10G10B10_SINT_PACK32:
         case EF_A2B10G10R10_SINT_PACK32:
-            return (channel == 3u) ? (1u << 2) : (1u << 9);
+            return (channel == 3u) ? 3 : 1023;
         default: break;
         }
 
@@ -1701,6 +1701,13 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
     }
     else if (isFloatingPointFormat(format))
     {
+        switch (format)
+        {
+        case EF_BC6H_SFLOAT_BLOCK: return 32767;
+        case EF_BC6H_UFLOAT_BLOCK: return 65504;
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
@@ -1725,7 +1732,7 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
         {
         case EF_A2R10G10B10_SINT_PACK32:
         case EF_A2B10G10R10_SINT_PACK32:
-            return (channel == 3u) ? (0u) : -(1u << 9);
+            return (channel == 3u) ? 0 : -1023;
         default: break;
         }
 
@@ -1745,6 +1752,12 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
     }
     else if (isFloatingPointFormat(format))
     {
+        switch (format)
+        {
+        case EF_BC6H_SFLOAT_BLOCK: return -32767;
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
