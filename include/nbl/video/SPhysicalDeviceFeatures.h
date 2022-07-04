@@ -568,9 +568,11 @@ struct SPhysicalDeviceFeatures
     /* InheritedViewportScissorFeaturesNV *//* VK_NV_inherited_viewport_scissor */
     //VkBool32           inheritedViewportScissor2D;
 
+    // [DO NOT EXPOSE] no idea what real-world beneficial use case would be
     /* LinearColorAttachmentFeaturesNV *//* VK_NV_linear_color_attachment */
     //VkBool32           linearColorAttachment;
     
+    // [TODO]
     /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
     //VkBool32           taskShader;
     //VkBool32           meshShader;
@@ -579,9 +581,12 @@ struct SPhysicalDeviceFeatures
     //VkBool32           rayTracingMotionBlur;
     //VkBool32           rayTracingMotionBlurPipelineTraceRaysIndirect;
 
+    // [TODO] Expose Soon, Useful
     /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
     //VkBool32           representativeFragmentTest;
-    
+ 
+    // [TODO] requires extra API work to use
+    // GL Hint: in GL/GLES this is NV_scissor_exclusive
     /* ExclusiveScissorFeaturesNV *//* VK_NV_scissor_exclusive */
     //VkBool32           exclusiveScissor;
 
@@ -591,19 +596,24 @@ struct SPhysicalDeviceFeatures
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
     //VkBool32           shaderSMBuiltins;
     
+    // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* ShadingRateImageFeaturesNV *//* VK_NV_shading_rate_image */
     //VkBool32           shadingRateImage;
     //VkBool32           shadingRateCoarseSampleOrder;
 
+    // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentDensityMapOffsetFeaturesQCOM *//* VK_QCOM_fragment_density_map_offset */
     //VkBool32           fragmentDensityMapOffset;
 
+    // [DO NOT EXPOSE] This extension is only intended for use in specific embedded environments with known implementation details, and is therefore undocumented.
     /* DescriptorSetHostMappingFeaturesVALVE *//* VK_VALVE_descriptor_set_host_mapping */
     //VkBool32           descriptorSetHostMapping;
 
+    // [DO NOT EXPOSE] its a D3D special use extension, shouldn't expose
     /* MutableDescriptorTypeFeaturesVALVE *//* VK_VALVE_mutable_descriptor_type */
     //VkBool32           mutableDescriptorType;
 
+    // [DO NOT EXPOSE]
     /* SubpassShadingFeaturesHUAWEI *//* VK_HUAWEI_subpass_shading */
     // VkBool32           subpassShading;
 
@@ -612,11 +622,9 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* VK_IMG_format_pvrtc */
-    
-
-
+   
     /* Nabla */
-    bool dispatchBase = false; // true in Vk, false in GL
+    // No Nabla Specific Features for now
 };
 
 } // nbl::video

@@ -559,6 +559,7 @@ struct SPhysicalDeviceLimits
     // uint32_t           maxSubpassShadingWorkgroupSizeAspectRatio;
 
     /* Nabla */
+    bool dispatchBase = false; // true in Vk, false in GL
     bool allowCommandBufferQueryCopies = false;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.

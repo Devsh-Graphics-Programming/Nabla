@@ -1122,7 +1122,8 @@ public:
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
 			
 			/* Nabla */
-			
+			m_properties.limits.dispatchBase = false;
+
 			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
 				m_properties.limits.allowCommandBufferQueryCopies = true;
 

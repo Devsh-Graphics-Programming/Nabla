@@ -329,6 +329,7 @@ public:
             }
 
             /* Nabla */
+            m_properties.limits.dispatchBase = true;
             m_properties.limits.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
@@ -466,8 +467,6 @@ public:
             {
                 m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             }
-            
-            m_features.dispatchBase = true;
         }
 
         // Get physical device's memory properties
