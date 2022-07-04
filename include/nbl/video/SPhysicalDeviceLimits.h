@@ -348,7 +348,7 @@ struct SPhysicalDeviceLimits
     /* DescriptorIndexingPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  *//* provided by VK_AMD_shader_core_properties */
 
     /* DiscardRectanglePropertiesEXT *//* provided by VK_EXT_discard_rectangles */
-    //uint32_t           maxDiscardRectangles;
+    uint32_t maxDiscardRectangles;
             
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
     //VkDeviceSize       minImportedHostPointerAlignment;

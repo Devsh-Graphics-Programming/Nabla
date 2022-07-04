@@ -50,7 +50,8 @@ public:
 
         // Extensions
         VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT, &vulkan11Properties };
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &conservativeRasterizationProperties };
+        VkPhysicalDeviceDiscardRectanglePropertiesEXT discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT, &conservativeRasterizationProperties };
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &discardRectangleProperties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
@@ -302,6 +303,11 @@ public:
                 m_properties.limits.conservativeRasterizationPostDepthCoverage = conservativeRasterizationProperties.conservativeRasterizationPostDepthCoverage;
             }
             
+            if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
+            {
+                m_properties.limits.maxDiscardRectangles = discardRectangleProperties.maxDiscardRectangles;
+            }
+
             /* AccelerationStructurePropertiesKHR */
             if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             {
