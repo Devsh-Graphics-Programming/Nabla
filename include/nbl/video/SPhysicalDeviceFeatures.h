@@ -463,14 +463,17 @@ struct SPhysicalDeviceFeatures
     //VkBool32           performanceCounterQueryPools;
     //VkBool32           performanceCounterMultipleQueryPools;
 
+    // [TODO]
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
     //VkBool32           pipelineExecutableInfo;
     
     /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
 
+    // [DO NOT EXPOSE] no point exposing until an extension more useful than VK_KHR_present_wait arrives
     /* PresentIdFeaturesKHR *//* VK_KHR_present_id */
     //VkBool32           presentId;
-
+    
+    // [DO NOT EXPOSE] won't expose, this extension is poop, I should have a Fence-andQuery-like object to query the presentation timestamp, not a blocking call that may unblock after an arbitrary delay from the present
     /* PresentWaitFeaturesKHR *//* VK_KHR_present_wait */
     //VkBool32           presentWait;
     
@@ -482,8 +485,8 @@ struct SPhysicalDeviceFeatures
 
     /* RayTracingPipelineFeaturesKHR *//* VK_KHR_ray_tracing_pipeline */
     bool rayTracingPipeline = false;
-    bool rayTracingPipelineShaderGroupHandleCaptureReplay = false;
-    bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed = false;
+    // bool rayTracingPipelineShaderGroupHandleCaptureReplay; // [DO NOT EXPOSE] for capture tools
+    // bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed; // [DO NOT EXPOSE] for capture tools
     bool rayTracingPipelineTraceRaysIndirect = false;
     bool rayTraversalPrimitiveCulling = false;
 
@@ -527,32 +530,41 @@ struct SPhysicalDeviceFeatures
     //VkBool32           cooperativeMatrix;
     //VkBool32           cooperativeMatrixRobustBufferAccess;
 
+    // [DO NOT EXPOSE] for a very long time
     /* CornerSampledImageFeaturesNV *//* VK_NV_corner_sampled_image */
     //VkBool32           cornerSampledImage;
 
+    // [TODO]
     /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
     //VkCoverageReductionModeNV                        coverageReductionMode;
 
+    // [DO NOT EXPOSE] insane oxymoron, dedicated means dedicated, not aliased, won't expose
     /* DedicatedAllocationImageAliasingFeaturesNV *//* VK_NV_dedicated_allocation_image_aliasing */
     //VkBool32           dedicatedAllocationImageAliasing;
 
+    // [DO NOT EXPOSE]
     /* DiagnosticsConfigFeaturesNV *//* VK_NV_device_diagnostics_config */
     //VkBool32           diagnosticsConfig;
 
+    // [TODO]
     /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
     //VkBool32           deviceGeneratedCommands;
 
+    // [TODO] when we do multi-gpu
     /* ExternalMemoryRDMAFeaturesNV *//* VK_NV_external_memory_rdma */
     //VkBool32           externalMemoryRDMA;
     
+    // [DEPRECATED]
     /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
     //VkBool32           fragmentShaderBarycentric;
-
+    
+    // [DO NOT EXPOSE] would first need to expose VK_KHR_fragment_shading_rate before
     /* FragmentShadingRateEnumsFeaturesNV *//* VK_NV_fragment_shading_rate_enums */
     //VkBool32           fragmentShadingRateEnums;
     //VkBool32           supersampleFragmentShadingRates;
     //VkBool32           noInvocationFragmentShadingRates;
 
+    // [DO NOT EXPOSE] won't expose, the existing inheritance of state is enough
     /* InheritedViewportScissorFeaturesNV *//* VK_NV_inherited_viewport_scissor */
     //VkBool32           inheritedViewportScissor2D;
 
