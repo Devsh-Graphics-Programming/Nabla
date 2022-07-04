@@ -166,7 +166,10 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_BC2_SRGB_BLOCK:
     case asset::EF_BC3_UNORM_BLOCK:
     case asset::EF_BC3_SRGB_BLOCK:
+        // The color channels for BC1, BC2 & BC3 are RGB565
         rcpUnit = (channel == 1u) ? (1.0 / 63.0) : (1.0 / 31.0);
+        // Weights also allow for more precision. These formats have 2 bit weights
+        rcpUnit *= 1.0 / 3.0;
         break;
     case asset::EF_BC4_UNORM_BLOCK:
     case asset::EF_BC4_SNORM_BLOCK:
@@ -211,7 +214,7 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_EAC_R11_SNORM_BLOCK:
     case asset::EF_EAC_R11G11_UNORM_BLOCK:
     case asset::EF_EAC_R11G11_SNORM_BLOCK:
-        rcpUnit = 1.0 / 2047.0;
+        rcpUnit = 1.0 / 2047.0; 
         break;
     case asset::EF_ETC2_R8G8B8_UNORM_BLOCK:
     case asset::EF_ETC2_R8G8B8_SRGB_BLOCK:
@@ -238,9 +241,8 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
     case asset::EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
     case asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
-        // TODO
-        // I couldn't find any documentation on how this works
-        return 0.0;
+        // TODO: Use proper metrics here instead of assuming full 8 bit
+        return 1.0 / 255.0;
     }
 
     if (isSRGBFormat(format))
@@ -260,7 +262,7 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
 //     - Bit depth when comparing non srgb
 // If there are multiple matches: Pick smallest texel block
 // srcFormat can't be in validFormats (no promotion should be made if the format itself is valid)
-asset::E_FORMAT narrowDownFormatPromotion(core::unordered_set<asset::E_FORMAT> validFormats, asset::E_FORMAT srcFormat)
+asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FORMAT>& validFormats, asset::E_FORMAT srcFormat)
 {
     asset::E_FORMAT smallestTexelBlock = asset::E_FORMAT::EF_UNKNOWN;
     uint32_t smallestTexelBlockSize = -1;
@@ -269,28 +271,31 @@ asset::E_FORMAT narrowDownFormatPromotion(core::unordered_set<asset::E_FORMAT> v
     assert(srcChannels);
     auto srcAspects = getImageAspects(srcFormat);
     bool srcBc = asset::isBlockCompressionFormat(srcFormat);
+    bool srcIntFormat = asset::isIntegerFormat(srcFormat);
 
     float srcPrecision[4];
-    float srcMinVal[4];
-    float srcMaxVal[4];
+    double srcMinVal[4];
+    double srcMaxVal[4];
     for (uint32_t channel = 0; channel < srcChannels; channel++)
     {
         srcPrecision[channel] = srcBc ? getBcFormatMaxPrecision(srcFormat, channel) : asset::getFormatPrecision(srcFormat, channel, 0.f);
-        srcMinVal[channel] = asset::getFormatMinValue<float>(srcFormat, channel);
-        srcMaxVal[channel] = asset::getFormatMaxValue<float>(srcFormat, channel);
+        srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
+        srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
     }
 
     // Better way to iterate the bitflags here?
-    for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
+    for (auto iter = validFormats.begin(); iter != validFormats.end(); iter++)
     {
-        auto f = static_cast<asset::E_FORMAT>(format);
-        if (!validFormats.contains(f))
-            continue;
+        asset::E_FORMAT f = *iter;
 
         // Can't transcode to BC or planar
         if (asset::isBlockCompressionFormat(f))
             continue;
         if (asset::isPlanarFormat(f))
+            continue;
+    
+        // Can't promote between int and normalized/float/scaled formats
+        if (srcIntFormat != asset::isIntegerFormat(f))
             continue;
 
         // Can't have less channels
@@ -306,7 +311,7 @@ asset::E_FORMAT narrowDownFormatPromotion(core::unordered_set<asset::E_FORMAT> v
                 if (asset::getFormatPrecision(f, c, 0.f) > srcPrecision[c])
                     break;
                 // Can't have less range than source
-                if (asset::getFormatMinValue<float>(f, c) > srcMinVal[c] || asset::getFormatMaxValue<float>(f, c) < srcMaxVal[c])
+                if (asset::getFormatMinValue<double>(f, c) > srcMinVal[c] || asset::getFormatMaxValue<double>(f, c) < srcMaxVal[c])
                     break;
 
                 c++;
@@ -320,27 +325,33 @@ asset::E_FORMAT narrowDownFormatPromotion(core::unordered_set<asset::E_FORMAT> v
         if (!getImageAspects(f).hasFlags(srcAspects))
             continue;
 
-        // Pick smallest valid format
         uint32_t texelBlockSize = asset::getTexelOrBlockBytesize(f);
-        if (texelBlockSize < smallestTexelBlockSize)
-        {
-            smallestTexelBlockSize = texelBlockSize;
-            smallestTexelBlock = f;
+        // Don't promote if we have a better valid format already
+        if (texelBlockSize > smallestTexelBlockSize) {
+            continue;
         }
+
+        if (texelBlockSize == smallestTexelBlockSize)
+        {
+            // TODO: Here, place tie-breaking for the different matches
+            // (continue; if the smallestTexelBlock is a better fit than f)
+        }
+
+        smallestTexelBlockSize = texelBlockSize;
+        smallestTexelBlock = f;
     }
 
     return smallestTexelBlock;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS> req)
+asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req)
 {
     auto& buf_cache = this->m_formatPromotionCache.buffers;
     auto cached = buf_cache.find(req);
     if (cached != buf_cache.end())
         return cached->second;
 
-    video::IPhysicalDevice::SFormatBufferUsage srcUsages(req.usages);
-    if (srcUsages < getBufferFormatUsages(req.originalFormat))
+    if (req.usages < getBufferFormatUsages(req.originalFormat))
     {
         buf_cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -356,7 +367,7 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
         if (f == req.originalFormat)
             continue;
 
-        if (srcUsages < getBufferFormatUsages(f))
+        if (req.usages < getBufferFormatUsages(f))
         {
             validFormats.insert(f);
         }
@@ -367,7 +378,7 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
     return promoted;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS> req, const asset::IImage::E_TILING tiling)
+asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage> req, const asset::IImage::E_TILING tiling)
 {
     format_image_cache_t& cache = tiling == asset::IImage::E_TILING::ET_LINEAR 
         ? this->m_formatPromotionCache.linearTilingImages 
@@ -375,7 +386,6 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
     auto cached = cache.find(req);
     if (cached != cache.end())
         return cached->second;
-    video::IPhysicalDevice::SFormatImageUsage srcUsages(req.usages);
     auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f) {
         switch (tiling)
         {
@@ -388,7 +398,7 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
         }
     };
 
-    if (srcUsages < getImageFormatUsagesTiling(req.originalFormat))
+    if (req.usages < getImageFormatUsagesTiling(req.originalFormat))
     {
         cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -404,7 +414,7 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
         if (f == req.originalFormat)
             continue;
 
-        if (srcUsages < getImageFormatUsagesTiling(f))
+        if (req.usages < getImageFormatUsagesTiling(f))
         {
             validFormats.insert(f);
         }

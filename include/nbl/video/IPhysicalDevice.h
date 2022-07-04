@@ -276,9 +276,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT)),
                 bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT)),
                 storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)),
-                // Other way of getting these flags?
                 accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)),
-                storageBufferViewAtomic(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT))
+                // Deduced as false. User may patch it up later
+                storageBufferViewAtomic(0)
             {}
 
             inline SFormatBufferUsage operator & (const SFormatBufferUsage& other) const
@@ -333,6 +333,17 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     (storageBufferViewAtomic == other.storageBufferViewAtomic) &&
                     (accelerationStructureVertex == other.accelerationStructureVertex);
             }
+
+            // Probably not a great way to do this?
+            inline uint32_t value() const
+            {
+                return
+                    vertexAttribute |
+                    (bufferView << 1) |
+                    (storageBufferView << 2) |
+                    (storageBufferViewAtomic << 3) |
+                    (accelerationStructureVertex << 4);
+            }
         };
         virtual const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) = 0;
 
@@ -363,11 +374,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
                 transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
                 attachment((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
-                // Other way of getting these flags?
-                blitSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
-                blitDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
-                storageImageAtomic(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
-                attachmentBlend((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0)
+                attachmentBlend((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)).value != 0),
+                // Deduced as false. User may patch it up later
+                blitSrc(0),
+                blitDst(0),
+                storageImageAtomic(0)
             {}
 
             inline SFormatImageUsage operator & (const SFormatImageUsage& other) const
@@ -447,6 +458,22 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     (transferDst == other.transferDst) &&
                     (log2MaxSamples == other.log2MaxSamples);
             }
+
+            // Probably not a great way to do this?
+            inline uint32_t value() const
+            {
+                return
+                    sampledImage |
+                    (storageImage << 1) |
+                    (storageImageAtomic << 2) |
+                    (attachment << 3) |
+                    (attachmentBlend << 4) |
+                    (blitSrc << 5) |
+                    (blitDst << 6) |
+                    (transferSrc << 7) |
+                    (transferDst << 8) |
+                    (log2MaxSamples << 9);
+            }
         };
         virtual const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) = 0;
         virtual const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) = 0;
@@ -521,23 +548,23 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         struct FormatPromotionRequest
         {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            core::bitflag<FORMAT_USAGE> usages;
+            FORMAT_USAGE usages;
 
             // pack into 64bit for easy hashing 
             uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
             {
-                uint64_t msb = r.usages.value;
+                uint64_t msb = r.usages.value();
                 return (msb << 32u) | r.originalFormat;
             }
 
             bool operator()(const FormatPromotionRequest<FORMAT_USAGE>& l, const FormatPromotionRequest<FORMAT_USAGE>& r) const
             {
-                return l.originalFormat == r.originalFormat && l.usages.value == r.usages.value;
+                return l.originalFormat == r.originalFormat && l.usages == r.usages;
             }
         };
 
-        asset::E_FORMAT promoteBufferFormat(const FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS> req);
-        asset::E_FORMAT promoteImageFormat(const FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS> req, const asset::IImage::E_TILING tiling);
+        asset::E_FORMAT promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req);
+        asset::E_FORMAT promoteImageFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage> req, const asset::IImage::E_TILING tiling);
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
@@ -634,8 +661,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         core::vector<char> m_GLSLDefineStringPool;
         core::vector<const char*> m_extraGLSLDefines;
 
-        typedef core::unordered_map<FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS>, asset::E_FORMAT, FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS>, FormatPromotionRequest<asset::IBuffer::E_USAGE_FLAGS>> format_buffer_cache_t;
-        typedef core::unordered_map<FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS>, asset::E_FORMAT, FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS>, FormatPromotionRequest<asset::IImage::E_USAGE_FLAGS>> format_image_cache_t;
+        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>> format_buffer_cache_t;
+        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>> format_image_cache_t;
 
         struct format_promotion_cache_t
         {

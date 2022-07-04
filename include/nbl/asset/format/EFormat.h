@@ -1763,7 +1763,7 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
 {
     _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
 
-    if (isIntegerFormat(format))
+    if (isIntegerFormat(format) || isScaledFormat(format))
         return 1;
 
     if (isSRGBFormat(format))
