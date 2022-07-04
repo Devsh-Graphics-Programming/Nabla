@@ -382,6 +382,7 @@ struct SPhysicalDeviceLimits
     //uint32_t           pciDevice;
     //uint32_t           pciFunction;
 
+    // [DO NOT EXPOSE] wont expose in near or far future
     /* DrmPropertiesEXT *//* provided by VK_EXT_physical_device_drm */
     //VkBool32           hasPrimary;
     //VkBool32           hasRender;
@@ -390,10 +391,12 @@ struct SPhysicalDeviceLimits
     //int64_t            renderMajor;
     //int64_t            renderMinor;
 
+    // [DO NOT EXPOSE] we will never expose provoking vertex control, we will always set the provoking vertex to the LAST (vulkan default) convention also because of never exposing Xform Feedback, we'll never expose this as well
     /* ProvokingVertexPropertiesEXT *//* provided by VK_EXT_provoking_vertex */
     //VkBool32           provokingVertexModePerPipeline;
     //VkBool32           transformFeedbackPreservesTriangleFanProvokingVertex;
 
+    // [DO NOT EXPOSE] yet
     /* Robustness2PropertiesEXT *//* provided by VK_EXT_robustness2 */
     //VkDeviceSize       robustStorageBufferAccessSizeAlignment;
     //VkDeviceSize       robustUniformBufferAccessSizeAlignment;
@@ -410,7 +413,8 @@ struct SPhysicalDeviceLimits
     /* SubgroupSizeControlPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
 
     /* TexelBufferAlignmentPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
-
+    
+    // [DO NOT EXPOSE] we've decided to never expose transform feedback in the engine 
     /* TransformFeedbackPropertiesEXT *//* provided by VK_EXT_transform_feedback */
     //uint32_t           maxTransformFeedbackStreams;
     //uint32_t           maxTransformFeedbackBuffers;
@@ -440,7 +444,7 @@ struct SPhysicalDeviceLimits
     /* DriverPropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
     /* VK_KHR_fragment_shader_barycentric --> Coverage 0% --> no structs defined anywhere in vulkan headers */
 
-    // DO NOT EXPOSE: not implementing or exposing VRS in near or far future
+    // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRatePropertiesKHR *//* provided by VK_KHR_fragment_shading_rate */
     //VkExtent2D               minFragmentShadingRateAttachmentTexelSize;
     //VkExtent2D               maxFragmentShadingRateAttachmentTexelSize;
@@ -472,6 +476,7 @@ struct SPhysicalDeviceLimits
 
     /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
 
+    // [TODO] to expose but contingent on the TODO to implement one day
     /* PushDescriptorPropertiesKHR *//* provided by VK_KHR_push_descriptor */
     //uint32_t           maxPushDescriptors;
 
@@ -490,6 +495,7 @@ struct SPhysicalDeviceLimits
     /* TimelineSemaphorePropertiesKHR *//* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core  */
     /* VK_KHX_multiview *//* replaced by VK_KHR_multiview */
 
+    // [DO NOT EXPOSE] means beta/experimental, lets not expose any of those
     /* MultiviewPerViewAttributesPropertiesNVX *//* VK_NVX_multiview_per_view_attributes */
     // VkBool32           perViewPositionAllComponents;
 
@@ -498,6 +504,7 @@ struct SPhysicalDeviceLimits
     /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
     // VkShaderStageFlags    cooperativeMatrixSupportedStages;
 
+    // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     /* DeviceGeneratedCommandsPropertiesNV *//* VK_NV_device_generated_commands */
     //uint32_t           maxGraphicsShaderGroupCount;
     //uint32_t           maxIndirectSequenceCount;
@@ -509,9 +516,12 @@ struct SPhysicalDeviceLimits
     //uint32_t           minSequencesIndexBufferOffsetAlignment;
     //uint32_t           minIndirectCommandsBufferOffsetAlignment;
 
+    
+    // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRateEnumsPropertiesNV *//* VK_NV_fragment_shading_rate_enums */
     // VkSampleCountFlagBits    maxFragmentShadingRateInvocationCount;
-
+    
+    // [DO NOT EXPOSE] wont expose right now, may in the future
     /* MeshShaderPropertiesNV *//* VK_NV_mesh_shader */
     //uint32_t           maxDrawMeshTasksCount;
     //uint32_t           maxTaskWorkGroupInvocations;
@@ -532,12 +542,14 @@ struct SPhysicalDeviceLimits
     /* ShaderSMBuiltinsPropertiesNV *//* VK_NV_shader_sm_builtins */
     //uint32_t           shaderSMCount;
     //uint32_t           shaderWarpsPerSM;
-
+    
+    // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* ShadingRateImagePropertiesNV *//* VK_NV_shading_rate_image */
     //VkExtent2D         shadingRateTexelSize;
     //uint32_t           shadingRatePaletteSize;
     //uint32_t           shadingRateMaxCoarseSamples;
 
+    // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentDensityMapOffsetPropertiesQCOM *//* VK_QCOM_fragment_density_map_offset */
     //VkExtent2D         fragmentDensityOffsetGranularity;
 

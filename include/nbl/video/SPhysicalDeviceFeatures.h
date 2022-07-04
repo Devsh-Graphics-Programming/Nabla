@@ -28,13 +28,13 @@ struct SPhysicalDeviceFeatures
     bool multiViewport = false;
     bool samplerAnisotropy = false;
 
-    // DO NOT EXPOSE These 3: Doesn't make a difference, just shorcut from Querying support from PhysicalDevice
+    // [DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice
     //VkBool32    textureCompressionETC2;
     //VkBool32    textureCompressionASTC_LDR;
     //VkBool32    textureCompressionBC;
     
     //VkBool32    occlusionQueryPrecise;
-    //VkBool32    pipelineStatisticsQuery;
+    //VkBool32    pipelineStatisticsQuery; [DO NOT EXPOSE] yet
     //VkBool32    vertexPipelineStoresAndAtomics;
     //VkBool32    fragmentStoresAndAtomics;
     //VkBool32    shaderTessellationAndGeometryPointSize;
@@ -54,6 +54,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32    shaderInt16;
     //VkBool32    shaderResourceResidency;
     //VkBool32    shaderResourceMinLod;
+    
+    // [DO NOT EXPOSE] yet, cause we haven't implemented sparse resources yet
     //VkBool32    sparseBinding;
     //VkBool32    sparseResidencyBuffer;
     //VkBool32    sparseResidencyImage2D;
@@ -63,6 +65,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32    sparseResidency8Samples;
     //VkBool32    sparseResidency16Samples;
     //VkBool32    sparseResidencyAliased;
+    
     //VkBool32    variableMultisampleRate;
     bool inheritedQueries = false;
 
@@ -71,6 +74,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32           uniformAndStorageBuffer16BitAccess;
     //VkBool32           storagePushConstant16;
     //VkBool32           storageInputOutput16;
+    
+    // [TODO] do not expose multiview yet
     //VkBool32           multiview;
     //VkBool32           multiviewGeometryShader;
     //VkBool32           multiviewTessellationShader;
@@ -81,7 +86,7 @@ struct SPhysicalDeviceFeatures
     
     //VkBool32           protectedMemory;
     
-    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
+    // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //VkBool32           samplerYcbcrConversion;
     bool shaderDrawParameters = false;
 
@@ -137,7 +142,7 @@ struct SPhysicalDeviceFeatures
     
     //VkBool32           uniformBufferStandardLayout;   // or VK_KHR_uniform_buffer_standard_layout
     
-    // Don't expose:
+    // [DO NOT EXPOSE]
     //VkBool32           shaderSubgroupExtendedTypes;   // or VK_KHR_shader_subgroup_extended_types
     
     //VkBool32           separateDepthStencilLayouts;   // or VK_KHR_separate_depth_stencil_layouts
@@ -149,7 +154,7 @@ struct SPhysicalDeviceFeatures
     
     // or VK_KHR_timeline_semaphore:
     bool bufferDeviceAddress = false;
-    //VkBool32           bufferDeviceAddressCaptureReplay;
+    //VkBool32           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
     //VkBool32           bufferDeviceAddressMultiDevice;
     
     // or VK_KHR_vulkan_memory_model
@@ -165,15 +170,20 @@ struct SPhysicalDeviceFeatures
 
 
     /* Vulkan 1.3 Core */
-
+    
+    // [DO NOT EXPOSE] robustness stuff yet
     //VkBool32           robustImageAccess;                 //  or VK_EXT_image_robustness
     
     //  or VK_EXT_inline_uniform_block:
     //VkBool32           inlineUniformBlock;
     //VkBool32           descriptorBindingInlineUniformBlockUpdateAfterBind;
     
+    // [DO NOT EXPOSE] yet
     //VkBool32           pipelineCreationCacheControl;      // or VK_EXT_pipeline_creation_cache_control
+   
+    // [DO NOT EXPOSE] forever
     //VkBool32           privateData;                       // or VK_EXT_private_data
+    
     //VkBool32           shaderDemoteToHelperInvocation;    // or VK_EXT_shader_demote_to_helper_invocation
     //VkBool32           shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
     
@@ -183,7 +193,7 @@ struct SPhysicalDeviceFeatures
     
     //VkBool32           synchronization2;                      // or VK_KHR_synchronization2
     
-    // DO NOT EXPOSE: Doesn't make a difference, just shorcut from Querying support from PhysicalDevice
+    // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
     //VkBool32           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
     
     //VkBool32           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
@@ -206,13 +216,13 @@ struct SPhysicalDeviceFeatures
     //VkBool32           rasterizationOrderDepthAttachmentAccess;
     //VkBool32           rasterizationOrderStencilAttachmentAccess;
     
-    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
+    // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
     
     /* ASTCDecodeFeaturesEXT *//* VK_EXT_astc_decode_mode */
     //VkFormat           decodeMode;
 
-    // DO NOT EXPOSE right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
+    // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
     //VkBool32           advancedBlendCoherentOperations;
     
@@ -383,7 +393,7 @@ struct SPhysicalDeviceFeatures
     /* VertexInputDynamicStateFeaturesEXT *//* VK_EXT_vertex_input_dynamic_state */
     //VkBool32           vertexInputDynamicState;
 
-    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
+    // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* Ycbcr2Plane444FormatsFeaturesEXT *//* VK_EXT_ycbcr_2plane_444_formats */
 
     /* YcbcrImageArraysFeaturesEXT *//* VK_EXT_ycbcr_image_arrays */
@@ -408,7 +418,7 @@ struct SPhysicalDeviceFeatures
 
     /* [!!NV Version below, struct doesn't exist in vk headers] VK_KHR_fragment_shader_barycentric */
     
-    // DO NOT EXPOSE: not implementing or exposing VRS in near or far future
+    // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
     //VkBool32           pipelineFragmentShadingRate;
     //VkBool32           primitiveFragmentShadingRate;
@@ -560,7 +570,7 @@ struct SPhysicalDeviceFeatures
     
     /* Extensions Exposed as Features: */
 
-    // DO NOT EXPOSE! -> Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
+    // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* VK_IMG_format_pvrtc */
     
 
