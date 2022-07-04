@@ -34,7 +34,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32    textureCompressionBC;
     
     //VkBool32    occlusionQueryPrecise;
-    //VkBool32    pipelineStatisticsQuery; [DO NOT EXPOSE] yet
+    //VkBool32    pipelineStatisticsQuery; [TODO]
     //VkBool32    vertexPipelineStoresAndAtomics;
     //VkBool32    fragmentStoresAndAtomics;
     //VkBool32    shaderTessellationAndGeometryPointSize;
@@ -55,7 +55,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32    shaderResourceResidency;
     //VkBool32    shaderResourceMinLod;
     
-    // [DO NOT EXPOSE] yet, cause we haven't implemented sparse resources yet
+    // [TODO] cause we haven't implemented sparse resources yet
     //VkBool32    sparseBinding;
     //VkBool32    sparseResidencyBuffer;
     //VkBool32    sparseResidencyImage2D;
@@ -171,17 +171,17 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.3 Core */
     
-    // [DO NOT EXPOSE] robustness stuff yet
+    // [TODO] robustness stuff
     //VkBool32           robustImageAccess;                 //  or VK_EXT_image_robustness
     
     //  or VK_EXT_inline_uniform_block:
     //VkBool32           inlineUniformBlock;
     //VkBool32           descriptorBindingInlineUniformBlockUpdateAfterBind;
     
-    // [DO NOT EXPOSE] yet
+    // [TODO]
     //VkBool32           pipelineCreationCacheControl;      // or VK_EXT_pipeline_creation_cache_control
    
-    // [DO NOT EXPOSE] forever
+    // [DO NOT EXPOSE] ever
     //VkBool32           privateData;                       // or VK_EXT_private_data
     
     //VkBool32           shaderDemoteToHelperInvocation;    // or VK_EXT_shader_demote_to_helper_invocation
@@ -251,7 +251,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32           customBorderColors;
     //VkBool32           customBorderColorWithoutFormat;
 
-    // [DO NOT EXPOSE] FOREVER, VULKAN DEPTH RANGE ONLY!
+    // [DO NOT EXPOSE] EVER, VULKAN DEPTH RANGE ONLY!
     /* DepthClipControlFeaturesEX *//* VK_EXT_depth_clip_control */
     //VkBool32           depthClipControl;
 
@@ -260,7 +260,7 @@ struct SPhysicalDeviceFeatures
 
     /* DescriptorIndexingFeatures *//* VK_EXT_descriptor_indexing *//* MOVED TO Vulkan 1.2 Core  */
 
-    // [DO NOT EXPOSE] yet
+    // [TODO]
     /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
     //VkBool32           deviceMemoryReport;
     
@@ -289,12 +289,12 @@ struct SPhysicalDeviceFeatures
     bool fragmentShaderPixelInterlock = false;
     bool fragmentShaderShadingRateInterlock = false;
 
-    // [DO NOT EXPOSE] yet
+    // [TODO]
     /* GlobalPriorityQueryFeaturesEXT *//* VK_EXT_global_priority */
     /* GlobalPriorityQueryFeaturesKHR *//* VK_KHR_global_priority */
     //VkQueueGlobalPriorityKHR    globalPriority;
 
-    // [DO NOT EXPOSE] yet, too much effort
+    // [TODO] too much effort
     /* GraphicsPipelineLibraryFeaturesEXT *//* VK_EXT_graphics_pipeline_library */
     //VkBool32           graphicsPipelineLibrary;
 
@@ -346,17 +346,20 @@ struct SPhysicalDeviceFeatures
     //VkBool32           primitivesGeneratedQuery;
     //VkBool32           primitivesGeneratedQueryWithRasterizerDiscard;
     //VkBool32           primitivesGeneratedQueryWithNonZeroStreams;
-
+    
+    // [DO NOT EXPOSE]
     /* PrimitiveTopologyListRestartFeaturesEXT *//* VK_EXT_primitive_topology_list_restart */
     //VkBool32           primitiveTopologyListRestart;
     //VkBool32           primitiveTopologyPatchListRestart;
 
     /* PrivateDataFeatures *//* VK_EXT_private_data *//* MOVED TO Vulkan 1.3 Core */
 
+    // [DO NOT EXPOSE] provokingVertexLast will not expose (we always use First Vertex Vulkan-like convention), anything to do with XForm-feedback we don't expose
     /* ProvokingVertexFeaturesEXT *//* VK_EXT_provoking_vertex */
     //VkBool32           provokingVertexLast;
     //VkBool32           transformFeedbackPreservesProvokingVertex;
 
+    // [TODO]
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
     //VkBool32           robustBufferAccess2;
     //VkBool32           robustImageAccess2;
@@ -400,19 +403,23 @@ struct SPhysicalDeviceFeatures
 
     /* SubgroupSizeControlFeaturesEXT *//* VK_EXT_subgroup_size_control *//* MOVED TO Vulkan 1.3 Core */
 
+    // [DO NOT EXPOSE] always enable if we can
     /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
     //VkBool32           texelBufferAlignment;
 
     /* TextureCompressionASTCHDRFeaturesEXT *//* VK_EXT_texture_compression_astc_hdr *//* MOVED TO Vulkan 1.3 Core */
 
+    // [DO NOT EXPOSE] ever because of our disdain for XForm feedback
     /* TransformFeedbackFeaturesEXT *//* VK_EXT_transform_feedback */
     //VkBool32           transformFeedback;
     //VkBool32           geometryStreams;
 
+    // [TODO] we would have to change the API
     /* VertexAttributeDivisorFeaturesEXT *//* VK_EXT_vertex_attribute_divisor */
     //VkBool32           vertexAttributeInstanceRateDivisor;
     //VkBool32           vertexAttributeInstanceRateZeroDivisor;
 
+    // [DO NOT EXPOSE] too much API Fudjery
     /* VertexInputDynamicStateFeaturesEXT *//* VK_EXT_vertex_input_dynamic_state */
     //VkBool32           vertexInputDynamicState;
 
@@ -446,14 +453,12 @@ struct SPhysicalDeviceFeatures
     //VkBool32           pipelineFragmentShadingRate;
     //VkBool32           primitiveFragmentShadingRate;
     //VkBool32           attachmentFragmentShadingRate;
-    
-    /* GlobalPriorityQueryFeaturesKHR *//* VK_KHR_global_priority */
-    //VkBool32           globalPriorityQuery;
 
     /* ImagelessFramebufferFeaturesKHR *//* VK_KHR_imageless_framebuffer *//* MOVED TO Vulkan 1.2 Core */
     /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
     /* MultiviewFeaturesKHR *//* VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
-
+    
+    // [TODO]
     /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
     //VkBool32           performanceCounterQueryPools;
     //VkBool32           performanceCounterMultipleQueryPools;
