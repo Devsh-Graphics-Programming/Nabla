@@ -1825,7 +1825,19 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
         switch (format)
         {
         case EF_B10G11R11_UFLOAT_PACK32:
-            return 0; //TODO
+        {
+            //TODO use a proper nextafter function for this
+            float f = std::abs(static_cast<float>(value));
+            int bitshft = channel == 2u ? 6 : 5;
+
+            uint16_t f16 = core::Float16Compressor::compress(f);
+            uint16_t dir = core::Float16Compressor::compress(2.f * (f + 1.f));
+            uint16_t enc = f16 >> bitshft;
+            uint16_t next = enc + 1;
+            uint16_t next_f16 = next << bitshft;
+
+            return core::Float16Compressor::decompress(next_f16) - f;
+        }
         case EF_E5B9G9R9_UFLOAT_PACK32:
             return 0; //TODO
         default: break;

@@ -253,14 +253,39 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     return rcpUnit;
 }
 
-// Returns true if 'a' has >= precision & value range than 'b'
+double getMinFormatPrecision(asset::E_FORMAT format, uint32_t channel)
+{
+    if (asset::isBlockCompressionFormat(format))
+        return getBcFormatMaxPrecision(format, channel);
+    switch (format)
+    {
+    case asset::EF_E5B9G9R9_UFLOAT_PACK32:
+    {
+        // Minimum precision value would be a 9bit mantissa & 5bit exponent float at 0.0
+        // TODO use a proper nextafter function for this
+        float f = 0.0;
+        uint32_t bitshft = 2;
+
+        uint16_t f16 = core::Float16Compressor::compress(f);
+        uint16_t dir = core::Float16Compressor::compress(2.f * (f + 1.f));
+        uint16_t enc = f16 >> bitshft;
+        uint16_t next = enc + 1;
+        uint16_t next_f16 = next << bitshft;
+
+        return core::Float16Compressor::decompress(next_f16) - f;
+    }
+    default: return asset::getFormatPrecision(format, channel, 0.f);
+    }
+}
+
+// Returns true if a has higher precision & value range than b
 bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t srcChannels)
 {
     auto c = 0;
     while (c < srcChannels)
     {
         // break if a has less precision (higher precision value from getFormatPrecision) than b
-        if (asset::getFormatPrecision(a, c, 0.f) > asset::getFormatPrecision(b, c, 0.f))
+        if (getMinFormatPrecision(a, c) > getMinFormatPrecision(b, c))
             break;
         // break if a has less range than b
         if (asset::getFormatMinValue<double>(a, c) > asset::getFormatMinValue<double>(b, c)
@@ -284,13 +309,12 @@ bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t 
 // srcFormat can't be in validFormats (no promotion should be made if the format itself is valid)
 asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FORMAT>& validFormats, asset::E_FORMAT srcFormat)
 {
-    asset::E_FORMAT bestFitFmt = asset::E_FORMAT::EF_UNKNOWN;
-    uint32_t bestFitSize = -1;
+    asset::E_FORMAT smallestTexelBlock = asset::E_FORMAT::EF_UNKNOWN;
+    uint32_t smallestTexelBlockSize = -1;
 
     auto srcChannels = asset::getFormatChannelCount(srcFormat);
     assert(srcChannels);
     auto srcAspects = getImageAspects(srcFormat);
-    bool srcBc = asset::isBlockCompressionFormat(srcFormat);
     bool srcIntFormat = asset::isIntegerFormat(srcFormat);
 
     float srcPrecision[4];
@@ -298,7 +322,7 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     double srcMaxVal[4];
     for (uint32_t channel = 0; channel < srcChannels; channel++)
     {
-        srcPrecision[channel] = srcBc ? getBcFormatMaxPrecision(srcFormat, channel) : asset::getFormatPrecision(srcFormat, channel, 0.f);
+        srcPrecision[channel] = getMinFormatPrecision(srcFormat, channel);
         srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
         srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
     }
@@ -347,24 +371,24 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
 
         uint32_t texelBlockSize = asset::getTexelOrBlockBytesize(f);
         // Don't promote if we have a better valid format already
-        if (texelBlockSize > bestFitSize) {
+        if (texelBlockSize > smallestTexelBlockSize) {
             continue;
         }
 
-        if (texelBlockSize == bestFitSize)
+        if (texelBlockSize == smallestTexelBlockSize)
         {
             // Tie-breaking rules:
             // - Precision
             // - Value range
-            if (!higherPrecisionOrValueRange(bestFitFmt, f, srcChannels))
+            if (!higherPrecisionOrValueRange(smallestTexelBlock, f, srcChannels))
                 continue;
         }
 
-        bestFitSize = texelBlockSize;
-        bestFitFmt = f;
+        smallestTexelBlockSize = texelBlockSize;
+        smallestTexelBlock = f;
     }
 
-    return bestFitFmt;
+    return smallestTexelBlock;
 }
 
 asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req)
