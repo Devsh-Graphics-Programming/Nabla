@@ -513,161 +513,180 @@ public:
 			}
 		}
 
-		GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
-		GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
-		GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindings));
-		GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
-		GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
+		// PhysicalDevice Features
+		{
+			/* Vulkan 1.0 Core */
+			GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
+			GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
+			GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindings));
+			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
+			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
 
-		GLuint maxElementIndex = 0u;
-		GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
+			GLuint maxElementIndex = 0u;
+			GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
-		m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
-		m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
-		m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
-		m_features.independentBlend = IsGLES 
-			? (m_glfeatures.Version >= 320u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_draw_buffers_indexed) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_draw_buffers_indexed))
-			: true;
+			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
+			m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
+			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
+			m_features.independentBlend = IsGLES 
+				? (m_glfeatures.Version >= 320u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_draw_buffers_indexed) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_draw_buffers_indexed))
+				: true;
 
-		if (!IsGLES || m_glfeatures.Version >= 320u)
-		{
-			#define GLENUM_WITH_SUFFIX(X) X
-			#include "nbl/video/GL/limit_queries/tessellation_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_tessellation_shader))
-		{
-			#define GLENUM_WITH_SUFFIX(X) X##_OES
-			#include "nbl/video/GL/limit_queries/tessellation_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_tessellation_shader))
-		{
-			#define GLENUM_WITH_SUFFIX(X) X##_EXT
-			#include "nbl/video/GL/limit_queries/tessellation_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-		// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_tessellation_shader))
-		{
-			//!! no _INTEL suffix
-			#define GLENUM_WITH_SUFFIX(X) X##_INTEL
-			// #include "src/nbl/video/GL/limit_queries/tessellation_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-		
-		if (!IsGLES || m_glfeatures.Version >= 320u)
-		{
-			#define GLENUM_WITH_SUFFIX(X) X
-			#include "nbl/video/GL/limit_queries/geometry_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_geometry_shader))
-		{
-			#define GLENUM_WITH_SUFFIX(X) X##_OES
-			#include "nbl/video/GL/limit_queries/geometry_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_geometry_shader))
-		{
-			#define GLENUM_WITH_SUFFIX(X) X##_EXT
-			#include "nbl/video/GL/limit_queries/geometry_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-		// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_geometry_shader))
-		{
-			//!! no _INTEL suffix
-			#define GLENUM_WITH_SUFFIX(X) X##_INTEL
-			// #include "nbl/video/GL/limit_queries/geometry_shader.h"
-			#undef GLENUM_WITH_SUFFIX
-		}
-
-		m_features.logicOp = !IsGLES;
-		m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
-
-		m_features.drawIndirectFirstInstance = (IsGLES)
-			? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance)) 
-			: true;
-
-		m_features.depthClamp = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp);
-		m_features.depthBiasClamp = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp) : true;
-
-		m_features.fillModeNonSolid = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_polygon_mode) : true;
-		m_features.depthBounds = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_bounds_test);
-		m_features.wideLines = true;
-		m_features.largePoints = true;
-		m_features.alphaToOne = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_multisample_compatibility) : true; // GLES?
-		
-		m_features.multiViewport = IsGLES 
-			? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array))
-			: true;
-
-		if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
-		{
-			GLint maxAnisotropy = 0;
-			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
-			if(maxAnisotropy)
+			if (!IsGLES || m_glfeatures.Version >= 320u)
 			{
-				m_features.samplerAnisotropy = true;
-				m_properties.limits.maxSamplerAnisotropyLog2 = core::findMSB(static_cast<uint32_t>(maxAnisotropy));
+				#define GLENUM_WITH_SUFFIX(X) X
+				#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
 			}
-		}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_tessellation_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_OES
+				#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_tessellation_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_EXT
+				#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_tessellation_shader))
+			{
+				//!! no _INTEL suffix
+				#define GLENUM_WITH_SUFFIX(X) X##_INTEL
+				// #include "src/nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
 		
-		m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
+			if (!IsGLES || m_glfeatures.Version >= 320u)
+			{
+				#define GLENUM_WITH_SUFFIX(X) X
+				#include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_geometry_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_OES
+				#include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_geometry_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_EXT
+				#include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_geometry_shader))
+			{
+				//!! no _INTEL suffix
+				#define GLENUM_WITH_SUFFIX(X) X##_INTEL
+				// #include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
 
-		if constexpr (IsGLES)
-		{
-			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance))
+			m_features.logicOp = !IsGLES;
+			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
+
+			m_features.drawIndirectFirstInstance = (IsGLES)
+				? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance)) 
+				: true;
+
+			m_features.depthClamp = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp);
+			m_features.depthBiasClamp = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp) : true;
+
+			m_features.fillModeNonSolid = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_polygon_mode) : true;
+			m_features.depthBounds = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_bounds_test);
+			m_features.wideLines = true;
+			m_features.largePoints = true;
+			m_features.alphaToOne = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_multisample_compatibility) : true; // GLES?
+		
+			m_features.multiViewport = IsGLES 
+				? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array))
+				: true;
+
+			if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
+			{
+				GLint maxAnisotropy = 0;
+				GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
+				if(maxAnisotropy)
+				{
+					m_features.samplerAnisotropy = true;
+					m_properties.limits.maxSamplerAnisotropyLog2 = core::findMSB(static_cast<uint32_t>(maxAnisotropy));
+				}
+			}
+		
+			m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
+
+			if constexpr (IsGLES)
+			{
+				if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance))
+				{
+					m_features.shaderClipDistance = true;
+					m_features.shaderCullDistance = true;
+					GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
+					GetIntegerv(GL_MAX_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+					GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+				}
+			}
+			else
 			{
 				m_features.shaderClipDistance = true;
-				m_features.shaderCullDistance = true;
-				GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
-				GetIntegerv(GL_MAX_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
-				GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+				GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
+				if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
+				{
+					m_features.shaderCullDistance = true;
+					GetIntegerv(GL_MAX_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+					GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+				}
 			}
-		}
-		else
-		{
-			m_features.shaderClipDistance = true;
-			GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
-			if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
-			{
-				m_features.shaderCullDistance = true;
-				GetIntegerv(GL_MAX_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
-				GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
-			}
-		}
 		
-		m_features.vertexAttributeDouble = !IsGLES;
-		m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
-		m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
-		m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
-		m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
-			
-		m_features.samplerFilterMinmax = false; // no such sampler in GL
-		m_features.bufferDeviceAddress = false; // no such capability in GL
-		m_features.subgroupSizeControl = false;
-		m_features.computeFullSubgroups = false;
+			m_features.vertexAttributeDouble = !IsGLES;
+			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 
-		if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
-		{
-			// Can't check individualy (???)
-			m_features.fragmentShaderPixelInterlock = true;
-			m_features.fragmentShaderSampleInterlock = true;
-			m_features.fragmentShaderShadingRateInterlock = true;
+		
+			/* Vulkan 1.1 Core */
+			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
+			
+			/* Vulkan 1.2 Core */
+			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
+			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
+			m_features.samplerFilterMinmax = false; // no such sampler in GL
+			m_features.bufferDeviceAddress = false; // no such capability in GL
+			
+			/* Vulkan 1.3 Core */
+			m_features.subgroupSizeControl = false;
+			m_features.computeFullSubgroups = false;
+
+			/* Vulkan Extensions */
+			
+            /* [NOT SUPPORTED IN GL] BufferDeviceAddressFeaturesKHR */
+            /* [NOT SUPPORTED IN GL] AccelerationStructureFeaturesKHR */ 
+            /* [NOT SUPPORTED IN GL] RayTracingPipelineFeaturesKHR */
+            /* [NOT SUPPORTED IN GL] RayQueryFeaturesKHR */
+
+			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
+			{
+				// Can't check individualy (???)
+				m_features.fragmentShaderPixelInterlock = true;
+				m_features.fragmentShaderSampleInterlock = true;
+				m_features.fragmentShaderShadingRateInterlock = true;
+			}
+			
+			// GL Specific
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
+				GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);
+			
+			GLint num = 0;
+			GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
+			m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
+
+			// TODO: move this to IPhysicalDevice::SFeatures
+			const bool runningInRenderDoc = (m_rdoc_api != nullptr);
+			m_glfeatures.runningInRenderDoc = runningInRenderDoc;
 		}
 
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
-			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);
-
-		GLint num = 0;
-		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
-		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
-
-		// TODO: move this to IPhysicalDevice::SFeatures
-		const bool runningInRenderDoc = (m_rdoc_api != nullptr);
-		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
-
-		// physical device limits
+		// PhysicalDevice Limits
 		{
 			int majorVer = 0;
 			int minorVer = 0;
@@ -1117,7 +1136,7 @@ public:
 		}
 
 		std::ostringstream pool;
-		addCommonGLSLDefines(pool,runningInRenderDoc);
+		addCommonGLSLDefines(pool,m_glfeatures.runningInRenderDoc);
 		{
 			std::string define;
 			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
