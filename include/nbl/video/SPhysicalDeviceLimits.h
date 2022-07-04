@@ -353,11 +353,13 @@ struct SPhysicalDeviceLimits
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
     //VkDeviceSize       minImportedHostPointerAlignment;
     
+    // [TODO]
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
     //VkExtent2D         minFragmentDensityTexelSize;
     //VkExtent2D         maxFragmentDensityTexelSize;
     //VkBool32           fragmentDensityInvocations;
     
+    // [TODO]
     /* FragmentDensityMap2PropertiesEXT *//* provided by VK_EXT_fragment_density_map2 */
     //VkBool32           subsampledLoads;
     //VkBool32           subsampledCoarseReconstructionEarlyAccess;

@@ -191,15 +191,20 @@ struct SPhysicalDeviceFeatures
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
+    // [DO NOT EXPOSE] and false because we havent rewritten our frontend API for that
     //VkBool32           synchronization2;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
     //VkBool32           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
     
+    // [DO NOT EXPOSE] would require doing research into the GL/GLES robustness extensions
     //VkBool32           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
+    
+    // [DO NOT EXPOSE] EVIL
     //VkBool32           dynamicRendering;                      // or VK_KHR_dynamic_rendering
+    
     //VkBool32           shaderIntegerDotProduct;               // or VK_KHR_shader_integer_dot_product
-    //VkBool32           maintenance4;                          // ! Doesn't make sense to expose, too vulkan specific // or VK_KHR_maintenance4
+    //VkBool32           maintenance4;                          // [DO NOT EXPOSE] doesn't make sense
 
 
 
@@ -233,6 +238,7 @@ struct SPhysicalDeviceFeatures
 
     /* VK_EXT_buffer_device_address *//* HAS KHR VERSION */
 
+    // [TODO] would need new commandbuffer methods, etc
     /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
     //VkBool32           colorWriteEnable;
 
@@ -245,6 +251,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32           customBorderColors;
     //VkBool32           customBorderColorWithoutFormat;
 
+    // [DO NOT EXPOSE] FOREVER, VULKAN DEPTH RANGE ONLY!
     /* DepthClipControlFeaturesEX *//* VK_EXT_depth_clip_control */
     //VkBool32           depthClipControl;
 
@@ -253,22 +260,27 @@ struct SPhysicalDeviceFeatures
 
     /* DescriptorIndexingFeatures *//* VK_EXT_descriptor_indexing *//* MOVED TO Vulkan 1.2 Core  */
 
+    // [DO NOT EXPOSE] yet
     /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
     //VkBool32           deviceMemoryReport;
     
+    // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicStateFeaturesEXT *//* VK_EXT_extended_dynamic_state */
     //VkBool32           extendedDynamicState;
-
+    
+    // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicState2FeaturesEXT *//* VK_EXT_extended_dynamic_state2 */
     //VkBool32           extendedDynamicState2;
     //VkBool32           extendedDynamicState2LogicOp;
     //VkBool32           extendedDynamicState2PatchControlPoints;
 
+    // [TODO]
     /* FragmentDensityMapFeaturesEXT *//* VK_EXT_fragment_density_map */
     //VkBool32           fragmentDensityMap;
     //VkBool32           fragmentDensityMapDynamic;
     //VkBool32           fragmentDensityMapNonSubsampledImages;
-
+    
+    // [TODO]
     /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
     //VkBool32           fragmentDensityMapDeferred;
 
@@ -277,21 +289,25 @@ struct SPhysicalDeviceFeatures
     bool fragmentShaderPixelInterlock = false;
     bool fragmentShaderShadingRateInterlock = false;
 
+    // [DO NOT EXPOSE] yet
     /* GlobalPriorityQueryFeaturesEXT *//* VK_EXT_global_priority */
     /* GlobalPriorityQueryFeaturesKHR *//* VK_KHR_global_priority */
     //VkQueueGlobalPriorityKHR    globalPriority;
 
+    // [DO NOT EXPOSE] yet, too much effort
     /* GraphicsPipelineLibraryFeaturesEXT *//* VK_EXT_graphics_pipeline_library */
     //VkBool32           graphicsPipelineLibrary;
 
     /* HostQueryResetFeatures *//* VK_EXT_host_query_reset *//* MOVED TO Vulkan 1.2 Core */
     
+    // [TODO] Investigate later
     /* Image2DViewOf3DFeaturesEXT *//* VK_EXT_image_2d_view_of_3d */
     //VkBool32           image2DViewOf3D;
     //VkBool32           sampler2DViewOf3D;
 
     /* ImageRobustnessFeaturesEXT *//* VK_EXT_image_robustness *//* MOVED TO Vulkan 1.3 Core */
-
+    
+    // [DO NOT EXPOSE] pointless to implement currently
     /* ImageViewMinLodFeaturesEXT *//* VK_EXT_image_view_min_lod */
     //VkBool32           minLod;
 
@@ -300,25 +316,32 @@ struct SPhysicalDeviceFeatures
     
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
 
+    // [DO NOT EXPOSE] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
+    // GL HINT (remove when implemented): MULTI_SAMPLE_LINE_WIDTH_RANGE (which is necessary for this) is guarded by !IsGLES || Version>=320 no idea is something enables this or not
     //VkBool32           rectangularLines;
     //VkBool32           bresenhamLines;
     //VkBool32           smoothLines;
+    // GL HINT (remove when implemented): !IsGLES for all stipples
     //VkBool32           stippledRectangularLines;
     //VkBool32           stippledBresenhamLines;
     //VkBool32           stippledSmoothLines;
 
+    // [TODO] trivial to implement later, false on GL
     /* MemoryPriorityFeaturesEXT *//* VK_EXT_memory_priority */
     //VkBool32           memoryPriority;
 
+    // [DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported
     /* MultiDrawFeaturesEXT *//* VK_EXT_multi_draw */
     //VkBool32           multiDraw;
 
+    // [DO NOT EXPOSE] pointless to expose without exposing VK_EXT_memory_priority and the memory query feature first
     /* PageableDeviceLocalMemoryFeaturesEXT *//* VK_EXT_pageable_device_local_memory */
     //VkBool32           pageableDeviceLocalMemory;
 
     /* PipelineCreationCacheControlFeaturesEXT *//* VK_EXT_pipeline_creation_cache_control *//* MOVED TO Vulkan 1.3 Core */
 
+    // [DO NOT EXPOSE] requires and relates to EXT_transform_feedback which we'll never expose
     /* PrimitivesGeneratedQueryFeaturesEXT *//* VK_EXT_primitives_generated_query */
     //VkBool32           primitivesGeneratedQuery;
     //VkBool32           primitivesGeneratedQueryWithRasterizerDiscard;
