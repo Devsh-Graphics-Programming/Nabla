@@ -228,10 +228,7 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_BC6H_SFLOAT_BLOCK:
     {
         // BC6 isn't really FP16, so this is an over-estimation
-        float f = 0.0;
-        uint16_t f16 = core::Float16Compressor::compress(f);
-        uint16_t dir = core::Float16Compressor::compress(2.f * (f + 1.f));
-        return core::Float16Compressor::decompress(core::nextafter16(f16, dir)) - f;
+        return core::Float16Compressor::decompress(1) - 0.0;
     }
     case asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
     case asset::EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
@@ -262,17 +259,8 @@ double getMinFormatPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_E5B9G9R9_UFLOAT_PACK32:
     {
         // Minimum precision value would be a 9bit mantissa & 5bit exponent float at 0.0
-        // TODO use a proper nextafter function for this
-        float f = 0.0;
         uint32_t bitshft = 2;
-
-        uint16_t f16 = core::Float16Compressor::compress(f);
-        uint16_t dir = core::Float16Compressor::compress(2.f * (f + 1.f));
-        uint16_t enc = f16 >> bitshft;
-        uint16_t next = enc + 1;
-        uint16_t next_f16 = next << bitshft;
-
-        return core::Float16Compressor::decompress(next_f16) - f;
+        return core::Float16Compressor::decompress(1 << bitshft) - 0.0;
     }
     default: return asset::getFormatPrecision(format, channel, 0.f);
     }
