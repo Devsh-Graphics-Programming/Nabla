@@ -1826,14 +1826,13 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
         {
         case EF_B10G11R11_UFLOAT_PACK32:
         {
-            //TODO use a proper nextafter function for this
+            // unsigned values are always ordered as + 1
             float f = std::abs(static_cast<float>(value));
             int bitshft = channel == 2u ? 6 : 5;
 
             uint16_t f16 = core::Float16Compressor::compress(f);
             uint16_t enc = f16 >> bitshft;
-            uint16_t next = enc + 1;
-            uint16_t next_f16 = next << bitshft;
+            uint16_t next_f16 = (enc + 1) << bitshft;
 
             return core::Float16Compressor::decompress(next_f16) - f;
         }
