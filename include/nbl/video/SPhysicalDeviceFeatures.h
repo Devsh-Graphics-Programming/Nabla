@@ -215,7 +215,8 @@ struct SPhysicalDeviceFeatures
     // DO NOT EXPOSE right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
     //VkBool32           advancedBlendCoherentOperations;
-
+    
+    // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* BorderColorSwizzleFeaturesEXT *//* VK_EXT_border_color_swizzle */
     //VkBool32           borderColorSwizzle;
     //VkBool32           borderColorSwizzleFromImage;
@@ -228,7 +229,8 @@ struct SPhysicalDeviceFeatures
     /* ConditionalRenderingFeaturesEXT *//* VK_EXT_conditional_rendering */
     //VkBool32           conditionalRendering;
     //VkBool32           inheritedConditionalRendering;
-
+    
+    // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* CustomBorderColorFeaturesEXT *//* VK_EXT_custom_border_color */
     //VkBool32           customBorderColors;
     //VkBool32           customBorderColorWithoutFormat;

@@ -340,7 +340,8 @@ struct SPhysicalDeviceLimits
     bool    degenerateLinesRasterized;
     bool    fullyCoveredFragmentShaderInputVariable;
     bool    conservativeRasterizationPostDepthCoverage;
-            
+          
+    // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* CustomBorderColorPropertiesEXT *//* provided by VK_EXT_custom_border_color */
     //uint32_t           maxCustomBorderColorSamplers;
 
