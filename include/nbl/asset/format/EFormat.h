@@ -1842,9 +1842,9 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
         switch (bytesPerChannel)
         {
         case 1u:
-            return 1.0/255.0;
+            return isSignedFormat(format) ? 1.0/127.0 : 1.0/255.0;
         case 2u:
-            return 1.0/65535.0;
+            return isSignedFormat(format) ? 1.0/32765.0 : 1.0/65535.0;
         default: break;
         }
     }

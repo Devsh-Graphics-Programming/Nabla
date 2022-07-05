@@ -275,29 +275,25 @@ double getFormatPrecisionAt(asset::E_FORMAT format, uint32_t channel, double val
 // Returns true if a has higher precision & value range than b
 bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t srcChannels, double srcMin[], double srcMax[])
 {
-    auto c = 0;
-    while (c < srcChannels)
+    for (uint32_t c = 0; c < srcChannels; c++)
     {
         double mina = asset::getFormatMinValue<double>(a, c),
-            minb = asset::getFormatMinValue<double>(b, c), 
+            minb = asset::getFormatMinValue<double>(b, c),
             maxa = asset::getFormatMaxValue<double>(a, c),
             maxb = asset::getFormatMaxValue<double>(b, c);
 
-        // break if a has less precision (higher precision value from getFormatPrecision) than b
+        // return false if a has less precision (higher precision value from getFormatPrecision) than b
         // check at 0, since precision is non-increasing
         // also check at min & max, since there's potential for cross-over with constant formats
-        if (getFormatPrecisionAt(a, c, 0.0) > getFormatPrecisionAt(b, c, 0.0) 
-                || getFormatPrecisionAt(a, c, srcMin[c]) > getFormatPrecisionAt(b, c, srcMin[c])
-                || getFormatPrecisionAt(a, c, srcMax[c]) > getFormatPrecisionAt(b, c, srcMax[c]))
-            break;
-        // break if a has less range than b
+        if (getFormatPrecisionAt(a, c, 0.0) > getFormatPrecisionAt(b, c, 0.0)
+            || getFormatPrecisionAt(a, c, srcMin[c]) > getFormatPrecisionAt(b, c, srcMin[c])
+            || getFormatPrecisionAt(a, c, srcMax[c]) > getFormatPrecisionAt(b, c, srcMax[c]))
+            return false;
+        // return false if a has less range than b
         if (mina > minb || maxa < maxb)
-            break;
-
-        c++;
+            return false;
     }
-    // If we hit a break in the while loop, return false
-    return c == srcChannels;
+    return true;
 }
 
 // Rules for promotion:
@@ -326,7 +322,6 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
         srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
     }
 
-    // Better way to iterate the bitflags here?
     for (auto iter = validFormats.begin(); iter != validFormats.end(); iter++)
     {
         asset::E_FORMAT f = *iter;
