@@ -383,10 +383,10 @@ struct SPhysicalDeviceLimits
     //uint32_t           maxMultiDrawCount;
 
     /* PCIBusInfoPropertiesEXT *//* provided by VK_EXT_pci_bus_info */
-    //uint32_t           pciDomain;
-    //uint32_t           pciBus;
-    //uint32_t           pciDevice;
-    //uint32_t           pciFunction;
+    uint32_t  pciDomain     = ~0u;
+    uint32_t  pciBus        = ~0u;
+    uint32_t  pciDevice     = ~0u;
+    uint32_t  pciFunction   = ~0u;
 
     // [DO NOT EXPOSE] wont expose in near or far future
     /* DrmPropertiesEXT *//* provided by VK_EXT_physical_device_drm */

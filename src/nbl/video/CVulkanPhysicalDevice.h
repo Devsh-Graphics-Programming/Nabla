@@ -50,7 +50,8 @@ public:
 
         // Extensions
         VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT, &vulkan11Properties };
-        VkPhysicalDeviceDiscardRectanglePropertiesEXT discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT, &conservativeRasterizationProperties };
+        VkPhysicalDevicePCIBusInfoPropertiesEXT PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT, &conservativeRasterizationProperties };
+        VkPhysicalDeviceDiscardRectanglePropertiesEXT discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT, &PCIBusInfoProperties };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &discardRectangleProperties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
@@ -306,6 +307,14 @@ public:
             if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
             {
                 m_properties.limits.maxDiscardRectangles = discardRectangleProperties.maxDiscardRectangles;
+            }
+            
+            if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
+            {
+                m_properties.limits.pciDomain   = PCIBusInfoProperties.pciDomain;
+                m_properties.limits.pciBus      = PCIBusInfoProperties.pciBus;
+                m_properties.limits.pciDevice   = PCIBusInfoProperties.pciDevice;
+                m_properties.limits.pciFunction = PCIBusInfoProperties.pciFunction;
             }
 
             /* AccelerationStructurePropertiesKHR */
