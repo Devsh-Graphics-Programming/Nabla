@@ -705,7 +705,7 @@ public:
 		core::unordered_set<instr_stream::E_NDF> NDFs;
 
 		//one element for each input IR root node
-		core::unordered_map<const IR::INode*, instr_streams_t> streams;
+		core::unordered_map<IR::node_handle_t,instr_streams_t> streams;
 
 		//has to go after #version and before required user-provided descriptors and functions
 		std::string fragmentShaderSource_declarations;

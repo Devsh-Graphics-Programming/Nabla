@@ -1,4 +1,3 @@
-#include "..\..\..\..\include\nbl\ext\MitsubaLoader\CMitsubaLoader.h"
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
@@ -1082,7 +1081,7 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
 {
 	if (!bsdf)
-		return {nullptr,nullptr};
+		return {asset::material_compiler::IR::invalid_node,asset::material_compiler::IR::invalid_node};
 
 	auto found = ctx.instrStreamCache.find(bsdf);
 	if (found!=ctx.instrStreamCache.end())

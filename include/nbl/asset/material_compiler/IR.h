@@ -20,7 +20,14 @@ class IR : public core::IReferenceCounted
         struct node_handle_t
         {
             uint32_t byteOffset;
+
+            inline bool operator==(const node_handle_t& other) const
+            {
+                return byteOffset==other.byteOffset;
+            }
         };
+        static inline constexpr node_handle_t invalid_node = {0xdeadbeefu};
+
         class INode
         {
             public:
@@ -142,7 +149,6 @@ class IR : public core::IReferenceCounted
 
                 //
                 virtual uint32_t getChildCount() const = 0;
-                inline size_t getChildrenStorageSize() const {return sizeof(node_handle_t)*getChildCount();}
                 
                 //
                 class children_range_t
@@ -254,11 +260,11 @@ class IR : public core::IReferenceCounted
             const auto allocation = memMgr.alloc(sz);
             auto copy = getNode(allocation);
             if (!copy)
-                return {0xdeadbeefu};
+                return invalid_node;
             if (!_rhs->cloneInto(copy))
             {
                 memMgr.trimBackDown(allocation);
-                return {0xdeadbeefu};
+                return invalid_node;
             }
             firstTmp.byteOffset = memMgr.getAllocatedSize();
             return allocation;
@@ -588,6 +594,21 @@ class IR : public core::IReferenceCounted
             memMgr.trimBackDown(begin);
         }
         node_handle_t firstTmp = {0u};
+};
+
+}
+
+
+namespace std
+{
+
+template <>
+struct hash<nbl::asset::material_compiler::IR::node_handle_t>
+{
+    std::size_t operator()(const nbl::asset::material_compiler::IR::node_handle_t& handle) const
+    {
+        return std::hash<uint32_t>()(handle.byteOffset);
+    }
 };
 
 }
