@@ -21,9 +21,13 @@ class IR : public core::IReferenceCounted
         {
             uint32_t byteOffset;
 
+            inline bool operator!=(const node_handle_t& other) const
+            {
+                return byteOffset!=other.byteOffset;
+            }
             inline bool operator==(const node_handle_t& other) const
             {
-                return byteOffset==other.byteOffset;
+                return !operator!=(other);
             }
         };
         static inline constexpr node_handle_t invalid_node = {0xdeadbeefu};
@@ -151,6 +155,16 @@ class IR : public core::IReferenceCounted
                 virtual uint32_t getChildCount() const = 0;
                 
                 //
+                inline const node_handle_t* getChildrenArray() const
+                {
+                    return reinterpret_cast<const node_handle_t*>(reinterpret_cast<const uint8_t*>(this)+getSize()-getChildrenStorageSize());
+                }
+                inline node_handle_t* getChildrenArray()
+                {
+                    return const_cast<node_handle_t*>(const_cast<const INode*>(this)->getChildrenArray());
+                }
+
+                //
                 class children_range_t
                 {
                     public:
@@ -162,7 +176,7 @@ class IR : public core::IReferenceCounted
                         const node_handle_t* begin() const {return m_begin;}
                         const node_handle_t* end() const {return m_end;}
                 };
-                inline children_range_t getChildren() const
+                inline const children_range_t getChildren() const
                 {
                     auto begin = getChildrenArray();
                     return {begin,begin+getChildCount()};
@@ -192,16 +206,6 @@ class IR : public core::IReferenceCounted
                 inline size_t getChildrenStorageSize() const
                 {
                     return sizeof(node_handle_t)*getChildCount();
-                }
-
-                //
-                inline const node_handle_t* getChildrenArray() const
-                {
-                    return reinterpret_cast<const node_handle_t*>(reinterpret_cast<const uint8_t*>(this)+getSize()-getChildrenStorageSize());
-                }
-                inline node_handle_t* getChildrenArray()
-                {
-                    return const_cast<node_handle_t*>(const_cast<const INode*>(this)->getChildrenArray());
                 }
         };
 
@@ -343,7 +347,7 @@ class IR : public core::IReferenceCounted
                 }
         };
 
-        struct IGeomModifierNode final : public IFixedChildCountNode<1>
+        struct IGeomModifierNode : public IFixedChildCountNode<1>
         {
             enum E_TYPE
             {
@@ -482,14 +486,14 @@ class IR : public core::IReferenceCounted
                 assert(t == ET_MICROFACET_DIFFTRANS || t == ET_MICROFACET_DIFFUSE);
             }
         };
-        struct IMicrofacetDiffuseBSDFNode final : IMicrofacetDiffuseBxDFBase
+        struct IMicrofacetDiffuseBSDFNode : IMicrofacetDiffuseBxDFBase
         {
             IMicrofacetDiffuseBSDFNode() : IMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFUSE) {}
 
             SParameter<color_t> reflectance = color_t(1.f); // TODO: optimization, hoist Energy Loss Parameters out of BxDFs
         };
         using CMicrofacetDiffuseBSDFNode = Finalizer<IMicrofacetDiffuseBSDFNode>;
-        struct IMicrofacetDifftransBSDFNode final : IMicrofacetDiffuseBxDFBase
+        struct IMicrofacetDifftransBSDFNode : IMicrofacetDiffuseBxDFBase
         {
             IMicrofacetDifftransBSDFNode() : IMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFTRANS) {}
 

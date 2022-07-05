@@ -16,7 +16,7 @@ namespace nbl::ext::MitsubaLoader
 
 struct SContext;
 
-class CMitsubaMaterialCompilerFrontend
+class CMitsubaMaterialCompilerFrontend final
 {
     public:
         using node_handle_t = asset::material_compiler::IR::node_handle_t;
@@ -29,28 +29,38 @@ class CMitsubaMaterialCompilerFrontend
             EIVS_COUNT
         };
 
+        // TODO: embed hash val in the element for speed
+        struct MerkleTree
+        {
+            struct hash
+            {
+                std::size_t operator()(const CElementBSDF* node) const;
+            };
+            struct equal_to
+            {
+                bool operator()(const CElementBSDF* node) const;
+            };
+        };
+
+        struct SContext
+        {
+            const ext::MitsubaLoader::SContext* m_loaderContext;
+            asset::material_compiler::IR* m_ir;
+            core::unordered_map<const CElementBSDF*,node_handle_t,MerkleTree::hash,MerkleTree::equal_to> m_hashCons;
+        };
         struct front_and_back_t
         {
             node_handle_t front;
             node_handle_t back;
         };
-
-        explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
-
-        front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        static front_and_back_t compileToIRTree(SContext& ctx, const CElementBSDF* _root);
 
     private:
-        using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
+        static node_handle_t createIRNode(SContext& ctx, const CElementBSDF* _bsdf);
 
-        const SContext* m_loaderContext;
-
-        std::pair<const CElementTexture*,float> unwindTextureScale(const CElementTexture* _element) const;
-
-        tex_ass_type getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) const;
-
-        tex_ass_type getErrorTexture() const;
-
-        node_handle_t createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, float>;
+        static tex_ass_type getTexture(const ext::MitsubaLoader::SContext* _loaderContext, const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY);
+        static tex_ass_type getErrorTexture(const ext::MitsubaLoader::SContext* _loaderContext);
 };
 
 }

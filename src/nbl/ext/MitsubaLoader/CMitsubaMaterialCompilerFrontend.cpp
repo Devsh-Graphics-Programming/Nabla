@@ -7,9 +7,10 @@
 
 namespace nbl::ext::MitsubaLoader
 {
-    
-std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwindTextureScale(const CElementTexture* _element) const
+
+auto CMitsubaMaterialCompilerFrontend::getTexture(const ext::MitsubaLoader::SContext* _loaderContext, const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) -> tex_ass_type
 {
+    // first unwind the texture Scales
     float scale = 1.f;
     while (_element && _element->type==CElementTexture::SCALE)
     {
@@ -17,37 +18,30 @@ std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwind
         _element = _element->scale.texture;
     }
     _NBL_DEBUG_BREAK_IF(_element && _element->type!=CElementTexture::BITMAP);
-
-    return {_element,scale};
-}
-auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) const -> tex_ass_type
-{
-    float scale = 1.f;
-    std::tie(_element, scale) = unwindTextureScale(_element);
     if (!_element)
     {
         os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 2x2 Magenta Checkerboard Error Texture.", ELL_ERROR);
-        return getErrorTexture();
+        return getErrorTexture(_loaderContext);
     }
 
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
+    const auto key = _loaderContext->imageViewCacheKey(_element->bitmap,semantic);
+    auto viewBundle = _loaderContext->override_->findCachedAsset(key,types,_loaderContext->inner,0u);
     if (!viewBundle.getContents().empty())
     {
         auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
 
         // TODO: here for the bumpmap bug
-        auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
-        if (found!=m_loaderContext->derivMapCache.end())
+        auto found = _loaderContext->derivMapCache.find(view->getCreationParameters().image);
+        if (found!=_loaderContext->derivMapCache.end())
         {
             const float normalizationFactor = found->second;
             scale *= normalizationFactor;
         }
 
         types[0] = asset::IAsset::ET_SAMPLER;
-        const std::string samplerKey = m_loaderContext->samplerCacheKey(SContext::computeSamplerParameters(_element->bitmap));
-        auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
+        const std::string samplerKey = _loaderContext->samplerCacheKey(_loaderContext->computeSamplerParameters(_element->bitmap));
+        auto samplerBundle = _loaderContext->override_->findCachedAsset(samplerKey, types, _loaderContext->inner, 0u);
         assert(!samplerBundle.getContents().empty());
         auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 
@@ -56,19 +50,19 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
     return { nullptr, nullptr, core::nan<float>()};
 }
 
-auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
+auto CMitsubaMaterialCompilerFrontend::getErrorTexture(const ext::MitsubaLoader::SContext* _loaderContext) -> tex_ass_type
 {
     constexpr const char* ERR_TEX_CACHE_NAME = "nbl/builtin/image_view/dummy2d";
     constexpr const char* ERR_SMPLR_CACHE_NAME = "nbl/builtin/sampler/default";
 
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    auto bundle = m_loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, m_loaderContext->inner, 0u);
+    auto bundle = _loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, _loaderContext->inner, 0u);
     assert(!bundle.getContents().empty()); // this shouldnt ever happen since ERR_TEX_CACHE_NAME is builtin asset
         
     auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
 
     types[0] = asset::IAsset::ET_SAMPLER;
-    auto sbundle = m_loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, m_loaderContext->inner, 0u);
+    auto sbundle = _loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, _loaderContext->inner, 0u);
     assert(!sbundle.getContents().empty()); // this shouldnt ever happen since ERR_SMPLR_CACHE_NAME is builtin asset
 
     auto smplr = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(sbundle.getContents().begin()[0]);
@@ -76,36 +70,36 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
     return { view, smplr, 1.f };
 }
 
-auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> node_handle_t
+auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElementBSDF* _bsdf) -> node_handle_t
 {
-    using namespace asset;
-    using namespace material_compiler;
+    using namespace asset::material_compiler;
 
     auto transparent = [](const float eta) -> bool {return eta>0.99999f&&eta<1.000001f;};
 
-    auto getFloatOrTexture = [this](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
+    auto getFloatOrTexture = [&ctx](const CElementTexture::FloatOrTexture& src) -> IR::INode::SParameter<float>
     {
         if (src.value.type == SPropertyElementData::INVALID)
         {
             IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-            dst = std::move(tex);
-        }
-        else dst = src.value.fvalue;
-    };
-    auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) -> void
-    {
-        if (src.value.type == SPropertyElementData::INVALID)
-        {
-            IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
-            dst = std::move(tex);
+            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(ctx.m_loaderContext,src.texture);
+            return tex;
         }
         else
-            dst = src.value.vvalue;
+            return src.value.fvalue;
+    };
+    auto getSpectrumOrTexture = [&ctx](const CElementTexture::SpectrumOrTexture& src, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) -> IR::INode::SParameter<IR::INode::color_t>
+    {
+        if (src.value.type == SPropertyElementData::INVALID)
+        {
+            IR::INode::STextureSource tex;
+            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(ctx.m_loaderContext,src.texture,semantic);
+            return tex;
+        }
+        else
+            return src.value.vvalue;
     };
 
-    auto setAlpha = [this,getFloatOrTexture](IR::IMicrofacetBSDFNode* node, const bool rough, const auto& _bsdfEl) -> void
+    auto setAlpha = [&getFloatOrTexture](IR::IMicrofacetBSDFNode* node, const bool rough, const auto& _bsdfEl) -> void
     {
         if (rough)
         {
@@ -134,24 +128,45 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR
             node->setSmooth();
     };
 
-    const node_handle_t firstChild = {0xdeadbeefu};
-    const uint32_t childCount = 1;
+    auto ir_node = IR::invalid_node;
+    auto& hashCons = ctx.m_hashCons;
+    auto findChild = [&hashCons,_bsdf](const uint32_t childIx) -> node_handle_t
+    {
+        return std::get<node_handle_t>(*hashCons.find(_bsdf->meta_common.bsdf[0]));
+    };
+    auto* ir = ctx.m_ir;
     const auto type = _bsdf->type;
-    node_handle_t ir_node = { 0xdeadbeefu };
     switch (type)
     {
         case CElementBSDF::TWO_SIDED:
             //TWO_SIDED is not translated into IR node directly
             break;
         case CElementBSDF::MASK:
-            assert(childCount==1);
-            ir_node = ir->allocNode<IR::COpacityNode>(firstChild);
-            getSpectrumOrTexture(_bsdf->mask.opacity,ir->getNode<IR::COpacityNode>(ir_node)->opacity,EIVS_BLEND_WEIGHT);
+        {
+            IR::INode::SParameter<IR::INode::color_t> opacity = getSpectrumOrTexture(_bsdf->mask.opacity,EIVS_BLEND_WEIGHT);
+            // TODO: optimize out full transparent or full solid
+            if (true) // not transparent
+            {
+                auto child = findChild(0u);
+                if (true) // not solid
+                {
+                    ir_node = ir->allocNode<IR::COpacityNode>(1);
+                    auto pNode = ir->getNode<IR::COpacityNode>(ir_node);
+                    pNode->opacity = std::move(opacity);
+                    pNode->getChildrenArray()[0] = child;
+                }
+                else
+                    ir_node = child;
+            }
+            else
+                ir_node = {0xdeadbeefu};//fullyTransparentIRNode;
             break;
+        }
+#if 0
         case CElementBSDF::DIFFUSE:
         case CElementBSDF::ROUGHDIFFUSE:
         {
-            assert(!childCount);
+            assert(!childCount && firstChild==0xdeadbeefu);
             ir_node = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
             auto pNode = ir->getNode<IR::CMicrofacetDiffuseBSDFNode>(ir_node);
             setAlpha(pNode,type==CElementBSDF::ROUGHDIFFUSE,_bsdf->diffuse);
@@ -162,7 +177,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR
         case CElementBSDF::CONDUCTOR:
         case CElementBSDF::ROUGHCONDUCTOR:
         {
-            assert(!childCount);
+            assert(!childCount && firstChild==0xdeadbeefu);
             ir_node = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
             auto pNode = ir->getNode<IR::CMicrofacetSpecularBSDFNode>(ir_node);
             setAlpha(pNode,type==CElementBSDF::ROUGHCONDUCTOR,_bsdf->conductor);
@@ -173,7 +188,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR
         }
         case CElementBSDF::DIFFUSE_TRANSMITTER:
         {
-            assert(!childCount);
+            assert(!childCount && firstChild==0xdeadbeefu);
             ir_node = ir->allocNode<IR::CMicrofacetDifftransBSDFNode>();
             auto pNode = ir->getNode<IR::CMicrofacetDifftransBSDFNode>(ir_node);
             pNode->setSmooth();
@@ -211,7 +226,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR
         case CElementBSDF::THINDIELECTRIC:
         case CElementBSDF::ROUGHDIELECTRIC:
         {
-            assert(!childCount);
+            assert(!childCount && firstChild==0xdeadbeefu);
             const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
             if (transparent(eta))
             {
@@ -292,34 +307,35 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR
             assert(childCount>1);
             ir_node = ir->allocNode<IR::CBSDFMixNode>(firstChild,childCount);
             auto* node = ir->getNode<IR::CBSDFMixNode>(ir_node);
-#if 1
-            assert(false);
-#else
             const auto* weightIt = _bsdf->mixturebsdf.weights;
             for (size_t i=0u; i<cnt; i++)
                 node->weights[i] = *(weightIt++);
-#endif
         }
         break;
+#endif
+        default:
+            break;
     }
-
+    assert(ir_node!=IR::invalid_node);
     return ir_node;
 }
 
-auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> front_and_back_t
+auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CElementBSDF* _root) -> front_and_back_t
 {
     using namespace asset;
     using namespace material_compiler;
 
-    struct SNodeData
+    auto unwindTwosided = [](const CElementBSDF* _bsdf) -> const CElementBSDF*
     {
-        IR::node_handle_t node;
+        while (_bsdf->type==CElementBSDF::TWO_SIDED)
+            _bsdf = _bsdf->meta_common.bsdf[0];
+        return _bsdf;
     };
+
     struct DFSData
     {
         const CElementBSDF* bsdf;
-        uint16_t processed : 1;
-        uint16_t childCount : 15;
+        uint16_t visited : 1;
         /*
         IRNode* ir_node = nullptr;
         uint32_t parent_ix = static_cast<uint32_t>(-1);
@@ -329,48 +345,44 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         */
         CElementBSDF::Type type() const { return bsdf->type; }
     };
-    core::stack<DFSData> OrderDFS;
+    core::stack<DFSData> dfs;
+    auto push = [&dfs](const CElementBSDF* _bsdf)
     {
-        DFSData root{ _bsdf };
-        root.processed = false;
+        auto& el = dfs.emplace();
+        el.bsdf = _bsdf;
+        el.visited = false;
         //root.twosided = (root.type() == CElementBSDF::TWO_SIDED);
-        OrderDFS.push(root);
-    }
-    while (!OrderDFS.empty())
+    };
+    push(unwindTwosided(_root));
+    while (!dfs.empty())
     {
-        auto& parent = OrderDFS.top();
+        auto& parent = dfs.top();
         assert(parent.type()!=CElementBSDF::TWO_SIDED);
         assert(parent.bsdf->isMeta());
 
-        if (parent.processed)
+        if (parent.visited)
         {
-            OrderDFS.pop();
-
-            // TODO set up the Meta IR node
+            dfs.pop();
+            createIRNode(ir,parent.bsdf);
         }
         else
         {
+            parent.visited = true;
+
             const bool isCoating = parent.type()==CElementBSDF::COATING;
-            //
-            parent.childCount = isCoating ? parent.bsdf->coating.childCount:parent.bsdf->meta_common.childCount;
-            for (auto i=0u; i<parent.childCount; i++)
+            const auto childCount = isCoating ? parent.bsdf->coating.childCount:parent.bsdf->meta_common.childCount;
+            for (auto i=0u; i<childCount; i++)
             {
                 // unwind twosided
+                const auto originalChild = isCoating ? parent.bsdf->coating.bsdf[i]:parent.bsdf->meta_common.bsdf[i];
+                auto child = unwindTwosided(originalChild);
 
                 // check for meta
                 if (child->isMeta())
-                {
-                    // push stack
-                }
+                    push(child);
                 else
-                {
-                    // create IR leafs
-                }
+                    createIRNode(ir,child,{0xdeadbeefu},0u);
 
-
-                auto& child = OrderDFS.emplace();
-                child.bsdf = isCoating ? parent.bsdf->coating.bsdf[i]:parent.bsdf->meta_common.bsdf[i];
-                child.processed();
                 //child_node.parent_ix = isTwosidedMeta ? parent.parent_ix : bfs.size();
                 //child_node.twosided = (child_node.type() == CElementBSDF::TWO_SIDED) || parent.twosided;
                 //child_node.child_num = isTwosidedMeta ? parent.child_num : i;
