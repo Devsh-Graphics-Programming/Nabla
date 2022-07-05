@@ -1178,28 +1178,34 @@ constexpr bool isBGRALayoutFormat()
         case EF_R16_SNORM:
         case EF_R16_SSCALED:
         case EF_R16_SINT:
+        case EF_R16_SFLOAT:
         case EF_R16G16_SNORM:
         case EF_R16G16_SSCALED:
         case EF_R16G16_SINT:
+        case EF_R16G16_SFLOAT:
         case EF_R16G16B16_SNORM:
         case EF_R16G16B16_SSCALED:
         case EF_R16G16B16_SINT:
+        case EF_R16G16B16_SFLOAT:
         case EF_R16G16B16A16_SNORM:
         case EF_R16G16B16A16_SSCALED:
         case EF_R16G16B16A16_SINT:
+        case EF_R16G16B16A16_SFLOAT:
         case EF_R32_SINT:
+        case EF_R32_SFLOAT:
         case EF_R32G32_SINT:
+        case EF_R32G32_SFLOAT:
         case EF_R32G32B32_SINT:
-        case EF_R32G32B32A32_SINT:
-        case EF_R64_SINT:
-        case EF_R64G64_SINT:
-        case EF_R64G64B64_SINT:
-        case EF_R64G64B64A64_SINT:
-        case EF_R16G16B16_SFLOAT:
         case EF_R32G32B32_SFLOAT:
+        case EF_R32G32B32A32_SINT:
+        case EF_R32G32B32A32_SFLOAT:
+        case EF_R64_SINT: 
         case EF_R64_SFLOAT:
+        case EF_R64G64_SINT:
         case EF_R64G64_SFLOAT:
+        case EF_R64G64B64_SINT:
         case EF_R64G64B64_SFLOAT:
+        case EF_R64G64B64A64_SINT:
         case EF_R64G64B64A64_SFLOAT:
         case EF_EAC_R11_SNORM_BLOCK:
         case EF_EAC_R11G11_SNORM_BLOCK:
