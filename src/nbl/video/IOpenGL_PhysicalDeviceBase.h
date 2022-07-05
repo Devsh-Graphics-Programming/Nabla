@@ -1118,7 +1118,9 @@ public:
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
 				m_properties.limits.conservativeRasterizationPostDepthCoverage = true;
 
+
 			// [TODO] maxDiscardRectangles -> in GL requires EXT_window_rectangles and then the cap is MAX_WINDOW_RECTANGLES_EXT
+			// [TODO] SampleLocationsPropertiesEXT
 
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
