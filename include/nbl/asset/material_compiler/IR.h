@@ -415,7 +415,7 @@ class IR : public core::IReferenceCounted
             SParameter<color_t> weight;
         };
         using CBSDFBlendNode = Finalizer<IBSDFBlendNode>;
-        struct IBSDFMixNode final : IVariableChildCountNode, IBSDFCombinerNode
+        struct IBSDFMixNode : IVariableChildCountNode, IBSDFCombinerNode
         {
             IBSDFMixNode() : IBSDFCombinerNode(ET_MIX) {}
 

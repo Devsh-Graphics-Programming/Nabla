@@ -130,189 +130,146 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
 
     auto ir_node = IR::invalid_node;
     auto& hashCons = ctx.m_hashCons;
-    auto findChild = [&hashCons,_bsdf](const uint32_t childIx) -> node_handle_t
+    auto findAndSetChild = [&hashCons,_bsdf](IR::INode* pNode, const uint32_t childIx) -> node_handle_t
     {
-        return std::get<node_handle_t>(*hashCons.find(_bsdf->meta_common.bsdf[0]));
+        auto child = _bsdf->type==CElementBSDF::COATING ? _bsdf->coating.bsdf[childIx]:_bsdf->meta_common.bsdf[childIx];
+        return pNode->getChildrenArray()[childIx] = std::get<node_handle_t>(*hashCons.find(child));
     };
     auto* ir = ctx.m_ir;
     const auto type = _bsdf->type;
     switch (type)
     {
-        case CElementBSDF::TWO_SIDED:
-            //TWO_SIDED is not translated into IR node directly
-            break;
         case CElementBSDF::MASK:
         {
             IR::INode::SParameter<IR::INode::color_t> opacity = getSpectrumOrTexture(_bsdf->mask.opacity,EIVS_BLEND_WEIGHT);
-            // TODO: optimize out full transparent or full solid
-            if (true) // not transparent
-            {
-                auto child = findChild(0u);
-                if (true) // not solid
-                {
-                    ir_node = ir->allocNode<IR::COpacityNode>(1);
-                    auto pNode = ir->getNode<IR::COpacityNode>(ir_node);
-                    pNode->opacity = std::move(opacity);
-                    pNode->getChildrenArray()[0] = child;
-                }
-                else
-                    ir_node = child;
-            }
-            else
-                ir_node = {0xdeadbeefu};//fullyTransparentIRNode;
+            ir_node = ir->allocNode<IR::COpacityNode>(1);
+            auto pNode = ir->getNode<IR::COpacityNode>(ir_node);
+            pNode->opacity = std::move(opacity);
+            findAndSetChild(pNode,0u);
             break;
         }
-#if 0
         case CElementBSDF::DIFFUSE:
         case CElementBSDF::ROUGHDIFFUSE:
         {
-            assert(!childCount && firstChild==0xdeadbeefu);
-            ir_node = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
+            ir_node = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>(0);
             auto pNode = ir->getNode<IR::CMicrofacetDiffuseBSDFNode>(ir_node);
             setAlpha(pNode,type==CElementBSDF::ROUGHDIFFUSE,_bsdf->diffuse);
-
-            getSpectrumOrTexture(_bsdf->diffuse.reflectance,pNode->reflectance);
+            pNode->reflectance = getSpectrumOrTexture(_bsdf->diffuse.reflectance);
             break;
         }
         case CElementBSDF::CONDUCTOR:
         case CElementBSDF::ROUGHCONDUCTOR:
         {
-            assert(!childCount && firstChild==0xdeadbeefu);
-            ir_node = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
+            ir_node = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>(0);
             auto pNode = ir->getNode<IR::CMicrofacetSpecularBSDFNode>(ir_node);
             setAlpha(pNode,type==CElementBSDF::ROUGHCONDUCTOR,_bsdf->conductor);
             const float extEta = _bsdf->conductor.extEta;
             pNode->eta = _bsdf->conductor.eta.vvalue/extEta;
             pNode->etaK = _bsdf->conductor.k.vvalue/extEta;
+            // TODO: first check if eta=1 or etaK=INF (no idea actually what would cause pitch black fresnel), then replace with NOOP
             break;
         }
         case CElementBSDF::DIFFUSE_TRANSMITTER:
         {
-            assert(!childCount && firstChild==0xdeadbeefu);
-            ir_node = ir->allocNode<IR::CMicrofacetDifftransBSDFNode>();
+            ir_node = ir->allocNode<IR::CMicrofacetDifftransBSDFNode>(0);
             auto pNode = ir->getNode<IR::CMicrofacetDifftransBSDFNode>(ir_node);
             pNode->setSmooth();
-            getSpectrumOrTexture(_bsdf->difftrans.transmittance,pNode->transmittance);
+            pNode->transmittance = getSpectrumOrTexture(_bsdf->difftrans.transmittance);
             break;
         }
         case CElementBSDF::PLASTIC:
         case CElementBSDF::ROUGHPLASTIC:
         {
-            assert(childCount==1);
             const bool rough = type==CElementBSDF::ROUGHPLASTIC;
 
-            const float eta = _bsdf->plastic.intIOR/_bsdf->plastic.extIOR;
-            if (transparent(eta))
-            {
-                os::Printer::log("WARNING: Dielectric with IoR=1.0!", _bsdf->id, ELL_WARNING);
-                ir_node = firstChild;
-            }
-            else
-            {
-                ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>();
-                auto coat = ir->getNode<IR::CMicrofacetCoatingBSDFNode>(ir_node);
-                setAlpha(coat,rough,_bsdf->plastic);
-                coat->eta = IR::INode::color_t(eta);
-            }
+            ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>(1);
+            auto coat = ir->getNode<IR::CMicrofacetCoatingBSDFNode>(ir_node);
+            setAlpha(coat,rough,_bsdf->plastic);
+            coat->eta = IR::INode::color_t(_bsdf->plastic.intIOR/_bsdf->plastic.extIOR);
 
-            auto* coated = ir->getNode(firstChild);
-            auto* node_diffuse = dynamic_cast<IR::CMicrofacetDiffuseBSDFNode*>(coated);
-            setAlpha(node_diffuse,rough,_bsdf->plastic);
-
-            getSpectrumOrTexture(_bsdf->plastic.diffuseReflectance,node_diffuse->reflectance);
+            {
+                CElementBSDF tmp("impl_tmp_diffuse_element");
+                tmp.type = rough ? CElementBSDF::ROUGHDIFFUSE:CElementBSDF::DIFFUSE;
+                tmp.diffuse.alpha = _bsdf->plastic.alpha;
+                tmp.diffuse.reflectance = _bsdf->plastic.diffuseReflectance;
+                coat->getChildrenArray()[0] = createIRNode(ctx,&tmp);
+            }
             break;
         }
         case CElementBSDF::DIELECTRIC:
         case CElementBSDF::THINDIELECTRIC:
         case CElementBSDF::ROUGHDIELECTRIC:
         {
-            assert(!childCount && firstChild==0xdeadbeefu);
-            const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
-            if (transparent(eta))
-            {
-                os::Printer::log("WARNING: Dielectric with IoR=1.0!", _bsdf->id, ELL_WARNING);
-                ir_node = ir->allocNode<IR::COpacityNode>();
-                auto pNode = ir->getNode<IR::COpacityNode>(ir_node);
-                pNode->opacity = IR::INode::color_t(0.f);
-            }
-            else
-            {
-                ir_node = ir->allocNode<IR::CMicrofacetDielectricBSDFNode>();
-                auto dielectric = ir->getNode<IR::CMicrofacetDielectricBSDFNode>(ir_node);
-                setAlpha(dielectric,type==CElementBSDF::ROUGHDIELECTRIC,_bsdf->dielectric);
-                dielectric->eta = IR::INode::color_t(eta);
-                dielectric->thin = type==CElementBSDF::THINDIELECTRIC;
-            }
+            ir_node = ir->allocNode<IR::CMicrofacetDielectricBSDFNode>(0);
+            auto dielectric = ir->getNode<IR::CMicrofacetDielectricBSDFNode>(ir_node);
+            setAlpha(dielectric,type==CElementBSDF::ROUGHDIELECTRIC,_bsdf->dielectric);
+            dielectric->eta = IR::INode::color_t(_bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR);
+            dielectric->thin = type==CElementBSDF::THINDIELECTRIC;
             break;
         }
         case CElementBSDF::BUMPMAP:
         {
-            assert(childCount==1);
-            ir_node = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_DERIVATIVE);
+            ir_node = ir->allocNode<IR::CGeomModifierNode>(1,IR::CGeomModifierNode::ET_DERIVATIVE);
             auto* pNode = ir->getNode<IR::CGeomModifierNode>(ir_node);
             //no other source supported for now (uncomment in the future) [far future TODO]
             //node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
 
             std::tie(pNode->texture.image,pNode->texture.sampler,pNode->texture.scale) =
-                getTexture(_bsdf->bumpmap.texture,_bsdf->bumpmap.wasNormal ? EIVS_NORMAL_MAP:EIVS_BUMP_MAP);
+                getTexture(ctx.m_loaderContext,_bsdf->bumpmap.texture,_bsdf->bumpmap.wasNormal ? EIVS_NORMAL_MAP:EIVS_BUMP_MAP);
+            
+            findAndSetChild(pNode,0);
             break;
         }
         case CElementBSDF::COATING:
         case CElementBSDF::ROUGHCOATING:
         {
-            assert(childCount==1);
             const bool rough = type==CElementBSDF::ROUGHDIELECTRIC;
 
-            const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
-            if (transparent(eta))
-                ir_node = firstChild;
+            ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>(1u);
+            auto* coat = ir->getNode<IR::CMicrofacetCoatingBSDFNode>(ir_node);
+            setAlpha(coat,rough,_bsdf->coating);
+
+            coat->eta = IR::INode::color_t(_bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR);
+
+            const float thickness = _bsdf->coating.thickness;
+            coat->thicknessSigmaA = getSpectrumOrTexture(_bsdf->coating.sigmaA);
+            if (coat->thicknessSigmaA.isConstant())
+                coat->thicknessSigmaA.constant *= thickness;
             else
-            {
-                ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>();
-                auto* node = ir->getNode<IR::CMicrofacetCoatingBSDFNode>(ir_node);
-                setAlpha(node,rough,_bsdf->coating);
-
-                node->eta = IR::INode::color_t(eta);
-
-                const float thickness = _bsdf->coating.thickness;
-                getSpectrumOrTexture(_bsdf->coating.sigmaA,node->thicknessSigmaA);
-                if (node->thicknessSigmaA.isConstant())
-                    node->thicknessSigmaA.constant *= thickness;
-                else
-                    node->thicknessSigmaA.texture.scale *= thickness;
-            }
-            auto* coated = ir->getNode(firstChild);
-            auto* node_diffuse = dynamic_cast<IR::CMicrofacetDiffuseBSDFNode*>(coated);
-            setAlpha(node_diffuse,rough,_bsdf->coating);
+                coat->thicknessSigmaA.texture.scale *= thickness;
+            
+            findAndSetChild(coat,0);
             break;
         }
         break;
         case CElementBSDF::BLEND_BSDF:
         {
-            assert(childCount==2);
-            ir_node = ir->allocNode<IR::CBSDFBlendNode>(firstChild);
-            auto* node = ir->getNode<IR::CBSDFBlendNode>(ir_node);
+            ir_node = ir->allocNode<IR::CBSDFBlendNode>(2);
+            auto* pNode = ir->getNode<IR::CBSDFBlendNode>(ir_node);
             if (_bsdf->blendbsdf.weight.value.type == SPropertyElementData::INVALID)
             {
-                std::tie(node->weight.texture.image, node->weight.texture.sampler, node->weight.texture.scale) =
-                    getTexture(_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
-                assert(!core::isnan(node->weight.texture.scale));
+                std::tie(pNode->weight.texture.image,pNode->weight.texture.sampler,pNode->weight.texture.scale) =
+                    getTexture(ctx.m_loaderContext,_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
+                assert(!core::isnan(pNode->weight.texture.scale));
             }
             else
-                node->weight = IR::INode::color_t(_bsdf->blendbsdf.weight.value.fvalue);
+                pNode->weight = IR::INode::color_t(_bsdf->blendbsdf.weight.value.fvalue);
+            findAndSetChild(pNode,0);
+            findAndSetChild(pNode,1);
         }
         break;
         case CElementBSDF::MIXTURE_BSDF:
         {
-            assert(childCount>1);
-            ir_node = ir->allocNode<IR::CBSDFMixNode>(firstChild,childCount);
-            auto* node = ir->getNode<IR::CBSDFMixNode>(ir_node);
+            ir_node = ir->allocNode<IR::CBSDFMixNode>(_bsdf->mixturebsdf.childCount);
+            auto* pNode = ir->getNode<IR::CBSDFMixNode>(ir_node);
             const auto* weightIt = _bsdf->mixturebsdf.weights;
-            for (size_t i=0u; i<cnt; i++)
-                node->weights[i] = *(weightIt++);
+            for (size_t i=0u; i<pNode->getChildCount(); i++)
+            {
+                pNode->weights[i] = *(weightIt++);
+                findAndSetChild(pNode,i);
+            }
+            break;
         }
-        break;
-#endif
         default:
             break;
     }
@@ -363,7 +320,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
         if (parent.visited)
         {
             dfs.pop();
-            createIRNode(ir,parent.bsdf);
+            createIRNode(ctx,parent.bsdf);
         }
         else
         {
