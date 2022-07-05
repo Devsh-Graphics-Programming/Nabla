@@ -1257,7 +1257,6 @@ constexpr bool isBGRALayoutFormat()
             case EF_B8G8R8A8_UINT:
             case EF_A8B8G8R8_UINT_PACK32:
             case EF_A8B8G8R8_SINT_PACK32:
-            case EF_A8B8G8R8_SRGB_PACK32:
             case EF_A2R10G10B10_UINT_PACK32:
             case EF_A2R10G10B10_SINT_PACK32:
             case EF_A2B10G10R10_UINT_PACK32:
