@@ -11,12 +11,7 @@
 namespace nbl::asset::material_compiler
 {
 
-/**
-
-TODO:
-- Merkle Tree / Hash Consing
-
-**/
+// TODO: Merkle Tree / Hash Consing
 class IR : public core::IReferenceCounted
 {
     public:
@@ -143,80 +138,65 @@ class IR : public core::IReferenceCounted
                 virtual E_SYMBOL getSymbol() const = 0;
 
                 //
-                virtual size_t getSize() const = 0;
-
-                //
                 virtual bool cloneInto(INode* dst) const = 0;
 
                 //
                 virtual uint32_t getChildCount() const = 0;
+                inline size_t getChildrenStorageSize() const {return sizeof(node_handle_t)*getChildCount();}
+                
+                //
                 class children_range_t
                 {
                     public:
-                        class iterator_t
-                        {
-                            public:
-                                iterator_t() : cursor{0xdeadbeefu}, itemsTillEnd(0u) {}
-                                iterator_t(const node_handle_t _begin, const uint32_t count) : cursor(_begin), itemsTillEnd(count) {}
+                        const node_handle_t* m_begin;
+                        const node_handle_t* m_end;
 
-                                inline node_handle_t operator*() const
-                                {
-                                    return cursor;
-                                }
+                        inline operator bool() const {return m_begin!=m_end;}
 
-                                inline bool operator!=(const iterator_t rhs) const
-                                {
-                                    return itemsTillEnd!=rhs.itemsTillEnd;
-                                }
-
-                            protected:
-                                friend class children_range_t;
-                                node_handle_t cursor;
-                                uint32_t itemsTillEnd;
-                        };
-                        iterator_t m_begin;
-
-                        inline operator bool() const {return m_begin.itemsTillEnd;}
-
-                        iterator_t begin() {return m_begin;}
-                        //const INode* const* begin() const { return array; }
-                        iterator_t end() {return {};}
-                        //const INode* const* end() const { return array + count; }
+                        const node_handle_t* begin() const {return m_begin;}
+                        const node_handle_t* end() const {return m_end;}
                 };
                 inline children_range_t getChildren() const
                 {
-                    return {children_range_t::iterator_t({getFirstChild()},getChildCount())};
+                    auto begin = getChildrenArray();
+                    return {begin,begin+getChildCount()};
                 }
 
                 //
                 inline virtual ~INode()
                 {
                     // clear out the vtable ptr
-                    memset(this, 0, sizeof(INode));
+                    memset(this,0,sizeof(INode));
                 }
 
                 inline static bool alive(const INode* node)
                 {
-                    for (auto val = reinterpret_cast<const size_t*>(node++); ptrdiff_t(val) < ptrdiff_t(node); val++)
+                    // check by checking vtable ptr
+                    for (auto val=reinterpret_cast<const size_t*>(node++); ptrdiff_t(val)<ptrdiff_t(node); val++)
                         if (*val)
                             return true;
                     return false;
                 }
 
             protected:
-                template<class ConstFinalNodeT>
-                inline bool cloneInto_impl(INode* dst) const
+                friend class IR;
+
+                //
+                virtual size_t getSize() const = 0;
+                inline size_t getChildrenStorageSize() const
                 {
-                    using FinalNodeT = std::remove_const_t<ConstFinalNodeT>;
-                    static_assert(std::is_base_of_v<FinalNodeT, INode>);
-                    auto casted = dynamic_cast<FinalNodeT*>(dst);
-                    if (!casted)
-                        return false;
-                    casted->operator=(*static_cast<const FinalNodeT*>(this));
-                    return true;
+                    return sizeof(node_handle_t)*getChildCount();
                 }
 
-                virtual node_handle_t getFirstChild() const = 0;
+                //
+                inline const node_handle_t* getChildrenArray() const
+                {
+                    return reinterpret_cast<const node_handle_t*>(reinterpret_cast<const uint8_t*>(this)+getSize()-getChildrenStorageSize());
+                }
+                inline node_handle_t* getChildrenArray()
+                {
+                    return const_cast<node_handle_t*>(const_cast<const INode*>(this)->getChildrenArray());
+                }
         };
 
         template<class NodeType=INode>
@@ -233,9 +213,9 @@ class IR : public core::IReferenceCounted
         }
 
         template <typename NodeType, typename ...Args>
-        inline node_handle_t allocNode(Args&& ...args)
+        inline node_handle_t allocNode(const uint32_t childCount, Args&& ...args)
         {
-            auto retval = allocTmpNode<NodeType>(std::forward<Args>(args)...);
+            auto retval = allocTmpNode<NodeType>(childCount,std::forward<Args>(args)...);
             if (retval.byteOffset<memMgr.getAllocatedSize())
                 firstTmp.byteOffset = memMgr.getAllocatedSize();
             return retval;
@@ -253,12 +233,12 @@ class IR : public core::IReferenceCounted
         }
 
         template <typename NodeType, typename ...Args>
-        inline node_handle_t allocTmpNode(Args&& ...args)
+        inline node_handle_t allocTmpNode(const uint32_t childCount, Args&& ...args)
         {
-            auto retval = memMgr.alloc(sizeof(NodeType));
+            auto retval = memMgr.alloc(NodeType::size_of(childCount));
             auto ptr = getNode(retval);
             if (ptr)
-                new (ptr) NodeType(std::forward<Args>(args)...);
+                new (ptr) NodeType(childCount,std::forward<Args>(args)...);
             return retval;
         }
 
@@ -294,11 +274,20 @@ class IR : public core::IReferenceCounted
         {
             public:
                 inline uint32_t getChildCount() const final override {return 0u;}
+        };
+        template<uint32_t kChildrenCount>
+        class IFixedChildCountNode : public INode
+        {
+            public:
+                inline uint32_t getChildCount() const final override
+                {
+                    return k_childrenCount;
+                }
 
             protected:
-                inline node_handle_t getFirstChild() const final override {return {0xdeadbeefu};}
+                static inline constexpr uint32_t k_childrenCount = kChildrenCount;
         };
-        class IInternalNode : public INode
+        class IVariableChildCountNode : public INode
         {
             public:
                 inline uint32_t getChildCount() const final override
@@ -307,20 +296,48 @@ class IR : public core::IReferenceCounted
                 }
 
             protected:
-                inline IInternalNode(const node_handle_t _firstChild, const uint32_t _childrenCount)
-                    : m_firstChild(_firstChild), m_childrenCount(_childrenCount) {}
-                inline virtual ~IInternalNode() = default;
-
-                inline node_handle_t getFirstChild() const final override
-                {
-                    return m_firstChild;
-                }
-
-                node_handle_t m_firstChild;
                 uint32_t m_childrenCount;
         };
+        template<class FinalNodeT>
+        class Finalizer final : public FinalNodeT
+        {
+            protected:
+                template<typename... Args>
+                Finalizer(const uint32_t childCount, Args&&... args) : FinalNodeT(std::forward<Args>(args)...)
+                {
+                    if constexpr (std::is_base_of_v<IVariableChildCountNode,FinalNodeT>)
+                    {
+                        IVariableChildCountNode::m_childrenCount = childCount;
+                    }
+                    else
+                    if constexpr (!std::is_base_of_v<ILeafNode,FinalNodeT>)
+                    {
+                        assert(k_childrenCount==childCount);
+                    }
+                }
 
-        struct CGeomModifierNode final : public IInternalNode
+                static inline size_t size_of(const uint32_t childCount)
+                {
+                    if constexpr (std::is_base_of_v<IVariableChildCountNode,FinalNodeT>)
+                        return FinalNodeT::size_of(childCount);
+                    else
+                        return sizeof(FinalNodeT)+sizeof(node_handle_t)*childCount;
+                }
+
+                inline size_t getSize() const override final {return size_of(getChildCount()); }
+
+                inline bool cloneInto(INode* dst) const override final
+                {
+                    auto casted = dynamic_cast<FinalNodeT*>(dst);
+                    if (!casted)
+                        return false;
+                    memcpy(casted->getChildrenArray(),INode::getChildrenArray(),INode::getChildrenStorageSize());
+                    casted->operator=(*static_cast<const FinalNodeT*>(this));
+                    return true;
+                }
+        };
+
+        struct IGeomModifierNode final : public IFixedChildCountNode<1>
         {
             enum E_TYPE
             {
@@ -337,16 +354,9 @@ class IR : public core::IReferenceCounted
             };
             */
 
-            CGeomModifierNode(E_TYPE t, const node_handle_t child) : IInternalNode(child,1u), type(t) {}
+            IGeomModifierNode(E_TYPE t) : type(t) {}
 
-            E_SYMBOL getSymbol() const override { return ES_GEOM_MODIFIER; }
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            E_SYMBOL getSymbol() const override final { return ES_GEOM_MODIFIER; }
 
             E_TYPE type;
             //no other (than texture) source supported for now (uncomment in the future) [far future TODO]
@@ -356,24 +366,17 @@ class IR : public core::IReferenceCounted
             STextureSource texture;
             //};
         };
+        using CGeomModifierNode = Finalizer<IGeomModifierNode>;
 
-        struct COpacityNode final : IInternalNode // TODO: kill? and replace by blend with transmission?
+        struct IOpacityNode : IFixedChildCountNode<1> // TODO: kill? and replace by blend with transmission?
         {
-            COpacityNode(const node_handle_t child) : IInternalNode(child,1u) {}
-
-            E_SYMBOL getSymbol() const override { return ES_OPACITY; }
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            E_SYMBOL getSymbol() const override final { return ES_OPACITY; }
 
             SParameter<color_t> opacity;
         };
+        using COpacityNode = Finalizer<IOpacityNode>;
 
-        struct IBSDFCombinerNode : IInternalNode
+        struct IBSDFCombinerNode
         {
             public:
                 enum E_TYPE
@@ -388,68 +391,51 @@ class IR : public core::IReferenceCounted
                     ET_CUSTOM_CURVE_BLEND
                 };
 
-                E_SYMBOL getSymbol() const override { return ES_BSDF_COMBINER; }
             protected:
-                IBSDFCombinerNode(E_TYPE t, const node_handle_t firstChild, const uint32_t childCount)
-                    : IInternalNode(firstChild,childCount), type(t) {}
+                IBSDFCombinerNode(E_TYPE t) : type(t) {}
 
                 E_TYPE type;
         };
-        struct CBSDFBlendNode final : IBSDFCombinerNode
+        struct IBSDFBlendNode : IFixedChildCountNode<2>, IBSDFCombinerNode
         {
-            CBSDFBlendNode(const node_handle_t firstChild) : IBSDFCombinerNode(ET_WEIGHT_BLEND,firstChild,2u) {}
+            IBSDFBlendNode() : IBSDFCombinerNode(ET_WEIGHT_BLEND) {}
 
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            E_SYMBOL getSymbol() const override final { return ES_BSDF_COMBINER; }
 
             SParameter<color_t> weight;
         };
-        struct CBSDFMixNode final : IBSDFCombinerNode
+        using CBSDFBlendNode = Finalizer<IBSDFBlendNode>;
+        struct IBSDFMixNode final : IVariableChildCountNode, IBSDFCombinerNode
         {
-            CBSDFMixNode(const node_handle_t firstChild, const uint32_t childCount)
-                : IBSDFCombinerNode(ET_MIX,firstChild,childCount) {}
+            IBSDFMixNode() : IBSDFCombinerNode(ET_MIX) {}
 
-            inline size_t getSize() const override { return sizeof(*this); }
+            E_SYMBOL getSymbol() const override final { return ES_BSDF_COMBINER; }
 
-            inline bool cloneInto(INode* dst) const override
+            static inline size_t size_of(const uint32_t childrenCount)
             {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
+                return sizeof(IBSDFMixNode)+sizeof(float)*(childrenCount-1u)+sizeof(node_handle_t)*childrenCount;
             }
 
-            float weights[16]; // TODO
+            inline IBSDFMixNode& operator=(const IBSDFMixNode& other)
+            {
+                IBSDFCombinerNode::operator=(other);
+                std::copy_n(other.weights,other.getChildCount(),weights);
+                return *this;
+            }
 
-                /*
-                            template <typename ...Contents>
-                            static inline children_array_t createChildrenArray(Contents... children)
-                            {
-                                children_array_t a;
-                                const INode* ch[]{ children... };
-                                memcpy(a.array, ch, sizeof(ch));
-                                a.count = sizeof...(children);
-                                return a;
-                            }
-                */
+            float weights[1];
         };
+        using CBSDFMixNode = Finalizer<IBSDFMixNode>;
 
-        struct CEmissionNode final : ILeafNode
+        struct IEmissionNode : ILeafNode
         {
-            CEmissionNode() : ILeafNode() {}
+            IEmissionNode() : ILeafNode() {}
 
-            E_SYMBOL getSymbol() const override { return ES_EMISSION; }
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            E_SYMBOL getSymbol() const override {return ES_EMISSION;}
 
             color_t intensity = color_t(1.f); // TODO: hoist?
         };
+        using CEmissionNode = Finalizer<IEmissionNode>;
 
         struct IBSDFNode : ILeafNode
         {
@@ -483,46 +469,27 @@ class IR : public core::IReferenceCounted
             SParameter<float> alpha_u = 0.f;
             SParameter<float> alpha_v = 0.f;
         };
-        struct CMicrofacetDiffuseBxDFBase : IMicrofacetBSDFNode
+        struct IMicrofacetDiffuseBxDFBase : IMicrofacetBSDFNode
         {
-            CMicrofacetDiffuseBxDFBase(const E_TYPE t) : IMicrofacetBSDFNode(t)
+            IMicrofacetDiffuseBxDFBase(const E_TYPE t) : IMicrofacetBSDFNode(t)
             {
                 assert(t == ET_MICROFACET_DIFFTRANS || t == ET_MICROFACET_DIFFUSE);
             }
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
         };
-        struct CMicrofacetDiffuseBSDFNode final : CMicrofacetDiffuseBxDFBase
+        struct IMicrofacetDiffuseBSDFNode final : IMicrofacetDiffuseBxDFBase
         {
-            CMicrofacetDiffuseBSDFNode() : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFUSE) {}
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            IMicrofacetDiffuseBSDFNode() : IMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFUSE) {}
 
             SParameter<color_t> reflectance = color_t(1.f); // TODO: optimization, hoist Energy Loss Parameters out of BxDFs
         };
-        struct CMicrofacetDifftransBSDFNode final : CMicrofacetDiffuseBxDFBase
+        using CMicrofacetDiffuseBSDFNode = Finalizer<IMicrofacetDiffuseBSDFNode>;
+        struct IMicrofacetDifftransBSDFNode final : IMicrofacetDiffuseBxDFBase
         {
-            CMicrofacetDifftransBSDFNode() : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFTRANS) {}
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            IMicrofacetDifftransBSDFNode() : IMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFTRANS) {}
 
             SParameter<color_t> transmittance = color_t(0.5f); // TODO: optimization, hoist Energy Loss Parameters out of BxDFs
         };
+        using CMicrofacetDifftransBSDFNode = Finalizer<IMicrofacetDifftransBSDFNode>;
         struct ICookTorranceBSDFNode : IMicrofacetBSDFNode
         {
             public:
@@ -546,43 +513,25 @@ class IR : public core::IReferenceCounted
                 ICookTorranceBSDFNode(const IBSDFNode::E_TYPE t)
                     : IMicrofacetBSDFNode(t), eta(1.33f), etaK(0.f) {}
         };
-        struct CMicrofacetSpecularBSDFNode final : ICookTorranceBSDFNode
+        struct IMicrofacetSpecularBSDFNode : ICookTorranceBSDFNode
         {
-            CMicrofacetSpecularBSDFNode() : ICookTorranceBSDFNode(ET_MICROFACET_SPECULAR) {}
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            IMicrofacetSpecularBSDFNode() : ICookTorranceBSDFNode(ET_MICROFACET_SPECULAR) {}
         };
-        struct CMicrofacetCoatingBSDFNode final : ICookTorranceBSDFNode
+        using CMicrofacetSpecularBSDFNode = Finalizer<IMicrofacetSpecularBSDFNode>;
+        struct IMicrofacetCoatingBSDFNode : ICookTorranceBSDFNode
         {
-            CMicrofacetCoatingBSDFNode(const node_handle_t coated) : ICookTorranceBSDFNode(ET_MICROFACET_COATING) {}
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            IMicrofacetCoatingBSDFNode(const node_handle_t coated) : ICookTorranceBSDFNode(ET_MICROFACET_COATING) {}
 
             SParameter<color_t> thicknessSigmaA;
         };
-        struct CMicrofacetDielectricBSDFNode final : ICookTorranceBSDFNode
+        using CMicrofacetCoatingBSDFNode = Finalizer<IMicrofacetCoatingBSDFNode>;
+        struct IMicrofacetDielectricBSDFNode : ICookTorranceBSDFNode
         {
-            CMicrofacetDielectricBSDFNode() : ICookTorranceBSDFNode(ET_MICROFACET_DIELECTRIC) {}
-
-            inline size_t getSize() const override { return sizeof(*this); }
-
-            inline bool cloneInto(INode* dst) const override
-            {
-                return cloneInto_impl<std::remove_pointer_t<decltype(this)>>(dst);
-            }
+            IMicrofacetDielectricBSDFNode() : ICookTorranceBSDFNode(ET_MICROFACET_DIELECTRIC) {}
 
             bool thin = false;
         };
+        using CMicrofacetDielectricBSDFNode = Finalizer<IMicrofacetDielectricBSDFNode>;
 
 
     protected:
@@ -627,7 +576,7 @@ class IR : public core::IReferenceCounted
         };
         SBackingMemManager memMgr;
         // this stuff assumes the use of a linear allocator
-        inline void deleteRange(const node_handle_t begin)
+        inline void deleteRange(node_handle_t begin)
         {
             for (auto offset=begin; offset.byteOffset<memMgr.getAllocatedSize();)
             {
