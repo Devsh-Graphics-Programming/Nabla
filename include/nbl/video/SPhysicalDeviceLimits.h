@@ -432,7 +432,8 @@ struct SPhysicalDeviceLimits
     //VkBool32           transformFeedbackStreamsLinesTriangles;
     //VkBool32           transformFeedbackRasterizationStreamSelect;
     //VkBool32           transformFeedbackDraw;
-
+    
+    // [TODO] we would have to change the API
     /* VertexAttributeDivisorPropertiesEXT *//* provided by VK_EXT_vertex_attribute_divisor */
     //uint32_t           maxVertexAttribDivisor;
 
@@ -508,7 +509,7 @@ struct SPhysicalDeviceLimits
     /* VK_NVX_raytracing *//* Preview Extension of raytracing, useless*/
     
     /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
-    // VkShaderStageFlags    cooperativeMatrixSupportedStages;
+    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages;
 
     // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     /* DeviceGeneratedCommandsPropertiesNV *//* VK_NV_device_generated_commands */

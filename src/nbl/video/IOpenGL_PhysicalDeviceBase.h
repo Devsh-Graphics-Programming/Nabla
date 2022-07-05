@@ -659,6 +659,7 @@ public:
 
 			/* Vulkan Extensions */
 			
+			// [TODO] CooperativeMatrixFeaturesNV
             /* [NOT SUPPORTED IN GL] BufferDeviceAddressFeaturesKHR */
             /* [NOT SUPPORTED IN GL] AccelerationStructureFeaturesKHR */ 
             /* [NOT SUPPORTED IN GL] RayTracingPipelineFeaturesKHR */
@@ -1121,6 +1122,7 @@ public:
 
 			// [TODO] maxDiscardRectangles -> in GL requires EXT_window_rectangles and then the cap is MAX_WINDOW_RECTANGLES_EXT
 			// [TODO] SampleLocationsPropertiesEXT
+			// [TODO] CooperativeMatrixPropertiesNV
 
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */

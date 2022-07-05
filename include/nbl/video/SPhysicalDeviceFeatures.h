@@ -527,8 +527,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32           computeDerivativeGroupLinear;
 
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
-    //VkBool32           cooperativeMatrix;
-    //VkBool32           cooperativeMatrixRobustBufferAccess;
+    bool cooperativeMatrix;
+    bool cooperativeMatrixRobustBufferAccess;
 
     // [DO NOT EXPOSE] for a very long time
     /* CornerSampledImageFeaturesNV *//* VK_NV_corner_sampled_image */

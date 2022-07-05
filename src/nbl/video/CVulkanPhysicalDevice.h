@@ -50,7 +50,8 @@ public:
 
         // Extensions
         VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT, &vulkan11Properties };
-        VkPhysicalDeviceSampleLocationsPropertiesEXT sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT, &conservativeRasterizationProperties };
+        VkPhysicalDeviceCooperativeMatrixPropertiesNV cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_NV, &conservativeRasterizationProperties };
+        VkPhysicalDeviceSampleLocationsPropertiesEXT sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT, &cooperativeMatrixProperties };
         VkPhysicalDevicePCIBusInfoPropertiesEXT PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT, &sampleLocationsProperties };
         VkPhysicalDeviceDiscardRectanglePropertiesEXT discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT, &PCIBusInfoProperties };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &discardRectangleProperties };
@@ -328,6 +329,11 @@ public:
                 m_properties.limits.variableSampleLocations             = sampleLocationsProperties.variableSampleLocations;
             }
             
+            if (isExtensionSupported(VK_NV_COOPERATIVE_MATRIX_EXTENSION_NAME))
+            {
+                m_properties.limits.cooperativeMatrixSupportedStages   = core::bitflag<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
+            }
+
             /* AccelerationStructurePropertiesKHR */
             if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             {
@@ -408,7 +414,8 @@ public:
 
         // Extensions
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &subgroupSizeControlFeatures };
+        VkPhysicalDeviceCooperativeMatrixFeaturesNV cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV, &subgroupSizeControlFeatures };
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &cooperativeMatrixFeatures };
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rayTracingPipelineFeatures };
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &accelerationFeatures };
         VkPhysicalDeviceBufferDeviceAddressFeaturesKHR bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR, &rayQueryFeatures };
@@ -456,6 +463,15 @@ public:
             {
                 m_features.subgroupSizeControl  = subgroupSizeControlFeatures.subgroupSizeControl;
                 m_features.computeFullSubgroups = subgroupSizeControlFeatures.computeFullSubgroups;
+            }
+
+
+            /* Vulkan Extensions */
+            
+            if (isExtensionSupported(VK_NV_COOPERATIVE_MATRIX_EXTENSION_NAME))
+            {
+                m_features.cooperativeMatrix = cooperativeMatrixFeatures.cooperativeMatrix;
+                m_features.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess
             }
 
             /* RayQueryFeaturesKHR */
