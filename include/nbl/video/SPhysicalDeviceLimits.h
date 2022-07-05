@@ -366,15 +366,19 @@ struct SPhysicalDeviceLimits
     //uint32_t           maxSubsampledArrayLayers;
     //uint32_t           maxDescriptorSetSubsampledSamplers;
     
+    // [TODO] too much effort
+    // GLHint: Report false for both on GL
     /* GraphicsPipelineLibraryPropertiesEXT *//* provided by VK_EXT_graphics_pipeline_library */
     //VkBool32           graphicsPipelineLibraryFastLinking;
     //VkBool32           graphicsPipelineLibraryIndependentInterpolationDecoration;
 
     /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
-
+    
+    // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationPropertiesEXT *//* provided by VK_EXT_line_rasterization */
-    //uint32_t           lineSubPixelPrecisionBits;
-
+    //uint32_t           lineSubPixelPrecisionBits; // GLHint: report 0 on OpenGL
+    
+    // [DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported
     /* MultiDrawPropertiesEXT *//* provided by VK_EXT_multi_draw */
     //uint32_t           maxMultiDrawCount;
 

@@ -316,7 +316,7 @@ struct SPhysicalDeviceFeatures
     
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
 
-    // [DO NOT EXPOSE] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
+    // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
     // GL HINT (remove when implemented): MULTI_SAMPLE_LINE_WIDTH_RANGE (which is necessary for this) is guarded by !IsGLES || Version>=320 no idea is something enables this or not
     //VkBool32           rectangularLines;
