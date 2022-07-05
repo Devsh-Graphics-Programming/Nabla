@@ -333,17 +333,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     (storageBufferViewAtomic == other.storageBufferViewAtomic) &&
                     (accelerationStructureVertex == other.accelerationStructureVertex);
             }
-
-            // Probably not a great way to do this?
-            inline uint32_t value() const
-            {
-                return
-                    vertexAttribute |
-                    (bufferView << 1) |
-                    (storageBufferView << 2) |
-                    (storageBufferViewAtomic << 3) |
-                    (accelerationStructureVertex << 4);
-            }
         };
         virtual const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) = 0;
 
@@ -458,23 +447,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     (transferDst == other.transferDst) &&
                     (log2MaxSamples == other.log2MaxSamples);
             }
-
-            // Probably not a great way to do this?
-            inline uint32_t value() const
-            {
-                return
-                    sampledImage |
-                    (storageImage << 1) |
-                    (storageImageAtomic << 2) |
-                    (attachment << 3) |
-                    (attachmentBlend << 4) |
-                    (blitSrc << 5) |
-                    (blitDst << 6) |
-                    (transferSrc << 7) |
-                    (transferDst << 8) |
-                    (log2MaxSamples << 9);
-            }
         };
+
         virtual const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) = 0;
         virtual const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) = 0;
 
@@ -553,7 +527,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             // pack into 64bit for easy hashing 
             uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
             {
-                uint64_t msb = r.usages.value();
+                uint64_t msb = uint64_t(std::hash<FORMAT_USAGE>()(r.usages));
                 return (msb << 32u) | r.originalFormat;
             }
 
@@ -672,6 +646,42 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         } m_formatPromotionCache;
 };
 
+}
+
+namespace std
+{
+    template<>
+    struct std::hash<nbl::video::IPhysicalDevice::SFormatImageUsage>
+    {
+        inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatImageUsage& i) const
+        {
+            return
+                i.sampledImage |
+                (i.storageImage << 1) |
+                (i.storageImageAtomic << 2) |
+                (i.attachment << 3) |
+                (i.attachmentBlend << 4) |
+                (i.blitSrc << 5) |
+                (i.blitDst << 6) |
+                (i.transferSrc << 7) |
+                (i.transferDst << 8) |
+                (i.log2MaxSamples << 9);
+        }
+    };
+
+    template<>
+    struct std::hash<nbl::video::IPhysicalDevice::SFormatBufferUsage>
+    {
+        inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatBufferUsage& b) const
+        {
+            return
+                b.vertexAttribute |
+                (b.bufferView << 1) |
+                (b.storageBufferView << 2) |
+                (b.storageBufferViewAtomic << 3) |
+                (b.accelerationStructureVertex << 4);
+        }
+    };
 }
 
 #endif
