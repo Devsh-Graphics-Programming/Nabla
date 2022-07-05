@@ -311,15 +311,13 @@ bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t 
 // srcFormat can't be in validFormats (no promotion should be made if the format itself is valid)
 asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FORMAT>& validFormats, asset::E_FORMAT srcFormat)
 {
-    asset::E_FORMAT smallestTexelBlock = asset::E_FORMAT::EF_UNKNOWN;
+    if (validFormats.empty()) return asset::EF_UNKNOWN;
+
+    asset::E_FORMAT smallestTexelBlock = asset::EF_UNKNOWN;
     uint32_t smallestTexelBlockSize = -1;
 
-    auto srcChannels = asset::getFormatChannelCount(srcFormat);
-    assert(srcChannels);
-    auto srcAspects = getImageAspects(srcFormat);
-    bool srcIntFormat = asset::isIntegerFormat(srcFormat);
     bool srcBgra = asset::isBGRALayoutFormat(srcFormat);
-
+    auto srcChannels = asset::getFormatChannelCount(srcFormat);
     double srcMinVal[4];
     double srcMaxVal[4];
     for (uint32_t channel = 0; channel < srcChannels; channel++)
@@ -332,28 +330,6 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     for (auto iter = validFormats.begin(); iter != validFormats.end(); iter++)
     {
         asset::E_FORMAT f = *iter;
-
-        // Can't transcode to BC or planar
-        if (asset::isBlockCompressionFormat(f))
-            continue;
-        if (asset::isPlanarFormat(f))
-            continue;
-    
-        // Can't promote between int and normalized/float/scaled formats
-        if (srcIntFormat != asset::isIntegerFormat(f))
-            continue;
-
-        // Can't have less channels
-        auto dstChannels = asset::getFormatChannelCount(f);
-        if (dstChannels < srcChannels)
-            continue;
-
-        if (!higherPrecisionOrValueRange(f, srcFormat, srcChannels, srcMinVal, srcMaxVal))
-            continue;
-
-        // Can't have less aspects
-        if (!getImageAspects(f).hasFlags(srcAspects))
-            continue;
 
         uint32_t texelBlockSize = asset::getTexelOrBlockBytesize(f);
         // Don't promote if we have a better valid format already
@@ -386,11 +362,17 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
         smallestTexelBlock = f;
     }
 
+    assert(smallestTexelBlock != asset::EF_UNKNOWN);
     return smallestTexelBlock;
 }
 
 asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req)
 {
+    assert(
+        !asset::isBlockCompressionFormat(req.originalFormat) &&
+        !asset::isPlanarFormat(req.originalFormat) &&
+        getImageAspects(req.originalFormat).hasFlags(asset::IImage::EAF_COLOR_BIT)
+    );
     auto& buf_cache = this->m_formatPromotionCache.buffers;
     auto cached = buf_cache.find(req);
     if (cached != buf_cache.end())
@@ -402,14 +384,44 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
         return req.originalFormat;
     }
 
+    auto srcFormat = req.originalFormat;
+    bool srcIntFormat = asset::isIntegerFormat(srcFormat);
+    auto srcChannels = asset::getFormatChannelCount(srcFormat);
+    double srcMinVal[4];
+    double srcMaxVal[4];
+    for (uint32_t channel = 0; channel < srcChannels; channel++)
+    {
+        srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
+        srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
+    }
+
     // Cache valid formats per usage?
     core::unordered_set<asset::E_FORMAT> validFormats;
 
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
     {
         auto f = static_cast<asset::E_FORMAT>(format);
+        // Make this into a function?
         // Checked earlier
-        if (f == req.originalFormat)
+        if (f == srcFormat)
+            continue;
+        // Can't transcode to BC or planar
+        if (asset::isBlockCompressionFormat(f))
+            continue;
+        if (asset::isPlanarFormat(f))
+            continue;
+        // Can't have less aspects
+        if (!getImageAspects(f).hasFlags(asset::IImage::EAF_COLOR_BIT))
+            continue;
+        // Can't promote between int and normalized/float/scaled formats
+        if (srcIntFormat != asset::isIntegerFormat(f))
+            continue;
+        // Can't have less channels
+        auto dstChannels = asset::getFormatChannelCount(f);
+        if (dstChannels < srcChannels)
+            continue;
+        // Can't have less precision or value range
+        if (!higherPrecisionOrValueRange(f, srcFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getBufferFormatUsages(f))
@@ -449,14 +461,45 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
         return req.originalFormat;
     }
 
+    auto srcFormat = req.originalFormat;
+    auto srcAspects = getImageAspects(srcFormat);
+    bool srcIntFormat = asset::isIntegerFormat(srcFormat);
+    auto srcChannels = asset::getFormatChannelCount(srcFormat);
+    double srcMinVal[4];
+    double srcMaxVal[4];
+    for (uint32_t channel = 0; channel < srcChannels; channel++)
+    {
+        srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
+        srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
+    }
+
     // Cache valid formats per usage?
     core::unordered_set<asset::E_FORMAT> validFormats;
 
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
     {
         auto f = static_cast<asset::E_FORMAT>(format);
+        // Make this into a function?
         // Checked earlier
-        if (f == req.originalFormat)
+        if (f == srcFormat)
+            continue;
+        // Can't transcode to BC or planar
+        if (asset::isBlockCompressionFormat(f))
+            continue;
+        if (asset::isPlanarFormat(f))
+            continue;
+        // Can't have less aspects
+        if (!getImageAspects(f).hasFlags(srcAspects))
+            continue;
+        // Can't promote between int and normalized/float/scaled formats
+        if (srcIntFormat != asset::isIntegerFormat(f))
+            continue;
+        // Can't have less channels
+        auto dstChannels = asset::getFormatChannelCount(f);
+        if (dstChannels < srcChannels)
+            continue;
+        // Can't have less precision or value range
+        if (!higherPrecisionOrValueRange(f, srcFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getImageFormatUsagesTiling(f))
