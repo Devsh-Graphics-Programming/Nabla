@@ -250,7 +250,7 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     return rcpUnit;
 }
 
-double getMinFormatPrecision(asset::E_FORMAT format, uint32_t channel)
+double getFormatPrecisionAt(asset::E_FORMAT format, uint32_t channel, double value)
 {
     if (asset::isBlockCompressionFormat(format))
         return getBcFormatMaxPrecision(format, channel);
@@ -258,26 +258,40 @@ double getMinFormatPrecision(asset::E_FORMAT format, uint32_t channel)
     {
     case asset::EF_E5B9G9R9_UFLOAT_PACK32:
     {
-        // Minimum precision value would be a 9bit mantissa & 5bit exponent float at 0.0
-        uint32_t bitshft = 2;
-        return core::Float16Compressor::decompress(1 << bitshft) - 0.0;
+        // Minimum precision value would be a 9bit mantissa & 5bit exponent float
+        // (This ignores the shared exponent)
+        int bitshft = 2;
+
+        uint16_t f16 = core::Float16Compressor::compress(value);
+        uint16_t enc = f16 >> bitshft;
+        uint16_t next_f16 = (enc + 1) << bitshft;
+
+        return core::Float16Compressor::decompress(next_f16) - value;
     }
-    default: return asset::getFormatPrecision(format, channel, 0.f);
+    default: return asset::getFormatPrecision(format, channel, value);
     }
 }
 
 // Returns true if a has higher precision & value range than b
-bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t srcChannels)
+bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t srcChannels, double srcMin[], double srcMax[])
 {
     auto c = 0;
     while (c < srcChannels)
     {
+        double mina = asset::getFormatMinValue<double>(a, c),
+            minb = asset::getFormatMinValue<double>(b, c), 
+            maxa = asset::getFormatMaxValue<double>(a, c),
+            maxb = asset::getFormatMaxValue<double>(b, c);
+
         // break if a has less precision (higher precision value from getFormatPrecision) than b
-        if (getMinFormatPrecision(a, c) > getMinFormatPrecision(b, c))
+        // check at 0, since precision is non-increasing
+        // also check at min & max, since there's potential for cross-over with constant formats
+        if (getFormatPrecisionAt(a, c, 0.0) > getFormatPrecisionAt(b, c, 0.0) 
+                || getFormatPrecisionAt(a, c, srcMin[c]) > getFormatPrecisionAt(b, c, srcMin[c])
+                || getFormatPrecisionAt(a, c, srcMax[c]) > getFormatPrecisionAt(b, c, srcMax[c]))
             break;
         // break if a has less range than b
-        if (asset::getFormatMinValue<double>(a, c) > asset::getFormatMinValue<double>(b, c)
-            || asset::getFormatMaxValue<double>(a, c) < asset::getFormatMinValue<double>(b, c))
+        if (mina > minb || maxa < maxb)
             break;
 
         c++;
@@ -304,13 +318,12 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     assert(srcChannels);
     auto srcAspects = getImageAspects(srcFormat);
     bool srcIntFormat = asset::isIntegerFormat(srcFormat);
+    bool srcBgra = asset::isBGRALayoutFormat(srcFormat);
 
-    float srcPrecision[4];
     double srcMinVal[4];
     double srcMaxVal[4];
     for (uint32_t channel = 0; channel < srcChannels; channel++)
     {
-        srcPrecision[channel] = getMinFormatPrecision(srcFormat, channel);
         srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
         srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
     }
@@ -335,23 +348,8 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
         if (dstChannels < srcChannels)
             continue;
 
-        {
-            auto c = 0;
-            while (c < srcChannels)
-            {
-                // Can't have less precision (higher precision value from getFormatPrecision) than source
-                if (asset::getFormatPrecision(f, c, 0.f) > srcPrecision[c])
-                    break;
-                // Can't have less range than source
-                if (asset::getFormatMinValue<double>(f, c) > srcMinVal[c] || asset::getFormatMaxValue<double>(f, c) < srcMaxVal[c])
-                    break;
-
-                c++;
-            }
-            // If we hit a break in the while loop
-            if (c != srcChannels)
-                continue;
-        }
+        if (!higherPrecisionOrValueRange(f, srcFormat, srcChannels, srcMinVal, srcMaxVal))
+            continue;
 
         // Can't have less aspects
         if (!getImageAspects(f).hasFlags(srcAspects))
@@ -366,9 +364,21 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
         if (texelBlockSize == smallestTexelBlockSize)
         {
             // Tie-breaking rules:
+            // - RGBA vs BGRA matches srcFormat
             // - Precision
             // - Value range
-            if (!higherPrecisionOrValueRange(smallestTexelBlock, f, srcChannels))
+            bool tieBreak = false;
+
+            bool curBgraMatch = asset::isBGRALayoutFormat(f) == srcBgra;
+            bool prevBgraMatch = asset::isBGRALayoutFormat(smallestTexelBlock) == srcBgra;
+
+            if (curBgraMatch && !prevBgraMatch) tieBreak = true;
+            if (prevBgraMatch && !curBgraMatch) continue;
+
+            if (higherPrecisionOrValueRange(f, smallestTexelBlock, srcChannels, srcMinVal, srcMaxVal))
+                tieBreak = true;
+
+            if (!tieBreak)
                 continue;
         }
 
