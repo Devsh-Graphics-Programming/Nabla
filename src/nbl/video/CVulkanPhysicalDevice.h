@@ -217,6 +217,11 @@ public:
             memcpy(m_properties.driverInfo, driverProperties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
             m_properties.conformanceVersion = driverProperties.conformanceVersion;
             
+            // Helper bools :D
+            bool isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+            bool isAMDGPU = (m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+            bool isNVIDIAGPU = (m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
+
             if(isExtensionSupported(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
             {
                 m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16;
@@ -365,18 +370,19 @@ public:
             /* Nabla */
             
             if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-            {
                 m_properties.limits.computeUnits = shaderSMBuiltinsProperties.shaderSMCount;
-            } 
             else if(isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
-            {
                 m_properties.limits.computeUnits = shaderCoreProperties2AMD.activeComputeUnitCount;
-            }
-
+            else 
+                m_properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(m_properties.driverID);
+            
             m_properties.limits.dispatchBase = true;
             m_properties.limits.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             
+            const auto invocationsPerWarp = 32u;
+            const auto WarpsPerComputeUnit = 32u;
+            m_properties.limits.maxResidentInvocations = m_properties.limits.computeUnits * WarpsPerComputeUnit * invocationsPerWarp;
             
             if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             {

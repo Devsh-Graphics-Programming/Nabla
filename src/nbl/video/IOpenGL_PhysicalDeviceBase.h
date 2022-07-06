@@ -1128,6 +1128,7 @@ public:
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
 			
 			/* Nabla */
+			m_properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(m_properties.driverID);
 			m_properties.limits.dispatchBase = false;
 
 			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
