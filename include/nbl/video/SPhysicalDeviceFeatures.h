@@ -593,6 +593,7 @@ struct SPhysicalDeviceFeatures
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
     //VkBool32           imageFootprint;
 
+    // [ENABLE BY DEFAULT]
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
     //VkBool32           shaderSMBuiltins;
     

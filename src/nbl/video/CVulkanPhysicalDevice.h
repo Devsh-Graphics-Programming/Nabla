@@ -50,7 +50,9 @@ public:
 
         // Extensions
         VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT, &vulkan11Properties };
-        VkPhysicalDeviceCooperativeMatrixPropertiesNV cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_NV, &conservativeRasterizationProperties };
+        VkPhysicalDeviceShaderCoreProperties2AMD shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD, &conservativeRasterizationProperties };
+        VkPhysicalDeviceShaderSMBuiltinsPropertiesNV shaderSMBuiltinsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV, &shaderCoreProperties2AMD };
+        VkPhysicalDeviceCooperativeMatrixPropertiesNV cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_NV, &shaderSMBuiltinsProperties };
         VkPhysicalDeviceSampleLocationsPropertiesEXT sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT, &cooperativeMatrixProperties };
         VkPhysicalDevicePCIBusInfoPropertiesEXT PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT, &sampleLocationsProperties };
         VkPhysicalDeviceDiscardRectanglePropertiesEXT discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT, &PCIBusInfoProperties };
@@ -333,7 +335,7 @@ public:
             {
                 m_properties.limits.cooperativeMatrixSupportedStages   = core::bitflag<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
             }
-
+            
             /* AccelerationStructurePropertiesKHR */
             if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             {
@@ -361,11 +363,31 @@ public:
             }
 
             /* Nabla */
+            
+            if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            {
+                m_properties.limits.computeUnits = shaderSMBuiltinsProperties.shaderSMCount;
+            } 
+            else if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            {
+                m_properties.limits.computeUnits = shaderCoreProperties2AMD.activeComputeUnitCount;
+            }
+
             m_properties.limits.dispatchBase = true;
             m_properties.limits.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
-            constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
-            m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
+            
+            
+            if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            {
+                constexpr auto invocationsPerWarp = 32u; // unless Nvidia changed something recently
+                m_properties.limits.maxResidentInvocations  = shaderSMBuiltinsProperties.shaderSMCount*shaderSMBuiltinsProperties.shaderWarpsPerSM*invocationsPerWarp;
+            }
+            else
+            {
+                constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
+                m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
+            }
 
             /*
                 [NO NABALA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
@@ -414,7 +436,8 @@ public:
 
         // Extensions
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceCooperativeMatrixFeaturesNV cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV, &subgroupSizeControlFeatures };
+        VkPhysicalDeviceShaderSMBuiltinsFeaturesNV shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV, &subgroupSizeControlFeatures };
+        VkPhysicalDeviceCooperativeMatrixFeaturesNV cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV, &shaderSMBuiltinsFeatures };
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, &cooperativeMatrixFeatures };
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, &rayTracingPipelineFeatures };
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, &accelerationFeatures };
@@ -464,7 +487,6 @@ public:
                 m_features.subgroupSizeControl  = subgroupSizeControlFeatures.subgroupSizeControl;
                 m_features.computeFullSubgroups = subgroupSizeControlFeatures.computeFullSubgroups;
             }
-
 
             /* Vulkan Extensions */
             
