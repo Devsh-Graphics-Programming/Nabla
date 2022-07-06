@@ -70,11 +70,10 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture(const ext::MitsubaLoader:
     return { view, smplr, 1.f };
 }
 
-auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElementBSDF* _bsdf) -> node_handle_t
+auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElementBSDF* _bsdf, const bool frontface) -> node_handle_t
 {
     using namespace asset::material_compiler;
 
-    auto transparent = [](const float eta) -> bool {return eta>0.99999f&&eta<1.000001f;};
 
     auto getFloatOrTexture = [&ctx](const CElementTexture::FloatOrTexture& src) -> IR::INode::SParameter<float>
     {
@@ -105,9 +104,9 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         {
             using bsdf_t = std::remove_const_t<std::remove_reference_t<decltype(_bsdfEl)>>;
             if constexpr (std::is_same_v<bsdf_t,CElementBSDF::AllDiffuse> || std::is_same_v<bsdf_t,CElementBSDF::DiffuseTransmitter>)
-                getFloatOrTexture(_bsdfEl.alpha,node->alpha_u);
+                node->alpha_u = getFloatOrTexture(_bsdfEl.alpha);
             else
-                getFloatOrTexture(_bsdfEl.alphaU,node->alpha_u);
+                node->alpha_u = getFloatOrTexture(_bsdfEl.alphaU);
             node->alpha_v = node->alpha_u;
             if constexpr (std::is_base_of_v<CElementBSDF::RoughSpecularBase,bsdf_t>)
             {
@@ -121,19 +120,22 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
                 auto& ndf = static_cast<IR::ICookTorranceBSDFNode*>(node)->ndf;
                 ndf = ndfMap[_bsdfEl.distribution];
                 if (ndf==IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(_bsdfEl.alphaV,node->alpha_v);
+                    node->alpha_v = getFloatOrTexture(_bsdfEl.alphaV);
             }
         }
         else
             node->setSmooth();
     };
 
-    auto ir_node = IR::invalid_node;
     auto& hashCons = ctx.m_hashCons;
-    auto findAndSetChild = [&hashCons,_bsdf](IR::INode* pNode, const uint32_t childIx) -> node_handle_t
+    auto ir_node = IR::invalid_node;
+    auto findAndSetChild = [&hashCons,_bsdf,frontface](IR::INode* pNode, const uint32_t childIx) -> node_handle_t
     {
-        auto child = _bsdf->type==CElementBSDF::COATING ? _bsdf->coating.bsdf[childIx]:_bsdf->meta_common.bsdf[childIx];
-        return pNode->getChildrenArray()[childIx] = std::get<node_handle_t>(*hashCons.find(child));
+        const CElementBSDF* child = _bsdf->type==CElementBSDF::COATING ? _bsdf->coating.bsdf[childIx]:_bsdf->meta_common.bsdf[childIx];
+        const bool twosided = unwindTwosided(child);
+        auto found = hashCons.find({child,frontface||twosided});
+        assert(found!=hashCons.end());
+        return pNode->getChildrenArray()[childIx] = std::get<node_handle_t>(*found);
     };
     auto* ir = ctx.m_ir;
     const auto type = _bsdf->type;
@@ -151,6 +153,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         case CElementBSDF::DIFFUSE:
         case CElementBSDF::ROUGHDIFFUSE:
         {
+            assert(frontface); // hash consing should have replaced this one with black diffuse
             ir_node = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>(0);
             auto pNode = ir->getNode<IR::CMicrofacetDiffuseBSDFNode>(ir_node);
             setAlpha(pNode,type==CElementBSDF::ROUGHDIFFUSE,_bsdf->diffuse);
@@ -160,13 +163,14 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         case CElementBSDF::CONDUCTOR:
         case CElementBSDF::ROUGHCONDUCTOR:
         {
+            assert(frontface); // hash consing should have replaced this one with black diffuse
             ir_node = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>(0);
             auto pNode = ir->getNode<IR::CMicrofacetSpecularBSDFNode>(ir_node);
             setAlpha(pNode,type==CElementBSDF::ROUGHCONDUCTOR,_bsdf->conductor);
             const float extEta = _bsdf->conductor.extEta;
             pNode->eta = _bsdf->conductor.eta.vvalue/extEta;
             pNode->etaK = _bsdf->conductor.k.vvalue/extEta;
-            // TODO: first check if eta=1 or etaK=INF (no idea actually what would cause pitch black fresnel), then replace with NOOP
+            // IR TODO: first check if eta=1 or etaK=INF (no idea actually what would cause pitch black fresnel), then replace with NOOP
             break;
         }
         case CElementBSDF::DIFFUSE_TRANSMITTER:
@@ -180,6 +184,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         case CElementBSDF::PLASTIC:
         case CElementBSDF::ROUGHPLASTIC:
         {
+            assert(frontface); // hash consing should have replaced this one with black diffuse
             const bool rough = type==CElementBSDF::ROUGHPLASTIC;
 
             ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>(1);
@@ -192,7 +197,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
                 tmp.type = rough ? CElementBSDF::ROUGHDIFFUSE:CElementBSDF::DIFFUSE;
                 tmp.diffuse.alpha = _bsdf->plastic.alpha;
                 tmp.diffuse.reflectance = _bsdf->plastic.diffuseReflectance;
-                coat->getChildrenArray()[0] = createIRNode(ctx,&tmp);
+                coat->getChildrenArray()[0] = createIRNode(ctx,&tmp,frontface);
             }
             break;
         }
@@ -203,8 +208,11 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
             ir_node = ir->allocNode<IR::CMicrofacetDielectricBSDFNode>(0);
             auto dielectric = ir->getNode<IR::CMicrofacetDielectricBSDFNode>(ir_node);
             setAlpha(dielectric,type==CElementBSDF::ROUGHDIELECTRIC,_bsdf->dielectric);
-            dielectric->eta = IR::INode::color_t(_bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR);
             dielectric->thin = type==CElementBSDF::THINDIELECTRIC;
+            if (frontface || dielectric->thin)
+                dielectric->eta = IR::INode::color_t(_bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR);
+            else
+                dielectric->eta = IR::INode::color_t(_bsdf->dielectric.extIOR/_bsdf->dielectric.intIOR);
             break;
         }
         case CElementBSDF::BUMPMAP:
@@ -223,6 +231,8 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         case CElementBSDF::COATING:
         case CElementBSDF::ROUGHCOATING:
         {
+            assert(frontface); // hash consing should have replaced this one with black diffuse
+
             const bool rough = type==CElementBSDF::ROUGHDIELECTRIC;
 
             ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>(1u);
@@ -274,139 +284,107 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
             break;
     }
     assert(ir_node!=IR::invalid_node);
+    const bool inserted = std::get<bool>(hashCons.insert({{_bsdf,frontface},ir_node}));
+    assert(inserted);
     return ir_node;
 }
 
 auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CElementBSDF* _root) -> front_and_back_t
 {
-    using namespace asset;
-    using namespace material_compiler;
+    using namespace asset::material_compiler;
 
-    auto frontroot = IR::invalid_node;
-    auto backroot = IR::invalid_node;
-    //create frontface IR
-    struct DFSData
+    auto traverseForSide = [&ctx,_root](const bool frontface) -> node_handle_t
     {
-        const CElementBSDF* bsdf;
-        // most BxDFs have different appearance depending on NdotV, if "twosided" we behave as-if `NdotV` is always positive
-        // since <twosided> is a nesting Meta-BxDF it affects all of its tree-branch, ergo the setting is propagated
-        uint8_t twosided : 1;
-        // to do Post-Order DFS we need to visit parent twice
-        uint8_t visited : 1;
+        auto root = IR::invalid_node;
+        //create frontface IR
+        struct DFSData
+        {
+            const CElementBSDF* bsdf;
+            // to do Post-Order DFS we need to visit parent twice
+            uint8_t visited : 1;
 
-        CElementBSDF::Type type() const { return bsdf->type; }
-    };
-    core::stack<DFSData> dfs;
-    auto pre = [&dfs,&frontroot,&ctx](const CElementBSDF* _bsdf, const bool twosidedParent)
-    {
-        DFSData el;
-        // unwind twosided
-        for (el.bsdf=_bsdf; el.bsdf->type==CElementBSDF::TWO_SIDED; _bsdf=_bsdf->meta_common.bsdf[0])
+            CElementBSDF::Type type() const { return bsdf->type; }
+        };
+        core::stack<DFSData> dfs;
+        auto pre = [&](const CElementBSDF* _bsdf)
         {
-            // sanity checks
-            static_assert(_bsdf->twosided.MaxChildCount == 1);
-            assert(_bsdf->meta_common.childCount==1);
-            assert(_bsdf->twosided.childCount==1);
-        }
-        el.twosided = twosidedParent || el.bsdf!=_bsdf;
-        // only meta nodes get pushed onto stack
-        if (el.bsdf->isMeta())
-        {
-            el.visited = false;
-            dfs.push(std::move(el));
-        }
-        else
-            frontroot = createIRNode(ctx,el.bsdf);
-    };
-    pre(_root,false);
-    while (!dfs.empty())
-    {
-        auto& parent = dfs.top();
-        assert(parent.type()!=CElementBSDF::TWO_SIDED);
-        assert(parent.bsdf->isMeta());
-
-        if (parent.visited)
-        {
-            dfs.pop();
-            frontroot = createIRNode(ctx,parent.bsdf);
-        }
-        else
-        {
-            parent.visited = true;
-
-            const bool isCoating = parent.type()==CElementBSDF::COATING;
-            const auto childCount = isCoating ? parent.bsdf->coating.childCount:parent.bsdf->meta_common.childCount;
-            for (auto i=0u; i<childCount; i++)
+            DFSData el = {_bsdf};
+            const bool twosided = unwindTwosided(el.bsdf);
+            //
+            auto found = ctx.m_hashCons.find({el.bsdf,frontface||twosided});
+            if (found!=ctx.m_hashCons.end())
+                root = std::get<node_handle_t>(*found);
+            else
             {
-                const auto child = isCoating ? parent.bsdf->coating.bsdf[i]:parent.bsdf->meta_common.bsdf[i];
-                pre(child,parent.twosided);
+                // we traversed the tree before, we must be able to find an entry for a front facing branch!
+                assert(!twosided);
+                // only meta nodes get pushed onto stack
+                if (el.bsdf->isMeta())
+                {
+                    el.visited = false;
+                    dfs.push(std::move(el));
+                }
+                else
+                    root = createIRNode(ctx,el.bsdf,frontface);
+            }
+        };
+        pre(_root);
+        while (!dfs.empty())
+        {
+            auto& parent = dfs.top();
+            assert(parent.type()!=CElementBSDF::TWO_SIDED);
+            assert(parent.bsdf->isMeta());
+
+            if (parent.visited)
+            {
+                dfs.pop();
+                auto found = ctx.m_hashCons.find({parent.bsdf,frontface});
+                if (found!=ctx.m_hashCons.end())
+                    root = std::get<node_handle_t>(*found);
+                else
+                    root = createIRNode(ctx,parent.bsdf,frontface);
+            }
+            else
+            {
+                parent.visited = true;
+
+                const bool isCoating = parent.type()==CElementBSDF::COATING;
+                const auto childCount = isCoating ? parent.bsdf->coating.childCount:parent.bsdf->meta_common.childCount;
+                for (auto i=0u; i<childCount; i++)
+                {
+                    const auto child = isCoating ? parent.bsdf->coating.bsdf[i]:parent.bsdf->meta_common.bsdf[i];
+                    pre(child);
+                }
             }
         }
-    }
-
-    auto createBackfaceNodeFromFrontface = [&ir](const IRNode* front) -> IRNode*
-    {
-        switch (front->symbol)
-        {
-        case IRNode::ES_BSDF_COMBINER: [[fallthrough]];
-        case IRNode::ES_OPACITY: [[fallthrough]];
-        case IRNode::ES_GEOM_MODIFIER: [[fallthrough]];
-        case IRNode::ES_EMISSION:
-            return ir->copyNode(front);
-        case IRNode::ES_BSDF:
-        {
-            auto* bsdf = static_cast<const IR::CBSDFNode*>(front);
-            if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIELECTRIC)
-            {
-                auto* dielectric = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(bsdf);
-                auto* copy = ir->copyNode<IR::CMicrofacetDielectricBSDFNode>(front);
-                if (!copy->thin) //we're always outside in case of thin dielectric
-                    copy->eta = IRNode::color_t(1.f) / copy->eta;
-
-                return copy;
-            }
-            else if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIFFTRANS)
-                return ir->copyNode(front);
-        }
-        [[fallthrough]]; // intentional
-        default:
-        {
-            // black diffuse otherwise
-            auto* invalid = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
-            invalid->setSmooth();
-            invalid->reflectance = IR::INode::color_t(0.f);
-
-            return invalid;
-        }
-        }
+        ctx.m_ir->addRootNode(root);
+        return root;
     };
 
-    IRNode* backroot = nullptr;
-    for (uint32_t i = 0u; i < bfs.size(); ++i)
+    // set up an invalid/vanta-black/NOOP node first
     {
-        SNode& node = bfs[i];
-
-        IRNode* ir_node = nullptr;
-        if (!node.twosided)
-            ir_node = createBackfaceNodeFromFrontface(node.ir_node);
-        else
-        {
-            ir_node = ir->copyNode(node.ir_node);
-        }
-        node.ir_node = ir_node;
-
-        IRNode** dst = nullptr;
-        if (node.parent_ix >= bfs.size())
-            dst = &backroot;
-        else
-            dst = const_cast<IRNode**>(&node_parent(node, bfs)->ir_node->children[node.child_num]);
-
-        *dst = ir_node;
+        CElementBSDF invalid("invalid_vanta_black_noop");
+        invalid.type = CElementBSDF::DIFFUSE;
+        invalid.diffuse.reflectance = 0.f;
+        createIRNode(ctx,&invalid,true);
     }
 
-    ctx.m_ir->addRootNode(frontroot);
-    ctx.m_ir->addRootNode(backroot);
-    return {frontroot,backroot};
+    // its important to generate the IR for the front-face first, so that backface can reuse
+    // any twosided or orientation agnostic nodes which are in the consing cache
+    front_and_back_t retval;
+    retval.front = traverseForSide(true);
+    retval.back = traverseForSide(false);
+    return retval;
+}
+
+bool CMitsubaMaterialCompilerFrontend::MerkleTree::equal_to::operator()(const MerkleTree& lhs, const MerkleTree& rhs) const
+{
+    return lhs.bsdf==rhs.bsdf && lhs.frontface==rhs.frontface;
+}
+
+std::size_t CMitsubaMaterialCompilerFrontend::MerkleTree::hash::operator()(const MerkleTree& node) const
+{
+    return ptrdiff_t(node.bsdf);
 }
 
 }

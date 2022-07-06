@@ -311,7 +311,7 @@ class IR : public core::IReferenceCounted
         template<class FinalNodeT>
         class Finalizer final : public FinalNodeT
         {
-            protected:
+            public:
                 template<typename... Args>
                 Finalizer(const uint32_t childCount, Args&&... args) : FinalNodeT(std::forward<Args>(args)...)
                 {
@@ -530,7 +530,7 @@ class IR : public core::IReferenceCounted
         using CMicrofacetSpecularBSDFNode = Finalizer<IMicrofacetSpecularBSDFNode>;
         struct IMicrofacetCoatingBSDFNode : ICookTorranceBSDFNode
         {
-            IMicrofacetCoatingBSDFNode(const node_handle_t coated) : ICookTorranceBSDFNode(ET_MICROFACET_COATING) {}
+            IMicrofacetCoatingBSDFNode() : ICookTorranceBSDFNode(ET_MICROFACET_COATING) {}
 
             SParameter<color_t> thicknessSigmaA;
         };
