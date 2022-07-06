@@ -282,35 +282,43 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
     using namespace asset;
     using namespace material_compiler;
 
-    auto unwindTwosided = [](const CElementBSDF* _bsdf) -> const CElementBSDF*
-    {
-        while (_bsdf->type==CElementBSDF::TWO_SIDED)
-            _bsdf = _bsdf->meta_common.bsdf[0];
-        return _bsdf;
-    };
-
+    auto frontroot = IR::invalid_node;
+    auto backroot = IR::invalid_node;
+    //create frontface IR
     struct DFSData
     {
         const CElementBSDF* bsdf;
-        uint16_t visited : 1;
-        /*
-        IRNode* ir_node = nullptr;
-        uint32_t parent_ix = static_cast<uint32_t>(-1);
-        uint32_t child_num = 0u;
-        bool twosided = false;
-        bool front = true;
-        */
+        // most BxDFs have different appearance depending on NdotV, if "twosided" we behave as-if `NdotV` is always positive
+        // since <twosided> is a nesting Meta-BxDF it affects all of its tree-branch, ergo the setting is propagated
+        uint8_t twosided : 1;
+        // to do Post-Order DFS we need to visit parent twice
+        uint8_t visited : 1;
+
         CElementBSDF::Type type() const { return bsdf->type; }
     };
     core::stack<DFSData> dfs;
-    auto push = [&dfs](const CElementBSDF* _bsdf)
+    auto pre = [&dfs,&frontroot,&ctx](const CElementBSDF* _bsdf, const bool twosidedParent)
     {
-        auto& el = dfs.emplace();
-        el.bsdf = _bsdf;
-        el.visited = false;
-        //root.twosided = (root.type() == CElementBSDF::TWO_SIDED);
+        DFSData el;
+        // unwind twosided
+        for (el.bsdf=_bsdf; el.bsdf->type==CElementBSDF::TWO_SIDED; _bsdf=_bsdf->meta_common.bsdf[0])
+        {
+            // sanity checks
+            static_assert(_bsdf->twosided.MaxChildCount == 1);
+            assert(_bsdf->meta_common.childCount==1);
+            assert(_bsdf->twosided.childCount==1);
+        }
+        el.twosided = twosidedParent || el.bsdf!=_bsdf;
+        // only meta nodes get pushed onto stack
+        if (el.bsdf->isMeta())
+        {
+            el.visited = false;
+            dfs.push(std::move(el));
+        }
+        else
+            frontroot = createIRNode(ctx,el.bsdf);
     };
-    push(unwindTwosided(_root));
+    pre(_root,false);
     while (!dfs.empty())
     {
         auto& parent = dfs.top();
@@ -320,7 +328,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
         if (parent.visited)
         {
             dfs.pop();
-            createIRNode(ctx,parent.bsdf);
+            frontroot = createIRNode(ctx,parent.bsdf);
         }
         else
         {
@@ -330,78 +338,9 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
             const auto childCount = isCoating ? parent.bsdf->coating.childCount:parent.bsdf->meta_common.childCount;
             for (auto i=0u; i<childCount; i++)
             {
-                // unwind twosided
-                const auto originalChild = isCoating ? parent.bsdf->coating.bsdf[i]:parent.bsdf->meta_common.bsdf[i];
-                auto child = unwindTwosided(originalChild);
-
-                // check for meta
-                if (child->isMeta())
-                    push(child);
-                else
-                    createIRNode(ir,child,{0xdeadbeefu},0u);
-
-                //child_node.parent_ix = isTwosidedMeta ? parent.parent_ix : bfs.size();
-                //child_node.twosided = (child_node.type() == CElementBSDF::TWO_SIDED) || parent.twosided;
-                //child_node.child_num = isTwosidedMeta ? parent.child_num : i;
-                //child_node.front = parent.front;
-                //if (parent.type() == CElementBSDF::TWO_SIDED && i == 1u)
-                    //child_node.front = false;
+                const auto child = isCoating ? parent.bsdf->coating.bsdf[i]:parent.bsdf->meta_common.bsdf[i];
+                pre(child,parent.twosided);
             }
-        }
-    }
-
-
-
-
-    struct SNode
-    {
-        const CElementBSDF* bsdf;
-        IRNode* ir_node = nullptr;
-        uint32_t parent_ix = static_cast<uint32_t>(-1);
-        uint32_t child_num = 0u;
-        bool twosided = false;
-        bool front = true;
-
-        CElementBSDF::Type type() const { return bsdf->type; }
-    };
-    auto node_parent = [](const SNode& node, core::vector<SNode>& traversal)
-    {
-        return &traversal[node.parent_ix];
-    };
-
-    core::vector<SNode> bfs;
-    {
-        core::queue<SNode> q;
-        {
-            SNode root{ _bsdf };
-            root.twosided = (root.type() == CElementBSDF::TWO_SIDED);
-            q.push(root);
-        }
-
-        while (q.size())
-        {
-            SNode parent = q.front();
-            q.pop();
-            //node.ir_node = createIRNode(node.bsdf);
-
-            if (parent.bsdf->isMeta())
-            {
-                const uint32_t child_count = (parent.bsdf->type == CElementBSDF::COATING) ? parent.bsdf->coating.childCount : parent.bsdf->meta_common.childCount;
-                for (uint32_t i = 0u; i < child_count; ++i)
-                {
-                    SNode child_node;
-                    child_node.bsdf = (parent.bsdf->type == CElementBSDF::COATING) ? parent.bsdf->coating.bsdf[i] : parent.bsdf->meta_common.bsdf[i];
-                    child_node.parent_ix = parent.type() == CElementBSDF::TWO_SIDED ? parent.parent_ix : bfs.size();
-                    child_node.twosided = (child_node.type() == CElementBSDF::TWO_SIDED) || parent.twosided;
-                    child_node.child_num = (parent.type() == CElementBSDF::TWO_SIDED) ? parent.child_num : i;
-                    child_node.front = parent.front;
-                    if (parent.type() == CElementBSDF::TWO_SIDED && i == 1u)
-                        child_node.front = false;
-                    q.push(child_node);
-                }
-            }
-            if (parent.type() != CElementBSDF::TWO_SIDED)
-                bfs.push_back(parent);
         }
     }
 
@@ -442,21 +381,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
         }
     };
 
-    //create frontface IR
-    IRNode* frontroot = nullptr;
-    for (auto& node : bfs)
-    {
-        if (!node.front)
-            continue;
-
-        IRNode** dst = nullptr;
-        if (node.parent_ix >= bfs.size())
-            dst = &frontroot;
-        else
-            dst = const_cast<IRNode**>(&node_parent(node, bfs)->ir_node->children[node.child_num]);
-
-        node.ir_node = *dst = createIRNode(ir, node.bsdf);
-    }
     IRNode* backroot = nullptr;
     for (uint32_t i = 0u; i < bfs.size(); ++i)
     {
@@ -467,15 +391,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
             ir_node = createBackfaceNodeFromFrontface(node.ir_node);
         else
         {
-            if (node.front)
-            {
-                if ((i+1u) < bfs.size() && bfs[i+1u].twosided && !bfs[i+1u].front)
-                    continue; // will take backface node in next iteration
-                //otherwise copy the one from front (same bsdf on both sides_
-                ir_node = ir->copyNode(node.ir_node);
-            }
-            else
-                ir_node = createIRNode(ir, node.bsdf);
+            ir_node = ir->copyNode(node.ir_node);
         }
         node.ir_node = ir_node;
 
@@ -488,10 +404,9 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
         *dst = ir_node;
     }
 
-    ir->addRootNode(frontroot);
-    ir->addRootNode(backroot);
-
-    return { frontroot, backroot };
+    ctx.m_ir->addRootNode(frontroot);
+    ctx.m_ir->addRootNode(backroot);
+    return {frontroot,backroot};
 }
 
 }
