@@ -218,8 +218,8 @@ public:
             m_properties.conformanceVersion = driverProperties.conformanceVersion;
             
             // Helper bools :D
-            bool isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
-            bool isAMDGPU = (m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+            bool isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+            bool isAMDGPU = (m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
             bool isNVIDIAGPU = (m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
 
             if(isExtensionSupported(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
@@ -380,7 +380,7 @@ public:
             m_properties.limits.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             
-            const auto invocationsPerComputeUnit = 0u;
+            auto invocationsPerComputeUnit = 0u;
             if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             {
                 constexpr auto invocationsPerWarp = 32u; // unless Nvidia changed something recently
@@ -500,15 +500,15 @@ public:
             if (isExtensionSupported(VK_NV_COOPERATIVE_MATRIX_EXTENSION_NAME))
             {
                 m_features.cooperativeMatrix = cooperativeMatrixFeatures.cooperativeMatrix;
-                m_features.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess
+                m_features.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess;
             }
 
             /* RayQueryFeaturesKHR */
-            if (m_availableFeatureSet.find(VK_KHR_RAY_QUERY_EXTENSION_NAME) != m_availableFeatureSet.end())
+            if (isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
                 m_features.rayQuery = rayQueryFeatures.rayQuery;
             
-            /* AccelerationStructureFeaturesKHR */                          // AccelerationStructure
-            if (m_availableFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != m_availableFeatureSet.end())
+            /* AccelerationStructureFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             {
                 m_features.accelerationStructure = accelerationFeatures.accelerationStructure;
                 m_features.accelerationStructureCaptureReplay = accelerationFeatures.accelerationStructureCaptureReplay;
@@ -518,7 +518,7 @@ public:
             }
             
             /* RayTracingPipelineFeaturesKHR */
-            if (m_availableFeatureSet.find(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) != m_availableFeatureSet.end())
+            if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
             {
                 m_features.rayTracingPipeline = rayTracingPipelineFeatures.rayTracingPipeline;
                 m_features.rayTracingPipelineTraceRaysIndirect = rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect;
@@ -526,7 +526,7 @@ public:
             }
             
             /* FragmentShaderInterlockFeaturesEXT */
-            if (m_availableFeatureSet.find(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME) != m_availableFeatureSet.end())
+            if (isExtensionSupported(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))
             {
                 m_features.fragmentShaderPixelInterlock = fragmentShaderInterlockFeatures.fragmentShaderPixelInterlock;
                 m_features.fragmentShaderSampleInterlock = fragmentShaderInterlockFeatures.fragmentShaderSampleInterlock;
@@ -534,7 +534,7 @@ public:
             }
             
             /* BufferDeviceAddressFeaturesKHR */
-            if (m_availableFeatureSet.find(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) != m_availableFeatureSet.end())
+            if (isExtensionSupported(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
             {
                 m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             }

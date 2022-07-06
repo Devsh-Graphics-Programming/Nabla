@@ -410,7 +410,7 @@ struct SPhysicalDeviceLimits
     /* SamplerFilterMinmaxPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  */
 
     /* SampleLocationsPropertiesEXT *//* provided by VK_EXT_sample_locations */
-    core::bitflag<asset::IShader::E_SHADER_STAGE>     sampleLocationSampleCounts;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts;
     VkExtent2D      maxSampleLocationGridSize;
     float           sampleLocationCoordinateRange[2];
     uint32_t        sampleLocationSubPixelBits;
