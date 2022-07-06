@@ -368,7 +368,7 @@ public:
             {
                 m_properties.limits.computeUnits = shaderSMBuiltinsProperties.shaderSMCount;
             } 
-            else if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            else if(isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
             {
                 m_properties.limits.computeUnits = shaderCoreProperties2AMD.activeComputeUnitCount;
             }
