@@ -512,17 +512,35 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             }
         }
 
+        
+        static inline uint32_t getMaxInvocationsPerComputeUnitsFromDriverID(E_DRIVER_ID driverID)
+        {
+            const bool isIntelGPU = (driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+            const bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+            const bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
+            if (isNVIDIAGPU)
+                return 32u * 48u; // RTX 3090 (32 Threads/Warp * 48 Warp/SM)
+            else if (isAMDGPU)
+                return 64u * 1024u; // RX 6900XT (64 Threads/Wave * 1024 Threads/Wave) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
+            else if (isIntelGPU)
+                return 8u; // Iris Xe HPG (DG2) (8 Threads / XVE) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
+            else
+                return 64u * 1024u; // largest from above
+        }
+
         static inline uint32_t getMaxComputeUnitsFromDriverID(E_DRIVER_ID driverID)
         {
             const bool isIntelGPU = (driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
             const bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
             const bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
             if (isNVIDIAGPU) // NVIDIA SM
-                return 82; // RTX 3090
+                return 82u; // RTX 3090
             else if (isAMDGPU) // AMD Compute Units
-                return 80; // RX 6900XT
+                return 80u; // RX 6900XT
             else if (isIntelGPU) // Intel Execution Unit (or XVE = new abbrevation)
-                return 512; // Iris Xe HPG (DG2) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
+                return 512u; // Iris Xe HPG (DG2) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
+            else
+                return 512u; // largest from above
         }
 
         static inline void getMinMaxSubgroupSizeFromDriverID(E_DRIVER_ID driverID, uint32_t& minSubgroupSize, uint32_t& maxSubgroupSize)

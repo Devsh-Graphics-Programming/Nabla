@@ -380,20 +380,21 @@ public:
             m_properties.limits.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             
-            const auto invocationsPerWarp = 32u;
-            const auto WarpsPerComputeUnit = 32u;
-            m_properties.limits.maxResidentInvocations = m_properties.limits.computeUnits * WarpsPerComputeUnit * invocationsPerWarp;
-            
-            if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            const auto invocationsPerComputeUnit = 0u;
+            if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             {
                 constexpr auto invocationsPerWarp = 32u; // unless Nvidia changed something recently
-                m_properties.limits.maxResidentInvocations  = shaderSMBuiltinsProperties.shaderSMCount*shaderSMBuiltinsProperties.shaderWarpsPerSM*invocationsPerWarp;
+                invocationsPerComputeUnit = shaderSMBuiltinsProperties.shaderWarpsPerSM * invocationsPerWarp;
             }
             else
             {
-                constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
-                m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
+                invocationsPerComputeUnit = getMaxInvocationsPerComputeUnitsFromDriverID(m_properties.driverID);
             }
+
+            m_properties.limits.maxResidentInvocations = m_properties.limits.computeUnits * invocationsPerComputeUnit;
+            
+            // constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
+            // m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
 
             /*
                 [NO NABALA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
