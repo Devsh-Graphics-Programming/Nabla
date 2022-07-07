@@ -272,7 +272,7 @@ double getFormatPrecisionAt(asset::E_FORMAT format, uint32_t channel, double val
     }
 }
 
-// Returns true if 'a' can be promoted from 'b'
+// Returns true if 'a' is not equal to 'b' and can be promoted FROM 'b'
 bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcIntFormat, uint32_t srcChannels, double srcMin[], double srcMax[])
 {
     // The value itself should already have been checked to not be valid before calling this
