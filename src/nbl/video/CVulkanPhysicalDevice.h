@@ -488,6 +488,10 @@ public:
             m_features.shaderClipDistance = features.shaderClipDistance;
             m_features.shaderCullDistance = features.shaderCullDistance;
             m_features.vertexAttributeDouble = features.shaderFloat64;
+            m_features.shaderInt64 = features.shaderInt64;
+            m_features.shaderInt16 = features.shaderInt16;
+            m_features.shaderResourceResidency = features.shaderResourceResidency;
+            m_features.shaderResourceMinLod = features.shaderResourceMinLod; 
             m_features.inheritedQueries = features.inheritedQueries;
             
             /* Vulkan 1.1 Core  */
