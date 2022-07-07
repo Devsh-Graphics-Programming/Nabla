@@ -99,13 +99,13 @@ struct SPhysicalDeviceFeatures
     bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
     // or VK_KHR_8bit_storage:
-    //VkBool32           storageBuffer8BitAccess;
-    //VkBool32           uniformAndStorageBuffer8BitAccess;
-    //VkBool32           storagePushConstant8;
+    bool storageBuffer8BitAccess = false;
+    bool uniformAndStorageBuffer8BitAccess = false;
+    bool storagePushConstant8 = false;
     
     // or VK_KHR_shader_atomic_int64:
-    //VkBool32           shaderBufferInt64Atomics;
-    //VkBool32           shaderSharedInt64Atomics;
+    bool shaderBufferInt64Atomics = false;
+    bool shaderSharedInt64Atomics = false;
    
     // or VK_KHR_shader_float16_int8:
     //VkBool32           shaderFloat16;
@@ -136,9 +136,9 @@ struct SPhysicalDeviceFeatures
     
     bool                 samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
     
-    //VkBool32           scalarBlockLayout;     // or VK_EXT_scalar_block_layout // [FUTURE TODO]
+    //VkBool32           scalarBlockLayout;     // or VK_EXT_scalar_block_layout
     
-    //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer 
+    //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO]
     
     //VkBool32           uniformBufferStandardLayout;   // or VK_KHR_uniform_buffer_standard_layout
     
@@ -152,7 +152,7 @@ struct SPhysicalDeviceFeatures
     
     //VkBool32           timelineSemaphore;             // or VK_KHR_timeline_semaphore
     
-    // or VK_KHR_timeline_semaphore:
+    // or VK_KHR_buffer_device_address:
     bool bufferDeviceAddress = false;
     //VkBool32           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
     //VkBool32           bufferDeviceAddressMultiDevice;
@@ -174,6 +174,7 @@ struct SPhysicalDeviceFeatures
     // [TODO] robustness stuff
     //VkBool32           robustImageAccess;                 //  or VK_EXT_image_robustness
     
+    // [DO NOT EXPOSE]
     //  or VK_EXT_inline_uniform_block:
     //VkBool32           inlineUniformBlock;
     //VkBool32           descriptorBindingInlineUniformBlockUpdateAfterBind;
@@ -211,6 +212,7 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan Extensions */
 
+    // [TODO] no such thing on GL, but trivial to implement.
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
     //VkBool32           deviceCoherentMemory;
 

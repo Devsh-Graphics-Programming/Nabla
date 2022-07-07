@@ -697,6 +697,14 @@ public:
 			/* Vulkan 1.2 Core */
 			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
+			
+			// [TODO] storageBuffer8BitAccess = NV_gpu_shader5
+			// [TODO] uniformAndStorageBuffer8BitAccess = NV_gpu_shader5
+			// [TODO] storagePushConstant8 => for now make GL and GLES report false and leave a comment with a TODO: implemenent, then return true
+			
+			// [TODO] shaderBufferInt64Atomics  NV_shader_atomic_int64
+			// [TODO] shaderSharedInt64Atomics  probably false on GL, not sure
+
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
 			m_features.bufferDeviceAddress = false; // no such capability in GL
 			
