@@ -676,6 +676,12 @@ public:
 			}
 		
 			m_features.vertexAttributeDouble = !IsGLES;
+			
+			// [TODO] shaderInt64 = NV_gpu_shader5 || GL_ARB_gpu_shader_int64 || GL_AMD_gpu_shader_int64 // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
+			// [TODO] shaderInt16 = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
+			// [TODO] shaderResourceResidency = ARB_sparse_texture2 || EXT_sparse_texture2 || AMD_sparse_texture
+			// [TODO] shaderResourceMinLod = EXT_sparse_texture2 || ARB_sparse_texture_clamp
+
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 
 		

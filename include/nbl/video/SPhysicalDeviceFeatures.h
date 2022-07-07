@@ -50,10 +50,10 @@ struct SPhysicalDeviceFeatures
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
     bool vertexAttributeDouble = false; // shaderFloat64
-    //VkBool32    shaderInt64;
-    //VkBool32    shaderInt16;
-    //VkBool32    shaderResourceResidency;
-    //VkBool32    shaderResourceMinLod;
+    bool shaderInt64 = false;
+    bool shaderInt16 = false;
+    bool shaderResourceResidency = false;
+    bool shaderResourceMinLod = false;
     
     // [TODO] cause we haven't implemented sparse resources yet
     //VkBool32    sparseBinding;
