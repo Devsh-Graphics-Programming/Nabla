@@ -282,18 +282,57 @@ bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t 
             maxa = asset::getFormatMaxValue<double>(a, c),
             maxb = asset::getFormatMaxValue<double>(b, c);
 
-        // return false if a has less precision (higher precision value from getFormatPrecision) than b
+        // return false if a has less precision (higher precision delta) than b
         // check at 0, since precision is non-increasing
         // also check at min & max, since there's potential for cross-over with constant formats
         if (getFormatPrecisionAt(a, c, 0.0) > getFormatPrecisionAt(b, c, 0.0)
-            || getFormatPrecisionAt(a, c, srcMin[c]) > getFormatPrecisionAt(b, c, srcMin[c])
-            || getFormatPrecisionAt(a, c, srcMax[c]) > getFormatPrecisionAt(b, c, srcMax[c]))
+                || getFormatPrecisionAt(a, c, srcMin[c]) > getFormatPrecisionAt(b, c, srcMin[c])
+                || getFormatPrecisionAt(a, c, srcMax[c]) > getFormatPrecisionAt(b, c, srcMax[c]))
             return false;
         // return false if a has less range than b
         if (mina > minb || maxa < maxb)
             return false;
     }
     return true;
+}
+
+// Returns true if a is a better fit than b (for tie breaking)
+// Tie-breaking rules:
+// - RGBA vs BGRA matches srcFormat
+// - Maximum precision delta is smaller
+// - Value range is larger
+bool betterFit(asset::E_FORMAT a, asset::E_FORMAT b, bool srcBgra, uint32_t srcChannels, double srcMin[], double srcMax[])
+{
+    bool curBgraMatch = asset::isBGRALayoutFormat(a) == srcBgra;
+    bool prevBgraMatch = asset::isBGRALayoutFormat(b) == srcBgra;
+
+    // if one of the two fits the original bgra better, use that
+    if (curBgraMatch != prevBgraMatch)
+        return curBgraMatch;
+
+    for (uint32_t c = 0; c < srcChannels; c++)
+    {
+        double deltaA = std::max(std::max(getFormatPrecisionAt(a, c, 0.0), getFormatPrecisionAt(a, c, srcMin[c])), getFormatPrecisionAt(a, c, srcMax[c]));
+        double deltaB = std::max(std::max(getFormatPrecisionAt(b, c, 0.0), getFormatPrecisionAt(b, c, srcMin[c])), getFormatPrecisionAt(b, c, srcMax[c]));
+
+        // if one of the two has a better max precision delta, use that
+        if (deltaA != deltaB)
+            return deltaA < deltaB;
+    }
+
+    for (uint32_t c = 0; c < srcChannels; c++)
+    {
+        double mina = asset::getFormatMinValue<double>(a, c),
+            minb = asset::getFormatMinValue<double>(b, c),
+            maxa = asset::getFormatMaxValue<double>(a, c),
+            maxb = asset::getFormatMaxValue<double>(b, c);
+
+        // return true if a has better range than b
+        if (mina < minb && maxa > maxb)
+            return true;
+    }
+
+    return false;
 }
 
 // Rules for promotion:
@@ -334,22 +373,7 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
 
         if (texelBlockSize == smallestTexelBlockSize)
         {
-            // Tie-breaking rules:
-            // - RGBA vs BGRA matches srcFormat
-            // - Precision
-            // - Value range
-            bool tieBreak = false;
-
-            bool curBgraMatch = asset::isBGRALayoutFormat(f) == srcBgra;
-            bool prevBgraMatch = asset::isBGRALayoutFormat(smallestTexelBlock) == srcBgra;
-
-            if (curBgraMatch && !prevBgraMatch) tieBreak = true;
-            if (prevBgraMatch && !curBgraMatch) continue;
-
-            if (higherPrecisionOrValueRange(f, smallestTexelBlock, srcChannels, srcMinVal, srcMaxVal))
-                tieBreak = true;
-
-            if (!tieBreak)
+            if (!betterFit(f, smallestTexelBlock, srcBgra, srcChannels, srcMinVal, srcMaxVal))
                 continue;
         }
 
