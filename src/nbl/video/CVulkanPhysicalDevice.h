@@ -459,6 +459,7 @@ public:
             m_features.independentBlend = features.independentBlend;
             m_features.geometryShader = features.geometryShader;
             m_features.tessellationShader = features.tessellationShader;
+            m_features.dualSrcBlend = features.dualSrcBlend;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
             m_features.drawIndirectFirstInstance = features.drawIndirectFirstInstance;

@@ -525,7 +525,8 @@ public:
 			GLuint maxElementIndex = 0u;
 			GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
-			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
+			// [TODO] robustBufferAccess: EGL_EXT_create_context_robustness&(IsGLES ? (Version>=320 || KHR_robustness || ARB_robustness):(Version>=450 || KHR_robustness || ARB_robustness))
+			m_features.robustBufferAccess = false;
 			m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.independentBlend = IsGLES 
@@ -585,6 +586,7 @@ public:
 			}
 
 			m_features.logicOp = !IsGLES;
+			// [TODO] dualSrcBlend: IsGLES ? (GL_EXT_blend_func_extended):true
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 
 			m_features.drawIndirectFirstInstance = (IsGLES)

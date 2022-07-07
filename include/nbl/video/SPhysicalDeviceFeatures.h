@@ -14,7 +14,7 @@ struct SPhysicalDeviceFeatures
     bool geometryShader    = false;
     bool tessellationShader = false;
     //VkBool32    sampleRateShading;
-    //VkBool32    dualSrcBlend;
+    bool dualSrcBlend = false;
     bool logicOp = false;
     bool multiDrawIndirect = false;
     bool drawIndirectFirstInstance = false;
@@ -724,7 +724,10 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_shared_presentable_image */
     /* VK_KHR_storage_buffer_storage_class */
     /* VK_KHR_surface */
-    /* VK_KHR_swapchain */
+
+    /* VK_KHR_swapchain */ // we want to expose this extension as feature
+    bool swapchain = false;
+
     /* VK_KHR_swapchain_mutable_format */
     /* VK_KHR_video_decode_queue */
     /* VK_KHR_video_encode_queue */
