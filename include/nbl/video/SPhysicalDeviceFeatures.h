@@ -257,6 +257,7 @@ struct SPhysicalDeviceFeatures
     /* DepthClipControlFeaturesEX *//* VK_EXT_depth_clip_control */
     //VkBool32           depthClipControl;
 
+    // [DO NOT EXPOSE] only useful for D3D emulators
     /* DepthClipEnableFeaturesEXT *//* VK_EXT_depth_clip_enable */
     //VkBool32           depthClipEnable;
 
