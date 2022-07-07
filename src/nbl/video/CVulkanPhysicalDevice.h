@@ -494,7 +494,7 @@ public:
             m_features.shaderInt16 = features.shaderInt16;
             m_features.shaderResourceResidency = features.shaderResourceResidency;
             m_features.shaderResourceMinLod = features.shaderResourceMinLod; 
-            m_features.variableMultisampleRate = vulkan11Features.variableMultisampleRate;
+            m_features.variableMultisampleRate = features.variableMultisampleRate;
             m_features.inheritedQueries = features.inheritedQueries;
             
             /* Vulkan 1.1 Core  */
@@ -511,7 +511,7 @@ public:
             {
                 m_features.storageBuffer8BitAccess = _8BitStorageFeaturesKHR.storageBuffer8BitAccess;
                 m_features.uniformAndStorageBuffer8BitAccess = _8BitStorageFeaturesKHR.storageBuffer8BitAccess;
-                m_features.storagePushConstant8 = _8BitStorageFeaturesKHR;.storageBuffer8BitAccess
+                m_features.storagePushConstant8 = _8BitStorageFeaturesKHR.storageBuffer8BitAccess;
             }
             
             if (isExtensionSupported(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
