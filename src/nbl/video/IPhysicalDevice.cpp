@@ -272,9 +272,25 @@ double getFormatPrecisionAt(asset::E_FORMAT format, uint32_t channel, double val
     }
 }
 
-// Returns true if a has higher precision & value range than b
-bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t srcChannels, double srcMin[], double srcMax[])
+// Returns true if 'a' can be promoted from 'b'
+bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcIntFormat, uint32_t srcChannels, double srcMin[], double srcMax[])
 {
+    // The value itself should already have been checked to not be valid before calling this
+    if (a == b)
+        return false;
+    // Can't transcode to BC or planar
+    if (asset::isBlockCompressionFormat(a))
+        return false;
+    if (asset::isPlanarFormat(a))
+        return false;
+    // Can't promote between int and normalized/float/scaled formats
+    if (asset::isIntegerFormat(a) != srcIntFormat)
+        return false;
+    // Can't have less channels
+    if (asset::getFormatChannelCount(a) < srcChannels)
+        return false;
+
+    // Can't have less precision or value range
     for (uint32_t c = 0; c < srcChannels; c++)
     {
         double mina = asset::getFormatMinValue<double>(a, c),
@@ -296,12 +312,12 @@ bool higherPrecisionOrValueRange(asset::E_FORMAT a, asset::E_FORMAT b, uint32_t 
     return true;
 }
 
-// Returns true if a is a better fit than b (for tie breaking)
+// Returns true if 'a' is a better fit than 'b' (for tie breaking)
 // Tie-breaking rules:
 // - RGBA vs BGRA matches srcFormat
 // - Maximum precision delta is smaller
 // - Value range is larger
-bool betterFit(asset::E_FORMAT a, asset::E_FORMAT b, bool srcBgra, uint32_t srcChannels, double srcMin[], double srcMax[])
+bool isFormatBetterFit(asset::E_FORMAT a, asset::E_FORMAT b, bool srcBgra, uint32_t srcChannels, double srcMin[], double srcMax[])
 {
     bool curBgraMatch = asset::isBGRALayoutFormat(a) == srcBgra;
     bool prevBgraMatch = asset::isBGRALayoutFormat(b) == srcBgra;
@@ -310,8 +326,11 @@ bool betterFit(asset::E_FORMAT a, asset::E_FORMAT b, bool srcBgra, uint32_t srcC
     if (curBgraMatch != prevBgraMatch)
         return curBgraMatch;
 
+    // Check precision deltas
     for (uint32_t c = 0; c < srcChannels; c++)
     {
+        // View comments above about value selection
+        // Pick the max precision delta for each format
         double deltaA = std::max(std::max(getFormatPrecisionAt(a, c, 0.0), getFormatPrecisionAt(a, c, srcMin[c])), getFormatPrecisionAt(a, c, srcMax[c]));
         double deltaB = std::max(std::max(getFormatPrecisionAt(b, c, 0.0), getFormatPrecisionAt(b, c, srcMin[c])), getFormatPrecisionAt(b, c, srcMax[c]));
 
@@ -320,6 +339,7 @@ bool betterFit(asset::E_FORMAT a, asset::E_FORMAT b, bool srcBgra, uint32_t srcC
             return deltaA < deltaB;
     }
 
+    // Check value range
     for (uint32_t c = 0; c < srcChannels; c++)
     {
         double mina = asset::getFormatMinValue<double>(a, c),
@@ -373,7 +393,7 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
 
         if (texelBlockSize == smallestTexelBlockSize)
         {
-            if (!betterFit(f, smallestTexelBlock, srcBgra, srcChannels, srcMinVal, srcMaxVal))
+            if (!isFormatBetterFit(f, smallestTexelBlock, srcBgra, srcChannels, srcMinVal, srcMaxVal))
                 continue;
         }
 
@@ -420,27 +440,11 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
     {
         auto f = static_cast<asset::E_FORMAT>(format);
-        // Make this into a function?
-        // Checked earlier
-        if (f == srcFormat)
-            continue;
-        // Can't transcode to BC or planar
-        if (asset::isBlockCompressionFormat(f))
-            continue;
-        if (asset::isPlanarFormat(f))
-            continue;
         // Can't have less aspects
         if (!getImageAspects(f).hasFlags(asset::IImage::EAF_COLOR_BIT))
             continue;
-        // Can't promote between int and normalized/float/scaled formats
-        if (srcIntFormat != asset::isIntegerFormat(f))
-            continue;
-        // Can't have less channels
-        auto dstChannels = asset::getFormatChannelCount(f);
-        if (dstChannels < srcChannels)
-            continue;
         // Can't have less precision or value range
-        if (!higherPrecisionOrValueRange(f, srcFormat, srcChannels, srcMinVal, srcMaxVal))
+        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getBufferFormatUsages(f))
@@ -498,27 +502,11 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
     {
         auto f = static_cast<asset::E_FORMAT>(format);
-        // Make this into a function?
-        // Checked earlier
-        if (f == srcFormat)
-            continue;
-        // Can't transcode to BC or planar
-        if (asset::isBlockCompressionFormat(f))
-            continue;
-        if (asset::isPlanarFormat(f))
-            continue;
         // Can't have less aspects
         if (!getImageAspects(f).hasFlags(srcAspects))
             continue;
-        // Can't promote between int and normalized/float/scaled formats
-        if (srcIntFormat != asset::isIntegerFormat(f))
-            continue;
-        // Can't have less channels
-        auto dstChannels = asset::getFormatChannelCount(f);
-        if (dstChannels < srcChannels)
-            continue;
         // Can't have less precision or value range
-        if (!higherPrecisionOrValueRange(f, srcFormat, srcChannels, srcMinVal, srcMaxVal))
+        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getImageFormatUsagesTiling(f))
