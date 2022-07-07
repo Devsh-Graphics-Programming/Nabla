@@ -33,20 +33,20 @@ struct SPhysicalDeviceFeatures
     //VkBool32    textureCompressionASTC_LDR;
     //VkBool32    textureCompressionBC;
     
-    //VkBool32    occlusionQueryPrecise;
+    bool occlusionQueryPrecise = false;
     //VkBool32    pipelineStatisticsQuery; [TODO]
-    //VkBool32    vertexPipelineStoresAndAtomics;
-    //VkBool32    fragmentStoresAndAtomics;
-    //VkBool32    shaderTessellationAndGeometryPointSize;
-    //VkBool32    shaderImageGatherExtended;
-    //VkBool32    shaderStorageImageExtendedFormats;
+    bool vertexPipelineStoresAndAtomics = false;
+    bool fragmentStoresAndAtomics = false;
+    bool shaderTessellationAndGeometryPointSize = false;
+    bool shaderImageGatherExtended = false;
+    bool shaderStorageImageExtendedFormats = false;
     bool shaderStorageImageMultisample = false;
-    //VkBool32    shaderStorageImageReadWithoutFormat;
-    //VkBool32    shaderStorageImageWriteWithoutFormat;
-    //VkBool32    shaderUniformBufferArrayDynamicIndexing;
-    //VkBool32    shaderSampledImageArrayDynamicIndexing;
-    //VkBool32    shaderStorageBufferArrayDynamicIndexing;
-    //VkBool32    shaderStorageImageArrayDynamicIndexing;
+    bool shaderStorageImageReadWithoutFormat = false;
+    bool shaderStorageImageWriteWithoutFormat = false;
+    bool shaderUniformBufferArrayDynamicIndexing = false;
+    bool shaderSampledImageArrayDynamicIndexing = false;
+    bool shaderStorageBufferArrayDynamicIndexing = false;
+    bool shaderStorageImageArrayDynamicIndexing = false;
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
     bool vertexAttributeDouble = false; // shaderFloat64

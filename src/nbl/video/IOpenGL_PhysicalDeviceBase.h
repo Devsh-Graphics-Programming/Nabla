@@ -616,8 +616,41 @@ public:
 					m_properties.limits.maxSamplerAnisotropyLog2 = core::findMSB(static_cast<uint32_t>(maxAnisotropy));
 				}
 			}
-		
+			
+			
+			m_features.occlusionQueryPrecise = !IsGLES;
+			
+			// [TODO] Work these out from limits -> set these after setting the limits below
+			// if any {vertex,control,eval,geom} stage has >0 allowable bindings for {ssbo,storageimage,storagebufferview}, then true
+			m_features.vertexPipelineStoresAndAtomics = false; 
+			m_features.fragmentStoresAndAtomics = false; 
+
+			// [TODO] shaderTessellationAndGeometryPointSize
+			/*
+			// An implementation supporting this feature must also support one or both of the [tessellationShader] or [geometryShader] features.
+			m_features.shaderTessellationAndGeometryPointSize = true;
+			if (OES_geometry_shader)
+			   m_features.shaderTessellationAndGeometryPointSize &=OES_geometry_point_size;
+			else if (EXT_geometry_shader)
+			   m_features.shaderTessellationAndGeometryPointSize &=EXT_geometry_point_size;
+			if (OES_tessellation_shader)
+			   m_features.shaderTessellationAndGeometryPointSize &=OES_tessellation_point_size;
+			else if (EXT_tessellation_shader)
+			   m_features.shaderTessellationAndGeometryPointSize &=EXT_tessellation_point_size;
+			else if (!m_features.geometryShader) // tessellation not supported,
+			   m_features.shaderTessellationAndGeometryPointSize = false;
+			*/
+
+			
+			// [TODO] m_features.shaderImageGatherExtended = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5):true
+			// [TODO] m_features.shaderStorageImageExtendedFormats = !IsGLES
 			m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
+			// [TODO] m_features.shaderStorageImageReadWithoutFormat  :in GL, always false
+			// [TODO] m_features.shaderStorageImageWriteWithoutFormat :in GL, always false
+			// [TODO] m_features.shaderUniformBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5 || GL_NV_gpu_shader5):true
+			// [TODO] m_features.shaderSampledImageArrayDynamicIndexing  = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5 || GL_NV_gpu_shader5):true
+			// [TODO] m_features.shaderStorageBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
+			// [TODO] m_features.shaderStorageImageArrayDynamicIndexing  = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
 
 			if constexpr (IsGLES)
 			{
@@ -662,10 +695,10 @@ public:
 			/* Vulkan Extensions */
 			
 			// [TODO] CooperativeMatrixFeaturesNV
-            /* [NOT SUPPORTED IN GL] BufferDeviceAddressFeaturesKHR */
-            /* [NOT SUPPORTED IN GL] AccelerationStructureFeaturesKHR */ 
-            /* [NOT SUPPORTED IN GL] RayTracingPipelineFeaturesKHR */
-            /* [NOT SUPPORTED IN GL] RayQueryFeaturesKHR */
+			/* [NOT SUPPORTED IN GL] BufferDeviceAddressFeaturesKHR */
+			/* [NOT SUPPORTED IN GL] AccelerationStructureFeaturesKHR */ 
+			/* [NOT SUPPORTED IN GL] RayTracingPipelineFeaturesKHR */
+			/* [NOT SUPPORTED IN GL] RayQueryFeaturesKHR */
 
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
 			{
