@@ -492,9 +492,15 @@ public:
             m_features.shaderInt16 = features.shaderInt16;
             m_features.shaderResourceResidency = features.shaderResourceResidency;
             m_features.shaderResourceMinLod = features.shaderResourceMinLod; 
+            m_features.variableMultisampleRate = vulkan11Features.variableMultisampleRate;
             m_features.inheritedQueries = features.inheritedQueries;
             
             /* Vulkan 1.1 Core  */
+            
+            m_features.storageBuffer16BitAccess = vulkan11Features.storageBuffer16BitAccess;
+            m_features.uniformAndStorageBuffer16BitAccess = vulkan11Features.uniformAndStorageBuffer16BitAccess;
+            m_features.storagePushConstant16 = vulkan11Features.storagePushConstant16;
+            m_features.storageInputOutput16 = vulkan11Features.storageInputOutput16;
             m_features.shaderDrawParameters = vulkan11Features.shaderDrawParameters;
             
             /* Vulkan 1.2 Core  */

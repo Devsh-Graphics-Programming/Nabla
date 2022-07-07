@@ -682,10 +682,16 @@ public:
 			// [TODO] shaderResourceResidency = ARB_sparse_texture2 || EXT_sparse_texture2 || AMD_sparse_texture
 			// [TODO] shaderResourceMinLod = EXT_sparse_texture2 || ARB_sparse_texture_clamp
 
+			m_features.variableMultisampleRate = true;
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
-
 		
 			/* Vulkan 1.1 Core */
+
+			// [TODO] storageBuffer16BitAccess = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 && AMD_gpu_shader_half_float
+			// [TODO] uniformAndStorageBuffer16BitAccess = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 && AMD_gpu_shader_half_float
+			// [TODO] storagePushConstant16
+			// [TODO] storageInputOutput16
+
 			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
 			
 			/* Vulkan 1.2 Core */

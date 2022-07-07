@@ -66,14 +66,14 @@ struct SPhysicalDeviceFeatures
     //VkBool32    sparseResidency16Samples;
     //VkBool32    sparseResidencyAliased;
     
-    //VkBool32    variableMultisampleRate;
+    bool variableMultisampleRate = false;
     bool inheritedQueries = false;
 
     /* Vulkan 1.1 Core */
-    //VkBool32           storageBuffer16BitAccess;
-    //VkBool32           uniformAndStorageBuffer16BitAccess;
-    //VkBool32           storagePushConstant16;
-    //VkBool32           storageInputOutput16;
+    bool storageBuffer16BitAccess = false;
+    bool uniformAndStorageBuffer16BitAccess = false;
+    bool storagePushConstant16 = false;
+    bool storageInputOutput16 = false;
     
     // [TODO] do not expose multiview yet
     //VkBool32           multiview;
@@ -84,8 +84,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32           variablePointersStorageBuffer;
     //VkBool32           variablePointers;
     
-    //VkBool32           protectedMemory;
-    
+    //VkBool32           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
+ 
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //VkBool32           samplerYcbcrConversion;
     bool shaderDrawParameters = false;
