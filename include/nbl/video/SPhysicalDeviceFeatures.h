@@ -108,30 +108,30 @@ struct SPhysicalDeviceFeatures
     bool shaderSharedInt64Atomics = false;
    
     // or VK_KHR_shader_float16_int8:
-    //VkBool32           shaderFloat16;
-    //VkBool32           shaderInt8;
+    bool shaderFloat16 = false;
+    bool shaderInt8 = false;
     
     // or VK_EXT_descriptor_indexing
-    //VkBool32           descriptorIndexing;
-    //VkBool32           shaderInputAttachmentArrayDynamicIndexing;
-    //VkBool32           shaderUniformTexelBufferArrayDynamicIndexing;
-    //VkBool32           shaderStorageTexelBufferArrayDynamicIndexing;
-    //VkBool32           shaderUniformBufferArrayNonUniformIndexing;
-    //VkBool32           shaderSampledImageArrayNonUniformIndexing;
-    //VkBool32           shaderStorageBufferArrayNonUniformIndexing;
-    //VkBool32           shaderStorageImageArrayNonUniformIndexing;
-    //VkBool32           shaderInputAttachmentArrayNonUniformIndexing;
-    //VkBool32           shaderUniformTexelBufferArrayNonUniformIndexing;
-    //VkBool32           shaderStorageTexelBufferArrayNonUniformIndexing;
-    //VkBool32           descriptorBindingUniformBufferUpdateAfterBind;
-    //VkBool32           descriptorBindingSampledImageUpdateAfterBind;
-    //VkBool32           descriptorBindingStorageImageUpdateAfterBind;
-    //VkBool32           descriptorBindingStorageBufferUpdateAfterBind;
-    //VkBool32           descriptorBindingUniformTexelBufferUpdateAfterBind;
-    //VkBool32           descriptorBindingStorageTexelBufferUpdateAfterBind;
-    //VkBool32           descriptorBindingUpdateUnusedWhilePending;
-    //VkBool32           descriptorBindingPartiallyBound;
-    //VkBool32           descriptorBindingVariableDescriptorCount;
+    bool descriptorIndexing = false;
+    bool shaderInputAttachmentArrayDynamicIndexing = false;
+    bool shaderUniformTexelBufferArrayDynamicIndexing = false;
+    bool shaderStorageTexelBufferArrayDynamicIndexing = false;
+    bool shaderUniformBufferArrayNonUniformIndexing = false;
+    bool shaderSampledImageArrayNonUniformIndexing = false;
+    bool shaderStorageBufferArrayNonUniformIndexing = false;
+    bool shaderStorageImageArrayNonUniformIndexing = false;
+    bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    bool shaderUniformTexelBufferArrayNonUniformIndexing = false;
+    bool shaderStorageTexelBufferArrayNonUniformIndexing = false;
+    bool descriptorBindingUniformBufferUpdateAfterBind = false;
+    bool descriptorBindingSampledImageUpdateAfterBind = false;
+    bool descriptorBindingStorageImageUpdateAfterBind = false;
+    bool descriptorBindingStorageBufferUpdateAfterBind = false;
+    bool descriptorBindingUniformTexelBufferUpdateAfterBind = false;
+    bool descriptorBindingStorageTexelBufferUpdateAfterBind = false;
+    bool descriptorBindingUpdateUnusedWhilePending = false;
+    bool descriptorBindingPartiallyBound = false;
+    bool descriptorBindingVariableDescriptorCount = false;
     //VkBool32           runtimeDescriptorArray; // [FUTURE TODO]
     
     bool                 samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax

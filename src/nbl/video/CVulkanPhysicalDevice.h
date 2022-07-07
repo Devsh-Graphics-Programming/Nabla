@@ -532,6 +532,36 @@ public:
                 m_features.shaderSharedInt64Atomics = shaderAtomicInt64FeaturesKHR.shaderSharedInt64Atomics;
             }
 
+            if (isExtensionSupported(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
+            {
+                m_features.shaderFloat16 = shaderFloat16Int8Features.shaderFloat16;
+                m_features.shaderInt8 = shaderFloat16Int8Features.shaderInt8;
+            }
+
+            if (isExtensionSupported(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
+            {
+                 m_features.descriptorIndexing = true;
+                 m_features.shaderInputAttachmentArrayDynamicIndexing = descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayDynamicIndexing;
+                 m_features.shaderUniformTexelBufferArrayDynamicIndexing = descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayDynamicIndexing;
+                 m_features.shaderStorageTexelBufferArrayDynamicIndexing = descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayDynamicIndexing;
+                 m_features.shaderUniformBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderUniformBufferArrayNonUniformIndexing;
+                 m_features.shaderSampledImageArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderSampledImageArrayNonUniformIndexing;
+                 m_features.shaderStorageBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderStorageBufferArrayNonUniformIndexing;
+                 m_features.shaderStorageImageArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderStorageImageArrayNonUniformIndexing;
+                 m_features.shaderInputAttachmentArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayNonUniformIndexing;
+                 m_features.shaderUniformTexelBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayNonUniformIndexing;
+                 m_features.shaderStorageTexelBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayNonUniformIndexing;
+                 m_features.descriptorBindingUniformBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingUniformBufferUpdateAfterBind;
+                 m_features.descriptorBindingSampledImageUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingSampledImageUpdateAfterBind;
+                 m_features.descriptorBindingStorageImageUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingStorageImageUpdateAfterBind;
+                 m_features.descriptorBindingStorageBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingStorageBufferUpdateAfterBind;
+                 m_features.descriptorBindingUniformTexelBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingUniformTexelBufferUpdateAfterBind;
+                 m_features.descriptorBindingStorageTexelBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingStorageTexelBufferUpdateAfterBind;
+                 m_features.descriptorBindingUpdateUnusedWhilePending = descriptorIndexingFeaturesEXT.descriptorBindingUpdateUnusedWhilePending;
+                 m_features.descriptorBindingPartiallyBound = descriptorIndexingFeaturesEXT.descriptorBindingPartiallyBound;
+                 m_features.descriptorBindingVariableDescriptorCount = descriptorIndexingFeaturesEXT.descriptorBindingVariableDescriptorCount;
+            }
+
             m_features.samplerMirrorClampToEdge = isExtensionSupported(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
             m_features.drawIndirectCount = isExtensionSupported(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
             m_features.samplerFilterMinmax = isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);

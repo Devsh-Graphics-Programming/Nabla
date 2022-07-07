@@ -704,6 +704,31 @@ public:
 			
 			// [TODO] shaderBufferInt64Atomics  NV_shader_atomic_int64
 			// [TODO] shaderSharedInt64Atomics  probably false on GL, not sure
+			
+			// [TODO] shaderFloat16 = NV_gpu_shader5 || AMD_gpu_shader_half_float
+			// [TODO] shaderInt8 = NV_gpu_shader5
+
+			// [TODO] descriptorIndexing = false
+			// [TODO] shaderInputAttachmentArrayDynamicIndexing = no input attachments in GL / GLES, so false
+			// [TODO] shaderUniformTexelBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
+			// [TODO] shaderStorageTexelBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
+			// [TODO] shaderUniformBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
+			// [TODO] shaderSampledImageArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
+			// [TODO] shaderStorageBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
+			// [TODO] shaderStorageImageArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
+			// [TODO] shaderInputAttachmentArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
+			// [TODO] shaderUniformTexelBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
+			// [TODO] shaderStorageTexelBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
+			// [TODO] descriptorBindingUniformBufferUpdateAfterBind = always report true for those in GL
+			// [TODO] descriptorBindingSampledImageUpdateAfterBind = always report true for those in GL
+			// [TODO] descriptorBindingStorageImageUpdateAfterBind = always report true for those in GL
+			// [TODO] descriptorBindingStorageBufferUpdateAfterBind = always report true for those in GL
+			// [TODO] descriptorBindingUniformTexelBufferUpdateAfterBind = always report true for those in GL
+			// [TODO] descriptorBindingStorageTexelBufferUpdateAfterBind = always report true for those in GL
+			// [TODO] descriptorBindingUpdateUnusedWhilePending = always report true for those in GL
+			// [TODO] descriptorBindingPartiallyBound = always report true for those in GL
+			// [TODO] descriptorBindingVariableDescriptorCount = false, GL limits on descriptor counts are so low, it makes no sense to bother to implement
+
 
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
 			m_features.bufferDeviceAddress = false; // no such capability in GL
