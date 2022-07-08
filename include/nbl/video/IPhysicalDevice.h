@@ -521,9 +521,13 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             if (isNVIDIAGPU)
                 return 32u * 48u; // RTX 3090 (32 Threads/Warp * 48 Warp/SM)
             else if (isAMDGPU)
-                return 64u * 1024u; // RX 6900XT (64 Threads/Wave * 1024 Waves/CU) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
+                return 32u * 1024u; // RX 6900XT (64 Threads/Wave * 1024 Waves/CU) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
+            // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/thread-mapping.html
+            // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/intel-processors-with-intel-uhd-graphics.html
+            // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
+            // Intel(R) Iris(R) Xe: Maximum Worgroups on a Subslice = 16 & maxComputeWorkGroupInvocations = 1024 
             else if (isIntelGPU)
-                return 128u; // Iris Xe HPG (DG2) (8 Threads/XVE * 16 XVE/XC) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
+                return 16u * 1024u;
             else
                 return 64u * 2048;
         }
