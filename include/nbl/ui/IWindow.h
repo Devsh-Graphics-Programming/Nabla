@@ -13,6 +13,7 @@
 namespace nbl::ui
 {
 
+class IWindowManager;
 class ICursorControl;
 
 class IWindow : public core::IReferenceCounted
@@ -33,6 +34,9 @@ class IWindow : public core::IReferenceCounted
             //! Indicates whether mouse is hovering over the window even if the window is not active
             ECF_MOUSE_FOCUS = 1u << 8,
             ECF_ALWAYS_ON_TOP = 1u << 9,
+            //! Mobile platforms can have a window that rotates (landscape vs vertical)
+            ECF_CAN_ROTATE = 1u << 10,
+            ECF_LANDSCAPE_ORIENTATION = 1u << 11,
 
             ECF_NONE = 0
         };
@@ -172,16 +176,18 @@ class IWindow : public core::IReferenceCounted
         };
         friend struct IEventCallback;
 
-        inline bool isFullscreen()      { return (m_flags.value & ECF_FULLSCREEN); }
-        inline bool isHidden()          { return (m_flags.value & ECF_HIDDEN); }
-        inline bool isBorderless()      { return (m_flags.value & ECF_BORDERLESS); }
-        inline bool isResizable()       { return (m_flags.value & ECF_RESIZABLE); }
-        inline bool isMinimized()       { return (m_flags.value & ECF_MINIMIZED); }
-        inline bool isMaximized()       { return (m_flags.value & ECF_MAXIMIZED); }
-        inline bool hasMouseCaptured()  { return (m_flags.value & ECF_MOUSE_CAPTURE); }
-        inline bool hasInputFocus()     { return (m_flags.value & ECF_INPUT_FOCUS); }
-        inline bool hasMouseFocus()     { return (m_flags.value & ECF_MOUSE_FOCUS); }
-        inline bool isAlwaysOnTop()     { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+        inline bool isFullscreen()        { return (m_flags.value & ECF_FULLSCREEN); }
+        inline bool isHidden()            { return (m_flags.value & ECF_HIDDEN); }
+        inline bool isBorderless()        { return (m_flags.value & ECF_BORDERLESS); }
+        inline bool isResizable()         { return (m_flags.value & ECF_RESIZABLE); }
+        inline bool isMinimized()         { return (m_flags.value & ECF_MINIMIZED); }
+        inline bool isMaximized()         { return (m_flags.value & ECF_MAXIMIZED); }
+        inline bool hasMouseCaptured()    { return (m_flags.value & ECF_MOUSE_CAPTURE); }
+        inline bool hasInputFocus()       { return (m_flags.value & ECF_INPUT_FOCUS); }
+        inline bool hasMouseFocus()       { return (m_flags.value & ECF_MOUSE_FOCUS); }
+        inline bool isAlwaysOnTop()       { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+        inline bool canRotate()           { return (m_flags.value & ECF_CAN_ROTATE); }
+        inline bool isRotationLandscape() { return (m_flags.value & ECF_LANDSCAPE_ORIENTATION); }
 
         inline uint32_t getWidth() const { return m_width; }
         inline uint32_t getHeight() const { return m_height; }
@@ -190,6 +196,7 @@ class IWindow : public core::IReferenceCounted
 
         NBL_API2 virtual IClipboardManager* getClipboardManager() = 0;
         NBL_API2 virtual ICursorControl* getCursorControl() = 0;
+        NBL_API2 virtual IWindowManager* getManager() = 0;
 
         inline IEventCallback* getEventCallback() const { return m_cb.get(); }
 
