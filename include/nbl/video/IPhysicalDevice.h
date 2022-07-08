@@ -521,11 +521,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             if (isNVIDIAGPU)
                 return 32u * 48u; // RTX 3090 (32 Threads/Warp * 48 Warp/SM)
             else if (isAMDGPU)
-                return 64u * 1024u; // RX 6900XT (64 Threads/Wave * 1024 Threads/Wave) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
+                return 64u * 1024u; // RX 6900XT (64 Threads/Wave * 1024 Waves/CU) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
             else if (isIntelGPU)
-                return 8u; // Iris Xe HPG (DG2) (8 Threads / XVE) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
+                return 128u; // Iris Xe HPG (DG2) (8 Threads/XVE * 16 XVE/XC) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
             else
-                return 64u * 1024u; // largest from above
+                return 64u * 2048;
         }
 
         static inline uint32_t getMaxComputeUnitsFromDriverID(E_DRIVER_ID driverID)
@@ -537,10 +537,10 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 return 82u; // RTX 3090
             else if (isAMDGPU) // AMD Compute Units
                 return 80u; // RX 6900XT
-            else if (isIntelGPU) // Intel Execution Unit (or XVE = new abbrevation)
-                return 512u; // Iris Xe HPG (DG2) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
+            else if (isIntelGPU) // Intel DSS (or XC = new abbrevation)
+                return 64u; // Iris Xe HPG (DG2) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
             else
-                return 512u; // largest from above
+                return 82u; // largest from above
         }
 
         static inline void getMinMaxSubgroupSizeFromDriverID(E_DRIVER_ID driverID, uint32_t& minSubgroupSize, uint32_t& maxSubgroupSize)
