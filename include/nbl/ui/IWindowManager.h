@@ -22,11 +22,11 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 		virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) = 0;
 		virtual SDisplayInfo getPrimaryDisplayInfo() const = 0;
 
-		NBL_API2 virtual bool setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) = 0;
-		NBL_API2 virtual bool setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) = 0;
-		NBL_API2 virtual bool setWindowRotation_impl(IWindow* window, bool landscape) = 0;
-		NBL_API2 virtual bool setWindowVisible_impl(IWindow* window, bool visible) = 0;
-		NBL_API2 virtual bool setWindowMaximized_impl(IWindow* window, bool maximized) = 0;
+		virtual bool setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) = 0;
+		virtual bool setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) = 0;
+		virtual bool setWindowRotation_impl(IWindow* window, bool landscape) = 0;
+		virtual bool setWindowVisible_impl(IWindow* window, bool visible) = 0;
+		virtual bool setWindowMaximized_impl(IWindow* window, bool maximized) = 0;
 
 		inline bool setWindowSize(IWindow* window, const uint32_t width, const uint32_t height)
 		{
