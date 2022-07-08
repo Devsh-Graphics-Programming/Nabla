@@ -273,7 +273,7 @@ double getFormatPrecisionAt(asset::E_FORMAT format, uint32_t channel, double val
 }
 
 // Returns true if 'a' is not equal to 'b' and can be promoted FROM 'b'
-bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcIntFormat, uint32_t srcChannels, double srcMin[], double srcMax[])
+bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcSignedFormat, bool srcIntFormat, uint32_t srcChannels, double srcMin[], double srcMax[])
 {
     // The value itself should already have been checked to not be valid before calling this
     if (a == b)
@@ -285,6 +285,9 @@ bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcIntFormat, u
         return false;
     // Can't promote between int and normalized/float/scaled formats
     if (asset::isIntegerFormat(a) != srcIntFormat)
+        return false;
+    // Can't promote between signed and unsigned formats
+    if (asset::isSignedFormat(a) != srcSignedFormat)
         return false;
     // Can't have less channels
     if (asset::getFormatChannelCount(a) < srcChannels)
@@ -425,6 +428,7 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
 
     auto srcFormat = req.originalFormat;
     bool srcIntFormat = asset::isIntegerFormat(srcFormat);
+    bool srcSignedFormat = asset::isSignedFormat(srcFormat);
     auto srcChannels = asset::getFormatChannelCount(srcFormat);
     double srcMinVal[4];
     double srcMaxVal[4];
@@ -443,8 +447,8 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
         // Can't have less aspects
         if (!getImageAspects(f).hasFlags(asset::IImage::EAF_COLOR_BIT))
             continue;
-        // Can't have less precision or value range
-        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcMinVal, srcMaxVal))
+
+        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcSignedFormat, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getBufferFormatUsages(f))
@@ -487,6 +491,7 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
     auto srcFormat = req.originalFormat;
     auto srcAspects = getImageAspects(srcFormat);
     bool srcIntFormat = asset::isIntegerFormat(srcFormat);
+    bool srcSignedFormat = asset::isSignedFormat(srcFormat);
     auto srcChannels = asset::getFormatChannelCount(srcFormat);
     double srcMinVal[4];
     double srcMaxVal[4];
@@ -505,8 +510,8 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
         // Can't have less aspects
         if (!getImageAspects(f).hasFlags(srcAspects))
             continue;
-        // Can't have less precision or value range
-        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcMinVal, srcMaxVal))
+
+        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcSignedFormat, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getImageFormatUsagesTiling(f))
