@@ -48,11 +48,15 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 
 		inline bool setWindowRotation(IWindow* window, const bool landscape)
 		{
+			// TODO
+			/*
 			auto cb = window->getEventCallback();
 			if (window->getManager() != this || !window->canRotate() || landscape == window->isRotationLandscape() || cb && !cb->onWindowRotated(window))
 				return false;
 
 			return setWindowRotation_impl(window, landscape);
+			*/
+			return false;
 		}
 
 		inline bool show(IWindow* window)

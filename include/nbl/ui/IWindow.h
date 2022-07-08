@@ -34,9 +34,6 @@ class IWindow : public core::IReferenceCounted
             //! Indicates whether mouse is hovering over the window even if the window is not active
             ECF_MOUSE_FOCUS = 1u << 8,
             ECF_ALWAYS_ON_TOP = 1u << 9,
-            //! Mobile platforms can have a window that rotates (landscape vs vertical)
-            ECF_CAN_ROTATE = 1u << 10,
-            ECF_LANDSCAPE_ORIENTATION = 1u << 11,
 
             ECF_NONE = 0
         };
@@ -186,8 +183,6 @@ class IWindow : public core::IReferenceCounted
         inline bool hasInputFocus()       { return (m_flags.value & ECF_INPUT_FOCUS); }
         inline bool hasMouseFocus()       { return (m_flags.value & ECF_MOUSE_FOCUS); }
         inline bool isAlwaysOnTop()       { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
-        inline bool canRotate()           { return (m_flags.value & ECF_CAN_ROTATE); }
-        inline bool isRotationLandscape() { return (m_flags.value & ECF_LANDSCAPE_ORIENTATION); }
 
         inline uint32_t getWidth() const { return m_width; }
         inline uint32_t getHeight() const { return m_height; }
