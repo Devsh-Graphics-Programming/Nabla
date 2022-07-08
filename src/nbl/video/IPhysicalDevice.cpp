@@ -286,8 +286,9 @@ bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcSignedFormat
     // Can't promote between int and normalized/float/scaled formats
     if (asset::isIntegerFormat(a) != srcIntFormat)
         return false;
-    // Can't promote between signed and unsigned formats
-    if (asset::isSignedFormat(a) != srcSignedFormat)
+    // Can't promote between signed and unsigned formats in integers
+    // (this causes a different sampler type to be necessary in the shader)
+    if (srcIntFormat && asset::isSignedFormat(a) != srcSignedFormat)
         return false;
     // Can't have less channels
     if (asset::getFormatChannelCount(a) < srcChannels)
