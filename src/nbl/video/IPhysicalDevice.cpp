@@ -448,7 +448,7 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
         if (!getImageAspects(f).hasFlags(asset::IImage::EAF_COLOR_BIT))
             continue;
 
-        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcSignedFormat, srcMinVal, srcMaxVal))
+        if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getBufferFormatUsages(f))
@@ -511,7 +511,7 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest
         if (!getImageAspects(f).hasFlags(srcAspects))
             continue;
 
-        if (!canPromoteFormat(f, srcFormat, srcChannels, srcIntFormat, srcSignedFormat, srcMinVal, srcMaxVal))
+        if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
         if (req.usages < getImageFormatUsagesTiling(f))
