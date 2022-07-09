@@ -27,7 +27,7 @@ public:
             for (const auto& vk_extension : vk_extensions)
                 m_availableFeatureSet.insert(vk_extension.extensionName);
         }
-        
+
         // Get physical device's limits/properties
         
         // !! Always check the API version is >= 1.3 before using `vulkan13Properties`
@@ -59,6 +59,22 @@ public:
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &discardRectangleProperties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
         {
+            //! Basically remove a query struct from the chain if it's not supported by vulkan version:
+            //! We need to do these only for `vulkan12Properties` and `vulkan13Properties` since our minimum is Vulkan 1.1 and these two are only provided by VK_VESION_1_2/1_3 (not any extensions) 
+            //! Other structures are provided by VK_XX_EXTENSION or VK_VERSION_XX so no need to check whether we need to remove them from query chain
+            //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
+            if(instanceApiVersion < VK_MAKE_API_VERSION(0, 1, 2, 0))
+            {
+                assert(driverProperties.pNext == &vulkan12Properties);
+                driverProperties.pNext = vulkan12Properties.pNext;
+            }
+            if(instanceApiVersion < VK_MAKE_API_VERSION(0, 1, 3, 0))
+            {
+                assert(maintanance4Properties.pNext == &vulkan13Properties);
+                maintanance4Properties.pNext = vulkan13Properties.pNext;
+            }
+
+
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
             deviceProperties.pNext = &accelerationStructureProperties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
@@ -461,6 +477,16 @@ public:
         VkPhysicalDeviceBufferDeviceAddressFeaturesKHR                  bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR, &rayQueryFeatures };
         VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT              fragmentShaderInterlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT, &bufferDeviceAddressFeatures };
         {
+            //! Basically remove a query struct from the chain if it's not supported by vulkan version:
+            //! We need to do these only for `vulkan12Features` since our minimum is Vulkan 1.1 and this is only provided by VK_VESION_1_2 (not any extensions) 
+            //! Other structures are provided by VK_XX_EXTENSION or VK_VERSION_XX so no need to check whether we need to remove them from query chain
+            //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
+            if(instanceApiVersion < VK_MAKE_API_VERSION(0, 1, 2, 0))
+            {
+                assert(vulkan11Features.pNext == &vulkan12Features);
+                vulkan11Features.pNext = vulkan12Features.pNext;
+            }
+
             VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
             deviceFeatures.pNext = &fragmentShaderInterlockFeatures;
             vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice, &deviceFeatures);

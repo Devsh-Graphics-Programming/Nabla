@@ -525,7 +525,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/thread-mapping.html
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/intel-processors-with-intel-uhd-graphics.html
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
-            // Intel(R) Iris(R) Xe: Maximum Worgroups on a Subslice = 16 & maxComputeWorkGroupInvocations = 1024 
+            // Intel(R) Iris(R) Xe: Maximum Worgroups on a Subslice = 16 & maxComputeWorkGroupInvocations = 1024
             else if (isIntelGPU)
                 return 16u * 1024u;
             else
