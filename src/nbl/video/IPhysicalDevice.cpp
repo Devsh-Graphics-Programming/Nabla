@@ -316,6 +316,11 @@ bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcSignedFormat
     return true;
 }
 
+double getFormatPrecisionMaxDt(asset::E_FORMAT f, uint32_t c, double srcMin, double srcMax)
+{
+    return std::max(std::max(getFormatPrecisionAt(f, c, 0.0), getFormatPrecisionAt(f, c, srcMin)), getFormatPrecisionAt(f, c, srcMax));
+}
+
 // Returns true if 'a' is a better fit than 'b' (for tie breaking)
 // Tie-breaking rules:
 // - RGBA vs BGRA matches srcFormat
@@ -323,6 +328,7 @@ bool canPromoteFormat(asset::E_FORMAT a, asset::E_FORMAT b, bool srcSignedFormat
 // - Value range is larger
 bool isFormatBetterFit(asset::E_FORMAT a, asset::E_FORMAT b, bool srcBgra, uint32_t srcChannels, double srcMin[], double srcMax[])
 {
+    assert(asset::getTexelOrBlockBytesize(a) == asset::getTexelOrBlockBytesize(b));
     bool curBgraMatch = asset::isBGRALayoutFormat(a) == srcBgra;
     bool prevBgraMatch = asset::isBGRALayoutFormat(b) == srcBgra;
 
@@ -331,30 +337,42 @@ bool isFormatBetterFit(asset::E_FORMAT a, asset::E_FORMAT b, bool srcBgra, uint3
         return curBgraMatch;
 
     // Check precision deltas
+    double precisionDeltasA[4];
+    double precisionDeltasB[4];
     for (uint32_t c = 0; c < srcChannels; c++)
     {
         // View comments above about value selection
         // Pick the max precision delta for each format
-        double deltaA = std::max(std::max(getFormatPrecisionAt(a, c, 0.0), getFormatPrecisionAt(a, c, srcMin[c])), getFormatPrecisionAt(a, c, srcMax[c]));
-        double deltaB = std::max(std::max(getFormatPrecisionAt(b, c, 0.0), getFormatPrecisionAt(b, c, srcMin[c])), getFormatPrecisionAt(b, c, srcMax[c]));
+        precisionDeltasA[c] = getFormatPrecisionMaxDt(a, c, srcMin[c], srcMax[c]);
+        precisionDeltasB[c] = getFormatPrecisionMaxDt(b, c, srcMin[c], srcMax[c]);
 
         // if one of the two has a better max precision delta, use that
-        if (deltaA != deltaB)
-            return deltaA < deltaB;
+        if (precisionDeltasA[c] != precisionDeltasB[c])
+            return precisionDeltasA[c] < precisionDeltasB[c];
     }
 
-    // Check value range
+    // Check difference in quantifiable values within the ranges for a and b
+    double wasteA = 0.0;
+    double wasteB = 0.0;
     for (uint32_t c = 0; c < srcChannels; c++)
     {
         double mina = asset::getFormatMinValue<double>(a, c),
             minb = asset::getFormatMinValue<double>(b, c),
             maxa = asset::getFormatMaxValue<double>(a, c),
             maxb = asset::getFormatMaxValue<double>(b, c);
+        assert(mina <= srcMin[c] && maxa >= srcMax[c] &&
+            minb <= srcMin[c] && maxb >= srcMax[c]);
 
-        // return true if a has better range than b
-        if (mina < minb && maxa > maxb)
-            return true;
+        wasteA += (srcMin[c] - mina) / precisionDeltasA[c];
+        wasteA += (maxa - srcMax[c]) / precisionDeltasA[c];
+
+        wasteB += (srcMin[c] - minb) / precisionDeltasB[c];
+        wasteB += (maxb - srcMax[c]) / precisionDeltasB[c];
     }
+
+    // if one of the two has less "waste" of quantifiable values, use that
+    if (wasteA != wasteB)
+        return wasteA < wasteB;
 
     return false;
 }
