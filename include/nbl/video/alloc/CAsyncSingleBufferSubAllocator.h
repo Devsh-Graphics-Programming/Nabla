@@ -28,8 +28,8 @@ class CAsyncSingleBufferSubAllocator
         using Composed = CSingleBufferSubAllocator<AddressAllocator,HostAllocator>;
         
     public:
-        using size_type = AddressAllocator::size_type;
-        using value_type = Composed::value_type;
+        using size_type = typename AddressAllocator::size_type;
+        using value_type = typename Composed::value_type;
         static constexpr value_type invalid_value = Composed::invalid_value;
 
         class DeferredFreeFunctor
