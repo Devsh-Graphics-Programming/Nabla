@@ -9,6 +9,7 @@ enum E_SWAPCHAIN_MODE : uint32_t
     ESM_NONE = 0,
     ESM_SURFACE = 0x01,
     // ESM_DISPLAY = 0x02 TODO, as we won't write the API interfaces to deal with direct-to-display swapchains yet.,
+    /* TODO: KHR_swapchain if SURFACE or DISPLAY flag present & KHR_display_swapchain if DISPLAY flag present */
 };
 
 struct SPhysicalDeviceFeatures
