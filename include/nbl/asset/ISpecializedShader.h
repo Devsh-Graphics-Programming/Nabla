@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <compare>
 
 #include "nbl/asset/ICPUBuffer.h"
 
