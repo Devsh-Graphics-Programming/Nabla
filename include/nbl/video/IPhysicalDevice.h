@@ -529,7 +529,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             else if (isIntelGPU)
                 return 16u * 1024u;
             else
-                return 64u * 2048;
+                return 32u * 1024u;
         }
 
         static inline uint32_t getMaxComputeUnitsFromDriverID(E_DRIVER_ID driverID)
