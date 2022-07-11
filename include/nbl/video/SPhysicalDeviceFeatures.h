@@ -764,6 +764,12 @@ struct SPhysicalDeviceFeatures
     /* VK_QCOM_render_pass_store_ops */
     /* VK_QCOM_render_pass_transform */
     /* VK_QCOM_rotated_copy_commands */
+    /* VK_KHR_spirv_1_4 */ // We do not expose because we always enable
+    
+    /* VK_EXT_image_compression_control */
+    /* VK_EXT_image_compression_control_swapchain */
+    /* VK_EXT_multisampled_render_to_single_sampled */
+    /* VK_EXT_pipeline_properties */
 
     /* Nabla */
     // No Nabla Specific Features for now
