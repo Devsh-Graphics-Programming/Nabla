@@ -947,7 +947,7 @@ public:
 			GetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelGatherOffset));
 			GetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelGatherOffset));
 	
-			if(!IsGLES || m_glfeatures.Version >= 320u)
+			if(!IsGLES || (m_glfeatures.Version >= 320u && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_shader_multisample_interpolation)))
 			{
 				GetFloatv(GL_MIN_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.minInterpolationOffset);
 				GetFloatv(GL_MAX_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.maxInterpolationOffset);
@@ -1058,7 +1058,7 @@ public:
 			m_properties.limits.shaderStorageImageArrayNonUniformIndexingNative			= nonUniformIndexing;
 			m_properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative		= false; //	No Input Attachments in	GL
 			m_properties.limits.robustBufferAccessUpdateAfterBind						= false; //	TODO
-			m_properties.limits.quadDivergentImplicitLod								= nonUniformIndexing;
+			m_properties.limits.quadDivergentImplicitLod								= false; // False in GL always
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers			= m_properties.limits.maxPerStageDescriptorSamplers;
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs				= m_properties.limits.maxPerStageDescriptorUBOs;
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs				= m_properties.limits.maxPerStageDescriptorSSBOs;
@@ -1100,30 +1100,34 @@ public:
 			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;
 			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
-			
-			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
-			{
-				GLint subgroupSize = 0;
-				GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
-				m_properties.limits.maxSubgroupSize = subgroupSize;
 
-				GLint subgroupOpsStages = 0;
-				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
-				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
-				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
-				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
-				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
-				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
-				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
+			// Baseline:
+			// Nvidia: min and max is 32
+			// AMD: min 32 max 64
+			// Intel: min 8 max 32
+			// Others: min 4 max 64
+			// 
+			// If extensions are available for more accurate values, they will be set below
+			if (isNVIDIAGPU)
+			{
+				m_properties.limits.subgroupSize = 32;
+				m_properties.limits.maxSubgroupSize = 32;
 			}
-			
-			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
+			else if (isAMDGPU)
+			{
+				m_properties.limits.subgroupSize = 32;
+				m_properties.limits.maxSubgroupSize = 64;
+			}
+			else if (isIntelGPU)
+			{
+				m_properties.limits.subgroupSize = 8;
+				m_properties.limits.maxSubgroupSize = 32;
+			}
+			else {
+				m_properties.limits.subgroupSize = 4;
+				m_properties.limits.maxSubgroupSize = 64;
+			}
+
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
@@ -1141,8 +1145,39 @@ public:
 				m_properties.limits.shaderSubgroupShuffleRelative = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR);
 				m_properties.limits.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
 				m_properties.limits.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
-			}
 
+				if (m_properties.limits.shaderSubgroupBasic)
+				{
+					GLint subgroupSize = 0;
+					GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
+					m_properties.limits.maxSubgroupSize = subgroupSize;
+				}
+
+				GLint subgroupOpsStages = 0;
+				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
+				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
+				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
+				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
+				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
+				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
+				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
+			}
+			// TODO: Use ARB_shader_ballot to perform runtime test for more specific subgroup min & max
+			// 
+			// If ARB_shader_ballot is available (desktop GL only)
+			// Run a dummy vertex, geometry, tessellation, fragment pipeline(reasonable workload, few thousand verts, render into the default back buffer / FBO), have them write gl_SubGroupSizeARB with atomicMinand atomicMax into an SSBO so we can get ranges.
+			//
+			// Also run 2 dummy compute shaders :
+			//
+			// 16x16x1 workgroup and a 128x64x1 dispatch grid
+			//	256x1x1 workgroup and 16k x 1 x 1 dispatch grid
+			//	and do the same.
 
 			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1350
 			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1351

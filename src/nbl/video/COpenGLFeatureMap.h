@@ -550,7 +550,8 @@ public:
 	"GL_OES_draw_buffers_indexed",
 	"GL_OES_draw_elements_base_vertex",
 	"GL_OES_geometry_shader",
-	"GL_OES_tessellation_shader"
+	"GL_OES_tessellation_shader",
+	"GL_OES_shader_multisample_interpolation"
 };
 	enum EOpenGLFeatures {
 		NBL_3DFX_multisample = 0,
@@ -1088,6 +1089,7 @@ public:
 		NBL_OES_draw_elements_base_vertex,
 		NBL_OES_geometry_shader,
 		NBL_OES_tessellation_shader,
+		NBL_OES_shader_multisample_interpolation,
 
 		NBL_OpenGL_Feature_Count
 	};
