@@ -748,6 +748,8 @@ public:
 				m_features.fragmentShaderShadingRateInterlock = true;
 			}
 			
+            m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
+
 			// TODO: move this to IPhysicalDevice::SFeatures
 			const bool runningInRenderDoc = (m_rdoc_api != nullptr);
 			m_glfeatures.runningInRenderDoc = runningInRenderDoc;

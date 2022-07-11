@@ -653,6 +653,10 @@ public:
             {
                 m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             }
+
+            m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);
+            if(isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
+                m_features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
         }
 
         // Get physical device's memory properties
@@ -705,7 +709,8 @@ public:
 
     bool isSwapchainSupported() const override
     {
-        return isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        // TODO: Later remove this function and let the user figure it out from the swapchainMode
+        return m_features.swapchainMode.hasFlags(ESM_SURFACE);
     }
 
     const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override

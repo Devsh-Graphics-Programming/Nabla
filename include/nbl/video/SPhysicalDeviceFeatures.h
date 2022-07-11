@@ -3,6 +3,13 @@
 
 namespace nbl::video
 {
+    
+enum E_SWAPCHAIN_MODE : uint32_t
+{
+    ESM_NONE = 0,
+    ESM_SURFACE = 0x01,
+    // ESM_DISPLAY = 0x02 TODO, as we won't write the API interfaces to deal with direct-to-display swapchains yet.,
+};
 
 struct SPhysicalDeviceFeatures
 {
@@ -728,7 +735,7 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_surface */
 
     /* VK_KHR_swapchain */ // we want to expose this extension as feature
-    bool swapchain = false;
+    core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
 
     /* VK_KHR_swapchain_mutable_format */
     /* VK_KHR_video_decode_queue */
