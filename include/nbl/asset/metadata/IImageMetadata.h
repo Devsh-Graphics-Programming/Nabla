@@ -8,6 +8,8 @@
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/format/EColorSpace.h"
 
+#include <compare>
+
 namespace nbl::asset
 {
 

@@ -62,14 +62,20 @@ struct NBL_API SBufferBinding
 template<typename BufferType>
 struct NBL_API SBufferRange
 {
+	SBufferRange(const size_t& _offset, const size_t _size, core::smart_refctd_ptr<BufferType>&& _buffer)
+		: offset(_offset), size(_size), buffer(core::smart_refctd_ptr<BufferType>(_buffer)) {}
+
+	SBufferRange() : offset(0ull), size(0ull), buffer(nullptr) {}
+
 	inline bool isValid() const
 	{
 		return buffer && size && (offset+size<=buffer->getSize());
 	}
 
-	size_t offset = 0ull;
-	size_t size = 0ull;
-	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+	size_t offset;
+	size_t size ;
+	core::smart_refctd_ptr<BufferType> buffer;
+
 	inline bool operator==(const SBufferRange<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && size==rhs.size; }
 	inline bool operator!=(const SBufferRange<BufferType>& rhs) const { return !operator==(rhs); }
 };

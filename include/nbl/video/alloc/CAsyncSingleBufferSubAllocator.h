@@ -28,15 +28,15 @@ class CAsyncSingleBufferSubAllocator
         using Composed = CSingleBufferSubAllocator<AddressAllocator,HostAllocator>;
         
     public:
-        using size_type = AddressAllocator::size_type;
-        using value_type = Composed::value_type;
+        using size_type = typename AddressAllocator::size_type;
+        using value_type = typename Composed::value_type;
         static constexpr value_type invalid_value = Composed::invalid_value;
 
         class DeferredFreeFunctor
         {
                 static constexpr size_t PseudoTupleByteSize = (2u*sizeof(size_type)+sizeof(core::smart_refctd_ptr<core::IReferenceCounted>));
-                static constexpr size_t AllocatorUnitsPerMetadata = PseudoTupleByteSize/sizeof(HostAllocator::value_type);
-                static_assert((PseudoTupleByteSize%sizeof(HostAllocator::value_type)) == 0u, "should be divisible by HostAllocator::value_type");
+                static constexpr size_t AllocatorUnitsPerMetadata = PseudoTupleByteSize/sizeof(typename HostAllocator::value_type);
+                static_assert((PseudoTupleByteSize%sizeof(typename HostAllocator::value_type)) == 0u, "should be divisible by HostAllocator::value_type");
 
             public:
                 template<typename T>

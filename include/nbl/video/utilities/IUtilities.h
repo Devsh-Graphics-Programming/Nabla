@@ -125,7 +125,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto mem = m_device->allocate(mreqs, buffer.get());
-            updateBufferRangeViaStagingBuffer(queue, asset::SBufferRange<IGPUBuffer>{0u, params.size, buffer}, data);
+            updateBufferRangeViaStagingBuffer(queue, asset::SBufferRange<IGPUBuffer>{0u, params.size, core::smart_refctd_ptr(buffer)}, data);
             return buffer;
         }
 
