@@ -725,6 +725,7 @@ public:
 
 
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
+			// [TODO] shaderSubgroupExtendedTypes = AMD_shader_ballot
 			m_features.bufferDeviceAddress = false; // no such capability in GL
 			
 			/* Vulkan 1.3 Core */

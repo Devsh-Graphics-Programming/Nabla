@@ -142,8 +142,7 @@ struct SPhysicalDeviceFeatures
     
     //VkBool32           uniformBufferStandardLayout;   // or VK_KHR_uniform_buffer_standard_layout
     
-    // [DO NOT EXPOSE]
-    //VkBool32           shaderSubgroupExtendedTypes;   // or VK_KHR_shader_subgroup_extended_types
+    bool shaderSubgroupExtendedTypes;   // or VK_KHR_shader_subgroup_extended_types
     
     //VkBool32           separateDepthStencilLayouts;   // or VK_KHR_separate_depth_stencil_layouts
     

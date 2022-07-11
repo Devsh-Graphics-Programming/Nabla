@@ -598,6 +598,11 @@ public:
             m_features.drawIndirectCount = isExtensionSupported(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
             m_features.samplerFilterMinmax = isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
             
+            if(isExtensionSupported(VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES_EXTENSION_NAME))
+            {
+                m_features.shaderSubgroupExtendedTypes = shaderSubgroupExtendedTypesFeaturesKHR.shaderSubgroupExtendedTypes;
+            }
+
             /* Vulkan 1.3 Core  */
             if(isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
             {
