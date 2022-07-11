@@ -1182,10 +1182,6 @@ public:
 	uint32_t maxTextureBindingsCompute;
 	//!
 	uint32_t maxImageBindings;
-	//! Number of rendertargets available as MRTs
-	uint8_t MaxMultipleRenderTargets;
-	//! Maximal LOD Bias
-	float MaxTextureLODBias;
 
 	bool isIntelGPU = false;
 	// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)

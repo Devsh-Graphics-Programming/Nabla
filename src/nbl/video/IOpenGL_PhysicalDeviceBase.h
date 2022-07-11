@@ -753,15 +753,6 @@ public:
 				m_features.fragmentShaderShadingRateInterlock = true;
 			}
 			
-			// GL Specific
-
-			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
-				GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);
-			
-			GLint num = 0;
-			GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
-			m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
-
 			// TODO: move this to IPhysicalDevice::SFeatures
 			const bool runningInRenderDoc = (m_rdoc_api != nullptr);
 			m_glfeatures.runningInRenderDoc = runningInRenderDoc;
@@ -897,13 +888,6 @@ public:
 			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetStorageImages));
 			m_properties.limits.maxDescriptorSetInputAttachments = 0u;
 
-			// m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
-			// m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
-			// m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
-			// m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
-			// m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
-			// m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
-			
 			GetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxVertexOutputComponents));
 
 			GetIntegerv(GL_MAX_FRAGMENT_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentInputComponents));
