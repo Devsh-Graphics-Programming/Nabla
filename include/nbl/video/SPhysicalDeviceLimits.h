@@ -351,7 +351,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxDiscardRectangles;
             
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
-    //VkDeviceSize       minImportedHostPointerAlignment;
+    size_t minImportedHostPointerAlignment = 0x1ull<<63u;
     
     // [TODO]
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */

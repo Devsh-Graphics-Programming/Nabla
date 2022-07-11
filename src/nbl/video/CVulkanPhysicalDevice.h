@@ -49,7 +49,8 @@ public:
         VkPhysicalDeviceVulkan11Properties vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES, &timelineSemaphoreProperties };
 
         // Extensions
-        VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT, &vulkan11Properties };
+        VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT, &vulkan11Properties };
+        VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT, &externalMemoryHostPropertiesEXT };
         VkPhysicalDeviceShaderCoreProperties2AMD shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD, &conservativeRasterizationProperties };
         VkPhysicalDeviceShaderSMBuiltinsPropertiesNV shaderSMBuiltinsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV, &shaderCoreProperties2AMD };
         VkPhysicalDeviceCooperativeMatrixPropertiesNV cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_NV, &shaderSMBuiltinsProperties };
@@ -332,6 +333,11 @@ public:
             if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
             {
                 m_properties.limits.maxDiscardRectangles = discardRectangleProperties.maxDiscardRectangles;
+            }
+
+            if (isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
+            {
+                m_properties.limits.minImportedHostPointerAlignment = externalMemoryHostPropertiesEXT.minImportedHostPointerAlignment;
             }
             
             if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
