@@ -35,8 +35,8 @@ class CAsyncSingleBufferSubAllocator
         class DeferredFreeFunctor
         {
                 static constexpr size_t PseudoTupleByteSize = (2u*sizeof(size_type)+sizeof(core::smart_refctd_ptr<core::IReferenceCounted>));
-                static constexpr size_t AllocatorUnitsPerMetadata = PseudoTupleByteSize/sizeof(HostAllocator::value_type);
-                static_assert((PseudoTupleByteSize%sizeof(HostAllocator::value_type)) == 0u, "should be divisible by HostAllocator::value_type");
+                static constexpr size_t AllocatorUnitsPerMetadata = PseudoTupleByteSize/sizeof(typename HostAllocator::value_type);
+                static_assert((PseudoTupleByteSize%sizeof(typename HostAllocator::value_type)) == 0u, "should be divisible by HostAllocator::value_type");
 
             public:
                 template<typename T>
