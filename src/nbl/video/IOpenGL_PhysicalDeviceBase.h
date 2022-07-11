@@ -516,12 +516,6 @@ public:
 		// PhysicalDevice Features
 		{
 			/* Vulkan 1.0 Core */
-			GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
-			GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
-			GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindings));
-			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
-			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
-
 			GLuint maxElementIndex = 0u;
 			GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
@@ -1021,7 +1015,16 @@ public:
 
 			/* Vulkan 1.1 Core  */
 			
-			m_properties.limits.maxPerSetDescriptors = m_glfeatures.maxUBOBindings + m_glfeatures.maxSSBOBindings + m_glfeatures.maxTextureBindings + m_glfeatures.maxImageBindings;
+			
+			// Temporary GL Specific -> [TODO] Remove later
+			m_glfeatures.maxUBOBindings = m_properties.limits.maxDescriptorSetUBOs;
+			m_glfeatures.maxSSBOBindings = m_properties.limits.maxDescriptorSetSSBOs;
+			m_glfeatures.maxTextureBindings = m_properties.limits.maxDescriptorSetSamplers;
+			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
+			m_glfeatures.maxImageBindings = m_properties.limits.maxDescriptorSetStorageImages;
+
+
+			m_properties.limits.maxPerSetDescriptors = m_properties.limits.maxDescriptorSetUBOs + m_properties.limits.maxDescriptorSetSSBOs + m_properties.limits.maxDescriptorSetSamplers + m_properties.limits.maxDescriptorSetStorageImages;
 			m_properties.limits.maxMemoryAllocationSize = maxBufferSize; // TODO(Erfan): 
 
 			/* Vulkan 1.2 Core  */
