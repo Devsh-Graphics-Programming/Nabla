@@ -138,7 +138,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			
 			video::IGPUBuffer::SCreationParams defaultFillValuesBufferCreationParams = {};
 			defaultFillValuesBufferCreationParams.size = tmp.size();
-			// defaultFillValuesBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+			defaultFillValuesBufferCreationParams.usage = core::bitflag<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT);
 			auto defaultFillValues = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(defaultFillValuesBufferCreationParams),fillData);
 			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
 			tmp.resize(sizeof(uint16_t)*DebugIndexCount);
@@ -175,7 +175,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			
 			video::IGPUBuffer::SCreationParams debugIndexBufferCreationParams = {};
 			debugIndexBufferCreationParams.size = tmp.size();
-			// debugIndexBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
+			debugIndexBufferCreationParams.usage = core::bitflag<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT);
 			auto debugIndexBuffer = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(debugIndexBufferCreationParams),fillData);
 
 			auto updateLocalDsLayout = createUpdateLocalTransformsDescriptorSetLayout(device);
