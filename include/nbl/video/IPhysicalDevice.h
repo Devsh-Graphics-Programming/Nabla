@@ -524,17 +524,23 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
             FORMAT_USAGE usages;
 
-            // pack into 64bit for easy hashing 
-            uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
+            struct hash
             {
-                uint64_t msb = uint64_t(std::hash<FORMAT_USAGE>()(r.usages));
-                return (msb << 32u) | r.originalFormat;
-            }
+                // pack into 64bit for easy hashing 
+                uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
+                {
+                    uint64_t msb = uint64_t(std::hash<FORMAT_USAGE>()(r.usages));
+                    return (msb << 32u) | r.originalFormat;
+                }
+            };
 
-            bool operator()(const FormatPromotionRequest<FORMAT_USAGE>& l, const FormatPromotionRequest<FORMAT_USAGE>& r) const
+            struct equal_to
             {
-                return l.originalFormat == r.originalFormat && l.usages == r.usages;
-            }
+                bool operator()(const FormatPromotionRequest<FORMAT_USAGE>& l, const FormatPromotionRequest<FORMAT_USAGE>& r) const
+                {
+                    return l.originalFormat == r.originalFormat && l.usages == r.usages;
+                }
+            };
         };
 
         asset::E_FORMAT promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req);
@@ -670,8 +676,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         core::vector<char> m_GLSLDefineStringPool;
         core::vector<const char*> m_extraGLSLDefines;
 
-        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>> format_buffer_cache_t;
-        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>> format_image_cache_t;
+        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>::equal_to> format_buffer_cache_t;
+        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>::equal_to> format_image_cache_t;
 
         struct format_promotion_cache_t
         {
