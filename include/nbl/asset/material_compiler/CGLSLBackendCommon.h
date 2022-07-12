@@ -580,12 +580,12 @@ public:
 		template <typename stack_el_t>
 		friend class ITraversalGenerator;
 
-		friend class CMaterialCompilerGLSLBackendCommon;
+		friend class CGLSLBackendCommon;
 
 		//users should not touch this
 		core::vector<instr_stream::intermediate::SBSDFUnion> bsdfData;
 		// TODO: HARDER DEDUPLICATION, hash & compare contents not only pointers!
-		core::unordered_map<const IR::INode*, size_t> bsdfDataIndexMap;
+		core::unordered_map<IR::node_handle_t, size_t> bsdfDataIndexMap;
 
 		using VTallocKey = std::pair<const asset::ICPUImageView*, const asset::ICPUSampler*>;
 		struct VTallocKeyHash

@@ -235,12 +235,13 @@ class IR : public core::IReferenceCounted
         {
             if (node.byteOffset<firstTmp.byteOffset)
             {
-                roots.push_back(node);
+                m_roots.push_back(node);
                 return true;
             }
             assert(false);
             return false;
         }
+        inline const auto& getRootNodes() const {return m_roots;}
 
         template <typename NodeType, typename ...Args>
         inline node_handle_t allocTmpNode(const uint32_t childCount, Args&& ...args)
@@ -400,6 +401,7 @@ class IR : public core::IReferenceCounted
                     //blend of 2 BSDFs weighted by custom direction-based curve
                     ET_CUSTOM_CURVE_BLEND
                 };
+                inline E_TYPE getType() const {return type;}
 
             protected:
                 IBSDFCombinerNode(E_TYPE t) : type(t) {}
@@ -551,7 +553,7 @@ class IR : public core::IReferenceCounted
         }
 
 
-        core::vector<node_handle_t> roots;
+        core::vector<node_handle_t> m_roots;
 
 
         class SBackingMemManager
