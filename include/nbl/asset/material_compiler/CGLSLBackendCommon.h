@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
-#define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
+#ifndef _NBL_ASSET_MATERIAL_COMPILER_C_GLSL_BACKEND_COMMON_H_INCLUDED_
+#define _NBL_ASSET_MATERIAL_COMPILER_C_GLSL_BACKEND_COMMON_H_INCLUDED_
 
 
 #include <nbl/core/core.h>
@@ -17,38 +16,30 @@
 namespace nbl::asset::material_compiler
 {
 
-
-// TODO: we need a GLSL to C++ compatibility wrapper
+//
+namespace impl
+{
 #define uint uint32_t
 #define uvec2 uint64_t
-struct nbl_glsl_MC_oriented_material_t
-{
-    uvec2 emissive;
-    uint prefetch_offset;
-    uint prefetch_count;
-    uint instr_offset;
-    uint rem_pdf_count;
-    uint nprecomp_count;
-    uint genchoice_count;
-};
-struct nbl_glsl_MC_material_data_t
-{
-    nbl_glsl_MC_oriented_material_t front;
-    nbl_glsl_MC_oriented_material_t back;
-};
+#include <nbl/builtin/glsl/material_compiler/material_data.glsl>
 #undef uint
 #undef uvec2
-using oriented_material_t = nbl_glsl_MC_oriented_material_t;
-using material_data_t = nbl_glsl_MC_material_data_t;
+}
 
-
+// TODO: remove
 template <typename stack_el_t>
 class ITraversalGenerator;
 
 
-class CMaterialCompilerGLSLBackendCommon
+class CGLSLBackendCommon
 {
-public:
+	public:
+		using material_data_t = impl::nbl_glsl_MC_material_data_t;
+		using oriented_material_t = impl::nbl_glsl_MC_oriented_material_t;
+
+
+
+// TODO: rewrite all below
 	struct instr_stream
 	{
 		using instr_t = uint64_t;
@@ -589,12 +580,12 @@ public:
 		template <typename stack_el_t>
 		friend class ITraversalGenerator;
 
-		friend class CMaterialCompilerGLSLBackendCommon;
+		friend class CGLSLBackendCommon;
 
 		//users should not touch this
 		core::vector<instr_stream::intermediate::SBSDFUnion> bsdfData;
 		// TODO: HARDER DEDUPLICATION, hash & compare contents not only pointers!
-		core::unordered_map<const IR::INode*, size_t> bsdfDataIndexMap;
+		core::unordered_map<IR::node_handle_t, size_t> bsdfDataIndexMap;
 
 		using VTallocKey = std::pair<const asset::ICPUImageView*, const asset::ICPUSampler*>;
 		struct VTallocKeyHash
@@ -705,7 +696,7 @@ public:
 		core::unordered_set<instr_stream::E_NDF> NDFs;
 
 		//one element for each input IR root node
-		core::unordered_map<const IR::INode*, instr_streams_t> streams;
+		core::unordered_map<IR::node_handle_t,instr_streams_t> streams;
 
 		//has to go after #version and before required user-provided descriptors and functions
 		std::string fragmentShaderSource_declarations;

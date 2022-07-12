@@ -1,19 +1,13 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __C_ELEMENT_INTEGRATOR_H_INCLUDED__
-#define __C_ELEMENT_INTEGRATOR_H_INCLUDED__
+#ifndef _NBL_EXT_MITSUBA_LOADER_C_ELEMENT_INTEGRATOR_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_LOADER_C_ELEMENT_INTEGRATOR_H_INCLUDED_
 
 #include "nbl/ext/MitsubaLoader/IElement.h"
 
-namespace nbl
+namespace nbl::ext::MitsubaLoader
 {
-namespace ext
-{
-namespace MitsubaLoader
-{
-
 
 class CElementIntegrator : public IElement
 {
@@ -332,10 +326,6 @@ class CElementIntegrator : public IElement
 		};
 };
 
-
-
-}
-}
 }
 
 #endif

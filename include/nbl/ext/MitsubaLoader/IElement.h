@@ -1,19 +1,13 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __I_ELEMENT_H_INCLUDED__
-#define __I_ELEMENT_H_INCLUDED__
+#ifndef _NBL_EXT_MITSUBA_LOADER_I_ELEMENT_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_LOADER_I_ELEMENT_H_INCLUDED_
 
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 
-
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 
 
@@ -42,7 +36,7 @@ class IElement
 			TRANSFORM,
 			ANIMATION
 		};
-	public:
+
 		std::string id;
 
 		IElement(const char* _id) : id(_id ? _id:"") {}
@@ -111,8 +105,6 @@ class IElement
 		}
 };
 
-}
-}
 }
 
 #endif

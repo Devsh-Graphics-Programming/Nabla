@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_C_MITSUBA_METADATA_H_INCLUDED__
-#define __NBL_C_MITSUBA_METADATA_H_INCLUDED__
+#ifndef _NBL_EXT_MITSUBA_LOADER_C_MITSUBA_METADATA_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_LOADER_C_MITSUBA_METADATA_H_INCLUDED_
 
 #include "nbl/core/compile_config.h"
 #include "nbl/asset/metadata/IAssetMetadata.h"
@@ -15,15 +14,10 @@
 #include "nbl/ext/MitsubaLoader/CElementSensor.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 
 //! A class to derive mitsuba mesh loader metadata objects from
-
 class CMitsubaMetadata : public asset::IAssetMetadata
 {
 	public:
@@ -76,7 +70,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 
 					CElementEmitter frontEmitter; // type is invalid if not used
 					CElementEmitter backEmitter; // type is invalid if not used
-					CMitsubaMaterialCompilerFrontend::front_and_back_t bsdf;
+					CMaterialCompilerFrontend::front_and_back_t bsdf;
 				};
 
 				core::SRange<const SInstanceAuxilaryData> m_instanceAuxData;
@@ -109,7 +103,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		{
 		}
 
-		_NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "ext::MitsubaLoader::CMitsubaLoader";
+		static inline constexpr char* LoaderName = "ext::MitsubaLoader::CMitsubaLoader";
 		const char* getLoaderName() const override { return LoaderName; }
 
         //!
@@ -203,8 +197,6 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		}
 };
 
-}
-}
 }
 
 #endif

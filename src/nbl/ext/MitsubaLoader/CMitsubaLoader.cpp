@@ -1,4 +1,3 @@
-#include "..\..\..\..\include\nbl\ext\MitsubaLoader\CMitsubaLoader.h"
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
@@ -218,7 +217,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertex
 
 	return vs;
 }
-static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
 {
 	std::string source = 
 		FRAGMENT_SHADER_PROLOGUE +
@@ -944,7 +943,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	return mesh;
 }
 
-void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
+void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex, const CMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
 {
 	if (!tex)
 		return;
@@ -967,7 +966,7 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 					{
 						auto loadParams = ctx.inner.params;
 						// always restore, the only reason we haven't found a view is because either the image wasnt loaded yet, or its going to be processed with channel extraction or derivative mapping
-						const uint32_t restoreLevels = semantic==CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY&&tex->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID ? 0u:2u; // all the way to the buffer providing the pixels
+						const uint32_t restoreLevels = semantic==CMaterialCompilerFrontend::EIVS_IDENTITIY&&tex->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID ? 0u:2u; // all the way to the buffer providing the pixels
 						loadParams.restoreLevels = std::max(loadParams.restoreLevels,hierarchyLevel+restoreLevels);
 						// load using the actual filename, not the cache key
 						asset::SAssetBundle bundle = interm_getAssetInHierarchy(m_assetMgr,tex->bitmap.filename.svalue,loadParams,hierarchyLevel,ctx.override_);
@@ -995,8 +994,8 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 					}
 					switch (semantic)
 					{
-						case CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY:
-						case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
+						case CMaterialCompilerFrontend::EIVS_IDENTITIY:
+						case CMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
 							{
 								switch (tex->bitmap.channel)
 								{
@@ -1020,16 +1019,16 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 									case CElementTexture::Bitmap::CHANNEL::INVALID:
 										[[fallthrough]];
 									default:
-										if (semantic==CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT && asset::getFormatChannelCount(viewParams.image->getCreationParameters().format)<3u)
+										if (semantic==CMaterialCompilerFrontend::EIVS_BLEND_WEIGHT && asset::getFormatChannelCount(viewParams.image->getCreationParameters().format)<3u)
 											viewParams.image = createSingleChannelImage(viewParams.image.get(),asset::ICPUImageView::SComponentMapping::ES_IDENTITY);
 										break;
 								}
 							}
 							break;
-						case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
+						case CMaterialCompilerFrontend::EIVS_NORMAL_MAP:
 							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,true);
 							break;
-						case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
+						case CMaterialCompilerFrontend::EIVS_BUMP_MAP:
 							viewParams.image = createDerivMap(ctx,viewParams.image.get(),samplerParams,false);
 							break;
 						default:
@@ -1082,7 +1081,7 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
 {
 	if (!bsdf)
-		return {nullptr,nullptr};
+		return {asset::material_compiler::IR::invalid_node,asset::material_compiler::IR::invalid_node};
 
 	auto found = ctx.instrStreamCache.find(bsdf);
 	if (found!=ctx.instrStreamCache.end())
@@ -1095,7 +1094,7 @@ auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
 {
 	{
-		auto cachePropertyTexture = [&](const auto& const_or_tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic=CMitsubaMaterialCompilerFrontend::EIVS_IDENTITIY) -> void
+		auto cachePropertyTexture = [&](const auto& const_or_tex, const CMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic=CMaterialCompilerFrontend::EIVS_IDENTITIY) -> void
 		{
 			if (const_or_tex.value.type==SPropertyElementData::INVALID)
 				cacheTexture(ctx,0u,const_or_tex.texture,semantic);
@@ -1157,28 +1156,28 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 						cachePropertyTexture(bsdf->plastic.alphaV);
 					break;
 				case CElementBSDF::BUMPMAP:
-					cacheTexture(ctx,0u,bsdf->bumpmap.texture,bsdf->bumpmap.wasNormal ? CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP);
+					cacheTexture(ctx,0u,bsdf->bumpmap.texture,bsdf->bumpmap.wasNormal ? CMaterialCompilerFrontend::EIVS_NORMAL_MAP:CMaterialCompilerFrontend::EIVS_BUMP_MAP);
 					break;
 				case CElementBSDF::BLEND_BSDF:
-					cachePropertyTexture(bsdf->blendbsdf.weight,CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
+					cachePropertyTexture(bsdf->blendbsdf.weight,CMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
 					break;
 				case CElementBSDF::MASK:
-					cachePropertyTexture(bsdf->mask.opacity,CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
+					cachePropertyTexture(bsdf->mask.opacity,CMaterialCompilerFrontend::EIVS_BLEND_WEIGHT);
 					break;
 				default: break;
 			}
 		}
 	}
 
-	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf);
+	return CMaterialCompilerFrontend::compileToIRTree(ctx,_bsdf);
 }
 
 
 
 // TODO: this function shouldn't really exist because the backend should produce this directly @Crisspl
-asset::material_compiler::oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t* streams)
+asset::material_compiler::CGLSLBackendCommon::oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CGLSLBackendCommon::result_t::instr_streams_t* streams)
 {
-	asset::material_compiler::oriented_material_t orientedMaterial;
+	asset::material_compiler::CGLSLBackendCommon::oriented_material_t orientedMaterial;
 	orientedMaterial.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
 	if(streams)
 	{
@@ -1204,7 +1203,7 @@ asset::material_compiler::oriented_material_t impl_backendToGLSLStream(const cor
 
 // Also sets instance data buffer offset into meshbuffers' base instance
 template<typename Iter>
-inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
+inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
 {
 	auto* ds0layout = _layout->getDescriptorSetLayout(0u);
 
@@ -1267,7 +1266,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 #ifdef DEBUG_MITSUBA_LOADER
 	std::ofstream ofile("log.txt");
 #endif
-	core::vector<nbl_glsl_ext_Mitsuba_Loader_instance_data_t> instanceData;
+	core::vector<instance_data_t> instanceData;
 	for (auto it=meshBegin; it != meshEnd; ++it)
 	{		
 		auto mesh = it->first.get();
@@ -1279,7 +1278,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto baseInstanceDataIt = meshMeta->m_instances.begin();
 		for (const auto& inst : meshMeta->m_instanceAuxData)
 		{
-			nbl_glsl_ext_Mitsuba_Loader_instance_data_t instData;
+			instance_data_t instData;
 
 			instData.tform = baseInstanceDataIt->worldTform;
 			instData.tform.getSub3x3InverseTranspose(reinterpret_cast<core::matrix3x4SIMD&>(instData.normalMatrixRow0));
@@ -1291,7 +1290,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			auto bsdf_back  = bsdf.back;
 			auto streams_it = _compResult.streams.find(bsdf_front);
 			{
-				const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t* streams = 
+				const asset::material_compiler::CGLSLBackendCommon::result_t::instr_streams_t* streams = 
 					(streams_it != _compResult.streams.end()) ? &streams_it->second : nullptr;
 
 #ifdef DEBUG_MITSUBA_LOADER
@@ -1307,7 +1306,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			}
 			streams_it = _compResult.streams.find(bsdf_back);
 			{
-				const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t* streams = 
+				const asset::material_compiler::CGLSLBackendCommon::result_t::instr_streams_t* streams = 
 					(streams_it != _compResult.streams.end()) ? &streams_it->second : nullptr;
 
 #ifdef DEBUG_MITSUBA_LOADER
@@ -1331,7 +1330,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 #endif
 	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
 	{
-		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(nbl_glsl_ext_Mitsuba_Loader_instance_data_t));
+		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(instance_data_t));
 		memcpy(instDataBuf->getPointer(), instanceData.data(), instDataBuf->getSize());
 
 		d->buffer.offset = 0u;
@@ -1351,7 +1350,7 @@ SContext::SContext(
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CMitsubaMetadata* _metadata
 ) : creator(_geomCreator), manipulator(_manipulator), inner(_ctx), override_(_override), meta(_metadata),
-	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this),
+	frontend_ctx{}, ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()),
 	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
 {
 	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(

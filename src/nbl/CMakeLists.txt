@@ -200,8 +200,8 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLIWriter.cpp
 	
 # Material compiler
-	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CGLSLBackendCommon.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CGLSLRasterBackend.cpp
 )
 set(NBL_VIDEO_SOURCES
 # Allocators
