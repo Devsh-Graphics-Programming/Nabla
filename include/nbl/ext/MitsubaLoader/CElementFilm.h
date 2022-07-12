@@ -1,21 +1,17 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MITSUBA_LOADER_C_ELEMENT_FILM_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_LOADER_C_ELEMENT_FILM_H_INCLUDED_
 
-#ifndef __C_ELEMENT_FILM_H_INCLUDED__
-#define __C_ELEMENT_FILM_H_INCLUDED__
 
 #include "nbl/macros.h"
 
 #include "nbl/ext/MitsubaLoader/CElementRFilter.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
-{
 
+namespace nbl::ext::MitsubaLoader
+{
 
 class CElementFilm : public IElement
 {
@@ -144,9 +140,6 @@ class CElementFilm : public IElement
 		float envmapRegularizationFactor = 0.5f; // 1.0f means based envmap luminance, 0.0f means uniform
 };
 
-
-}
-}
 }
 
 #endif

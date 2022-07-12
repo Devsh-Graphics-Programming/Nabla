@@ -1,25 +1,18 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#include <nbl/asset/material_compiler/CGLSLBackendCommon.h>
 
-#include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
-
-#include <iostream>
-#include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
-
-namespace nbl
-{
-namespace asset
-{
-namespace material_compiler
+#if 0
+namespace nbl::asset::material_compiler
 {
 
 
-using instr_stream = CMaterialCompilerGLSLBackendCommon::instr_stream;
+using instr_stream = CGLSLBackendCommon::instr_stream;
 using instr_t = instr_stream::instr_t;
 using traversal_t = instr_stream::traversal_t;
 
-using tmp_bxdf_translation_cache_t = core::unordered_map<const IR::INode*, IR::INode*>;
+using tmp_bxdf_translation_cache_t = core::unordered_map<const IR::node_handle_t,IR::node_handle_t>;
 
 
 // good idea to make this tree translator "catch" duplicate subtrees
@@ -43,7 +36,6 @@ class CInterpreter
 				coat->alpha_v = coat_blend->alpha_v;
 				coat->eta = coat_blend->eta;
 				coat->ndf = coat_blend->ndf;
-				coat->shadowing = coat_blend->shadowing;
 			}
 			cache->insert({ coat_blend, coat });
 
@@ -1621,8 +1613,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		//_out << "Bump reg " << data.bumpmap.bumpmap.prefetch_reg << "\n";
 	break;
 	default: break;
-	}
 }
 
-}}
 
+}
+#endif

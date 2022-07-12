@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
-#define __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
+#ifndef _NBL_EXT_MITSUBA_LOADER_C_MATERIAL_COMPILER_FRONTEND_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_LOADER_C_MATERIAL_COMPILER_FRONTEND_H_INCLUDED_
 
 #include "nbl/core/Types.h"
 
@@ -16,7 +15,7 @@ namespace nbl::ext::MitsubaLoader
 
 struct SContext;
 
-class CMitsubaMaterialCompilerFrontend final
+class CMaterialCompilerFrontend final
 {
     public:
         using node_handle_t = asset::material_compiler::IR::node_handle_t;
@@ -44,13 +43,8 @@ class CMitsubaMaterialCompilerFrontend final
                 bool operator()(const MerkleTree& lhs, const MerkleTree& rhs) const;
             };
         };
+        using HashCons = core::unordered_map<MerkleTree,node_handle_t,MerkleTree::hash,MerkleTree::equal_to>;
 
-        struct SContext
-        {
-            const ext::MitsubaLoader::SContext* m_loaderContext;
-            asset::material_compiler::IR* m_ir;
-            core::unordered_map<MerkleTree,node_handle_t,MerkleTree::hash,MerkleTree::equal_to> m_hashCons;
-        };
         struct front_and_back_t
         {
             node_handle_t front;
@@ -76,8 +70,8 @@ class CMitsubaMaterialCompilerFrontend final
         static node_handle_t createIRNode(SContext& ctx, const CElementBSDF* _bsdf, const bool frontface);
 
         using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, float>;
-        static tex_ass_type getTexture(const ext::MitsubaLoader::SContext* _loaderContext, const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY);
-        static tex_ass_type getErrorTexture(const ext::MitsubaLoader::SContext* _loaderContext);
+        static tex_ass_type getTexture(const SContext& _loaderContext, const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY);
+        static tex_ass_type getErrorTexture(const SContext& _loaderContext);
 };
 
 }

@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __I_PARSER_UTIL_H_INCLUDED__
-#define __I_PARSER_UTIL_H_INCLUDED__
+#ifndef _NBL_EXT_MITSUBA_LOADER_I_PARSER_UTIL_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_LOADER_I_PARSER_UTIL_H_INCLUDED_
 
 #include "nbl/core/core.h"
 
@@ -19,23 +18,15 @@
 #include <stack>
 
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 
-	   	  
-
-class ParserLog
+struct ParserLog
 {
-public:
 	/*prints this message:
 	Mitsuba loader error:
 	Invalid .xml file structure: message */
 	static void invalidXMLFileStructure(const std::string& errorMessage);
-
 };
 
 
@@ -127,8 +118,6 @@ class ParserManager
 		friend class CElementFactory;
 };
 
-}
-}
 }
 
 #endif

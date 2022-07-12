@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef __NBL_ASSET_MATERIAL_COMPILER_IR_H_INCLUDED__
-#define __NBL_ASSET_MATERIAL_COMPILER_IR_H_INCLUDED__
+#ifndef _NBL_ASSET_MATERIAL_COMPILER_IR_H_INCLUDED__
+#define _NBL_ASSET_MATERIAL_COMPILER_IR_H_INCLUDED__
 
 #include <nbl/core/IReferenceCounted.h>
 #include <nbl/asset/ICPUImageView.h>

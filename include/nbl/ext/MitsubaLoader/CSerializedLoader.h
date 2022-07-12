@@ -1,17 +1,12 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __C_SERIALIZED_LOADER_H_INCLUDED__
-#define __C_SERIALIZED_LOADER_H_INCLUDED__
+#ifndef _NBL_EXT_MITSUBA_LOADER_C_SERIALIZED_LOADER_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_LOADER_C_SERIALIZED_LOADER_H_INCLUDED_
 
 #include "nbl/asset/asset.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+namespace nbl::ext::MitsubaLoader
 {
 
 //! Meshloader capable of loading obj meshes.
@@ -70,9 +65,6 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 		};
 };
 
-
-}
-}
 }
 
 #endif

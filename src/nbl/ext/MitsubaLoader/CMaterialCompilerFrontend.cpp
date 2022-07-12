@@ -1,14 +1,13 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
+#include "nbl/ext/MitsubaLoader/CMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
 namespace nbl::ext::MitsubaLoader
 {
 
-auto CMitsubaMaterialCompilerFrontend::getTexture(const ext::MitsubaLoader::SContext* _loaderContext, const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) -> tex_ass_type
+auto CMaterialCompilerFrontend::getTexture(const SContext& _loaderContext, const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) -> tex_ass_type
 {
     // first unwind the texture Scales
     float scale = 1.f;
@@ -25,23 +24,23 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const ext::MitsubaLoader::SCon
     }
 
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    const auto key = _loaderContext->imageViewCacheKey(_element->bitmap,semantic);
-    auto viewBundle = _loaderContext->override_->findCachedAsset(key,types,_loaderContext->inner,0u);
+    const auto key = _loaderContext.imageViewCacheKey(_element->bitmap,semantic);
+    auto viewBundle = _loaderContext.override_->findCachedAsset(key,types,_loaderContext.inner,0u);
     if (!viewBundle.getContents().empty())
     {
         auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
 
         // TODO: here for the bumpmap bug
-        auto found = _loaderContext->derivMapCache.find(view->getCreationParameters().image);
-        if (found!=_loaderContext->derivMapCache.end())
+        auto found = _loaderContext.derivMapCache.find(view->getCreationParameters().image);
+        if (found!=_loaderContext.derivMapCache.end())
         {
             const float normalizationFactor = found->second;
             scale *= normalizationFactor;
         }
 
         types[0] = asset::IAsset::ET_SAMPLER;
-        const std::string samplerKey = _loaderContext->samplerCacheKey(_loaderContext->computeSamplerParameters(_element->bitmap));
-        auto samplerBundle = _loaderContext->override_->findCachedAsset(samplerKey, types, _loaderContext->inner, 0u);
+        const std::string samplerKey = _loaderContext.samplerCacheKey(_loaderContext.computeSamplerParameters(_element->bitmap));
+        auto samplerBundle = _loaderContext.override_->findCachedAsset(samplerKey, types, _loaderContext.inner, 0u);
         assert(!samplerBundle.getContents().empty());
         auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 
@@ -50,19 +49,19 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const ext::MitsubaLoader::SCon
     return { nullptr, nullptr, core::nan<float>()};
 }
 
-auto CMitsubaMaterialCompilerFrontend::getErrorTexture(const ext::MitsubaLoader::SContext* _loaderContext) -> tex_ass_type
+auto CMaterialCompilerFrontend::getErrorTexture(const SContext& _loaderContext) -> tex_ass_type
 {
     constexpr const char* ERR_TEX_CACHE_NAME = "nbl/builtin/image_view/dummy2d";
     constexpr const char* ERR_SMPLR_CACHE_NAME = "nbl/builtin/sampler/default";
 
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    auto bundle = _loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, _loaderContext->inner, 0u);
+    auto bundle = _loaderContext.override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, _loaderContext.inner, 0u);
     assert(!bundle.getContents().empty()); // this shouldnt ever happen since ERR_TEX_CACHE_NAME is builtin asset
         
     auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
 
     types[0] = asset::IAsset::ET_SAMPLER;
-    auto sbundle = _loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, _loaderContext->inner, 0u);
+    auto sbundle = _loaderContext.override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, _loaderContext.inner, 0u);
     assert(!sbundle.getContents().empty()); // this shouldnt ever happen since ERR_SMPLR_CACHE_NAME is builtin asset
 
     auto smplr = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(sbundle.getContents().begin()[0]);
@@ -70,7 +69,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture(const ext::MitsubaLoader:
     return { view, smplr, 1.f };
 }
 
-auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElementBSDF* _bsdf, const bool frontface) -> node_handle_t
+auto CMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElementBSDF* _bsdf, const bool frontface) -> node_handle_t
 {
     using namespace asset::material_compiler;
 
@@ -80,7 +79,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         if (src.value.type == SPropertyElementData::INVALID)
         {
             IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(ctx.m_loaderContext,src.texture);
+            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(ctx,src.texture);
             return tex;
         }
         else
@@ -91,7 +90,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         if (src.value.type == SPropertyElementData::INVALID)
         {
             IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(ctx.m_loaderContext,src.texture,semantic);
+            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(ctx,src.texture,semantic);
             return tex;
         }
         else
@@ -127,7 +126,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
             node->setSmooth();
     };
 
-    auto& hashCons = ctx.m_hashCons;
+    auto& hashCons = ctx.frontend_ctx;
     auto ir_node = IR::invalid_node;
     auto findAndSetChild = [&hashCons,_bsdf,frontface](IR::INode* pNode, const uint32_t childIx) -> node_handle_t
     {
@@ -137,7 +136,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
         assert(found!=hashCons.end());
         return pNode->getChildrenArray()[childIx] = std::get<node_handle_t>(*found);
     };
-    auto* ir = ctx.m_ir;
+    auto* ir = ctx.ir.get();
     const auto type = _bsdf->type;
     switch (type)
     {
@@ -223,7 +222,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
             //node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
 
             std::tie(pNode->texture.image,pNode->texture.sampler,pNode->texture.scale) =
-                getTexture(ctx.m_loaderContext,_bsdf->bumpmap.texture,_bsdf->bumpmap.wasNormal ? EIVS_NORMAL_MAP:EIVS_BUMP_MAP);
+                getTexture(ctx,_bsdf->bumpmap.texture,_bsdf->bumpmap.wasNormal ? EIVS_NORMAL_MAP:EIVS_BUMP_MAP);
             
             findAndSetChild(pNode,0);
             break;
@@ -259,7 +258,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
             if (_bsdf->blendbsdf.weight.value.type == SPropertyElementData::INVALID)
             {
                 std::tie(pNode->weight.texture.image,pNode->weight.texture.sampler,pNode->weight.texture.scale) =
-                    getTexture(ctx.m_loaderContext,_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
+                    getTexture(ctx,_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
                 assert(!core::isnan(pNode->weight.texture.scale));
             }
             else
@@ -289,7 +288,7 @@ auto CMitsubaMaterialCompilerFrontend::createIRNode(SContext& ctx, const CElemen
     return ir_node;
 }
 
-auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CElementBSDF* _root) -> front_and_back_t
+auto CMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CElementBSDF* _root) -> front_and_back_t
 {
     using namespace asset::material_compiler;
 
@@ -306,13 +305,14 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
             CElementBSDF::Type type() const { return bsdf->type; }
         };
         core::stack<DFSData> dfs;
+        auto& hashCons = ctx.frontend_ctx;
         auto pre = [&](const CElementBSDF* _bsdf)
         {
             DFSData el = {_bsdf};
             const bool twosided = unwindTwosided(el.bsdf);
             //
-            auto found = ctx.m_hashCons.find({el.bsdf,frontface||twosided});
-            if (found!=ctx.m_hashCons.end())
+            auto found = hashCons.find({el.bsdf,frontface||twosided});
+            if (found!=hashCons.end())
                 root = std::get<node_handle_t>(*found);
             else
             {
@@ -338,8 +338,8 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
             if (parent.visited)
             {
                 dfs.pop();
-                auto found = ctx.m_hashCons.find({parent.bsdf,frontface});
-                if (found!=ctx.m_hashCons.end())
+                auto found = hashCons.find({parent.bsdf,frontface});
+                if (found!=hashCons.end())
                     root = std::get<node_handle_t>(*found);
                 else
                     root = createIRNode(ctx,parent.bsdf,frontface);
@@ -357,11 +357,12 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
                 }
             }
         }
-        ctx.m_ir->addRootNode(root);
+        ctx.ir->addRootNode(root);
         return root;
     };
 
     // set up an invalid/vanta-black/NOOP node first
+    if (!ctx.frontend_ctx.empty())
     {
         CElementBSDF invalid("invalid_vanta_black_noop");
         invalid.type = CElementBSDF::DIFFUSE;
@@ -377,12 +378,12 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(SContext& ctx, const CEle
     return retval;
 }
 
-bool CMitsubaMaterialCompilerFrontend::MerkleTree::equal_to::operator()(const MerkleTree& lhs, const MerkleTree& rhs) const
+bool CMaterialCompilerFrontend::MerkleTree::equal_to::operator()(const MerkleTree& lhs, const MerkleTree& rhs) const
 {
     return lhs.bsdf==rhs.bsdf && lhs.frontface==rhs.frontface;
 }
 
-std::size_t CMitsubaMaterialCompilerFrontend::MerkleTree::hash::operator()(const MerkleTree& node) const
+std::size_t CMaterialCompilerFrontend::MerkleTree::hash::operator()(const MerkleTree& node) const
 {
     return ptrdiff_t(node.bsdf);
 }
