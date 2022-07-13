@@ -54,7 +54,8 @@ void nbl_glsl_blit_main()
 
 	const uvec3 iterationRegions[3] = uvec3[]( uvec3(outputTexelsPerWG.x, preloadRegion.yz), uvec3(outputTexelsPerWG.yx, preloadRegion.z), outputTexelsPerWG.yxz );
 
-	uint read = 0;
+	uint readScratchOffset = 0;
+	uint writeScratchOffset = params.secondScratchOffset;
 	for (uint axis = 0; axis < _NBL_GLSL_BLIT_DIM_COUNT_; ++axis)
 	{
 		const uvec3 iterationRegion = iterationRegions[axis];
@@ -84,7 +85,7 @@ void nbl_glsl_blit_main()
 					combinedStride = virtualInvocationID.y * outputTexelsPerWG.y + virtualInvocationID.x;
 			}
 
-			uint offset = (minKernelWindow - regionStartCoord[axis]) + combinedStride*preloadRegion[axis];
+			uint offset = readScratchOffset + (minKernelWindow - regionStartCoord[axis]) + combinedStride*preloadRegion[axis];
 			const uint windowPhase = outputPixel % params.phaseCount[axis];
 
 			uint kernelWeightIndex;
@@ -99,7 +100,7 @@ void nbl_glsl_blit_main()
 
 			vec4 accum = vec4(0.f);
 			for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
-				accum[ch] = scratchShared[ch][params.secondScratchOffset*read + offset] * kernelWeight[ch];
+				accum[ch] = scratchShared[ch][offset] * kernelWeight[ch];
 
 			for (uint i = 1; i < params.windowDim[axis]; ++i)
 			{
@@ -108,7 +109,7 @@ void nbl_glsl_blit_main()
 
 				kernelWeight = nbl_glsl_blit_getKernelWeight(kernelWeightIndex);
 				for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
-					accum[ch] += scratchShared[ch][params.secondScratchOffset*read + offset] * kernelWeight[ch];
+					accum[ch] += scratchShared[ch][offset] * kernelWeight[ch];
 			}
 
 			const bool lastPass = (axis == (_NBL_GLSL_BLIT_DIM_COUNT_ - 1));
@@ -127,19 +128,21 @@ void nbl_glsl_blit_main()
 			}
 			else
 			{
+				uint scratchOffset = writeScratchOffset;
 				if (axis == 0)
-				{
-					for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
-						scratchShared[ch][params.secondScratchOffset * (1 - read) + nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.yxz, iterationRegions[0].yxz)] = accum[ch];
-				}
-				else if (axis == 1)
-				{
-					for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
-						scratchShared[ch][params.secondScratchOffset * (1 - read) + nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.zxy, iterationRegions[1].zxy)] = accum[ch];
-				}
+					scratchOffset += nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.yxz, iterationRegions[0].yxz);
+				else 
+					scratchOffset += writeScratchOffset + nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.zxy, iterationRegions[1].zxy);
+				
+				for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
+					scratchShared[ch][scratchOffset] = accum[ch];
+				
 			}
 		}
-		read ^= 1;
+		
+		const uint tmp = readScratchOffset;
+		readScratchOffset = writeScratchOffset;
+		writeScratchOffset = tmp;
 		barrier();
 	}
 }
