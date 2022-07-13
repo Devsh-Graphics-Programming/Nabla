@@ -172,11 +172,16 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
             if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
             {
-                barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-                barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
-                barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-                barrier.newLayout = finalLayout;
-                cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+                // Cannot transition to UNDEFINED and PREINITIALIZED
+                // TODO: Take an extra parameter that let's the user choose the newLayout or an output parameter that tells the user the final layout
+                if(finalLayout != asset::EIL_UNDEFINED && finalLayout != asset::EIL_PREINITIALIZED)
+                {
+                    barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+                    barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+                    barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                    barrier.newLayout = finalLayout;
+                    cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
+                }
             }
 
             return retImg;
