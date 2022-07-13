@@ -39,7 +39,7 @@ public:
 
 			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
 			{
-				result->m_blitDSLayout[i] = result->getDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, result->m_device.get());
+				result->m_blitDSLayout[i] = result->createDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, result->m_device.get());
 				if (!result->m_blitDSLayout[i])
 					return nullptr;
 			}
@@ -48,7 +48,7 @@ public:
 		{
 			constexpr auto KernelWeightsDescriptorCount = 1;
 			asset::E_DESCRIPTOR_TYPE types[KernelWeightsDescriptorCount] = { asset::EDT_UNIFORM_TEXEL_BUFFER };
-			result->m_kernelWeightsDSLayout = result->getDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get());
+			result->m_kernelWeightsDSLayout = result->createDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get());
 
 			if (!result->m_kernelWeightsDSLayout)
 				return nullptr;
@@ -151,7 +151,6 @@ public:
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(
-		const asset::E_FORMAT inFormat,
 		const asset::E_FORMAT outFormat,
 		const asset::IImage::E_TYPE imageType,
 		const core::vectorSIMDu32& inExtent,
@@ -181,13 +180,7 @@ public:
 
 		const auto castedFormat = getOutImageViewFormat(outFormat);
 		const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
-		// Todo(achal): All this belongs in validation
-		{
-			const uint32_t inChannelCount = asset::getFormatChannelCount(inFormat);
-			assert(outChannelCount <= inChannelCount);
-
-			// inFormat should support SAMPLED_BIT format feature
-		}
+		
 		const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 		shaderSourceStream
@@ -217,7 +210,6 @@ public:
 
 	template <typename KernelX, typename KernelY, typename KernelZ>
 	core::smart_refctd_ptr<video::IGPUComputePipeline> getBlitPipeline(
-		const asset::E_FORMAT inFormat,
 		const asset::E_FORMAT outFormat,
 		const asset::IImage::E_TYPE imageType,
 		const core::vectorSIMDu32& inExtent,
@@ -244,7 +236,6 @@ public:
 			const auto blitType = (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE) ? EBT_COVERAGE_ADJUSTMENT : EBT_REGULAR;
 
 			auto specShader = createBlitSpecializedShader(
-				inFormat,
 				outFormat,
 				imageType,
 				inExtent,
@@ -663,8 +654,8 @@ public:
 	{
 		const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
 
+		// if (formatUsages.storageImage)
 		if (formatUsages.storageImage && format != asset::EF_B10G11R11_UFLOAT_PACK32)
-		// if (formatUsages.storageImage) // RMSE: 0.227089
 		{
 			return format;
 		}
@@ -680,7 +671,7 @@ public:
 		}
 	}
 
-	static inline asset::E_FORMAT getIntermediateFormat(const asset::E_FORMAT format)
+	static inline asset::E_FORMAT getCoverageAdjustmentIntermediateFormat(const asset::E_FORMAT format)
 	{
 		using namespace nbl::asset;
 
@@ -810,7 +801,7 @@ private:
 		cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 	}
 
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
 	{
 		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5;
 		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);

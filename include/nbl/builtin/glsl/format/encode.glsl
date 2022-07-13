@@ -83,27 +83,25 @@ uint nbl_glsl_encodeRGB10A2_SNORM(in vec4 col)
 }
 
 // TODO: break it down into uint nbl_glsl_encode_ufloat_exponent(in float _f32) and nbl_glsl_encode_ufloat_mantissa(in float _f32, in uint mantissaBits, in bool leadingOne)
-uint nbl_glsl_encode_ufloat(in float _f32, in uint mantissaBits)
+uint nbl_glsl_encode_ufloat(in float _f32, in uint mantissaBits, in uint expBits)
 {
-	uint minSinglePrecisionVal = floatBitsToUint(nbl_glsl_R11G11B10_MIN);
-	uint maxSinglePrecisionVal = floatBitsToUint(nbl_glsl_R11G11B10_MAX);
+	uint minSinglePrecisionVal = floatBitsToUint(nbl_glsl_ieee754_min(expBits, mantissaBits));
+	uint maxSinglePrecisionVal = floatBitsToUint(nbl_glsl_ieee754_max(expBits, mantissaBits));
 
 	if (_f32 < uintBitsToFloat(maxSinglePrecisionVal))
 	{
 		if (_f32 < uintBitsToFloat(minSinglePrecisionVal))
 			return 0;
 
-		const int exp = int(nbl_glsl_ieee754_extract_biased_exponent(_f32) - 127);
+		const int exp = nbl_glsl_ieee754_extract_exponent(_f32);
 		const uint mantissa = nbl_glsl_ieee754_extract_mantissa(_f32);
 
-		const uint e = uint(exp + nbl_glsl_R11G11B10_BIAS);
-		const uint m = mantissa >> (23 - mantissaBits);
-		const uint encodedValue = (e << mantissaBits) | m;
+		const uint encodedValue = nbl_glsl_ieee754_encode_ufloat_impl(exp, expBits, mantissa, mantissaBits);
 
 		return encodedValue;
 	}
 
-	const uint expMask = ((1 << nbl_glsl_R11G11B10_EXPONENT_BITS) - 1) << mantissaBits;
+	const uint expMask = nbl_glsl_ieee754_compute_exponent_mask(expBits, mantissaBits);
 	const uint mantissaMask = nbl_glsl_ieee754_compute_mantissa_mask(mantissaBits);
 
 	return expMask | (isnan(_f32) ? mantissaMask : 0u);
@@ -112,13 +110,13 @@ uint nbl_glsl_encode_ufloat(in float _f32, in uint mantissaBits)
 uint to11bitFloat(in float _f32)
 {
 	const uint mantissaBits = 6;
-	return nbl_glsl_encode_ufloat(_f32, mantissaBits);
+	return nbl_glsl_encode_ufloat(_f32, mantissaBits, 11-mantissaBits);
 }
 
 uint to10bitFloat(in float _f32)
 {
 	const uint mantissaBits = 5;
-	return nbl_glsl_encode_ufloat(_f32, mantissaBits);
+	return nbl_glsl_encode_ufloat(_f32, mantissaBits, 10-mantissaBits);
 }
 
 uint nbl_glsl_encodeR11G11B10(in vec4 col)

@@ -240,6 +240,7 @@ set(nbl_resources_to_embed
   # blit
   "nbl/builtin/glsl/blit/formats_encode.glsl"
   "nbl/builtin/glsl/blit/parameters.glsl"
+  "nbl/builtin/glsl/blit/multi_dimensional_array_addressing.glsl"
   "nbl/builtin/glsl/blit/default_compute_common.comp"
 
   "nbl/builtin/glsl/blit/default_compute_blit.comp"

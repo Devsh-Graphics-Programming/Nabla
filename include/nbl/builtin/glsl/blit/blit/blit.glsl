@@ -3,6 +3,8 @@
 
 #ifndef _NBL_GLSL_BLIT_MAIN_DEFINED_
 
+#include <nbl/builtin/glsl/blit/multi_dimensional_array_addressing.glsl>
+
 #include <nbl/builtin/glsl/blit/parameters.glsl>
 nbl_glsl_blit_parameters_t nbl_glsl_blit_getParameters();
 
@@ -16,23 +18,6 @@ void nbl_glsl_blit_addToHistogram(in uint bucketIndex, in uint layerIdx);
 #endif
 
 #define scratchShared _NBL_GLSL_SCRATCH_SHARED_DEFINED_
-
-uvec3 linearIndexTo3DIndex(in uint linearIndex, in uvec3 gridDim)
-{
-	uvec3 index3D;
-
-	const uint areaXY = gridDim.x * gridDim.y;
-	index3D.z = linearIndex / areaXY;
-	index3D.y = (linearIndex - (index3D.z * areaXY)) / gridDim.x;
-	index3D.x = linearIndex - (index3D.y*gridDim.x) - (index3D.z*areaXY);
-
-	return index3D;	
-}
-
-uint nbl_glsl_multi_dimensional_array_addressing_snakeCurve(in uvec3 coordinate, in uvec3 extents)
-{
-	return (coordinate.z * extents.y + coordinate.y) * extents.x + coordinate.x;
-}
 
 // p in input space
 ivec3 getMinKernelWindowCoord(in vec3 p, in vec3 minSupport)
@@ -51,13 +36,13 @@ void nbl_glsl_blit_main()
 
 	const uvec3 minOutputPixel = gl_WorkGroupID * outputTexelsPerWG;
 	const vec3 minOutputPixelCenterOfWG = vec3(minOutputPixel)*scale + halfScale;
-	const ivec3 regionStartCoord = getMinKernelWindowCoord(minOutputPixelCenterOfWG, params.negativeSupport); // this can be negative, in which case we wrap
+	const ivec3 regionStartCoord = getMinKernelWindowCoord(minOutputPixelCenterOfWG, params.negativeSupport); // this can be negative, in which case HW sampler takes care of wrapping for us
 
 	const uvec3 preloadRegion = params.preloadRegion;
 
 	for (uint virtualInvocation = gl_LocalInvocationIndex; virtualInvocation < preloadRegion.x * preloadRegion.y * preloadRegion.z; virtualInvocation += _NBL_GLSL_WORKGROUP_SIZE_)
 	{
-		const ivec3 inputPixelCoord = regionStartCoord + ivec3(linearIndexTo3DIndex(virtualInvocation, preloadRegion));
+		const ivec3 inputPixelCoord = regionStartCoord + ivec3(nbl_glsl_multi_dimensional_array_addressing_snakeCurveInverse(virtualInvocation, preloadRegion));
 
 		vec3 inputTexCoord = (inputPixelCoord + vec3(0.5f)) / params.inDim;
 		
@@ -75,7 +60,7 @@ void nbl_glsl_blit_main()
 		const uvec3 iterationRegion = iterationRegions[axis];
 		for (uint virtualInvocation = gl_LocalInvocationIndex; virtualInvocation < iterationRegion.x * iterationRegion.y * iterationRegion.z; virtualInvocation += _NBL_GLSL_WORKGROUP_SIZE_)
 		{
-			const uvec3 virtualInvocationID = linearIndexTo3DIndex(virtualInvocation, iterationRegion);
+			const uvec3 virtualInvocationID = nbl_glsl_multi_dimensional_array_addressing_snakeCurveInverse(virtualInvocation, iterationRegion);
 
 			uint outputPixel = virtualInvocationID.x;
 			if (axis == 2)
@@ -109,16 +94,6 @@ void nbl_glsl_blit_main()
 				kernelWeightIndex = params.phaseCount.x * params.windowDim.x + windowPhase * params.windowDim.y;
 			else if (axis == 2)
 				kernelWeightIndex = params.phaseCount.x * params.windowDim.x + params.phaseCount.y * params.windowDim.y + windowPhase * params.windowDim.z;
-
-			/*
-			* For some reason the following doesn't work?!! Driver bug or UB somewhere?
-				uvec3 kernelWeightLUTCoord = uvec3(0, 0, 0);
-				for (uint i = 0; i < _NBL_GLSL_BLIT_DIM_COUNT_ - 1; ++i)
-					kernelWeightLUTCoord[i] = params.phaseCount[i];
-				kernelWeightLUTCoord[axis] = windowPhase;
-			
-				uint kernelWeightIndex = uint(dot(kernelWeightLUTCoord, params.windowDim));
-			*/
 
 			vec4 kernelWeight = nbl_glsl_blit_getKernelWeight(kernelWeightIndex);
 
