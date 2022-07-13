@@ -583,6 +583,11 @@ public:
 			m_features.dualSrcBlend = !IsGLES || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_blend_func_extended);
 			m_features.sampleRateShading = IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 440u;
 
+			// always report as false in gl
+			m_features.vulkanMemoryModel = false;
+			m_features.vulkanMemoryModelDeviceScope = false;
+			m_features.vulkanMemoryModelAvailabilityVisibilityChains = false;
+
 			// there's no layout in GL, so report true since we can just ignore the separate layouts
 			m_features.separateDepthStencilLayouts = true;
 
@@ -727,10 +732,10 @@ public:
 			// [TODO] descriptorBindingUpdateUnusedWhilePending = always report true for those in GL
 			// [TODO] descriptorBindingPartiallyBound = always report true for those in GL
 			// [TODO] descriptorBindingVariableDescriptorCount = false, GL limits on descriptor counts are so low, it makes no sense to bother to implement
-
+			// [TODO] runtimeDescriptorArray = false
 
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
-			// [TODO] shaderSubgroupExtendedTypes = AMD_shader_ballot
+			m_features.shaderSubgroupExtendedTypes = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_ballot);
 			m_features.bufferDeviceAddress = false; // no such capability in GL
 			
 			/* Vulkan 1.3 Core */
@@ -1149,6 +1154,12 @@ public:
 					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
 				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
 					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
+
+				// From https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_shader_subgroup.txt:
+				// <id> must be an integral constant expression when targeting SPIR - V 1.4 and below, otherwise it must
+				// be dynamically uniform within the subgroup.
+				// Since `m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;`, this is always true in GL.
+				m_features.subgroupBroadcastDynamicId = true;
 			}
 			// TODO: Use ARB_shader_ballot to perform runtime test for more specific subgroup min & max
 			// 

@@ -497,7 +497,8 @@ public:
 
         // Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures             separateDepthStencilLayoutsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceVulkanMemoryModelFeatures                       vulkanMemoryModelFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures             separateDepthStencilLayoutsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES, &vulkanMemoryModelFeatures };
         VkPhysicalDeviceUniformBufferStandardLayoutFeatures             uniformBufferStandardLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES, &separateDepthStencilLayoutsFeatures };
         VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV, &uniformBufferStandardLayoutFeatures };
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &rayTracingMotionBlurFeatures };
@@ -591,6 +592,11 @@ public:
             
             /* Vulkan 1.2 Core  */
             
+            if (instanceApiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
+            {
+                m_features.subgroupBroadcastDynamicId = vulkan12Features.subgroupBroadcastDynamicId;
+            }
+
             if (isExtensionSupported(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
             {
                 m_features.storageBuffer8BitAccess = _8BitStorageFeaturesKHR.storageBuffer8BitAccess;
@@ -632,6 +638,7 @@ public:
                  m_features.descriptorBindingUpdateUnusedWhilePending = descriptorIndexingFeaturesEXT.descriptorBindingUpdateUnusedWhilePending;
                  m_features.descriptorBindingPartiallyBound = descriptorIndexingFeaturesEXT.descriptorBindingPartiallyBound;
                  m_features.descriptorBindingVariableDescriptorCount = descriptorIndexingFeaturesEXT.descriptorBindingVariableDescriptorCount;
+                 m_features.runtimeDescriptorArray = descriptorIndexingFeaturesEXT.runtimeDescriptorArray;
             }
 
             m_features.samplerMirrorClampToEdge = isExtensionSupported(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
@@ -712,6 +719,14 @@ public:
             if (isExtensionSupported(VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME))
             {
                 m_features.separateDepthStencilLayouts = separateDepthStencilLayoutsFeatures.separateDepthStencilLayouts;
+            }
+
+            /* VkPhysicalDeviceVulkanMemoryModelFeatures */
+            if (isExtensionSupported(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME))
+            {
+                m_features.vulkanMemoryModel = vulkanMemoryModelFeatures.vulkanMemoryModel;
+                m_features.vulkanMemoryModelDeviceScope = vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope;
+                m_features.vulkanMemoryModelAvailabilityVisibilityChains = vulkanMemoryModelFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
             }
 
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);

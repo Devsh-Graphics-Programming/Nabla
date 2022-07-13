@@ -140,7 +140,7 @@ struct SPhysicalDeviceFeatures
     bool descriptorBindingUpdateUnusedWhilePending = false;
     bool descriptorBindingPartiallyBound = false;
     bool descriptorBindingVariableDescriptorCount = false;
-    //VkBool32           runtimeDescriptorArray; // [FUTURE TODO]
+    VkBool32 runtimeDescriptorArray = false;
     
     bool                 samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
     
@@ -165,13 +165,13 @@ struct SPhysicalDeviceFeatures
     VkBool32           bufferDeviceAddressMultiDevice;
     
     // or VK_KHR_vulkan_memory_model
-    //VkBool32           vulkanMemoryModel;
-    //VkBool32           vulkanMemoryModelDeviceScope;
-    //VkBool32           vulkanMemoryModelAvailabilityVisibilityChains;
+    VkBool32           vulkanMemoryModel;
+    VkBool32           vulkanMemoryModelDeviceScope;
+    VkBool32           vulkanMemoryModelAvailabilityVisibilityChains;
     
     //VkBool32           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
     //VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
-    //VkBool32           subgroupBroadcastDynamicId;    // if Vulkan 1.2 is supported
+    VkBool32           subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
 
 
 
