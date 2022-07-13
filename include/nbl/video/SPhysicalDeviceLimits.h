@@ -290,7 +290,7 @@ struct SPhysicalDeviceLimits
     // or VK_EXT_texel_buffer_alignment:
     VkDeviceSize          storageTexelBufferOffsetAlignmentBytes;
     //VkBool32              storageTexelBufferOffsetSingleTexelAlignment;
-    //VkDeviceSize          uniformTexelBufferOffsetAlignmentBytes;
+    VkDeviceSize          uniformTexelBufferOffsetAlignmentBytes;
     //VkBool32              uniformTexelBufferOffsetSingleTexelAlignment;
     
     size_t                  maxBufferSize = 0ull; // or VK_KHR_maintenance4

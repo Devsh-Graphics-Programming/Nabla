@@ -937,6 +937,10 @@ public:
 			assert(core::is_alignment(m_properties.limits.minSSBOAlignment));
 			// TODO: GLES has a problem with reporting this
 			GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.bufferViewAlignment));
+			
+			// GL treated as VK1.1 impl; GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT treated as vk10_props.minTexelBufferOffsetAlignment
+			m_properties.limits.storageTexelBufferOffsetAlignmentBytes = m_properties.limits.bufferViewAlignment;
+			m_properties.limits.uniformTexelBufferOffsetAlignmentBytes = m_properties.limits.bufferViewAlignment;
 
 			if (!core::is_alignment(m_properties.limits.bufferViewAlignment))
 				m_properties.limits.bufferViewAlignment = 16u;
@@ -1101,32 +1105,8 @@ public:
 			m_properties.limits.subgroupSize = 0u;
 			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
 
-			// Baseline:
-			// Nvidia: min and max is 32
-			// AMD: min 32 max 64
-			// Intel: min 8 max 32
-			// Others: min 4 max 64
-			// 
 			// If extensions are available for more accurate values, they will be set below
-			if (isNVIDIAGPU)
-			{
-				m_properties.limits.subgroupSize = 32;
-				m_properties.limits.maxSubgroupSize = 32;
-			}
-			else if (isAMDGPU)
-			{
-				m_properties.limits.subgroupSize = 32;
-				m_properties.limits.maxSubgroupSize = 64;
-			}
-			else if (isIntelGPU)
-			{
-				m_properties.limits.subgroupSize = 8;
-				m_properties.limits.maxSubgroupSize = 32;
-			}
-			else {
-				m_properties.limits.subgroupSize = 4;
-				m_properties.limits.maxSubgroupSize = 64;
-			}
+			getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, &m_properties.limits.subgroupSize, &m_properties.limits.maxSubgroupSize);
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
@@ -1224,8 +1204,11 @@ public:
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
 				m_properties.limits.conservativeRasterizationPostDepthCoverage = true;
 
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_window_rectangles))
+			{
+				GetIntegeri_v(GL_MAX_WINDOW_RECTANGLES_EXT, &m_properties.limits.maxDiscardRectangles);
+			}
 
-			// [TODO] maxDiscardRectangles -> in GL requires EXT_window_rectangles and then the cap is MAX_WINDOW_RECTANGLES_EXT
 			// [TODO] SampleLocationsPropertiesEXT
 			// [TODO] CooperativeMatrixPropertiesNV
 
