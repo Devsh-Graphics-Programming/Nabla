@@ -329,6 +329,9 @@ struct SPhysicalDeviceLimits
     //VkBool32           advancedBlendNonPremultipliedDstColor;
     //VkBool32           advancedBlendCorrelatedOverlap;
     //VkBool32           advancedBlendAllOperations;
+
+    VkBool32           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
             
     /* ConservativeRasterizationPropertiesEXT *//* provided by VK_EXT_conservative_rasterization */
     float   primitiveOverestimationSize;

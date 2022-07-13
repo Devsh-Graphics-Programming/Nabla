@@ -142,9 +142,9 @@ struct SPhysicalDeviceFeatures
     bool descriptorBindingVariableDescriptorCount = false;
     VkBool32 runtimeDescriptorArray = false;
     
-    bool                 samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
+    bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
     
-    //VkBool32           scalarBlockLayout;     // or VK_EXT_scalar_block_layout
+    VkBool32 scalarBlockLayout = false;     // or VK_EXT_scalar_block_layout
     
     //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO]
     
@@ -168,9 +168,7 @@ struct SPhysicalDeviceFeatures
     VkBool32           vulkanMemoryModel;
     VkBool32           vulkanMemoryModelDeviceScope;
     VkBool32           vulkanMemoryModelAvailabilityVisibilityChains;
-    
-    //VkBool32           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
-    //VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
+   
     VkBool32           subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
 
 
@@ -192,14 +190,14 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] ever
     //VkBool32           privateData;                       // or VK_EXT_private_data
     
-    //VkBool32           shaderDemoteToHelperInvocation;    // or VK_EXT_shader_demote_to_helper_invocation
-    //VkBool32           shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
+    VkBool32           shaderDemoteToHelperInvocation;    // or VK_EXT_shader_demote_to_helper_invocation
+    VkBool32           shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
     
     // or VK_EXT_subgroup_size_control
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
-    // [DO NOT EXPOSE] and false because we havent rewritten our frontend API for that
+    // [DO NOT EXPOSE] and false because we havent rewritten our frontend API for that: https://github.com/Devsh-Graphics-Programming/Nabla/issues/384
     //VkBool32           synchronization2;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
@@ -211,7 +209,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] EVIL
     //VkBool32           dynamicRendering;                      // or VK_KHR_dynamic_rendering
     
-    //VkBool32           shaderIntegerDotProduct;               // or VK_KHR_shader_integer_dot_product
+    VkBool32           shaderIntegerDotProduct;               // or VK_KHR_shader_integer_dot_product
     //VkBool32           maintenance4;                          // [DO NOT EXPOSE] doesn't make sense
 
 
@@ -228,13 +226,14 @@ struct SPhysicalDeviceFeatures
     //VkBool32 shaderEarlyAndLateFragmentTests;
 
     /* RasterizationOrderAttachmentAccessFeaturesARM *//* VK_ARM_rasterization_order_attachment_access */
-    //VkBool32           rasterizationOrderColorAttachmentAccess;
-    //VkBool32           rasterizationOrderDepthAttachmentAccess;
-    //VkBool32           rasterizationOrderStencilAttachmentAccess;
+    VkBool32 rasterizationOrderColorAttachmentAccess;
+    VkBool32 rasterizationOrderDepthAttachmentAccess;
+    VkBool32 rasterizationOrderStencilAttachmentAccess;
     
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
     
+    // [TODO]
     /* ASTCDecodeFeaturesEXT *//* VK_EXT_astc_decode_mode */
     //VkFormat           decodeMode;
 
@@ -253,6 +252,7 @@ struct SPhysicalDeviceFeatures
     /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
     //VkBool32           colorWriteEnable;
 
+    // [TODO] would need API to deal with queries and begin/end conditional blocks
     /* ConditionalRenderingFeaturesEXT *//* VK_EXT_conditional_rendering */
     //VkBool32           conditionalRendering;
     //VkBool32           inheritedConditionalRendering;
@@ -324,7 +324,7 @@ struct SPhysicalDeviceFeatures
     //VkBool32           minLod;
 
     /* IndexTypeUint8FeaturesEXT *//* VK_EXT_index_type_uint8 */
-    //VkBool32           indexTypeUint8;
+    VkBool32           indexTypeUint8 = false;
     
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
 
@@ -380,18 +380,18 @@ struct SPhysicalDeviceFeatures
     /* ScalarBlockLayoutFeaturesEXT *//* VK_EXT_scalar_block_layout *//* MOVED TO Vulkan 1.2 Core */
     
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
-    //VkBool32           shaderBufferFloat32Atomics;
-    //VkBool32           shaderBufferFloat32AtomicAdd;
-    //VkBool32           shaderBufferFloat64Atomics;
-    //VkBool32           shaderBufferFloat64AtomicAdd;
-    //VkBool32           shaderSharedFloat32Atomics;
-    //VkBool32           shaderSharedFloat32AtomicAdd;
-    //VkBool32           shaderSharedFloat64Atomics;
-    //VkBool32           shaderSharedFloat64AtomicAdd;
-    //VkBool32           shaderImageFloat32Atomics;
-    //VkBool32           shaderImageFloat32AtomicAdd;
-    //VkBool32           sparseImageFloat32Atomics;
-    //VkBool32           sparseImageFloat32AtomicAdd;
+    VkBool32           shaderBufferFloat32Atomics;
+    VkBool32           shaderBufferFloat32AtomicAdd;
+    VkBool32           shaderBufferFloat64Atomics;
+    VkBool32           shaderBufferFloat64AtomicAdd;
+    VkBool32           shaderSharedFloat32Atomics;
+    VkBool32           shaderSharedFloat32AtomicAdd;
+    VkBool32           shaderSharedFloat64Atomics;
+    VkBool32           shaderSharedFloat64AtomicAdd;
+    VkBool32           shaderImageFloat32Atomics;
+    VkBool32           shaderImageFloat32AtomicAdd;
+    VkBool32           sparseImageFloat32Atomics;
+    VkBool32           sparseImageFloat32AtomicAdd;
 
     /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
     //VkBool32           shaderBufferFloat16Atomics;

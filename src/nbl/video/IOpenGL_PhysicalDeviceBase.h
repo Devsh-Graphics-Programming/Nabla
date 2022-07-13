@@ -526,6 +526,8 @@ public:
 			m_features.independentBlend = IsGLES 
 				? (m_glfeatures.Version >= 320u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_draw_buffers_indexed) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_draw_buffers_indexed))
 				: true;
+			m_features.shaderDemoteToHelperInvocation = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_demote_to_helper_invocation);
+			m_features.shaderTerminateInvocation = true;
 
 			if (!IsGLES || m_glfeatures.Version >= 320u)
 			{
@@ -610,7 +612,9 @@ public:
 				? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array))
 				: true;
 
-			if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
+			if (m_glfeatures.Version >= 460u ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_texture_filter_anisotropic) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 			{
 				GLint maxAnisotropy = 0;
 				GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
@@ -621,6 +625,32 @@ public:
 				}
 			}
 			
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float))
+			{
+				m_features.shaderBufferFloat32Atomics = true;
+				m_features.shaderBufferFloat32AtomicsAdd = true;
+				m_features.shaderSharedFloat32Atomics = true;
+				m_features.shaderSharedFloat32AtomicAdd = true;
+				m_features.shaderSharedFloat32Atomics = true;
+				m_features.shaderImageFloat32Atomics = true;
+				m_features.shaderImageFloat32AtomicsAdd = true;
+				// TODO: verify, not sure about those
+				// m_features.sparseImageFloat32Atomics = true;
+				// m_features.sparseImageFloat32AtomicAdd = true;
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_shader_atomic_float_minmax))
+			{
+				shaderBufferFloat32Atomics = true;
+				shaderSharedFloat32Atomics = true;
+			}
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float64))
+			{
+				shaderBufferFloat64Atomics = true;
+				shaderBufferFloat64AtomicsAdd = true;
+				shaderSharedFloat64Atomics = true;
+				shaderSharedFloat64AtomicsAdd = true;
+			}
 			
 			m_features.occlusionQueryPrecise = !IsGLES;
 			
@@ -702,6 +732,13 @@ public:
 			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
 
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_viewport_layer_array) ||
+				m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array2))
+			{
+				m_features.shaderOutputViewportIndex = true;
+				m_features.shaderOutputLayer = true;
+			}
+
 			// [TODO] storageBuffer8BitAccess = NV_gpu_shader5
 			// [TODO] uniformAndStorageBuffer8BitAccess = NV_gpu_shader5
 			// [TODO] storagePushConstant8 => for now make GL and GLES report false and leave a comment with a TODO: implemenent, then return true
@@ -757,7 +794,14 @@ public:
 				m_features.fragmentShaderSampleInterlock = true;
 				m_features.fragmentShaderShadingRateInterlock = true;
 			}
-			
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_shader_framebuffer_fetch))
+			{
+				m_features.rasterizationOrderColorAttachmentAccess = true;
+				m_features.rasterizationOrderDepthAttachmentAccess = true;
+				m_features.rasterizationOrderStencilAttachmentAccess = true;
+			}
+
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
 
 			// TODO: move this to IPhysicalDevice::SFeatures

@@ -497,7 +497,13 @@ public:
 
         // Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceVulkanMemoryModelFeatures                       vulkanMemoryModelFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceShaderAtomicFloatFeaturesEXT                    shaderAtomicFloatFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceIndexTypeUint8FeaturesEXT                       indexTypeUint8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT, &shaderAtomicFloatFeatures };
+        VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM, &indexTypeUint8Features };
+        VkPhysicalDeviceShaderIntegerDotProductProperties               shaderIntegerDotProductFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES, &rasterizationOrderAttachmentAccessFeatures };
+        VkPhysicalDeviceShaderTerminateInvocationFeatures               shaderTerminateInvocationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES, &shaderIntegerDotProductFeatures };
+        VkPhysicalDeviceScalarBlockLayoutFeatures                       scalarBlockLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES, &shaderTerminateInvocationFeatures };
+        VkPhysicalDeviceVulkanMemoryModelFeatures                       vulkanMemoryModelFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES, &scalarBlockLayoutFeatures };
         VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures             separateDepthStencilLayoutsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES, &vulkanMemoryModelFeatures };
         VkPhysicalDeviceUniformBufferStandardLayoutFeatures             uniformBufferStandardLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES, &separateDepthStencilLayoutsFeatures };
         VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV, &uniformBufferStandardLayoutFeatures };
@@ -650,6 +656,18 @@ public:
                 m_features.shaderSubgroupExtendedTypes = shaderSubgroupExtendedTypesFeaturesKHR.shaderSubgroupExtendedTypes;
             }
 
+            if (isExtensionSupported(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
+            {
+                m_properties.limits.shaderOutputViewportIndex = true;
+                m_properties.limits.shaderOutputLayer = true;
+            }
+            else if (instanceApiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
+            {
+                m_properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
+                m_properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
+            }
+            m_features.shaderDemoteToHelperInvocation = isExtensionSupported(VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME);
+
             /* Vulkan 1.3 Core  */
             if(isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
             {
@@ -727,6 +745,55 @@ public:
                 m_features.vulkanMemoryModel = vulkanMemoryModelFeatures.vulkanMemoryModel;
                 m_features.vulkanMemoryModelDeviceScope = vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope;
                 m_features.vulkanMemoryModelAvailabilityVisibilityChains = vulkanMemoryModelFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
+            }
+
+            /* VkPhysicalDeviceScalarBlockLayoutFeatures */
+            if (isExtensionSupported(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME))
+            {
+                m_features.scalarBlockLayout = scalarBlockLayoutFeatures.scalarBlockLayout;
+            }
+
+            /* VkPhysicalDeviceShaderTerminateInvocationFeatures */
+            if (isExtensionSupported(VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME))
+            {
+                m_features.shaderTerminateInvocation = shaderTerminateInvocationFeatures.shaderTerminateInvocation;
+            }
+
+            /* VkPhysicalDeviceShaderTerminateInvocationFeatures */
+            if (isExtensionSupported(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME))
+            {
+                // [TODO] there's a bunch of fields! https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR.html
+            }
+
+            /* VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM */
+            if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
+            {
+                m_features.rasterizationOrderColorAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderColorAttachmentAccess;
+                m_features.rasterizationOrderDepthAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess;
+                m_features.rasterizationOrderStencilAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess;
+            }
+
+            /* VkPhysicalDeviceShaderAtomicFloatFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME))
+            {
+                m_features.shaderBufferFloat32Atomics = shaderAtomicFloatFeatures.shaderBufferFloat32Atomics;
+                m_features.shaderBufferFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd;
+                m_features.shaderBufferFloat64Atomics = shaderAtomicFloatFeatures.shaderBufferFloat64Atomics;
+                m_features.shaderBufferFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd;
+                m_features.shaderSharedFloat32Atomics = shaderAtomicFloatFeatures.shaderSharedFloat32Atomics;
+                m_features.shaderSharedFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd;
+                m_features.shaderSharedFloat64Atomics = shaderAtomicFloatFeatures.shaderSharedFloat64Atomics;
+                m_features.shaderSharedFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd;
+                m_features.shaderImageFloat32Atomics = shaderAtomicFloatFeatures.shaderImageFloat32Atomics;
+                m_features.shaderImageFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd;
+                m_features.sparseImageFloat32Atomics = shaderAtomicFloatFeatures.sparseImageFloat32Atomics;
+                m_features.sparseImageFloat32AtomicAdd = shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd;
+            }
+
+            /* VkPhysicalDeviceIndexTypeUint8FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME))
+            {
+                m_features.indexTypeUint8 = indexTypeUint8Features.indexTypeUint8;
             }
 
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);
