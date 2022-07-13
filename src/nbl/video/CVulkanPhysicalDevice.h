@@ -905,6 +905,14 @@ protected:
             addFeatureToChain(&bufferDeviceAddressFeatures);
         }
 
+        // Always enable texelBufferAlignment when present
+        VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT };
+        if (m_availableFeatureSet.find(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME) != m_availableFeatureSet.end())
+        {
+            texelBufferAlignmentFeatures.texelBufferAlignment = true;
+            addFeatureToChain(&texelBufferAlignmentFeatures);
+        }
+
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
         vk_deviceFeatures2.pNext = firstFeatureInChain;
         vk_deviceFeatures2.features = {};
