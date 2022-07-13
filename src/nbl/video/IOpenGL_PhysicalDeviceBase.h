@@ -1087,7 +1087,7 @@ public:
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;
 			
-			// maxSubgroupSize can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			// maxSubgroupSize can be overriden later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
 			getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, m_properties.limits.minSubgroupSize, m_properties.limits.maxSubgroupSize);
 
 			m_properties.limits.maxComputeWorkgroupSubgroups = m_properties.limits.maxComputeWorkGroupInvocations/m_properties.limits.minSubgroupSize;
@@ -1104,9 +1104,6 @@ public:
 			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;
 			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
-
-			// If extensions are available for more accurate values, they will be set below
-			getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, &m_properties.limits.subgroupSize, &m_properties.limits.maxSubgroupSize);
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
@@ -1206,7 +1203,7 @@ public:
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_window_rectangles))
 			{
-				GetIntegeri_v(GL_MAX_WINDOW_RECTANGLES_EXT, &m_properties.limits.maxDiscardRectangles);
+				GetIntegerv(GL_MAX_WINDOW_RECTANGLES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxDiscardRectangles));
 			}
 
 			// [TODO] SampleLocationsPropertiesEXT

@@ -353,18 +353,16 @@ struct SPhysicalDeviceLimits
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
     size_t minImportedHostPointerAlignment = 0x1ull<<63u;
     
-    // [TODO]
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
-    //VkExtent2D         minFragmentDensityTexelSize;
-    //VkExtent2D         maxFragmentDensityTexelSize;
-    //VkBool32           fragmentDensityInvocations;
+    VkExtent2D         minFragmentDensityTexelSize;
+    VkExtent2D         maxFragmentDensityTexelSize;
+    VkBool32           fragmentDensityInvocations;
     
-    // [TODO]
     /* FragmentDensityMap2PropertiesEXT *//* provided by VK_EXT_fragment_density_map2 */
-    //VkBool32           subsampledLoads;
-    //VkBool32           subsampledCoarseReconstructionEarlyAccess;
-    //uint32_t           maxSubsampledArrayLayers;
-    //uint32_t           maxDescriptorSetSubsampledSamplers;
+    VkBool32           subsampledLoads;
+    VkBool32           subsampledCoarseReconstructionEarlyAccess;
+    uint32_t           maxSubsampledArrayLayers;
+    uint32_t           maxDescriptorSetSubsampledSamplers;
     
     // [TODO] too much effort
     // GLHint: Report false for both on GL

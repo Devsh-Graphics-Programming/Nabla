@@ -60,6 +60,8 @@ public:
         VkPhysicalDeviceDiscardRectanglePropertiesEXT discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT, &PCIBusInfoProperties };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &discardRectangleProperties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
+        VkPhysicalDeviceFragmentDensityMapPropertiesEXT fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT, &accelerationStructureProperties };
+        VkPhysicalDeviceFragmentDensityMap2PropertiesEXT fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT, &fragmentDensityMapProperties };
         {
             //! Basically remove a query struct from the chain if it's not supported by vulkan version:
             //! We need to do these only for `vulkan12Properties` and `vulkan13Properties` since our minimum is Vulkan 1.1 and these two are only provided by VK_VESION_1_2/1_3 (not any extensions) 
@@ -78,7 +80,7 @@ public:
 
 
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            deviceProperties.pNext = &accelerationStructureProperties;
+            deviceProperties.pNext = &fragmentDensityMap2Properties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
 
             /* Vulkan 1.0 Core  */
@@ -391,7 +393,7 @@ public:
                 m_properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
                 m_properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
             }
-            
+
             /* RayTracingPipelinePropertiesKHR */
             if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
             {
@@ -403,6 +405,23 @@ public:
                 m_properties.limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
                 m_properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
                 m_properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMapPropertiesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+            {
+                m_properties.limits.minFragmentDensityTexelSize = fragmentDensityMapProperties.minFragmentDensityTexelSize;
+                m_properties.limits.maxFragmentDensityTexelSize = fragmentDensityMapProperties.maxFragmentDensityTexelSize;
+                m_properties.limits.fragmentDensityInvocations = fragmentDensityMapProperties.fragmentDensityInvocations;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMapPropertiesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+            {
+                m_properties.limits.subsampledLoads = fragmentDensityMap2Properties.subsampledLoads;
+                m_properties.limits.subsampledCoarseReconstructionEarlyAccess = fragmentDensityMap2Properties.subsampledCoarseReconstructionEarlyAccess;
+                m_properties.limits.maxSubsampledArrayLayers = fragmentDensityMap2Properties.maxSubsampledArrayLayers;
+                m_properties.limits.maxDescriptorSetSubsampledSamplers = fragmentDensityMap2Properties.maxDescriptorSetSubsampledSamplers;
             }
 
             /* Nabla */
