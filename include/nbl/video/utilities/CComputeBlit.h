@@ -187,8 +187,6 @@ public:
 			<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
 			<< "#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
 
-		const core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inExtent).preciseDivision(static_cast<core::vectorSIMDf>(outExtent));
-
 		const core::vectorSIMDf minSupport(-scaledKernelX.negative_support[0], -scaledKernelY.negative_support[1], -scaledKernelZ.negative_support[2]);
 		const core::vectorSIMDf maxSupport(scaledKernelX.positive_support[0], scaledKernelY.positive_support[1], scaledKernelZ.positive_support[2]);
 
@@ -539,6 +537,8 @@ public:
 		return true;
 	}
 
+	//! User is responsible for the memory barriers between previous writes and the first
+	//! dispatch on the input image, and future reads of output image and the last dispatch.
 	template <typename KernelX, typename KernelY, typename KernelZ>
 	inline void blit(
 		video::IGPUCommandBuffer* cmdbuf,
@@ -871,7 +871,7 @@ private:
 	{
 		const auto preloadRegion = getPreloadRegion(outputTexelsPerWG, imageType, scaledMinSupport, scaledMaxSupport, scale);
 
-		const size_t requiredSmem = ((preloadRegion.x * preloadRegion.y * preloadRegion.z) + core::max(outputTexelsPerWG.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x * outputTexelsPerWG.y * preloadRegion.z)) * channelCount * sizeof(float);
+		const size_t requiredSmem = (core::max(preloadRegion.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x * outputTexelsPerWG.y * preloadRegion.z) + outputTexelsPerWG.x * preloadRegion.y * preloadRegion.z)*channelCount*sizeof(float);
 		return requiredSmem;
 	};
 
