@@ -330,9 +330,6 @@ struct SPhysicalDeviceLimits
     //VkBool32           advancedBlendCorrelatedOverlap;
     //VkBool32           advancedBlendAllOperations;
 
-    VkBool32           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
-    VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
-            
     /* ConservativeRasterizationPropertiesEXT *//* provided by VK_EXT_conservative_rasterization */
     float   primitiveOverestimationSize;
     float   maxExtraPrimitiveOverestimationSize;
@@ -563,6 +560,17 @@ struct SPhysicalDeviceLimits
 
     /* SubpassShadingPropertiesHUAWEI *//* VK_HUAWEI_subpass_shading */
     // uint32_t           maxSubpassShadingWorkgroupSizeAspectRatio;
+
+    // Always enabled, reported as limits
+
+    VkBool32           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
+
+    /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
+    VkBool32           shaderIntegerFunctions2 = false;
+
+    /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
+    VkBool32           shaderSubgroupClock;
 
     /* Nabla */
     uint32_t computeUnits = 0u;

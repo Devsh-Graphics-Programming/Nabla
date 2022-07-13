@@ -581,7 +581,7 @@ public:
 				#undef GLENUM_WITH_SUFFIX
 			}
 
-			m_features.logicOp = !IsGLES
+			m_features.logicOp = !IsGLES;
 			m_features.dualSrcBlend = !IsGLES || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_blend_func_extended);
 			m_features.sampleRateShading = IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 440u;
 
@@ -628,32 +628,54 @@ public:
 			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float))
 			{
 				m_features.shaderBufferFloat32Atomics = true;
-				m_features.shaderBufferFloat32AtomicsAdd = true;
+				m_features.shaderBufferFloat32AtomicAdd = true;
 				m_features.shaderSharedFloat32Atomics = true;
 				m_features.shaderSharedFloat32AtomicAdd = true;
 				m_features.shaderSharedFloat32Atomics = true;
 				m_features.shaderImageFloat32Atomics = true;
-				m_features.shaderImageFloat32AtomicsAdd = true;
+				m_features.shaderImageFloat32AtomicAdd = true;
 				// TODO: verify, not sure about those
 				// m_features.sparseImageFloat32Atomics = true;
 				// m_features.sparseImageFloat32AtomicAdd = true;
 			}
 			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_shader_atomic_float_minmax))
 			{
-				shaderBufferFloat32Atomics = true;
-				shaderSharedFloat32Atomics = true;
+				m_features.shaderBufferFloat32Atomics = true;
+				m_features.shaderSharedFloat32Atomics = true;
 			}
 
 			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float64))
 			{
-				shaderBufferFloat64Atomics = true;
-				shaderBufferFloat64AtomicsAdd = true;
-				shaderSharedFloat64Atomics = true;
-				shaderSharedFloat64AtomicsAdd = true;
+				m_features.shaderBufferFloat64Atomics = true;
+				m_features.shaderBufferFloat64AtomicAdd = true;
+				m_features.shaderSharedFloat64Atomics = true;
+				m_features.shaderSharedFloat64AtomicAdd = true;
 			}
-			
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_fp16_vector))
+			{
+				m_features.shaderBufferFloat16Atomics = true;
+				m_features.shaderBufferFloat16AtomicAdd = true;
+				m_features.shaderBufferFloat16AtomicMinMax = true;
+				m_features.shaderSharedFloat16Atomics = true;
+				m_features.shaderSharedFloat16AtomicAdd = true;
+				m_features.shaderSharedFloat16AtomicMinMax = true;
+			}
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_shader_atomic_float_minmax))
+			{
+				m_features.shaderBufferFloat32AtomicMinMax = true;
+				m_features.shaderSharedFloat32AtomicMinMax = true;
+			}
+
+			m_properties.limits.shaderSubgroupClock = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_shader_clock);
+			m_features.shaderDeviceClock = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_shader_realtime_clock);
+
 			m_features.occlusionQueryPrecise = !IsGLES;
-			
+
+			// No extension adds 64-bit image formats for GL
+			m_features.shaderImageInt64Atomics = false;
+			m_features.sparseImageInt64Atomics = false;
+
 			// [TODO] Work these out from limits -> set these after setting the limits below
 			// if any {vertex,control,eval,geom} stage has >0 allowable bindings for {ssbo,storageimage,storagebufferview}, then true
 			m_features.vertexPipelineStoresAndAtomics = false; 
@@ -735,8 +757,8 @@ public:
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_viewport_layer_array) ||
 				m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array2))
 			{
-				m_features.shaderOutputViewportIndex = true;
-				m_features.shaderOutputLayer = true;
+				m_properties.limits.shaderOutputViewportIndex = true;
+				m_properties.limits.shaderOutputLayer = true;
 			}
 
 			// [TODO] storageBuffer8BitAccess = NV_gpu_shader5

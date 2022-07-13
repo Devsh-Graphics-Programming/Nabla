@@ -394,24 +394,24 @@ struct SPhysicalDeviceFeatures
     VkBool32           sparseImageFloat32AtomicAdd;
 
     /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
-    //VkBool32           shaderBufferFloat16Atomics;
-    //VkBool32           shaderBufferFloat16AtomicAdd;
-    //VkBool32           shaderBufferFloat16AtomicMinMax;
-    //VkBool32           shaderBufferFloat32AtomicMinMax;
-    //VkBool32           shaderBufferFloat64AtomicMinMax;
-    //VkBool32           shaderSharedFloat16Atomics;
-    //VkBool32           shaderSharedFloat16AtomicAdd;
-    //VkBool32           shaderSharedFloat16AtomicMinMax;
-    //VkBool32           shaderSharedFloat32AtomicMinMax;
-    //VkBool32           shaderSharedFloat64AtomicMinMax;
-    //VkBool32           shaderImageFloat32AtomicMinMax;
-    //VkBool32           sparseImageFloat32AtomicMinMax;
+    VkBool32           shaderBufferFloat16Atomics;
+    VkBool32           shaderBufferFloat16AtomicAdd;
+    VkBool32           shaderBufferFloat16AtomicMinMax;
+    VkBool32           shaderBufferFloat32AtomicMinMax;
+    VkBool32           shaderBufferFloat64AtomicMinMax;
+    VkBool32           shaderSharedFloat16Atomics;
+    VkBool32           shaderSharedFloat16AtomicAdd;
+    VkBool32           shaderSharedFloat16AtomicMinMax;
+    VkBool32           shaderSharedFloat32AtomicMinMax;
+    VkBool32           shaderSharedFloat64AtomicMinMax;
+    VkBool32           shaderImageFloat32AtomicMinMax;
+    VkBool32           sparseImageFloat32AtomicMinMax;
     
     /* DemoteToHelperInvocationFeaturesEXT *//* VK_EXT_shader_demote_to_helper_invocation *//* MOVED TO Vulkan 1.3 Core */
 
     /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
-    //VkBool32           shaderImageInt64Atomics;
-    //VkBool32           sparseImageInt64Atomics;
+    VkBool32           shaderImageInt64Atomics;
+    VkBool32           sparseImageInt64Atomics;
 
     /* SubgroupSizeControlFeaturesEXT *//* VK_EXT_subgroup_size_control *//* MOVED TO Vulkan 1.3 Core */
 
@@ -438,11 +438,9 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* Ycbcr2Plane444FormatsFeaturesEXT *//* VK_EXT_ycbcr_2plane_444_formats */
 
+    // [DO NOT EXPOSE] Expose nothing to do with video atm
     /* YcbcrImageArraysFeaturesEXT *//* VK_EXT_ycbcr_image_arrays */
     //VkBool32           ycbcrImageArrays;
-
-    /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
-    //VkBool32           shaderIntegerFunctions2;
 
     /* 16BitStorageFeaturesKHR *//* VK_KHR_16bit_storage *//* MOVED TO Vulkan 1.1 Core */
     /* 8BitStorageFeaturesKHR *//* VK_KHR_8bit_storage *//* MOVED TO Vulkan 1.2 Core */
@@ -507,8 +505,7 @@ struct SPhysicalDeviceFeatures
     /* ShaderAtomicInt64FeaturesKHR *//* VK_KHR_shader_atomic_int64 *//* MOVED TO Vulkan 1.2 Core */
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    //VkBool32           shaderSubgroupClock;
-    //VkBool32           shaderDeviceClock;
+    VkBool32           shaderDeviceClock;
 
     /* VK_KHR_shader_draw_parameters *//* MOVED TO Vulkan 1.1 Core */
     /* VK_KHR_shader_float16_int8 *//* MOVED TO Vulkan 1.2 Core */
