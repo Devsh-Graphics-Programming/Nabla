@@ -579,8 +579,13 @@ public:
 				#undef GLENUM_WITH_SUFFIX
 			}
 
-			m_features.logicOp = !IsGLES;
-			// [TODO] dualSrcBlend: IsGLES ? (GL_EXT_blend_func_extended):true
+			m_features.logicOp = !IsGLES
+			m_features.dualSrcBlend = !IsGLES || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_blend_func_extended);
+			m_features.sampleRateShading = IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 440u;
+
+			// there's no layout in GL, so report true since we can just ignore the separate layouts
+			m_features.separateDepthStencilLayouts = true;
+
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 
 			m_features.drawIndirectFirstInstance = (IsGLES)
@@ -691,7 +696,7 @@ public:
 			/* Vulkan 1.2 Core */
 			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
-			
+
 			// [TODO] storageBuffer8BitAccess = NV_gpu_shader5
 			// [TODO] uniformAndStorageBuffer8BitAccess = NV_gpu_shader5
 			// [TODO] storagePushConstant8 => for now make GL and GLES report false and leave a comment with a TODO: implemenent, then return true
@@ -1206,6 +1211,19 @@ public:
 				GetIntegerv(GL_MAX_WINDOW_RECTANGLES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxDiscardRectangles));
 			}
 
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sample_locations))
+			{
+				m_properties.limits.variableSampleLocations = true;
+				GetIntegerv(GL_SAMPLE_LOCATION_PIXEL_GRID_WIDTH_ARB, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleLocationGridSize.width));
+				GetIntegerv(GL_SAMPLE_LOCATION_PIXEL_GRID_HEIGHT_ARB, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleLocationGridSize.height));
+				GetIntegerv(GL_SAMPLE_LOCATION_SUBPIXEL_BITS_ARB, reinterpret_cast<GLint*>(&m_properties.limits.sampleLocationSubPixelBits));
+			}
+			// [TODO] Fallback NBL_AMD_sample_positions & sampleLocationCoordinateRange
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_texture_multisample))
+			{
+				GetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, reinterpret_cast<GLint*>(&m_properties.limits.sampleLocationSampleCounts));
+			}
+		
 			// [TODO] SampleLocationsPropertiesEXT
 			// [TODO] CooperativeMatrixPropertiesNV
 

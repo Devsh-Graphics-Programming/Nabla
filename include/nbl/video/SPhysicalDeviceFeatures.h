@@ -21,7 +21,7 @@ struct SPhysicalDeviceFeatures
     bool independentBlend = false;
     bool geometryShader    = false;
     bool tessellationShader = false;
-    //VkBool32    sampleRateShading;
+    VkBool32 sampleRateShading = false;
     bool dualSrcBlend = false;
     bool logicOp = false;
     bool multiDrawIndirect = false;
@@ -148,21 +148,21 @@ struct SPhysicalDeviceFeatures
     
     //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO]
     
-    //VkBool32           uniformBufferStandardLayout;   // or VK_KHR_uniform_buffer_standard_layout
+    VkBool32           uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
     
     bool shaderSubgroupExtendedTypes;   // or VK_KHR_shader_subgroup_extended_types
     
-    //VkBool32           separateDepthStencilLayouts;   // or VK_KHR_separate_depth_stencil_layouts
+    VkBool32           separateDepthStencilLayouts;   // or VK_KHR_separate_depth_stencil_layouts
     
     // [TODO] And add implementation to engine
     //VkBool32           hostQueryReset;                // or VK_EXT_host_query_reset
     
-    //VkBool32           timelineSemaphore;             // or VK_KHR_timeline_semaphore
+    //VkBool32           timelineSemaphore;             // or VK_KHR_timeline_semaphore // [FUTURE TODO] won't expose for a long time
     
     // or VK_KHR_buffer_device_address:
     bool bufferDeviceAddress = false;
-    //VkBool32           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
-    //VkBool32           bufferDeviceAddressMultiDevice;
+    // VkBool32           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
+    VkBool32           bufferDeviceAddressMultiDevice;
     
     // or VK_KHR_vulkan_memory_model
     //VkBool32           vulkanMemoryModel;
@@ -223,7 +223,9 @@ struct SPhysicalDeviceFeatures
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
     //VkBool32           deviceCoherentMemory;
 
-    /* VK_AMD_shader_early_and_late_fragment_tests *//* couldn't find the struct/extension in latest vulkan headers */
+    // [TODO] this one isn't in the headers?
+    /* VK_AMD_shader_early_and_late_fragment_tests */
+    //VkBool32 shaderEarlyAndLateFragmentTests;
 
     /* RasterizationOrderAttachmentAccessFeaturesARM *//* VK_ARM_rasterization_order_attachment_access */
     //VkBool32           rasterizationOrderColorAttachmentAccess;
@@ -588,8 +590,8 @@ struct SPhysicalDeviceFeatures
     //VkBool32           meshShader;
     
     /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
-    //VkBool32           rayTracingMotionBlur;
-    //VkBool32           rayTracingMotionBlurPipelineTraceRaysIndirect;
+    VkBool32           rayTracingMotionBlur;
+    VkBool32           rayTracingMotionBlurPipelineTraceRaysIndirect;
 
     // [TODO] Expose Soon, Useful
     /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */

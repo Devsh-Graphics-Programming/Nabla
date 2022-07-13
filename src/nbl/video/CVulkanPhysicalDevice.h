@@ -497,7 +497,10 @@ public:
 
         // Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures             separateDepthStencilLayoutsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceUniformBufferStandardLayoutFeatures             uniformBufferStandardLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES, &separateDepthStencilLayoutsFeatures };
+        VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV, &uniformBufferStandardLayoutFeatures };
+        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &rayTracingMotionBlurFeatures };
         VkPhysicalDeviceShaderFloat16Int8Features                       shaderFloat16Int8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &subgroupSizeControlFeatures };
         VkPhysicalDeviceDescriptorIndexingFeaturesEXT                   descriptorIndexingFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &shaderFloat16Int8Features };
         VkPhysicalDeviceScalarBlockLayoutFeaturesEXT                    scalarBlockLayoutFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT, &descriptorIndexingFeaturesEXT };
@@ -542,6 +545,7 @@ public:
             m_features.geometryShader = features.geometryShader;
             m_features.tessellationShader = features.tessellationShader;
             m_features.dualSrcBlend = features.dualSrcBlend;
+            m_features.sampleRateShading = features.sampleRateShading;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
             m_features.drawIndirectFirstInstance = features.drawIndirectFirstInstance;
@@ -683,11 +687,31 @@ public:
                 m_features.fragmentShaderSampleInterlock = fragmentShaderInterlockFeatures.fragmentShaderSampleInterlock;
                 m_features.fragmentShaderShadingRateInterlock = fragmentShaderInterlockFeatures.fragmentShaderShadingRateInterlock;
             }
-            
+
             /* BufferDeviceAddressFeaturesKHR */
             if (isExtensionSupported(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
             {
                 m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
+                m_features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
+            }
+
+            /* RayTracingMotionBlurFeaturesNV */
+            if (isExtensionSupported(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME))
+            {
+                m_features.rayTracingMotionBlur = rayTracingMotionBlurFeatures.rayTracingMotionBlur;
+                m_features.rayTracingMotionBlurPipelineTraceRaysIndirect = rayTracingMotionBlurFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect;
+            }
+
+            /* VkPhysicalDeviceUniformBufferStandardLayoutFeatures */
+            if (isExtensionSupported(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME))
+            {
+                m_features.uniformBufferStandardLayout = uniformBufferStandardLayoutFeatures.uniformBufferStandardLayout;
+            }
+
+            /* VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures */
+            if (isExtensionSupported(VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME))
+            {
+                m_features.separateDepthStencilLayouts = separateDepthStencilLayoutsFeatures.separateDepthStencilLayouts;
             }
 
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);
