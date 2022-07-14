@@ -519,8 +519,10 @@ public:
 			GLuint maxElementIndex = 0u;
 			GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
-			// [TODO] robustBufferAccess: EGL_EXT_create_context_robustness&(IsGLES ? (Version>=320 || KHR_robustness || ARB_robustness):(Version>=450 || KHR_robustness || ARB_robustness))
-			m_features.robustBufferAccess = false;
+			m_features.robustBufferAccess = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_create_context_robustness) && 
+				((IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 450) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_KHR_robustness) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_robustness));
 			m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.independentBlend = IsGLES 
@@ -681,32 +683,28 @@ public:
 			m_features.vertexPipelineStoresAndAtomics = false; 
 			m_features.fragmentStoresAndAtomics = false; 
 
-			// [TODO] shaderTessellationAndGeometryPointSize
-			/*
 			// An implementation supporting this feature must also support one or both of the [tessellationShader] or [geometryShader] features.
 			m_features.shaderTessellationAndGeometryPointSize = true;
-			if (OES_geometry_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=OES_geometry_point_size;
-			else if (EXT_geometry_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=EXT_geometry_point_size;
-			if (OES_tessellation_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=OES_tessellation_point_size;
-			else if (EXT_tessellation_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=EXT_tessellation_point_size;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_point_size);
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_point_size);
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_point_size);
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_point_size);
 			else if (!m_features.geometryShader) // tessellation not supported,
 			   m_features.shaderTessellationAndGeometryPointSize = false;
-			*/
 
-			
-			// [TODO] m_features.shaderImageGatherExtended = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5):true
-			// [TODO] m_features.shaderStorageImageExtendedFormats = !IsGLES
 			m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
-			// [TODO] m_features.shaderStorageImageReadWithoutFormat  :in GL, always false
-			// [TODO] m_features.shaderStorageImageWriteWithoutFormat :in GL, always false
-			// [TODO] m_features.shaderUniformBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5 || GL_NV_gpu_shader5):true
-			// [TODO] m_features.shaderSampledImageArrayDynamicIndexing  = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5 || GL_NV_gpu_shader5):true
-			// [TODO] m_features.shaderStorageBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
-			// [TODO] m_features.shaderStorageImageArrayDynamicIndexing  = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
+			m_features.shaderImageGatherExtended = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5)) : true;
+			m_features.shaderStorageImageExtendedFormats = !IsGLES;
+			m_features.shaderStorageImageReadWithoutFormat = false;
+			m_features.shaderStorageImageWriteWithoutFormat = false;
+			m_features.shaderUniformBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderSampledImageArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageImageArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
 
 			if constexpr (IsGLES)
 			{
@@ -732,21 +730,18 @@ public:
 			}
 		
 			m_features.vertexAttributeDouble = !IsGLES;
-			
-			// [TODO] shaderInt64 = NV_gpu_shader5 || GL_ARB_gpu_shader_int64 || GL_AMD_gpu_shader_int64 // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
-			// [TODO] shaderInt16 = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
-			// [TODO] shaderResourceResidency = ARB_sparse_texture2 || EXT_sparse_texture2 || AMD_sparse_texture
-			// [TODO] shaderResourceMinLod = EXT_sparse_texture2 || ARB_sparse_texture_clamp
+
+			m_features.shaderInt64 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int64); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
+			m_features.shaderInt16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
+			m_features.shaderResourceResidency = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_sparse_texture);
+			m_features.shaderResourceMinLod = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture_clamp);
 
 			m_features.variableMultisampleRate = true;
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 		
 			/* Vulkan 1.1 Core */
-
-			// [TODO] storageBuffer16BitAccess = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 && AMD_gpu_shader_half_float
-			// [TODO] uniformAndStorageBuffer16BitAccess = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 && AMD_gpu_shader_half_float
-			// [TODO] storagePushConstant16
-			// [TODO] storageInputOutput16
+			m_features.storageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_features.uniformAndStorageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
 
 			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
 			
@@ -770,37 +765,41 @@ public:
 
 			m_properties.limits.imageFootprint = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_texture_footprint);
 
-			// [TODO] storageBuffer8BitAccess = NV_gpu_shader5
-			// [TODO] uniformAndStorageBuffer8BitAccess = NV_gpu_shader5
-			// [TODO] storagePushConstant8 => for now make GL and GLES report false and leave a comment with a TODO: implemenent, then return true
+			// [TODO]
+			m_features.storagePushConstant8 = false;
+			m_features.storagePushConstant16 = false;
+			m_features.storageInputOutput16 = false;
 			
-			// [TODO] shaderBufferInt64Atomics  NV_shader_atomic_int64
-			// [TODO] shaderSharedInt64Atomics  probably false on GL, not sure
+			m_features.shaderBufferInt64Atomics = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_atomic_int64);
+			m_features.shaderSharedInt64Atomics = false;
 			
-			// [TODO] shaderFloat16 = NV_gpu_shader5 || AMD_gpu_shader_half_float
-			// [TODO] shaderInt8 = NV_gpu_shader5
+			m_features.shaderFloat16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_features.shaderInt8 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_features.storageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_features.uniformAndStorageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
 
-			// [TODO] descriptorIndexing = false
-			// [TODO] shaderInputAttachmentArrayDynamicIndexing = no input attachments in GL / GLES, so false
-			// [TODO] shaderUniformTexelBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
-			// [TODO] shaderStorageTexelBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
-			// [TODO] shaderUniformBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderSampledImageArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderStorageBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderStorageImageArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderInputAttachmentArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderUniformTexelBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderStorageTexelBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] descriptorBindingUniformBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingSampledImageUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingStorageImageUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingStorageBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingUniformTexelBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingStorageTexelBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingUpdateUnusedWhilePending = always report true for those in GL
-			// [TODO] descriptorBindingPartiallyBound = always report true for those in GL
-			// [TODO] descriptorBindingVariableDescriptorCount = false, GL limits on descriptor counts are so low, it makes no sense to bother to implement
-			// [TODO] runtimeDescriptorArray = false
+			m_features.descriptorIndexing = false;
+			m_features.shaderInputAttachmentArrayDynamicIndexing = false;
+			m_features.shaderUniformTexelBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageTexelBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			bool reportArrayNonUniformIndexing = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_nonuniform_qualifier);
+			m_features.shaderUniformBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderSampledImageArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageImageArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderInputAttachmentArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderUniformTexelBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageTexelBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.descriptorBindingUniformBufferUpdateAfterBind = true;
+			m_features.descriptorBindingSampledImageUpdateAfterBind = true;
+			m_features.descriptorBindingStorageImageUpdateAfterBind = true;
+			m_features.descriptorBindingStorageBufferUpdateAfterBind = true;
+			m_features.descriptorBindingUniformTexelBufferUpdateAfterBind = true;
+			m_features.descriptorBindingStorageTexelBufferUpdateAfterBind = true;
+			m_features.descriptorBindingUpdateUnusedWhilePending = true;
+			m_features.descriptorBindingPartiallyBound = true;
+			m_features.descriptorBindingVariableDescriptorCount = false;
+			m_features.runtimeDescriptorArray = false;
 
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
 			m_features.shaderSubgroupExtendedTypes = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_ballot);
