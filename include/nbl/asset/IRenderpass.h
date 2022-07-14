@@ -9,6 +9,8 @@
 #include "nbl/asset/EImageLayout.h"
 #include "nbl/asset/ECommonEnums.h"
 
+#include <compare>
+
 namespace nbl::asset
 {
 
