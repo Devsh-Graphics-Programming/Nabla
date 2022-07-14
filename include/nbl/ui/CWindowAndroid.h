@@ -27,6 +27,15 @@ class CWindowAndroid : public IWindowAndroid
 		inline const native_handle_t& getNativeHandle() const override { return m_native; }
 		
 		inline void setCaption(const std::string_view& caption) override {}
+		virtual IWindowManager* getManager() override 
+		{
+			/*
+				TODO: this class should have m_windowManager member...
+			*/ 
+
+			assert(false);
+			return nullptr;  
+		}
 
 		// WHY THE FUCK ARE THESE PUBLIC?
 		core::map<uint32_t, core::smart_refctd_ptr<IMouseEventChannel>> m_mouseEventChannels;

@@ -60,6 +60,37 @@ class CWindowManagerWin32 : public IWindowManager
 			return info;
 		}
 
+		inline bool setWindowSize_impl(IWindow* window, const uint32_t width, const uint32_t height) override
+		{
+			auto wnd = static_cast<IWindowWin32*>(window);
+			m_windowThreadManager.setWindowSize(wnd->getNativeHandle(), width, height);
+			return true;
+		}
+		inline bool setWindowPosition_impl(IWindow* window, const int32_t x, const int32_t y) override
+		{
+			auto wnd = static_cast<IWindowWin32*>(window);
+			m_windowThreadManager.setWindowPosition(wnd->getNativeHandle(), x, y);
+			return true;
+		}
+		inline bool setWindowRotation_impl(IWindow* window, const bool landscape) override
+		{
+			return false;
+		}
+		inline bool setWindowVisible_impl(IWindow* window, const bool visible) override
+		{
+			auto wnd = static_cast<IWindowWin32*>(window);
+			if (visible) m_windowThreadManager.showWindow(wnd->getNativeHandle());
+			else m_windowThreadManager.hideWindow(wnd->getNativeHandle());
+			return true;
+		}
+		inline bool setWindowMaximized_impl(IWindow* window, const bool maximized) override
+		{
+			auto wnd = static_cast<IWindowWin32*>(window);
+			if (maximized) m_windowThreadManager.maximizeWindow(wnd->getNativeHandle());
+			else m_windowThreadManager.minimizeWindow(wnd->getNativeHandle());
+			return true;
+		}
+
 	private:
 		inline IWindowWin32::native_handle_t createNativeWindow(int _x, int _y, uint32_t _w, uint32_t _h, IWindow::E_CREATE_FLAGS _flags, const std::string_view& caption)
 		{
@@ -77,7 +108,9 @@ class CWindowManagerWin32 : public IWindowManager
 		{
 			ERT_CREATE_WINDOW,
 			ERT_DESTROY_WINDOW,
-			ERT_CHANGE_CURSOR_VISIBILITY
+			ERT_CHANGE_CURSOR_VISIBILITY,
+			ERT_SET_WINDOW_POS,
+			ERT_SHOW_WINDOW
 		};
 		template <E_REQUEST_TYPE ERT>
 		struct SRequestParamsBase
@@ -104,6 +137,23 @@ class CWindowManagerWin32 : public IWindowManager
 		{
 			bool visible;
 		};
+		struct SRequestParams_SetWindowPos : SRequestParamsBase<ERT_SET_WINDOW_POS>
+		{
+			IWindowWin32::native_handle_t window;
+			int x, y;
+			uint32_t width, height;
+
+			uint32_t ignoreXY : 1 = 0;
+			uint32_t ignoreSize : 1 = 0;
+		};
+		struct SRequestParams_ShowWindow : SRequestParamsBase<ERT_SHOW_WINDOW>
+		{
+			IWindowWin32::native_handle_t window;
+			uint32_t hide : 1 = 0;
+			uint32_t show : 1 = 0;
+			uint32_t minimized : 1 = 0;
+			uint32_t maximized : 1 = 0;
+		};
 		struct SRequest : system::impl::IAsyncQueueDispatcherBase::request_base_t
 		{
 			E_REQUEST_TYPE type;
@@ -112,6 +162,8 @@ class CWindowManagerWin32 : public IWindowManager
 				SRequestParams_CreateWindow createWindowParam;
 				SRequestParams_DestroyWindow destroyWindowParam;
 				SRequestParams_ChangeCursorVisibility changeCursorVisibilityParam;
+				SRequestParams_SetWindowPos setWindowPosParam;
+				SRequestParams_ShowWindow showWindowParam;
 			};
 			SRequest() {}
 			~SRequest() {}
@@ -140,6 +192,58 @@ class CWindowManagerWin32 : public IWindowManager
 				{
 					SRequestParams_ChangeCursorVisibility params;
 					params.visible = visible;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
+				inline void setWindowSize(IWindowWin32::native_handle_t window, uint32_t width, uint32_t height)
+				{
+					SRequestParams_SetWindowPos params;
+					params.window = window;
+					params.width = width;
+					params.height = height;
+					params.ignoreXY = 1;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
+				inline void setWindowPosition(IWindowWin32::native_handle_t window, int x, int y)
+				{
+					SRequestParams_SetWindowPos params;
+					params.window = window;
+					params.x = x;
+					params.y = y;
+					params.ignoreSize = 1;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
+				inline void hideWindow(IWindowWin32::native_handle_t window)
+				{
+					SRequestParams_ShowWindow params;
+					params.window = window;
+					params.hide = 1;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
+				inline void showWindow(IWindowWin32::native_handle_t window)
+				{
+					SRequestParams_ShowWindow params;
+					params.window = window;
+					params.show = 1;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
+				inline void maximizeWindow(IWindowWin32::native_handle_t window)
+				{
+					SRequestParams_ShowWindow params;
+					params.window = window;
+					params.maximized = 1;
+					auto& rq = request(params);
+					waitForCompletion(rq);
+				}
+				inline void minimizeWindow(IWindowWin32::native_handle_t window)
+				{
+					SRequestParams_ShowWindow params;
+					params.window = window;
+					params.minimized = 1;
 					auto& rq = request(params);
 					waitForCompletion(rq);
 				}
@@ -314,6 +418,26 @@ class CWindowManagerWin32 : public IWindowManager
 						}
 						break;
 					}
+					case ERT_SET_WINDOW_POS:
+					{
+						auto& params = req.setWindowPosParam;
+						uint32_t flags = SWP_NOACTIVATE | SWP_NOZORDER;
+						if (params.ignoreXY) flags |= SWP_NOMOVE | SWP_NOREPOSITION;
+						if (params.ignoreSize) flags |= SWP_NOSIZE;
+						SetWindowPos(params.window, nullptr, params.x, params.y, params.width, params.height, flags);
+						break;
+					}
+					case ERT_SHOW_WINDOW:
+					{
+						auto& params = req.showWindowParam;
+						int showCmd;
+						if (params.hide) showCmd = SW_HIDE;
+						if (params.show) showCmd = SW_SHOW;
+						if (params.minimized) showCmd = SW_MINIMIZE;
+						if (params.maximized) showCmd = SW_MAXIMIZE;
+						ShowWindow(params.window, showCmd);
+						break;
+					}
 					}
 				}
 
@@ -332,6 +456,14 @@ class CWindowManagerWin32 : public IWindowManager
 					else if constexpr (std::is_same_v<RequestParams, SRequestParams_ChangeCursorVisibility&>)
 					{
 						req.changeCursorVisibilityParam = std::move(params);
+					}
+					else if constexpr (std::is_same_v<RequestParams, SRequestParams_SetWindowPos&>)
+					{
+						req.setWindowPosParam = std::move(params);
+					}
+					else if constexpr (std::is_same_v<RequestParams, SRequestParams_ShowWindow&>)
+					{
+						req.showWindowParam = std::move(params);
 					}
 				}
 

@@ -48,8 +48,7 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			
 			video::IGPUBuffer::SCreationParams initTimestampValueBufferCreationParams = {};
 			initTimestampValueBufferCreationParams.size = tmp.size();
-			// initTimestampValueBufferCreationParams.usage = ; TODO: Usage should not be EUF_NONE
-
+			initTimestampValueBufferCreationParams.usage = core::bitflag<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT);
 			auto initTimestampValue = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(initTimestampValueBufferCreationParams),tmp.data());
 			if (!initTimestampValue)
 				return nullptr;

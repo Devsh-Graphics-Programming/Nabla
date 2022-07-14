@@ -13,6 +13,7 @@
 namespace nbl::ui
 {
 
+class IWindowManager;
 class ICursorControl;
 
 class IWindow : public core::IReferenceCounted
@@ -172,16 +173,16 @@ class IWindow : public core::IReferenceCounted
         };
         friend struct IEventCallback;
 
-        inline bool isFullscreen()      { return (m_flags.value & ECF_FULLSCREEN); }
-        inline bool isHidden()          { return (m_flags.value & ECF_HIDDEN); }
-        inline bool isBorderless()      { return (m_flags.value & ECF_BORDERLESS); }
-        inline bool isResizable()       { return (m_flags.value & ECF_RESIZABLE); }
-        inline bool isMinimized()       { return (m_flags.value & ECF_MINIMIZED); }
-        inline bool isMaximized()       { return (m_flags.value & ECF_MAXIMIZED); }
-        inline bool hasMouseCaptured()  { return (m_flags.value & ECF_MOUSE_CAPTURE); }
-        inline bool hasInputFocus()     { return (m_flags.value & ECF_INPUT_FOCUS); }
-        inline bool hasMouseFocus()     { return (m_flags.value & ECF_MOUSE_FOCUS); }
-        inline bool isAlwaysOnTop()     { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+        inline bool isFullscreen()        { return (m_flags.value & ECF_FULLSCREEN); }
+        inline bool isHidden()            { return (m_flags.value & ECF_HIDDEN); }
+        inline bool isBorderless()        { return (m_flags.value & ECF_BORDERLESS); }
+        inline bool isResizable()         { return (m_flags.value & ECF_RESIZABLE); }
+        inline bool isMinimized()         { return (m_flags.value & ECF_MINIMIZED); }
+        inline bool isMaximized()         { return (m_flags.value & ECF_MAXIMIZED); }
+        inline bool hasMouseCaptured()    { return (m_flags.value & ECF_MOUSE_CAPTURE); }
+        inline bool hasInputFocus()       { return (m_flags.value & ECF_INPUT_FOCUS); }
+        inline bool hasMouseFocus()       { return (m_flags.value & ECF_MOUSE_FOCUS); }
+        inline bool isAlwaysOnTop()       { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
 
         inline uint32_t getWidth() const { return m_width; }
         inline uint32_t getHeight() const { return m_height; }
@@ -190,6 +191,7 @@ class IWindow : public core::IReferenceCounted
 
         NBL_API2 virtual IClipboardManager* getClipboardManager() = 0;
         NBL_API2 virtual ICursorControl* getCursorControl() = 0;
+        NBL_API2 virtual IWindowManager* getManager() = 0;
 
         inline IEventCallback* getEventCallback() const { return m_cb.get(); }
 

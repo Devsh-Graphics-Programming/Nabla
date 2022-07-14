@@ -25,6 +25,8 @@ public:
 
 	inline const native_handle_t& getNativeHandle() const override { return m_native; }
 	void setCaption(const std::string_view& caption) override;
+	virtual IWindowManager* getManager() override;
+
 	~CWindowWin32() override;
 private:
 	inline CWindowWin32(CWindowManagerWin32* winManager, core::smart_refctd_ptr<system::ISystem>&& sys, SCreationParams&& params);

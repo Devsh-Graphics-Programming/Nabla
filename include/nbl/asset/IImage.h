@@ -17,6 +17,8 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/system/ILogger.h"
 
+#include <compare>
+
 namespace nbl::asset
 {
 

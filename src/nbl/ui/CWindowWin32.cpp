@@ -32,6 +32,11 @@ namespace nbl::ui
 		m_windowManager->destroyWindow(this);
 	}
 
+	IWindowManager* CWindowWin32::getManager()
+	{
+		return m_windowManager.get();
+	}
+
 	IClipboardManager* CWindowWin32::getClipboardManager()
 	{
 		return m_clipboardManager.get();
