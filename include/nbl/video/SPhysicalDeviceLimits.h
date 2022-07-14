@@ -10,6 +10,13 @@ namespace nbl::video
 
 struct SPhysicalDeviceLimits
 {
+    enum E_TRI_BOOLEAN
+    {
+        ETB_FALSE,
+        ETB_DONT_KNOW,
+        ETB_TRUE
+    };
+
     /* Vulkan 1.0 Core  */
     uint32_t maxImageDimension1D;
     uint32_t maxImageDimension2D;
@@ -175,21 +182,21 @@ struct SPhysicalDeviceLimits
     //      or VK_KHR_shader_float_controls:
     //VkShaderFloatControlsIndependence    denormBehaviorIndependence; // TODO: need to implement ways to set them
     //VkShaderFloatControlsIndependence    roundingModeIndependence;   // TODO: need to implement ways to set them
-    bool shaderSignedZeroInfNanPreserveFloat16;
-    bool shaderSignedZeroInfNanPreserveFloat32;
-    bool shaderSignedZeroInfNanPreserveFloat64;
-    bool shaderDenormPreserveFloat16;
-    bool shaderDenormPreserveFloat32;
-    bool shaderDenormPreserveFloat64;
-    bool shaderDenormFlushToZeroFloat16;
-    bool shaderDenormFlushToZeroFloat32;
-    bool shaderDenormFlushToZeroFloat64;
-    bool shaderRoundingModeRTEFloat16;
-    bool shaderRoundingModeRTEFloat32;
-    bool shaderRoundingModeRTEFloat64;
-    bool shaderRoundingModeRTZFloat16;
-    bool shaderRoundingModeRTZFloat32;
-    bool shaderRoundingModeRTZFloat64;
+    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat16 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat32 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat64 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderDenormPreserveFloat16 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderDenormPreserveFloat32 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderDenormPreserveFloat64 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat16 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat32 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat64 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderRoundingModeRTEFloat16 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderRoundingModeRTEFloat32 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderRoundingModeRTEFloat64 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderRoundingModeRTZFloat16 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderRoundingModeRTZFloat32 = ETB_DONT_KNOW;
+    E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
  
     //      or VK_EXT_descriptor_indexing:
     uint32_t maxUpdateAfterBindDescriptorsInAllPools;
@@ -571,6 +578,9 @@ struct SPhysicalDeviceLimits
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
     VkBool32           shaderSubgroupClock;
+
+    /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
+    VkBool32           imageFootprint;
 
     /* Nabla */
     uint32_t computeUnits = 0u;

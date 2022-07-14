@@ -753,6 +753,7 @@ public:
 			/* Vulkan 1.2 Core */
 			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
+			m_features.shaderSubgroupUniformControlFlow = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_subgroupuniform_qualifier);
 
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_viewport_layer_array) ||
 				m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array2))
@@ -760,6 +761,14 @@ public:
 				m_properties.limits.shaderOutputViewportIndex = true;
 				m_properties.limits.shaderOutputLayer = true;
 			}
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_compute_shader_derivatives))
+			{
+				m_features.computeDerivativeGroupQuads = true;
+				m_features.computeDerivativeGroupLinear = true;
+			}
+
+			m_properties.limits.imageFootprint = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_texture_footprint);
 
 			// [TODO] storageBuffer8BitAccess = NV_gpu_shader5
 			// [TODO] uniformAndStorageBuffer8BitAccess = NV_gpu_shader5
@@ -1113,21 +1122,21 @@ public:
 			/* Vulkan 1.2 Core  */
 
 			/*		VK_KHR_shader_float_controls */
-			m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = false;
-			m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = false;
-			m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = false;
-			m_properties.limits.shaderDenormPreserveFloat16             = false;
-			m_properties.limits.shaderDenormPreserveFloat32             = false;
-			m_properties.limits.shaderDenormPreserveFloat64             = false;
-			m_properties.limits.shaderDenormFlushToZeroFloat16          = false;
-			m_properties.limits.shaderDenormFlushToZeroFloat32          = false;
-			m_properties.limits.shaderDenormFlushToZeroFloat64          = false;
-			m_properties.limits.shaderRoundingModeRTEFloat16            = false;
-			m_properties.limits.shaderRoundingModeRTEFloat32            = false;
-			m_properties.limits.shaderRoundingModeRTEFloat64            = false;
-			m_properties.limits.shaderRoundingModeRTZFloat16            = false;
-			m_properties.limits.shaderRoundingModeRTZFloat32            = false;
-			m_properties.limits.shaderRoundingModeRTZFloat64            = false;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat16             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat32             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat64             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat16          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat32          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat64          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat16            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat32            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat64            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat16            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat32            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat64            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
 
 			/*		VK_EXT_descriptor_indexing */
 			m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools					= ~0u;

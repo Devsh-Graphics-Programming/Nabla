@@ -244,21 +244,21 @@ public:
 
             if(isExtensionSupported(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
             {
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16;
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat32;
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat64;
-                m_properties.limits.shaderDenormPreserveFloat16             = floatControlsProperties.shaderDenormPreserveFloat16;
-                m_properties.limits.shaderDenormPreserveFloat32             = floatControlsProperties.shaderDenormPreserveFloat32;
-                m_properties.limits.shaderDenormPreserveFloat64             = floatControlsProperties.shaderDenormPreserveFloat64;
-                m_properties.limits.shaderDenormFlushToZeroFloat16          = floatControlsProperties.shaderDenormFlushToZeroFloat16;
-                m_properties.limits.shaderDenormFlushToZeroFloat32          = floatControlsProperties.shaderDenormFlushToZeroFloat32;
-                m_properties.limits.shaderDenormFlushToZeroFloat64          = floatControlsProperties.shaderDenormFlushToZeroFloat64;
-                m_properties.limits.shaderRoundingModeRTEFloat16            = floatControlsProperties.shaderRoundingModeRTEFloat16;
-                m_properties.limits.shaderRoundingModeRTEFloat32            = floatControlsProperties.shaderRoundingModeRTEFloat32;
-                m_properties.limits.shaderRoundingModeRTEFloat64            = floatControlsProperties.shaderRoundingModeRTEFloat64;
-                m_properties.limits.shaderRoundingModeRTZFloat16            = floatControlsProperties.shaderRoundingModeRTZFloat16;
-                m_properties.limits.shaderRoundingModeRTZFloat32            = floatControlsProperties.shaderRoundingModeRTZFloat32;
-                m_properties.limits.shaderRoundingModeRTZFloat64            = floatControlsProperties.shaderRoundingModeRTZFloat64;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat16 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat32 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat64 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormPreserveFloat16 = floatControlsProperties.shaderDenormPreserveFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormPreserveFloat32 = floatControlsProperties.shaderDenormPreserveFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormPreserveFloat64 = floatControlsProperties.shaderDenormPreserveFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormFlushToZeroFloat16 = floatControlsProperties.shaderDenormFlushToZeroFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormFlushToZeroFloat32 = floatControlsProperties.shaderDenormFlushToZeroFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormFlushToZeroFloat64 = floatControlsProperties.shaderDenormFlushToZeroFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTEFloat16 = floatControlsProperties.shaderRoundingModeRTEFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTEFloat32 = floatControlsProperties.shaderRoundingModeRTEFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTEFloat64 = floatControlsProperties.shaderRoundingModeRTEFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTZFloat16 = floatControlsProperties.shaderRoundingModeRTZFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTZFloat32 = floatControlsProperties.shaderRoundingModeRTZFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTZFloat64 = floatControlsProperties.shaderRoundingModeRTZFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
             }
             
             if(isExtensionSupported(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
@@ -497,7 +497,11 @@ public:
 
         // Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceShaderClockFeaturesKHR                          shaderClockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceShaderImageFootprintFeaturesNV                  shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceComputeShaderDerivativesFeaturesNV              computeShaderDerivativesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV, &shaderImageFootprintFeatures };
+        VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR        workgroupMemoryExplicitLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR, &computeShaderDerivativesFeatures };
+        VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR     subgroupUniformControlFlowFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR, &workgroupMemoryExplicitLayout };
+        VkPhysicalDeviceShaderClockFeaturesKHR                          shaderClockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR, &subgroupUniformControlFlowFeatures };
         VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL            intelShaderIntegerFunctions2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL, &shaderClockFeatures };
         VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT               shaderImageAtomicInt64Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT, &intelShaderIntegerFunctions2 };
         VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT                   shaderAtomicFloat2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT, &shaderImageAtomicInt64Features };
@@ -837,6 +841,39 @@ public:
                 m_features.shaderDeviceClock = shaderClockFeatures.shaderDeviceClock;
             }
 
+            /* VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME))
+            {
+                m_features.shaderSubgroupUniformControlFlow = subgroupUniformControlFlowFeatures.shaderSubgroupUniformControlFlow;
+            }
+
+            /* VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME))
+            {
+                m_features.workgroupMemoryExplicitLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout;
+                m_features.workgroupMemoryExplicitLayoutScalarBlockLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayoutScalarBlockLayout;
+                m_features.workgroupMemoryExplicitLayout8BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout8BitAccess;
+                m_features.workgroupMemoryExplicitLayout16BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout16BitAccess;
+            }
+
+            /* VkPhysicalDeviceComputeShaderDerivativesFeaturesNV */
+            if (isExtensionSupported(VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME))
+            {
+                m_features.computeDerivativeGroupQuads = computeShaderDerivativesFeatures.computeDerivativeGroupQuads;
+                m_features.computeDerivativeGroupLinear = computeShaderDerivativesFeatures.computeDerivativeGroupLinear;
+            }
+
+            /* VkPhysicalDeviceShaderImageFootprintFeaturesNV  */
+            if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
+            {
+                m_properties.limits.imageFootprint = shaderImageFootprintFeatures.imageFootprint;
+            }
+
+            if (isExtensionSupported(VK_AMD_BUFFER_MARKER_EXTENSION_NAME))
+            {
+                m_features.bufferMarkerAMD = true;
+            }
+
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);
             if(isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
                 m_features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
@@ -1092,6 +1129,13 @@ protected:
             {
                 shaderClockFeatures.shaderSubgroupClock = true;
                 addFeatureToChain(&shaderClockFeatures);
+            }
+
+            VkPhysicalDeviceShaderImageFootprintFeaturesNV shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV };
+            if (m_availableFeatureSet.find(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                shaderImageFootprintFeatures.imageFootprint = true;
+                addFeatureToChain(&shaderImageFootprintFeatures);
             }
         }
 

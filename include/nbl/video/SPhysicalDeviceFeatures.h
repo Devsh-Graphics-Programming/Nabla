@@ -43,10 +43,13 @@ struct SPhysicalDeviceFeatures
     
     bool occlusionQueryPrecise = false;
     //VkBool32    pipelineStatisticsQuery; [TODO]
+
+    // [TODO] Always enable ones below, report as limit
     bool vertexPipelineStoresAndAtomics = false;
     bool fragmentStoresAndAtomics = false;
     bool shaderTessellationAndGeometryPointSize = false;
     bool shaderImageGatherExtended = false;
+
     bool shaderStorageImageExtendedFormats = false;
     bool shaderStorageImageMultisample = false;
     bool shaderStorageImageReadWithoutFormat = false;
@@ -58,8 +61,11 @@ struct SPhysicalDeviceFeatures
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
     bool vertexAttributeDouble = false; // shaderFloat64
+
+    // [TODO] Always enable ones below, report as limit
     bool shaderInt64 = false;
     bool shaderInt16 = false;
+
     bool shaderResourceResidency = false;
     bool shaderResourceMinLod = false;
     
@@ -78,6 +84,8 @@ struct SPhysicalDeviceFeatures
     bool inheritedQueries = false;
 
     /* Vulkan 1.1 Core */
+
+    // [TODO] Always enable ones below, report as limit
     bool storageBuffer16BitAccess = false;
     bool uniformAndStorageBuffer16BitAccess = false;
     bool storagePushConstant16 = false;
@@ -106,6 +114,7 @@ struct SPhysicalDeviceFeatures
     bool samplerMirrorClampToEdge = false;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
     bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
+    // [TODO] Always enable VK_KHR_8bit_storage, VK_KHR_shader_atomic_int64 & VK_KHR_shader_float16_int8; report as limit
     // or VK_KHR_8bit_storage:
     bool storageBuffer8BitAccess = false;
     bool uniformAndStorageBuffer8BitAccess = false;
@@ -513,7 +522,7 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_shader_subgroup_extended_types *//* MOVED TO Vulkan 1.2 Core */
 
     /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
-    //VkBool32           shaderSubgroupUniformControlFlow;
+    VkBool32           shaderSubgroupUniformControlFlow;
     
     /* VK_KHR_shader_terminate_invocation *//* MOVED TO Vulkan 1.3 Core */
     /* VK_KHR_synchronization2 *//* MOVED TO Vulkan 1.3 Core */
@@ -523,17 +532,17 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_vulkan_memory_model *//* MOVED TO Vulkan 1.2 Core */
 
     /* WorkgroupMemoryExplicitLayoutFeaturesKHR *//* VK_KHR_workgroup_memory_explicit_layout */
-    //VkBool32           workgroupMemoryExplicitLayout;
-    //VkBool32           workgroupMemoryExplicitLayoutScalarBlockLayout;
-    //VkBool32           workgroupMemoryExplicitLayout8BitAccess;
-    //VkBool32           workgroupMemoryExplicitLayout16BitAccess;
-    
+    VkBool32 workgroupMemoryExplicitLayout = false;
+    VkBool32 workgroupMemoryExplicitLayoutScalarBlockLayout = false;
+    VkBool32 workgroupMemoryExplicitLayout8BitAccess = false;
+    VkBool32 workgroupMemoryExplicitLayout16BitAccess = false;
+
     /* VK_KHR_zero_initialize_workgroup_memory *//* MOVED TO Vulkan 1.3 Core */
     /* VK_KHX_multiview *//* see VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
 
     /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
-    //VkBool32           computeDerivativeGroupQuads;
-    //VkBool32           computeDerivativeGroupLinear;
+    VkBool32           computeDerivativeGroupQuads;
+    VkBool32           computeDerivativeGroupLinear;
 
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
     bool cooperativeMatrix;
@@ -599,9 +608,6 @@ struct SPhysicalDeviceFeatures
     /* ExclusiveScissorFeaturesNV *//* VK_NV_scissor_exclusive */
     //VkBool32           exclusiveScissor;
 
-    /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
-    //VkBool32           imageFootprint;
-
     // [ENABLE BY DEFAULT]
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
     //VkBool32           shaderSMBuiltins;
@@ -627,150 +633,352 @@ struct SPhysicalDeviceFeatures
     /* SubpassShadingFeaturesHUAWEI *//* VK_HUAWEI_subpass_shading */
     // VkBool32           subpassShading;
 
-    
-    /* Extensions Exposed as Features: */
 
     /* VK_AMD_buffer_marker */
-    /* VK_AMD_calibrated_timestamps */
+    bool bufferMarkerAMD = false;
+    
+
+    /* Extensions Exposed as Features: */
+
+    // [DO NOT EXPOSE] Waiting for cross platform
     /* VK_AMD_display_native_hdr */
+
+    // [DO NOT EXPOSE] Promoted to KHR version already exposed
     /* VK_AMD_draw_indirect_count */
+    
+    // [TODO] Always enable, expose as limit
     /* VK_AMD_gcn_shader */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_gpa_interface */
+
+    // [TODO] Always enable, expose as limit (Note: Promoted to VK_KHR_shader_float16_int8)
     /* VK_AMD_gpu_shader_half_float */
+
+    // [TODO LATER] (When it has documentation): Always enable, expose as limit
     /* VK_AMD_gpu_shader_half_float_fetch */
+    
+    // [TODO] Always enable, expose as limit (Note: Promoted to VK_AMD_gpu_shader_int16)
     /* VK_AMD_gpu_shader_int16 */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_image_layout_resolve */
+
+    // [DO NOT EXPOSE]
     /* VK_AMD_memory_overallocation_behavior */
+
+    // [TODO] Expose NV & AMD mixed attachment samples under single bool
     /* VK_AMD_mixed_attachment_samples */
+    /* VK_NV_framebuffer_mixed_samples */
+
+    // [DO NOT EXPOSE] Promoted to VK_KHR_maintenance1, core VK 1.1
     /* VK_AMD_negative_viewport_height */
+
+    // [DO NOT EXPOSE] Too vendor specific
     /* VK_AMD_pipeline_compiler_control */
+
+    // [DO NOT EXPOSE] Promoted to VK_EXT_sample_locations 
     /* VK_AMD_programmable_sample_locations */
+    
+    // [TODO] Will add at some point
     /* VK_AMD_rasterization_order */
+
+    // [TODO] Always enable, have it contribute to shaderSubgroup reporting
     /* VK_AMD_shader_ballot */
+    
+    // [TODO] Want to expose
     /* VK_AMD_shader_explicit_vertex_parameter */
-    /* VK_AMD_shader_fragment_mask */
+
+    // [TODO] Always enable, expose as limit
     /* VK_AMD_shader_image_load_store_lod */
+    
+    // [TODO] Expose, leave note to user about needing to use `getNativeHandle` for reporting
     /* VK_AMD_shader_info */
+    
+    // [TODO] Enable when available, report as limit
     /* VK_AMD_shader_trinary_minmax */
+
+    // [TODO] Won't expose for now, API changes necessary
     /* VK_AMD_texture_gather_bias_lod */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_wave_limits */
+
+    // [TODO LATER] Requires exposing external memory first
     /* VK_ANDROID_external_memory_android_hardware_buffer */
+
+    // [DO NOT EXPOSE] supported=disabled
     /* VK_ANDROID_native_buffer */
-    /* VK_EXT_2d_imageview_3d_image */
+
+    // [TODO LATER] Requires changes to API
     /* VK_EXT_calibrated_timestamps */
+
+    // [DO NOT EXPOSE] Promoted to VK_EXT_debug_utils (instance ext)
     /* VK_EXT_debug_marker */
-    /* VK_EXT_debug_report */
-    /* VK_EXT_debug_utils */
-    /* VK_EXT_depth_clip_control */
-    /* VK_EXT_depth_clip_enable */
+
+    // [TODO] Will expose some day
     /* VK_EXT_depth_range_unrestricted */
-    /* VK_EXT_device_memory_report */
+    
+    // [TODO LATER] Requires handling display swapchain stuff
     /* VK_EXT_display_control */
+
+    // [TODO LATER] Requires exposing external memory first
     /* VK_EXT_external_memory_dma_buf */
+
+    // [TODO LATER] limited utility and availability, might expose if feel like wasting time
     /* VK_EXT_filter_cubic */
+
+    // [TODO LATER] Requires API changes
     /* VK_EXT_full_screen_exclusive */
+
+    // [DO NOT EXPOSE] absorbed into KHR_global_priority
     /* VK_EXT_global_priority_query */
+
+    // [TODO] Expose
     /* VK_EXT_hdr_metadata */
+
+    // [DO NOT EXPOSE] Too "intrinsically linux"
     /* VK_EXT_image_drm_format_modifier */
+
+    // [TODO] needs to figure out how extending our LOAD_OP enum would affect the GL backend
     /* VK_EXT_load_store_op_none */
-    /* VK_EXT_memory_priority */
+ 
+    // [TODO LATER] Expose when we support MoltenVK
     /* VK_EXT_metal_objects */
+
+    // [DO NOT EXPOSE] Never expose this, it was a mistake for that GL quirk to exist in the first place
     /* VK_EXT_non_seamless_cube_map */
+
+    // [DO NOT EXPOSE] Too "intrinsically linux"
     /* VK_EXT_physical_device_drm */
+
+    // [TODO LATER] would like to expose, but too much API to change
     /* VK_EXT_pipeline_creation_feedback */
+
+    // [TODO] Always enable, expose as limit
     /* VK_EXT_post_depth_coverage */
+
     /* VK_EXT_queue_family_foreign */
+
+    // [DO NOT EXPOSE] wont expose yet (or ever), requires VK_KHR_sampler_ycbcr_conversion
     /* VK_EXT_rgba10x6_formats */
+
     /* VK_EXT_separate_stencil_usage */
+
+    // [DO NOT EXPOSE] stupid to expose, it would be extremely dumb to want to provide some identifiers instead of VkShaderModule outside of some emulator which has no control over pipeline combo explosion
     /* VK_EXT_shader_module_identifier */
+
+    // [TODO] Always enable, expose as limit
     /* VK_EXT_shader_stencil_export */
-    /* VK_EXT_swapchain_colorspace */
+
+    // [DO NOT EXPOSE] we dont need to care or know about it
     /* VK_EXT_tooling_info */
+
+    // [TODO LATER] Expose when we start to experience slowdowns from validation
     /* VK_EXT_validation_cache */
-    /* VK_EXT_vertex_input_dynamic_state */
+
+    // [DO NOT EXPOSE] Provisional
     /* VK_EXT_video_decode_h264 */
+
+    // [DO NOT EXPOSE] Provisional
     /* VK_EXT_video_decode_h265 */
+
+    // [DO NOT EXPOSE] Provisional
     /* VK_EXT_video_encode_h264 */
+
+    // [DO NOT EXPOSE] Provisional
     /* VK_EXTX_portability_subset */
+
+    // [TODO] Always enable, expose as limit
     /* VK_GOOGLE_decorate_string */
+
+    // [TODO] Immediate TODO shortlist
     /* VK_GOOGLE_display_timing */
+
+    // [DO NOT EXPOSE]
     /* VK_GOOGLE_hlsl_functionality1 */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_GOOGLE_sampler_filtering_precision */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_GOOGLE_user_type */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_HUAWEI_prerotation */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_HUAWEI_smart_cache */
+
+    // [DO NOT EXPOSE] Vendor specific, superceeded by VK_EXT_filter_cubic, won't expose for a long time
     /* VK_IMG_filter_cubic */
 
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* VK_IMG_format_pvrtc */
 
+    // [DO NOT EXPOSE] Promoted to VK_KHR_performance_query, VK1.1 core
     /* VK_INTEL_performance_query */
     /* VK_KHR_bind_memory2 */
+
+    // [DO NOT EXPOSE] Promoted to VK1.3 core, migrate to it when/if we need it
     /* VK_KHR_copy_commands2 */
+
     /* VK_KHR_create_renderpass2 */
+
+    // [DO NOT EXPOSE] required for acceleration_structure and only that extension, do not expose until another comes that actually makes use of it
     /* VK_KHR_deferred_host_operations */
+
+    // [TODO] Promoted to VK1.1 core, haven't updated API to match
     /* VK_KHR_descriptor_update_template */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_device_group */
+
     /* VK_KHR_display_swapchain */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_fence */
+
+    // [TODO] Always enable, expose as limit
     /* VK_KHR_external_fence_fd */
+
+    // [TODO] Always enable, expose as limit
     /* VK_KHR_external_fence_win32 */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_memory */
+
+    // [TODO] Always enable, expose as limit
     /* VK_KHR_external_memory_fd */
+
+    // [TODO] Always enable, expose as limit
     /* VK_KHR_external_memory_win32 */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_semaphore */
+
+    // [TODO] Always enable, expose as limit
     /* VK_KHR_external_semaphore_fd */
+
+    // [TODO] Always enable, expose as limit
     /* VK_KHR_external_semaphore_win32 */
+
     /* VK_KHR_format_feature_flags2 */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_get_memory_requirements2 */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_get_physical_device_properties2 */
+
+    // [TODO LATER] Requires API changes and asset converter upgrades; default to it and forbid old API use
     /* VK_KHR_image_format_list */
+
+    // [DO NOT EXPOSE] this is "swap with damange" known from EGL, cant be arsed to support
     /* VK_KHR_incremental_present */
-    /* VK_KHR_pipeline_library */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_relaxed_block_layout */
-    /* VK_KHR_shader_clock */
+
+    // [TODO] Shader extension, always enable, expose as limit
     /* VK_KHR_shader_non_semantic_info */
+
+    // [DO NOT EXPOSE] Leave for later consideration
     /* VK_KHR_shared_presentable_image */
+
+    // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_storage_buffer_storage_class */
+
+    // [DO NOT EXPOSE] Instance extension & should enable implicitly if swapchain is enabled
     /* VK_KHR_surface */
 
     /* VK_KHR_swapchain */ // we want to expose this extension as feature
     core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
-
+    
+    // [TODO LATER] Requires VK_KHR_image_format_list to be enabled for any device-level functionality
     /* VK_KHR_swapchain_mutable_format */
+
+    // [DO NOT EXPOSE] Provisional
     /* VK_KHR_video_decode_queue */
+
+    // [DO NOT EXPOSE] Provisional
     /* VK_KHR_video_encode_queue */
+    
+    // [TODO LATER] Used for dx11 interop
     /* VK_KHR_win32_keyed_mutex */
-    /* VK_KHR_win32_surface */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_MESA_query_timestamp */
-    /* VK_MVK_ios_surface */
-    /* VK_MVK_macos_surface */
-    /* VK_MVK_moltenvk */
+
+    // [TODO LATER] won't decide yet, requires VK_EXT_direct_mode_display anyway
     /* VK_NV_acquire_winrt_display */
+    
+    // [TODO LATER] Don't expose VR features for now
     /* VK_NV_clip_space_w_scaling */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_cuda_kernel_launch */
+    
+    // [DO NOT EXPOSE] Promoted to KHR_dedicated_allocation, core VK 1.1
     /* VK_NV_dedicated_allocation */
-    /* VK_NV_device_debug_checkpoints */
+
+    // [DO NOT EXPOSE] Promoted to VK_KHR_external_memory_win32 
     /* VK_NV_external_memory_win32 */
+
+    // [DO NOT EXPOSE] For now. For 2D ui
     /* VK_NV_fill_rectangle */
+
+    // [TODO LATER] Requires API changes
     /* VK_NV_fragment_coverage_to_color */
-    /* VK_NV_framebuffer_mixed_samples */
+
+    // [TODO] Always enable, expose as limit
     /* VK_NV_geometry_shader_passthrough */
+
+    // [DO NOT EXPOSE]
     /* VK_NV_glsl_shader */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_low_latency */
+
     /* VK_NV_present_barrier */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_rdma_memory */
+
+    // [TODO] Always enable, expose as limit
     /* VK_NV_sample_mask_override_coverage */
+
+    // [TODO] Always enable, have it contribute to shaderSubgroup reporting & report as limit
     /* VK_NV_shader_subgroup_partitioned */
+
+    // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_texture_dirty_tile_map */
+    
+    // [DO NOT EXPOSE] Will be promoted to KHR_video_queue.
     /* VK_NV_video_queue */
+
     /* VK_NV_viewport_array2 */
+
+    // [TODO] Always enable, expose as limit
     /* VK_NV_viewport_swizzle */
+
+    // [DO NOT EXPOSE] Promoted to VK_KHR_win32_keyed_mutex 
     /* VK_NV_win32_keyed_mutex */
+
+    // [TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful
+    /* VK_AMD_shader_fragment_mask */
+    // [TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful
     /* VK_QCOM_render_pass_shader_resolve */
+
+    // [DO NOT EXPOSE] absorbed into VK_EXT_load_store_op_none
     /* VK_QCOM_render_pass_store_ops */
+
+    // [DO NOT EXPOSE] Too vendor specific
     /* VK_QCOM_render_pass_transform */
+
+    // [DO NOT EXPOSE] Too vendor specific
     /* VK_QCOM_rotated_copy_commands */
+    
     /* VK_KHR_spirv_1_4 */ // We do not expose because we always enable
     
     /* VK_EXT_image_compression_control */
