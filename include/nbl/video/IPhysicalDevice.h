@@ -267,6 +267,20 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint8_t storageBufferViewAtomic : 1u; // imageBuffer
             uint8_t accelerationStructureVertex : 1u;
 
+            SFormatBufferUsage()
+                : isInitialized(0)
+            {}
+
+            SFormatBufferUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages)
+                : isInitialized(1),
+                vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT)),
+                bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT)),
+                storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)),
+                accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)),
+                // Deduced as false. User may patch it up later
+                storageBufferViewAtomic(0)
+            {}
+
             inline SFormatBufferUsage operator & (const SFormatBufferUsage& other) const
             {
                 SFormatBufferUsage result;
@@ -300,6 +314,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 return result;
             }
 
+            inline bool operator<(const SFormatBufferUsage& other) const
+            {
+                if (vertexAttribute && !other.vertexAttribute) return false;
+                if (bufferView && !other.bufferView) return false;
+                if (storageBufferView && !other.storageBufferView) return false;
+                if (storageBufferViewAtomic && !other.storageBufferViewAtomic) return false;
+                if (accelerationStructureVertex && !other.accelerationStructureVertex) return false;
+                return true;
+            }
+
             inline bool operator == (const SFormatBufferUsage& other) const
             {
                 return
@@ -327,6 +351,24 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint16_t transferSrc : 1u;
             uint16_t transferDst : 1u;
             uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
+
+            SFormatImageUsage()
+                : isInitialized(0)
+            {}
+
+            SFormatImageUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages)
+                : isInitialized(1), 
+                sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
+                storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
+                transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
+                transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
+                attachment((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
+                attachmentBlend((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)).value != 0),
+                // Deduced as false. User may patch it up later
+                blitSrc(0),
+                blitDst(0),
+                storageImageAtomic(0)
+            {}
 
             inline SFormatImageUsage operator & (const SFormatImageUsage& other) const
             {
@@ -376,6 +418,21 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 return result;
             }
 
+            inline bool operator<(const SFormatImageUsage& other) const
+            {
+                if (sampledImage && !other.sampledImage) return false;
+                if (storageImage && !other.storageImage) return false;
+                if (storageImageAtomic && !other.storageImageAtomic) return false;
+                if (attachment && !other.attachment) return false;
+                if (attachmentBlend && !other.attachmentBlend) return false;
+                if (blitSrc && !other.blitSrc) return false;
+                if (blitDst && !other.blitDst) return false;
+                if (transferSrc && !other.transferSrc) return false;
+                if (transferDst && !other.transferDst) return false;
+                if (other.log2MaxSamples < log2MaxSamples) return false;
+                return true;
+            }
+
             inline bool operator == (const SFormatImageUsage& other) const
             {
                 return
@@ -391,6 +448,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     (log2MaxSamples == other.log2MaxSamples);
             }
         };
+
         virtual const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) = 0;
         virtual const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) = 0;
 
@@ -459,6 +517,34 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             const char* const* begin = m_extraGLSLDefines.data();
             return {begin,begin+m_extraGLSLDefines.size()};
         }
+
+        template<typename FORMAT_USAGE>
+        struct FormatPromotionRequest
+        {
+            asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
+            FORMAT_USAGE usages;
+
+            struct hash
+            {
+                // pack into 64bit for easy hashing 
+                uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
+                {
+                    uint64_t msb = uint64_t(std::hash<FORMAT_USAGE>()(r.usages));
+                    return (msb << 32u) | r.originalFormat;
+                }
+            };
+
+            struct equal_to
+            {
+                bool operator()(const FormatPromotionRequest<FORMAT_USAGE>& l, const FormatPromotionRequest<FORMAT_USAGE>& r) const
+                {
+                    return l.originalFormat == r.originalFormat && l.usages == r.usages;
+                }
+            };
+        };
+
+        asset::E_FORMAT promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req);
+        asset::E_FORMAT promoteImageFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage> req, const asset::IImage::E_TILING tiling);
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
@@ -589,8 +675,54 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         core::vector<char> m_GLSLDefineStringPool;
         core::vector<const char*> m_extraGLSLDefines;
+
+        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage>::equal_to> format_buffer_cache_t;
+        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage>::equal_to> format_image_cache_t;
+
+        struct format_promotion_cache_t
+        {
+            format_buffer_cache_t buffers;
+            format_image_cache_t optimalTilingImages;
+            format_image_cache_t linearTilingImages;
+        } m_formatPromotionCache;
 };
 
+}
+
+namespace std
+{
+    template<>
+    struct std::hash<nbl::video::IPhysicalDevice::SFormatImageUsage>
+    {
+        inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatImageUsage& i) const
+        {
+            return
+                i.sampledImage |
+                (i.storageImage << 1) |
+                (i.storageImageAtomic << 2) |
+                (i.attachment << 3) |
+                (i.attachmentBlend << 4) |
+                (i.blitSrc << 5) |
+                (i.blitDst << 6) |
+                (i.transferSrc << 7) |
+                (i.transferDst << 8) |
+                (i.log2MaxSamples << 9);
+        }
+    };
+
+    template<>
+    struct std::hash<nbl::video::IPhysicalDevice::SFormatBufferUsage>
+    {
+        inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatBufferUsage& b) const
+        {
+            return
+                b.vertexAttribute |
+                (b.bufferView << 1) |
+                (b.storageBufferView << 2) |
+                (b.storageBufferViewAtomic << 3) |
+                (b.accelerationStructureVertex << 4);
+        }
+    };
 }
 
 #endif

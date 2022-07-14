@@ -132,7 +132,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/cos_weighted.glsl"
   "nbl/builtin/glsl/sampling/linear.glsl"
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
-  #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
+  "nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   "nbl/builtin/glsl/sampling/quantized_sequence.glsl"
   # global exclusive scan
@@ -143,6 +143,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/scan/indirect.comp"
   "nbl/builtin/glsl/scan/parameters_struct.glsl"
   "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
+  # faster and easier scan
+  "nbl/builtin/glsl/scanning_append/scanning_append.glsl"
   # scene
   "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
@@ -150,7 +152,7 @@ set(nbl_resources_to_embed
   # shapes
   "nbl/builtin/glsl/shapes/aabb.glsl"
   "nbl/builtin/glsl/shapes/frustum.glsl"
-  #"nbl/builtin/glsl/shapes/rectangle.glsl"
+  "nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
   # skinning
   "nbl/builtin/glsl/skinning/cache_descriptor_set.glsl"

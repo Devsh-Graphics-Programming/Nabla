@@ -20,7 +20,7 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
     static inline core::smart_refctd_ptr<IGPUCommandBuffer> createTransferCommandBuffer(ILogicalDevice* logicalDevice, IGPUQueue* queue)
     {
         const auto queueFamilyIndex = queue->getFamilyIndex();
-        assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IPhysicalDevice::EQF_TRANSFER_BIT);
+        assert((logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IPhysicalDevice::EQF_TRANSFER_BIT).value);
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
         core::smart_refctd_ptr<IGPUCommandBuffer> gpuCommandBuffer;
@@ -166,7 +166,8 @@ protected:
             params.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
             // TODO: final layout should be readonly (if there's transfer necessary, then we start in transfer dst) and usage is shader sampled texture
 
-            image = m_logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(params));
+            image = m_logicalDevice->createImage(std::move(params));
+            m_logicalDevice->allocate(image->getMemoryReqs(), image.get());
         }
 
     private:
@@ -316,7 +317,9 @@ protected:
     }
     core::smart_refctd_ptr<IGPUImage> createPageTableImage(IGPUImage::SCreationParams&& _params) const override
     {
-        return m_logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(_params));
+        auto img = m_logicalDevice->createImage(std::move(_params));
+        m_logicalDevice->allocate(img->getMemoryReqs(), img.get());
+        return img;
     }
     core::smart_refctd_ptr<IGPUSampler> createSampler(const asset::ISampler::SParams& _params) const override
     {
