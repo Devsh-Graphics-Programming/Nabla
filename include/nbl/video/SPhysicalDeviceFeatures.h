@@ -506,7 +506,7 @@ struct SPhysicalDeviceFeatures
     bool           rectangularLines = false;
     bool           bresenhamLines = false;
     bool           smoothLines = false;
-    // GL HINT (remove when implemented): !IsGLES for all stipples
+    // end of hint
     bool           stippledRectangularLines = false;
     bool           stippledBresenhamLines = false;
     bool           stippledSmoothLines = false;

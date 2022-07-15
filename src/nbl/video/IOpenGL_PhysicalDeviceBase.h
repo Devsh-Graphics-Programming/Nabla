@@ -804,7 +804,11 @@ public:
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
 			m_features.shaderSubgroupExtendedTypes = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_ballot);
 			m_features.bufferDeviceAddress = false; // no such capability in GL
-			
+
+			m_features.stippledRectangularLines = !IsGLES;
+			m_features.stippledBresenhamLines = !IsGLES;
+			m_features.stippledSmoothLines = !IsGLES;
+
 			/* Vulkan 1.3 Core */
 			m_features.subgroupSizeControl = false;
 			m_features.computeFullSubgroups = false;
