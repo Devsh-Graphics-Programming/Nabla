@@ -87,6 +87,27 @@ ivec2 nbl_glsl_swapchain_transform_preTransformExtents(in uint swapchainTransfor
     }
 }
 
+// TODO: nbl_glsl_swapchain_transform_transformedDerivatives is untested
+// If rendering directly to the swapchain, ddx/ddy operations may be incorrect due to the swapchain
+// transform. Use this helper function to transform the ddx or ddy accordingly.
+mat2 nbl_glsl_swapchain_transform_transformedDerivatives(in uint swapchainTransform, in mat2 ddxDdy) {
+    switch (swapchainTransform) 
+    {
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_IDENTITY:
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR:
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180:
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_180:
+        return ddxDdy;
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_90:
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_270:
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90:
+    case NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270:
+        return mat2(ddxDdy[1], ddxDdy[0]);
+    default:
+        return mat2(0);
+    }
+}   
+
 // If rendering to the swapchain, you may use this function to transform the NDC coordinates directly
 // to be fed into gl_Position.
 // Remember to only use one transform in the pipeline!
