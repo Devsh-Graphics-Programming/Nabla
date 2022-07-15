@@ -493,7 +493,11 @@ public:
 
         // Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceShaderImageFootprintFeaturesNV                  shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceCoverageReductionModeFeaturesNV                 coverageReductionModeFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV               deviceGeneratedCommandsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV, &coverageReductionModeFeatures };
+        VkPhysicalDeviceMeshShaderFeaturesNV                            meshShaderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV, &deviceGeneratedCommandsFeatures };
+        VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV            representativeFragmentTestFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_REPRESENTATIVE_FRAGMENT_TEST_FEATURES_NV, &meshShaderFeatures };
+        VkPhysicalDeviceShaderImageFootprintFeaturesNV                  shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV, &representativeFragmentTestFeatures };
         VkPhysicalDeviceComputeShaderDerivativesFeaturesNV              computeShaderDerivativesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV, &shaderImageFootprintFeatures };
         VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR        workgroupMemoryExplicitLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR, &computeShaderDerivativesFeatures };
         VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR     subgroupUniformControlFlowFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR, &workgroupMemoryExplicitLayout };
@@ -863,6 +867,61 @@ public:
             if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
             {
                 m_properties.limits.imageFootprint = shaderImageFootprintFeatures.imageFootprint;
+            }
+
+            /* VkPhysicalDeviceCoverageReductionModeFeaturesNV  */
+            if (isExtensionSupported(VK_NV_COVERAGE_REDUCTION_MODE_EXTENSION_NAME))
+            {
+                m_features.coverageReductionMode = coverageReductionModeFeatures.coverageReductionMode;
+            }
+
+            /* VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV  */
+            if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
+            {
+                m_features.deviceGeneratedCommands = deviceGeneratedCommandsFeatures.deviceGeneratedCommands;
+            }
+
+            /* VkPhysicalDeviceMeshShaderFeaturesNV  */
+            if (isExtensionSupported(VK_NV_MESH_SHADER_EXTENSION_NAME))
+            {
+                m_features.meshShader = meshShaderFeatures.meshShader;
+                m_features.taskShader = meshShaderFeatures.taskShader;
+            }
+
+            /* VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV  */
+            if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
+            {
+                m_features.representativeFragmentTest = representativeFragmentTestFeatures.representativeFragmentTest;
+            }
+
+            if (isExtensionSupported(VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME) || isExtensionSupported(VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME))
+            {
+                m_features.representativeFragmentTest = true;
+            }
+
+            if (isExtensionSupported(VK_EXT_HDR_METADATA_EXTENSION_NAME))
+            {
+                m_features.hdrMetadata = true;
+            }
+
+            if (isExtensionSupported(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME))
+            {
+                m_features.displayTiming = true;
+            }
+
+            if (isExtensionSupported(VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME))
+            {
+                m_features.rasterizationOrder = true;
+            }
+
+            if (isExtensionSupported(VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME))
+            {
+                m_features.shaderExplicitVertexParameter = true;
+            }
+
+            if (isExtensionSupported(VK_AMD_SHADER_INFO_EXTENSION_NAME))
+            {
+                m_features.shaderInfoAMD = true;
             }
 
             if (isExtensionSupported(VK_AMD_BUFFER_MARKER_EXTENSION_NAME))

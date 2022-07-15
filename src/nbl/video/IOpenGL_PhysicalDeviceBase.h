@@ -1314,6 +1314,16 @@ public:
 
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_mesh_shader))
+			{
+				m_features.meshShader = true;
+				m_features.taskShader = true;
+			}
+
+			m_features.representativeFragmentTest = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_representative_fragment_test);
+			m_features.mixedAttachmentSamples = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_framebuffer_mixed_samples);
+			m_features.shaderExplicitVertexParameter = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_explicit_vertex_parameter);
 			
 			/* Nabla */
 			m_properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(m_properties.driverID);

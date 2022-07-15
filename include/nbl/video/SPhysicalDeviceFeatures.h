@@ -552,6 +552,103 @@ struct SPhysicalDeviceFeatures
     bool           rayTracingMotionBlur = false;
     bool           rayTracingMotionBlurPipelineTraceRaysIndirect = false;
 
+    /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
+    bool                        coverageReductionMode;
+
+    /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
+    bool           deviceGeneratedCommands = false;
+
+    /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
+    bool           taskShader = false;
+    bool           meshShader = false;
+
+    /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
+    bool           representativeFragmentTest = false;
+
+    /* VK_AMD_mixed_attachment_samples *//* OR *//* VK_NV_framebuffer_mixed_samples */
+    bool mixedAttachmentSamples = false;
+
+    /* VK_EXT_hdr_metadata */
+    bool hdrMetadata = false;
+
+    /* VK_GOOGLE_display_timing */
+    bool displayTiming = false;
+
+    /* VK_AMD_rasterization_order */
+    bool rasterizationOrder = false;
+
+    /* VK_AMD_shader_explicit_vertex_parameter */
+    bool shaderExplicitVertexParameter = false;
+
+    /* VK_AMD_shader_info */
+    bool shaderInfoAMD = false;
+
+    // [TODO] Promoted to VK1.1 core, haven't updated API to match
+    /* VK_KHR_descriptor_update_template */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_NV_sample_mask_override_coverage */
+
+    // [TODO] Always enable, have it contribute to shaderSubgroup reporting & report as limit
+    /* VK_NV_shader_subgroup_partitioned */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_AMD_gcn_shader */
+
+    // [TODO] Always enable, expose as limit (Note: Promoted to VK_KHR_shader_float16_int8)
+    /* VK_AMD_gpu_shader_half_float */
+
+    // [TODO] Always enable, expose as limit (Note: Promoted to VK_AMD_gpu_shader_int16)
+    /* VK_AMD_gpu_shader_int16 */
+
+    // [TODO] Always enable, have it contribute to shaderSubgroup reporting
+    /* VK_AMD_shader_ballot */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_AMD_shader_image_load_store_lod */
+
+    // [TODO] Enable when available, report as limit
+    /* VK_AMD_shader_trinary_minmax */
+
+    // [TODO] needs to figure out how extending our LOAD_OP enum would affect the GL backend
+    /* VK_EXT_load_store_op_none */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_EXT_post_depth_coverage */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_EXT_shader_stencil_export */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_GOOGLE_decorate_string */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_KHR_external_fence_fd */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_KHR_external_fence_win32 */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_KHR_external_memory_fd */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_KHR_external_memory_win32 */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_KHR_external_semaphore_fd */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_KHR_external_semaphore_win32 */
+
+    // [TODO] Shader extension, always enable, expose as limit
+    /* VK_KHR_shader_non_semantic_info */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_NV_geometry_shader_passthrough */
+
+    // [TODO] Always enable, expose as limit
+    /* VK_NV_viewport_swizzle */
+
     // Enabled by Default, Moved to Limits 
     //bool           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
     //bool           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
@@ -568,13 +665,21 @@ struct SPhysicalDeviceFeatures
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
     //bool           imageFootprint;
 
+    // [TODO LATER] Won't expose for now, API changes necessary
+    /* VK_AMD_texture_gather_bias_lod */
+
+    // [TODO LATER] requires extra API work to use
+    // GL Hint: in GL/GLES this is NV_scissor_exclusive
+    /* ExclusiveScissorFeaturesNV *//* VK_NV_scissor_exclusive */
+    //bool           exclusiveScissor;
+
+    // [TODO LATER] when we do multi-gpu
+    /* ExternalMemoryRDMAFeaturesNV *//* VK_NV_external_memory_rdma */
+    //bool           externalMemoryRDMA;
+
     // [DO NOT EXPOSE] for a very long time
     /* CornerSampledImageFeaturesNV *//* VK_NV_corner_sampled_image */
     //bool           cornerSampledImage;
-
-    // [TODO]
-    /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
-    //VkCoverageReductionModeNV                        coverageReductionMode;
 
     // [DO NOT EXPOSE] insane oxymoron, dedicated means dedicated, not aliased, won't expose
     /* DedicatedAllocationImageAliasingFeaturesNV *//* VK_NV_dedicated_allocation_image_aliasing */
@@ -584,14 +689,6 @@ struct SPhysicalDeviceFeatures
     /* DiagnosticsConfigFeaturesNV *//* VK_NV_device_diagnostics_config */
     //bool           diagnosticsConfig;
 
-    // [TODO]
-    /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
-    //bool           deviceGeneratedCommands;
-
-    // [TODO] when we do multi-gpu
-    /* ExternalMemoryRDMAFeaturesNV *//* VK_NV_external_memory_rdma */
-    //bool           externalMemoryRDMA;
-    
     // [DEPRECATED]
     /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
     //bool           fragmentShaderBarycentric;
@@ -610,20 +707,6 @@ struct SPhysicalDeviceFeatures
     /* LinearColorAttachmentFeaturesNV *//* VK_NV_linear_color_attachment */
     //bool           linearColorAttachment;
     
-    // [TODO]
-    /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
-    //bool           taskShader;
-    //bool           meshShader;
-    
-    // [TODO] Expose Soon, Useful
-    /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
-    //bool           representativeFragmentTest;
- 
-    // [TODO] requires extra API work to use
-    // GL Hint: in GL/GLES this is NV_scissor_exclusive
-    /* ExclusiveScissorFeaturesNV *//* VK_NV_scissor_exclusive */
-    //bool           exclusiveScissor;
-
     // [ENABLE BY DEFAULT]
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
     //bool           shaderSMBuiltins;
@@ -662,30 +745,17 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to KHR version already exposed
     /* VK_AMD_draw_indirect_count */
     
-    // [TODO] Always enable, expose as limit
-    /* VK_AMD_gcn_shader */
-
     // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_gpa_interface */
 
-    // [TODO] Always enable, expose as limit (Note: Promoted to VK_KHR_shader_float16_int8)
-    /* VK_AMD_gpu_shader_half_float */
-
     // [TODO LATER] (When it has documentation): Always enable, expose as limit
     /* VK_AMD_gpu_shader_half_float_fetch */
-    
-    // [TODO] Always enable, expose as limit (Note: Promoted to VK_AMD_gpu_shader_int16)
-    /* VK_AMD_gpu_shader_int16 */
 
     // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_image_layout_resolve */
 
     // [DO NOT EXPOSE]
     /* VK_AMD_memory_overallocation_behavior */
-
-    // [TODO] Expose NV & AMD mixed attachment samples under single bool
-    /* VK_AMD_mixed_attachment_samples */
-    /* VK_NV_framebuffer_mixed_samples */
 
     // [DO NOT EXPOSE] Promoted to VK_KHR_maintenance1, core VK 1.1
     /* VK_AMD_negative_viewport_height */
@@ -695,27 +765,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Promoted to VK_EXT_sample_locations 
     /* VK_AMD_programmable_sample_locations */
-    
-    // [TODO] Will add at some point
-    /* VK_AMD_rasterization_order */
-
-    // [TODO] Always enable, have it contribute to shaderSubgroup reporting
-    /* VK_AMD_shader_ballot */
-    
-    // [TODO] Want to expose
-    /* VK_AMD_shader_explicit_vertex_parameter */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_AMD_shader_image_load_store_lod */
-    
-    // [TODO] Expose, leave note to user about needing to use `getNativeHandle` for reporting
-    /* VK_AMD_shader_info */
-    
-    // [TODO] Enable when available, report as limit
-    /* VK_AMD_shader_trinary_minmax */
-
-    // [TODO] Won't expose for now, API changes necessary
-    /* VK_AMD_texture_gather_bias_lod */
 
     // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_wave_limits */
@@ -732,7 +781,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to VK_EXT_debug_utils (instance ext)
     /* VK_EXT_debug_marker */
 
-    // [TODO] Will expose some day
+    // [TODO LATER] Will expose some day
     /* VK_EXT_depth_range_unrestricted */
     
     // [TODO LATER] Requires handling display swapchain stuff
@@ -750,15 +799,9 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] absorbed into KHR_global_priority
     /* VK_EXT_global_priority_query */
 
-    // [TODO] Expose
-    /* VK_EXT_hdr_metadata */
-
     // [DO NOT EXPOSE] Too "intrinsically linux"
     /* VK_EXT_image_drm_format_modifier */
 
-    // [TODO] needs to figure out how extending our LOAD_OP enum would affect the GL backend
-    /* VK_EXT_load_store_op_none */
- 
     // [TODO LATER] Expose when we support MoltenVK
     /* VK_EXT_metal_objects */
 
@@ -771,9 +814,6 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] would like to expose, but too much API to change
     /* VK_EXT_pipeline_creation_feedback */
 
-    // [TODO] Always enable, expose as limit
-    /* VK_EXT_post_depth_coverage */
-
     /* VK_EXT_queue_family_foreign */
 
     // [DO NOT EXPOSE] wont expose yet (or ever), requires VK_KHR_sampler_ycbcr_conversion
@@ -783,9 +823,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] stupid to expose, it would be extremely dumb to want to provide some identifiers instead of VkShaderModule outside of some emulator which has no control over pipeline combo explosion
     /* VK_EXT_shader_module_identifier */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_EXT_shader_stencil_export */
 
     // [DO NOT EXPOSE] we dont need to care or know about it
     /* VK_EXT_tooling_info */
@@ -804,12 +841,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Provisional
     /* VK_EXTX_portability_subset */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_GOOGLE_decorate_string */
-
-    // [TODO] Immediate TODO shortlist
-    /* VK_GOOGLE_display_timing */
 
     // [DO NOT EXPOSE]
     /* VK_GOOGLE_hlsl_functionality1 */
@@ -844,9 +875,6 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] required for acceleration_structure and only that extension, do not expose until another comes that actually makes use of it
     /* VK_KHR_deferred_host_operations */
 
-    // [TODO] Promoted to VK1.1 core, haven't updated API to match
-    /* VK_KHR_descriptor_update_template */
-
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_device_group */
 
@@ -855,29 +883,11 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_fence */
 
-    // [TODO] Always enable, expose as limit
-    /* VK_KHR_external_fence_fd */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_KHR_external_fence_win32 */
-
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_memory */
 
-    // [TODO] Always enable, expose as limit
-    /* VK_KHR_external_memory_fd */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_KHR_external_memory_win32 */
-
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_semaphore */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_KHR_external_semaphore_fd */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_KHR_external_semaphore_win32 */
 
     /* VK_KHR_format_feature_flags2 */
 
@@ -895,9 +905,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_relaxed_block_layout */
-
-    // [TODO] Shader extension, always enable, expose as limit
-    /* VK_KHR_shader_non_semantic_info */
 
     // [DO NOT EXPOSE] Leave for later consideration
     /* VK_KHR_shared_presentable_image */
@@ -947,9 +954,6 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Requires API changes
     /* VK_NV_fragment_coverage_to_color */
 
-    // [TODO] Always enable, expose as limit
-    /* VK_NV_geometry_shader_passthrough */
-
     // [DO NOT EXPOSE]
     /* VK_NV_glsl_shader */
 
@@ -961,12 +965,6 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_rdma_memory */
 
-    // [TODO] Always enable, expose as limit
-    /* VK_NV_sample_mask_override_coverage */
-
-    // [TODO] Always enable, have it contribute to shaderSubgroup reporting & report as limit
-    /* VK_NV_shader_subgroup_partitioned */
-
     // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_texture_dirty_tile_map */
     
@@ -974,9 +972,6 @@ struct SPhysicalDeviceFeatures
     /* VK_NV_video_queue */
 
     /* VK_NV_viewport_array2 */
-
-    // [TODO] Always enable, expose as limit
-    /* VK_NV_viewport_swizzle */
 
     // [DO NOT EXPOSE] Promoted to VK_KHR_win32_keyed_mutex 
     /* VK_NV_win32_keyed_mutex */
