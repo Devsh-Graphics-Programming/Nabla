@@ -10,14 +10,10 @@ private:
 	struct vec3 { float x, y, z; };
 	struct uvec3 { uint32_t x, y, z; };
 
-	static constexpr uint32_t MinAlphaBinCount = 256u;
-	static constexpr uint32_t MaxAlphaBinCount = 4096u;
-
 public:
 	// This default is only for the blitting step (not alpha test or normalization steps) which always uses a 1D workgroup.
 	// For the default values of alpha test and normalization steps, see getDefaultWorkgroupDims.
 	static constexpr uint32_t DefaultBlitWorkgroupSize = 256u;
-	static constexpr uint32_t DefaultAlphaBinCount = MinAlphaBinCount;
 
 #include "nbl/builtin/glsl/blit/parameters.glsl"
 
@@ -110,15 +106,15 @@ public:
 	}
 
 	// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = DefaultAlphaBinCount);
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> getAlphaTestPipeline(const uint32_t alphaBinCount, const asset::IImage::E_TYPE imageType)
 	{
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
 
-		assert(paddedAlphaBinCount >= MinAlphaBinCount);
-		const auto pipelineIndex = (paddedAlphaBinCount / MinAlphaBinCount) - 1;
+		assert(paddedAlphaBinCount >= asset::IBlitUtilities::MinAlphaBinCount);
+		const auto pipelineIndex = (paddedAlphaBinCount / asset::IBlitUtilities::MinAlphaBinCount) - 1;
 
 		if (m_alphaTestPipelines[pipelineIndex][imageType])
 			return m_alphaTestPipelines[pipelineIndex][imageType];
@@ -131,10 +127,10 @@ public:
 
 	// @param `outFormat` dictates encoding.
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
-		const uint32_t alphaBinCount = DefaultAlphaBinCount);
+		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
-		const uint32_t alphaBinCount = DefaultAlphaBinCount)
+		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 	{
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 		const uint32_t paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
@@ -158,7 +154,7 @@ public:
 		const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic,
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ,
 		const uint32_t workgroupSize = DefaultBlitWorkgroupSize,
-		const uint32_t alphaBinCount = DefaultAlphaBinCount)
+		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 	{
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
@@ -215,7 +211,7 @@ public:
 		const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic,
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ,
 		const uint32_t workgroupSize = DefaultBlitWorkgroupSize,
-		const uint32_t alphaBinCount = DefaultAlphaBinCount)
+		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 	{
 		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(core::vectorSIMDu32(workgroupSize, 1, 1, 1), alphaBinCount);
 
@@ -560,7 +556,7 @@ public:
 		const uint32_t layersToBlit = 1,
 		core::smart_refctd_ptr<video::IGPUBuffer> coverageAdjustmentScratchBuffer = nullptr,
 		const float referenceAlpha = 0.f,
-		const uint32_t alphaBinCount = DefaultAlphaBinCount,
+		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount,
 		const uint32_t workgroupSize = DefaultBlitWorkgroupSize)
 	{
 		const core::vectorSIMDu32 outImageExtent(normalizationInImage->getCreationParameters().extent.width, normalizationInImage->getCreationParameters().extent.height, normalizationInImage->getCreationParameters().extent.depth, 1u);
@@ -733,7 +729,7 @@ private:
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
 	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
 
-	core::smart_refctd_ptr<video::IGPUComputePipeline> m_alphaTestPipelines[MaxAlphaBinCount / MinAlphaBinCount][asset::IImage::ET_COUNT] = { nullptr };
+	core::smart_refctd_ptr<video::IGPUComputePipeline> m_alphaTestPipelines[asset::IBlitUtilities::MaxAlphaBinCount / asset::IBlitUtilities::MinAlphaBinCount][asset::IImage::ET_COUNT] = { nullptr };
 
 	struct SNormalizationCacheKey
 	{

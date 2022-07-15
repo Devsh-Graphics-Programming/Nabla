@@ -12,6 +12,10 @@ namespace nbl::asset
 class IBlitUtilities
 {
 public:
+	static constexpr uint32_t MinAlphaBinCount = 256u;
+	static constexpr uint32_t MaxAlphaBinCount = 4096u;
+	static constexpr uint32_t DefaultAlphaBinCount = MinAlphaBinCount;
+
 	enum E_ALPHA_SEMANTIC : uint32_t
 	{
 		EAS_NONE_OR_PREMULTIPLIED = 0u, // just filter the channels independently (also works for a texture for blending equation `dstCol*(1-srcAlpha)+srcCol`)

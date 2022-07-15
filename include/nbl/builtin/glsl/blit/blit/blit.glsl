@@ -121,7 +121,7 @@ void nbl_glsl_blit_main()
 					outCoord = virtualInvocationID.xyz;
 				outCoord += minOutputPixel;
 
-				const uint bucketIndex = uint(round(clamp(accum.a, 0, 1) * float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_)));
+				const uint bucketIndex = uint(round(clamp(accum.a, 0, 1) * float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_-1)));
 				nbl_glsl_blit_addToHistogram(bucketIndex, gl_WorkGroupID.z);
 
 				nbl_glsl_blit_setData(accum, outCoord, gl_WorkGroupID.z);
