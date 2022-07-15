@@ -53,14 +53,22 @@ ivec2 nbl_glsl_swapchain_transform_backward(in uint swapchainTransform, in ivec2
     }
 }
 
+// If using `imageStore` to write *directly to the swapchain*, you may use this function to 
+// transform the UVs before rendering with them (e.g. path tracer that will use UVs to fire rays, gather). 
+// Remember to only use one transform in the pipeline!
 ivec2 nbl_glsl_swapchain_transform_preTransform(in uint swapchainTransform, in ivec2 coord, in ivec2 screenSize) {
     return nbl_glsl_swapchain_transform_backward(swapchainTransform, coord, screenSize - 1);
 }
 
+// If using `imageStore` to write *directly to the swapchain*, you may use this function to 
+// transform the coordinates written to the swapchain (the ones used in imageStore, scatter).
+// Remember to only use one transform in the pipeline!
 ivec2 nbl_glsl_swapchain_transform_postTransform(in uint swapchainTransform, in ivec2 coord, in ivec2 screenSize) {
     return nbl_glsl_swapchain_transform_forward(swapchainTransform, coord, screenSize - 1);
 }
 
+// If rendering directly to the swapchain, use the transformed extents rather than the actual
+// extents for aspect ratio calculations, in order to be consistent with 90º/270º rotations.
 ivec2 nbl_glsl_swapchain_transform_preTransformExtents(in uint swapchainTransform, in ivec2 screenSize) {
     switch (swapchainTransform) 
     {
@@ -79,6 +87,9 @@ ivec2 nbl_glsl_swapchain_transform_preTransformExtents(in uint swapchainTransfor
     }
 }
 
+// If rendering to the swapchain, you may use this function to transform the NDC coordinates directly
+// to be fed into gl_Position.
+// Remember to only use one transform in the pipeline!
 vec2 nbl_glsl_swapchain_transform_postTransformNdc(in uint swapchainTransform, in vec2 ndc) {
     const float sin90 = 1.0, cos90 = 0.0,
         sin180 = 0.0, cos180 = -1.0,
