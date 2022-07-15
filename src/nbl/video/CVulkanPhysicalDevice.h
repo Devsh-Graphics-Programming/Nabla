@@ -493,7 +493,24 @@ public:
 
         // Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, &vulkan11Features };
-        VkPhysicalDeviceCoverageReductionModeFeaturesNV                 coverageReductionModeFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceHostQueryResetFeatures                          hostQueryResetFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceImageRobustnessFeatures                         imageRobustnessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES, &hostQueryResetFeatures };
+        VkPhysicalDevicePipelineCreationCacheControlFeatures            pipelineCreationCacheControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES, &imageRobustnessFeatures };
+        VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT, &pipelineCreationCacheControlFeatures };
+        VkPhysicalDeviceConditionalRenderingFeaturesEXT                 conditionalRenderingFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT, &colorWriteEnableFeatures };
+        VkPhysicalDeviceDeviceMemoryReportFeaturesEXT                   deviceMemoryReportFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT, &conditionalRenderingFeatures };
+        VkPhysicalDeviceFragmentDensityMapFeaturesEXT                   fragmentDensityMapFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT, &deviceMemoryReportFeatures };
+        VkPhysicalDeviceFragmentDensityMap2FeaturesEXT                  fragmentDensityMap2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT, &fragmentDensityMapFeatures };
+        VkPhysicalDeviceInlineUniformBlockFeatures                      inlineUniformBlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES, &fragmentDensityMap2Features };
+        VkPhysicalDeviceLineRasterizationFeaturesEXT                    lineRasterizationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT, &inlineUniformBlockFeatures };
+        VkPhysicalDeviceMemoryPriorityFeaturesEXT                       memoryPriorityFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT, &lineRasterizationFeatures };
+        VkPhysicalDeviceRobustness2FeaturesEXT                          robustness2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, &memoryPriorityFeatures };
+        VkPhysicalDevicePerformanceQueryFeaturesKHR                     performanceQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR, &robustness2Features };
+        VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR         pipelineExecutablePropertiesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR, &performanceQueryFeatures };
+        VkPhysicalDeviceMaintenance4Features                            maintenance4Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES, &pipelineExecutablePropertiesFeatures };
+        VkPhysicalDeviceCoherentMemoryFeaturesAMD                       coherentMemoryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD, &maintenance4Features };
+        VkQueueFamilyGlobalPriorityPropertiesKHR                        globalPriorityProperties = { VK_STRUCTURE_TYPE_QUEUE_FAMILY_GLOBAL_PRIORITY_PROPERTIES_KHR, &coherentMemoryFeatures };
+        VkPhysicalDeviceCoverageReductionModeFeaturesNV                 coverageReductionModeFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV, &globalPriorityProperties };
         VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV               deviceGeneratedCommandsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV, &coverageReductionModeFeatures };
         VkPhysicalDeviceMeshShaderFeaturesNV                            meshShaderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV, &deviceGeneratedCommandsFeatures };
         VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV            representativeFragmentTestFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_REPRESENTATIVE_FRAGMENT_TEST_FEATURES_NV, &meshShaderFeatures };
@@ -525,8 +542,7 @@ public:
         VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT       shaderDemoteToHelperInvocationFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, &separateDepthStencilLayoutsFeaturesKHR };
         VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR            shaderTerminateInvocationFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR, &shaderDemoteToHelperInvocationFeaturesEXT };
         VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR              shaderIntegerDotProductFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR, &shaderTerminateInvocationFeaturesKHR };
-        VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeaturesARM = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM, &shaderIntegerDotProductFeaturesKHR };
-        VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, &rasterizationOrderAttachmentAccessFeaturesARM };
+        VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, &shaderIntegerDotProductFeaturesKHR };
         VkPhysicalDeviceShaderAtomicInt64FeaturesKHR                    shaderAtomicInt64FeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES_KHR, &astcDecodeFeaturesEXT };
         VkPhysicalDevice8BitStorageFeaturesKHR                          _8BitStorageFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR, &shaderAtomicInt64FeaturesKHR };
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV, &_8BitStorageFeaturesKHR };
@@ -927,6 +943,114 @@ public:
             if (isExtensionSupported(VK_AMD_BUFFER_MARKER_EXTENSION_NAME))
             {
                 m_features.bufferMarkerAMD = true;
+            }
+
+            /* VkPhysicalDeviceHostQueryResetFeatures */
+            if (isExtensionSupported(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME))
+            {
+                m_features.hostQueryReset = hostQueryResetFeatures.hostQueryReset;
+            }
+
+            /* VkPhysicalDeviceImageRobustnessFeatures */
+            if (isExtensionSupported(VK_EXT_IMAGE_ROBUSTNESS_EXTENSION_NAME))
+            {
+                m_features.robustImageAccess = imageRobustnessFeatures.robustImageAccess;
+            }
+
+            /* VkPhysicalDevicePipelineCreationCacheControlFeatures */
+            if (isExtensionSupported(VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME))
+            {
+                m_features.pipelineCreationCacheControl = pipelineCreationCacheControlFeatures.pipelineCreationCacheControl;
+            }
+
+            /* VkPhysicalDeviceColorWriteEnableFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
+            {
+                m_features.colorWriteEnable = colorWriteEnableFeatures.colorWriteEnable;
+            }
+
+            /* VkPhysicalDeviceConditionalRenderingFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
+            {
+                m_features.conditionalRendering = conditionalRenderingFeatures.conditionalRendering;
+                m_features.inheritedConditionalRendering = conditionalRenderingFeatures.inheritedConditionalRendering;
+            }
+
+            /* VkPhysicalDeviceDeviceMemoryReportFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
+            {
+                m_features.deviceMemoryReport = deviceMemoryReportFeatures.deviceMemoryReport;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMapFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+            {
+                m_features.fragmentDensityMap = fragmentDensityMapFeatures.fragmentDensityMap;
+                m_features.fragmentDensityMapDynamic = fragmentDensityMapFeatures.fragmentDensityMapDynamic;
+                m_features.fragmentDensityMapNonSubsampledImages = fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMap2FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+            {
+                m_features.fragmentDensityMapDeferred = fragmentDensityMap2Features.fragmentDensityMapDeferred;
+            }
+
+            /* VkPhysicalDeviceInlineUniformBlockFeatures */
+            if (isExtensionSupported(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME))
+            {
+                m_features.inlineUniformBlock = inlineUniformBlockFeatures.inlineUniformBlock;
+                m_features.descriptorBindingInlineUniformBlockUpdateAfterBind = inlineUniformBlockFeatures.descriptorBindingInlineUniformBlockUpdateAfterBind;
+            }
+
+            /* VkPhysicalDeviceLineRasterizationFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
+            {
+                m_features.rectangularLines = lineRasterizationFeatures.rectangularLines;
+                m_features.bresenhamLines = lineRasterizationFeatures.bresenhamLines;
+                m_features.smoothLines = lineRasterizationFeatures.smoothLines;
+                m_features.stippledRectangularLines = lineRasterizationFeatures.stippledRectangularLines;
+                m_features.stippledBresenhamLines = lineRasterizationFeatures.stippledBresenhamLines;
+                m_features.stippledSmoothLines = lineRasterizationFeatures.stippledSmoothLines;
+            }
+
+            /* VkPhysicalDeviceMemoryPriorityFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
+            {
+                m_features.memoryPriority = memoryPriorityFeatures.memoryPriority;
+            }
+
+            /* VkPhysicalDeviceRobustness2FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME))
+            {
+                m_features.robustBufferAccess2 = robustness2Features.robustBufferAccess2;
+                m_features.robustImageAccess2 = robustness2Features.robustImageAccess2;
+                m_features.nullDescriptor = robustness2Features.nullDescriptor;
+            }
+
+            /* VkPhysicalDevicePerformanceQueryFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
+            {
+                m_features.performanceCounterQueryPools = performanceQueryFeatures.performanceCounterQueryPools;
+                m_features.performanceCounterMultipleQueryPools = performanceQueryFeatures.performanceCounterMultipleQueryPools;
+            }
+
+            /* VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
+            {
+                m_features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
+            }
+
+            /* VkPhysicalDeviceMaintenance4Features */
+            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                m_features.maintenance4 = maintenance4Features.maintenance4;
+            }
+
+            /* VkPhysicalDeviceCoherentMemoryFeaturesAMD */
+            if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
+            {
+                m_features.deviceCoherentMemory = coherentMemoryFeatures.deviceCoherentMemory;
             }
 
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);

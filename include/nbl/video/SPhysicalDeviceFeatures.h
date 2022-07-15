@@ -69,7 +69,7 @@ struct SPhysicalDeviceFeatures
     bool shaderResourceResidency = false;
     bool shaderResourceMinLod = false;
     
-    // [TODO] cause we haven't implemented sparse resources yet
+    // [TODO LATER] once we implemented sparse resources
     //bool    sparseBinding;
     //bool    sparseResidencyBuffer;
     //bool    sparseResidencyImage2D;
@@ -91,14 +91,10 @@ struct SPhysicalDeviceFeatures
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
     
-    // [TODO] do not expose multiview yet
+    // [TODO LATER] do not expose multiview yet
     //bool           multiview;
     //bool           multiviewGeometryShader;
     //bool           multiviewTessellationShader;
-    
-    // [Future TODO]:
-    //bool           variablePointersStorageBuffer;
-    //bool           variablePointers;
     
     //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
  
@@ -163,9 +159,6 @@ struct SPhysicalDeviceFeatures
     
     bool           separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
     
-    // [TODO] And add implementation to engine
-    //bool           hostQueryReset;                // or VK_EXT_host_query_reset
-    
     //bool           timelineSemaphore;             // or VK_KHR_timeline_semaphore // [FUTURE TODO] won't expose for a long time
     
     // or VK_KHR_buffer_device_address:
@@ -185,17 +178,11 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.3 Core */
     
-    // [TODO] robustness stuff
-    //bool           robustImageAccess;                 //  or VK_EXT_image_robustness
-    
     // [DO NOT EXPOSE]
     //  or VK_EXT_inline_uniform_block:
     //bool           inlineUniformBlock;
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
-    
-    // [TODO]
-    //bool           pipelineCreationCacheControl;      // or VK_EXT_pipeline_creation_cache_control
-   
+
     // [DO NOT EXPOSE] ever
     //bool           privateData;                       // or VK_EXT_private_data
     
@@ -226,14 +213,6 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan Extensions */
 
-    // [TODO] no such thing on GL, but trivial to implement.
-    /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
-    //bool           deviceCoherentMemory;
-
-    // [TODO] this one isn't in the headers?
-    /* VK_AMD_shader_early_and_late_fragment_tests */
-    //bool shaderEarlyAndLateFragmentTests;
-
     /* RasterizationOrderAttachmentAccessFeaturesARM *//* VK_ARM_rasterization_order_attachment_access */
     bool rasterizationOrderColorAttachmentAccess;
     bool rasterizationOrderDepthAttachmentAccess;
@@ -241,10 +220,6 @@ struct SPhysicalDeviceFeatures
     
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
-    
-    // [TODO]
-    /* ASTCDecodeFeaturesEXT *//* VK_EXT_astc_decode_mode */
-    //VkFormat           decodeMode;
 
     // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
@@ -255,17 +230,6 @@ struct SPhysicalDeviceFeatures
     //bool           borderColorSwizzle;
     //bool           borderColorSwizzleFromImage;
 
-    /* VK_EXT_buffer_device_address *//* HAS KHR VERSION */
-
-    // [TODO] would need new commandbuffer methods, etc
-    /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
-    //bool           colorWriteEnable;
-
-    // [TODO] would need API to deal with queries and begin/end conditional blocks
-    /* ConditionalRenderingFeaturesEXT *//* VK_EXT_conditional_rendering */
-    //bool           conditionalRendering;
-    //bool           inheritedConditionalRendering;
-    
     // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* CustomBorderColorFeaturesEXT *//* VK_EXT_custom_border_color */
     //bool           customBorderColors;
@@ -279,12 +243,6 @@ struct SPhysicalDeviceFeatures
     /* DepthClipEnableFeaturesEXT *//* VK_EXT_depth_clip_enable */
     //bool           depthClipEnable;
 
-    /* DescriptorIndexingFeatures *//* VK_EXT_descriptor_indexing *//* MOVED TO Vulkan 1.2 Core  */
-
-    // [TODO]
-    /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
-    //bool           deviceMemoryReport;
-    
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicStateFeaturesEXT *//* VK_EXT_extended_dynamic_state */
     //bool           extendedDynamicState;
@@ -295,39 +253,11 @@ struct SPhysicalDeviceFeatures
     //bool           extendedDynamicState2LogicOp;
     //bool           extendedDynamicState2PatchControlPoints;
 
-    // [TODO]
-    /* FragmentDensityMapFeaturesEXT *//* VK_EXT_fragment_density_map */
-    //bool           fragmentDensityMap;
-    //bool           fragmentDensityMapDynamic;
-    //bool           fragmentDensityMapNonSubsampledImages;
-    
-    // [TODO]
-    /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
-    //bool           fragmentDensityMapDeferred;
-
     /* FragmentShaderInterlockFeaturesEXT *//* VK_EXT_fragment_shader_interlock */
     bool fragmentShaderSampleInterlock = false;
     bool fragmentShaderPixelInterlock = false;
     bool fragmentShaderShadingRateInterlock = false;
 
-    // [TODO]
-    /* GlobalPriorityQueryFeaturesEXT *//* VK_EXT_global_priority */
-    /* GlobalPriorityQueryFeaturesKHR *//* VK_KHR_global_priority */
-    //VkQueueGlobalPriorityKHR    globalPriority;
-
-    // [TODO] too much effort
-    /* GraphicsPipelineLibraryFeaturesEXT *//* VK_EXT_graphics_pipeline_library */
-    //bool           graphicsPipelineLibrary;
-
-    /* HostQueryResetFeatures *//* VK_EXT_host_query_reset *//* MOVED TO Vulkan 1.2 Core */
-    
-    // [TODO] Investigate later
-    /* Image2DViewOf3DFeaturesEXT *//* VK_EXT_image_2d_view_of_3d */
-    //bool           image2DViewOf3D;
-    //bool           sampler2DViewOf3D;
-
-    /* ImageRobustnessFeaturesEXT *//* VK_EXT_image_robustness *//* MOVED TO Vulkan 1.3 Core */
-    
     // [DO NOT EXPOSE] pointless to implement currently
     /* ImageViewMinLodFeaturesEXT *//* VK_EXT_image_view_min_lod */
     //bool           minLod;
@@ -335,23 +265,6 @@ struct SPhysicalDeviceFeatures
     /* IndexTypeUint8FeaturesEXT *//* VK_EXT_index_type_uint8 */
     bool           indexTypeUint8 = false;
     
-    /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
-
-    // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
-    /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
-    // GL HINT (remove when implemented): MULTI_SAMPLE_LINE_WIDTH_RANGE (which is necessary for this) is guarded by !IsGLES || Version>=320 no idea is something enables this or not
-    //bool           rectangularLines;
-    //bool           bresenhamLines;
-    //bool           smoothLines;
-    // GL HINT (remove when implemented): !IsGLES for all stipples
-    //bool           stippledRectangularLines;
-    //bool           stippledBresenhamLines;
-    //bool           stippledSmoothLines;
-
-    // [TODO] trivial to implement later, false on GL
-    /* MemoryPriorityFeaturesEXT *//* VK_EXT_memory_priority */
-    //bool           memoryPriority;
-
     // [DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported
     /* MultiDrawFeaturesEXT *//* VK_EXT_multi_draw */
     //bool           multiDraw;
@@ -359,8 +272,6 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] pointless to expose without exposing VK_EXT_memory_priority and the memory query feature first
     /* PageableDeviceLocalMemoryFeaturesEXT *//* VK_EXT_pageable_device_local_memory */
     //bool           pageableDeviceLocalMemory;
-
-    /* PipelineCreationCacheControlFeaturesEXT *//* VK_EXT_pipeline_creation_cache_control *//* MOVED TO Vulkan 1.3 Core */
 
     // [DO NOT EXPOSE] requires and relates to EXT_transform_feedback which we'll never expose
     /* PrimitivesGeneratedQueryFeaturesEXT *//* VK_EXT_primitives_generated_query */
@@ -380,14 +291,6 @@ struct SPhysicalDeviceFeatures
     //bool           provokingVertexLast;
     //bool           transformFeedbackPreservesProvokingVertex;
 
-    // [TODO]
-    /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
-    //bool           robustBufferAccess2;
-    //bool           robustImageAccess2;
-    //bool           nullDescriptor;
-    
-    /* ScalarBlockLayoutFeaturesEXT *//* VK_EXT_scalar_block_layout *//* MOVED TO Vulkan 1.2 Core */
-    
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
     bool           shaderBufferFloat32Atomics = false;
     bool           shaderBufferFloat32AtomicAdd = false;
@@ -416,26 +319,20 @@ struct SPhysicalDeviceFeatures
     bool           shaderImageFloat32AtomicMinMax = false;
     bool           sparseImageFloat32AtomicMinMax = false;
     
-    /* DemoteToHelperInvocationFeaturesEXT *//* VK_EXT_shader_demote_to_helper_invocation *//* MOVED TO Vulkan 1.3 Core */
-
     /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
     bool           shaderImageInt64Atomics = false;
     bool           sparseImageInt64Atomics = false;
 
-    /* SubgroupSizeControlFeaturesEXT *//* VK_EXT_subgroup_size_control *//* MOVED TO Vulkan 1.3 Core */
-
     // [DO NOT EXPOSE] always enable if we can
     /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
     //bool           texelBufferAlignment;
-
-    /* TextureCompressionASTCHDRFeaturesEXT *//* VK_EXT_texture_compression_astc_hdr *//* MOVED TO Vulkan 1.3 Core */
 
     // [DO NOT EXPOSE] ever because of our disdain for XForm feedback
     /* TransformFeedbackFeaturesEXT *//* VK_EXT_transform_feedback */
     //bool           transformFeedback;
     //bool           geometryStreams;
 
-    // [TODO] we would have to change the API
+    // [TODO LATER] we would have to change the API
     /* VertexAttributeDivisorFeaturesEXT *//* VK_EXT_vertex_attribute_divisor */
     //bool           vertexAttributeInstanceRateDivisor;
     //bool           vertexAttributeInstanceRateZeroDivisor;
@@ -451,9 +348,6 @@ struct SPhysicalDeviceFeatures
     /* YcbcrImageArraysFeaturesEXT *//* VK_EXT_ycbcr_image_arrays */
     //bool           ycbcrImageArrays;
 
-    /* 16BitStorageFeaturesKHR *//* VK_KHR_16bit_storage *//* MOVED TO Vulkan 1.1 Core */
-    /* 8BitStorageFeaturesKHR *//* VK_KHR_8bit_storage *//* MOVED TO Vulkan 1.2 Core */
-
     /* AccelerationStructureFeaturesKHR *//* VK_KHR_acceleration_structure */
     bool accelerationStructure = false;
     bool accelerationStructureCaptureReplay = false;
@@ -461,10 +355,6 @@ struct SPhysicalDeviceFeatures
     bool accelerationStructureHostCommands = false;
     bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
             
-    /* BufferDeviceAddressFeaturesKHR *//* VK_KHR_buffer_device_address *//* MOVED TO Vulkan 1.2 Core */
-
-    /* DynamicRenderingFeaturesKHR *//* VK_KHR_dynamic_rendering *//* MOVED TO Vulkan 1.3 Core */
-
     /* [!!NV Version below, struct doesn't exist in vk headers] VK_KHR_fragment_shader_barycentric */
     
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
@@ -473,19 +363,6 @@ struct SPhysicalDeviceFeatures
     //bool           primitiveFragmentShadingRate;
     //bool           attachmentFragmentShadingRate;
 
-    /* ImagelessFramebufferFeaturesKHR *//* VK_KHR_imageless_framebuffer *//* MOVED TO Vulkan 1.2 Core */
-    /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
-    /* MultiviewFeaturesKHR *//* VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
-    
-    // [TODO]
-    /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
-    //bool           performanceCounterQueryPools;
-    //bool           performanceCounterMultipleQueryPools;
-
-    // [TODO]
-    /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
-    //bool           pipelineExecutableInfo;
-    
     /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
 
     // [DO NOT EXPOSE] no point exposing until an extension more useful than VK_KHR_present_wait arrives
@@ -583,6 +460,85 @@ struct SPhysicalDeviceFeatures
     /* VK_AMD_shader_info */
     bool shaderInfoAMD = false;
 
+    // [TODO]:
+    //bool           variablePointersStorageBuffer;
+    //bool           variablePointers;
+
+    // [TODO] add implementation to engine
+    bool           hostQueryReset = false;                // or VK_EXT_host_query_reset
+
+    bool           pipelineCreationCacheControl = false;      // or VK_EXT_pipeline_creation_cache_control
+
+    // [TODO] need new commandbuffer methods, etc
+    /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
+    bool           colorWriteEnable = false;
+
+    // [TODO] now we need API to deal with queries and begin/end conditional blocks
+    /* ConditionalRenderingFeaturesEXT *//* VK_EXT_conditional_rendering */
+    bool           conditionalRendering = false;
+    bool           inheritedConditionalRendering = false;
+
+    /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
+    bool           deviceMemoryReport = false;
+
+    /* FragmentDensityMapFeaturesEXT *//* VK_EXT_fragment_density_map */
+    bool           fragmentDensityMap = false;
+    bool           fragmentDensityMapDynamic = false;
+    bool           fragmentDensityMapNonSubsampledImages = false;
+
+    /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
+    bool           fragmentDensityMapDeferred = false;
+
+    // [TODO] Investigate later
+    /* Image2DViewOf3DFeaturesEXT *//* VK_EXT_image_2d_view_of_3d */
+    //bool           image2DViewOf3D;
+    //bool           sampler2DViewOf3D;
+
+    bool           robustImageAccess = false;                 //  or VK_EXT_image_robustness
+
+    /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
+    bool inlineUniformBlock = false;
+    bool descriptorBindingInlineUniformBlockUpdateAfterBind = false;
+
+    // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
+    /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
+    // GL HINT (remove when implemented): MULTI_SAMPLE_LINE_WIDTH_RANGE (which is necessary for this) is guarded by !IsGLES || Version>=320 no idea is something enables this or not
+    bool           rectangularLines = false;
+    bool           bresenhamLines = false;
+    bool           smoothLines = false;
+    // GL HINT (remove when implemented): !IsGLES for all stipples
+    bool           stippledRectangularLines = false;
+    bool           stippledBresenhamLines = false;
+    bool           stippledSmoothLines = false;
+
+    /* MemoryPriorityFeaturesEXT *//* VK_EXT_memory_priority */
+    bool           memoryPriority = false;
+
+    /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
+    bool           robustBufferAccess2 = false;
+    bool           robustImageAccess2 = false;
+    bool           nullDescriptor = false;
+
+    /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
+    bool           performanceCounterQueryPools = false;
+    bool           performanceCounterMultipleQueryPools = false;
+
+    /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
+    bool           pipelineExecutableInfo = false;
+
+    /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
+    bool maintenance4 = false;
+
+    /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
+    bool           deviceCoherentMemory = false;
+
+    /* VK_AMD_buffer_marker */
+    bool bufferMarkerAMD = false;
+
+    // [TODO]
+    /* ASTCDecodeFeaturesEXT *//* VK_EXT_astc_decode_mode */
+    //VkFormat           decodeMode;
+
     // [TODO] Promoted to VK1.1 core, haven't updated API to match
     /* VK_KHR_descriptor_update_template */
 
@@ -640,14 +596,33 @@ struct SPhysicalDeviceFeatures
     // [TODO] Always enable, expose as limit
     /* VK_KHR_external_semaphore_win32 */
 
-    // [TODO] Shader extension, always enable, expose as limit
+    // [TODO] Always enable, expose as limit
     /* VK_KHR_shader_non_semantic_info */
+
+    // [TODO] Always enable, expose as limit
+    /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
+    //bool           shaderSMBuiltins;
 
     // [TODO] Always enable, expose as limit
     /* VK_NV_geometry_shader_passthrough */
 
     // [TODO] Always enable, expose as limit
     /* VK_NV_viewport_swizzle */
+
+    // [TODO] this one isn't in the headers
+    /* GlobalPriorityQueryFeaturesKHR *//* VK_KHR_global_priority */
+    //VkQueueGlobalPriorityKHR    globalPriority;
+
+    // [TODO] this one isn't in the headers
+    /* GraphicsPipelineLibraryFeaturesEXT *//* VK_EXT_graphics_pipeline_library */
+    //bool           graphicsPipelineLibrary;
+
+    // [TODO] this one isn't in the headers
+    /* HostQueryResetFeatures *//* VK_EXT_host_query_reset *//* MOVED TO Vulkan 1.2 Core */
+
+    // [TODO] this one isn't in the headers
+    /* VK_AMD_shader_early_and_late_fragment_tests */
+    //bool shaderEarlyAndLateFragmentTests;
 
     // Enabled by Default, Moved to Limits 
     //bool           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
@@ -689,10 +664,10 @@ struct SPhysicalDeviceFeatures
     /* DiagnosticsConfigFeaturesNV *//* VK_NV_device_diagnostics_config */
     //bool           diagnosticsConfig;
 
-    // [DEPRECATED]
+    // [DO NOT EXPOSE] Deprecated
     /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
     //bool           fragmentShaderBarycentric;
-    
+
     // [DO NOT EXPOSE] would first need to expose VK_KHR_fragment_shading_rate before
     /* FragmentShadingRateEnumsFeaturesNV *//* VK_NV_fragment_shading_rate_enums */
     //bool           fragmentShadingRateEnums;
@@ -706,11 +681,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] no idea what real-world beneficial use case would be
     /* LinearColorAttachmentFeaturesNV *//* VK_NV_linear_color_attachment */
     //bool           linearColorAttachment;
-    
-    // [ENABLE BY DEFAULT]
-    /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
-    //bool           shaderSMBuiltins;
-    
+
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* ShadingRateImageFeaturesNV *//* VK_NV_shading_rate_image */
     //bool           shadingRateImage;
@@ -732,12 +703,70 @@ struct SPhysicalDeviceFeatures
     /* SubpassShadingFeaturesHUAWEI *//* VK_HUAWEI_subpass_shading */
     // bool           subpassShading;
 
-
-    /* VK_AMD_buffer_marker */
-    bool bufferMarkerAMD = false;
-    
-
     /* Extensions Exposed as Features: */
+
+    /* VK_KHR_swapchain */
+    core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
+
+    // [TODO] Always enable, expose as limit
+    /* VK_KHR_spirv_1_4 */
+
+    // [TODO LATER] (When it has documentation): Always enable, expose as limit
+    /* VK_AMD_gpu_shader_half_float_fetch */
+
+    // [TODO LATER] Requires exposing external memory first
+    /* VK_ANDROID_external_memory_android_hardware_buffer */
+
+    // [TODO LATER] Requires changes to API
+    /* VK_EXT_calibrated_timestamps */
+
+    // [TODO LATER] Will expose some day
+    /* VK_EXT_depth_range_unrestricted */
+
+    // [TODO LATER] Requires handling display swapchain stuff
+    /* VK_EXT_display_control */
+
+    // [TODO LATER] Requires exposing external memory first
+    /* VK_EXT_external_memory_dma_buf */
+
+    // [TODO LATER] limited utility and availability, might expose if feel like wasting time
+    /* VK_EXT_filter_cubic */
+
+    // [TODO LATER] Requires API changes
+    /* VK_EXT_full_screen_exclusive */
+
+    // [TODO LATER] Expose when we support MoltenVK
+    /* VK_EXT_metal_objects */
+
+    // [TODO LATER] would like to expose, but too much API to change
+    /* VK_EXT_pipeline_creation_feedback */
+
+    // [TODO LATER] Expose when we start to experience slowdowns from validation
+    /* VK_EXT_validation_cache */
+
+    // [TODO LATER] Requires API changes and asset converter upgrades; default to it and forbid old API use
+    /* VK_KHR_image_format_list */
+
+    // [TODO LATER] Requires VK_KHR_image_format_list to be enabled for any device-level functionality
+    /* VK_KHR_swapchain_mutable_format */
+
+    // [TODO LATER] Used for dx11 interop
+    /* VK_KHR_win32_keyed_mutex */
+
+    // [TODO LATER] won't decide yet, requires VK_EXT_direct_mode_display anyway
+    /* VK_NV_acquire_winrt_display */
+
+    // [TODO LATER] Don't expose VR features for now
+    /* VK_NV_clip_space_w_scaling */
+
+    // [TODO LATER] Requires API changes
+    /* VK_NV_fragment_coverage_to_color */
+
+    // [TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful
+    /* VK_AMD_shader_fragment_mask */
+
+    // [TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful
+    /* VK_QCOM_render_pass_shader_resolve */
 
     // [DO NOT EXPOSE] Waiting for cross platform
     /* VK_AMD_display_native_hdr */
@@ -747,9 +776,6 @@ struct SPhysicalDeviceFeatures
     
     // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_gpa_interface */
-
-    // [TODO LATER] (When it has documentation): Always enable, expose as limit
-    /* VK_AMD_gpu_shader_half_float_fetch */
 
     // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_image_layout_resolve */
@@ -769,32 +795,11 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] 0 documentation
     /* VK_AMD_wave_limits */
 
-    // [TODO LATER] Requires exposing external memory first
-    /* VK_ANDROID_external_memory_android_hardware_buffer */
-
     // [DO NOT EXPOSE] supported=disabled
     /* VK_ANDROID_native_buffer */
 
-    // [TODO LATER] Requires changes to API
-    /* VK_EXT_calibrated_timestamps */
-
     // [DO NOT EXPOSE] Promoted to VK_EXT_debug_utils (instance ext)
     /* VK_EXT_debug_marker */
-
-    // [TODO LATER] Will expose some day
-    /* VK_EXT_depth_range_unrestricted */
-    
-    // [TODO LATER] Requires handling display swapchain stuff
-    /* VK_EXT_display_control */
-
-    // [TODO LATER] Requires exposing external memory first
-    /* VK_EXT_external_memory_dma_buf */
-
-    // [TODO LATER] limited utility and availability, might expose if feel like wasting time
-    /* VK_EXT_filter_cubic */
-
-    // [TODO LATER] Requires API changes
-    /* VK_EXT_full_screen_exclusive */
 
     // [DO NOT EXPOSE] absorbed into KHR_global_priority
     /* VK_EXT_global_priority_query */
@@ -802,33 +807,20 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Too "intrinsically linux"
     /* VK_EXT_image_drm_format_modifier */
 
-    // [TODO LATER] Expose when we support MoltenVK
-    /* VK_EXT_metal_objects */
-
     // [DO NOT EXPOSE] Never expose this, it was a mistake for that GL quirk to exist in the first place
     /* VK_EXT_non_seamless_cube_map */
 
     // [DO NOT EXPOSE] Too "intrinsically linux"
     /* VK_EXT_physical_device_drm */
 
-    // [TODO LATER] would like to expose, but too much API to change
-    /* VK_EXT_pipeline_creation_feedback */
-
-    /* VK_EXT_queue_family_foreign */
-
     // [DO NOT EXPOSE] wont expose yet (or ever), requires VK_KHR_sampler_ycbcr_conversion
     /* VK_EXT_rgba10x6_formats */
-
-    /* VK_EXT_separate_stencil_usage */
 
     // [DO NOT EXPOSE] stupid to expose, it would be extremely dumb to want to provide some identifiers instead of VkShaderModule outside of some emulator which has no control over pipeline combo explosion
     /* VK_EXT_shader_module_identifier */
 
     // [DO NOT EXPOSE] we dont need to care or know about it
     /* VK_EXT_tooling_info */
-
-    // [TODO LATER] Expose when we start to experience slowdowns from validation
-    /* VK_EXT_validation_cache */
 
     // [DO NOT EXPOSE] Provisional
     /* VK_EXT_video_decode_h264 */
@@ -865,20 +857,15 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Promoted to VK_KHR_performance_query, VK1.1 core
     /* VK_INTEL_performance_query */
-    /* VK_KHR_bind_memory2 */
 
     // [DO NOT EXPOSE] Promoted to VK1.3 core, migrate to it when/if we need it
     /* VK_KHR_copy_commands2 */
-
-    /* VK_KHR_create_renderpass2 */
 
     // [DO NOT EXPOSE] required for acceleration_structure and only that extension, do not expose until another comes that actually makes use of it
     /* VK_KHR_deferred_host_operations */
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_device_group */
-
-    /* VK_KHR_display_swapchain */
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_fence */
@@ -889,16 +876,11 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_semaphore */
 
-    /* VK_KHR_format_feature_flags2 */
-
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_get_memory_requirements2 */
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_get_physical_device_properties2 */
-
-    // [TODO LATER] Requires API changes and asset converter upgrades; default to it and forbid old API use
-    /* VK_KHR_image_format_list */
 
     // [DO NOT EXPOSE] this is "swap with damange" known from EGL, cant be arsed to support
     /* VK_KHR_incremental_present */
@@ -915,29 +897,14 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Instance extension & should enable implicitly if swapchain is enabled
     /* VK_KHR_surface */
 
-    /* VK_KHR_swapchain */ // we want to expose this extension as feature
-    core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
-    
-    // [TODO LATER] Requires VK_KHR_image_format_list to be enabled for any device-level functionality
-    /* VK_KHR_swapchain_mutable_format */
-
     // [DO NOT EXPOSE] Provisional
     /* VK_KHR_video_decode_queue */
 
     // [DO NOT EXPOSE] Provisional
     /* VK_KHR_video_encode_queue */
-    
-    // [TODO LATER] Used for dx11 interop
-    /* VK_KHR_win32_keyed_mutex */
 
     // [DO NOT EXPOSE] 0 documentation
     /* VK_MESA_query_timestamp */
-
-    // [TODO LATER] won't decide yet, requires VK_EXT_direct_mode_display anyway
-    /* VK_NV_acquire_winrt_display */
-    
-    // [TODO LATER] Don't expose VR features for now
-    /* VK_NV_clip_space_w_scaling */
 
     // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_cuda_kernel_launch */
@@ -951,16 +918,11 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] For now. For 2D ui
     /* VK_NV_fill_rectangle */
 
-    // [TODO LATER] Requires API changes
-    /* VK_NV_fragment_coverage_to_color */
-
     // [DO NOT EXPOSE]
     /* VK_NV_glsl_shader */
 
     // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_low_latency */
-
-    /* VK_NV_present_barrier */
 
     // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_rdma_memory */
@@ -971,15 +933,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Will be promoted to KHR_video_queue.
     /* VK_NV_video_queue */
 
-    /* VK_NV_viewport_array2 */
-
     // [DO NOT EXPOSE] Promoted to VK_KHR_win32_keyed_mutex 
     /* VK_NV_win32_keyed_mutex */
-
-    // [TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful
-    /* VK_AMD_shader_fragment_mask */
-    // [TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful
-    /* VK_QCOM_render_pass_shader_resolve */
 
     // [DO NOT EXPOSE] absorbed into VK_EXT_load_store_op_none
     /* VK_QCOM_render_pass_store_ops */
@@ -989,14 +944,22 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Too vendor specific
     /* VK_QCOM_rotated_copy_commands */
-    
-    /* VK_KHR_spirv_1_4 */ // We do not expose because we always enable
-    
+
+    // [TODO] Triage leftover extensions below    
+
+    /* VK_NV_present_barrier */
+    /* VK_KHR_display_swapchain */
+    /* VK_EXT_queue_family_foreign */
+    /* VK_EXT_separate_stencil_usage */
+    /* VK_KHR_create_renderpass2 */
+    /* VK_KHR_bind_memory2 */
+    /* VK_KHR_format_feature_flags2 */
+    /* VK_NV_viewport_array2 */
     /* VK_EXT_image_compression_control */
     /* VK_EXT_image_compression_control_swapchain */
     /* VK_EXT_multisampled_render_to_single_sampled */
     /* VK_EXT_pipeline_properties */
-
+    
     /* Nabla */
     // No Nabla Specific Features for now
 };
