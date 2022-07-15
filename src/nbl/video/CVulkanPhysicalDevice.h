@@ -287,10 +287,6 @@ public:
                 m_properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindStorageImages;
                 m_properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindInputAttachments;
             }
-            else
-            {
-                m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools = ~0u;
-            }
 
             if(isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
             {

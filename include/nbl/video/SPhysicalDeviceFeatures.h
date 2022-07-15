@@ -21,7 +21,7 @@ struct SPhysicalDeviceFeatures
     bool independentBlend = false;
     bool geometryShader    = false;
     bool tessellationShader = false;
-    VkBool32 sampleRateShading = false;
+    bool sampleRateShading = false;
     bool dualSrcBlend = false;
     bool logicOp = false;
     bool multiDrawIndirect = false;
@@ -37,12 +37,12 @@ struct SPhysicalDeviceFeatures
     bool samplerAnisotropy = false;
 
     // [DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice
-    //VkBool32    textureCompressionETC2;
-    //VkBool32    textureCompressionASTC_LDR;
-    //VkBool32    textureCompressionBC;
+    //bool    textureCompressionETC2;
+    //bool    textureCompressionASTC_LDR;
+    //bool    textureCompressionBC;
     
     bool occlusionQueryPrecise = false;
-    //VkBool32    pipelineStatisticsQuery; [TODO]
+    //bool    pipelineStatisticsQuery; [TODO]
 
     // [TODO] Always enable ones below, report as limit
     bool vertexPipelineStoresAndAtomics = false;
@@ -70,15 +70,15 @@ struct SPhysicalDeviceFeatures
     bool shaderResourceMinLod = false;
     
     // [TODO] cause we haven't implemented sparse resources yet
-    //VkBool32    sparseBinding;
-    //VkBool32    sparseResidencyBuffer;
-    //VkBool32    sparseResidencyImage2D;
-    //VkBool32    sparseResidencyImage3D;
-    //VkBool32    sparseResidency2Samples;
-    //VkBool32    sparseResidency4Samples;
-    //VkBool32    sparseResidency8Samples;
-    //VkBool32    sparseResidency16Samples;
-    //VkBool32    sparseResidencyAliased;
+    //bool    sparseBinding;
+    //bool    sparseResidencyBuffer;
+    //bool    sparseResidencyImage2D;
+    //bool    sparseResidencyImage3D;
+    //bool    sparseResidency2Samples;
+    //bool    sparseResidency4Samples;
+    //bool    sparseResidency8Samples;
+    //bool    sparseResidency16Samples;
+    //bool    sparseResidencyAliased;
     
     bool variableMultisampleRate = false;
     bool inheritedQueries = false;
@@ -92,18 +92,18 @@ struct SPhysicalDeviceFeatures
     bool storageInputOutput16 = false;
     
     // [TODO] do not expose multiview yet
-    //VkBool32           multiview;
-    //VkBool32           multiviewGeometryShader;
-    //VkBool32           multiviewTessellationShader;
+    //bool           multiview;
+    //bool           multiviewGeometryShader;
+    //bool           multiviewTessellationShader;
     
     // [Future TODO]:
-    //VkBool32           variablePointersStorageBuffer;
-    //VkBool32           variablePointers;
+    //bool           variablePointersStorageBuffer;
+    //bool           variablePointers;
     
-    //VkBool32           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
+    //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
  
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
-    //VkBool32           samplerYcbcrConversion;
+    //bool           samplerYcbcrConversion;
     bool shaderDrawParameters = false;
 
 
@@ -149,36 +149,36 @@ struct SPhysicalDeviceFeatures
     bool descriptorBindingUpdateUnusedWhilePending = false;
     bool descriptorBindingPartiallyBound = false;
     bool descriptorBindingVariableDescriptorCount = false;
-    VkBool32 runtimeDescriptorArray = false;
+    bool runtimeDescriptorArray = false;
     
     bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
     
-    VkBool32 scalarBlockLayout = false;     // or VK_EXT_scalar_block_layout
+    bool scalarBlockLayout = false;     // or VK_EXT_scalar_block_layout
     
-    //VkBool32           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO]
+    //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO]
     
-    VkBool32           uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
+    bool           uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
     
-    bool shaderSubgroupExtendedTypes;   // or VK_KHR_shader_subgroup_extended_types
+    bool shaderSubgroupExtendedTypes = false;   // or VK_KHR_shader_subgroup_extended_types
     
-    VkBool32           separateDepthStencilLayouts;   // or VK_KHR_separate_depth_stencil_layouts
+    bool           separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
     
     // [TODO] And add implementation to engine
-    //VkBool32           hostQueryReset;                // or VK_EXT_host_query_reset
+    //bool           hostQueryReset;                // or VK_EXT_host_query_reset
     
-    //VkBool32           timelineSemaphore;             // or VK_KHR_timeline_semaphore // [FUTURE TODO] won't expose for a long time
+    //bool           timelineSemaphore;             // or VK_KHR_timeline_semaphore // [FUTURE TODO] won't expose for a long time
     
     // or VK_KHR_buffer_device_address:
     bool bufferDeviceAddress = false;
-    // VkBool32           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
-    VkBool32           bufferDeviceAddressMultiDevice;
+    // bool           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
+    bool           bufferDeviceAddressMultiDevice = false;
     
     // or VK_KHR_vulkan_memory_model
-    VkBool32           vulkanMemoryModel;
-    VkBool32           vulkanMemoryModelDeviceScope;
-    VkBool32           vulkanMemoryModelAvailabilityVisibilityChains;
+    bool           vulkanMemoryModel = false;
+    bool           vulkanMemoryModelDeviceScope = false;
+    bool           vulkanMemoryModelAvailabilityVisibilityChains = false;
    
-    VkBool32           subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
+    bool           subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
 
 
 
@@ -186,40 +186,40 @@ struct SPhysicalDeviceFeatures
     /* Vulkan 1.3 Core */
     
     // [TODO] robustness stuff
-    //VkBool32           robustImageAccess;                 //  or VK_EXT_image_robustness
+    //bool           robustImageAccess;                 //  or VK_EXT_image_robustness
     
     // [DO NOT EXPOSE]
     //  or VK_EXT_inline_uniform_block:
-    //VkBool32           inlineUniformBlock;
-    //VkBool32           descriptorBindingInlineUniformBlockUpdateAfterBind;
+    //bool           inlineUniformBlock;
+    //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
     
     // [TODO]
-    //VkBool32           pipelineCreationCacheControl;      // or VK_EXT_pipeline_creation_cache_control
+    //bool           pipelineCreationCacheControl;      // or VK_EXT_pipeline_creation_cache_control
    
     // [DO NOT EXPOSE] ever
-    //VkBool32           privateData;                       // or VK_EXT_private_data
+    //bool           privateData;                       // or VK_EXT_private_data
     
-    VkBool32           shaderDemoteToHelperInvocation;    // or VK_EXT_shader_demote_to_helper_invocation
-    VkBool32           shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
+    bool           shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
+    bool           shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
     
     // or VK_EXT_subgroup_size_control
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
     // [DO NOT EXPOSE] and false because we havent rewritten our frontend API for that: https://github.com/Devsh-Graphics-Programming/Nabla/issues/384
-    //VkBool32           synchronization2;                      // or VK_KHR_synchronization2
+    //bool           synchronization2;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
-    //VkBool32           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
+    //bool           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
     
     // [DO NOT EXPOSE] would require doing research into the GL/GLES robustness extensions
-    //VkBool32           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
+    //bool           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
     
     // [DO NOT EXPOSE] EVIL
-    //VkBool32           dynamicRendering;                      // or VK_KHR_dynamic_rendering
+    //bool           dynamicRendering;                      // or VK_KHR_dynamic_rendering
     
-    VkBool32           shaderIntegerDotProduct;               // or VK_KHR_shader_integer_dot_product
-    //VkBool32           maintenance4;                          // [DO NOT EXPOSE] doesn't make sense
+    bool           shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
+    //bool           maintenance4;                          // [DO NOT EXPOSE] doesn't make sense
 
 
 
@@ -228,16 +228,16 @@ struct SPhysicalDeviceFeatures
 
     // [TODO] no such thing on GL, but trivial to implement.
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
-    //VkBool32           deviceCoherentMemory;
+    //bool           deviceCoherentMemory;
 
     // [TODO] this one isn't in the headers?
     /* VK_AMD_shader_early_and_late_fragment_tests */
-    //VkBool32 shaderEarlyAndLateFragmentTests;
+    //bool shaderEarlyAndLateFragmentTests;
 
     /* RasterizationOrderAttachmentAccessFeaturesARM *//* VK_ARM_rasterization_order_attachment_access */
-    VkBool32 rasterizationOrderColorAttachmentAccess;
-    VkBool32 rasterizationOrderDepthAttachmentAccess;
-    VkBool32 rasterizationOrderStencilAttachmentAccess;
+    bool rasterizationOrderColorAttachmentAccess;
+    bool rasterizationOrderDepthAttachmentAccess;
+    bool rasterizationOrderStencilAttachmentAccess;
     
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
@@ -248,62 +248,62 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
-    //VkBool32           advancedBlendCoherentOperations;
+    //bool           advancedBlendCoherentOperations;
     
     // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* BorderColorSwizzleFeaturesEXT *//* VK_EXT_border_color_swizzle */
-    //VkBool32           borderColorSwizzle;
-    //VkBool32           borderColorSwizzleFromImage;
+    //bool           borderColorSwizzle;
+    //bool           borderColorSwizzleFromImage;
 
     /* VK_EXT_buffer_device_address *//* HAS KHR VERSION */
 
     // [TODO] would need new commandbuffer methods, etc
     /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
-    //VkBool32           colorWriteEnable;
+    //bool           colorWriteEnable;
 
     // [TODO] would need API to deal with queries and begin/end conditional blocks
     /* ConditionalRenderingFeaturesEXT *//* VK_EXT_conditional_rendering */
-    //VkBool32           conditionalRendering;
-    //VkBool32           inheritedConditionalRendering;
+    //bool           conditionalRendering;
+    //bool           inheritedConditionalRendering;
     
     // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* CustomBorderColorFeaturesEXT *//* VK_EXT_custom_border_color */
-    //VkBool32           customBorderColors;
-    //VkBool32           customBorderColorWithoutFormat;
+    //bool           customBorderColors;
+    //bool           customBorderColorWithoutFormat;
 
     // [DO NOT EXPOSE] EVER, VULKAN DEPTH RANGE ONLY!
     /* DepthClipControlFeaturesEX *//* VK_EXT_depth_clip_control */
-    //VkBool32           depthClipControl;
+    //bool           depthClipControl;
 
     // [DO NOT EXPOSE] only useful for D3D emulators
     /* DepthClipEnableFeaturesEXT *//* VK_EXT_depth_clip_enable */
-    //VkBool32           depthClipEnable;
+    //bool           depthClipEnable;
 
     /* DescriptorIndexingFeatures *//* VK_EXT_descriptor_indexing *//* MOVED TO Vulkan 1.2 Core  */
 
     // [TODO]
     /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
-    //VkBool32           deviceMemoryReport;
+    //bool           deviceMemoryReport;
     
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicStateFeaturesEXT *//* VK_EXT_extended_dynamic_state */
-    //VkBool32           extendedDynamicState;
+    //bool           extendedDynamicState;
     
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicState2FeaturesEXT *//* VK_EXT_extended_dynamic_state2 */
-    //VkBool32           extendedDynamicState2;
-    //VkBool32           extendedDynamicState2LogicOp;
-    //VkBool32           extendedDynamicState2PatchControlPoints;
+    //bool           extendedDynamicState2;
+    //bool           extendedDynamicState2LogicOp;
+    //bool           extendedDynamicState2PatchControlPoints;
 
     // [TODO]
     /* FragmentDensityMapFeaturesEXT *//* VK_EXT_fragment_density_map */
-    //VkBool32           fragmentDensityMap;
-    //VkBool32           fragmentDensityMapDynamic;
-    //VkBool32           fragmentDensityMapNonSubsampledImages;
+    //bool           fragmentDensityMap;
+    //bool           fragmentDensityMapDynamic;
+    //bool           fragmentDensityMapNonSubsampledImages;
     
     // [TODO]
     /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
-    //VkBool32           fragmentDensityMapDeferred;
+    //bool           fragmentDensityMapDeferred;
 
     /* FragmentShaderInterlockFeaturesEXT *//* VK_EXT_fragment_shader_interlock */
     bool fragmentShaderSampleInterlock = false;
@@ -317,139 +317,139 @@ struct SPhysicalDeviceFeatures
 
     // [TODO] too much effort
     /* GraphicsPipelineLibraryFeaturesEXT *//* VK_EXT_graphics_pipeline_library */
-    //VkBool32           graphicsPipelineLibrary;
+    //bool           graphicsPipelineLibrary;
 
     /* HostQueryResetFeatures *//* VK_EXT_host_query_reset *//* MOVED TO Vulkan 1.2 Core */
     
     // [TODO] Investigate later
     /* Image2DViewOf3DFeaturesEXT *//* VK_EXT_image_2d_view_of_3d */
-    //VkBool32           image2DViewOf3D;
-    //VkBool32           sampler2DViewOf3D;
+    //bool           image2DViewOf3D;
+    //bool           sampler2DViewOf3D;
 
     /* ImageRobustnessFeaturesEXT *//* VK_EXT_image_robustness *//* MOVED TO Vulkan 1.3 Core */
     
     // [DO NOT EXPOSE] pointless to implement currently
     /* ImageViewMinLodFeaturesEXT *//* VK_EXT_image_view_min_lod */
-    //VkBool32           minLod;
+    //bool           minLod;
 
     /* IndexTypeUint8FeaturesEXT *//* VK_EXT_index_type_uint8 */
-    VkBool32           indexTypeUint8 = false;
+    bool           indexTypeUint8 = false;
     
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
 
     // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
     // GL HINT (remove when implemented): MULTI_SAMPLE_LINE_WIDTH_RANGE (which is necessary for this) is guarded by !IsGLES || Version>=320 no idea is something enables this or not
-    //VkBool32           rectangularLines;
-    //VkBool32           bresenhamLines;
-    //VkBool32           smoothLines;
+    //bool           rectangularLines;
+    //bool           bresenhamLines;
+    //bool           smoothLines;
     // GL HINT (remove when implemented): !IsGLES for all stipples
-    //VkBool32           stippledRectangularLines;
-    //VkBool32           stippledBresenhamLines;
-    //VkBool32           stippledSmoothLines;
+    //bool           stippledRectangularLines;
+    //bool           stippledBresenhamLines;
+    //bool           stippledSmoothLines;
 
     // [TODO] trivial to implement later, false on GL
     /* MemoryPriorityFeaturesEXT *//* VK_EXT_memory_priority */
-    //VkBool32           memoryPriority;
+    //bool           memoryPriority;
 
     // [DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported
     /* MultiDrawFeaturesEXT *//* VK_EXT_multi_draw */
-    //VkBool32           multiDraw;
+    //bool           multiDraw;
 
     // [DO NOT EXPOSE] pointless to expose without exposing VK_EXT_memory_priority and the memory query feature first
     /* PageableDeviceLocalMemoryFeaturesEXT *//* VK_EXT_pageable_device_local_memory */
-    //VkBool32           pageableDeviceLocalMemory;
+    //bool           pageableDeviceLocalMemory;
 
     /* PipelineCreationCacheControlFeaturesEXT *//* VK_EXT_pipeline_creation_cache_control *//* MOVED TO Vulkan 1.3 Core */
 
     // [DO NOT EXPOSE] requires and relates to EXT_transform_feedback which we'll never expose
     /* PrimitivesGeneratedQueryFeaturesEXT *//* VK_EXT_primitives_generated_query */
-    //VkBool32           primitivesGeneratedQuery;
-    //VkBool32           primitivesGeneratedQueryWithRasterizerDiscard;
-    //VkBool32           primitivesGeneratedQueryWithNonZeroStreams;
+    //bool           primitivesGeneratedQuery;
+    //bool           primitivesGeneratedQueryWithRasterizerDiscard;
+    //bool           primitivesGeneratedQueryWithNonZeroStreams;
     
     // [DO NOT EXPOSE]
     /* PrimitiveTopologyListRestartFeaturesEXT *//* VK_EXT_primitive_topology_list_restart */
-    //VkBool32           primitiveTopologyListRestart;
-    //VkBool32           primitiveTopologyPatchListRestart;
+    //bool           primitiveTopologyListRestart;
+    //bool           primitiveTopologyPatchListRestart;
 
     /* PrivateDataFeatures *//* VK_EXT_private_data *//* MOVED TO Vulkan 1.3 Core */
 
     // [DO NOT EXPOSE] provokingVertexLast will not expose (we always use First Vertex Vulkan-like convention), anything to do with XForm-feedback we don't expose
     /* ProvokingVertexFeaturesEXT *//* VK_EXT_provoking_vertex */
-    //VkBool32           provokingVertexLast;
-    //VkBool32           transformFeedbackPreservesProvokingVertex;
+    //bool           provokingVertexLast;
+    //bool           transformFeedbackPreservesProvokingVertex;
 
     // [TODO]
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
-    //VkBool32           robustBufferAccess2;
-    //VkBool32           robustImageAccess2;
-    //VkBool32           nullDescriptor;
+    //bool           robustBufferAccess2;
+    //bool           robustImageAccess2;
+    //bool           nullDescriptor;
     
     /* ScalarBlockLayoutFeaturesEXT *//* VK_EXT_scalar_block_layout *//* MOVED TO Vulkan 1.2 Core */
     
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
-    VkBool32           shaderBufferFloat32Atomics;
-    VkBool32           shaderBufferFloat32AtomicAdd;
-    VkBool32           shaderBufferFloat64Atomics;
-    VkBool32           shaderBufferFloat64AtomicAdd;
-    VkBool32           shaderSharedFloat32Atomics;
-    VkBool32           shaderSharedFloat32AtomicAdd;
-    VkBool32           shaderSharedFloat64Atomics;
-    VkBool32           shaderSharedFloat64AtomicAdd;
-    VkBool32           shaderImageFloat32Atomics;
-    VkBool32           shaderImageFloat32AtomicAdd;
-    VkBool32           sparseImageFloat32Atomics;
-    VkBool32           sparseImageFloat32AtomicAdd;
+    bool           shaderBufferFloat32Atomics = false;
+    bool           shaderBufferFloat32AtomicAdd = false;
+    bool           shaderBufferFloat64Atomics = false;
+    bool           shaderBufferFloat64AtomicAdd = false;
+    bool           shaderSharedFloat32Atomics = false;
+    bool           shaderSharedFloat32AtomicAdd = false;
+    bool           shaderSharedFloat64Atomics = false;
+    bool           shaderSharedFloat64AtomicAdd = false;
+    bool           shaderImageFloat32Atomics = false;
+    bool           shaderImageFloat32AtomicAdd = false;
+    bool           sparseImageFloat32Atomics = false;
+    bool           sparseImageFloat32AtomicAdd = false;
 
     /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
-    VkBool32           shaderBufferFloat16Atomics;
-    VkBool32           shaderBufferFloat16AtomicAdd;
-    VkBool32           shaderBufferFloat16AtomicMinMax;
-    VkBool32           shaderBufferFloat32AtomicMinMax;
-    VkBool32           shaderBufferFloat64AtomicMinMax;
-    VkBool32           shaderSharedFloat16Atomics;
-    VkBool32           shaderSharedFloat16AtomicAdd;
-    VkBool32           shaderSharedFloat16AtomicMinMax;
-    VkBool32           shaderSharedFloat32AtomicMinMax;
-    VkBool32           shaderSharedFloat64AtomicMinMax;
-    VkBool32           shaderImageFloat32AtomicMinMax;
-    VkBool32           sparseImageFloat32AtomicMinMax;
+    bool           shaderBufferFloat16Atomics = false;
+    bool           shaderBufferFloat16AtomicAdd = false;
+    bool           shaderBufferFloat16AtomicMinMax = false;
+    bool           shaderBufferFloat32AtomicMinMax = false;
+    bool           shaderBufferFloat64AtomicMinMax = false;
+    bool           shaderSharedFloat16Atomics = false;
+    bool           shaderSharedFloat16AtomicAdd = false;
+    bool           shaderSharedFloat16AtomicMinMax = false;
+    bool           shaderSharedFloat32AtomicMinMax = false;
+    bool           shaderSharedFloat64AtomicMinMax = false;
+    bool           shaderImageFloat32AtomicMinMax = false;
+    bool           sparseImageFloat32AtomicMinMax = false;
     
     /* DemoteToHelperInvocationFeaturesEXT *//* VK_EXT_shader_demote_to_helper_invocation *//* MOVED TO Vulkan 1.3 Core */
 
     /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
-    VkBool32           shaderImageInt64Atomics;
-    VkBool32           sparseImageInt64Atomics;
+    bool           shaderImageInt64Atomics = false;
+    bool           sparseImageInt64Atomics = false;
 
     /* SubgroupSizeControlFeaturesEXT *//* VK_EXT_subgroup_size_control *//* MOVED TO Vulkan 1.3 Core */
 
     // [DO NOT EXPOSE] always enable if we can
     /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
-    //VkBool32           texelBufferAlignment;
+    //bool           texelBufferAlignment;
 
     /* TextureCompressionASTCHDRFeaturesEXT *//* VK_EXT_texture_compression_astc_hdr *//* MOVED TO Vulkan 1.3 Core */
 
     // [DO NOT EXPOSE] ever because of our disdain for XForm feedback
     /* TransformFeedbackFeaturesEXT *//* VK_EXT_transform_feedback */
-    //VkBool32           transformFeedback;
-    //VkBool32           geometryStreams;
+    //bool           transformFeedback;
+    //bool           geometryStreams;
 
     // [TODO] we would have to change the API
     /* VertexAttributeDivisorFeaturesEXT *//* VK_EXT_vertex_attribute_divisor */
-    //VkBool32           vertexAttributeInstanceRateDivisor;
-    //VkBool32           vertexAttributeInstanceRateZeroDivisor;
+    //bool           vertexAttributeInstanceRateDivisor;
+    //bool           vertexAttributeInstanceRateZeroDivisor;
 
     // [DO NOT EXPOSE] too much API Fudjery
     /* VertexInputDynamicStateFeaturesEXT *//* VK_EXT_vertex_input_dynamic_state */
-    //VkBool32           vertexInputDynamicState;
+    //bool           vertexInputDynamicState;
 
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* Ycbcr2Plane444FormatsFeaturesEXT *//* VK_EXT_ycbcr_2plane_444_formats */
 
     // [DO NOT EXPOSE] Expose nothing to do with video atm
     /* YcbcrImageArraysFeaturesEXT *//* VK_EXT_ycbcr_image_arrays */
-    //VkBool32           ycbcrImageArrays;
+    //bool           ycbcrImageArrays;
 
     /* 16BitStorageFeaturesKHR *//* VK_KHR_16bit_storage *//* MOVED TO Vulkan 1.1 Core */
     /* 8BitStorageFeaturesKHR *//* VK_KHR_8bit_storage *//* MOVED TO Vulkan 1.2 Core */
@@ -469,9 +469,9 @@ struct SPhysicalDeviceFeatures
     
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
-    //VkBool32           pipelineFragmentShadingRate;
-    //VkBool32           primitiveFragmentShadingRate;
-    //VkBool32           attachmentFragmentShadingRate;
+    //bool           pipelineFragmentShadingRate;
+    //bool           primitiveFragmentShadingRate;
+    //bool           attachmentFragmentShadingRate;
 
     /* ImagelessFramebufferFeaturesKHR *//* VK_KHR_imageless_framebuffer *//* MOVED TO Vulkan 1.2 Core */
     /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
@@ -479,22 +479,22 @@ struct SPhysicalDeviceFeatures
     
     // [TODO]
     /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
-    //VkBool32           performanceCounterQueryPools;
-    //VkBool32           performanceCounterMultipleQueryPools;
+    //bool           performanceCounterQueryPools;
+    //bool           performanceCounterMultipleQueryPools;
 
     // [TODO]
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
-    //VkBool32           pipelineExecutableInfo;
+    //bool           pipelineExecutableInfo;
     
     /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
 
     // [DO NOT EXPOSE] no point exposing until an extension more useful than VK_KHR_present_wait arrives
     /* PresentIdFeaturesKHR *//* VK_KHR_present_id */
-    //VkBool32           presentId;
+    //bool           presentId;
     
     // [DO NOT EXPOSE] won't expose, this extension is poop, I should have a Fence-andQuery-like object to query the presentation timestamp, not a blocking call that may unblock after an arbitrary delay from the present
     /* PresentWaitFeaturesKHR *//* VK_KHR_present_wait */
-    //VkBool32           presentWait;
+    //bool           presentWait;
     
     /* RayQueryFeaturesKHR *//* VK_KHR_ray_query */
     bool rayQuery = false;
@@ -514,7 +514,7 @@ struct SPhysicalDeviceFeatures
     /* ShaderAtomicInt64FeaturesKHR *//* VK_KHR_shader_atomic_int64 *//* MOVED TO Vulkan 1.2 Core */
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    VkBool32           shaderDeviceClock;
+    bool           shaderDeviceClock = false;
 
     /* VK_KHR_shader_draw_parameters *//* MOVED TO Vulkan 1.1 Core */
     /* VK_KHR_shader_float16_int8 *//* MOVED TO Vulkan 1.2 Core */
@@ -522,7 +522,7 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_shader_subgroup_extended_types *//* MOVED TO Vulkan 1.2 Core */
 
     /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
-    VkBool32           shaderSubgroupUniformControlFlow;
+    bool           shaderSubgroupUniformControlFlow = false;
     
     /* VK_KHR_shader_terminate_invocation *//* MOVED TO Vulkan 1.3 Core */
     /* VK_KHR_synchronization2 *//* MOVED TO Vulkan 1.3 Core */
@@ -532,25 +532,45 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_vulkan_memory_model *//* MOVED TO Vulkan 1.2 Core */
 
     /* WorkgroupMemoryExplicitLayoutFeaturesKHR *//* VK_KHR_workgroup_memory_explicit_layout */
-    VkBool32 workgroupMemoryExplicitLayout = false;
-    VkBool32 workgroupMemoryExplicitLayoutScalarBlockLayout = false;
-    VkBool32 workgroupMemoryExplicitLayout8BitAccess = false;
-    VkBool32 workgroupMemoryExplicitLayout16BitAccess = false;
+    bool workgroupMemoryExplicitLayout = false;
+    bool workgroupMemoryExplicitLayoutScalarBlockLayout = false;
+    bool workgroupMemoryExplicitLayout8BitAccess = false;
+    bool workgroupMemoryExplicitLayout16BitAccess = false;
 
     /* VK_KHR_zero_initialize_workgroup_memory *//* MOVED TO Vulkan 1.3 Core */
     /* VK_KHX_multiview *//* see VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
 
     /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
-    VkBool32           computeDerivativeGroupQuads;
-    VkBool32           computeDerivativeGroupLinear;
+    bool           computeDerivativeGroupQuads = false;
+    bool           computeDerivativeGroupLinear = false;
 
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
-    bool cooperativeMatrix;
-    bool cooperativeMatrixRobustBufferAccess;
+    bool cooperativeMatrix = false;
+    bool cooperativeMatrixRobustBufferAccess = false;
+
+    /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
+    bool           rayTracingMotionBlur = false;
+    bool           rayTracingMotionBlurPipelineTraceRaysIndirect = false;
+
+    // Enabled by Default, Moved to Limits 
+    //bool           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    //bool           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
+
+    // Enabled by Default, Moved to Limits 
+    /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
+    //bool           shaderIntegerFunctions2 = false;
+
+    // Enabled by Default, Moved to Limits 
+    /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
+    //bool           shaderSubgroupClock;
+
+    // Enabled by Default, Moved to Limits 
+    /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
+    //bool           imageFootprint;
 
     // [DO NOT EXPOSE] for a very long time
     /* CornerSampledImageFeaturesNV *//* VK_NV_corner_sampled_image */
-    //VkBool32           cornerSampledImage;
+    //bool           cornerSampledImage;
 
     // [TODO]
     /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
@@ -558,80 +578,76 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] insane oxymoron, dedicated means dedicated, not aliased, won't expose
     /* DedicatedAllocationImageAliasingFeaturesNV *//* VK_NV_dedicated_allocation_image_aliasing */
-    //VkBool32           dedicatedAllocationImageAliasing;
+    //bool           dedicatedAllocationImageAliasing;
 
     // [DO NOT EXPOSE]
     /* DiagnosticsConfigFeaturesNV *//* VK_NV_device_diagnostics_config */
-    //VkBool32           diagnosticsConfig;
+    //bool           diagnosticsConfig;
 
     // [TODO]
     /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
-    //VkBool32           deviceGeneratedCommands;
+    //bool           deviceGeneratedCommands;
 
     // [TODO] when we do multi-gpu
     /* ExternalMemoryRDMAFeaturesNV *//* VK_NV_external_memory_rdma */
-    //VkBool32           externalMemoryRDMA;
+    //bool           externalMemoryRDMA;
     
     // [DEPRECATED]
     /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
-    //VkBool32           fragmentShaderBarycentric;
+    //bool           fragmentShaderBarycentric;
     
     // [DO NOT EXPOSE] would first need to expose VK_KHR_fragment_shading_rate before
     /* FragmentShadingRateEnumsFeaturesNV *//* VK_NV_fragment_shading_rate_enums */
-    //VkBool32           fragmentShadingRateEnums;
-    //VkBool32           supersampleFragmentShadingRates;
-    //VkBool32           noInvocationFragmentShadingRates;
+    //bool           fragmentShadingRateEnums;
+    //bool           supersampleFragmentShadingRates;
+    //bool           noInvocationFragmentShadingRates;
 
     // [DO NOT EXPOSE] won't expose, the existing inheritance of state is enough
     /* InheritedViewportScissorFeaturesNV *//* VK_NV_inherited_viewport_scissor */
-    //VkBool32           inheritedViewportScissor2D;
+    //bool           inheritedViewportScissor2D;
 
     // [DO NOT EXPOSE] no idea what real-world beneficial use case would be
     /* LinearColorAttachmentFeaturesNV *//* VK_NV_linear_color_attachment */
-    //VkBool32           linearColorAttachment;
+    //bool           linearColorAttachment;
     
     // [TODO]
     /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
-    //VkBool32           taskShader;
-    //VkBool32           meshShader;
+    //bool           taskShader;
+    //bool           meshShader;
     
-    /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
-    VkBool32           rayTracingMotionBlur;
-    VkBool32           rayTracingMotionBlurPipelineTraceRaysIndirect;
-
     // [TODO] Expose Soon, Useful
     /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
-    //VkBool32           representativeFragmentTest;
+    //bool           representativeFragmentTest;
  
     // [TODO] requires extra API work to use
     // GL Hint: in GL/GLES this is NV_scissor_exclusive
     /* ExclusiveScissorFeaturesNV *//* VK_NV_scissor_exclusive */
-    //VkBool32           exclusiveScissor;
+    //bool           exclusiveScissor;
 
     // [ENABLE BY DEFAULT]
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
-    //VkBool32           shaderSMBuiltins;
+    //bool           shaderSMBuiltins;
     
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* ShadingRateImageFeaturesNV *//* VK_NV_shading_rate_image */
-    //VkBool32           shadingRateImage;
-    //VkBool32           shadingRateCoarseSampleOrder;
+    //bool           shadingRateImage;
+    //bool           shadingRateCoarseSampleOrder;
 
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentDensityMapOffsetFeaturesQCOM *//* VK_QCOM_fragment_density_map_offset */
-    //VkBool32           fragmentDensityMapOffset;
+    //bool           fragmentDensityMapOffset;
 
     // [DO NOT EXPOSE] This extension is only intended for use in specific embedded environments with known implementation details, and is therefore undocumented.
     /* DescriptorSetHostMappingFeaturesVALVE *//* VK_VALVE_descriptor_set_host_mapping */
-    //VkBool32           descriptorSetHostMapping;
+    //bool           descriptorSetHostMapping;
 
     // [DO NOT EXPOSE] its a D3D special use extension, shouldn't expose
     /* MutableDescriptorTypeFeaturesVALVE *//* VK_VALVE_mutable_descriptor_type */
-    //VkBool32           mutableDescriptorType;
+    //bool           mutableDescriptorType;
 
     // [DO NOT EXPOSE]
     /* SubpassShadingFeaturesHUAWEI *//* VK_HUAWEI_subpass_shading */
-    // VkBool32           subpassShading;
+    // bool           subpassShading;
 
 
     /* VK_AMD_buffer_marker */

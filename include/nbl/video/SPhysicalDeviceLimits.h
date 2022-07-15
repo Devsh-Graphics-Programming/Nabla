@@ -18,19 +18,19 @@ struct SPhysicalDeviceLimits
     };
 
     /* Vulkan 1.0 Core  */
-    uint32_t maxImageDimension1D;
-    uint32_t maxImageDimension2D;
-    uint32_t maxImageDimension3D;
-    uint32_t maxImageDimensionCube;
-    uint32_t maxImageArrayLayers;
-    uint32_t maxBufferViewTexels;
-    uint32_t maxUBOSize;
-    uint32_t maxSSBOSize;
-    uint32_t maxPushConstantsSize;
-    uint32_t maxMemoryAllocationCount;
-    uint32_t maxSamplerAllocationCount;
-    size_t bufferImageGranularity;
-    //VkDeviceSize          sparseAddressSpaceSize;         // We support none of the sparse memory operations
+    uint32_t maxImageDimension1D = 0u;
+    uint32_t maxImageDimension2D = 0u;
+    uint32_t maxImageDimension3D = 0u;
+    uint32_t maxImageDimensionCube = 0u;
+    uint32_t maxImageArrayLayers = 0u;
+    uint32_t maxBufferViewTexels = 0u;
+    uint32_t maxUBOSize = 0u;
+    uint32_t maxSSBOSize = 0u;
+    uint32_t maxPushConstantsSize = 0u;
+    uint32_t maxMemoryAllocationCount = 0u;
+    uint32_t maxSamplerAllocationCount = 0u;
+    size_t bufferImageGranularity = 0ull;
+    //size_t          sparseAddressSpaceSize;         // We support none of the sparse memory operations
     //uint32_t              maxBoundDescriptorSets;         // DO NOT EXPOSE: we've kinda hardcoded the engine to 4 currently
 
     uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
@@ -96,35 +96,35 @@ struct SPhysicalDeviceLimits
     float    viewportBoundsRange[2]; // [min, max]
     uint32_t viewportSubPixelBits = 0u;
     size_t   minMemoryMapAlignment = 0ull;
-    uint32_t bufferViewAlignment;
-    uint32_t minUBOAlignment;
-    uint32_t minSSBOAlignment;
-    int32_t  minTexelOffset;
-    uint32_t maxTexelOffset;
-    int32_t  minTexelGatherOffset;
-    uint32_t maxTexelGatherOffset;
-    float    minInterpolationOffset;
-    float    maxInterpolationOffset;
+    uint32_t bufferViewAlignment = 0u;
+    uint32_t minUBOAlignment = 0u;
+    uint32_t minSSBOAlignment = 0u;
+    int32_t  minTexelOffset = 0u;
+    uint32_t maxTexelOffset = 0u;
+    int32_t  minTexelGatherOffset = 0u;
+    uint32_t maxTexelGatherOffset = 0u;
+    float    minInterpolationOffset = 0.0f;
+    float    maxInterpolationOffset = 0.0f;
     //uint32_t              subPixelInterpolationOffsetBits;
-    uint32_t maxFramebufferWidth;
-    uint32_t maxFramebufferHeight;
-    uint32_t maxFramebufferLayers;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferColorSampleCounts;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts;
+    uint32_t maxFramebufferWidth = 0u;
+    uint32_t maxFramebufferHeight = 0u;
+    uint32_t maxFramebufferLayers = 0u;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     uint32_t maxColorAttachments = 0u;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageColorSampleCounts;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageIntegerSampleCounts;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageDepthSampleCounts;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageStencilSampleCounts;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> storageImageSampleCounts;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageIntegerSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageDepthSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> storageImageSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     uint32_t maxSampleMaskWords = 0u;
-    bool timestampComputeAndGraphics;
-    float timestampPeriodInNanoSeconds; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
-    uint32_t maxClipDistances;
-    uint32_t maxCullDistances;
-    uint32_t maxCombinedClipAndCullDistances;
+    bool timestampComputeAndGraphics = false;
+    float timestampPeriodInNanoSeconds = 0.0f; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
+    uint32_t maxClipDistances = 0u;
+    uint32_t maxCullDistances = 0u;
+    uint32_t maxCombinedClipAndCullDistances = 0u;
     uint32_t discreteQueuePriorities = 0u;
     float pointSizeRange[2];
     float lineWidthRange[2];
@@ -137,18 +137,18 @@ struct SPhysicalDeviceLimits
     uint64_t nonCoherentAtomSize = 0ull;
 
     /* VkPhysicalDeviceSparseProperties */ 
-    //VkBool32    residencyStandard2DBlockShape;
-    //VkBool32    residencyStandard2DMultisampleBlockShape;
-    //VkBool32    residencyStandard3DBlockShape;
-    //VkBool32    residencyAlignedMipSize;
-    //VkBool32    residencyNonResidentStrict;
+    //bool    residencyStandard2DBlockShape;
+    //bool    residencyStandard2DMultisampleBlockShape;
+    //bool    residencyStandard3DBlockShape;
+    //bool    residencyAlignedMipSize;
+    //bool    residencyNonResidentStrict;
 
 
 
 
     /* Vulkan 1.1 Core  */
-    uint32_t subgroupSize;
-    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages;
+    uint32_t subgroupSize = 0u;
+    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::E_SHADER_STAGE(0u);
     bool shaderSubgroupBasic = false;
     bool shaderSubgroupVote = false;
     bool shaderSubgroupArithmetic = false;
@@ -164,12 +164,12 @@ struct SPhysicalDeviceLimits
         EPCB_ALL_CLIP_PLANES = 0,
         EPCB_USER_CLIP_PLANES_ONLY = 1,
     };
-    E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior;
+    E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = EPCB_USER_CLIP_PLANES_ONLY;
     
     // TODO: If needed 
     //uint32_t                   maxMultiviewViewCount;
     //uint32_t                   maxMultiviewInstanceIndex;
-    //VkBool32                   protectedNoFault;
+    //bool                   protectedNoFault;
     
     uint32_t maxPerSetDescriptors = 0u;
     size_t maxMemoryAllocationSize = 0ull;
@@ -199,46 +199,46 @@ struct SPhysicalDeviceLimits
     E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
  
     //      or VK_EXT_descriptor_indexing:
-    uint32_t maxUpdateAfterBindDescriptorsInAllPools;
-    bool shaderUniformBufferArrayNonUniformIndexingNative;
-    bool shaderSampledImageArrayNonUniformIndexingNative;
-    bool shaderStorageBufferArrayNonUniformIndexingNative;
-    bool shaderStorageImageArrayNonUniformIndexingNative;
-    bool shaderInputAttachmentArrayNonUniformIndexingNative;
-    bool robustBufferAccessUpdateAfterBind;
-    bool quadDivergentImplicitLod;
-    uint32_t maxPerStageDescriptorUpdateAfterBindSamplers;
-    uint32_t maxPerStageDescriptorUpdateAfterBindUBOs;
-    uint32_t maxPerStageDescriptorUpdateAfterBindSSBOs;
-    uint32_t maxPerStageDescriptorUpdateAfterBindImages;
-    uint32_t maxPerStageDescriptorUpdateAfterBindStorageImages;
-    uint32_t maxPerStageDescriptorUpdateAfterBindInputAttachments;
-    uint32_t maxPerStageUpdateAfterBindResources;
-    uint32_t maxDescriptorSetUpdateAfterBindSamplers;
-    uint32_t maxDescriptorSetUpdateAfterBindUBOs;
-    uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs;
-    uint32_t maxDescriptorSetUpdateAfterBindSSBOs;
-    uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs;
-    uint32_t maxDescriptorSetUpdateAfterBindImages;
-    uint32_t maxDescriptorSetUpdateAfterBindStorageImages;
-    uint32_t maxDescriptorSetUpdateAfterBindInputAttachments;
+    uint32_t maxUpdateAfterBindDescriptorsInAllPools = ~0u;
+    bool shaderUniformBufferArrayNonUniformIndexingNative = false;
+    bool shaderSampledImageArrayNonUniformIndexingNative = false;
+    bool shaderStorageBufferArrayNonUniformIndexingNative = false;
+    bool shaderStorageImageArrayNonUniformIndexingNative = false;
+    bool shaderInputAttachmentArrayNonUniformIndexingNative = false;
+    bool robustBufferAccessUpdateAfterBind = false;
+    bool quadDivergentImplicitLod = false;
+    uint32_t maxPerStageDescriptorUpdateAfterBindSamplers = 0u;
+    uint32_t maxPerStageDescriptorUpdateAfterBindUBOs = 0u;
+    uint32_t maxPerStageDescriptorUpdateAfterBindSSBOs = 0u;
+    uint32_t maxPerStageDescriptorUpdateAfterBindImages = 0u;
+    uint32_t maxPerStageDescriptorUpdateAfterBindStorageImages = 0u;
+    uint32_t maxPerStageDescriptorUpdateAfterBindInputAttachments = 0u;
+    uint32_t maxPerStageUpdateAfterBindResources = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindSamplers = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindUBOs = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindSSBOs = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindImages = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindStorageImages = 0u;
+    uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = 0u;
     
     // TODO: Needs API work to expose -> https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html
     //      or VK_KHR_depth_stencil_resolve:
     //VkResolveModeFlags                   supportedDepthResolveModes;
     //VkResolveModeFlags                   supportedStencilResolveModes;
-    //VkBool32                             independentResolveNone;
-    //VkBool32                             independentResolve;
+    //bool                             independentResolveNone;
+    //bool                             independentResolve;
 
     //      or VK_EXT_sampler_filter_minmax:
-    bool filterMinmaxSingleComponentFormats;
-    bool filterMinmaxImageComponentMapping;
+    bool filterMinmaxSingleComponentFormats = false;
+    bool filterMinmaxImageComponentMapping = false;
  
     //      or VK_KHR_timeline_semaphore:
     //uint64_t                             maxTimelineSemaphoreValueDifference; //  we don't expose or want timeline semaphore currently
 
     //      Only Core 1.2 -> VkPhysicalDeviceVulkan12Properties should be used for this variable
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
 
 
 
@@ -263,42 +263,42 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxInlineUniformTotalSize;
     
     // or VK_KHR_shader_integer_dot_product
-    //VkBool32              integerDotProduct8BitUnsignedAccelerated;
-    //VkBool32              integerDotProduct8BitSignedAccelerated;
-    //VkBool32              integerDotProduct8BitMixedSignednessAccelerated;
-    //VkBool32              integerDotProduct4x8BitPackedUnsignedAccelerated;
-    //VkBool32              integerDotProduct4x8BitPackedSignedAccelerated;
-    //VkBool32              integerDotProduct4x8BitPackedMixedSignednessAccelerated;
-    //VkBool32              integerDotProduct16BitUnsignedAccelerated;
-    //VkBool32              integerDotProduct16BitSignedAccelerated;
-    //VkBool32              integerDotProduct16BitMixedSignednessAccelerated;
-    //VkBool32              integerDotProduct32BitUnsignedAccelerated;
-    //VkBool32              integerDotProduct32BitSignedAccelerated;
-    //VkBool32              integerDotProduct32BitMixedSignednessAccelerated;
-    //VkBool32              integerDotProduct64BitUnsignedAccelerated;
-    //VkBool32              integerDotProduct64BitSignedAccelerated;
-    //VkBool32              integerDotProduct64BitMixedSignednessAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating8BitSignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating16BitSignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating32BitSignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating64BitSignedAccelerated;
-    //VkBool32              integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
+    //bool              integerDotProduct8BitUnsignedAccelerated;
+    //bool              integerDotProduct8BitSignedAccelerated;
+    //bool              integerDotProduct8BitMixedSignednessAccelerated;
+    //bool              integerDotProduct4x8BitPackedUnsignedAccelerated;
+    //bool              integerDotProduct4x8BitPackedSignedAccelerated;
+    //bool              integerDotProduct4x8BitPackedMixedSignednessAccelerated;
+    //bool              integerDotProduct16BitUnsignedAccelerated;
+    //bool              integerDotProduct16BitSignedAccelerated;
+    //bool              integerDotProduct16BitMixedSignednessAccelerated;
+    //bool              integerDotProduct32BitUnsignedAccelerated;
+    //bool              integerDotProduct32BitSignedAccelerated;
+    //bool              integerDotProduct32BitMixedSignednessAccelerated;
+    //bool              integerDotProduct64BitUnsignedAccelerated;
+    //bool              integerDotProduct64BitSignedAccelerated;
+    //bool              integerDotProduct64BitMixedSignednessAccelerated;
+    //bool              integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating8BitSignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
+    //bool              integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
+    //bool              integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating16BitSignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
+    //bool              integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating32BitSignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
+    //bool              integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating64BitSignedAccelerated;
+    //bool              integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
     
     // or VK_EXT_texel_buffer_alignment:
-    VkDeviceSize          storageTexelBufferOffsetAlignmentBytes;
-    //VkBool32              storageTexelBufferOffsetSingleTexelAlignment;
-    VkDeviceSize          uniformTexelBufferOffsetAlignmentBytes;
-    //VkBool32              uniformTexelBufferOffsetSingleTexelAlignment;
+    size_t          storageTexelBufferOffsetAlignmentBytes = 0ull;
+    //bool              storageTexelBufferOffsetSingleTexelAlignment;
+    size_t          uniformTexelBufferOffsetAlignmentBytes = 0ull;
+    //bool              uniformTexelBufferOffsetSingleTexelAlignment;
     
     size_t                  maxBufferSize = 0ull; // or VK_KHR_maintenance4
 
@@ -331,22 +331,22 @@ struct SPhysicalDeviceLimits
     // DO NOT EXPOSE right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedPropertiesEXT *//* provided by VK_EXT_blend_operation_advanced */
     //uint32_t           advancedBlendMaxColorAttachments;
-    //VkBool32           advancedBlendIndependentBlend;
-    //VkBool32           advancedBlendNonPremultipliedSrcColor;
-    //VkBool32           advancedBlendNonPremultipliedDstColor;
-    //VkBool32           advancedBlendCorrelatedOverlap;
-    //VkBool32           advancedBlendAllOperations;
+    //bool           advancedBlendIndependentBlend;
+    //bool           advancedBlendNonPremultipliedSrcColor;
+    //bool           advancedBlendNonPremultipliedDstColor;
+    //bool           advancedBlendCorrelatedOverlap;
+    //bool           advancedBlendAllOperations;
 
     /* ConservativeRasterizationPropertiesEXT *//* provided by VK_EXT_conservative_rasterization */
-    float   primitiveOverestimationSize;
-    float   maxExtraPrimitiveOverestimationSize;
-    float   extraPrimitiveOverestimationSizeGranularity;
-    bool    primitiveUnderestimation;
-    bool    conservativePointAndLineRasterization;
-    bool    degenerateTrianglesRasterized;
-    bool    degenerateLinesRasterized;
-    bool    fullyCoveredFragmentShaderInputVariable;
-    bool    conservativeRasterizationPostDepthCoverage;
+    float   primitiveOverestimationSize = 0.0f;
+    float   maxExtraPrimitiveOverestimationSize = 0.0f;
+    float   extraPrimitiveOverestimationSizeGranularity = 0.0f;
+    bool    primitiveUnderestimation = false;
+    bool    conservativePointAndLineRasterization = false;
+    bool    degenerateTrianglesRasterized = false;
+    bool    degenerateLinesRasterized = false;
+    bool    fullyCoveredFragmentShaderInputVariable = false;
+    bool    conservativeRasterizationPostDepthCoverage = false;
           
     // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* CustomBorderColorPropertiesEXT *//* provided by VK_EXT_custom_border_color */
@@ -355,27 +355,27 @@ struct SPhysicalDeviceLimits
     /* DescriptorIndexingPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  *//* provided by VK_AMD_shader_core_properties */
 
     /* DiscardRectanglePropertiesEXT *//* provided by VK_EXT_discard_rectangles */
-    uint32_t maxDiscardRectangles;
+    uint32_t maxDiscardRectangles = 0u;
             
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
     size_t minImportedHostPointerAlignment = 0x1ull<<63u;
     
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
-    VkExtent2D         minFragmentDensityTexelSize;
-    VkExtent2D         maxFragmentDensityTexelSize;
-    VkBool32           fragmentDensityInvocations;
+    VkExtent2D         minFragmentDensityTexelSize = {0u, 0u};
+    VkExtent2D         maxFragmentDensityTexelSize = {0u, 0u};
+    bool           fragmentDensityInvocations = false;
     
     /* FragmentDensityMap2PropertiesEXT *//* provided by VK_EXT_fragment_density_map2 */
-    VkBool32           subsampledLoads;
-    VkBool32           subsampledCoarseReconstructionEarlyAccess;
-    uint32_t           maxSubsampledArrayLayers;
-    uint32_t           maxDescriptorSetSubsampledSamplers;
+    bool           subsampledLoads = false;
+    bool           subsampledCoarseReconstructionEarlyAccess = false;
+    uint32_t           maxSubsampledArrayLayers = 0u;
+    uint32_t           maxDescriptorSetSubsampledSamplers = 0u;
     
     // [TODO] too much effort
     // GLHint: Report false for both on GL
     /* GraphicsPipelineLibraryPropertiesEXT *//* provided by VK_EXT_graphics_pipeline_library */
-    //VkBool32           graphicsPipelineLibraryFastLinking;
-    //VkBool32           graphicsPipelineLibraryIndependentInterpolationDecoration;
+    //bool           graphicsPipelineLibraryFastLinking;
+    //bool           graphicsPipelineLibraryIndependentInterpolationDecoration;
 
     /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
     
@@ -395,8 +395,8 @@ struct SPhysicalDeviceLimits
 
     // [DO NOT EXPOSE] wont expose in near or far future
     /* DrmPropertiesEXT *//* provided by VK_EXT_physical_device_drm */
-    //VkBool32           hasPrimary;
-    //VkBool32           hasRender;
+    //bool           hasPrimary;
+    //bool           hasRender;
     //int64_t            primaryMajor;
     //int64_t            primaryMinor;
     //int64_t            renderMajor;
@@ -404,21 +404,21 @@ struct SPhysicalDeviceLimits
 
     // [DO NOT EXPOSE] we will never expose provoking vertex control, we will always set the provoking vertex to the LAST (vulkan default) convention also because of never exposing Xform Feedback, we'll never expose this as well
     /* ProvokingVertexPropertiesEXT *//* provided by VK_EXT_provoking_vertex */
-    //VkBool32           provokingVertexModePerPipeline;
-    //VkBool32           transformFeedbackPreservesTriangleFanProvokingVertex;
+    //bool           provokingVertexModePerPipeline;
+    //bool           transformFeedbackPreservesTriangleFanProvokingVertex;
 
     // [DO NOT EXPOSE] yet
     /* Robustness2PropertiesEXT *//* provided by VK_EXT_robustness2 */
-    //VkDeviceSize       robustStorageBufferAccessSizeAlignment;
-    //VkDeviceSize       robustUniformBufferAccessSizeAlignment;
+    //size_t       robustStorageBufferAccessSizeAlignment;
+    //size_t       robustUniformBufferAccessSizeAlignment;
 
     /* SamplerFilterMinmaxPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  */
 
     /* SampleLocationsPropertiesEXT *//* provided by VK_EXT_sample_locations */
     bool variableSampleLocations = false;
     uint32_t        sampleLocationSubPixelBits = 0;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts;
-    VkExtent2D      maxSampleLocationGridSize;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    VkExtent2D      maxSampleLocationGridSize = {0u, 0u};
     float           sampleLocationCoordinateRange[2];
 
     /* SubgroupSizeControlPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
@@ -429,28 +429,28 @@ struct SPhysicalDeviceLimits
     /* TransformFeedbackPropertiesEXT *//* provided by VK_EXT_transform_feedback */
     //uint32_t           maxTransformFeedbackStreams;
     //uint32_t           maxTransformFeedbackBuffers;
-    //VkDeviceSize       maxTransformFeedbackBufferSize;
+    //size_t       maxTransformFeedbackBufferSize;
     //uint32_t           maxTransformFeedbackStreamDataSize;
     //uint32_t           maxTransformFeedbackBufferDataSize;
     //uint32_t           maxTransformFeedbackBufferDataStride;
-    //VkBool32           transformFeedbackQueries;
-    //VkBool32           transformFeedbackStreamsLinesTriangles;
-    //VkBool32           transformFeedbackRasterizationStreamSelect;
-    //VkBool32           transformFeedbackDraw;
+    //bool           transformFeedbackQueries;
+    //bool           transformFeedbackStreamsLinesTriangles;
+    //bool           transformFeedbackRasterizationStreamSelect;
+    //bool           transformFeedbackDraw;
     
     // [TODO] we would have to change the API
     /* VertexAttributeDivisorPropertiesEXT *//* provided by VK_EXT_vertex_attribute_divisor */
     //uint32_t           maxVertexAttribDivisor;
 
     /* AccelerationStructurePropertiesKHR *//* provided by VK_KHR_acceleration_structure */
-    uint64_t           maxGeometryCount;
-    uint64_t           maxInstanceCount;
-    uint64_t           maxPrimitiveCount;
-    uint32_t           maxPerStageDescriptorAccelerationStructures;
-    uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
-    uint32_t           maxDescriptorSetAccelerationStructures;
-    uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures;
-    uint32_t           minAccelerationStructureScratchOffsetAlignment;
+    uint64_t           maxGeometryCount = 0ull;
+    uint64_t           maxInstanceCount = 0ull;
+    uint64_t           maxPrimitiveCount = 0ull;
+    uint32_t           maxPerStageDescriptorAccelerationStructures = 0u;
+    uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures = 0u;
+    uint32_t           maxDescriptorSetAccelerationStructures = 0u;
+    uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures = 0u;
+    uint32_t           minAccelerationStructureScratchOffsetAlignment = 0u;
  
     /* DepthStencilResolvePropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
     /* DriverPropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
@@ -461,20 +461,20 @@ struct SPhysicalDeviceLimits
     //VkExtent2D               minFragmentShadingRateAttachmentTexelSize;
     //VkExtent2D               maxFragmentShadingRateAttachmentTexelSize;
     //uint32_t                 maxFragmentShadingRateAttachmentTexelSizeAspectRatio;
-    //VkBool32                 primitiveFragmentShadingRateWithMultipleViewports;
-    //VkBool32                 layeredShadingRateAttachments;
-    //VkBool32                 fragmentShadingRateNonTrivialCombinerOps;
+    //bool                 primitiveFragmentShadingRateWithMultipleViewports;
+    //bool                 layeredShadingRateAttachments;
+    //bool                 fragmentShadingRateNonTrivialCombinerOps;
     //VkExtent2D               maxFragmentSize;
     //uint32_t                 maxFragmentSizeAspectRatio;
     //uint32_t                 maxFragmentShadingRateCoverageSamples;
     //VkSampleCountFlagBits    maxFragmentShadingRateRasterizationSamples;
-    //VkBool32                 fragmentShadingRateWithShaderDepthStencilWrites;
-    //VkBool32                 fragmentShadingRateWithSampleMask;
-    //VkBool32                 fragmentShadingRateWithShaderSampleMask;
-    //VkBool32                 fragmentShadingRateWithConservativeRasterization;
-    //VkBool32                 fragmentShadingRateWithFragmentShaderInterlock;
-    //VkBool32                 fragmentShadingRateWithCustomSampleLocations;
-    //VkBool32                 fragmentShadingRateStrictMultiplyCombiner;
+    //bool                 fragmentShadingRateWithShaderDepthStencilWrites;
+    //bool                 fragmentShadingRateWithSampleMask;
+    //bool                 fragmentShadingRateWithShaderSampleMask;
+    //bool                 fragmentShadingRateWithConservativeRasterization;
+    //bool                 fragmentShadingRateWithFragmentShaderInterlock;
+    //bool                 fragmentShadingRateWithCustomSampleLocations;
+    //bool                 fragmentShadingRateStrictMultiplyCombiner;
     
     /* Maintenance2PropertiesKHR *//* provided by VK_KHR_maintenance2 *//* MOVED TO Vulkan 1.1 Core  */
     /* Maintenance3PropertiesKHR *//* provided by VK_KHR_maintenance3 *//* MOVED TO Vulkan 1.1 Core  */
@@ -484,7 +484,7 @@ struct SPhysicalDeviceLimits
     /* PerformanceQueryPropertiesKHR *//* provided by VK_KHR_performance_query */
     // ! We don't support PerformanceQueries at the moment;
     // ! But we have a bool with the same name below under Nabla and that is mostly for GL when NBL_ARB_query_buffer_object is reported and that holds for every query 
-    // VkBool32           allowCommandBufferQueryCopies;
+    // bool           allowCommandBufferQueryCopies;
 
     /* VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE */
 
@@ -493,14 +493,14 @@ struct SPhysicalDeviceLimits
     //uint32_t           maxPushDescriptors;
 
     /* RayTracingPipelinePropertiesKHR *//* provided by VK_KHR_ray_tracing_pipeline */
-    uint32_t           shaderGroupHandleSize;
-    uint32_t           maxRayRecursionDepth;
-    uint32_t           maxShaderGroupStride;
-    uint32_t           shaderGroupBaseAlignment;
-    uint32_t           shaderGroupHandleCaptureReplaySize;
-    uint32_t           maxRayDispatchInvocationCount;
-    uint32_t           shaderGroupHandleAlignment;
-    uint32_t           maxRayHitAttributeSize;
+    uint32_t           shaderGroupHandleSize = 0u;
+    uint32_t           maxRayRecursionDepth = 0u;
+    uint32_t           maxShaderGroupStride = 0u;
+    uint32_t           shaderGroupBaseAlignment = 0u;
+    uint32_t           shaderGroupHandleCaptureReplaySize = 0u;
+    uint32_t           maxRayDispatchInvocationCount = 0u;
+    uint32_t           shaderGroupHandleAlignment = 0u;
+    uint32_t           maxRayHitAttributeSize = 0u;
 
     /* FloatControlsPropertiesKHR *//* VK_KHR_shader_float_controls *//* MOVED TO Vulkan 1.2 Core  */
     /* ShaderIntegerDotProductFeaturesKHR *//* VK_KHR_shader_integer_dot_product *//* MOVED TO Vulkan 1.3 Core  */
@@ -509,12 +509,12 @@ struct SPhysicalDeviceLimits
 
     // [DO NOT EXPOSE] means beta/experimental, lets not expose any of those
     /* MultiviewPerViewAttributesPropertiesNVX *//* VK_NVX_multiview_per_view_attributes */
-    // VkBool32           perViewPositionAllComponents;
+    // bool           perViewPositionAllComponents;
 
     /* VK_NVX_raytracing *//* Preview Extension of raytracing, useless*/
     
     /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
-    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages;
+    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::E_SHADER_STAGE(0u);
 
     // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     /* DeviceGeneratedCommandsPropertiesNV *//* VK_NV_device_generated_commands */
@@ -570,17 +570,17 @@ struct SPhysicalDeviceLimits
 
     // Always enabled, reported as limits
 
-    VkBool32           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
-    VkBool32           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool           shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool           shaderOutputLayer = false;             // ALIAS: VK_EXT_shader_viewport_index_layer
 
     /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
-    VkBool32           shaderIntegerFunctions2 = false;
+    bool           shaderIntegerFunctions2 = false;
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    VkBool32           shaderSubgroupClock;
+    bool           shaderSubgroupClock = false;
 
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
-    VkBool32           imageFootprint;
+    bool           imageFootprint = false;
 
     /* Nabla */
     uint32_t computeUnits = 0u;

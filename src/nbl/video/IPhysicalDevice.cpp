@@ -6,9 +6,6 @@ namespace nbl::video
 IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
     m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
 {
-    // TODO(Erfan): Add defualt values for these and remove memsets
-    memset(&m_properties, 0, sizeof(SProperties));
-    memset(&m_features, 0, sizeof(SFeatures));
     memset(&m_memoryProperties, 0, sizeof(SMemoryProperties));
     memset(&m_linearTilingUsages, 0, sizeof(SFormatImageUsage));
     memset(&m_optimalTilingUsages, 0, sizeof(SFormatImageUsage));
