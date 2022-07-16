@@ -86,7 +86,7 @@ class CElementBSDF : public IElement
 			ASHIKHMIN_SHIRLEY
 		};
 
-		RoughSpecularBase(float defaultAlpha) : distribution(BECKMANN), specularReflectance(1.f)
+		RoughSpecularBase(float defaultAlpha) : distribution(GGX), specularReflectance(1.f)
 		{
 			alpha = defaultAlpha;
 		}

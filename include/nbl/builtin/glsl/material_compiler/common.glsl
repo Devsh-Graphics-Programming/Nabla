@@ -166,42 +166,36 @@ bool nbl_glsl_MC_op_isBXDForCoatOrBlend(in uint op)
 }
 bool nbl_glsl_MC_op_hasSpecular(in uint op)
 {
-	return
-#if defined(OP_DIELECTRIC)
-		op == OP_DIELECTRIC
-#if defined(OP_CONDUCTOR)
-		||
+	bool result = false;
+#ifdef OP_DIELECTRIC
+	result = (op==OP_DIELECTRIC)||result;
 #endif
+#ifdef OP_CONDUCTOR
+	result = (op==OP_CONDUCTOR)||result;
 #endif
-#if defined(OP_CONDUCTOR)
-		op == OP_CONDUCTOR
-#endif
-
-#if !defined(OP_CONDUCTOR) && !defined(OP_DIELECTRIC)
-		false
-#endif
-	;
+	return result;
 }
 bool nbl_glsl_MC_op_isDiffuse(in uint op)
 {
-#if !defined(OP_DIFFUSE) && !defined(OP_DIFFTRANS)
-	return false;
-#else
-	if (
+	bool result = false;
 #ifdef OP_DIFFUSE
-		op == OP_DIFFUSE
-#ifdef OP_DIFFTRANS
-		||
-#endif
+	result = (op==OP_DIFFUSE)||result;
 #endif
 #ifdef OP_DIFFTRANS
-		op == OP_DIFFTRANS
+	result = (op==OP_DIFFTRANS)||result;
 #endif
-		)
-		return true;
-	else
-		return false;
+	return result;
+}
+bool nbl_glsl_MC_op_isDelta(in uint op)
+{
+	bool result = false;
+#ifdef OP_THINDIELECTRIC
+	result = (op==OP_THINDIELECTRIC)||result;
 #endif
+#ifdef OP_DELTATRANS
+	result = (op==OP_DELTATRANS)||result;
+#endif
+	return result;
 }
 
 #include <nbl/builtin/glsl/bxdf/common.glsl>
@@ -763,13 +757,9 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 		result.aov.albedo = nbl_glsl_MC_params_getReflectance(params);
 	else
 	{
-		#if defined(OP_THINDIELECTRIC)||defined(OP_THINDIELECTRIC)
-		if (op==OP_THINDIELECTRIC || op==OP_DELTATRANS)
-		{
+		if (nbl_glsl_MC_op_isDelta(op))
 			result.aov.throughputFactor = 1.f;
-		}
 		else
-		#endif
 		{
 			#ifdef ALL_ISOTROPIC_BXDFS
 			result.aov.throughputFactor = nbl_glsl_MC_aov_t_specularThroughputFactor(ax2);
