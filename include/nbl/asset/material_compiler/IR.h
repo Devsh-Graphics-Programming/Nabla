@@ -25,8 +25,7 @@ class IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {
-        _NBL_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
-        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<24;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<26;
         _NBL_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _NBL_SIMD_ALIGNMENT;
 
         uint8_t* mem;
@@ -35,7 +34,7 @@ class IR : public core::IReferenceCounted
         addr_alctr_t addrAlctr;
 
     public:
-        SBackingMemManager() : mem(nullptr), currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
+        SBackingMemManager() : mem(nullptr), currSz(MAX_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
             mem = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(currSz, ALIGNMENT));
         }
         ~SBackingMemManager() {
@@ -45,24 +44,11 @@ class IR : public core::IReferenceCounted
         uint8_t* alloc(size_t bytes)
         {
             auto addr = addrAlctr.alloc_addr(bytes, ALIGNMENT);
-            assert(addr != addr_alctr_t::invalid_address);
-            //TODO reallocation will invalidate all pointers to nodes, so...
-            //1) never reallocate (just have reasonably big buffer for nodes)
-            //2) make some node_handle class that will work as pointer but is based on offset instead of actual address
-            if (addr+bytes > currSz) {
-                size_t newSz = currSz<<1;
-                if (newSz > MAX_MEM_SIZE) {
-                    addrAlctr.free_addr(addr, bytes);
-                    return nullptr;
-                }
-
-                void* newMem = _NBL_ALIGNED_MALLOC(newSz, ALIGNMENT);
-                memcpy(newMem, mem, currSz);
-                _NBL_ALIGNED_FREE(mem);
-                mem = reinterpret_cast<uint8_t*>(newMem);
-                currSz = newSz;
+            if (addr==addr_alctr_t::invalid_address)
+            {
+                assert(false);
+                return nullptr;
             }
-
             return mem+addr;
         }
 
@@ -612,6 +598,11 @@ class IR : public core::IReferenceCounted
         NodeType* allocNode_impl(Args&& ...args)
         {
             uint8_t* ptr = memMgr.alloc(sizeof(NodeType));
+            if (!ptr)
+            {
+                printf("[ERROR] Material IR Tree Node Linear Allocator Overflow, Too Many Materials!\n");
+                exit(-44);
+            }
             return new (ptr) NodeType(std::forward<Args>(args)...);
         }
 };
