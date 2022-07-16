@@ -428,6 +428,9 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 		directionalityMetric = core::length(avgDir)[0];
 
 		std::cout << "Final Luminance Directionality = " << directionalityMetric << std::endl;
+		// the only reason why we'd get a NaN would be because there's literally 0 luminance in the image
+		if (core::isnan(directionalityMetric))
+			directionalityMetric = 0.f;
 		
 		downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
 	}
@@ -435,8 +438,8 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 	float regularizationFactor = core::min(envMapRegularizationFactor*directionalityMetric,envMapRegularizationFactor);
 	std::cout << "New Regularization Factor based on Directionality = " << regularizationFactor << std::endl;
 
-	constexpr float regularizationThreshold = 0.001f;
-	enableRIS = true;// regularizationFactor >= regularizationThreshold;
+	constexpr float regularizationThreshold = 0.00001f;
+	enableRIS = regularizationFactor>=regularizationThreshold;
 
 	// Calc Luma again with Sin Factor and new Regularization Factor
 	{
