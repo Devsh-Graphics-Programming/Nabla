@@ -47,20 +47,6 @@ class NBL_API CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilte
 		CBlitImageFilterBase() {}
 		virtual ~CBlitImageFilterBase() {}
 
-		// this will be called by derived classes because it doesn't account for all scratch needed, just the stuff for coverage adjustment
-		static inline uint32_t getRequiredScratchByteSize(IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic=IBlitUtilities::EAS_NONE_OR_PREMULTIPLIED,
-															const core::vectorSIMDu32& outExtentLayerCount=core::vectorSIMDu32(0,0,0,0))
-		{
-			uint32_t retval = 0u;
-			// 
-			if (alphaSemantic==IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			{
-				// no mul by channel count because we're only after alpha
-				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z;
-			}
-			return retval*sizeof(value_type);
-		}
-
 		// nothing to validate here really
 		static inline bool validate(CStateBase* state)
 		{
