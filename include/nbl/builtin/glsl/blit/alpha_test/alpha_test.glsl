@@ -15,9 +15,10 @@ float nbl_glsl_blit_alpha_test_getData(in uvec3 coord, in uint layerIdx);
 
 void nbl_glsl_blit_alpha_test_main()
 {
+	const uvec3 inDim = nbl_glsl_blit_parameters_getInputImageDimensions();
 	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
-	if (all(lessThan(gl_GlobalInvocationID, params.inDim)))
+	if (all(lessThan(gl_GlobalInvocationID, inDim)))
 	{
 		const float alpha = nbl_glsl_blit_alpha_test_getData(gl_GlobalInvocationID, gl_WorkGroupID.z);
 		if (alpha > params.referenceAlpha)

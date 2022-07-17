@@ -70,7 +70,9 @@ void nbl_glsl_blit_normalization_main()
 	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(_NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ - 1), 1.f);
 	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
 
-	if (all(lessThan(gl_GlobalInvocationID, params.outDim)))
+	const uvec3 outDim = nbl_glsl_blit_parameters_getOutputImageDimensions();
+
+	if (all(lessThan(gl_GlobalInvocationID, outDim)))
 	{
 		const vec4 pixel = nbl_glsl_blit_normalization_getData(gl_GlobalInvocationID, gl_WorkGroupID.z);
 		const vec4 scaledPixel = vec4(pixel.rgb, pixel.a * alphaScale);

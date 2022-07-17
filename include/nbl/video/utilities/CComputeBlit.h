@@ -317,49 +317,62 @@ public:
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ,
 		const uint32_t layersToBlit = 1, const float referenceAlpha = 0.f)
 	{
-		outPC.inDim = { inImageExtent.x , inImageExtent.y, inImageExtent.z };
-		outPC.outDim = { outImageExtent.x, outImageExtent.y, outImageExtent.z };
+		using blit_utils_t = asset::CBlitUtilities<KernelX, KernelY, KernelZ>;
+
+		core::vectorSIMDu32 inDim(inImageExtent.x, inImageExtent.y, inImageExtent.z);
+		core::vectorSIMDu32 outDim(outImageExtent.x, outImageExtent.y, outImageExtent.z);
 
 		if (imageType < asset::IImage::ET_3D)
 		{
-			outPC.inDim.z = layersToBlit;
-			outPC.outDim.z = layersToBlit;
+			inDim.z = layersToBlit;
+			outDim.z = layersToBlit;
 		}
 
-		outPC.referenceAlpha = referenceAlpha;
+		constexpr auto MaxImageDim = 1 << 16;
+		const auto maxImageDims = core::vectorSIMDu32(MaxImageDim, MaxImageDim, MaxImageDim, MaxImageDim);
+		assert((inDim < maxImageDims) && (outDim < maxImageDims));
 
-		using blit_utils_t = asset::CBlitUtilities<KernelX, KernelY, KernelZ>;
-
-		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
-		outPC.fScale = {scale.x, scale.y, scale.z};
-
-		outPC.inPixelCount = inImageExtent.x * inImageExtent.y * inImageExtent.z;
+		outPC.dims.x = (outDim.x << 16) | inDim.x;
+		outPC.dims.y = (outDim.y << 16) | inDim.y;
+		outPC.dims.z = (outDim.z << 16) | inDim.z;
 
 		const auto scaledKernelX = blit_utils_t::constructScaledKernel(kernelX, inImageExtent, outImageExtent);
 		const auto scaledKernelY = blit_utils_t::constructScaledKernel(kernelY, inImageExtent, outImageExtent);
 		const auto scaledKernelZ = blit_utils_t::constructScaledKernel(kernelZ, inImageExtent, outImageExtent);
 
+		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
+
 		const core::vectorSIMDf minSupport(-scaledKernelX.negative_support[0], -scaledKernelY.negative_support[1], -scaledKernelZ.negative_support[2]);
 		const core::vectorSIMDf maxSupport(scaledKernelX.positive_support[0], scaledKernelY.positive_support[1], scaledKernelZ.positive_support[2]);
 
-		outPC.negativeSupport.x = minSupport.x; outPC.negativeSupport.y = minSupport.y; outPC.negativeSupport.z = minSupport.z;
+		core::vectorSIMDu32 outputTexelsPerWG;
+		getOutputTexelsPerWorkGroup(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernelX, kernelY, kernelZ);
+		const auto preloadRegion = getPreloadRegion(outputTexelsPerWG, imageType, minSupport, maxSupport, scale);
 
+		outPC.secondScratchOffset = core::max(preloadRegion.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x*outputTexelsPerWG.y*preloadRegion.z);
+		outPC.iterationRegionXPrefixProducts = {outputTexelsPerWG.x, outputTexelsPerWG.x*preloadRegion.y, outputTexelsPerWG.x*preloadRegion.y*preloadRegion.z};
+		outPC.referenceAlpha = referenceAlpha;
+		outPC.fScale = {scale.x, scale.y, scale.z};
+		outPC.inPixelCount = inImageExtent.x * inImageExtent.y * inImageExtent.z;
+		outPC.negativeSupport.x = minSupport.x; outPC.negativeSupport.y = minSupport.y; outPC.negativeSupport.z = minSupport.z;
 		outPC.outPixelCount = outImageExtent.x*outImageExtent.y*outImageExtent.z;
 
 		const core::vectorSIMDi32 windowDim = core::max(blit_utils_t::getRealWindowSize(imageType, scaledKernelX, scaledKernelY, scaledKernelZ), core::vectorSIMDi32(1, 1, 1, 1));
-		outPC.windowDim.x = windowDim.x; outPC.windowDim.y = windowDim.y; outPC.windowDim.z = windowDim.z;
+		assert(windowDim < maxImageDims);
 
 		const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
-		outPC.phaseCount.x = phaseCount.x; outPC.phaseCount.y = phaseCount.y; outPC.phaseCount.z = phaseCount.z;
+		assert(phaseCount < maxImageDims);
 
-		core::vectorSIMDu32 outputTexelsPerWG;
-		getOutputTexelsPerWorkGroup(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernelX, kernelY, kernelZ);
-		outPC.outputTexelsPerWG = { outputTexelsPerWG.x, outputTexelsPerWG.y, outputTexelsPerWG.z };
+		outPC.windowDimPhaseCount.x = (phaseCount.x << 16) | windowDim.x;
+		outPC.windowDimPhaseCount.y = (phaseCount.y << 16) | windowDim.y;
+		outPC.windowDimPhaseCount.z = (phaseCount.z << 16) | windowDim.z;
 
-		const auto preloadRegion = getPreloadRegion(outputTexelsPerWG, imageType, minSupport, maxSupport, scale);
+		outPC.kernelWeightsOffsetY = phaseCount.x*windowDim.x;
+		outPC.iterationRegionYPrefixProducts = {outputTexelsPerWG.y, outputTexelsPerWG.y*outputTexelsPerWG.x, outputTexelsPerWG.y*outputTexelsPerWG.x*preloadRegion.z};
+		outPC.kernelWeightsOffsetZ = outPC.kernelWeightsOffsetY + phaseCount.y*windowDim.y;
+		outPC.iterationRegionZPrefixProducts = {outputTexelsPerWG.y, outputTexelsPerWG.y*outputTexelsPerWG.x, outputTexelsPerWG.y*outputTexelsPerWG.x*outputTexelsPerWG.z};
+		outPC.outputTexelsPerWGZ = outputTexelsPerWG.z;
 		outPC.preloadRegion = { preloadRegion.x, preloadRegion.y, preloadRegion.z };
-
-		outPC.secondScratchOffset = core::max(preloadRegion.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x*outputTexelsPerWG.y*preloadRegion.z);
 	}
 
 	static inline void buildAlphaTestDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& inImageExtent, const asset::IImage::E_TYPE imageType, const uint32_t layersToBlit = 1)

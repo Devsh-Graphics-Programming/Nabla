@@ -27,9 +27,15 @@ ivec3 getMinKernelWindowCoord(in vec3 p, in vec3 minSupport)
 
 void nbl_glsl_blit_main()
 {
-	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
+	const uvec3 inDim = nbl_glsl_blit_parameters_getInputImageDimensions();
+	const uvec3 outDim = nbl_glsl_blit_parameters_getOutputImageDimensions();
 
-	const uvec3 outputTexelsPerWG = params.outputTexelsPerWG;
+	const uvec3 windowDim = nbl_glsl_blit_parameters_getWindowDimensions();
+	const uvec3 phaseCount = nbl_glsl_blit_parameters_getPhaseCount();
+
+	const uvec3 outputTexelsPerWG = nbl_glsl_blit_parameters_getOutputTexelsPerWG();
+
+	const nbl_glsl_blit_parameters_t params = nbl_glsl_blit_getParameters();
 
 	const vec3 scale = params.fScale;
 	const vec3 halfScale = scale * vec3(0.5f);
@@ -44,7 +50,7 @@ void nbl_glsl_blit_main()
 	{
 		const ivec3 inputPixelCoord = regionStartCoord + ivec3(nbl_glsl_multi_dimensional_array_addressing_snakeCurveInverse(virtualInvocation, preloadRegion));
 
-		vec3 inputTexCoord = (inputPixelCoord + vec3(0.5f)) / params.inDim;
+		vec3 inputTexCoord = (inputPixelCoord + vec3(0.5f)) / inDim;
 		
 		const vec4 loadedData = nbl_glsl_blit_getData(inputTexCoord, gl_WorkGroupID.z);
 		for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
@@ -52,28 +58,27 @@ void nbl_glsl_blit_main()
 	}
 	barrier();
 
-	const uvec3 iterationRegions[3] = uvec3[]( uvec3(outputTexelsPerWG.x, preloadRegion.yz), uvec3(outputTexelsPerWG.yx, preloadRegion.z), outputTexelsPerWG.yxz );
+	const uvec3 iterationRegionPrefixProducts[3] = uvec3[](params.iterationRegionXPrefixProducts, params.iterationRegionYPrefixProducts, params.iterationRegionZPrefixProducts);
 
 	uint readScratchOffset = 0;
 	uint writeScratchOffset = params.secondScratchOffset;
 	for (uint axis = 0; axis < _NBL_GLSL_BLIT_DIM_COUNT_; ++axis)
 	{
-		const uvec3 iterationRegion = iterationRegions[axis];
-		for (uint virtualInvocation = gl_LocalInvocationIndex; virtualInvocation < iterationRegion.x * iterationRegion.y * iterationRegion.z; virtualInvocation += _NBL_GLSL_WORKGROUP_SIZE_)
+		for (uint virtualInvocation = gl_LocalInvocationIndex; virtualInvocation < iterationRegionPrefixProducts[axis].z; virtualInvocation += _NBL_GLSL_WORKGROUP_SIZE_)
 		{
-			const uvec3 virtualInvocationID = nbl_glsl_multi_dimensional_array_addressing_snakeCurveInverse(virtualInvocation, iterationRegion);
+			const uvec3 virtualInvocationID = nbl_glsl_multi_dimensional_array_addressing_snakeCurveInverse(virtualInvocation, iterationRegionPrefixProducts[axis].xy);
 
 			uint outputPixel = virtualInvocationID.x;
 			if (axis == 2)
 				outputPixel = virtualInvocationID.z;
 			outputPixel += minOutputPixel[axis];
 
-			if (outputPixel >= params.outDim[axis])
+			if (outputPixel >= outDim[axis])
 				break;
 
 			const int minKernelWindow = int(ceil((outputPixel + 0.5f) * scale[axis] - 0.5f + params.negativeSupport[axis]));
 
-			// Combined stride for the two non-blitting dimensions, tightly coupled and experimentally derived with/by `iterationRegion` above and the general order of iteration we use to avoid
+			// Combined stride for the two non-blitting dimensions, tightly coupled and experimentally derived with/by `iterationRegionPrefixProducts` above and the general order of iteration we use to avoid
 			// read bank conflicts.
 			uint combinedStride;
 			{
@@ -86,15 +91,15 @@ void nbl_glsl_blit_main()
 			}
 
 			uint offset = readScratchOffset + (minKernelWindow - regionStartCoord[axis]) + combinedStride*preloadRegion[axis];
-			const uint windowPhase = outputPixel % params.phaseCount[axis];
+			const uint windowPhase = outputPixel % phaseCount[axis];
 
 			uint kernelWeightIndex;
 			if (axis == 0)
-				kernelWeightIndex = windowPhase * params.windowDim.x;
+				kernelWeightIndex = windowPhase * windowDim.x;
 			else if (axis == 1)
-				kernelWeightIndex = params.phaseCount.x * params.windowDim.x + windowPhase * params.windowDim.y;
+				kernelWeightIndex = params.kernelWeightsOffsetY + windowPhase * windowDim.y;
 			else if (axis == 2)
-				kernelWeightIndex = params.phaseCount.x * params.windowDim.x + params.phaseCount.y * params.windowDim.y + windowPhase * params.windowDim.z;
+				kernelWeightIndex = params.kernelWeightsOffsetZ + windowPhase * windowDim.z;
 
 			vec4 kernelWeight = nbl_glsl_blit_getKernelWeight(kernelWeightIndex);
 
@@ -102,7 +107,7 @@ void nbl_glsl_blit_main()
 			for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 				accum[ch] = scratchShared[ch][offset] * kernelWeight[ch];
 
-			for (uint i = 1; i < params.windowDim[axis]; ++i)
+			for (uint i = 1; i < windowDim[axis]; ++i)
 			{
 				kernelWeightIndex++;
 				offset++;
@@ -115,7 +120,7 @@ void nbl_glsl_blit_main()
 			const bool lastPass = (axis == (_NBL_GLSL_BLIT_DIM_COUNT_ - 1));
 			if (lastPass)
 			{
-				// Tightly coupled with iteration order (`iterationRegions`)
+				// Tightly coupled with iteration order (`iterationRegionPrefixProducts`)
 				uvec3 outCoord = virtualInvocationID.yxz;
 				if (axis == 0)
 					outCoord = virtualInvocationID.xyz;
@@ -130,13 +135,12 @@ void nbl_glsl_blit_main()
 			{
 				uint scratchOffset = writeScratchOffset;
 				if (axis == 0)
-					scratchOffset += nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.yxz, iterationRegions[0].yxz);
-				else 
-					scratchOffset += writeScratchOffset + nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.zxy, iterationRegions[1].zxy);
+					scratchOffset += nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.yxz, uvec3(preloadRegion.y, outputTexelsPerWG.x, preloadRegion.z));
+				else
+					scratchOffset += writeScratchOffset + nbl_glsl_multi_dimensional_array_addressing_snakeCurve(virtualInvocationID.zxy, uvec3(preloadRegion.z, outputTexelsPerWG.y, outputTexelsPerWG.x));
 				
 				for (uint ch = 0; ch < _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_; ++ch)
 					scratchShared[ch][scratchOffset] = accum[ch];
-				
 			}
 		}
 		
