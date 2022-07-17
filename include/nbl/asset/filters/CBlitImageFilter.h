@@ -236,10 +236,12 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 				return 0;
 
 			case ESU_DECODE_WRITE:
+				[[fallthrough]];
 			case ESU_BLIT_Y_AXIS_WRITE:
 				return scaledKernelPhasedLUTSize;
 
 			case ESU_BLIT_X_AXIS_WRITE:
+				[[fallthrough]];
 			case ESU_BLIT_Z_AXIS_WRITE:
 				return scaledKernelPhasedLUTSize + pingBufferElementCount * MaxChannels * sizeof(value_type);
 
