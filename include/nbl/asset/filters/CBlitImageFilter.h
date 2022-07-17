@@ -200,9 +200,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			getIntermediateExtents(intermediateExtent, state, real_window_size);
 			assert(intermediateExtent[0].x == intermediateExtent[2].x);
 
-			const size_t MaxParallelism = std::thread::hardware_concurrency() * VectorizationBoundSTL;
-
-			uint32_t pingBufferElementCount = (state->inExtent.width + real_window_size[0]) * MaxParallelism; // decode
+			uint32_t pingBufferElementCount = (state->inExtent.width + real_window_size[0]) * m_maxParallelism; // decode
 			uint32_t pongBufferElementCount = intermediateExtent[0].x * intermediateExtent[0].y * intermediateExtent[0].z; // x-axis filter output
 
 			const uint32_t yWriteElementCount = intermediateExtent[1].x * intermediateExtent[1].y * intermediateExtent[1].z;
@@ -238,7 +236,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			{
 				size_t totalScratchSize = scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount) * MaxChannels * sizeof(value_type);
 				if (state->alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-					totalScratchSize += kAlphaHistogramSize*MaxParallelism;
+					totalScratchSize += kAlphaHistogramSize*m_maxParallelism;
 				return totalScratchSize;
 			}
 			}
@@ -379,30 +377,70 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 					const auto outputTexelCount = outExtent.width*outExtent.height*outExtent.depth;
 					const int64_t pixelsShouldPassCount = (coverage * core::rational<int64_t>(outputTexelCount)).getIntegerApprox();
 					const int64_t pixelsShouldFailCount = outputTexelCount - pixelsShouldPassCount;
-					// all values with index<=rankIndex will be %==inverseCoverage of the overall array
-					const int64_t rankIndex = (coverage*core::rational<int64_t>(outputTexelCount)).getIntegerApprox()-1;
 
-					// Todo(achal): I only use alphaBinCount*sizeof(uint32_t) here because I used atomic, switch to not using atomics.
-					uint32_t* histogram = reinterpret_cast<uint32_t*>(state->scratchMemory + getScratchOffset(state, ESU_ALPHA_HISTOGRAM));
-					memset(histogram, 0, state->alphaBinCount * sizeof(uint32_t));
+					uint32_t* histograms = reinterpret_cast<uint32_t*>(state->scratchMemory + getScratchOffset(state, ESU_ALPHA_HISTOGRAM));
+					memset(histograms, 0, m_maxParallelism* state->alphaBinCount * sizeof(uint32_t));
+
+					ParallelScratchHelper scratchHelper;
+
+					// uint64_t histogramIndices[VectorizationBoundSTL];
+					// std::fill_n(histogramIndices, VectorizationBoundSTL, ~0ull);
+					// std::mutex scratchLock;
+
+					constexpr bool is_seq_policy_v = std::is_same_v<std::remove_reference_t<ExecutionPolicy>, core::execution::sequenced_policy>;
 
 					struct DummyTexelType
 					{
 						double texel[MaxChannels];
 					};
-					std::for_each(policy, reinterpret_cast<DummyTexelType*>(intermediateStorage[axis]), reinterpret_cast<DummyTexelType*>(intermediateStorage[axis] + outputTexelCount*MaxChannels), [&sampler, outFormat, &histogram, alphaChannel, state](const DummyTexelType& dummyTexel)
+					std::for_each(policy, reinterpret_cast<DummyTexelType*>(intermediateStorage[axis]), reinterpret_cast<DummyTexelType*>(intermediateStorage[axis] + outputTexelCount*MaxChannels), [&sampler, outFormat, &histograms, &scratchHelper, alphaChannel, state](const DummyTexelType& dummyTexel)
 					{
+						const uint32_t index = scratchHelper.alloc<is_seq_policy_v>();
+#if 0
+						uint32_t index = ~0u;
+						{
+							std::unique_lock<std::mutex> lock(scratchLock);
+							for (uint32_t j = 0u; j < VectorizationBoundSTL; ++j)
+							{
+								int32_t firstFree = core::findLSB(histogramIndices[j]);
+								if (firstFree != -1)
+								{
+									index = j * 64u + firstFree;
+									histogramIndices[j] ^= (0x1u << firstFree); // mark using
+									break;
+								}
+							}
+							assert(false);
+						}
+#endif
+
 						value_type texelAlpha = dummyTexel.texel[alphaChannel];
 						texelAlpha -= double(sampler.nextSample()) * (asset::getFormatPrecision<value_type>(outFormat, alphaChannel, texelAlpha) / double(~0u));
 
-						const uint32_t bucketIndex = uint32_t(core::round(core::clamp(texelAlpha, 0.0, 1.0) * double(state->alphaBinCount - 1)));
-						assert(bucketIndex < state->alphaBinCount);
-						std::atomic_ref(histogram[bucketIndex]).fetch_add(1);
+						const uint32_t binIndex = uint32_t(core::round(core::clamp(texelAlpha, 0.0, 1.0) * double(state->alphaBinCount - 1)));
+						assert(binIndex < state->alphaBinCount);
+						histograms[index*state->alphaBinCount+binIndex]++;
+
+						scratchHelper.free<is_seq_policy_v>(index);
+
+#if 0
+						{
+							std::unique_lock<std::mutex> lock(scratchLock);
+							histogramIndices[index/64u] ^= (0x1u<<(index%64u)); // mark free
+						}
+#endif
 					});
 
-					std::inclusive_scan(histogram, histogram+state->alphaBinCount, histogram);
-					const uint32_t bucketIndex = std::lower_bound(histogram, histogram+state->alphaBinCount, pixelsShouldFailCount) - histogram;
-					const double newAlphaRefValue = core::min((bucketIndex - 0.5) / double(state->alphaBinCount - 1), 1.0);
+					uint32_t* mergedHistogram = histograms;
+					for (auto hi = 1; hi < m_maxParallelism; ++hi)
+					{
+						for (auto bi = 0; bi < state->alphaBinCount; ++bi)
+							histograms[bi] += histograms[hi * state->alphaBinCount + bi];
+					}
+
+					std::inclusive_scan(mergedHistogram, mergedHistogram +state->alphaBinCount, mergedHistogram);
+					const uint32_t binIndex = std::lower_bound(mergedHistogram, mergedHistogram +state->alphaBinCount, pixelsShouldFailCount) - mergedHistogram;
+					const double newAlphaRefValue = core::min((binIndex - 0.5) / double(state->alphaBinCount - 1), 1.0);
 					coverageScale = alphaRefValue / newAlphaRefValue;
 				}
 				auto scaleCoverage = [outData,outOffsetLayer,intermediateStrides,axis,intermediateStorage,alphaChannel,coverageScale,storeToTexel](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
@@ -488,6 +526,8 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 					const int loopCoordID[2] = {/*axis,*/axis!=IImage::ET_2D ? 1:0,axis!=IImage::ET_3D ? 2:0};
 					//
 					assert(is_seq_policy_v || std::thread::hardware_concurrency()<=64u);
+					ParallelScratchHelper scratchHelper;
+#if 0
 					uint64_t decodeScratchAllocs[VectorizationBoundSTL];
 					std::fill_n(decodeScratchAllocs,VectorizationBoundSTL,~0u);
 					std::mutex scratchLock;
@@ -519,6 +559,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						}
 					};
 					//
+#endif
 					constexpr uint32_t batch_dims = 2u;
 					const uint32_t batchExtent[batch_dims] = {
 						static_cast<uint32_t>(intermediateExtent[axis][loopCoordID[0]]),
@@ -529,6 +570,8 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 					CBasicImageFilterCommon::BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd);
 					std::for_each(policy,begin,end,[&](const std::array<uint32_t,batch_dims>& batchCoord) -> void
 					{
+						constexpr bool is_seq_policy_v = std::is_same_v<std::remove_reference_t<ExecutionPolicy>, core::execution::sequenced_policy>;
+
 						// we need some tmp memory for threads in the first pass so that they dont step on each other
 						uint32_t decode_offset;
 						// whole line plus window borders
@@ -541,7 +584,8 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						else
 						{
 							const auto inputEnd = inExtent.width+real_window_size.x;
-							decode_offset = alloc_decode_scratch();
+							// decode_offset = alloc_decode_scratch();
+							decode_offset = scratchHelper.alloc<is_seq_policy_v>();
 							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*inputEnd;
 							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
@@ -627,8 +671,9 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 							if (++phaseIndex == phaseCount[axis])
 								phaseIndex = 0;
 						}
-						if (axis==IImage::ET_1D)
-							free_decode_scratch(decode_offset);
+						if (axis == IImage::ET_1D)
+							scratchHelper.free<is_seq_policy_v>(decode_offset);
+							// free_decode_scratch(decode_offset);
 					});
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
@@ -650,7 +695,53 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 
 	private:
 		static inline constexpr uint32_t VectorizationBoundSTL = /*AVX2*/16u;
-		//
+		static inline const uint32_t m_maxParallelism = std::thread::hardware_concurrency() * VectorizationBoundSTL;
+
+		class ParallelScratchHelper
+		{
+		public:
+			ParallelScratchHelper()
+			{
+				std::fill_n(indices, VectorizationBoundSTL, ~0ull);
+			}
+
+			template<bool isSeqPolicy>
+			inline uint32_t alloc()
+			{
+				if constexpr (isSeqPolicy)
+					return 0;
+
+				std::unique_lock<std::mutex> lock(mutex);
+				for (uint32_t j = 0u; j < VectorizationBoundSTL; ++j)
+				{
+					int32_t firstFree = core::findLSB(indices[j]);
+					if (firstFree != -1)
+					{
+						indices[j] ^= (0x1u << firstFree); // mark using
+						return j * MaxCores + firstFree;
+					}
+				}
+				assert(false);
+				return 0xdeadbeef;
+			}
+
+			template<bool isSeqPolicy>
+			inline void free(const uint32_t index)
+			{
+				if constexpr (!isSeqPolicy)
+				{
+					std::unique_lock<std::mutex> lock(mutex);
+					indices[index / MaxCores] ^= (0x1u << (index % MaxCores)); // mark free
+				}
+			}
+
+		private:
+			static inline constexpr auto MaxCores = 64;
+
+			uint64_t indices[VectorizationBoundSTL];
+			std::mutex mutex;
+		};
+
 		static inline void getIntermediateExtents(core::vectorSIMDi32* intermediateExtent, const state_type* state, const core::vectorSIMDi32& real_window_size)
 		{
 			assert(intermediateExtent);
