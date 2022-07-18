@@ -663,8 +663,7 @@ public:
 	{
 		const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
 
-		// if (formatUsages.storageImage)
-		if (formatUsages.storageImage && format != asset::EF_B10G11R11_UFLOAT_PACK32)
+		if (formatUsages.storageImage)
 		{
 			return format;
 		}
