@@ -1071,6 +1071,7 @@ public:
             return false;
 
         constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 4u;
+        assert(descriptorSetCount <= MAX_DESCRIPTOR_SET_COUNT);
 
         VkPipelineLayout vk_pipelineLayout = IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject();
 
@@ -1097,9 +1098,10 @@ public:
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
+        // We allow null descriptor sets in our bind function to skip a certain set number we don't use
         // Will bind [first, last) with one call
         uint32_t dynamicOffsetsBindOffset = 0u;
-        uint32_t bindCount = 0u;
+        uint32_t bindCallsCount = 0u;
         uint32_t first = ~0u;
         uint32_t last = ~0u;
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
@@ -1115,7 +1117,7 @@ public:
                     ++last;
 
                 // Do a look ahead
-                if ((i + 1 > descriptorSetCount - 1) || !pDescriptorSets[i + 1])
+                if ((i + 1 >= descriptorSetCount) || !pDescriptorSets[i + 1])
                 {
                     if (dynamicOffsets)
                     {
@@ -1129,7 +1131,7 @@ public:
                             vk_pipelineLayout,
                             // firstSet + first, last - first, vk_descriptorSets + first, vk_dynamicOffsetCount, vk_dynamicOffsets);
                             firstSet + first, last - first, vk_descriptorSets + first,
-                            dynamicOffsetCount, dynamicOffsets->begin() + dynamicOffsetsBindOffset);
+                            dynamicOffsetCount, dynamicOffsets + dynamicOffsetsBindOffset);
 
                         dynamicOffsetsBindOffset += dynamicOffsetCount;
                     }
@@ -1144,11 +1146,13 @@ public:
 
                     first = ~0u;
                     last = ~0u;
-                    ++bindCount;
+                    ++bindCallsCount;
                 }
             }
         }
-        assert(bindCount <= core::ceil(MAX_DESCRIPTOR_SET_COUNT / 2.f));
+
+        // with K slots you need at most (K+1)/2 calls
+        assert(bindCallsCount <= (MAX_DESCRIPTOR_SET_COUNT + 1) / 2);
 
         return true;
     }
