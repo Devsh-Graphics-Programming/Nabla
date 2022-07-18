@@ -871,7 +871,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     }
     auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void
     {
-#define USE_NEW_IMAGE_UPLOAD_UTL2
+#define USE_NEW_IMAGE_UPLOAD_UTL
 
 #if defined(USE_NEW_IMAGE_UPLOAD_UTL)
             IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
