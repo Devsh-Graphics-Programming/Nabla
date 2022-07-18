@@ -434,7 +434,7 @@ Furthermore it has no idea what constitutes a frame, because swap-buffers call h
 
 Ctrl+F `localRenderer in https://github.com/baldurk/renderdoc/blob/4103f6a5455b9734e9bf74e254577f5c03188136/renderdoc/core/image_viewer.cpp
 
-### OpenGL/Vulkan Inconsistacies
+### OpenGL/Vulkan Inconsistencies
 
 In certain cases same calls to Vulkan and OpenGL might result in y-flipped image relevant to the other API.
 
@@ -442,22 +442,30 @@ Both APIs write (-1,-1) in NDC space to (0,0) in image space (two wrongs make ri
 
 This inconsistency comes from swapchain presentation. When presenting the swapchain, the image location (0,0) corresponds to **bottom-left** in OpenGL and **top-left** in Vulkan.
 
-To account for this inconsistency, we expect the user to apply swapchain transforms. The `HORIZONTAL_MIRROR_180` swapchain transform corresponds to flipping Y, which, when done to the swapchain image, ensures the OpenGL output matches Vulkan. For this reason, the only swapchain transform exposed as supported by OpenGL is `HORIZONTAL_MIRROR_180`. To get the swapchain's transform, use [`ISwapchain getSurfaceTransform()`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L64).
+#### Solution by Surface Transforms
+
+We solve this inconsistency by using [surface transforms](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceTransformFlagBitsKHR.html); This transforms are relative to `presentation engine’s natural orientation`. and we report `HORIZONTAL_MIRROR_180` support in our OpenGL backend and defer handling these rotations (relative to natural orientaion) to the user.
+
+We provide helper functions in both GLSL and C++ Nabla codebase to consider surface transforms, See [surface_transforms.glsl](Link)
+
+Note that it is common to apply surface transformation to projection matrices to account for this fact. See [getSurfaceTransformationMatrix](Link) and [Android Developers Guide to Pre-rotation](https://developer.android.com/games/optimize/vulkan-prerotation)
+
+Use [`ISwapchain getSurfaceTransform()`](link) to get the transformation from swapchain.
 
 - When generating projection matricies, take into account the aspect ratio (which is changed when rotating 90 or 270 degrees). For this, we have helper functions in both GLSL and the ISurface class:
-    - [`float surfaceTransformAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/video/surface/ISurface.h#L159)
-    - [`nbl_glsl_swapchain_transform_preTransformExtents`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L64)
+    - [`float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
+    - [`nbl_glsl_surface_transform_transformedExtents`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
 
 - On the swapchain rendering pass, perform **one** of the following transforms:
     - If rendering **directly to the swapchain**, you can apply the (post) transform matrix to your projection or combined view-projection matrix **for rendering** (don't pre-multiply with projection matrix for use outside rendering):
-        - [`matrix4SIMD ISurface::surfaceTransformForward(const E_SURFACE_TRANSFORM_FLAGS transform)`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/video/surface/ISurface.h#L95)
-        - [`nbl_glsl_swapchain_transform_postTransformNdc`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L82) (This takes in an NDC coordinate and multiplies it with the transform matrix in one function)
+        - [`matrix4SIMD ISurface::getSurfaceTransformationMatrix(const E_SURFACE_TRANSFORM_FLAGS transform)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
+        - [`nbl_glsl_surface_transform_applyToNDC`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl) (This takes in an NDC coordinate and multiplies it with the transform matrix in one function)
 
     - If using `imageStore` to write **directly to the swapchain**, you can either:
-        - Apply a **post** transform to the coordinates being written to the swapchain:
-            - [`nbl_glsl_swapchain_transform_postTransform`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L60)
-        - Apply a **pre** transform to the UVs (taken from `gl_GlobalInvocationID.xy`) before using them for rendering:
-            - [`nbl_glsl_swapchain_transform_preTransform`](https://github.com/Devsh-Graphics-Programming/Nabla/blob/aa31741485b7534d8c29ff2d55a2e498748fe223/include/nbl/builtin/glsl/utils/swapchain_transform.glsl#L56)
+        - Apply a transform to the screen-space coordinates being written to the swapchain:
+            - [`nbl_glsl_surface_transform_applyToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+        - Apply an **inverse** transform to the screen-space coordinates (taken from `gl_GlobalInvocationID.xy`) before turning them into UV/world-space coordinates for rendering:
+            - [`nbl_glsl_surface_transform_applyInverseToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
 
 ## Automated Builds (TODO)
 

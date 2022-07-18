@@ -72,27 +72,27 @@ class NBL_API ISurface : public core::IReferenceCounted
             EST_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
         };
 
-        #include "nbl/builtin/glsl/utils/swapchain_transform_e.h"
-        static_assert(int(EST_IDENTITY_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_IDENTITY);
-        static_assert(int(EST_ROTATE_90_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_90);
-        static_assert(int(EST_ROTATE_180_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_180);
-        static_assert(int(EST_ROTATE_270_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_270);
-        static_assert(int(EST_HORIZONTAL_MIRROR_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR);
-        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_90_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90);
-        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_180_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180);
-        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_270_BIT) == NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270);
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_IDENTITY
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_90
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_180
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_ROTATE_270
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180
-        #undef NBL_GLSL_SWAPCHAIN_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270
+        #include "nbl/builtin/glsl/utils/surface_transform_e.h"
+        static_assert(int(EST_IDENTITY_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_IDENTITY);
+        static_assert(int(EST_ROTATE_90_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_90);
+        static_assert(int(EST_ROTATE_180_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_180);
+        static_assert(int(EST_ROTATE_270_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_270);
+        static_assert(int(EST_HORIZONTAL_MIRROR_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR);
+        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_90_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90);
+        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_180_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180);
+        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_270_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270);
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_IDENTITY
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_90
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_180
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_270
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270
 
         // A matrix that can be pre-multiplied to the projection matrix in order to apply the
         // surface transform.
-        static inline core::matrix4SIMD surfaceTransformForward(const E_SURFACE_TRANSFORM_FLAGS transform)
+        static inline core::matrix4SIMD getSurfaceTransformationMatrix(const E_SURFACE_TRANSFORM_FLAGS transform)
         {
             const float sin90 = 1.0, cos90 = 0.0,
                 sin180 = 0.0, cos180 = -1.0,
@@ -156,7 +156,7 @@ class NBL_API ISurface : public core::IReferenceCounted
             }
         }
 
-        static inline float surfaceTransformAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)
+        static inline float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)
         {
             switch (transform)
             {
