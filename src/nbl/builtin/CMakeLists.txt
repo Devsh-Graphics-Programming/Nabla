@@ -174,6 +174,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
   "nbl/builtin/glsl/utils/morton.glsl"
+  "nbl/builtin/glsl/utils/surface_transform_transformedDerivatives.glsl"
   "nbl/builtin/glsl/utils/surface_transform.glsl"
   "nbl/builtin/glsl/utils/surface_transform_e.h"
   # virtual texturing
