@@ -50,17 +50,6 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetStorageImages = 0u;
     uint32_t maxDescriptorSetInputAttachments = 0u;
 
-    //! [DO NOT EXPOSE ]
-    //! maxVertexInputAttributes and maxVertexInputBindings: In OpenGL (and ES) the de-jure (legal) minimum is 16, and de-facto (in practice) Vulkan reports begin at 16.
-    //! maxVertexInputAttributeOffset and maxVertexInputBindingStride: In OpenGL (and ES) the de-jure (legal) minimum is 2047 for both, and de-facto (in practice) Vulkan reports begin at 2047.
-    //! Asset Conversion:
-    //! An ICPUMeshBuffer is an IAsset and for reasons of serialization and conversion we've hardcoded the attribute and binding count to 16 (the bitfields, array sizes, etc.)
-    //! variable attribute count meshes would be a mess.
-    //! uint32_t              maxVertexInputAttributes;
-    //! uint32_t              maxVertexInputBindings;
-    //! uint32_t              maxVertexInputAttributeOffset;
-    //! uint32_t              maxVertexInputBindingStride;
-    
     uint32_t maxVertexOutputComponents = 0u;
 
     uint32_t maxTessellationGenerationLevel = 0u;
@@ -166,11 +155,6 @@ struct SPhysicalDeviceLimits
     };
     E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = EPCB_USER_CLIP_PLANES_ONLY;
     
-    // [TODO LATER] If needed 
-    //uint32_t                   maxMultiviewViewCount;
-    //uint32_t                   maxMultiviewInstanceIndex;
-    //bool                   protectedNoFault;
-    
     uint32_t maxPerSetDescriptors = 0u;
     size_t maxMemoryAllocationSize = 0ull;
 
@@ -222,20 +206,10 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetUpdateAfterBindImages = 0u;
     uint32_t maxDescriptorSetUpdateAfterBindStorageImages = 0u;
     uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = 0u;
-    
-    // [TODO LATER] Needs API work to expose -> https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html
-    //      or VK_KHR_depth_stencil_resolve:
-    //VkResolveModeFlags                   supportedDepthResolveModes;
-    //VkResolveModeFlags                   supportedStencilResolveModes;
-    //bool                             independentResolveNone;
-    //bool                             independentResolve;
 
     //      or VK_EXT_sampler_filter_minmax:
     bool filterMinmaxSingleComponentFormats = false;
     bool filterMinmaxImageComponentMapping = false;
- 
-    //      or VK_KHR_timeline_semaphore:
-    //uint64_t                             maxTimelineSemaphoreValueDifference; // [DO NOT EXPOSE] we don't expose or want timeline semaphore currently
 
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
 
@@ -247,14 +221,6 @@ struct SPhysicalDeviceLimits
     uint32_t                                        maxSubgroupSize = 0u;
     uint32_t                                        maxComputeWorkgroupSubgroups = 0u;
     core::bitflag<asset::IShader::E_SHADER_STAGE>   requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
-    
-    // [Future TODO]: we don't expose inline uniform blocks right now
-    //      or VK_EXT_inline_uniform_block: 
-    //uint32_t              maxInlineUniformBlockSize; 
-    //uint32_t              maxPerStageDescriptorInlineUniformBlocks;
-    //uint32_t              maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks;
-    //uint32_t              maxDescriptorSetInlineUniformBlocks;
-    //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
     
     //      Only Core 1.3 -> VkPhysicalDeviceVulkan13Properties should be used for this variable
     //uint32_t              maxInlineUniformTotalSize;
@@ -286,99 +252,48 @@ struct SPhysicalDeviceLimits
     /* DiscardRectanglePropertiesEXT *//* provided by VK_EXT_discard_rectangles */
     uint32_t maxDiscardRectangles = 0u;
 
-    // [TODO] too much effort
-    // GLHint: Report false for both on GL
-    /* GraphicsPipelineLibraryPropertiesEXT *//* provided by VK_EXT_graphics_pipeline_library */
-    //bool           graphicsPipelineLibraryFastLinking;
-    //bool           graphicsPipelineLibraryIndependentInterpolationDecoration;
-
-    /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
-
     // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationPropertiesEXT *//* provided by VK_EXT_line_rasterization */
-    //uint32_t           lineSubPixelPrecisionBits; // GLHint: report 0 on OpenGL
-
-    // [TODO]
-    /* DescriptorIndexingPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  *//* provided by VK_AMD_shader_core_properties */
-
-    // [TODO]
-    /* SamplerFilterMinmaxPropertiesEXT ---> MOVED TO Vulkan 1.2 Core  */
+    uint32_t lineSubPixelPrecisionBits = 0;
 
     // [TODO] we would have to change the API
     /* VertexAttributeDivisorPropertiesEXT *//* provided by VK_EXT_vertex_attribute_divisor */
-    //uint32_t           maxVertexAttribDivisor;
+    uint32_t maxVertexAttribDivisor = 0;
 
-    // [TODO]
-    /* SubgroupSizeControlPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
-
-    // [TODO]
-    /* TexelBufferAlignmentPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
-
-    // [TODO]
-    /* Maintenance2PropertiesKHR *//* provided by VK_KHR_maintenance2 *//* MOVED TO Vulkan 1.1 Core  */
-
-    // [TODO]
-    /* Maintenance3PropertiesKHR *//* provided by VK_KHR_maintenance3 *//* MOVED TO Vulkan 1.1 Core  */
-    
-    // [TODO]
-    /* MultiviewPropertiesKHR    *//* provided by VK_KHR_multiview    *//* MOVED TO Vulkan 1.1 Core  */
-
-    // [TODO]
-    /* DepthStencilResolvePropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
-
-    // [TODO]
-    /* DriverPropertiesKHR ---> MOVED TO Vulkan 1.2 Core  */
-
-    // [TODO]
-    /* FloatControlsPropertiesKHR *//* VK_KHR_shader_float_controls *//* MOVED TO Vulkan 1.2 Core  */
-
-    // [TODO]
-    /* TimelineSemaphorePropertiesKHR *//* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core  */
-
-    // [TODO]
-    /* VK_KHX_multiview *//* replaced by VK_KHR_multiview */
-
-    // [TODO]
-    /* ShaderSMBuiltinsPropertiesNV *//* VK_NV_shader_sm_builtins */
-    //uint32_t           shaderSMCount;
-    //uint32_t           shaderWarpsPerSM;
-
-    // [TODO]
     /* SubpassShadingPropertiesHUAWEI *//* VK_HUAWEI_subpass_shading */
-    // uint32_t           maxSubpassShadingWorkgroupSizeAspectRatio;
+    uint32_t maxSubpassShadingWorkgroupSizeAspectRatio = 0;
 
-    // TODO
     /* ShaderIntegerDotProductProperties *//* VK_KHR_shader_integer_dot_product */
-    //bool              integerDotProduct8BitUnsignedAccelerated;
-    //bool              integerDotProduct8BitSignedAccelerated;
-    //bool              integerDotProduct8BitMixedSignednessAccelerated;
-    //bool              integerDotProduct4x8BitPackedUnsignedAccelerated;
-    //bool              integerDotProduct4x8BitPackedSignedAccelerated;
-    //bool              integerDotProduct4x8BitPackedMixedSignednessAccelerated;
-    //bool              integerDotProduct16BitUnsignedAccelerated;
-    //bool              integerDotProduct16BitSignedAccelerated;
-    //bool              integerDotProduct16BitMixedSignednessAccelerated;
-    //bool              integerDotProduct32BitUnsignedAccelerated;
-    //bool              integerDotProduct32BitSignedAccelerated;
-    //bool              integerDotProduct32BitMixedSignednessAccelerated;
-    //bool              integerDotProduct64BitUnsignedAccelerated;
-    //bool              integerDotProduct64BitSignedAccelerated;
-    //bool              integerDotProduct64BitMixedSignednessAccelerated;
-    //bool              integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating8BitSignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
-    //bool              integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
-    //bool              integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating16BitSignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
-    //bool              integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating32BitSignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
-    //bool              integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating64BitSignedAccelerated;
-    //bool              integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
+    bool integerDotProduct8BitUnsignedAccelerated;
+    bool integerDotProduct8BitSignedAccelerated;
+    bool integerDotProduct8BitMixedSignednessAccelerated;
+    bool integerDotProduct4x8BitPackedUnsignedAccelerated;
+    bool integerDotProduct4x8BitPackedSignedAccelerated;
+    bool integerDotProduct4x8BitPackedMixedSignednessAccelerated;
+    bool integerDotProduct16BitUnsignedAccelerated;
+    bool integerDotProduct16BitSignedAccelerated;
+    bool integerDotProduct16BitMixedSignednessAccelerated;
+    bool integerDotProduct32BitUnsignedAccelerated;
+    bool integerDotProduct32BitSignedAccelerated;
+    bool integerDotProduct32BitMixedSignednessAccelerated;
+    bool integerDotProduct64BitUnsignedAccelerated;
+    bool integerDotProduct64BitSignedAccelerated;
+    bool integerDotProduct64BitMixedSignednessAccelerated;
+    bool integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
+    bool integerDotProductAccumulatingSaturating8BitSignedAccelerated;
+    bool integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
+    bool integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
+    bool integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
+    bool integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
+    bool integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
+    bool integerDotProductAccumulatingSaturating16BitSignedAccelerated;
+    bool integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
+    bool integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
+    bool integerDotProductAccumulatingSaturating32BitSignedAccelerated;
+    bool integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
+    bool integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
+    bool integerDotProductAccumulatingSaturating64BitSignedAccelerated;
+    bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
 
     /* AccelerationStructurePropertiesKHR *//* provided by VK_KHR_acceleration_structure */
     uint64_t           maxGeometryCount = 0ull;
@@ -430,6 +345,41 @@ struct SPhysicalDeviceLimits
     /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
     core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::E_SHADER_STAGE(0u);
 
+    // [TODO LATER] not in header (previous comment: too much effort)
+    // GLHint: Report false for both on GL
+    /* GraphicsPipelineLibraryPropertiesEXT *//* provided by VK_EXT_graphics_pipeline_library */
+    //bool           graphicsPipelineLibraryFastLinking;
+    //bool           graphicsPipelineLibraryIndependentInterpolationDecoration;
+
+    // [TODO LATER] to expose but contingent on the TODO to implement one day
+    /* PushDescriptorPropertiesKHR *//* provided by VK_KHR_push_descriptor */
+    //uint32_t           maxPushDescriptors;
+
+    // [TODO LATER] no such struct?
+    /* Maintenance2PropertiesKHR *//* provided by VK_KHR_maintenance2 *//* MOVED TO Vulkan 1.1 Core  */
+
+    // [TODO LATER] If needed 
+    /* MultiviewPropertiesKHR    *//* provided by VK_KHR_multiview    *//* MOVED TO Vulkan 1.1 Core  */
+    //uint32_t                   maxMultiviewViewCount;
+    //uint32_t                   maxMultiviewInstanceIndex;
+    //bool                   protectedNoFault;
+
+    // [TODO LATER] Needs API work to expose -> https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html
+    //      or VK_KHR_depth_stencil_resolve:
+    //VkResolveModeFlags                   supportedDepthResolveModes;
+    //VkResolveModeFlags                   supportedStencilResolveModes;
+    //bool                             independentResolveNone;
+    //bool                             independentResolve;
+
+    // [TODO LATER]: we don't expose inline uniform blocks right now
+    /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
+    //      or VK_EXT_inline_uniform_block: 
+    //uint32_t              maxInlineUniformBlockSize; 
+    //uint32_t              maxPerStageDescriptorInlineUniformBlocks;
+    //uint32_t              maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks;
+    //uint32_t              maxDescriptorSetInlineUniformBlocks;
+    //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
+
     // [DO NOT EXPOSE] We will never expose this vendor specific meta-data (no new feature) to the user, but might use the extension to provide some cross platform meta-info in the Nabla section
     /* ShaderCoreProperties2AMD *//* provided by VK_AMD_shader_core_properties2 */
     //VkShaderCorePropertiesFlagsAMD    shaderCoreFeatures;
@@ -476,6 +426,9 @@ struct SPhysicalDeviceLimits
     //int64_t            renderMajor;
     //int64_t            renderMinor;
 
+    // [DO NOT EXPOSE] we don't expose or want timeline semaphore currently
+    /* TimelineSemaphorePropertiesKHR *//* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core  */
+
     // [DO NOT EXPOSE] we will never expose provoking vertex control, we will always set the provoking vertex to the LAST (vulkan default) convention also because of never exposing Xform Feedback, we'll never expose this as well
     /* ProvokingVertexPropertiesEXT *//* provided by VK_EXT_provoking_vertex */
     //bool           provokingVertexModePerPipeline;
@@ -485,6 +438,9 @@ struct SPhysicalDeviceLimits
     /* Robustness2PropertiesEXT *//* provided by VK_EXT_robustness2 */
     //size_t       robustStorageBufferAccessSizeAlignment;
     //size_t       robustUniformBufferAccessSizeAlignment;
+
+    // [DO NOT EXPOSE] replaced by VK_KHR_multiview
+    /* VK_KHX_multiview */
 
     // [DO NOT EXPOSE] Coverage 0%, no structs defined anywhere in vulkan headers
     /* VK_KHR_fragment_shader_barycentric */
@@ -570,6 +526,9 @@ struct SPhysicalDeviceLimits
     //uint32_t           meshOutputPerVertexGranularity;
     //uint32_t           meshOutputPerPrimitiveGranularity;
 
+    // [DO NOT EXPOSE] MOVED TO Vulkan 1.1 Core
+    /* Maintenance3PropertiesKHR *//* provided by VK_KHR_maintenance3 */
+
     // [DO NOT EXPOSE] useless because of VK_KHR_ray_tracing_pipeline
     /* VK_NV_ray_tracing */
 
@@ -583,10 +542,16 @@ struct SPhysicalDeviceLimits
     /* FragmentDensityMapOffsetPropertiesQCOM *//* VK_QCOM_fragment_density_map_offset */
     //VkExtent2D         fragmentDensityOffsetGranularity;
 
-    // [TODO LATER] to expose but contingent on the TODO to implement one day
-    /* PushDescriptorPropertiesKHR *//* provided by VK_KHR_push_descriptor */
-    //uint32_t           maxPushDescriptors;
-
+    //! [DO NOT EXPOSE]
+    //! maxVertexInputAttributes and maxVertexInputBindings: In OpenGL (and ES) the de-jure (legal) minimum is 16, and de-facto (in practice) Vulkan reports begin at 16.
+    //! maxVertexInputAttributeOffset and maxVertexInputBindingStride: In OpenGL (and ES) the de-jure (legal) minimum is 2047 for both, and de-facto (in practice) Vulkan reports begin at 2047.
+    //! Asset Conversion:
+    //! An ICPUMeshBuffer is an IAsset and for reasons of serialization and conversion we've hardcoded the attribute and binding count to 16 (the bitfields, array sizes, etc.)
+    //! variable attribute count meshes would be a mess.
+    //! uint32_t              maxVertexInputAttributes;
+    //! uint32_t              maxVertexInputBindings;
+    //! uint32_t              maxVertexInputAttributeOffset;
+    //! uint32_t              maxVertexInputBindingStride;
 
     /*  Always enabled, reported as limits */
     bool           shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
