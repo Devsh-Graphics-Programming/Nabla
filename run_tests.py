@@ -10,7 +10,7 @@ import glob, os, subprocess
 # (I'm supposed to use list comprehension here but for some weird reason 'glob' refuse to work when I use it :\)
 indices = [1, 3, 2] 	# This list should contain indices of all examples to be tested
 
-html_file = open("path/test_results.html", mode='w')
+html_file = open("examples_tests/test_results.html", mode='w')
 
 html_head = """
 <html>
@@ -129,42 +129,10 @@ def run_tests():
 if __name__ == '__main__':
 
 	# walk into the examples_tests directory
-	os.chdir("path")
+	os.chdir("examples_tests")
 
 	init_html()
 	format_list()
 	run_tests()
 
 	input("\n DONE! PRESS ENTER TO CLOSE ")
-
-
-				p = subprocess.Popen(filename, stdout=subprocess.PIPE, shell=False, text=True)
-				outs, errs = p.communicate()
-
-				if p.returncode == 0:
-					return_status = 'SUCCESS'
-				else:
-					return_status = 'FAILURE'
-				print('', return_status, '\n', 'EXIT STATUS:', p.returncode)
-
-				# create a text file, and log exit code and console output
-				with open("log.txt", mode='w', encoding='utf-8') as log_file:
-					log_file.write('\n EXIT STATUS: ' + str(p.returncode) + '\n\n\n\nCONSOLE OUTPUT:\n\n')
-					log_file.write(outs)
-				os.chdir("../..")
-			except FileNotFoundError:
-			# else:
-				return_status = 'FAILURE'
-				print('', return_status, '\n', '\'bin\' directory not found')
-				with open("log.txt", mode='w', encoding='utf-8') as log_file:
-					log_file.write('\n ' + return_status + '\n ' + '\'bin\' directory not found')
-				os.chdir("..")
-
-
-
-if __name__ == '__main__':
-	format_list()
-	run_tests()
-
-	input("\n DONE! PRESS ENTER TO CLOSE ")
-
