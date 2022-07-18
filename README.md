@@ -446,11 +446,11 @@ This inconsistency comes from swapchain presentation. When presenting the swapch
 
 We solve this inconsistency by using [surface transforms](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceTransformFlagBitsKHR.html); This transforms are relative to `presentation engine’s natural orientation`. and we report `HORIZONTAL_MIRROR_180` support in our OpenGL backend and defer handling these rotations (relative to natural orientaion) to the user.
 
-We provide helper functions in both GLSL and C++ Nabla codebase to consider surface transforms, See [surface_transforms.glsl](Link)
+We provide helper functions in both GLSL and C++ Nabla codebase to consider surface transforms, See [surface_transform.glsl](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
 
-Note that it is common to apply surface transformation to projection matrices to account for this fact. See [getSurfaceTransformationMatrix](Link) and [Android Developers Guide to Pre-rotation](https://developer.android.com/games/optimize/vulkan-prerotation)
+Note that it is common to apply surface transformation to projection matrices to account for this fact. See [getSurfaceTransformationMatrix](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h) and [Android Developers Guide to Pre-rotation](https://developer.android.com/games/optimize/vulkan-prerotation)
 
-Use [`ISwapchain getSurfaceTransform()`](link) to get the transformation from swapchain.
+Use [`ISwapchain getSurfaceTransform()`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/ISwapchain.h) to get the transformation from swapchain.
 
 - When generating projection matricies, take into account the aspect ratio (which is changed when rotating 90 or 270 degrees). For this, we have helper functions in both GLSL and the ISurface class:
     - [`float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)

@@ -3,8 +3,6 @@
 
 #include "nbl/builtin/glsl/utils/surface_transform_e.h"
 
-// TODO test transforms outside of horizontal mirror rotate 180 (flip y)
-
 //! Use this function to apply the INVERSE of swapchain tranformation to the screenspace coordinate `coord` 
 //! For example when the device orientation is 90°CW then this transforms the point 90°CCW.
 //! Usecase = [Gather]:
