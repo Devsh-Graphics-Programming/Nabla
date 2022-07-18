@@ -86,32 +86,31 @@ ivec2 nbl_glsl_surface_transform_transformedExtents(in uint swapchainTransform, 
     }
 }
 
-// TODO: nbl_glsl_surface_transform_transformedDerivatives2D is untested
-// If rendering directly to the swapchain, ddx/ddy operations may be incorrect due to the swapchain
-// transform. Use this helper function to transform the ddx or ddy accordingly.
-mat2 nbl_glsl_surface_transform_transformedDerivatives2D(in uint swapchainTransform, in mat2 ddxDdy) {
-    switch (swapchainTransform) 
-    {
-    case NBL_GLSL_SURFACE_TRANSFORM_E_IDENTITY:
-        return ddxDdy;
-    case NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR:
-        return mat2(-ddxDdy[0], ddxDdy[1]);
-    case NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180:
-        return mat2(ddxDdy[0], -ddxDdy[1]);
-    case NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_180:
-        return mat2(-ddxDdy[0], -ddxDdy[1]);
-    case NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_90:
-        return mat2(ddxDdy[1], -ddxDdy[0]);
-    case NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_270:
-        return mat2(-ddxDdy[1], ddxDdy[0]);
-    case NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90:
-        return mat2(ddxDdy[1], ddxDdy[0]);
-    case NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270:
-        return mat2(-ddxDdy[1], -ddxDdy[0]);
-    default:
-        return mat2(0);
-    }
-}   
+// TODO: nbl_glsl_surface_transform_transformedDerivatives implementations are untested
+
+// If rendering directly to the swapchain, dFdx/dFdy operations may be incorrect due to the swapchain
+// transform. Use these helper functions to transform the dFdx or dFdy accordingly.
+
+vec2 nbl_glsl_surface_transform_transformedDerivatives(in uint swapchainTransform, in vec2 ddxDdy) {
+    #define OUTPUT_TYPE vec2
+    #include "nbl/builtin/glsl/utils/surface_transform_transformedDerivatives.glsl"
+    #undef OUTPUT_TYPE
+}
+mat2 nbl_glsl_surface_transform_transformedDerivatives(in uint swapchainTransform, in mat2 ddxDdy) {
+    #define OUTPUT_TYPE mat2
+    #include "nbl/builtin/glsl/utils/surface_transform_transformedDerivatives.glsl"
+    #undef OUTPUT_TYPE
+}
+mat2x3 nbl_glsl_surface_transform_transformedDerivatives(in uint swapchainTransform, in mat2x3 ddxDdy) {
+    #define OUTPUT_TYPE mat2x3
+    #include "nbl/builtin/glsl/utils/surface_transform_transformedDerivatives.glsl"
+    #undef OUTPUT_TYPE
+}
+mat2x4 nbl_glsl_surface_transform_transformedDerivatives(in uint swapchainTransform, in mat2x4 ddxDdy) {
+    #define OUTPUT_TYPE mat2x4
+    #include "nbl/builtin/glsl/utils/surface_transform_transformedDerivatives.glsl"
+    #undef OUTPUT_TYPE
+}
 
 //! Same as `nbl_glsl_surface_transform_applyToScreenSpaceCoordinate` but in NDC space
 //! If rendering to the swapchain, you may use this function to transform the NDC coordinates directly
