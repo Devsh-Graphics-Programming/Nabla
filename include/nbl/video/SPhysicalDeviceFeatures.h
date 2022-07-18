@@ -42,7 +42,7 @@ struct SPhysicalDeviceFeatures
     //bool    textureCompressionBC;
     
     bool occlusionQueryPrecise = false;
-    //bool    pipelineStatisticsQuery; [TODO]
+    bool pipelineStatisticsQuery = false;
 
     // [TODO] Always enable ones below, report as limit
     bool vertexPipelineStoresAndAtomics = false;
@@ -153,25 +153,25 @@ struct SPhysicalDeviceFeatures
     
     //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO]
     
-    bool           uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
+    bool uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
     
     bool shaderSubgroupExtendedTypes = false;   // or VK_KHR_shader_subgroup_extended_types
     
-    bool           separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
+    bool separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
     
     //bool           timelineSemaphore;             // or VK_KHR_timeline_semaphore // [FUTURE TODO] won't expose for a long time
     
     // or VK_KHR_buffer_device_address:
     bool bufferDeviceAddress = false;
     // bool           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
-    bool           bufferDeviceAddressMultiDevice = false;
+    bool bufferDeviceAddressMultiDevice = false;
     
     // or VK_KHR_vulkan_memory_model
-    bool           vulkanMemoryModel = false;
-    bool           vulkanMemoryModelDeviceScope = false;
-    bool           vulkanMemoryModelAvailabilityVisibilityChains = false;
+    bool vulkanMemoryModel = false;
+    bool vulkanMemoryModelDeviceScope = false;
+    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
    
-    bool           subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
+    bool subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
 
 
 
@@ -186,8 +186,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] ever
     //bool           privateData;                       // or VK_EXT_private_data
     
-    bool           shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
-    bool           shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
+    bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
+    bool shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
     
     // or VK_EXT_subgroup_size_control
     bool subgroupSizeControl  = false;
@@ -205,9 +205,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] EVIL
     //bool           dynamicRendering;                      // or VK_KHR_dynamic_rendering
     
-    bool           shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
-    //bool           maintenance4;                          // [DO NOT EXPOSE] doesn't make sense
-
+    bool shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
 
 
 
@@ -263,7 +261,7 @@ struct SPhysicalDeviceFeatures
     //bool           minLod;
 
     /* IndexTypeUint8FeaturesEXT *//* VK_EXT_index_type_uint8 */
-    bool           indexTypeUint8 = false;
+    bool indexTypeUint8 = false;
     
     // [DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported
     /* MultiDrawFeaturesEXT *//* VK_EXT_multi_draw */
@@ -292,36 +290,36 @@ struct SPhysicalDeviceFeatures
     //bool           transformFeedbackPreservesProvokingVertex;
 
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
-    bool           shaderBufferFloat32Atomics = false;
-    bool           shaderBufferFloat32AtomicAdd = false;
-    bool           shaderBufferFloat64Atomics = false;
-    bool           shaderBufferFloat64AtomicAdd = false;
-    bool           shaderSharedFloat32Atomics = false;
-    bool           shaderSharedFloat32AtomicAdd = false;
-    bool           shaderSharedFloat64Atomics = false;
-    bool           shaderSharedFloat64AtomicAdd = false;
-    bool           shaderImageFloat32Atomics = false;
-    bool           shaderImageFloat32AtomicAdd = false;
-    bool           sparseImageFloat32Atomics = false;
-    bool           sparseImageFloat32AtomicAdd = false;
+    bool shaderBufferFloat32Atomics = false;
+    bool shaderBufferFloat32AtomicAdd = false;
+    bool shaderBufferFloat64Atomics = false;
+    bool shaderBufferFloat64AtomicAdd = false;
+    bool shaderSharedFloat32Atomics = false;
+    bool shaderSharedFloat32AtomicAdd = false;
+    bool shaderSharedFloat64Atomics = false;
+    bool shaderSharedFloat64AtomicAdd = false;
+    bool shaderImageFloat32Atomics = false;
+    bool shaderImageFloat32AtomicAdd = false;
+    bool sparseImageFloat32Atomics = false;
+    bool sparseImageFloat32AtomicAdd = false;
 
     /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
-    bool           shaderBufferFloat16Atomics = false;
-    bool           shaderBufferFloat16AtomicAdd = false;
-    bool           shaderBufferFloat16AtomicMinMax = false;
-    bool           shaderBufferFloat32AtomicMinMax = false;
-    bool           shaderBufferFloat64AtomicMinMax = false;
-    bool           shaderSharedFloat16Atomics = false;
-    bool           shaderSharedFloat16AtomicAdd = false;
-    bool           shaderSharedFloat16AtomicMinMax = false;
-    bool           shaderSharedFloat32AtomicMinMax = false;
-    bool           shaderSharedFloat64AtomicMinMax = false;
-    bool           shaderImageFloat32AtomicMinMax = false;
-    bool           sparseImageFloat32AtomicMinMax = false;
+    bool shaderBufferFloat16Atomics = false;
+    bool shaderBufferFloat16AtomicAdd = false;
+    bool shaderBufferFloat16AtomicMinMax = false;
+    bool shaderBufferFloat32AtomicMinMax = false;
+    bool shaderBufferFloat64AtomicMinMax = false;
+    bool shaderSharedFloat16Atomics = false;
+    bool shaderSharedFloat16AtomicAdd = false;
+    bool shaderSharedFloat16AtomicMinMax = false;
+    bool shaderSharedFloat32AtomicMinMax = false;
+    bool shaderSharedFloat64AtomicMinMax = false;
+    bool shaderImageFloat32AtomicMinMax = false;
+    bool sparseImageFloat32AtomicMinMax = false;
     
     /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
-    bool           shaderImageInt64Atomics = false;
-    bool           sparseImageInt64Atomics = false;
+    bool shaderImageInt64Atomics = false;
+    bool sparseImageInt64Atomics = false;
 
     // [DO NOT EXPOSE] always enable if we can
     /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
@@ -391,7 +389,7 @@ struct SPhysicalDeviceFeatures
     /* ShaderAtomicInt64FeaturesKHR *//* VK_KHR_shader_atomic_int64 *//* MOVED TO Vulkan 1.2 Core */
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    bool           shaderDeviceClock = false;
+    bool shaderDeviceClock = false;
 
     /* VK_KHR_shader_draw_parameters *//* MOVED TO Vulkan 1.1 Core */
     /* VK_KHR_shader_float16_int8 *//* MOVED TO Vulkan 1.2 Core */
@@ -399,7 +397,7 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_shader_subgroup_extended_types *//* MOVED TO Vulkan 1.2 Core */
 
     /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
-    bool           shaderSubgroupUniformControlFlow = false;
+    bool shaderSubgroupUniformControlFlow = false;
     
     /* VK_KHR_shader_terminate_invocation *//* MOVED TO Vulkan 1.3 Core */
     /* VK_KHR_synchronization2 *//* MOVED TO Vulkan 1.3 Core */
@@ -418,29 +416,29 @@ struct SPhysicalDeviceFeatures
     /* VK_KHX_multiview *//* see VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
 
     /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
-    bool           computeDerivativeGroupQuads = false;
-    bool           computeDerivativeGroupLinear = false;
+    bool computeDerivativeGroupQuads = false;
+    bool computeDerivativeGroupLinear = false;
 
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
     bool cooperativeMatrix = false;
     bool cooperativeMatrixRobustBufferAccess = false;
 
     /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
-    bool           rayTracingMotionBlur = false;
-    bool           rayTracingMotionBlurPipelineTraceRaysIndirect = false;
+    bool rayTracingMotionBlur = false;
+    bool rayTracingMotionBlurPipelineTraceRaysIndirect = false;
 
     /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
-    bool                        coverageReductionMode;
+    bool coverageReductionMode;
 
     /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
-    bool           deviceGeneratedCommands = false;
+    bool deviceGeneratedCommands = false;
 
     /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
-    bool           taskShader = false;
-    bool           meshShader = false;
+    bool taskShader = false;
+    bool meshShader = false;
 
     /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
-    bool           representativeFragmentTest = false;
+    bool representativeFragmentTest = false;
 
     /* VK_AMD_mixed_attachment_samples *//* OR *//* VK_NV_framebuffer_mixed_samples */
     bool mixedAttachmentSamples = false;
@@ -465,36 +463,36 @@ struct SPhysicalDeviceFeatures
     //bool           variablePointers;
 
     // [TODO] add implementation to engine
-    bool           hostQueryReset = false;                // or VK_EXT_host_query_reset
+    bool hostQueryReset = false;                // or VK_EXT_host_query_reset
 
-    bool           pipelineCreationCacheControl = false;      // or VK_EXT_pipeline_creation_cache_control
+    bool pipelineCreationCacheControl = false;      // or VK_EXT_pipeline_creation_cache_control
 
     // [TODO] need new commandbuffer methods, etc
     /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
-    bool           colorWriteEnable = false;
+    bool colorWriteEnable = false;
 
     // [TODO] now we need API to deal with queries and begin/end conditional blocks
     /* ConditionalRenderingFeaturesEXT *//* VK_EXT_conditional_rendering */
-    bool           conditionalRendering = false;
-    bool           inheritedConditionalRendering = false;
+    bool conditionalRendering = false;
+    bool inheritedConditionalRendering = false;
 
     /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
-    bool           deviceMemoryReport = false;
+    bool deviceMemoryReport = false;
 
     /* FragmentDensityMapFeaturesEXT *//* VK_EXT_fragment_density_map */
-    bool           fragmentDensityMap = false;
-    bool           fragmentDensityMapDynamic = false;
-    bool           fragmentDensityMapNonSubsampledImages = false;
+    bool fragmentDensityMap = false;
+    bool fragmentDensityMapDynamic = false;
+    bool fragmentDensityMapNonSubsampledImages = false;
 
     /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
-    bool           fragmentDensityMapDeferred = false;
+    bool fragmentDensityMapDeferred = false;
 
     // [TODO] Investigate later
     /* Image2DViewOf3DFeaturesEXT *//* VK_EXT_image_2d_view_of_3d */
     //bool           image2DViewOf3D;
     //bool           sampler2DViewOf3D;
 
-    bool           robustImageAccess = false;                 //  or VK_EXT_image_robustness
+    bool robustImageAccess = false;                 //  or VK_EXT_image_robustness
 
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
     bool inlineUniformBlock = false;
@@ -503,34 +501,34 @@ struct SPhysicalDeviceFeatures
     // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
     // GL HINT (remove when implemented): MULTI_SAMPLE_LINE_WIDTH_RANGE (which is necessary for this) is guarded by !IsGLES || Version>=320 no idea is something enables this or not
-    bool           rectangularLines = false;
-    bool           bresenhamLines = false;
-    bool           smoothLines = false;
+    bool rectangularLines = false;
+    bool bresenhamLines = false;
+    bool smoothLines = false;
     // end of hint
-    bool           stippledRectangularLines = false;
-    bool           stippledBresenhamLines = false;
-    bool           stippledSmoothLines = false;
+    bool stippledRectangularLines = false;
+    bool stippledBresenhamLines = false;
+    bool stippledSmoothLines = false;
 
     /* MemoryPriorityFeaturesEXT *//* VK_EXT_memory_priority */
-    bool           memoryPriority = false;
+    bool memoryPriority = false;
 
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
-    bool           robustBufferAccess2 = false;
-    bool           robustImageAccess2 = false;
-    bool           nullDescriptor = false;
+    bool robustBufferAccess2 = false;
+    bool robustImageAccess2 = false;
+    bool nullDescriptor = false;
 
     /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
-    bool           performanceCounterQueryPools = false;
-    bool           performanceCounterMultipleQueryPools = false;
+    bool performanceCounterQueryPools = false;
+    bool performanceCounterMultipleQueryPools = false;
 
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
-    bool           pipelineExecutableInfo = false;
+    bool pipelineExecutableInfo = false;
 
     /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
     bool maintenance4 = false;
 
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
-    bool           deviceCoherentMemory = false;
+    bool deviceCoherentMemory = false;
 
     /* VK_AMD_buffer_marker */
     bool bufferMarkerAMD = false;

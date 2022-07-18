@@ -590,6 +590,7 @@ public:
             m_features.multiViewport = features.multiViewport;
             m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.occlusionQueryPrecise = features.occlusionQueryPrecise;
+            m_features.pipelineStatisticsQuery = features.pipelineStatisticsQuery;
             m_features.vertexPipelineStoresAndAtomics = features.vertexPipelineStoresAndAtomics;
             m_features.fragmentStoresAndAtomics = features.fragmentStoresAndAtomics;
             m_features.shaderTessellationAndGeometryPointSize = features.shaderTessellationAndGeometryPointSize;

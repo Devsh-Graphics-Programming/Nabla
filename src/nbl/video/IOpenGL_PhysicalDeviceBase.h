@@ -1314,7 +1314,6 @@ public:
 			}
 		
 			// [TODO] SampleLocationsPropertiesEXT
-			// [TODO] CooperativeMatrixPropertiesNV
 
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
