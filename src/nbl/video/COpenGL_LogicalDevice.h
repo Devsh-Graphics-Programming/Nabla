@@ -167,6 +167,11 @@ public:
 
     core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
     {
+        // TODO: Fix issues with referencing COpenGLLogicalDevice from the COpenGL_Swapchain implementation
+        // Can't just use a COpenGLSwapchain.cpp impl of create, since COpenGL_Swapchain is a templated class
+        // Then use this instead: (or eventually get rid of ILogicalDevice::createSwapchain
+        //return SwapchainType::create(core::smart_refctd_ptr<ILogicalDevice>(this), std::move(params));
+
         if ((params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
             return nullptr;
 
@@ -199,7 +204,7 @@ public:
         // master context must not be current while creating a context with whom it will be sharing
         unbindMasterContext();
         EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, m_threadHandler.glctx.ctx);
-        auto sc = SwapchainType::create(std::move(params),core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),m_egl,std::move(images),m_glfeatures,ctx,fbconfig,static_cast<COpenGLDebugCallback*>(m_physicalDevice->getDebugCallback()));
+        auto sc = SwapchainType::create(std::move(params), core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_egl, std::move(images), m_glfeatures, ctx, fbconfig, static_cast<COpenGLDebugCallback*>(m_physicalDevice->getDebugCallback()));
         if (!sc)
             return nullptr;
         // wait until swapchain's internal thread finish context creation
