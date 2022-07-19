@@ -3,14 +3,13 @@
 # created and placed in the same directory as the executable of each example
 
 
-import glob, os, subprocess
+import glob, os, subprocess, re
 
 
 # list containing indices of each example to test
 # (I'm supposed to use list comprehension here but for some weird reason 'glob' refuse to work when I use it :\)
-indices = [1, 3, 2] 	# This list should contain indices of all examples to be tested
+indices = [0, 1, 2, 3, 9, 34] 	# This list should contain indices of all examples to be tested
 
-html_file = open("examples_tests/test_results.html", mode='w')
 
 html_head = """
 <html>
@@ -34,13 +33,16 @@ html_head = """
 """
 
 def init_html():
-	# with open("results.html", mode='w') as html_file:
-	html_file.write(html_head)
+	with open("test_results.html", mode='w') as html_file:
+		html_file.write(html_head)
+		html_file.close()
 
 def html_foot():
-	html_file.write("\t\t</table>\n")
-	html_file.write("\t</body>\n")
-	html_file.write("</html>\n")
+	with open("test_results.html", mode='a') as html_file:
+		html_file.write("\t\t</table>\n")
+		html_file.write("\t</body>\n")
+		html_file.write("</html>\n")
+		html_file.close()
 
 
 
@@ -63,17 +65,29 @@ def strip_name(filename):
 
 	return filename.lower()
 
-def fill_row(html_file, example_name, return_status, status_code, message):
-	html_file.write("\t\t\t<tr>\n")
-	html_file.write("\t\t\t\t<td>" + example_name + "</td>\n")
-	if return_status == "SUCCESS":
-		html_file.write("\t\t\t\t<td style=\"background-color: green; color: white\">" + return_status + "</td>\n")
-	else:
-		html_file.write("\t\t\t\t<td style=\"background-color: red; color: white\">" + return_status + "</td>\n")
-	html_file.write("\t\t\t\t<td>" + str(status_code) + "</td>\n")
-	html_file.write("\t\t\t\t<td>" + message + "</td>\n")
-	html_file.write("\t\t\t</tr>\n")
+def fill_row(example_name, return_status, status_code, message):
+	with open("test_results.html", mode='a') as html_file:
+		html_file.write("\t\t\t<tr>\n")
+		html_file.write("\t\t\t\t<td>" + example_name + "</td>\n")
+		if return_status == "SUCCESS":
+			html_file.write("\t\t\t\t<td style=\"background-color: green; color: white\">" + return_status + "</td>\n")
+		else:
+			html_file.write("\t\t\t\t<td style=\"background-color: red; color: white\">" + return_status + "</td>\n")
+		html_file.write("\t\t\t\t<td>" + str(status_code) + "</td>\n")
+		html_file.write("\t\t\t\t<td>" + message + "</td>\n")
+		html_file.write("\t\t\t</tr>\n")
+		html_file.close()
 
+
+def handle_validation_errors(data):
+	pattern = re.compile(r"Validation Error:[\s\S]+\n")
+	matches = pattern.finditer(data)
+
+	validation_errors = ""
+	for match in matches:
+		validation_errors += match.group()
+
+	return str(validation_errors).split("\n")
 
 
 def run_tests():
@@ -83,46 +97,57 @@ def run_tests():
 			filename = strip_name(fn)
 			print('',filename)
 			os.chdir(fn)
+			returncode = ""
 
 			if "bin" in list(filter(os.path.isdir, os.listdir(os.curdir))):
 				os.chdir("bin")
-				try:
+				if os.path.exists(filename):
 					p = subprocess.Popen(filename, stdout=subprocess.PIPE, shell=False, text=True)
-					outs, errs = p.communicate()
+					try:
+						outs, errs = p.communicate(timeout=10)
+					except subprocess.TimeoutExpired:
+						p.terminate()
+						p.wait()
+						outs, errs = p.communicate()
 
-					if p.returncode == 0:
+					if p.returncode == 0 or p.returncode == 1:
+						returncode = "0"
 						return_status = 'SUCCESS'
 						message = "Succesful execution"
+						if handle_validation_errors(outs) != [""]:
+							return_status = "FAILURE"
+							message += " with Validation Errors"
 					else:
+						returncode = str(p.returncode)
 						return_status = 'FAILURE'
 						message = "Application failed (" + str(hex(p.returncode)) + ")"
-					print('', return_status, '\n', 'EXIT STATUS:', p.returncode)
+					print('', return_status, '\n', 'EXIT STATUS:', returncode)
 
 					# create a text file, and log exit code and console output
 					with open("log.txt", mode='w', encoding='utf-8') as log_file:
 						log_file.write('\n EXIT STATUS: ' + str(p.returncode) + '\n\n\n\nCONSOLE OUTPUT:\n\n')
 						log_file.write(outs)
 					os.chdir("../..")
-					fill_row(html_file, fn, return_status, p.returncode, message)
-
-				except FileNotFoundError:
+					fill_row(fn, return_status, p.returncode, message)
+				else:
+					returncode = "NIL"
 					return_status = 'FAILURE'
 					error_message = 'Release build not found'
 					print('', return_status, '\n', error_message)
 					with open("log.txt", mode='w', encoding='utf-8') as log_file:
 						log_file.write('\n ' + return_status + '\n ' + error_message)
 					os.chdir("../..")
-					fill_row(html_file, fn, return_status, "1", error_message)
+					fill_row(fn, return_status, returncode, error_message)
 			else:
+				returncode = "NIL"
 				return_status = 'FAILURE'
 				error_message = '\'bin\' directory not found'
 				print('', return_status, '\n', error_message)
 				with open("log.txt", mode='w', encoding='utf-8') as log_file:
 					log_file.write('\n ' + return_status + '\n ' + error_message)
 				os.chdir("..")
-				fill_row(html_file, fn, return_status, "1", error_message)
+				fill_row(fn, return_status, "1", error_message)
 	html_foot()
-	html_file.close()
 
 
 
