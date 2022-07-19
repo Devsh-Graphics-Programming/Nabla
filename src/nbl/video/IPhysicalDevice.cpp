@@ -427,7 +427,7 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     return smallestTexelBlock;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req)
+asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req)
 {
     assert(
         !asset::isBlockCompressionFormat(req.originalFormat) &&
@@ -481,7 +481,7 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
     return promoted;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage> req, const asset::IImage::E_TILING tiling)
+asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const asset::IImage::E_TILING tiling)
 {
     format_image_cache_t& cache = tiling == asset::IImage::E_TILING::ET_LINEAR 
         ? this->m_formatPromotionCache.linearTilingImages 

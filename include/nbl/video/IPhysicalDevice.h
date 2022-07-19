@@ -364,7 +364,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
                 attachment((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
                 attachmentBlend((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)).value != 0),
-                // Deduced as false. User may patch it up later
+                // Deduced as false. User may patch it up later -> (Erfan) Investigate later and whether it's added to new Usage Flags, the user can't because the format promotion functions take IImage::E_USAGE_FLAGS as params;
                 blitSrc(0),
                 blitDst(0),
                 storageImageAtomic(0)
@@ -543,8 +543,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             };
         };
 
-        asset::E_FORMAT promoteBufferFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsage> req);
-        asset::E_FORMAT promoteImageFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage> req, const asset::IImage::E_TILING tiling);
+        using SBufferFormatPromotionRequest = FormatPromotionRequest<IPhysicalDevice::SFormatBufferUsage>;
+        using SImageFormatPromotionRequest = FormatPromotionRequest<IPhysicalDevice::SFormatImageUsage>;
+
+        asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
+        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const asset::IImage::E_TILING tiling);
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
