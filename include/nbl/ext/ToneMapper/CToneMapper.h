@@ -16,7 +16,7 @@ namespace ToneMapper
 {
 
 
-class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmovable
+class NBL_API CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmovable
 {
     public:
 		enum E_OPERATOR
@@ -94,9 +94,9 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		{
 			auto pcRange = getDefaultPushConstantRanges(usingLumaMeter);
 			auto bindings = getDefaultBindings(driver,usingLumaMeter);
-			return driver->createGPUPipelineLayout(
+			return driver->createPipelineLayout(
 				pcRange.begin(),pcRange.end(),
-				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+				driver->createDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 			);
 		}
 
@@ -205,7 +205,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			params.format = usedAsInput ? getInputViewFormat(nativeFormat):getOutputViewFormat(nativeFormat);
 			params.components = {};
 			params.subresourceRange = subresource;
-			return driver->createGPUImageView(std::move(params));
+			return driver->createImageView(std::move(params));
 		}
 
 		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves

@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
 #define __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUBuffer.h"
@@ -17,7 +17,7 @@ namespace nbl
 namespace asset
 {
 
-class ICPUImage final : public IImage, public IAsset
+class NBL_API ICPUImage final : public IImage, public IAsset
 {
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(SCreationParams&& _params)
@@ -34,7 +34,13 @@ class ICPUImage final : public IImage, public IAsset
             auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
             clone_common(cp.get());
 
-            cp->regions = regions;
+            auto regionsCount = regions->size();
+            if(regionsCount > 0)
+            {
+                cp->regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(regionsCount);
+                std::copy_n(regions->begin(), regionsCount, cp->regions->begin());
+            }
+
             cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
 
             return cp;
@@ -88,6 +94,12 @@ class ICPUImage final : public IImage, public IAsset
 			auto end = std::upper_bound(regions->begin(),regions->end(),dummy,mip_order_t());
 			return {begin,end};
 		}
+		inline auto getRegionArray() const
+		{
+			using immutable_refctd_array_t = core::refctd_dynamic_array<IImage::SBufferCopy>;
+			return core::smart_refctd_ptr<immutable_refctd_array_t>(reinterpret_cast<immutable_refctd_array_t*>(regions.get()));
+		}
+		inline auto getRegionArray() { return regions; }
 
 		// `texelCoord=(xTexelPos,yTexelPos,zTexelPos,imageLayer)`
 		inline const IImage::SBufferCopy* getRegion(uint32_t mipLevel, const core::vectorSIMDu32& texelCoord) const
@@ -169,6 +181,28 @@ class ICPUImage final : public IImage, public IAsset
 			buffer = std::move(_buffer);
 			regions = _regions;
 			std::sort(regions->begin(),regions->end(),mip_order_t());
+			addImageUsageFlags(EUF_TRANSFER_DST_BIT);
+			return true;
+		}
+		
+		inline core::bitflag<E_USAGE_FLAGS> getImageUsageFlags() const
+		{
+			return params.usage;
+		}
+
+		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
+		{
+			if(isImmutable_debug())
+				return ((params.usage & usage).value == usage.value);
+			params.usage = usage;
+			return true;
+		}
+
+		inline bool addImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
+		{
+			if(isImmutable_debug())
+				return ((params.usage & usage).value == usage.value);
+			params.usage |= usage;
 			return true;
 		}
 

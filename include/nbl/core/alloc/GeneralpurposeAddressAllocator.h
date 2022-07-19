@@ -21,7 +21,7 @@ namespace impl
 {
 
 template<typename _size_type>
-class GeneralpurposeAddressAllocatorBase
+class NBL_API GeneralpurposeAddressAllocatorBase
 {
     protected:
         //types
@@ -100,7 +100,9 @@ class GeneralpurposeAddressAllocatorBase
         // members
         size_type               bufferSize;
         size_type               freeSize;
+public: // TODO!
         uint32_t                freeListCount;
+protected:
         uint32_t                usingFirstBuffer;
         size_type               minBlockSize;
 
@@ -283,10 +285,10 @@ class GeneralpurposeAddressAllocatorBase
                 for (size_type j=0u; j<other.freeListStackCtr[i]; j++)
                 {
                     const auto& block = other.freeListStack[i][j];
-                    if (block.startOffset>bufferSize)
+                    if (block.startOffset>=bufferSize)
                         continue;
                     #ifdef _NBL_DEBUG
-                    assert(block.endOffset>=bufferSize);
+                    assert(block.endOffset>bufferSize);
                     #endif // _NBL_DEBUG
                     insertFreeBlock({block.startOffset,bufferSize});
                     #ifndef _NBL_DEBUG
@@ -314,10 +316,10 @@ class GeneralpurposeAddressAllocatorBase
 
 
 template<typename _size_type, bool useBestFitStrategy>
-class GeneralpurposeAddressAllocatorStrategy;
+class NBL_API GeneralpurposeAddressAllocatorStrategy;
 
 template<typename _size_type>
-class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected GeneralpurposeAddressAllocatorBase<_size_type>
+class NBL_API GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
@@ -330,7 +332,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
             size_type bestWastedSpace = ~size_type(0u);
-            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,freeListCount};
+            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,Base::freeListCount};
 
             auto perBlockFunctional = [&bestWastedSpace,&bestBlock](Block hypotheticallyAllocatedBlock, Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
@@ -370,7 +372,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
 };
 
 template<typename _size_type>
-class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected GeneralpurposeAddressAllocatorBase<_size_type>
+class NBL_API GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
@@ -423,7 +425,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 // we've found our block, we can quit now
                 return true;
             };
-            findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
+            Base::findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
             return retval;
         }
 };
@@ -432,7 +434,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
 
 //! General-purpose allocator, really its like a buddy allocator that supports more sophisticated coalescing
 template<typename _size_type, class AllocStrategy = impl::GeneralpurposeAddressAllocatorStrategy<_size_type,false> >
-class GeneralpurposeAddressAllocator : public AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type>, protected AllocStrategy
+class NBL_API GeneralpurposeAddressAllocator : public AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type>, protected AllocStrategy
 {
     private:
         typedef AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type> Base;
@@ -440,9 +442,9 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        #define DUMMY_DEFAULT_CONSTRUCTOR GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-        #undef DUMMY_DEFAULT_CONSTRUCTOR
+        static constexpr bool supportsNullBuffer = true;
+
+        GeneralpurposeAddressAllocator() noexcept : AllocStrategy(invalid_address,invalid_address) {}
 
         virtual ~GeneralpurposeAddressAllocator() {}
 
@@ -697,10 +699,27 @@ namespace core
 
 // aliases
 template<typename size_type>
-using GeneralpurposeAddressAllocatorST = GeneralpurposeAddressAllocator<size_type>;
+class NBL_API GeneralpurposeAddressAllocatorST : public GeneralpurposeAddressAllocator<size_type>
+{
+    public:
+        inline void defragment() noexcept
+        {
+            GeneralpurposeAddressAllocator<size_type>::defragment();
+        }
+};
 
 template<typename size_type, class RecursiveLockable>
-using GeneralpurposeAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
+class NBL_API GeneralpurposeAddressAllocatorMT : public AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>
+{
+        using Base = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
+    public:
+        inline void defragment() noexcept
+        {
+            Base::get_lock().lock();
+            GeneralpurposeAddressAllocator<size_type>::defragment();
+            Base::get_lock().unlock();
+        }
+};
 
 }
 }

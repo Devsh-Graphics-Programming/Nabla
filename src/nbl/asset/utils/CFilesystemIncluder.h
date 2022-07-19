@@ -2,45 +2,54 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_INCLUDER_H_INCLUDED__
-#define __NBL_ASSET_C_INCLUDER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_FILESYSTEM_INCLUDER_H_INCLUDED_
+#define _NBL_ASSET_C_FILESYSTEM_INCLUDER_H_INCLUDED_
 
 #include "nbl/asset/utils/IIncluder.h"
-#include "IFileSystem.h"
 
-namespace nbl { namespace asset
+#include "nbl/system/IFile.h"
+
+namespace nbl::asset
 {
 
 class CFilesystemIncluder : public IIncluder
 {
-public:
-    CFilesystemIncluder(io::IFileSystem* _fs) : m_filesystem{_fs}
-    {
-    }
+    public:
+        CFilesystemIncluder(system::ISystem* _sys) : m_system{_sys}
+        {
+        }
 
-    void addSearchDirectory(const std::string& _searchDir) override
-    {
-        io::path absPath = m_filesystem->getAbsolutePath(_searchDir.c_str());
-        IIncluder::addSearchDirectory(absPath.c_str());
-    }
+        void addSearchDirectory(const system::path& _searchDir) override
+        {
+            std::filesystem::path absPath = std::filesystem::absolute(_searchDir);
+            IIncluder::addSearchDirectory(absPath.string());
+        }
 
-    std::string getInclude_internal(const std::string& _path) const override
-    {
-        auto f = m_filesystem->createAndOpenFile(_path.c_str());
-        if (!f)
-            return {};
-        std::string contents(f->getSize(), '\0');
-        f->read(&contents.front(), f->getSize());
+        std::string getInclude_internal(const system::path& _path) const override
+        {
+            core::smart_refctd_ptr<system::IFile> f;
+            {
+                system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+                m_system->createFile(future,_path.c_str(),system::IFile::ECF_READ);
+                f = future.get();
+                if (!f)
+                    return {};
+            }
+            const size_t size = f->getSize();
 
-        f->drop();
+            std::string contents(size,'\0');
+            system::IFile::success_t succ;
+            f->read(succ, contents.data(), 0, size);
+            const bool success = bool(succ);
+            assert(success);
 
-        return contents;
-    }
+            return contents;
+        }
 
-private:
-    io::IFileSystem* m_filesystem;
+    private:
+        system::ISystem* m_system;
 };
 
-}}
+}
 
 #endif

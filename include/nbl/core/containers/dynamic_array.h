@@ -1,22 +1,19 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED__
-#define __NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED__
+#ifndef _NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED_
+#define _NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED_
 
 #include "nbl/macros.h"
-#include "nbl/core/Types.h"//for core::allocator
+#include "nbl/core/decl/Types.h" //for core::allocator
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 namespace impl
 {
 	template<class allocator>
-	class NBL_FORCE_EBO dynamic_array_typeless_base // : public Uncopyable, public Unmovable // cannot due to diamond inheritance
+	class NBL_API NBL_FORCE_EBO dynamic_array_typeless_base // : public Uncopyable, public Unmovable // cannot due to diamond inheritance
 	{
 		protected:
 			allocator alctr;
@@ -32,7 +29,7 @@ namespace impl
 	};
 
 	template<class allocator, typename... DataTypeAndOverAlignmentTypes>
-	class NBL_FORCE_EBO alignas(ResolveAlignment<dynamic_array_typeless_base<allocator>,AlignedBase<alignof(DataTypeAndOverAlignmentTypes)>...>) dynamic_array_base : public dynamic_array_typeless_base<allocator>
+	class NBL_API NBL_FORCE_EBO alignas(ResolveAlignment<dynamic_array_typeless_base<allocator>,AlignedBase<alignof(DataTypeAndOverAlignmentTypes)>...>) dynamic_array_base : public dynamic_array_typeless_base<allocator>
 	{
 			using Base = dynamic_array_typeless_base<allocator>;
 
@@ -166,6 +163,8 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
         {
 			allocator().deallocate(reinterpret_cast<pointer>(ptr));
         }
+
+
 		// size hint is ill-formed
 		static void operator delete(void* ptr, std::size_t sz) = delete;
 		// no arrays
@@ -180,12 +179,6 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		// no arrays
 		static void operator delete[](void* ptr, std::align_val_t al) = delete;
 		static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
-#if __cplusplus >= 201704L // change later when c++20 is standardised
-		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t) = delete;
-		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::align_val_t al) = delete;
-		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz) = delete;
-		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz, std::align_val_t al) = delete;
-#endif
 
 		inline bool operator!=(const this_real_type& _other) const
 		{
@@ -232,7 +225,6 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 };
 
 
-}
 }
 
 #endif

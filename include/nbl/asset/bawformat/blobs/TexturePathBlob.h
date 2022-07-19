@@ -20,7 +20,7 @@ namespace asset
 {
 
 #include "nbl/nblpack.h"
-struct NBL_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, ICPUTexture>, VariableSizeBlob<TexturePathBlobV0, ICPUTexture>
+struct NBL_API NBL_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, ICPUTexture>, VariableSizeBlob<TexturePathBlobV0, ICPUTexture>
 {};
 #include "nbl/nblunpack.h"
 
@@ -29,7 +29,7 @@ using TexturePathBlobV2 = TexturePathBlobV1;
 using TexturePathBlobV3 = TexturePathBlobV2;
 
 template<>
-struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV3 type; };
+struct NBL_API CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV3 type; };
 
 }
 } // nbl::asset

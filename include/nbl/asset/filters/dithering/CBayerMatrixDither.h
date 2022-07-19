@@ -13,7 +13,7 @@ namespace nbl
 {
 	namespace asset
 	{
-		class CBayerMatrixDither : public IDither
+		class NBL_API CBayerMatrixDither : public IDither
 		{
 			public:
 				CBayerMatrixDither() {}

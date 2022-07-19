@@ -2,42 +2,46 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_GLSL_LOADER_H_INCLUDED__
-#define __NBL_ASSET_C_GLSL_LOADER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_GLSL_LOADER_H_INCLUDED_
+#define _NBL_ASSET_C_GLSL_LOADER_H_INCLUDED_
 
 #include <algorithm>
 
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include <nbl/system/ISystem.h>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //!  Surface Loader for PNG files
 class CGLSLLoader final : public asset::IAssetLoader
 {
 	public:
-		bool isALoadableFileFormat(io::IReadFile* _file) const override
+		CGLSLLoader() = default;
+
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
 			char tmp[10] = { 0 };
 			char* end = tmp+sizeof(tmp);
 			auto filesize = _file->getSize();
-			while (_file->getPos()+sizeof(tmp)<filesize)
+			size_t readPos = 0;
+			while (readPos+sizeof(tmp)<filesize)
 			{
-				_file->read(tmp,sizeof(tmp));
+				system::IFile::success_t success;
+				_file->read(success, tmp, readPos, sizeof(tmp));
+				if (!success)
+					return false;
+				
 				if (strncmp(tmp,"#version ",9u)==0)
 					return true;
-
 				auto found = std::find(tmp,end,'#');
 				if (found==end || found==tmp)
+				{
+					readPos += sizeof(tmp);
 					continue;
-
-				_file->seek(_file->getPos()+found-end);
+				}
+				readPos += found-tmp;
 			}
-			_file->seek(prevPos);
 
 			return false;
 		}
@@ -50,11 +54,10 @@ class CGLSLLoader final : public asset::IAssetLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SPECIALIZED_SHADER; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
-} // namespace asset
-} // namespace nbl
+} // namespace nbl::asset
 
 #endif
 

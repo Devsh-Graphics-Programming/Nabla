@@ -24,8 +24,7 @@
 #define nbl_glsl_MC_prefetch_instr_t uvec4
 #define nbl_glsl_MC_reg_t uint
 #define nbl_glsl_MC_params_t mat2x3
-#define nbl_glsl_MC_bxdf_eval_t vec3
-#define nbl_glsl_MC_eval_and_pdf_t vec4
+#define nbl_glsl_MC_bxdf_spectrum_t vec3
 
 struct nbl_glsl_MC_instr_stream_t
 {
@@ -38,6 +37,7 @@ struct nbl_glsl_MC_instr_stream_t
 // (in case of precomp.NdotV<0.0, currInteraction will be set with -precomp.N)
 struct nbl_glsl_MC_precomputed_t
 {
+	// TODO: shadingN and geomN
 	vec3 N;
 	vec3 V;
 	bool frontface;
@@ -51,7 +51,7 @@ struct nbl_glsl_MC_precomputed_t
 
 #include <nbl/builtin/glsl/bxdf/common.glsl>
 
-#define NBL_GLSL_MC_ALPHA_EPSILON 1.0e-08
+#define NBL_GLSL_MC_ALPHA_EPSILON 1.0e-8
 
 struct nbl_glsl_MC_interaction_t
 {
@@ -83,6 +83,7 @@ void nbl_glsl_MC_finalizeMicrofacet(inout nbl_glsl_MC_microfacet_t mf)
 struct nbl_glsl_MC_oriented_material_t
 {
 	uvec2 emissive;
+	// TODO: derive/define upper bounds for instruction counts and bitpack them!
 	uint prefetch_offset;
 	uint prefetch_count;
 	uint instr_offset;

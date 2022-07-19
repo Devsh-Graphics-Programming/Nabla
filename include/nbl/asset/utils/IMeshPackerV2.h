@@ -12,229 +12,291 @@ namespace nbl
 namespace asset
 {
 
-class IMeshPackerV2Base
+class NBL_API IMeshPackerV2Base
 {
+public:
+    class SupportedFormatsContainer
+    {
     public:
-        enum E_UTB_ARRAY_TYPE : uint8_t
+        template <typename MeshBufferIt>
+        void insertFormatsFromMeshBufferRange(MeshBufferIt mbBegin, MeshBufferIt mbEnd)
         {
-            EUAT_FLOAT,
-            EUAT_INT,
-            EUAT_UINT,
-            EUAT_UNKNOWN
-        };
-        struct VirtualAttribConfig
-        {
-            core::unordered_map<E_FORMAT,uint8_t> utbs[EUAT_UNKNOWN];
-            bool isUintBufferUsed = false;
-            bool isUvec2BufferUsed = false;
-            bool isUvec3BufferUsed = false;
-            bool isUvec4BufferUsed = false;
-
-            VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
+            for (auto it = mbBegin; it != mbEnd; it++)
             {
-                std::copy_n(other.utbs,EUAT_UNKNOWN,utbs);
-
-                isUintBufferUsed = other.isUintBufferUsed;
-                isUvec2BufferUsed = other.isUvec2BufferUsed;
-                isUvec3BufferUsed = other.isUvec3BufferUsed;
-                isUvec4BufferUsed = other.isUvec4BufferUsed;
-
-                return *this;
-            }
-
-            VirtualAttribConfig& operator=(VirtualAttribConfig&& other)
-            {
-                for (auto i=0u; i<EUAT_UNKNOWN; i++)
-                    utbs[i] = std::move(other.utbs[i]);
-
-                isUintBufferUsed = other.isUintBufferUsed;
-                isUvec2BufferUsed = other.isUvec2BufferUsed;
-                isUvec3BufferUsed = other.isUvec3BufferUsed;
-                isUvec4BufferUsed = other.isUvec4BufferUsed;
-
-                other.isUintBufferUsed = false;
-                other.isUvec2BufferUsed = false;
-                other.isUvec3BufferUsed = false;
-                other.isUvec4BufferUsed = false;
-
-                return *this;
-            }
-
-            inline bool insertAttribFormat(E_FORMAT format)
-            {
-                auto& utb = utbs[getUTBArrayTypeFromFormat(format)];
-                auto lookupResult = utb.find(format);
-                if (lookupResult!=utb.end())
-                    return true;
-
-                utb.insert(std::make_pair(format,utb.size()));
-
-                const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
-                constexpr uint32_t uvec4Size = 4u * 4u;
-                constexpr uint32_t uvec3Size = 4u * 3u;
-                constexpr uint32_t uvec2Size = 4u * 2u;
-                constexpr uint32_t uintSize  = 4u;
-                switch (attribSize)
+                const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+                for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
                 {
-                    case uvec4Size:
-                        isUvec4BufferUsed = true;
-                        break;
-                    case uvec3Size:
-                        isUvec3BufferUsed = true;
-                        break;
-                    case uvec2Size:
-                        isUvec2BufferUsed = true;
-                        break;
-                    case uintSize:
-                        isUintBufferUsed = true;
-                        break;
-                    default:
-                        assert(false);
-                        return true; //tmp
-                }
+                    if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
+                        continue;
 
-                return true;
-            }
-
-            static inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
-            {
-                switch (format)
-                {
-                     //float formats
-                    case EF_R8_UNORM:
-                    case EF_R8_SNORM:
-                    case EF_R8_USCALED:
-                    case EF_R8_SSCALED:
-                    case EF_R8G8_UNORM:
-                    case EF_R8G8_SNORM:
-                    case EF_R8G8_USCALED:
-                    case EF_R8G8_SSCALED:
-                    case EF_R8G8B8_UNORM:
-                    case EF_R8G8B8_SNORM:
-                    case EF_R8G8B8_USCALED:
-                    case EF_R8G8B8_SSCALED:
-                    case EF_R8G8B8A8_UNORM:
-                    case EF_R8G8B8A8_SNORM:
-                    case EF_R8G8B8A8_USCALED:
-                    case EF_R8G8B8A8_SSCALED:
-                    case EF_R16_UNORM:
-                    case EF_R16_SNORM:
-                    case EF_R16_USCALED:
-                    case EF_R16_SSCALED:
-                    case EF_R16_SFLOAT:
-                    case EF_R16G16_UNORM:
-                    case EF_R16G16_SNORM:
-                    case EF_R16G16_USCALED:
-                    case EF_R16G16_SSCALED:
-                    case EF_R16G16_SFLOAT:
-                    case EF_R16G16B16_UNORM:
-                    case EF_R16G16B16_SNORM:
-                    case EF_R16G16B16_USCALED:
-                    case EF_R16G16B16_SSCALED:
-                    case EF_R16G16B16_SFLOAT:
-                    case EF_R16G16B16A16_UNORM:
-                    case EF_R16G16B16A16_SNORM:
-                    case EF_R16G16B16A16_USCALED:
-                    case EF_R16G16B16A16_SSCALED:
-                    case EF_R16G16B16A16_SFLOAT:
-                    case EF_R32_SFLOAT:
-                    case EF_R32G32_SFLOAT:
-                    case EF_R32G32B32_SFLOAT:
-                    case EF_R32G32B32A32_SFLOAT:
-                    case EF_B10G11R11_UFLOAT_PACK32:
-                    case EF_A2B10G10R10_UNORM_PACK32:
-                    case EF_A8B8G8R8_UNORM_PACK32:
-                    case EF_A8B8G8R8_SNORM_PACK32:
-                    case EF_A8B8G8R8_USCALED_PACK32:
-                    case EF_A8B8G8R8_SSCALED_PACK32:
-                        return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
-
-                     //int formats
-                    case EF_R8_SINT:
-                    case EF_R8G8_SINT:
-                    case EF_R8G8B8_SINT:
-                    case EF_R8G8B8A8_SINT:
-                    case EF_R16_SINT:
-                    case EF_R16G16_SINT:
-                    case EF_R16G16B16_SINT:
-                    case EF_R16G16B16A16_SINT:
-                    case EF_R32_SINT:
-                    case EF_R32G32_SINT:
-                    case EF_R32G32B32_SINT:
-                    case EF_R32G32B32A32_SINT:
-                    case EF_A8B8G8R8_SINT_PACK32:
-                        return E_UTB_ARRAY_TYPE::EUAT_INT;
-
-                     //uint formats
-                    case EF_R8_UINT:
-                    case EF_R8G8_UINT:
-                    case EF_R8G8B8_UINT:
-                    case EF_R8G8B8A8_UINT:
-                    case EF_R16_UINT:
-                    case EF_R16G16_UINT:
-                    case EF_R16G16B16_UINT:
-                    case EF_R16G16B16A16_UINT:
-                    case EF_R32_UINT:
-                    case EF_R32G32_UINT:
-                    case EF_R32G32B32_UINT:
-                    case EF_R32G32B32A32_UINT:
-                    case EF_A2B10G10R10_SNORM_PACK32:
-                    case EF_A2B10G10R10_UINT_PACK32:
-                    case EF_A8B8G8R8_UINT_PACK32:
-                        return E_UTB_ARRAY_TYPE::EUAT_UINT;
-
-                    default:
-                        return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
+                    formats.insert(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
                 }
             }
-        };
-
-        const VirtualAttribConfig& getVirtualAttribConfig() const { return m_virtualAttribConfig; }
-
-    protected:
-        IMeshPackerV2Base() : m_virtualAttribConfig() {}
-        explicit IMeshPackerV2Base(const VirtualAttribConfig& cfg) : m_virtualAttribConfig()
-        {
-            m_virtualAttribConfig = cfg;
         }
 
-        VirtualAttribConfig m_virtualAttribConfig;
+        inline void insert(E_FORMAT format)
+        {
+            formats.insert(format);
+        }
+
+        inline const core::unordered_set<E_FORMAT>& getFormats() const { return formats; }
+
+    private:
+        core::unordered_set<E_FORMAT> formats;
+    };
+
+public:
+    enum E_UTB_ARRAY_TYPE : uint8_t
+    {
+        EUAT_FLOAT,
+        EUAT_INT,
+        EUAT_UINT,
+        EUAT_UNKNOWN
+    };
+    struct VirtualAttribConfig
+    {
+        VirtualAttribConfig() = default;
+
+        VirtualAttribConfig(const SupportedFormatsContainer& formats)
+        {
+            const auto& formatsSet = formats.getFormats();
+            for (auto it = formatsSet.begin(); it != formatsSet.end(); it++)
+                insertAttribFormat(*it);
+        }
+
+        VirtualAttribConfig(const VirtualAttribConfig& other)
+        {
+            std::copy_n(other.utbs, EUAT_UNKNOWN, utbs);
+
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+        }
+
+        VirtualAttribConfig(VirtualAttribConfig&& other)
+        {
+            for (auto i = 0u; i < EUAT_UNKNOWN; i++)
+                utbs[i] = std::move(other.utbs[i]);
+
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+
+            //other.utbs->clear();
+            other.isUintBufferUsed = false;
+            other.isUvec2BufferUsed = false;
+            other.isUvec3BufferUsed = false;
+            other.isUvec4BufferUsed = false;
+        }
+
+        core::unordered_map<E_FORMAT,uint8_t> utbs[EUAT_UNKNOWN];
+        bool isUintBufferUsed = false;
+        bool isUvec2BufferUsed = false;
+        bool isUvec3BufferUsed = false;
+        bool isUvec4BufferUsed = false;
+    
+        VirtualAttribConfig& operator=(const VirtualAttribConfig& other)
+        {
+            std::copy_n(other.utbs,EUAT_UNKNOWN,utbs);
+
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+
+            return *this;
+        }
+    
+        VirtualAttribConfig& operator=(VirtualAttribConfig&& other)
+        {
+            for (auto i=0u; i<EUAT_UNKNOWN; i++)
+                utbs[i] = std::move(other.utbs[i]);
+        
+            isUintBufferUsed = other.isUintBufferUsed;
+            isUvec2BufferUsed = other.isUvec2BufferUsed;
+            isUvec3BufferUsed = other.isUvec3BufferUsed;
+            isUvec4BufferUsed = other.isUvec4BufferUsed;
+        
+            other.isUintBufferUsed = false;
+            other.isUvec2BufferUsed = false;
+            other.isUvec3BufferUsed = false;
+            other.isUvec4BufferUsed = false;
+        
+            return *this;
+        }
+    
+        inline bool insertAttribFormat(E_FORMAT format)
+        {
+            auto& utb = utbs[getUTBArrayTypeFromFormat(format)];
+            auto lookupResult = utb.find(format);
+            if (lookupResult!=utb.end())
+                return true;
+    
+            utb.insert(std::make_pair(format,utb.size()));
+    
+            const uint32_t attribSize = asset::getTexelOrBlockBytesize(format);
+            constexpr uint32_t uvec4Size = 4u * 4u;
+            constexpr uint32_t uvec3Size = 4u * 3u;
+            constexpr uint32_t uvec2Size = 4u * 2u;
+            constexpr uint32_t uintSize  = 4u;
+            switch (attribSize)
+            {
+                case uvec4Size:
+                    isUvec4BufferUsed = true;
+                    break;
+                case uvec3Size:
+                    isUvec3BufferUsed = true;
+                    break;
+                case uvec2Size:
+                    isUvec2BufferUsed = true;
+                    break;
+                case uintSize:
+                    isUintBufferUsed = true;
+                    break;
+                default:
+                    assert(false);
+                    return true; //tmp
+            }
+    
+            return true;
+        }
+        
+        inline bool isFormatSupported(E_FORMAT format) const
+        {
+            auto& utb = utbs[getUTBArrayTypeFromFormat(format)];
+            auto lookupResult = utb.find(format);
+            if (lookupResult != utb.end())
+                return true;
+
+            return false;
+        }
+
+        static inline E_UTB_ARRAY_TYPE getUTBArrayTypeFromFormat(E_FORMAT format)
+        {
+            switch (format)
+            {
+                 //float formats
+                case EF_R8_UNORM:
+                case EF_R8_SNORM:
+                case EF_R8_USCALED:
+                case EF_R8_SSCALED:
+                case EF_R8G8_UNORM:
+                case EF_R8G8_SNORM:
+                case EF_R8G8_USCALED:
+                case EF_R8G8_SSCALED:
+                case EF_R8G8B8_UNORM:
+                case EF_R8G8B8_SNORM:
+                case EF_R8G8B8_USCALED:
+                case EF_R8G8B8_SSCALED:
+                case EF_R8G8B8A8_UNORM:
+                case EF_R8G8B8A8_SNORM:
+                case EF_R8G8B8A8_USCALED:
+                case EF_R8G8B8A8_SSCALED:
+                case EF_R16_UNORM:
+                case EF_R16_SNORM:
+                case EF_R16_USCALED:
+                case EF_R16_SSCALED:
+                case EF_R16_SFLOAT:
+                case EF_R16G16_UNORM:
+                case EF_R16G16_SNORM:
+                case EF_R16G16_USCALED:
+                case EF_R16G16_SSCALED:
+                case EF_R16G16_SFLOAT:
+                case EF_R16G16B16_UNORM:
+                case EF_R16G16B16_SNORM:
+                case EF_R16G16B16_USCALED:
+                case EF_R16G16B16_SSCALED:
+                case EF_R16G16B16_SFLOAT:
+                case EF_R16G16B16A16_UNORM:
+                case EF_R16G16B16A16_SNORM:
+                case EF_R16G16B16A16_USCALED:
+                case EF_R16G16B16A16_SSCALED:
+                case EF_R16G16B16A16_SFLOAT:
+                case EF_R32_SFLOAT:
+                case EF_R32G32_SFLOAT:
+                case EF_R32G32B32_SFLOAT:
+                case EF_R32G32B32A32_SFLOAT:
+                case EF_B10G11R11_UFLOAT_PACK32:
+                case EF_A2B10G10R10_UNORM_PACK32:
+                case EF_A8B8G8R8_UNORM_PACK32:
+                case EF_A8B8G8R8_SNORM_PACK32:
+                case EF_A8B8G8R8_USCALED_PACK32:
+                case EF_A8B8G8R8_SSCALED_PACK32:
+                    return E_UTB_ARRAY_TYPE::EUAT_FLOAT;
+    
+                 //int formats
+                case EF_R8_SINT:
+                case EF_R8G8_SINT:
+                case EF_R8G8B8_SINT:
+                case EF_R8G8B8A8_SINT:
+                case EF_R16_SINT:
+                case EF_R16G16_SINT:
+                case EF_R16G16B16_SINT:
+                case EF_R16G16B16A16_SINT:
+                case EF_R32_SINT:
+                case EF_R32G32_SINT:
+                case EF_R32G32B32_SINT:
+                case EF_R32G32B32A32_SINT:
+                case EF_A8B8G8R8_SINT_PACK32:
+                    return E_UTB_ARRAY_TYPE::EUAT_INT;
+    
+                 //uint formats
+                case EF_R8_UINT:
+                case EF_R8G8_UINT:
+                case EF_R8G8B8_UINT:
+                case EF_R8G8B8A8_UINT:
+                case EF_R16_UINT:
+                case EF_R16G16_UINT:
+                case EF_R16G16B16_UINT:
+                case EF_R16G16B16A16_UINT:
+                case EF_R32_UINT:
+                case EF_R32G32_UINT:
+                case EF_R32G32B32_UINT:
+                case EF_R32G32B32A32_UINT:
+                case EF_A2B10G10R10_SNORM_PACK32:
+                case EF_A2B10G10R10_UINT_PACK32:
+                case EF_A8B8G8R8_UINT_PACK32:
+                    return E_UTB_ARRAY_TYPE::EUAT_UINT;
+    
+                default:
+                    return E_UTB_ARRAY_TYPE::EUAT_UNKNOWN;
+            }
+        }
+    };
+    
+    const VirtualAttribConfig& getVirtualAttribConfig() const { return m_virtualAttribConfig; }
+    
+protected:
+    explicit IMeshPackerV2Base(const SupportedFormatsContainer& formats) : m_virtualAttribConfig(formats) {}
+    explicit IMeshPackerV2Base(const VirtualAttribConfig& cfg) : m_virtualAttribConfig(cfg) {}
+    
+    const VirtualAttribConfig m_virtualAttribConfig;
 };
 
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
-class IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public IMeshPackerV2Base
+class NBL_API IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public IMeshPackerV2Base
 {
     static_assert(std::is_base_of<IBuffer,BufferType>::value);
 
-	using base_t = IMeshPacker<MeshBufferType,MDIStructType>;
-    using MinimumAllocationParams = IMeshPackerBase::MinimumAllocationParamsCommon;
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
 
     using DescriptorSetLayoutType = typename DescriptorSetType::layout_t;
 public:
+	using base_t = IMeshPacker<MeshBufferType,MDIStructType>;
     struct AttribAllocParams
     {
-        size_t offset = INVALID_ADDRESS;
+        size_t offset = base_t::INVALID_ADDRESS;
         size_t size = 0ull;
     };
     
     //TODO: REDESIGN
     //mdi allocation offset and index allocation offset should be shared
-    struct ReservedAllocationMeshBuffers
+    struct ReservedAllocationMeshBuffers : ReservedAllocationMeshBuffersBase
     {
-        uint32_t mdiAllocationOffset;
-        uint32_t mdiAllocationReservedCnt;
-        uint32_t indexAllocationOffset;
-        uint32_t indexAllocationReservedCnt;
         AttribAllocParams attribAllocParams[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
-
-        inline bool isValid()
-        {
-            return this->mdiAllocationOffset!=core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-        }
     };
-
-    //TODO: if we use SSBO then there is no need for `arrayElement`
     struct VirtualAttribute
     {
             VirtualAttribute() : va(0u) {};
@@ -248,8 +310,11 @@ public:
                 va |= offset;
             }
         
-            inline void setArrayElement(uint16_t arrayElement) { va |= static_cast<uint32_t>(arrayElement) << 28u; }
-            inline void setOffset(uint32_t offset) { assert((offset & 0xF0000000u) == 0u); va |= offset; }
+            inline uint32_t getArrayElement() const { return core::bitfieldExtract(va,28,4); }
+            inline void setArrayElement(uint16_t arrayElement) { va = core::bitfieldInsert<uint32_t>(va,arrayElement,28,4); }
+
+            inline uint32_t getOffset() const { return core::bitfieldExtract(va,0,28); }
+            inline void setOffset(uint32_t offset) { va = core::bitfieldInsert<uint32_t>(va,offset,0,28); }
 
         private:
             uint32_t va;
@@ -336,9 +401,9 @@ public:
     {
         const uint32_t writeCount = getDSlayoutBindingsForUTB(nullptr);
         const uint32_t infoCount = 1u + // for the index buffer
-            m_virtualAttribConfig.uintArrayElementsCnt +
-            m_virtualAttribConfig.floatArrayElementsCnt +
-            m_virtualAttribConfig.intArrayElementsCnt;
+            getFloatBufferBindingsCnt() + 
+            getIntBufferBindingsCnt() + 
+            getUintBufferBindingsCnt();
         if (!outWrites || !outInfo)
             return std::make_pair(writeCount, infoCount);
 
@@ -375,21 +440,21 @@ public:
             write++;
         };
 
-        writeBinding(params.usamplersBinding,1u+m_virtualAttribConfig.uintArrayElementsCnt);
-        if (m_virtualAttribConfig.uintArrayElementsCnt)
+        writeBinding(params.usamplersBinding, 1u + getUintBufferBindingsCnt());
+        if (getUintBufferBindingsCnt())
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_UINT);
         info->desc = createBufferView(core::smart_refctd_ptr(m_packerDataStore.indexBuffer),EF_R16_UINT);
         info->buffer.offset = 0u;
         info->buffer.size = m_packerDataStore.indexBuffer->getSize();
         info++;
-        if (m_virtualAttribConfig.floatArrayElementsCnt)
+        if (getFloatBufferBindingsCnt())
         {
-            writeBinding(params.fsamplersBinding,m_virtualAttribConfig.floatArrayElementsCnt);
+            writeBinding(params.fsamplersBinding, getFloatBufferBindingsCnt());
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_FLOAT);
         }
-        if (m_virtualAttribConfig.intArrayElementsCnt)
+        if (getIntBufferBindingsCnt())
         {
-            writeBinding(params.isamplersBinding,m_virtualAttribConfig.intArrayElementsCnt);
+            writeBinding(params.isamplersBinding, getIntBufferBindingsCnt());
             fillInfoStruct(E_UTB_ARRAY_TYPE::EUAT_INT);
         }
 
@@ -517,56 +582,92 @@ public:
 	template <typename MeshBufferIterator>
 	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-    //TODO: test (free only part of the scene)
     void free(const ReservedAllocationMeshBuffers* rambIn, uint32_t meshBuffersToFreeCnt)
     {
         for (uint32_t i = 0u; i < meshBuffersToFreeCnt; i++)
         {
+            const ReservedAllocationMeshBuffers& ramb = rambIn[i];
+
             const ReservedAllocationMeshBuffers* const ramb = rambIn + i;
 
-            if (ramb->indexAllocationOffset != INVALID_ADDRESS)
-                m_idxBuffAlctr.free_addr(ramb->indexAllocationOffset, ramb->indexAllocationReservedCnt);
+            if (ramb->indexAllocationOffset != base_t::INVALID_ADDRESS)
+                base_t::m_idxBuffAlctr.free_addr(ramb->indexAllocationOffset, ramb->indexAllocationReservedCnt);
             
-            if (ramb->mdiAllocationOffset != INVALID_ADDRESS)
-                m_MDIDataAlctr.free_addr(ramb->mdiAllocationOffset, ramb->mdiAllocationReservedCnt);
+            if (ramb->mdiAllocationOffset != base_t::INVALID_ADDRESS)
+                base_t::m_MDIDataAlctr.free_addr(ramb->mdiAllocationOffset, ramb->mdiAllocationReservedCnt);
             
             for (uint32_t j = 0; j < SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; j++)
             {
                 const AttribAllocParams& attrAllocParams = ramb->attribAllocParams[j];
-                if (attrAllocParams.offset != INVALID_ADDRESS)
-                    m_vtxBuffAlctr.free_addr(attrAllocParams.offset, attrAllocParams.size);
+                if (attrAllocParams.offset != base_t::INVALID_ADDRESS)
+                    base_t::m_vtxBuffAlctr.free_addr(attrAllocParams.offset, attrAllocParams.size);
             }
         }
     }
 
-    //! Returns maximum number of mdi structs needed to draw range of mesh buffers described by range mbBegin .. mbEnd, actual number of MDI structs needed may differ
-    template <typename MeshBufferIterator>
-    uint32_t calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
-
     inline const PackerDataStore& getPackerDataStore() const { return m_packerDataStore; }
-    
-    inline const AllocationParams& getAllocParams() const { return m_allocParams; }
+
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getMDIAllocator() const { return base_t::m_MDIDataAlctr; }
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getIndexAllocator() const { return base_t::m_idxBuffAlctr; }
+    const core::GeneralpurposeAddressAllocator<uint32_t>& getVertexAllocator() const { return base_t::m_vtxBuffAlctr; }
 
 protected:
-	IMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), m_allocParams(allocParams)
+	IMeshPackerV2(const AllocationParams& allocParams, const SupportedFormatsContainer& formats, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+		: base_t(minTriangleCountPerMDIData, maxTriangleCountPerMDIData), 
+        IMeshPackerV2Base(formats)
 	{
-        initializeCommonAllocators(allocParams);
+        base_t::initializeCommonAllocators(allocParams);
     };
     template<class OtherBufferType, class OtherDescriptorSetType, class OtherMeshBufferType>
 	explicit IMeshPackerV2(const IMeshPackerV2<OtherBufferType,OtherDescriptorSetType,OtherMeshBufferType,MDIStructType>* otherMp)
 		: base_t(otherMp->getMinTriangleCountPerMDI(),otherMp->getMaxTriangleCountPerMDI()),
-        IMeshPackerV2Base(otherMp->getVirtualAttribConfig()), m_allocParams(otherMp->getAllocParams())
+        IMeshPackerV2Base(otherMp->getVirtualAttribConfig())
 	{
-        initializeCommonAllocators(m_allocParams);
+        base_t::initializeCommonAllocators(
+            otherMp->getMDIAllocator(),
+            otherMp->getIndexAllocator(),
+            otherMp->getVertexAllocator()
+        );
     };
 
+    template <typename MeshBufferIterator>
+    void freeAllocatedAddressesOnAllocFail(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+    {
+        size_t i = 0ull;
+        for (auto it = mbBegin; it != mbEnd; it++)
+        {
+            ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
+
+            if (ramb.indexAllocationOffset == base_t::INVALID_ADDRESS)
+                return;
+
+            base_t::m_idxBuffAlctr.free_addr(ramb.indexAllocationOffset, ramb.indexAllocationReservedCnt);
+
+            const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+            for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+            {
+                if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
+                    continue;
+
+                if (ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
+                    return;
+
+                base_t::m_vtxBuffAlctr.free_addr(ramb.attribAllocParams[location].offset, ramb.attribAllocParams[location].size);
+            }
+
+            if (ramb.mdiAllocationOffset == base_t::INVALID_ADDRESS)
+                return;
+
+            base_t::m_MDIDataAlctr.free_addr(ramb.mdiAllocationOffset, ramb.mdiAllocationReservedCnt);
+
+            i++;
+        }
+    }
+
     PackerDataStore m_packerDataStore;
-    AllocationParams m_allocParams; // TODO: only hold onto MinimumAllocationParams, derive rest from the allocator sizes! (if you even need to)
 
 };
 
-//TODO: check if offset < 2^28
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType>
 template <typename MeshBufferIterator>
 bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
@@ -575,17 +676,17 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
     for (auto it = mbBegin; it != mbEnd; it++)
     {
         ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
-        const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(*it);
-        const size_t maxVtxCnt = calcVertexCountBoundWithBatchDuplication(*it);
+        const size_t idxCnt = base_t::calcIdxCntAfterConversionToTriangleList(*it);
+        const size_t maxVtxCnt = base_t::calcVertexCountBoundWithBatchDuplication(*it);
         const uint32_t insCnt = (*it)->getInstanceCount();
 
-        //TODO: in this mesh packer there is only one buffer for both per instance and per vertex attribs
-        //modify alloc and commit so these functions act accrodingly to attribute they are wokring on
-
         //allocate indices
-        ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
-        if (ramb.indexAllocationOffset == INVALID_ADDRESS)
+        ramb.indexAllocationOffset = base_t::m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
+        if (ramb.indexAllocationOffset == base_t::INVALID_ADDRESS)
+        {
+            freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
             return false;
+        }
         ramb.indexAllocationReservedCnt = idxCnt;
 
         //allocate vertices
@@ -596,6 +697,10 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
                 continue;
 
             const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
+
+            if (!m_virtualAttribConfig.isFormatSupported(attribFormat))
+                return false;
+
             const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
             const uint32_t binding = mbVtxInputParams.attributes[location].binding;
             const E_VERTEX_INPUT_RATE inputRate = mbVtxInputParams.bindings[binding].inputRate;
@@ -603,55 +708,48 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
             if (inputRate == EVIR_PER_VERTEX)
             {
                 const uint32_t allocByteSize = maxVtxCnt * attribSize;
-                ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
+                ramb.attribAllocParams[location].offset = base_t::m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
                 ramb.attribAllocParams[location].size = allocByteSize;
+
+                if(ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
+                {
+                    freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
+                    return false;
+                }
             }
             else if (inputRate == EVIR_PER_INSTANCE)
             {
                 const uint32_t allocByteSize = insCnt * attribSize;
-                ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
+                ramb.attribAllocParams[location].offset = base_t::m_vtxBuffAlctr.alloc_addr(allocByteSize, attribSize);
                 ramb.attribAllocParams[location].size = allocByteSize;
+
+                if (ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
+                {
+                    freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
+                    return false;
+                }
             }
 
-            if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+            if (ramb.attribAllocParams[location].offset == base_t::INVALID_ADDRESS)
                 return false;
-
-            m_virtualAttribConfig.insertAttribFormat(attribFormat);
-
-            //TODO: reset state when allocation fails
         }
 
         //allocate MDI structs
-        const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
+        const uint32_t minIdxCntPerPatch = base_t::m_minTriangleCountPerMDIData * 3;
         size_t possibleMDIStructsNeededCnt = (idxCnt + minIdxCntPerPatch - 1) / minIdxCntPerPatch;
 
-        ramb.mdiAllocationOffset = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
-        if (ramb.mdiAllocationOffset == INVALID_ADDRESS)
+        ramb.mdiAllocationOffset = base_t::m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
+        if (ramb.mdiAllocationOffset == base_t::INVALID_ADDRESS)
+        {
+            freeAllocatedAddressesOnAllocFail(rambOut, mbBegin, mbEnd);
             return false;
+        }
         ramb.mdiAllocationReservedCnt = possibleMDIStructsNeededCnt;
 
         i++;
     }
 
     return true;
-}
-
-template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType>
-template <typename MeshBufferIterator>
-uint32_t IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::calcMDIStructMaxCount(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
-{
-    uint32_t acc = 0u;
-    for (auto mbIt = mbBegin; mbIt != mbEnd; mbIt++)
-    {
-        auto mb = *mbIt;
-        const size_t idxCnt = calcIdxCntAfterConversionToTriangleList(mb);
-        const uint32_t triCnt = idxCnt / 3;
-        assert(idxCnt % 3 == 0);
-
-        acc += calcBatchCountBound(triCnt);
-    }
-    
-    return acc;
 }
 
 }

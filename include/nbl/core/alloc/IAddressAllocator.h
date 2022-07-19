@@ -6,7 +6,7 @@
 #define __NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 
-#include "nbl/core/BaseClasses.h"
+#include "nbl/core/decl/BaseClasses.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
 namespace nbl
@@ -14,7 +14,7 @@ namespace nbl
 namespace core
 {
 
-class NBL_FORCE_EBO IAddressAllocator : Interface
+class NBL_API NBL_FORCE_EBO IAddressAllocator : Interface
 {
         _NBL_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
     public:
@@ -39,7 +39,7 @@ class NBL_FORCE_EBO IAddressAllocator : Interface
 
 
 template <class AddressAllocator>
-class NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
+class NBL_API NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
 {
         inline AddressAllocator&    getBaseRef() noexcept {return static_cast<AddressAllocator&>(*this);}
     public:

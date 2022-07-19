@@ -11,14 +11,13 @@
 #include "nbl/core/containers/refctd_dynamic_array.h"
 
 #include "nbl/asset/ICPUSpecializedShader.h"
+#include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/asset/utils/CShaderIntrospector.h"
-
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
-#include "COpenGLExtensionHandler.h"
 
-#include "spirv_cross/spirv_glsl.hpp"
+#include "nbl_spirv_cross/spirv_glsl.hpp"
 
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
@@ -27,6 +26,8 @@ namespace nbl
 {
 namespace video
 {
+
+class IOpenGL_FunctionTable;
 
 class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecializedShader,core::AllocationOverrideBase<128> >
 {
@@ -42,7 +43,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			SMember m;
 		};
 
-		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CIntrospectionData* _introspection)
+		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CIntrospectionData* _introspection, system::ILogger* logger)
 		{
 			assert(_introspection);
 			const auto& pc = _introspection->pushConstant;
@@ -50,13 +51,14 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 				return true;
 			if (!pc.info.name.size()) // cannot handle anonymous push constant blocks (we loose the names)
 			{
-				os::Printer::log("Push Constant blocks need to be named (limitation of SPIR-V Cross). Creation of COpenGLSpecializedShader failed.", ELL_ERROR);
+				logger->log("Push Constant blocks need to be named (limitation of SPIR-V Cross). Creation of COpenGLSpecializedShader failed.", system::ILogger::ELL_ERROR);
 				return false;
 			}
 		
 			const auto& pc_layout = pc.info;
 			core::queue<SMember> q;
 			SMember initial;
+			initial.offset = 0u;
 			initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
 			initial.members = pc_layout.members;
 			initial.name = pc.info.name;
@@ -84,6 +86,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 				if (top.type == asset::EGVT_UNKNOWN_OR_STRUCT && top.members.count) {
 					for (size_t i = 0ull; i < top.members.count; ++i) {
 						SMember m = top.members.array[i];
+						m.offset += top.offset;
 						m.name = (top.name.size() ? (top.name+"."):"")+m.name;
 						if (m.count > 1u)
 							m.name += "[0]";
@@ -100,11 +103,18 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			return true;
 		}
 
-		COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
+		COpenGLSpecializedShader(
+			core::smart_refctd_ptr<ILogicalDevice>&& dev,
+			uint32_t _GLSLversion,
+			const asset::ICPUBuffer* _spirv,
+			const asset::ISpecializedShader::SInfo& _specInfo,
+			core::vector<SUniform>&& uniformList,
+			const asset::IShader::E_SHADER_STAGE stage);
 
+		asset::IShader::E_SHADER_STAGE getStage() const override { return m_stage; }
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
-		std::pair<GLuint, SProgramBinary> compile(const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const;
+		std::pair<GLuint, SProgramBinary> compile(IOpenGL_FunctionTable* gl, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger = nullptr) const;
 
 		const SInfo& getSpecializationInfo() const { return m_specInfo; }
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }
@@ -116,8 +126,9 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		~COpenGLSpecializedShader() = default;
 
 	private:
-		void gatherUniformLocations(GLuint _GLname) const;
+		void gatherUniformLocations(IOpenGL_FunctionTable* gl, GLuint _GLname) const;
 
+		asset::IShader::E_SHADER_STAGE m_stage;
 		GLenum m_GLstage;
 
 		SInfo m_specInfo;

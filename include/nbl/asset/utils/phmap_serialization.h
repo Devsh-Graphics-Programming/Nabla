@@ -5,15 +5,13 @@
 #ifndef __NBL_ASSET_PHMAP_SERIALIZATION_H_INCLUDED__
 #define __NBL_ASSET_PHMAP_SERIALIZATION_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-class CBufferPhmapOutputArchive
+class NBL_API CBufferPhmapOutputArchive
 {
 	public:
 		CBufferPhmapOutputArchive(const SBufferRange<ICPUBuffer>& _buffer)
@@ -44,7 +42,6 @@ class CBufferPhmapOutputArchive
 
 };
 
-}
 }
 
 #endif

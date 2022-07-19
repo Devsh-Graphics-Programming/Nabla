@@ -14,11 +14,9 @@
 #include "CIrrDeviceStub.h"
 #include "IrrlichtDevice.h"
 #include "ICursorControl.h"
-#include "os.h"
+#include "nbl_os.h"
 
 #ifdef _NBL_COMPILE_WITH_X11_
-
-#include "COpenGLStateManager.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -30,11 +28,6 @@
     #include <X11/extensions/Xrandr.h>
 #endif
 #include <X11/keysym.h>
-
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-    #include "GL/glx.h"
-    #include "../src/3rdparty/GL/glxext.h"
-#endif
 
 #else
 #define KeySym int32_t
@@ -56,9 +49,6 @@ namespace nbl
             //! runs the device. Returns false if device wants to be deleted
             virtual bool run();
 
-            //! Cause the device to temporarily pause execution and let other processes to run
-            // This should bring down processor usage without major performance loss for Irrlicht
-            virtual void yield();
 
             //! Pause execution and let other processes to run for a specified amount of time.
             virtual void sleep(uint32_t timeMs, bool pauseTimer);
@@ -107,17 +97,7 @@ namespace nbl
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
 
-            //! Get the device type
-            virtual E_DEVICE_TYPE getType() const
-            {
-                    return EIDT_X11;
-            }
-
-
         private:
-
-            //! create the driver
-            void createDriver();
 
             bool createWindow();
 
@@ -127,7 +107,7 @@ namespace nbl
 
             void initXAtoms();
 
-            bool switchToFullscreen(bool reset=false);
+            bool switchToFullscreen(bool reset=false) override;
 
 #ifdef _NBL_COMPILE_WITH_X11_
             bool createInputContext();
@@ -363,8 +343,6 @@ namespace nbl
             friend class CCursorControl;
 
     #ifdef _NBL_COMPILE_WITH_X11_
-            friend class COpenGLDriver;
-
             Display *display;
             XVisualInfo* visual;
             int screennr;
@@ -380,11 +358,6 @@ namespace nbl
             #ifdef _NBL_LINUX_X11_RANDR_
             SizeID oldRandrMode;
             Rotation oldRandrRotation;
-            #endif
-            #ifdef _NBL_COMPILE_WITH_OPENGL_
-            GLXWindow glxWin;
-            GLXContext Context;
-            void* AuxContexts;
             #endif
     #endif
             uint32_t Width, Height;

@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_MATCHED_SIZE_IN_OUT_IMAGE_FILTER_COMMON_H_INCLUDED__
 #define __NBL_ASSET_C_MATCHED_SIZE_IN_OUT_IMAGE_FILTER_COMMON_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 
@@ -24,7 +24,7 @@ namespace asset
 	@see IImageFilter
 */
 
-class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
+class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
 

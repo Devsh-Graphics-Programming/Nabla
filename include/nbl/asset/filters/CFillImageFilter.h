@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_FILL_IMAGE_FILTER_H_INCLUDED__
 #define __NBL_ASSET_C_FILL_IMAGE_FILTER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include <type_traits>
 
@@ -17,7 +17,7 @@ namespace asset
 {
 
 // fill a section of the image with a uniform value
-class CFillImageFilter : public CImageFilter<CFillImageFilter>
+class NBL_API CFillImageFilter : public CImageFilter<CFillImageFilter>
 {
 	public:
 		virtual ~CFillImageFilter() {}
@@ -58,7 +58,7 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 		}
 		static inline bool execute(state_type* state)
 		{
-			return execute(std::execution::seq,state);
+			return execute(core::execution::seq,state);
 		}
 };
 

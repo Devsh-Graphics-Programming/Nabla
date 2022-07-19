@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_IMAGE_WRITER_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_WRITER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUImageView.h"
 
@@ -19,7 +19,7 @@ namespace nbl
 namespace asset
 {
 
-class IImageWriter : public IAssetWriter, public IImageAssetHandlerBase
+class NBL_API IImageWriter : public IAssetWriter, public IImageAssetHandlerBase
 {
 	public:
 

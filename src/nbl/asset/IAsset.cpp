@@ -4,8 +4,7 @@
 
 #include "nbl/asset/IAsset.h"
 
-using namespace nbl;
-using namespace asset;
+using namespace nbl::asset;
 
 IAsset::~IAsset()
 {

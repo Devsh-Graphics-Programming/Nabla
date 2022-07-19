@@ -5,23 +5,28 @@
 #ifndef __NBL_VIDEO_I_GPU_PIPELINE_CACHE_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_PIPELINE_CACHE_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
+
 #include "nbl/asset/ICPUPipelineCache.h"
 
-namespace nbl { namespace video
+#include "nbl/video/decl/IBackendObject.h"
+
+
+namespace nbl::video
 {
 
-class IGPUPipelineCache : public core::IReferenceCounted
+class NBL_API IGPUPipelineCache : public core::IReferenceCounted, public IBackendObject
 {
-protected:
-	virtual ~IGPUPipelineCache() = default;
+	protected:
+		virtual ~IGPUPipelineCache() = default;
 
-public:
-	virtual void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) = 0;
+	public:
+		explicit IGPUPipelineCache(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
 
-	virtual core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const = 0;
+		virtual void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) = 0;
+
+		virtual core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const = 0;
 };
 
-}}
+}
 
 #endif

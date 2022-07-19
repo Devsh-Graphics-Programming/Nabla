@@ -12,14 +12,15 @@ namespace nbl
 namespace asset
 {
 
-class IDescriptor : public virtual core::IReferenceCounted
+class NBL_API IDescriptor : public virtual core::IReferenceCounted
 {
 	public:
 		enum E_CATEGORY
 		{
 			EC_BUFFER,
 			EC_IMAGE,
-			EC_BUFFER_VIEW
+			EC_BUFFER_VIEW,
+			EC_ACCELERATION_STRUCTURE
 		};
 
 		virtual E_CATEGORY getTypeCategory() const = 0;

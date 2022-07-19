@@ -24,7 +24,11 @@
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
+//#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
+#endif
+
+#ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
+#include "nbl/asset/interchange/CGLTFLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
@@ -56,7 +60,11 @@
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-#include "nbl/asset/bawformat/CBAWMeshWriter.h"
+//#include "nbl/asset/bawformat/CBAWMeshWriter.h"
+#endif
+
+#ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
+#include "nbl/asset/interchange/CGLTFWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
@@ -79,6 +87,7 @@
 #include "nbl/asset/interchange/CGLIWriter.h"
 #endif
 
+#include "nbl/asset/interchange/CBufferLoaderBIN.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 
@@ -112,7 +121,7 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_fileSystem.get());
+    m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
@@ -125,7 +134,6 @@ IMeshManipulator* IAssetManager::getMeshManipulator()
 	return m_meshManipulator.get();
 }
 
-
 void IAssetManager::addLoadersAndWriters()
 {
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
@@ -135,13 +143,16 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this, core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
+	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
+#endif
+#ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
@@ -158,11 +169,15 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
+	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
+#endif
+#ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());
@@ -171,19 +186,19 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CSTLMeshWriter>());
 #endif
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterTGA>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterJPG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>(core::smart_refctd_ptr<system::ISystem>(m_system)));
 #endif
 
     for (auto& loader : m_loaders.vector)
@@ -205,50 +220,52 @@ void IAssetManager::insertBuiltinAssets()
 	// materials
 	{
 		//
-		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<asset::ICPUBuffer>&& data,
-									asset::ISpecializedShader::E_SHADER_STAGE type,
+		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<const system::IFile>&& data,
+									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{
-			auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data),asset::ICPUShader::buffer_contains_glsl);
-			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", type));
+            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
+            memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
+            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, type, paths.begin()[0]);
+			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};
-		auto fileSystem = getFileSystem();
+		auto fileSystem = getSystem();
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/specialized_shader/fullscreentriangle.vert"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
-			asset::ISpecializedShader::ESS_FRAGMENT, 
+			asset::IShader::ESS_FRAGMENT, 
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
             });
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
-			asset::ISpecializedShader::ESS_VERTEX,
+			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
-			asset::ISpecializedShader::ESS_FRAGMENT,
+			asset::IShader::ESS_FRAGMENT,
 			{   
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
             });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
-			asset::ISpecializedShader::ESS_FRAGMENT,
+			asset::IShader::ESS_FRAGMENT,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
                 "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"
@@ -262,7 +279,7 @@ void IAssetManager::insertBuiltinAssets()
     asset::ICPUDescriptorSetLayout::SBinding binding1;
     binding1.count = 1u;
     binding1.binding = 0u;
-    binding1.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+    binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
     binding1.type = asset::EDT_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
@@ -276,14 +293,14 @@ void IAssetManager::insertBuiltinAssets()
     binding3.binding = 0u;
     binding3.type = EDT_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
-    binding3.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+    binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
     binding3.samplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
     addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
 
 	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
 			pcRanges,pcRanges+pcCount,
 			nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout)
@@ -328,6 +345,7 @@ void IAssetManager::insertBuiltinAssets()
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT | asset::IImage::EUF_STORAGE_BIT);
         auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
@@ -357,6 +375,7 @@ void IAssetManager::insertBuiltinAssets()
         info.image = dummy2dImage;
         info.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
         info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+        info.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
         info.subresourceRange.baseArrayLayer = 0u;
         info.subresourceRange.layerCount = 1u;
         info.subresourceRange.baseMipLevel = 0u;
@@ -374,7 +393,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
-        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
         bnd.type = asset::EDT_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
@@ -403,7 +422,7 @@ void IAssetManager::insertBuiltinAssets()
         asset::ICPUDescriptorSetLayout::SBinding bnd;
         bnd.count = 1u;
         bnd.binding = 0u;
-        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
         bnd.type = asset::EDT_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 

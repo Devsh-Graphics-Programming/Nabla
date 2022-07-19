@@ -13,7 +13,7 @@ namespace asset
 {
 
 template<class ImageType>
-class IImageView : public IDescriptor
+class NBL_API IImageView : public IDescriptor
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_mip_levels = ~static_cast<size_t>(0u);
@@ -22,6 +22,7 @@ class IImageView : public IDescriptor
 		// no flags for now, yet
 		enum E_CREATE_FLAGS
 		{
+			ECF_NONE = 0
 		};
 		enum E_TYPE
 		{
@@ -62,6 +63,12 @@ class IImageView : public IDescriptor
 			E_SWIZZLE b = ES_B;
 			E_SWIZZLE a = ES_A;
 
+			E_SWIZZLE& operator[](const uint32_t ix)
+			{
+				assert(ix<4u);
+				return (&r)[ix];
+			}
+
 			bool operator==(const SComponentMapping& rhs) const
 			{
 				return r == rhs.r && g == rhs.g && b == rhs.b && a == rhs.a;
@@ -73,7 +80,7 @@ class IImageView : public IDescriptor
 		};
 		struct SCreationParams
 		{
-			E_CREATE_FLAGS						flags;
+			E_CREATE_FLAGS						flags = static_cast<E_CREATE_FLAGS>(0);
 			core::smart_refctd_ptr<ImageType>	image;
 			E_TYPE								viewType;
 			E_FORMAT							format;

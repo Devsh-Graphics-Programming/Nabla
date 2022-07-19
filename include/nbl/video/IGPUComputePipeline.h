@@ -5,27 +5,44 @@
 #ifndef __NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED__
 
+
 #include "nbl/asset/IComputePipeline.h"
+
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUPipelineLayout.h"
 
-namespace nbl {
-namespace video
+
+namespace nbl::video
 {
 
-class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>
+class NBL_API IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
 {
-    using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
+        using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 
-public:
-    using base_t::base_t;
+    public:
+        IGPUComputePipeline(
+            core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs
+        ) : base_t(std::move(_layout), std::move(_cs)), IBackendObject(std::move(dev))
+        {
+        }
 
-protected:
-    virtual ~IGPUComputePipeline() = default;
+        struct SCreationParams
+        {
+            IPipeline::E_PIPELINE_CREATION flags;
+            core::smart_refctd_ptr<IGPUPipelineLayout> layout;
+            core::smart_refctd_ptr<IGPUSpecializedShader> shader;
+            core::smart_refctd_ptr<IGPUComputePipeline> basePipeline;
+            int32_t basePipelineIndex;
+        };
 
-    bool m_allowDispatchBase = false;
+    protected:
+        virtual ~IGPUComputePipeline() = default;
+
+        bool m_allowDispatchBase = false;
 };
 
-}}
+}
 
 #endif

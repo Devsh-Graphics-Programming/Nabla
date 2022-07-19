@@ -15,7 +15,7 @@ namespace MitsubaLoader
 {
 
 //! Meshloader capable of loading obj meshes.
-class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoader
+class NBL_API CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoader
 {
 	protected:
 		//! Destructor
@@ -25,14 +25,13 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 		//! Constructor
 		CSerializedLoader(asset::IAssetManager* _manager) : IRenderpassIndependentPipelineLoader(_manager) {}
 
-		inline bool isALoadableFileFormat(io::IReadFile* _file) const override
+		inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
 			FileHeader header;
-
-			const size_t prevPos = _file->getPos();
-			_file->seek(0u);
-			_file->read(&header, sizeof(header));
-			_file->seek(prevPos);
+			
+			system::future<size_t> future;
+			_file->read(future, &header, 0u, sizeof(header));
+			future.get();
 
 			return header==FileHeader();
 		}
@@ -46,7 +45,7 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 		inline uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
 		//! creates/loads an animated mesh from the file.
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	private:
 

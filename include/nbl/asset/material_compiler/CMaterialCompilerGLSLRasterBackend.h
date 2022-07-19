@@ -7,21 +7,17 @@
 
 #include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
-namespace nbl
-{
-namespace asset
-{
-namespace material_compiler
+namespace nbl::asset::material_compiler
 {
 
-class CMaterialCompilerGLSLRasterBackend : public CMaterialCompilerGLSLBackendCommon
+class NBL_API CMaterialCompilerGLSLRasterBackend : public CMaterialCompilerGLSLBackendCommon
 {
-    using base_t = CMaterialCompilerGLSLBackendCommon;
+        using base_t = CMaterialCompilerGLSLBackendCommon;
 
-public:
-    result_t compile(SContext* _ctx, IR* _ir);
+    public:
+        result_t compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream=EGST_PRESENT) override;
 };
 
-}}}
+}
 
 #endif

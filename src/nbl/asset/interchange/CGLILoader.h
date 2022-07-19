@@ -24,9 +24,9 @@ class CGLILoader final : public asset::IAssetLoader
 		virtual ~CGLILoader() {}
 
 	public:
-		CGLILoader() {}
+		explicit CGLILoader() = default;
 
-		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
 		const char** getAssociatedFileExtensions() const override
 		{
@@ -36,7 +36,7 @@ class CGLILoader final : public asset::IAssetLoader
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	private:
 

@@ -3,21 +3,23 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 
+#include "nbl/core/xxHash256.h"
+
 #include <algorithm>
+
+#include "nbl/system/ILogger.h"
 
 #include "nbl/asset/utils/spvUtils.h"
 
-#include "COpenGLSpecializedShader.h"
-#include "COpenGLDriver.h"
+#include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IOpenGL_FunctionTable.h"
+#include "nbl/video/COpenGLSpecializedShader.h"
 
-#include "spirv_cross/spirv_parser.hpp"
+#include "nbl_spirv_cross/spirv_parser.hpp"
 
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 namespace impl
@@ -121,38 +123,44 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp, const COpenGLPipel
 #undef UPDATE_PRESUM
 }
 
-static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
+static GLenum ESS2GLenum(asset::IShader::E_SHADER_STAGE _stage)
 {
     using namespace asset;
     switch (_stage)
     {
-		case asset::ISpecializedShader::ESS_VERTEX: return GL_VERTEX_SHADER;
-		case asset::ISpecializedShader::ESS_TESSELATION_CONTROL: return GL_TESS_CONTROL_SHADER;
-		case asset::ISpecializedShader::ESS_TESSELATION_EVALUATION: return GL_TESS_EVALUATION_SHADER;
-		case asset::ISpecializedShader::ESS_GEOMETRY: return GL_GEOMETRY_SHADER;
-		case asset::ISpecializedShader::ESS_FRAGMENT: return GL_FRAGMENT_SHADER;
-		case asset::ISpecializedShader::ESS_COMPUTE: return GL_COMPUTE_SHADER;
+		case asset::IShader::ESS_VERTEX: return GL_VERTEX_SHADER;
+		case asset::IShader::ESS_TESSELATION_CONTROL: return GL_TESS_CONTROL_SHADER;
+		case asset::IShader::ESS_TESSELATION_EVALUATION: return GL_TESS_EVALUATION_SHADER;
+		case asset::IShader::ESS_GEOMETRY: return GL_GEOMETRY_SHADER;
+		case asset::IShader::ESS_FRAGMENT: return GL_FRAGMENT_SHADER;
+		case asset::IShader::ESS_COMPUTE: return GL_COMPUTE_SHADER;
 		default: return GL_INVALID_ENUM;
     }
 }
 
 }//namesapce impl
-
-}
 }//nbl::video
 
 using namespace nbl;
 using namespace nbl::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
-	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo.shaderStage),
-    m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
+COpenGLSpecializedShader::COpenGLSpecializedShader(
+	core::smart_refctd_ptr<ILogicalDevice>&& dev,
+	uint32_t _SLversion,
+	const asset::ICPUBuffer* _spirv,
+	const asset::ISpecializedShader::SInfo& _specInfo,
+	core::vector<SUniform>&& uniformList,
+	const asset::IShader::E_SHADER_STAGE stage)
+	: core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(std::move(dev)),
+	m_stage(stage),
+    m_GLstage(impl::ESS2GLenum(stage)),
 	m_specInfo(_specInfo),//TODO make it move()
 	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))
+
 {
-	m_options.version = _GLSLversion;
+	m_options.version = _SLversion;
 	//vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
-	m_options.vulkan_semantics = false; // with this it's likely that SPIRV-Cross will take care of built-in variables renaming, but need testing
+	m_options.vulkan_semantics = false;
 	m_options.separate_shader_objects = true;
 
 	core::XXHash_256(_spirv->getPointer(), _spirv->getSize(), m_spirvHash.data());
@@ -160,7 +168,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const 
 	m_uniformsList = uniformList;
 }
 
-auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger) const -> std::pair<GLuint, SProgramBinary>
 {
 	spirv_cross::ParsedIR parsed;
 	if (_parsedSpirv)
@@ -173,39 +181,51 @@ auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout, con
 	}
 	spirv_cross::CompilerGLSL comp(std::move(parsed));
 
-	comp.set_entry_point(m_specInfo.entryPoint, asset::ESS2spvExecModel(m_specInfo.shaderStage));
-	comp.set_common_options(m_options);
+	comp.set_entry_point(m_specInfo.entryPoint, asset::ESS2spvExecModel(getStage()));
+	auto options = m_options;
+	options.es = gl->isGLES();
+	comp.set_common_options(options);
 
 	impl::specialize(comp, m_specInfo);
 	impl::reorderBindings(comp, _layout);
 
-	std::string glslCode = comp.compile();
+	const std::string glslCode = comp.compile();
 	const char* glslCode_cstr = glslCode.c_str();
 
-	GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
+	GLuint GLname = gl->glShader.pglCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
 
 	GLchar logbuf[1u<<12]; //4k
-	COpenGLExtensionHandler::extGlGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
+	gl->glShader.pglGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
 	if (logbuf[0])
-		os::Printer::log(logbuf, ELL_ERROR);
+		logger.log(logbuf, system::ILogger::ELL_ERROR);
 
 	if (m_locations.empty())
-		gatherUniformLocations(GLname);
+		gatherUniformLocations(gl, GLname);
 
 	SProgramBinary binary;
-	GLint binaryLength = 0;
-	COpenGLExtensionHandler::extGlGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
-	binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
-	COpenGLExtensionHandler::extGlGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
+	if (!gl->getFeatures()->runningInRenderDoc)
+	{
+		GLint binaryLength = 0;
+		gl->glShader.pglGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
+		binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
+		gl->glShader.pglGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
+	}
+	else
+	{
+		// RenderDoc doesnt support program binaries, so in case of running in renderdoc we put GLSL as a "binary"
+
+		const size_t len = glslCode.size() + 1ull;
+		binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(len);
+		memcpy(binary.binary->data(), glslCode.c_str(), len);
+		binary.format = 0;
+	}
 
 	return {GLname, std::move(binary)};
 }
 
-void COpenGLSpecializedShader::gatherUniformLocations(GLuint _GLname) const
+void COpenGLSpecializedShader::gatherUniformLocations(IOpenGL_FunctionTable* gl, GLuint _GLname) const
 {
 	m_locations.resize(m_uniformsList.size());
 	for (size_t i = 0ull; i < m_uniformsList.size(); ++i)
-		m_locations[i] = COpenGLExtensionHandler::extGlGetUniformLocation(_GLname, m_uniformsList[i].m.name.c_str());
+		m_locations[i] = gl->glShader.pglGetUniformLocation(_GLname, m_uniformsList[i].m.name.c_str());
 }
-
-#endif

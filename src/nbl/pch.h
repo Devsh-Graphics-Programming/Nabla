@@ -5,7 +5,8 @@
 #ifndef __NBL_PCH_H_INCLUDED__
 #define __NBL_PCH_H_INCLUDED__
 
-#include "nabla.h"
+// oneDPL headers should be included before standard headers (for clang build)
+#include "nbl/core/execution.h"
 
 #include "nbl/core/pch_core.h"
 #include "nbl/asset/pch_asset.h"
@@ -28,12 +29,11 @@
 #include "ICursorControl.h"
 #include "IDriver.h"
 #include "IDriverFence.h"
-#include "IDriverMemoryAllocation.h"
-#include "IDriverMemoryBacked.h"
+#include "IDeviceMemoryAllocation.h"
+#include "IDeviceMemoryBacked.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IEventReceiver.h"
 #include "IFileArchive.h"
-#include "IFileList.h"
 #include "IFileSystem.h"
 #include "IFrameBuffer.h"
 #include "IGPUBuffer.h"
@@ -50,7 +50,6 @@
 #include "ISceneNodeAnimatorCameraMaya.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "ISkinningStateManager.h"
-#include "ITimer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IVideoDriver.h"
 #include "IWriteFile.h"
@@ -87,7 +86,7 @@
 #include "CIrrDeviceStub.h"
 #include "CIrrDeviceWin32.h"
 #include "CLimitReadFile.h"
-#include "CLogger.h"
+#include "nbl_CLogger.h"
 #include "CMemoryFile.h"
 #include "CMountPointReader.h"
 #include "CNullDriver.h"
@@ -107,7 +106,6 @@
 #include "CTarReader.h"
 #include "CWriteFile.h"
 #include "CZipReader.h"
-#include "FW_Mutex.h" // refactor
 #include "os.h"
 */
 

@@ -2,15 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED__
-#define __NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED_
+#define _NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED_
 
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/format/EColorSpace.h"
 
-namespace nbl
-{
-namespace asset
+#include <compare>
+
+namespace nbl::asset
 {
 
 //! A class to derive loader-specific image metadata objects from
@@ -20,19 +20,26 @@ namespace asset
 
 	but we can provide useful metadata from the loader.
 */
-class IImageMetadata : public core::Interface
+class NBL_API IImageMetadata : public core::Interface
 {
 	public:
 		struct ColorSemantic
 		{
 			E_COLOR_PRIMARIES colorSpace;
 			ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
+
+			auto operator<=>(const ColorSemantic&) const = default;
 		};
 
 		inline IImageMetadata() : colorSemantic{ECP_COUNT,EOTF_UNKNOWN} {}
 		inline IImageMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
 
 		ColorSemantic colorSemantic;
+
+		inline bool operator!=(const IImageMetadata& other) const
+		{
+			return colorSemantic != other.colorSemantic;
+		}
 
 	protected:
 		virtual ~IImageMetadata() = default;
@@ -44,7 +51,6 @@ class IImageMetadata : public core::Interface
 		}
 };
 
-}
 }
 
 #endif

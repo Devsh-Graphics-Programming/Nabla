@@ -5,23 +5,21 @@
 #ifndef __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 #define __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 
-
 #include "nbl/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
+#if 0 // TODO: until we figure out the API for HeterogenousMemoryAllocator (how it resizes a buffer)
 // if only we could use c++17 if-constexpr
 namespace impl
 {
     template<class HeterogenousMemoryAllocator> class ResizableHeterogenousMemoryAllocatorBase;
 
     template<class HeterogenousMemoryAllocator>
-    class ResizableHeterogenousMemoryAllocatorBase : public HeterogenousMemoryAllocator // make protected?
+    class NBL_API ResizableHeterogenousMemoryAllocatorBase : public HeterogenousMemoryAllocator // make protected?
     {
         protected:
             typedef HeterogenousMemoryAllocator Base;
@@ -40,7 +38,7 @@ namespace impl
 }
 
 template<class HeterogenousMemoryAllocator>
-class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> // make protected?
+class NBL_API ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> // make protected?
 {
         typedef impl::ResizableHeterogenousMemoryAllocatorBase<HeterogenousMemoryAllocator> Base;
         typedef typename Base::alloc_traits                                                                                             alloc_traits;
@@ -182,8 +180,8 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
         inline const decltype(shrinkPolicy)&    getShrinkPolicy() const {return shrinkPolicy;}
         inline void                             setShrinkPolicy(const decltype(shrinkPolicy)& newShrinkPolicy) {shrinkPolicy=newShrinkPolicy;}
 };
+#endif
 
-}
 }
 
 #endif

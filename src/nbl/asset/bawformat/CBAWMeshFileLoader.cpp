@@ -6,7 +6,7 @@
 
 #include <stack>
 
-#include "os.h"
+#include "nbl_os.h"
 #include "CMemoryFile.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/bawformat/legacy/CBAWLegacy.h"

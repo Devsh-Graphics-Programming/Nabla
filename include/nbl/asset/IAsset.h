@@ -5,11 +5,11 @@
 #ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
+#include "nbl/core/decl/smart_refctd_ptr.h"
+
 #include <string>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IAssetManager;
@@ -39,7 +39,7 @@ class IAssetManager;
 	@see IReferenceCounted
 */
 
-class IAsset : virtual public core::IReferenceCounted
+class NBL_API IAsset : virtual public core::IReferenceCounted
 {
 	public:
 		enum E_MUTABILITY : uint32_t
@@ -95,16 +95,23 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
 			ET_SPECIALIZED_SHADER = 1ull<<11,					//!< asset::ICPUSpecializedShader
 			ET_RENDERPASS_INDEPENDENT_PIPELINE = 1ull<<12,		//!< asset::ICPURenderpassIndependentPipeline
-			ET_SUB_MESH = 1ull<<13,							    //!< asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<14,								    //!< asset::ICPUMesh
-			ET_COMPUTE_PIPELINE = 1ull<<15,                     //!< asset::ICPUComputePipeline
-			ET_PIPELINE_CACHE = 1ull<<16,						//!< asset::ICPUPipelineCache
-			ET_SCENE = 1ull<<17,								//!< asset::ICPUScene (TODO)
+			ET_RENDERPASS = 1ull<<13,							//!< asset::ICPURenderpass
+			ET_FRAMEBUFFER = 1ull<<14,							//!< asset::ICPUFramebuffer
+			ET_GRAPHICS_PIPELINE = 1ull<<15,					//!< asset::ICPUGraphicsPipeline
+			ET_SUB_MESH = 1ull<<16,							    //!< asset::ICPUMeshBuffer
+			ET_MESH = 1ull<<17,								    //!< asset::ICPUMesh
+			ET_COMPUTE_PIPELINE = 1ull<<18,                     //!< asset::ICPUComputePipeline
+			ET_EVENT = 1ull<<19,								//!< asset::ICPUEvent
+			ET_COMMAND_BUFFER = 1ull<<20,						//!< asset::ICPUCommandBuffer
+			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
+			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
+			ET_ACCELERATION_STRUCTURE = 1ull<<23,				//!< asset::ICPUAccelerationStructure
+			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 
 			ET_TERMINATING_ZERO = 0
 		};
-		constexpr static size_t ET_STANDARD_TYPES_COUNT = 17u;
+		constexpr static size_t ET_STANDARD_TYPES_COUNT = 24u;
 
 		//! Returns a representaion of an Asset type in decimal system
 		/**
@@ -283,7 +290,6 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
 };
 
-}
 }
 
 #endif

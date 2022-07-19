@@ -6,7 +6,7 @@
 #ifndef __NBL_COLOR_H_INCLUDED__
 #define __NBL_COLOR_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "vectorSIMD.h"
 
 #include "nbl/asset/format/decodePixels.h"
@@ -62,7 +62,7 @@ namespace video
 	stores the color values in 4 floats.
 	This class must consist of only one uint32_t and must not use virtual functions.
 	*/
-	class SColor
+	class NBL_API SColor
 	{
 	public:
 
@@ -177,7 +177,7 @@ namespace video
 	Another, faster way to define colors is using the class SColor, which
 	stores the color values in a single 32 bit integer.
 	*/
-	class SColorf : private core::vectorSIMDf
+	class NBL_API SColorf : private core::vectorSIMDf
 	{
 	public:
 		//! Default constructor for SColorf.

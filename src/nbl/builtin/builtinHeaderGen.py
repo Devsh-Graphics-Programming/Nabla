@@ -15,7 +15,10 @@ else:
     #arguments
     outputFilename = sys.argv[1]
     cmakeSourceDir = sys.argv[2]
-    resourcePaths = sys.argv[3].split(';')
+    resourcesFile  = sys.argv[3]
+
+    with open(resourcesFile, "r") as f:
+        resourcePaths = f.read().rstrip().split(',')
 
     #opening a file
     outp = open(outputFilename,"w+")
@@ -26,7 +29,7 @@ else:
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
-    outp.write("#include <utility>\n#include \"nbl\\core\\string\\UniqueStringLiteralType.h\"\n#include \"nbl\\builtin\\common.h\"\n")
+    outp.write("#include <utility>\n#include <nbl/core/string/UniqueStringLiteralType.h>\n#include <nbl/builtin/common.h>\n")
     outp.write("namespace nbl { \n\tnamespace builtin { \n")
 
     #Iterating through input list

@@ -7,9 +7,6 @@
 #define __NBL_I_SCENE_NODE_ANIMATOR_CAMERA_FPS_H_INCLUDED__
 
 #include "ISceneNodeAnimator.h"
-#include "IEventReceiver.h"
-
-#include "SKeyMap.h"
 
 namespace nbl
 {
@@ -21,7 +18,7 @@ namespace scene
 	/** This scene node animator can be attached to a camera to make it act
 	like a first person shooter
 	*/
-	class ISceneNodeAnimatorCameraFPS : public ISceneNodeAnimator
+	class NBL_API ISceneNodeAnimatorCameraFPS : public ISceneNodeAnimator
 	{
 	public:
 
@@ -39,18 +36,6 @@ namespace scene
 
 		//! Set the rotation speed in degrees
 		virtual void setRotateSpeed(float rotateSpeed) = 0;
-
-		//! Sets the keyboard mapping for this animator (old style)
-		/** \param map Array of keyboard mappings, see nbl::SKeyMap
-		\param count Size of the keyboard map array. */
-		virtual void setKeyMap(SKeyMap *map, uint32_t count) = 0;
-
-		//! Sets the keyboard mapping for this animator
-		//!	\param keymap The new keymap array
-		virtual void setKeyMap(const core::vector<SKeyMap>& keymap) = 0;
-
-		//! Gets the keyboard mapping for this animator
-		virtual const core::vector<SKeyMap>& getKeyMap() const = 0;
 
 		//! Sets whether vertical movement should be allowed.
 		/** If vertical movement is enabled then the camera may fight with

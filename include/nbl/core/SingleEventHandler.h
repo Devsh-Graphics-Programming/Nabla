@@ -6,14 +6,14 @@
 #define __NBL_CORE_CORE_SINGLE_EVENT_HANDLER_H__
 
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
-class SingleEventHandler
+// TODO: actually implement and test
+//#define NBL_EVENT_DEREGISTER_IMPLEMENTATION_READY
+class NBL_API SingleEventHandler
 {
     public:
         using Function = std::function<void()>;
@@ -26,7 +26,7 @@ class SingleEventHandler
 		uint32_t				mFunctionsCount;
         FunctionContainerType   mFunctions;
         FunctionContainerIt     mLastFunction;
-/*
+#ifdef NBL_EVENT_DEREGISTER_IMPLEMENTATION_READY
         // returns prev and 
         inline std::pair<FunctionContainerIt,FunctionContainerIt> findFunction(const Function& function)
         {
@@ -40,7 +40,7 @@ class SingleEventHandler
             }
             return {prev,curr};
         }
-*/
+#endif
     public:
         SingleEventHandler(bool executeEventsOnDestroy) : mExecuteOnDestroy(executeEventsOnDestroy), mFunctionsCount(0u)
         {
@@ -63,7 +63,8 @@ class SingleEventHandler
             mLastFunction = mFunctions.emplace_after(mLastFunction,std::forward<Function>(function));
             mFunctionsCount++;
         }
- /* no comparison operator for std::function<> so no find
+#ifdef NBL_EVENT_DEREGISTER_IMPLEMENTATION_READY
+ // no comparison operator for std::function<> so no find
         //! does not call the operator()
         inline void deregisterFunction(const Function& function)
         {
@@ -82,7 +83,7 @@ class SingleEventHandler
             if (found.second!=mFunctions.end())
                 found.second->swap(newFunction);
         }
-*/
+#endif
         //
         inline void execute()
         {
@@ -95,20 +96,20 @@ class SingleEventHandler
 };
 
 //
-class QuitSignalling
+class NBL_API QuitSignalling
 {
     public:
         inline void registerOnQuit(SingleEventHandler::Function&& function)
         {
             quitEventHandler.registerFunction(std::move(function));
         }
-/*
+#ifdef NBL_EVENT_DEREGISTER_IMPLEMENTATION_READY
         //! does not call the operator()
         inline void deregisterOnQuit(const SingleEventHandler::Function& function)
         {
             quitEventHandler.deregisterFunction(function);
         }
-*/
+#endif
     protected:
         QuitSignalling() : quitEventHandler(false) {}
         virtual ~QuitSignalling() {assert(!quitEventHandler.getFunctionCount());}
@@ -116,9 +117,10 @@ class QuitSignalling
         SingleEventHandler quitEventHandler;
 };
 
+#ifdef NBL_EVENT_DEREGISTER_IMPLEMENTATION_READY
 //
 template<class T>
-class FactoryAndStaticSafeST
+class NBL_API FactoryAndStaticSafeST
 {
         T data = {};
         QuitSignalling* factory = nullptr;
@@ -153,7 +155,7 @@ class FactoryAndStaticSafeST
 
 //
 template<class T, class Lockable=std::mutex>
-class FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
+class NBL_API FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
 {
         static_assert(std::is_standard_layout<Lockable>::value, "Lock class is not standard layout");
         Lockable lock;
@@ -176,9 +178,8 @@ class FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
             return {FactoryAndStaticSafeST<T>::getData(),std::move(lockFirst)};
         }
 };
+#endif
 
-
-}
 }
 
 #endif

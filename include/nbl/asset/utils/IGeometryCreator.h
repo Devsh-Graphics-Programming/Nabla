@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_GEOMETRY_CREATOR_H_INCLUDED__
 #define __NBL_ASSET_I_GEOMETRY_CREATOR_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/utils/IMeshManipulator.h"
@@ -19,7 +19,7 @@ namespace asset
 
 //! Helper class for creating geometry on the fly.
 /** You can get an instance of this class through ISceneManager::getGeometryCreator() */
-class IGeometryCreator : public core::IReferenceCounted
+class NBL_API IGeometryCreator : public core::IReferenceCounted
 {
 		_NBL_INTERFACE_CHILD(IGeometryCreator) {}
 	public:

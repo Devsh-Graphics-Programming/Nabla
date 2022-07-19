@@ -8,14 +8,32 @@
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/IGPUMeshBuffer.h"//for IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace nbl
-{ 
-namespace video
+#include "nbl/video/IOpenGL_FunctionTable.h"
+
+namespace nbl::video
 {
 
+class IOpenGLPipelineBase
+{
+    public:
+        struct SShaderProgram
+        {
+            GLuint GLname = 0u;
+            bool uniformsSetForTheVeryFirstTime = true;
+
+            inline bool operator!=(const SShaderProgram& other) const
+            {
+                if (GLname != other.GLname)
+                    return true;
+                return uniformsSetForTheVeryFirstTime != other.uniformsSetForTheVeryFirstTime;
+            }
+        };
+};
+
+class IOpenGL_LogicalDevice;
+
 template<size_t _STAGE_COUNT>
-class IOpenGLPipeline
+class IOpenGLPipeline : IOpenGLPipelineBase
 {
     protected:
         // needed for spirv-cross-based workaround of GL's behaviour of gl_InstanceID
@@ -27,6 +45,8 @@ class IOpenGLPipeline
 
     private:
         using base_instance_cache_t = SBaseInstance;
+
+        _NBL_STATIC_INLINE_CONSTEXPR GLenum GraphicsPipelineStages[5] = { GL_VERTEX_SHADER, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_GEOMETRY_SHADER, GL_FRAGMENT_SHADER };
 
         _NBL_STATIC_INLINE_CONSTEXPR bool       IsComputePipelineBase =             (_STAGE_COUNT == 1u);
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t   BaseInstancePerContextCacheSize =   IsComputePipelineBase ? 0ull : sizeof(base_instance_cache_t);
@@ -46,19 +66,44 @@ class IOpenGLPipeline
         }
 
     public:
-        IOpenGLPipeline(uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[_STAGE_COUNT]) : 
+        IOpenGLPipeline(IOpenGL_LogicalDevice* _dev, IOpenGL_FunctionTable* gl, uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[_STAGE_COUNT]) :
+            m_device(_dev),
             m_GLprograms(core::make_refctd_dynamic_array<decltype(m_GLprograms)>(_ctxCount*_STAGE_COUNT))
         {
+            GLchar dbgname_buf[256];
+            GLsizei dbgname_len = 0;
+
             for (uint32_t i = 0u; i < _STAGE_COUNT; ++i)
                 (*m_GLprograms)[i].GLname = _GLnames[i];
+            std::fill_n(m_GLprograms->begin()+_STAGE_COUNT,(_ctxCount-1u)*_STAGE_COUNT,SShaderProgram{});
             for (uint32_t i = 1u; i < _ctxCount; ++i)
                 for (uint32_t j = 0u; j < _STAGE_COUNT; ++j)
                 {
                     const auto& bin = _binaries[j];
                     if (!bin.binary)
                         continue;
-                    const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
-                    COpenGLExtensionHandler::extGlProgramBinary(GLname, bin.format, bin.binary->data(), static_cast<uint32_t>(bin.binary->size()));
+
+                    GLuint GLname = 0u;
+                    if (!gl->getFeatures()->runningInRenderDoc)
+                    {
+                        GLname = gl->glShader.pglCreateProgram();
+                        gl->glShader.pglProgramBinary(GLname, bin.format, bin.binary->data(), static_cast<GLsizei>(bin.binary->size()));
+                    }
+                    else
+                    {
+                        // RenderDoc doesnt support program binaries, so in case of running in renderdoc, "binary" is GLSL string
+
+                        const char* glsl = reinterpret_cast<char*>(bin.binary->data());
+                        GLname = gl->glShader.pglCreateShaderProgramv(IsComputePipelineBase ? GL_COMPUTE_SHADER : GraphicsPipelineStages[j], 1u, &glsl);
+                    }
+
+                    {
+                        const GLuint name_created_by_device = (*m_GLprograms)[j].GLname;
+                        gl->extGlGetObjectLabel(GL_PROGRAM, name_created_by_device, sizeof(dbgname_buf), &dbgname_len, dbgname_buf); // TODO: this might not reflect the changed state due to section 5.3 of OpenGL 4.6 spec
+                        if (dbgname_len)
+                            gl->extGlObjectLabel(GL_PROGRAM, GLname, dbgname_len, dbgname_buf);
+                    }
+
                     (*m_GLprograms)[i*_STAGE_COUNT+j].GLname = GLname;
                 }
 
@@ -69,10 +114,6 @@ class IOpenGLPipeline
         }
         ~IOpenGLPipeline()
         {
-            //shader programs can be shared so all names can be freed by any thread
-            for (const auto& p : (*m_GLprograms))
-                if (p.GLname != 0u)
-                    COpenGLExtensionHandler::extGlDeleteProgram(p.GLname);
             _NBL_ALIGNED_FREE(m_uniformValues);
         }
 
@@ -80,16 +121,17 @@ class IOpenGLPipeline
         base_instance_cache_t* getBaseInstanceState(uint32_t _ctxID) const { return const_cast<base_instance_cache_t*>(reinterpret_cast<const base_instance_cache_t*>(m_uniformValues + baseInstanceCacheByteoffsetForCtx(_ctxID))); }
 
     protected:
-        void setUniformsImitatingPushConstants(uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations) const
+        void setUniformsImitatingPushConstants(IOpenGL_FunctionTable* glft, uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations) const
         {
             assert(_uniforms.size()==_locations.size());
 
             GLuint GLname = getShaderGLnameForCtx(_stageIx, _ctxID);
             uint8_t* state = getPushConstantsStateForStage(_stageIx, _ctxID);
 
-            NBL_ASSUME_ALIGNED(_pcData, 128);
+            // wtf??? alignas doesnt work??? (see COpenGLRenderpassIndependentPipeline and COpenGLComputePipeline)
+            // TODO
+            //NBL_ASSUME_ALIGNED(_pcData, 128);
 
-            using gl = COpenGLExtensionHandler;
 	        uint32_t loc_i = 0u;
             for (auto u_it=_uniforms.begin(); u_it!=_uniforms.end(); ++u_it, ++loc_i)
             {
@@ -145,12 +187,13 @@ class IOpenGLPipeline
 				        }
 			        }
 
+                    // TODO pointers to GL func (those arrays)
 			        if (is_mtx() && m.type==asset::EGVT_F32)
 			        {
 					        PFNGLPROGRAMUNIFORMMATRIX4FVPROC glProgramUniformMatrixNxMfv_fptr[3][3]{ //N - num of columns, M - num of rows because of weird OpenGL naming convention
-						        {&gl::extGlProgramUniformMatrix2fv, &gl::extGlProgramUniformMatrix2x3fv, &gl::extGlProgramUniformMatrix2x4fv},//2xM
-						        {&gl::extGlProgramUniformMatrix3x2fv, &gl::extGlProgramUniformMatrix3fv, &gl::extGlProgramUniformMatrix3x4fv},//3xM
-						        {&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
+						        {&glft->glShader.pglProgramUniformMatrix2fv, &glft->glShader.pglProgramUniformMatrix2x3fv, &glft->glShader.pglProgramUniformMatrix2x4fv},//2xM
+						        {&glft->glShader.pglProgramUniformMatrix3x2fv, &glft->glShader.pglProgramUniformMatrix3fv, &glft->glShader.pglProgramUniformMatrix3x4fv},//3xM
+						        {&glft->glShader.pglProgramUniformMatrix4x2fv, &glft->glShader.pglProgramUniformMatrix4x3fv, &glft->glShader.pglProgramUniformMatrix4fv} //4xM
 					        };
 
 					        glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](GLname, _locations.begin()[loc_i], count, m.rowMajor ? GL_TRUE : GL_FALSE, reinterpret_cast<const GLfloat*>(packed_data.data()));
@@ -162,7 +205,7 @@ class IOpenGLPipeline
 					        case asset::EGVT_F32:
 					        {
 						        PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
-							        &gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
+							        &glft->glShader.pglProgramUniform1fv, &glft->glShader.pglProgramUniform2fv, &glft->glShader.pglProgramUniform3fv, &glft->glShader.pglProgramUniform4fv
 						        };
 						        glProgramUniformNfv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], count, reinterpret_cast<const GLfloat*>(packed_data.data()));
 						        break;
@@ -170,7 +213,7 @@ class IOpenGLPipeline
 					        case asset::EGVT_I32:
 					        {
 						        PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
-							        &gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
+							        &glft->glShader.pglProgramUniform1iv, &glft->glShader.pglProgramUniform2iv, &glft->glShader.pglProgramUniform3iv, &glft->glShader.pglProgramUniform4iv
 						        };
 						        glProgramUniformNiv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], count, reinterpret_cast<const GLint*>(packed_data.data()));
 						        break;
@@ -178,7 +221,7 @@ class IOpenGLPipeline
 					        case asset::EGVT_U32:
 					        {
 						        PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
-							        &gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
+							        &glft->glShader.pglProgramUniform1uiv, &glft->glShader.pglProgramUniform2uiv, &glft->glShader.pglProgramUniform3uiv, &glft->glShader.pglProgramUniform4uiv
 						        };
 						        glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], count, reinterpret_cast<const GLuint*>(packed_data.data()));
 						        break;
@@ -198,10 +241,7 @@ class IOpenGLPipeline
             return (*m_GLprograms)[name_ix].GLname;
         }
 
-        struct SShaderProgram {
-            GLuint GLname = 0u;
-            bool uniformsSetForTheVeryFirstTime = true;
-        };
+        IOpenGL_LogicalDevice* m_device;
         //mutable for deferred GL objects creation
         mutable core::smart_refctd_dynamic_array<SShaderProgram> m_GLprograms;
         uint8_t* m_uniformValues;
@@ -220,7 +260,5 @@ class IOpenGLPipeline
 };
 
 }
-}
-#endif
 
 #endif

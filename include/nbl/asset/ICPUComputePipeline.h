@@ -19,7 +19,7 @@ namespace asset
     @see IComputePipeline
 */
 
-class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
+class NBL_API ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
 {
     using base_t = IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>;
 
@@ -60,6 +60,12 @@ public:
         return m_layout.get(); 
     }
     const ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
+
+    inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout)
+    {
+        assert(!isImmutable_debug());
+        m_layout = std::move(_layout);
+    }
 
     ICPUSpecializedShader* getShader()
     {

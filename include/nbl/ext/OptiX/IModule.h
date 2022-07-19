@@ -5,7 +5,7 @@
 #ifndef __NBL_EXT_OPTIX_MODULE_H_INCLUDED__
 #define __NBL_EXT_OPTIX_MODULE_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "optix.h"
 
@@ -19,7 +19,7 @@ namespace OptiX
 class IContext;
 
 
-class IModule final : public core::IReferenceCounted
+class NBL_API IModule final : public core::IReferenceCounted
 {
 	public:
 		inline OptixModule getOptiXHandle() {return module;}

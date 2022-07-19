@@ -14,7 +14,7 @@ namespace nbl
 namespace asset
 {
 
-class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
+class NBL_API ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 {
 	public:
 		static core::smart_refctd_ptr<ICPUImageView> create(SCreationParams&& params)
@@ -63,6 +63,11 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		{ 
 			assert(!isImmutable_debug());
 			return params.components;
+		}
+
+		inline void setAspectFlags(core::bitflag<IImage::E_ASPECT_FLAGS> aspect)
+		{
+			params.subresourceRange.aspectMask = aspect.value;
 		}
 
 		bool canBeRestoredFrom(const IAsset* _other) const override

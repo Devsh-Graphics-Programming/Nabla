@@ -10,424 +10,10 @@
 #include "CNullDriver.h"
 
 #include "CIrrDeviceWin32.h"
-#include "CSceneManager.h"
 #include "IEventReceiver.h"
-#include <list>
-#include "os.h"
-#include "nbl/asset/IAssetManager.h"
+#include "nbl_os.h"
 #include "COSOperator.h"
-#include "dimension2d.h"
-#include <winuser.h>
-#include "nbl/core/Types.h"
-#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
-#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
-#define DIRECTINPUT_VERSION 0x0800
-#include <dinput.h>
-#ifdef _MSC_VER
-#pragma comment(lib, "dinput8.lib")
-#pragma comment(lib, "dxguid.lib")
-#endif
-#else
-#ifdef _MSC_VER
-#pragma comment(lib, "winmm.lib")
-#endif
-#endif
-#endif
 
-namespace nbl
-{
-	namespace video
-	{
-		#ifdef _NBL_COMPILE_WITH_OPENGL_
-		IVideoDriver* createOpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
-			io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
-		#endif
-	}
-} // end namespace nbl
-
-namespace nbl
-{
-struct SJoystickWin32Control
-{
-	CIrrDeviceWin32* Device;
-
-#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
-	IDirectInput8* DirectInputDevice;
-#endif
-#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
-	struct JoystickInfo
-	{
-		uint32_t Index;
-#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
-		core::stringc Name;
-		GUID guid;
-		LPDIRECTINPUTDEVICE8 lpdijoy;
-		DIDEVCAPS devcaps;
-		uint8_t axisValid[8];
-#else
-		JOYCAPS Caps;
-#endif
-	};
-	core::vector<JoystickInfo> ActiveJoysticks;
-#endif
-
-	SJoystickWin32Control(CIrrDeviceWin32* dev) : Device(dev)
-	{
-#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
-		DirectInputDevice=0;
-		if (DI_OK != (DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&DirectInputDevice, NULL)))
-		{
-			os::Printer::log("Could not create DirectInput8 Object", ELL_WARNING);
-			return;
-		}
-#endif
-	}
-	~SJoystickWin32Control()
-	{
-#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
-		for(uint32_t joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
-		{
-			LPDIRECTINPUTDEVICE8 dev = ActiveJoysticks[joystick].lpdijoy;
-			if (dev)
-			{
-				dev->Unacquire();
-			}
-			dev->Release();
-		}
-
-		if (DirectInputDevice)
-			DirectInputDevice->Release();
-#endif
-	}
-
-#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
-	static BOOL CALLBACK EnumJoysticks(LPCDIDEVICEINSTANCE lpddi, LPVOID cp)
-	{
-		SJoystickWin32Control* p=(SJoystickWin32Control*)cp;
-		p->directInputAddJoystick(lpddi);
-		return DIENUM_CONTINUE;
-	}
-	void directInputAddJoystick(LPCDIDEVICEINSTANCE lpddi)
-	{
-		//Get the GUID of the joystuck
-		const GUID guid = lpddi->guidInstance;
-
-		JoystickInfo activeJoystick;
-		activeJoystick.Index=ActiveJoysticks.size();
-		activeJoystick.guid=guid;
-		activeJoystick.Name=lpddi->tszProductName;
-		if (FAILED(DirectInputDevice->CreateDevice(guid, &activeJoystick.lpdijoy, NULL)))
-		{
-			os::Printer::log("Could not create DirectInput device", ELL_WARNING);
-			return;
-		}
-
-		activeJoystick.devcaps.dwSize=sizeof(activeJoystick.devcaps);
-		if (FAILED(activeJoystick.lpdijoy->GetCapabilities(&activeJoystick.devcaps)))
-		{
-			os::Printer::log("Could not create DirectInput device", ELL_WARNING);
-			return;
-		}
-
-		if (FAILED(activeJoystick.lpdijoy->SetCooperativeLevel(Device->HWnd, DISCL_BACKGROUND | DISCL_EXCLUSIVE)))
-		{
-			os::Printer::log("Could not set DirectInput device cooperative level", ELL_WARNING);
-			return;
-		}
-
-		if (FAILED(activeJoystick.lpdijoy->SetDataFormat(&c_dfDIJoystick2)))
-		{
-			os::Printer::log("Could not set DirectInput device data format", ELL_WARNING);
-			return;
-		}
-
-		if (FAILED(activeJoystick.lpdijoy->Acquire()))
-		{
-			os::Printer::log("Could not set DirectInput cooperative level", ELL_WARNING);
-			return;
-		}
-
-		DIJOYSTATE2 info;
-		if (FAILED(activeJoystick.lpdijoy->GetDeviceState(sizeof(info),&info)))
-		{
-			os::Printer::log("Could not read DirectInput device state", ELL_WARNING);
-			return;
-		}
-
-		ZeroMemory(activeJoystick.axisValid,sizeof(activeJoystick.axisValid));
-		activeJoystick.axisValid[0]= (info.lX!=0) ? 1 : 0;
-		activeJoystick.axisValid[1]= (info.lY!=0) ? 1 : 0;
-		activeJoystick.axisValid[2]= (info.lZ!=0) ? 1 : 0;
-		activeJoystick.axisValid[3]= (info.lRx!=0) ? 1 : 0;
-		activeJoystick.axisValid[4]= (info.lRy!=0) ? 1 : 0;
-		activeJoystick.axisValid[5]= (info.lRz!=0) ? 1 : 0;
-
-		int caxis=0;
-		for (uint8_t i=0; i<6; i++)
-		{
-			if (activeJoystick.axisValid[i])
-				caxis++;
-		}
-
-		for (uint8_t i=0; i<(activeJoystick.devcaps.dwAxes)-caxis; i++)
-		{
-			if (i+caxis < 8)
-				activeJoystick.axisValid[i+caxis]=1;
-		}
-
-		ActiveJoysticks.push_back(activeJoystick);
-	}
-#endif
-
-void pollJoysticks()
-{
-#if defined _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
-#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
-	if(0 == ActiveJoysticks.size())
-		return;
-
-	uint32_t joystick;
-	DIJOYSTATE2 info;
-
-	for(joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
-	{
-		// needs to be reset for each joystick
-		// request ALL values and POV as continuous if possible
-
-		const DIDEVCAPS & caps = ActiveJoysticks[joystick].devcaps;
-		// if no POV is available don't ask for POV values
-
-		if (!FAILED(ActiveJoysticks[joystick].lpdijoy->GetDeviceState(sizeof(info),&info)))
-		{
-			SEvent event;
-
-			event.EventType = nbl::EET_JOYSTICK_INPUT_EVENT;
-			event.JoystickEvent.Joystick = (uint8_t)joystick;
-
-			event.JoystickEvent.POV = (uint16_t)info.rgdwPOV[0];
-			// set to undefined if no POV value was returned or the value
-			// is out of range
-			if ((caps.dwPOVs==0) || (event.JoystickEvent.POV > 35900))
-				event.JoystickEvent.POV = 65535;
-
-			for(int axis = 0; axis < SEvent::SJoystickEvent::NUMBER_OF_AXES; ++axis)
-				event.JoystickEvent.Axis[axis] = 0;
-
-			uint16_t dxAxis=0;
-			uint16_t irrAxis=0;
-
-			while (dxAxis < 6 && irrAxis <caps.dwAxes)
-			{
-				bool axisFound=0;
-				int32_t axisValue=0;
-
-				switch (dxAxis)
-				{
-				case 0:
-					axisValue=info.lX;
-					break;
-				case 1:
-					axisValue=info.lY;
-					break;
-				case 2:
-					axisValue=info.lZ;
-					break;
-				case 3:
-					axisValue=info.lRx;
-					break;
-				case 4:
-					axisValue=info.lRy;
-					break;
-				case 5:
-					axisValue=info.lRz;
-					break;
-				case 6:
-					axisValue=info.rglSlider[0];
-					break;
-				case 7:
-					axisValue=info.rglSlider[1];
-					break;
-				default:
-					break;
-				}
-
-				if (ActiveJoysticks[joystick].axisValid[dxAxis]>0)
-					axisFound=1;
-
-				if (axisFound)
-				{
-					int32_t val=axisValue - 32768;
-
-					if (val <-32767) val=-32767;
-					if (val > 32767) val=32767;
-					event.JoystickEvent.Axis[irrAxis]=(int16_t)(val);
-					irrAxis++;
-				}
-
-				dxAxis++;
-			}
-
-			uint32_t buttons=0;
-			BYTE* bytebuttons=info.rgbButtons;
-			for (uint16_t i=0; i<32; i++)
-			{
-				if (bytebuttons[i] >0)
-				{
-					buttons |= (1 << i);
-				}
-			}
-			event.JoystickEvent.ButtonStates = buttons;
-
-			(void)Device->postEventFromUser(event);
-		}
-	}
-#else
-	if (0 == ActiveJoysticks.size())
-		return;
-
-	uint32_t joystick;
-	JOYINFOEX info;
-
-	for(joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
-	{
-		// needs to be reset for each joystick
-		// request ALL values and POV as continuous if possible
-		info.dwSize = sizeof(info);
-		info.dwFlags = JOY_RETURNALL|JOY_RETURNPOVCTS;
-		const JOYCAPS & caps = ActiveJoysticks[joystick].Caps;
-		// if no POV is available don't ask for POV values
-		if (!(caps.wCaps & JOYCAPS_HASPOV))
-			info.dwFlags &= ~(JOY_RETURNPOV|JOY_RETURNPOVCTS);
-		if(JOYERR_NOERROR == joyGetPosEx(ActiveJoysticks[joystick].Index, &info))
-		{
-			SEvent event;
-
-			event.EventType = nbl::EET_JOYSTICK_INPUT_EVENT;
-			event.JoystickEvent.Joystick = (uint8_t)joystick;
-
-			event.JoystickEvent.POV = (uint16_t)info.dwPOV;
-			// set to undefined if no POV value was returned or the value
-			// is out of range
-			if (!(info.dwFlags & JOY_RETURNPOV) || (event.JoystickEvent.POV > 35900))
-				event.JoystickEvent.POV = 65535;
-
-			for(int axis = 0; axis < SEvent::SJoystickEvent::NUMBER_OF_AXES; ++axis)
-				event.JoystickEvent.Axis[axis] = 0;
-
-			event.JoystickEvent.ButtonStates = info.dwButtons;
-
-			switch(caps.wNumAxes)
-			{
-			default:
-			case 6:
-				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_V] =
-					(int16_t)((65535 * (info.dwVpos - caps.wVmin)) / (caps.wVmax - caps.wVmin) - 32768);
-
-			case 5:
-				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_U] =
-					(int16_t)((65535 * (info.dwUpos - caps.wUmin)) / (caps.wUmax - caps.wUmin) - 32768);
-
-			case 4:
-				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_R] =
-					(int16_t)((65535 * (info.dwRpos - caps.wRmin)) / (caps.wRmax - caps.wRmin) - 32768);
-
-			case 3:
-				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_Z] =
-					(int16_t)((65535 * (info.dwZpos - caps.wZmin)) / (caps.wZmax - caps.wZmin) - 32768);
-
-			case 2:
-				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_Y] =
-					(int16_t)((65535 * (info.dwYpos - caps.wYmin)) / (caps.wYmax - caps.wYmin) - 32768);
-
-			case 1:
-				event.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_X] =
-					(int16_t)((65535 * (info.dwXpos - caps.wXmin)) / (caps.wXmax - caps.wXmin) - 32768);
-			}
-
-			(void)Device->postEventFromUser(event);
-		}
-	}
-#endif
-#endif // _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
-}
-
-bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
-{
-#if defined _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
-#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
-	if (!DirectInputDevice || (DirectInputDevice->EnumDevices(DI8DEVCLASS_GAMECTRL, SJoystickWin32Control::EnumJoysticks, this, DIEDFL_ATTACHEDONLY )))
-	{
-		os::Printer::log("Could not enum DirectInput8 controllers", ELL_WARNING);
-		return false;
-	}
-
-	for(uint32_t joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
-	{
-		JoystickInfo& activeJoystick = ActiveJoysticks[joystick];
-		SJoystickInfo info;
-		info.Axes=activeJoystick.devcaps.dwAxes;
-		info.Buttons=activeJoystick.devcaps.dwButtons;
-		info.Name=activeJoystick.Name;
-		info.PovHat = (activeJoystick.devcaps.dwPOVs  != 0)
-				? SJoystickInfo::POV_HAT_PRESENT : SJoystickInfo::POV_HAT_ABSENT;
-		joystickInfo.push_back(info);
-	}
-	return true;
-#else
-	joystickInfo.clear();
-	ActiveJoysticks.clear();
-
-	const uint32_t numberOfJoysticks = ::joyGetNumDevs();
-	JOYINFOEX info;
-	info.dwSize = sizeof(info);
-	info.dwFlags = JOY_RETURNALL;
-
-	JoystickInfo activeJoystick;
-	SJoystickInfo returnInfo;
-
-	joystickInfo.reserve(numberOfJoysticks);
-	ActiveJoysticks.reserve(numberOfJoysticks);
-
-	uint32_t joystick = 0;
-	for(; joystick < numberOfJoysticks; ++joystick)
-	{
-		if(JOYERR_NOERROR == joyGetPosEx(joystick, &info)
-			&&
-			JOYERR_NOERROR == joyGetDevCaps(joystick,
-											&activeJoystick.Caps,
-											sizeof(activeJoystick.Caps)))
-		{
-			activeJoystick.Index = joystick;
-			ActiveJoysticks.push_back(activeJoystick);
-
-			returnInfo.Joystick = (uint8_t)joystick;
-			returnInfo.Axes = activeJoystick.Caps.wNumAxes;
-			returnInfo.Buttons = activeJoystick.Caps.wNumButtons;
-			returnInfo.Name = activeJoystick.Caps.szPname;
-			returnInfo.PovHat = ((activeJoystick.Caps.wCaps & JOYCAPS_HASPOV) == JOYCAPS_HASPOV)
-								? SJoystickInfo::POV_HAT_PRESENT : SJoystickInfo::POV_HAT_ABSENT;
-
-			joystickInfo.push_back(returnInfo);
-		}
-	}
-
-	for(joystick = 0; joystick < joystickInfo.size(); ++joystick)
-	{
-		char logString[256];
-		(void)sprintf(logString, "Found joystick %d, %d axes, %d buttons '%s'",
-			joystick, joystickInfo[joystick].Axes,
-			joystickInfo[joystick].Buttons, joystickInfo[joystick].Name.c_str());
-		os::Printer::log(logString, ELL_INFORMATION);
-	}
-
-	return true;
-#endif
-#else
-	return false;
-#endif // _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
-}
-};
-} // end namespace nbl
 
 // Get the codepage from the locale language id
 // Based on the table from http://www.science.co.il/Language/Locale-Codes.asp?s=decimal
@@ -589,39 +175,6 @@ static unsigned int LocaleIdToCodepage(unsigned int lcid)
 	return 65001;   // utf-8
 }
 
-namespace
-{
-	struct SEnvMapper
-	{
-		HWND hWnd;
-		nbl::CIrrDeviceWin32* irrDev;
-	};
-	nbl::core::list<SEnvMapper> EnvMap;
-
-	HKL KEYBOARD_INPUT_HKL=0;
-	unsigned int KEYBOARD_INPUT_CODEPAGE = 1252;
-}
-
-SEnvMapper* getEnvMapperFromHWnd(HWND hWnd)
-{
-	nbl::core::list<SEnvMapper>::iterator it = EnvMap.begin();
-	for (; it!= EnvMap.end(); ++it)
-		if ((*it).hWnd == hWnd)
-			return &(*it);
-
-	return 0;
-}
-
-
-nbl::CIrrDeviceWin32* getDeviceFromHWnd(HWND hWnd)
-{
-	nbl::core::list<SEnvMapper>::iterator it = EnvMap.begin();
-	for (; it!= EnvMap.end(); ++it)
-		if ((*it).hWnd == hWnd)
-			return (*it).irrDev;
-
-	return 0;
-}
 
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -853,7 +406,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				// If losing focus we minimize the app to show other one
 				ShowWindow(hWnd,SW_MINIMIZE);
 				// and switch back to default resolution
-				dev->switchToFullScreen(true);
+				dev->switchToFullscreen(true);
 			}
 			else
 			{
@@ -861,7 +414,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				SetForegroundWindow(hWnd);
 				ShowWindow(hWnd, SW_RESTORE);
 				// and set the fullscreen resolution again
-				dev->switchToFullScreen();
+				dev->switchToFullscreen();
 			}
 		}
 		break;
@@ -905,25 +458,11 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 : CIrrDeviceStub(params), HWnd(0), ChangedToFullScreen(false), Resized(false),
 	ExternalWindow(false), Win32CursorControl(0), JoyControl(0)
 {
-	#ifdef _NBL_DEBUG
-	setDebugName("CIrrDeviceWin32");
-	#endif
-
 	// get windows version and create OS operator
 	core::stringc winversion;
 	getWindowsVersion(winversion);
-	Operator = new COSOperator(winversion);
-	os::Printer::log(winversion.c_str(), ELL_INFORMATION);
-
 	// get handle to exe file
 	HINSTANCE hInstance = GetModuleHandle(0);
-
-	// Store original desktop mode.
-
-	memset(&DesktopMode, 0, sizeof(DesktopMode));
-	DesktopMode.dmSize = sizeof(DesktopMode);
-
-	EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &DesktopMode);
 
 	// create the window if we need to and we do not use the null device
 	if (!CreationParams.WindowId && CreationParams.DriverType != video::EDT_NULL)
@@ -1015,30 +554,14 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 
 	Win32CursorControl = new CCursorControl(this, CreationParams.WindowSize, HWnd, CreationParams.Fullscreen);
 	CursorControl = Win32CursorControl;
-	JoyControl = new SJoystickWin32Control(this);
 
 	// initialize doubleclicks with system values
 	MouseMultiClicks.DoubleClickTime = GetDoubleClickTime();
 
-#ifdef _NBL_COMPILE_WITH_CUDA_
-	cuda::CCUDAHandler::init();
-#endif // _NBL_COMPILE_WITH_CUDA_
-#ifdef _NBL_COMPILE_WITH_OPENCL_
-    ocl::COpenCLHandler::enumeratePlatformsAndDevices();
-#endif // _NBL_COMPILE_WITH_OPENCL_
 
 	// create driver
 	createDriver();
 
-	if (VideoDriver)
-		createGUIAndScene();
-
-	// register environment
-
-	SEnvMapper em;
-	em.irrDev = this;
-	em.hWnd = HWnd;
-	EnvMap.push_back(em);
 
 	// set this as active window
 	if (!ExternalWindow)
@@ -1056,71 +579,6 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 }
 
 
-//! destructor
-CIrrDeviceWin32::~CIrrDeviceWin32()
-{
-	delete JoyControl;
-
-	// unregister environment
-
-	auto it = EnvMap.begin();
-	for (; it!= EnvMap.end(); ++it)
-	{
-		if ((*it).hWnd == HWnd)
-		{
-			EnvMap.erase(it);
-			break;
-		}
-	}
-
-	switchToFullScreen(true);
-
-	if (SceneManager)
-		SceneManager->drop();
-
-	if (InputReceivingSceneManager)
-		InputReceivingSceneManager->drop();
-
-	if (CursorControl)
-		CursorControl->drop();
-
-	if (VideoDriver)
-		VideoDriver->drop();
-}
-
-
-//! create the driver
-void CIrrDeviceWin32::createDriver()
-{
-	switch(CreationParams.DriverType)
-	{
-	case video::EDT_OPENGL:
-
-		#ifdef _NBL_COMPILE_WITH_OPENGL_
-		switchToFullScreen();
-
-		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler());
-		if (!VideoDriver)
-		{
-			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);
-		}
-		#else
-		os::Printer::log("OpenGL driver was not compiled in.", ELL_ERROR);
-		#endif
-		break;
-
-	case video::EDT_NULL:
-		// create null driver
-		VideoDriver = video::createNullDriver(this, FileSystem.get(), CreationParams);
-		break;
-
-	default:
-		os::Printer::log("Unable to create video driver of unknown type.", ELL_ERROR);
-		break;
-	}
-}
-
-
 //! runs the device. Returns false if device wants to be deleted
 bool CIrrDeviceWin32::run()
 {
@@ -1133,18 +591,9 @@ bool CIrrDeviceWin32::run()
 	if (!Close)
 		resizeIfNecessary();
 
-	if(!Close && JoyControl)
-		JoyControl->pollJoysticks();
-
 	return !Close;
 }
 
-
-//! Pause the current process for the minimum time allowed only to allow other processes to execute
-void CIrrDeviceWin32::yield()
-{
-	Sleep(1);
-}
 
 //! Pause execution and let other processes to run for a specified amount of time.
 void CIrrDeviceWin32::sleep(uint32_t timeMs, bool pauseTimer)
@@ -1199,25 +648,6 @@ void CIrrDeviceWin32::setWindowCaption(const std::wstring& text)
 			SMTO_ABORTIFHUNG, 2000, &dwResult);
 }
 
-
-//! notifies the device that it should close itself
-void CIrrDeviceWin32::closeDevice()
-{
-	MSG msg;
-	PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_REMOVE);
-	PostQuitMessage(0);
-	PeekMessage(&msg, NULL, WM_QUIT, WM_QUIT, PM_REMOVE);
-	if (!ExternalWindow)
-	{
-		DestroyWindow(HWnd);
-		const char* ClassName = __TEXT("CIrrDeviceWin32");
-		HINSTANCE hInstance = GetModuleHandle(0);
-		UnregisterClass(ClassName, hInstance);
-	}
-	Close=true;
-}
-
-
 //! returns if window is active. if not, nothing needs to be drawn
 bool CIrrDeviceWin32::isWindowActive() const
 {
@@ -1246,11 +676,14 @@ bool CIrrDeviceWin32::isWindowMinimized() const
 
 
 //! switches to fullscreen
-bool CIrrDeviceWin32::switchToFullScreen(bool reset)
+bool CIrrDeviceWin32::switchToFullscreen(bool reset)
 {
 	if (!CreationParams.Fullscreen)
 		return true;
 
+	// TODO re-enable this later
+	// (currently transitioning to Vulkan so i wont lose time on this now)
+#if 0
 	if (reset)
 	{
 		if (ChangedToFullScreen)
@@ -1307,6 +740,7 @@ bool CIrrDeviceWin32::switchToFullScreen(bool reset)
 		break;
 	}
 	return ret;
+#endif
 }
 
 
@@ -1536,12 +970,6 @@ void CIrrDeviceWin32::getWindowsVersion(core::stringc& out)
 	}
 }
 
-//! Notifies the device, that it has been resized
-void CIrrDeviceWin32::OnResized()
-{
-	Resized = true;
-}
-
 //! Sets if the window should be resizable in windowed mode.
 void CIrrDeviceWin32::setResizable(bool resize)
 {
@@ -1611,14 +1039,6 @@ void CIrrDeviceWin32::restoreWindow()
 	SetWindowPlacement(HWnd, &wndpl);
 }
 
-
-bool CIrrDeviceWin32::activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
-{
-	if (JoyControl)
-		return JoyControl->activateJoysticks(joystickInfo);
-	else
-		return false;
-}
 
 //! Process system events
 void CIrrDeviceWin32::handleSystemMessages()

@@ -12,6 +12,7 @@ set(NBL_EXT_RADEON_RAYS_SRC
 set(NBL_EXT_RADEON_RAYS_EXTERNAL_INCLUDE
 	"${NBL_ROOT_PATH}/3rdparty"
 	"${NBL_ROOT_PATH}/3rdparty/radeonrays/RadeonRays/include"
+	"${NBL_ROOT_PATH}/3rdparty/EGL/EGL/include" # just because it's including COpenGLDriver.h
 )
 
 nbl_create_ext_library_project(
@@ -20,6 +21,7 @@ nbl_create_ext_library_project(
 	"${NBL_EXT_RADEON_RAYS_SRC}"
 	"${NBL_EXT_RADEON_RAYS_EXTERNAL_INCLUDE}"
 	""
+    ""
 )
 
 add_dependencies(NblExtRADEON_RAYS ${RADEON_RAYS_DEPENDENTS})

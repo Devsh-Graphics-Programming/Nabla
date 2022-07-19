@@ -6,15 +6,13 @@
 #define __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
 
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 template<class Event, class Functor>
-struct DeferredEvent
+struct NBL_API DeferredEvent
 {
     using event_t = Event;
     using functor_t = Functor;
@@ -39,7 +37,7 @@ struct DeferredEvent
     functor_t m_function;
 };
 
-class PolymorphicEvent : public core::Uncopyable
+class NBL_API PolymorphicEvent : public core::Uncopyable
 {
     protected:
         PolymorphicEvent() = default;
@@ -47,9 +45,7 @@ class PolymorphicEvent : public core::Uncopyable
 
     public:
         PolymorphicEvent& operator=(const PolymorphicEvent&) = delete;
-        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) noexcept
-        {
-        }
+        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) = 0;
 
         virtual bool wait_until(const std::chrono::steady_clock::time_point& timeout_time) = 0;
 
@@ -71,7 +67,7 @@ using DeferredPolymorphicEventPolymorphic = DeferredEvent<PolymorphicEvent*,std:
 
 
 template<class DeferredEvent>
-class DeferredEventHandlerST
+class NBL_API DeferredEventHandlerST
 {
     protected:
         using EventContainerType = core::forward_list<DeferredEvent>;
@@ -109,7 +105,7 @@ class DeferredEventHandlerST
                 auto prev = mEvents.before_begin();
                 for (auto it = mEvents.begin(); it!=mEvents.end(); )
                 {
-                    if (it->m_event.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
+                    if (it->m_event.wait_until(std::chrono::steady_clock::now()+std::chrono::microseconds(250ull)))
                     {
                         it->m_function();
                         it = mEvents.erase_after(prev);
@@ -267,7 +263,6 @@ class DeferredEventHandlerST
 
 //! EventDeferredHandlerMT coming later
 
-}
 }
 
 #endif

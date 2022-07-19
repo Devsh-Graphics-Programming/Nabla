@@ -6,6 +6,7 @@
 #define __NBL_CORE_LRU_CACHE_H_INCLUDED__
 
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
+#include <iostream>
 
 namespace nbl
 {
@@ -15,14 +16,17 @@ namespace core
 namespace impl
 {
 	template<typename Key, typename Value, typename MapHash, typename MapEquals>
-	class LRUCacheBase
+	class NBL_API LRUCacheBase
 	{
 		public:
 			using list_value_t = std::pair<Key,Value>;
-			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = FixedCapacityDoublyLinkedList<list_value_t>::invalid_iterator;
+			using list_t = FixedCapacityDoublyLinkedList<list_value_t>;
+			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = list_t::invalid_iterator;
+
+			using disposal_func_t = typename list_t::disposal_func_t;
 
 		protected:
-			FixedCapacityDoublyLinkedList<list_value_t> m_list;
+			list_t m_list;
 
 		private:
 			MapHash m_hash;
@@ -31,7 +35,7 @@ namespace impl
 		protected:
 			const mutable Key* searchedKey;
 
-			inline LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals) : m_list(capacity), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
+			inline LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
 			{
 			}
 
@@ -54,11 +58,13 @@ namespace impl
 // Stores fixed size amount of elements. 
 // When the cache is full inserting will remove the least used entry
 template<typename Key, typename Value, typename MapHash=std::hash<Key>, typename MapEquals=std::equal_to<Key> >
-class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
+class NBL_API LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 {
 		// typedefs
-		typedef LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
+		typedef impl::LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
 		typedef LRUCache<Key,Value,MapHash,MapEquals> this_t;
+
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = base_t::invalid_iterator;
 
 		// wrappers
 		struct WrapHash
@@ -85,7 +91,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		using shortcut_iterator_t = typename unordered_set<uint32_t,WrapHash,WrapEquals>::const_iterator;
 		inline shortcut_iterator_t common_find(const Key& key) const
 		{
-			searchedKey = &key;
+			base_t::searchedKey = &key;
 			return m_shortcut_map.find(invalid_iterator);
 		}
 		inline shortcut_iterator_t common_find(const Key& key, bool& success) const
@@ -111,45 +117,46 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			if (success)
 			{
 				const auto nodeAddr = *iterator;
-				m_list.get(nodeAddr)->data.second = std::forward<V>(v);
-				m_list.moveToFront(nodeAddr);
+				base_t::m_list.get(nodeAddr)->data.second = std::forward<V>(v);
+				base_t::m_list.moveToFront(nodeAddr);
 			}
 			else
 			{
-				const bool overflow = m_shortcut_map.size()>=m_list.getCapacity();
+				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
 				if (overflow)
 				{
-					m_shortcut_map.erase(m_list.getLastAddress());
-					m_list.popBack();
+					m_shortcut_map.erase(base_t::m_list.getLastAddress());
+					base_t::m_list.popBack();
 				}
-				m_list.pushFront(std::make_pair(std::forward<K>(k),std::forward<V>(v)));
-				m_shortcut_map.insert(m_list.getFirstAddress());
+				base_t::m_list.pushFront(std::make_pair(std::forward<K>(k),std::forward<V>(v)));
+				m_shortcut_map.insert(base_t::m_list.getFirstAddress());
 			}
 		}
 
 	public:
+		using disposal_func_t = typename base_t::disposal_func_t;
+		using assoc_t = typename base_t::list_value_t;
+
 		//Constructor
-		inline LRUCache(const uint32_t capacity, MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
-			base_t(capacity,std::move(_hash),std::move(_equals)),
+		inline LRUCache(const uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
+			base_t(capacity,std::move(_hash),std::move(_equals),std::move(_df)),
 			m_shortcut_map(capacity>>2,WrapHash{this},WrapEquals{this}) // 4x less buckets than capacity seems reasonable
 		{
 			assert(capacity > 1);
 			m_shortcut_map.reserve(capacity);
 		}
 
-	#ifdef _NBL_DEBUG
-		inline void print()
+		inline void print(std::ostream& ostream)
 		{
-			auto node = m_list.getBegin();
+			auto node = base_t::m_list.getBegin();
 			while (true)
 			{
-				std::cout <<"k:" << node->data.first << "    v:" << node->data.second << std::endl;
+				ostream <<"k:" << node->data.first << "    v:" << node->data.second << std::endl;
 				if (node->next == invalid_iterator)
 					break;
-				node = m_list.get(node->next);
+				node = base_t::m_list.get(node->next);
 			}
 		}
-	#endif // _NBL_DEBUG
 
 		//insert an element into the cache, or update an existing one with the same key
 		inline void insert(Key&& k, Value&& v) { common_insert(std::move(k), std::move(v)); }
@@ -163,8 +170,8 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			auto i = common_peek(key);
 			if (i!=invalid_iterator)
 			{
-				m_list.moveToFront(i);
-				return &(m_list.get(i)->data.second);
+				base_t::m_list.moveToFront(i);
+				return &(base_t::m_list.get(i)->data.second);
 			}
 			else
 				return nullptr;
@@ -175,7 +182,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		{
 			uint32_t i = common_peek(key);
 			if (i!=invalid_iterator)
-				return &(m_list.get(i)->data.second);
+				return &(base_t::m_list.get(i)->data.second);
 			else
 				return nullptr;
 		}
@@ -183,7 +190,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		{
 			uint32_t i = common_peek(key);
 			if (i != invalid_iterator)
-				return &(m_list.get(i)->data.second);
+				return &(base_t::m_list.get(i)->data.second);
 			else
 				return nullptr;
 		}
@@ -195,7 +202,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			shortcut_iterator_t iterator = common_find(key,success);
 			if (success)
 			{
-				m_list.erase(*iterator);
+				base_t::m_list.erase(*iterator);
 				m_shortcut_map.erase(iterator);
 			}
 		}

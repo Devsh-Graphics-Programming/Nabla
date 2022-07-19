@@ -5,11 +5,9 @@
 #ifndef __NBL_CORE_SOBOL_SAMPLER_H_
 #define __NBL_CORE_SOBOL_SAMPLER_H_
 
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 // Frances Y. Kuo
@@ -63,7 +61,7 @@ namespace core
 
 
 //! With modification and class encapsulation by DevSH
-class SobolSampler
+class NBL_API SobolSampler
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_BITS = sizeof(uint32_t)*8u;
@@ -8348,8 +8346,6 @@ class SobolSampler
 		}
 };
 
-
-}
 }
 
 #endif

@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "COverdrawMeshOptimizer.h"
 
@@ -10,14 +10,11 @@
 #include <functional>
 
 #include "CMeshManipulator.h"
-#include "os.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold)
+void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold, const system::logger_opt_ptr logger)
 {
 	if (!_outbuffer || !_inbuffer)
 		return;
@@ -29,18 +26,14 @@ void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, 
 	const void* const inIndices = _inbuffer->getIndices();
 	if (idxCount==0u || indexType==asset::EIT_UNKNOWN || !inIndices)
 	{
-#ifdef _NBL_DEBUG
-		os::Printer::log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
-#endif
+		logger.log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
 		return;
 	}
 
 	void* const outIndices = _outbuffer->getIndices();
 	if (_outbuffer->getIndexCount()!=idxCount || _outbuffer->getIndexType()!=indexType || !outIndices)
 	{
-#ifdef _NBL_DEBUG
-		os::Printer::log("Overdraw optimization: output meshbuffer's index buffer does not match input -- mesh buffer left unchanged.");
-#endif
+		logger.log("Overdraw optimization: output meshbuffer's index buffer does not match input -- mesh buffer left unchanged.");
 		return;
 	}
 
@@ -275,4 +268,4 @@ size_t COverdrawMeshOptimizer::updateCache(uint32_t _a, uint32_t _b, uint32_t _c
 	return cacheMisses;
 }
 
-}} // nbl::scene
+} // nbl::asset

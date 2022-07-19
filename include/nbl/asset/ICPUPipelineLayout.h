@@ -19,7 +19,7 @@ namespace asset
     @see IPipelineLayout
 */
 
-class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
+class NBL_API ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW = 1u;

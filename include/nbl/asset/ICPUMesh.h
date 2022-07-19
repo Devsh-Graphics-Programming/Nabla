@@ -15,7 +15,7 @@ namespace nbl
 namespace asset
 {
 
-class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public IAsset
+class NBL_API ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public IAsset
 {
 	public:
 		//! These are not absolute constants, just the most common situation, there may be setups of assets/resources with completely different relationships.
@@ -25,6 +25,9 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = MESHBUFFER_HIERARCHYLEVELS_BELOW+1u;//meshbuffer->ds
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = DESC_SET_HIERARCHYLEVELS_BELOW+1u;//ds->imageview
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t IMAGE_HIERARCHYLEVELS_BELOW = IMAGEVIEW_HIERARCHYLEVELS_BELOW+1u;//imageview->image
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SAMPLER_HIERARCHYLEVELS_BELOW = DESC_SET_HIERARCHYLEVELS_BELOW+2u;//ds->layout->immutable
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t BUFFER_HIERARCHYLEVELS_BELOW = DESC_SET_HIERARCHYLEVELS_BELOW+1u;//ds->buffer
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VTX_IDX_BUFFER_HIERARCHYLEVELS_BELOW = MESHBUFFER_HIERARCHYLEVELS_BELOW+1u;//meshbuffer->m_vertexBufferBindings or m_indexBufferBinding
 
 		//!
 		inline core::SRange<const ICPUMeshBuffer* const> getMeshBuffers() const override
@@ -62,9 +65,14 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			@param _stackSize Size of stack memory pointed by _stackPtr.
 			@returns Pointer to memory on which blob was written.
 		*/
+		
 		inline void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
 		{
+#ifdef OLD_SHADERS
 			return CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+#else
+            return nullptr;
+#endif
 		}
 
 		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
@@ -99,6 +107,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
         {
             auto cp = core::make_smart_refctd_ptr<ICPUMesh>();
             clone_common(cp.get());
+			cp->m_cachedBoundingBox = m_cachedBoundingBox;
             cp->m_meshBuffers.resize(m_meshBuffers.size());
 
 			auto outIt = cp->m_meshBuffers.begin();

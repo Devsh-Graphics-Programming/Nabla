@@ -15,7 +15,7 @@ namespace core
 
 	//! TODO: make the tree sampler/generator configurable and let RandomSampler be default
 	template<class SequenceSampler=SobolSampler>
-	class OwenSampler : protected SequenceSampler
+	class NBL_API OwenSampler : protected SequenceSampler
 	{
 	public:
 		OwenSampler(uint32_t _dimensions, uint32_t _seed) : SequenceSampler(_dimensions)
@@ -73,14 +73,14 @@ namespace core
 				for (uint32_t j=0u; j<currentLevelSize; j++)
 					cachedFlip[currentLevelStart+j] |= cachedFlip[previousLevelStart+(j>>1u)];
 				#ifdef _NBL_DEBUG
-					for (uint32_t j=0u; j<currentLevelSize; j+=2)
-					{
-						const uint32_t highBitMask = 0xffffffffu<<(OUT_BITS-i);
-						uint32_t left = cachedFlip[currentLevelStart+j];
-						uint32_t right = cachedFlip[currentLevelStart+j+1];
-						assert(((left^right)&highBitMask)==0u);
-						assert((left&right&highBitMask)==cachedFlip[previousLevelStart+(j>>1u)]);
-					}
+				for (uint32_t j=0u; j<currentLevelSize; j+=2)
+				{
+					const uint32_t highBitMask = 0xffffffffu<<(OUT_BITS-i);
+					uint32_t left = cachedFlip[currentLevelStart+j];
+					uint32_t right = cachedFlip[currentLevelStart+j+1];
+					assert(((left^right)&highBitMask)==0u);
+					assert((left&right&highBitMask)==cachedFlip[previousLevelStart+(j>>1u)]);
+				}
 				#endif
 			}
 			lastDim = dimension;

@@ -9,9 +9,7 @@
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/ISpecializedShader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Interface class for compute pipelines
@@ -26,7 +24,7 @@ namespace asset
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class IComputePipeline : public IPipeline<LayoutType>
+class NBL_API IComputePipeline : public IPipeline<LayoutType>
 {
     public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;
@@ -40,7 +38,7 @@ class IComputePipeline : public IPipeline<LayoutType>
 		) : IPipeline<LayoutType>(std::move(_layout)),
 			m_shader(std::move(_cs))
 		{
-            assert(m_shader->getStage() == ISpecializedShader::ESS_COMPUTE);
+            assert(m_shader->getStage() == IShader::ESS_COMPUTE);
         }
 
     protected:
@@ -49,7 +47,6 @@ class IComputePipeline : public IPipeline<LayoutType>
 		core::smart_refctd_ptr<SpecShaderType> m_shader;
 };
 
-}
 }
 
 

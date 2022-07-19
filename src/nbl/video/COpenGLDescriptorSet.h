@@ -6,18 +6,16 @@
 #define __NBL_VIDEO_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
 
 #include "nbl/video/IGPUDescriptorSet.h"
+
 #include "nbl/macros.h"
-#include "COpenGLExtensionHandler.h"
+
 #include "COpenGLBuffer.h"
 #include "COpenGLBufferView.h"
 #include "COpenGLImage.h"
 #include "COpenGLImageView.h"
-#include "nbl/video/COpenGLSampler.h"
+#include "COpenGLSampler.h"
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace nbl
-{
-namespace video
+namespace nbl::video
 {
 
 class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>
@@ -36,10 +34,12 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			{
 				GLuint* textures = nullptr;
 				GLuint* samplers = nullptr;
+				GLenum* targets = nullptr;
 			};
 			struct SMultibindTextureImages
 			{
 				GLuint* textures = nullptr;
+				GLenum* formats = nullptr;
 			};
         
 			SMultibindBuffers ubos;
@@ -48,8 +48,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			SMultibindTextureImages textureImages;
 		};
 
-	public:
-		COpenGLDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get())
+		COpenGLDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(std::move(dev), std::move(_layout)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get()), m_revision(0ull)
 		{
 			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
 			uint32_t uboCount = 0u;//includes dynamics
@@ -101,6 +100,9 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			std::fill(m_sizes->begin(), m_sizes->end(), ~0u);
 			m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(m_offsets->size());
 			std::fill(m_dynOffsetIxs->begin(), m_dynOffsetIxs->end(), 0u);
+			m_targetsAndFormats = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLenum> >(textureCount + imageCount);
+			std::fill(m_targetsAndFormats->begin(), m_targetsAndFormats->begin()+textureCount, GL_TEXTURE_2D);
+			std::fill(m_targetsAndFormats->begin()+textureCount, m_targetsAndFormats->end(), GL_R8);
 			
 			const size_t uboNamesOffset = 0ull;
 			const size_t ssboNamesOffset = uboCount;
@@ -121,10 +123,12 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			setBufMultibindParams(m_multibindParams.ssbos, ssboNamesOffset, ssboBufOffset);
 			m_multibindParams.textures.textures = (*m_names).data() + texNamesOffset;
 			m_multibindParams.textures.samplers = (*m_names).data() + samplerNamesOffset;
+			m_multibindParams.textures.targets = (*m_targetsAndFormats).data();
 			m_multibindParams.textureImages.textures = (*m_names).data() + imagNamesOffset;
+			m_multibindParams.textureImages.formats = (*m_targetsAndFormats).data() + textureCount;
 
 			// set up dynamic offset redirects
-			uint32_t dyn_offset_iter = 0u;
+			m_dynamicOffsetCount = 0u;
 			auto uboDescIxIter = m_buffer2descIx->begin();
 			auto ssboDescIxIter = m_buffer2descIx->begin()+uboCount;
 			for (size_t i=0u; i<m_bindingInfo->size(); i++)
@@ -144,11 +148,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 						break;
 					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
 						*(uboDescIxIter++) = offset+j;
-						m_multibindParams.ubos.dynOffsetIxs[offset+j] = dyn_offset_iter++;
+						m_multibindParams.ubos.dynOffsetIxs[offset+j] = m_dynamicOffsetCount++;
 						break;
 					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
 						*(ssboDescIxIter++) = offset+j;
-						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = dyn_offset_iter++;
+						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = m_dynamicOffsetCount++;
 						break;
 					default:
 						break;
@@ -189,10 +193,12 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					assert(layoutBinding->stageFlags==stageFlags);
 					assert((!!layoutBinding->samplers)==usesImmutableSamplers);
 				#endif
-				output->assign(_write.info[i], type);
+				*output = _write.info[i];
 				uint32_t localIx = _write.arrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_write.binding)+localIx,_write.binding,localIx);
 			}
+
+			m_revision++;
 		}
 		inline void copyDescriptorSet(const SCopyDescriptorSet& _copy)
 		{
@@ -203,8 +209,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 			assert(_copy.srcBinding<srcGLSet->m_bindingInfo->size());
 			assert(_copy.dstBinding<m_bindingInfo->size());
-			assert(_copy.srcArrayElement+_copy.count<srcGLSet->m_descriptors->size());
-			assert(_copy.dstArrayElement+_copy.count<m_descriptors->size());
+			assert(_copy.srcArrayElement+_copy.count<=srcGLSet->m_descriptors->size());
+			assert(_copy.dstArrayElement+_copy.count<=m_descriptors->size());
 			// The type of dstBinding within dstSet must be equal to the type of srcBinding within srcSet
 			const auto type = srcGLSet->m_bindingInfo->operator[](_copy.srcBinding).descriptorType;
 			assert(type==m_bindingInfo->operator[](_copy.dstBinding).descriptorType);
@@ -219,17 +225,20 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				#ifdef _NBL_DEBUG
 					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptors->begin());
 					auto foundOut = getBindingInfo(output-m_descriptors->begin());
-					assert(foundOut->descriptorType==foundOut->descriptorType);
+					assert(foundIn->descriptorType==foundOut->descriptorType);
 
-					auto inLayoutBinding = getLayoutBinding(foundIn-srcGLSet->m_bindingInfo->begin());
-					auto outLayoutBinding = getLayoutBinding(foundOut-m_bindingInfo->begin());
-					assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
-					assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
+					// TODO: fix this debug code
+					//auto inLayoutBinding = getLayoutBinding(foundIn-srcGLSet->m_bindingInfo->begin());
+					//auto outLayoutBinding = getLayoutBinding(foundOut-m_bindingInfo->begin());
+					//assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
+					//assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
 				#endif
-				output->assign(*input, type);
+				*output = *input;
 				uint32_t localIx = _copy.dstArrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_copy.dstBinding)+localIx,_copy.dstBinding,localIx);
 			}
+
+			m_revision++;
 		}
 
 		inline const COpenGLBuffer* getUBO(uint32_t localIndex) const
@@ -244,6 +253,10 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		}
 
 		inline const SMultibindParams& getMultibindParams() const { return m_multibindParams; }
+
+		inline uint64_t getRevision() const {return m_revision;}
+
+		inline uint32_t getDynamicOffsetCount() const {return m_dynamicOffsetCount;}
 
 	protected:
 		inline SDescriptorInfo* getDescriptors(uint32_t index) 
@@ -260,10 +273,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		inline uint32_t getDescriptorCountAtIndex(uint32_t index) const
 		{
 			const auto& info = m_bindingInfo->operator[](index);
-			if (index+1u!=m_bindingInfo->size())
-				return m_bindingInfo->operator[](index+1u).offset-info.offset;
+			if (index + 1u != m_bindingInfo->size())
+			{
+				const auto& info1 = m_bindingInfo->operator[](index + 1u);
+				return info1.offset - info.offset;
+			}
 			else
-				return m_descriptors->size()+1u-info.offset; // TODO: this +1 doesn't look right
+				return m_descriptors->size() - info.offset;
 		}
 
 		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
@@ -278,7 +294,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		{
 			auto layoutBindings = m_layout->getBindings();
 			auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
-					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::ISpecializedShader::ESS_ALL,nullptr},
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::IShader::ESS_ALL,nullptr},
 					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
 			assert(layoutBinding!=layoutBindings.end());
 			return layoutBinding;
@@ -301,15 +317,18 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			}
 			else if (descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
 			{
-				m_multibindParams.textures.textures[offset] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
+				auto* glimgview = static_cast<COpenGLImageView*>(info.desc.get());
+
+				m_multibindParams.textures.textures[offset] = glimgview->getOpenGLName();
 
 				auto layoutBindings = m_layout->getBindings();
 				auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
-					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::ISpecializedShader::ESS_ALL,nullptr},
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::IShader::ESS_ALL,nullptr},
 					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
 				m_multibindParams.textures.samplers[offset] = layoutBinding->samplers ? //take immutable sampler if present
 						static_cast<COpenGLSampler*>(layoutBinding->samplers[local_iter].get())->getOpenGLName() :
 						static_cast<COpenGLSampler*>(info.image.sampler.get())->getOpenGLName();
+				m_multibindParams.textures.targets[offset] = glimgview->getOpenGLTarget();
 			}
 			else if (descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)
 			{
@@ -317,9 +336,19 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				m_multibindParams.textures.samplers[offset] = 0u;//no sampler for samplerBuffer descriptor
 			}
 			else if (descriptorType==asset::EDT_STORAGE_IMAGE)
-				m_multibindParams.textureImages.textures[offset] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
+			{
+				auto* glimgview = static_cast<COpenGLImageView*>(info.desc.get());
+
+				m_multibindParams.textureImages.textures[offset] = glimgview->getOpenGLName();
+				m_multibindParams.textureImages.formats[offset] = glimgview->getInternalFormat();
+			}
 			else if (descriptorType==asset::EDT_STORAGE_TEXEL_BUFFER)
-				m_multibindParams.textureImages.textures[offset] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
+			{
+				auto* glbufview = static_cast<COpenGLBufferView*>(info.desc.get());
+
+				m_multibindParams.textureImages.textures[offset] = glbufview->getOpenGLName();
+				m_multibindParams.textureImages.formats[offset] = glbufview->getInternalFormat();
+			}
 		}
 
 		SMultibindParams m_multibindParams;
@@ -330,11 +359,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		core::smart_refctd_dynamic_array<GLuint> m_names;
 		core::smart_refctd_dynamic_array<GLintptr> m_offsets;
 		core::smart_refctd_dynamic_array<GLsizeiptr> m_sizes;
+		core::smart_refctd_dynamic_array<GLenum> m_targetsAndFormats;
 		core::smart_refctd_dynamic_array<uint32_t> m_dynOffsetIxs;
+
+		uint64_t m_revision;
+		uint32_t m_dynamicOffsetCount;
 };
 
 }
-}
-#endif
 
 #endif

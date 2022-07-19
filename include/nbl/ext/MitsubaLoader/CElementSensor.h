@@ -19,7 +19,7 @@ namespace MitsubaLoader
 {
 
 
-class CElementSensor : public IElement
+class NBL_API CElementSensor : public IElement
 {
 	public:
 		enum Type
@@ -37,6 +37,9 @@ class CElementSensor : public IElement
 		};
 	struct ShutterSensor
 	{
+		float moveSpeed = core::nan<float>();
+		float zoomSpeed = core::nan<float>();
+		float rotateSpeed = core::nan<float>();
 		float shutterOpen = 0.f;
 		float shutterClose = 0.f;
 	};
@@ -79,7 +82,7 @@ class CElementSensor : public IElement
 		struct TelecentricLens : Orthographic, DepthOfFieldBase
 		{
 		};
-		struct SphericalCamera : ShutterSensor
+		struct SphericalCamera : CameraBase
 		{
 		};
 		struct IrradianceMeter : ShutterSensor

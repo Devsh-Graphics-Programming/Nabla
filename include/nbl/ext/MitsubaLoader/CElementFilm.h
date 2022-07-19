@@ -17,7 +17,7 @@ namespace MitsubaLoader
 {
 
 
-class CElementFilm : public IElement
+class NBL_API CElementFilm : public IElement
 {
 	public:
 		enum Type
@@ -125,7 +125,7 @@ class CElementFilm : public IElement
 		PixelFormat		pixelFormat;
 		ComponentFormat	componentFormat;
 		bool banner;
-		bool highQualityEdges;
+		int32_t highQualityEdges;
 		CElementRFilter rfilter;
 		union
 		{
@@ -133,6 +133,14 @@ class CElementFilm : public IElement
 			LDR ldrfilm;
 			M	mfilm;
 		};
+
+		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxPathLen = 256;
+		char outputFilePath[MaxPathLen+1] = {0};
+		char denoiserBloomFilePath[MaxPathLen+1] = {0};
+		float denoiserBloomScale = 0.0f;
+		float denoiserBloomIntensity = 0.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLen = 128;
+		char denoiserTonemapperArgs[MaxTonemapperArgsLen+1] = {0};
 };
 
 

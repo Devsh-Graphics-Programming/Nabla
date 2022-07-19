@@ -5,17 +5,17 @@
 #ifndef __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_H_INCLUDED__
 
+
 #include "nbl/asset/IDescriptorSet.h"
 
-#include "IGPUBuffer.h"
+#include "nbl/video/IGPUBuffer.h"
 #include "nbl/video/IGPUBufferView.h"
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 
-namespace nbl
-{
-namespace video
+
+namespace nbl::video
 {
 
 //! GPU Version of Descriptor Set
@@ -23,16 +23,17 @@ namespace video
 	@see IDescriptorSet
 */
 
-class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLayout>
+class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLayout>, public IBackendObject
 {
+		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
+
 	public:
-		using asset::IDescriptorSet<const IGPUDescriptorSetLayout>::IDescriptorSet;
+		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) : base_t(std::move(_layout)), IBackendObject(std::move(dev)) {}
 
 	protected:
 		virtual ~IGPUDescriptorSet() = default;
 };
 
-}
 }
 
 #endif

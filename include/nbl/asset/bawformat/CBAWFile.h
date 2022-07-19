@@ -14,9 +14,7 @@
 #include "nbl/asset/bawformat/blobs/MeshDataFormatBlob.h"
 #include "nbl/asset/bawformat/blobs/TexturePathBlob.h"
 #include "nbl/asset/bawformat/blobs/MeshBufferBlob.h"
-#include "nbl/asset/bawformat/blobs/SkinnedMeshBufferBlob.h"
 #include "nbl/asset/bawformat/blobs/MeshBlob.h"
-#include "nbl/asset/bawformat/blobs/SkinnedMeshBlob.h"
 
 namespace nbl
 {
@@ -26,7 +24,7 @@ namespace asset
 #include "nbl/nblpack.h"
 	//! Cast pointer to block of blob-headers to BlobHeader* and easily iterate and/or access members
     template<uint64_t Version>
-	struct BlobHeaderVn
+	struct NBL_API BlobHeaderVn
 	{
 		uint32_t blobSize;
 		uint32_t blobSizeDecompr;
@@ -76,7 +74,7 @@ namespace asset
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
     //! If something changes in basic format structure, this should go to asset::legacyv0 namespace
     template<uint64_t Version>
-	struct NBL_FORCE_EBO BAWFileVn {
+	struct NBL_API NBL_FORCE_EBO BAWFileVn {
         static constexpr const char* HEADER_STRING = "IrrlichtBaW BinaryFile";
         static constexpr uint64_t version = Version;
 

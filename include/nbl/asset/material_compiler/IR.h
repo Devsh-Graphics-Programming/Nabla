@@ -11,12 +11,10 @@
 #include <nbl/asset/ICPUSampler.h>
 #include <nbl/core/alloc/LinearAddressAllocator.h>
 
-namespace nbl {
-namespace asset {
-namespace material_compiler
+namespace nbl::asset::material_compiler
 {
 
-class IR : public core::IReferenceCounted
+class NBL_API IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {
@@ -175,12 +173,12 @@ public:
         struct SParameter
         {
             //destructor of actually used variant member has to be called by hand!
-            template <typename type_of_const>
+            template <typename type_of_const2>
             union UTextureOrConstant {
                 UTextureOrConstant() : texture{ nullptr,nullptr,0.f } {}
                 ~UTextureOrConstant() {}
 
-                type_of_const constant;
+                type_of_const2 constant;
                 STextureSource texture;
             };
             using TextureOrConstant = UTextureOrConstant<type_of_const>;
@@ -299,7 +297,7 @@ public:
                 if (found != (array+count))
                 {
                     if (ix)
-                        ix[0] = found-array;
+                        ix[0] = std::distance(array,const_cast<INode*const*>(found));
                     return true;
                 }
                 return false;
@@ -330,6 +328,7 @@ public:
         explicit INode(E_SYMBOL s) : symbol(s) {}
         virtual ~INode() = default;
 
+        // TODO: Why does every INode have children!? Leaf BxDFs do not need this!
         children_array_t children;
         E_SYMBOL symbol;
         bool deinited = false;
@@ -539,6 +538,7 @@ public:
         {}
 
         E_TYPE type;
+        // TODO: why does this base class have IoR!? Diffuse inherits from this!!!
         color_t eta, etaK;
     };
     struct CMicrofacetSpecularBSDFNode : CBSDFNode
@@ -550,6 +550,7 @@ public:
             ENDF_ASHIKHMIN_SHIRLEY,
             ENDF_PHONG
         };
+        // TODO: Remove, the NDF fixes the geometrical shadowing and masking function.
         enum E_SHADOWING_TERM
         {
             EST_SMITH,
@@ -619,6 +620,6 @@ public:
     uint32_t tmpSize = 0u;
 };
 
-}}}
+}
 
 #endif

@@ -18,7 +18,7 @@ set(NBL_EXT_MITSUBA_LOADER_H
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTexture.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementEmitter.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementFactory.h
-	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CGlobalMitsubaMetadata.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaSerializedMetadata.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
@@ -55,6 +55,7 @@ nbl_create_ext_library_project(
 	"${NBL_EXT_MITSUBA_LOADER_SRC}"
 	"${NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE}"
 	""
+    ""
 )
 
 add_compile_definitions(XML_STATIC)

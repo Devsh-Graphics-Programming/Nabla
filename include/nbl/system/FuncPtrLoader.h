@@ -5,16 +5,12 @@
 #ifndef __NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED__
 #define __NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED__
 
-
-#include "nbl/core/core.h"
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
 
-namespace nbl
-{
-namespace system
+namespace nbl::system
 {
 
-class FuncPtrLoader : public core::Uncopyable
+class NBL_API FuncPtrLoader : public core::Uncopyable
 {
 	protected:
 		FuncPtrLoader() = default;
@@ -41,7 +37,6 @@ class FuncPtrLoader : public core::Uncopyable
 		*/
 };
 
-}
 }
 
 #endif

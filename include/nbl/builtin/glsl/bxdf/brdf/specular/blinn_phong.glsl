@@ -67,7 +67,7 @@ vec3 nbl_glsl_blinn_phong_conductor_cos_remainder_and_pdf(out float pdf, in nbl_
 float nbl_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotV_squared, in float NdotL2, in float n, in float a2)
 {
     float NG = nbl_glsl_blinn_phong(NdotH, n);
-    if (a2>FLT_MIN)
+    if (a2>nbl_glsl_FLT_MIN)
         NG *= nbl_glsl_beckmann_smith_correlated(NdotV_squared, NdotL2, a2);
     return NG;
 }
@@ -89,7 +89,7 @@ vec3 nbl_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float maxNdotV, 
 }
 vec3 nbl_glsl_blinn_phong_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_IsotropicViewSurfaceInteraction interaction, in nbl_glsl_IsotropicMicrofacetCache _cache, in float n, in mat2x3 ior)
 {
-    if (interaction.NdotV>FLT_MIN)
+    if (interaction.NdotV>nbl_glsl_FLT_MIN)
         return nbl_glsl_blinn_phong_cos_eval_wo_clamps(_cache.NdotH, interaction.NdotV, interaction.NdotV_squared, _sample.NdotL2, _cache.VdotH, n, ior);
     else
         return vec3(0.0);
@@ -99,7 +99,7 @@ vec3 nbl_glsl_blinn_phong_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_
 float nbl_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, float TdotL2, float BdotL2, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL2, in float nx, in float ny, in float ax2, in float ay2)
 {
     float DG = nbl_glsl_blinn_phong(NdotH, 1.0/(1.0-NdotH2), TdotH2, BdotH2, nx, ny);
-    if (ax2>FLT_MIN || ay2>FLT_MIN)
+    if (ax2>nbl_glsl_FLT_MIN || ay2>nbl_glsl_FLT_MIN)
         DG *= nbl_glsl_beckmann_smith_correlated(TdotV2, BdotV2, NdotV_squared, TdotL2, BdotL2, NdotL2, ax2, ay2);
     return DG;
 }
@@ -126,7 +126,7 @@ vec3 nbl_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float NdotH2, in
 }
 vec3 nbl_glsl_blinn_phong_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in nbl_glsl_AnisotropicMicrofacetCache _cache, in float nx, in float ny, in mat2x3 ior)
 {    
-    if (interaction.isotropic.NdotV>FLT_MIN)
+    if (interaction.isotropic.NdotV>nbl_glsl_FLT_MIN)
     {
         const float TdotH2 = _cache.TdotH*_cache.TdotH;
         const float BdotH2 = _cache.BdotH*_cache.BdotH;

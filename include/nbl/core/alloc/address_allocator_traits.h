@@ -10,23 +10,21 @@
 #include "nbl/macros.h"
 #include "nbl/type_traits.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
     template<typename AddressType>
-    struct address_type_traits;
+    struct NBL_API address_type_traits;
 
     template<>
-    struct address_type_traits<uint32_t>
+    struct NBL_API address_type_traits<uint32_t>
     {
         address_type_traits() = delete;
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t   invalid_address = 0xdeadbeefu;
     };
 
     template<>
-    struct address_type_traits<uint64_t>
+    struct NBL_API address_type_traits<uint64_t>
     {
         address_type_traits() = delete;
         _NBL_STATIC_INLINE_CONSTEXPR uint64_t   invalid_address = 0xdeadbeefBADC0FFEull;
@@ -39,7 +37,7 @@ namespace core
         struct address_allocator_traits_base;
         //provide default traits
         template<class AddressAlloc>
-        struct address_allocator_traits_base<AddressAlloc,false>
+        struct NBL_API address_allocator_traits_base<AddressAlloc,false>
         {
             typedef typename AddressAlloc::size_type size_type;
 
@@ -74,7 +72,7 @@ namespace core
         };
         //forward existing traits
         template<class AddressAlloc>
-        struct address_allocator_traits_base<AddressAlloc,true>
+        struct NBL_API address_allocator_traits_base<AddressAlloc,true>
         {
             typedef typename AddressAlloc::size_type size_type;
 
@@ -101,7 +99,7 @@ namespace core
 
     //! TODO: https://en.cppreference.com/w/cpp/experimental/is_detected
     template<class AddressAlloc>
-    class address_allocator_traits : protected AddressAlloc //maybe private?
+    class NBL_API address_allocator_traits : protected AddressAlloc //maybe private?
     {
         public:
             typedef AddressAlloc                        allocator_type;
@@ -243,7 +241,6 @@ namespace core
             }
     };
 
-}
 }
 
 #endif

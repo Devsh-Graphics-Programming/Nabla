@@ -5,14 +5,11 @@
 #ifndef __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
 
-#include "nbl/system/system.h"
-#include "IFileSystem.h"
+#include "nbl/system/declarations.h"
 
 #include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
@@ -24,7 +21,9 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		{
 			std::string pattern(getVirtualDirectoryName());
 			pattern += ".*";
-			HandleFunc_t tmp = [this](const std::string& _name) -> std::string {return getFromDiskOrEmbedding(_name);};
+			HandleFunc_t tmp = [this](const std::string& _name) -> std::string {
+				return getFromDiskOrEmbedding(_name);
+			};
 			return {{std::regex{pattern},std::move(tmp)}};
 		}
 		
@@ -40,10 +39,10 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 			return args;
 		}
 		
-		io::IFileSystem* fs;
+		system::ISystem* s;
 
 	public:
-		IGLSLEmbeddedIncludeLoader(io::IFileSystem* filesystem) : fs(filesystem) {}
+		IGLSLEmbeddedIncludeLoader(system::ISystem* system) : s(system) {}
 
 		//
 		const char* getVirtualDirectoryName() const override { return ""; }
@@ -51,17 +50,18 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		//
 		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
 		{
+			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			auto path = "nbl/builtin/" + _name;
-			auto data = fs->loadBuiltinData(path);
+			s->createFile(future,path,core::bitflag(system::IFileBase::ECF_READ)|system::IFileBase::ECF_MAPPABLE);
+			core::smart_refctd_ptr<const system::IFile> data = future.get();
 			if (!data)
 				return "";
-			auto begin = reinterpret_cast<const char*>(data->getPointer());
-			auto end = begin+data->getSize();
-			return std::string(begin,end);
+			auto begin = reinterpret_cast<const char*>(data->getMappedPointer());
+			auto end = begin + data->getSize();
+			return std::string(begin, end);
 		}
 };
 
-}
 }
 
 #endif

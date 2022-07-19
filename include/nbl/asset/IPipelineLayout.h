@@ -10,7 +10,7 @@
 
 
 #include "nbl/macros.h"
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ISpecializedShader.h"
 
@@ -35,12 +35,24 @@ namespace asset
     - Unique per DrawCall indices or bit-flags
 */
 
-struct SPushConstantRange
+struct NBL_API SPushConstantRange
 {
-	ISpecializedShader::E_SHADER_STAGE stageFlags;
+	IShader::E_SHADER_STAGE stageFlags;
     uint32_t offset;
     uint32_t size;
 
+    inline bool operator<(const SPushConstantRange& _rhs) const
+    {
+        if (stageFlags==_rhs.stageFlags)
+        {
+            if (offset==_rhs.offset)
+            {
+                return size<_rhs.size;
+            }
+            return offset<_rhs.offset;
+        }
+        return stageFlags<_rhs.stageFlags;
+    }
     inline bool operator==(const SPushConstantRange& _rhs) const
     {
         if (stageFlags != _rhs.stageFlags)
@@ -76,7 +88,7 @@ struct SPushConstantRange
 */
 
 template<typename DescLayoutType>
-class IPipelineLayout
+class NBL_API IPipelineLayout
 {
 public:
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t DESCRIPTOR_SET_COUNT = 4u;

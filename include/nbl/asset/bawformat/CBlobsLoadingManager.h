@@ -9,34 +9,23 @@
 
 #include "stdint.h"
 
-#include "path.h"
-
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 
-namespace nbl
-{
-
-namespace asset
+#if 0
+namespace nbl::asset
 {
     class ICPUSkinnedMesh;
     class ICPUSkinnedMeshBuffer;
 	class IAssetManager;
-}
-namespace io
-{
-	class IFileSystem;
-}
 
-namespace asset
-{
 
-	struct BlobLoadingParams
+	struct NBL_API BlobLoadingParams
 	{
         IAssetLoader* const ldr;
         IAssetManager* const manager;
 		io::IFileSystem* const fs;
-		const io::path filePath;
+		const std::filesystem::path filePath;
         const asset::IAssetLoader::SAssetLoadParams params;
         asset::IAssetLoader::IAssetLoaderOverride* const loaderOverride;
 		core::stack<core::smart_refctd_ptr<ICPUMesh>> meshesToFlip;
@@ -56,7 +45,7 @@ namespace asset
 
 	Feature not ready yet. (only loading actually)
 	*/
-	class NBL_FORCE_EBO CBlobsLoadingManager
+	class NBL_API NBL_FORCE_EBO CBlobsLoadingManager
 	{
 	public:
 		core::unordered_set<uint64_t> getNeededDeps(uint32_t _blobType, const void* _blob);
@@ -67,6 +56,7 @@ namespace asset
 		//static void printMemberPackingDebug();
 	};
 
-}} // nbl::asset
+} // nbl::asset
 
+#endif
 #endif

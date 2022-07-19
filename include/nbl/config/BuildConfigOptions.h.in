@@ -1,19 +1,26 @@
 #ifndef __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__
 #define __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__
 
+// TODO: figure out _ and _ suffixes and prefixes
+
 #cmakedefine _NBL_DEBUG
 #cmakedefine _NBL_RELWITHDEBINFO
 
-// architecture
+// architecture (TODO: rethink)
 #cmakedefine __NBL_COMPILE_WITH_ARM_SIMD_
 
 // libraries
 #cmakedefine _NBL_COMPILE_WITH_GLI_
+#cmakedefine _NBL_COMPILE_WITH_OPEN_EXR_
 
 // OS
 #cmakedefine _NBL_PLATFORM_WINDOWS_
 #cmakedefine _NBL_PLATFORM_LINUX_
 #cmakedefine _NBL_PLATFORM_OSX_
+#cmakedefine _NBL_PLATFORM_ANDROID_
+
+// TODO: X11 vs Wayland shouldn't even be an option (dlopen at runtime!)
+#cmakedefine _NBL_BUILD_WITH_WAYLAND
 
 // graphics API backend
 #cmakedefine _NBL_COMPILE_WITH_OPENGL_
@@ -29,8 +36,13 @@
 #cmakedefine _NBL_COMPILE_WITH_JPG_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_PNG_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_TGA_LOADER_
+#ifdef _NBL_COMPILE_WITH_OPEN_EXR_
 #cmakedefine _NBL_COMPILE_WITH_OPENEXR_LOADER_
+#endif
+#ifdef _NBL_COMPILE_WITH_GLI_
 #cmakedefine _NBL_COMPILE_WITH_GLI_LOADER_
+#endif
+#cmakedefine _NBL_COMPILE_WITH_GLTF_LOADER_
 
 // writers
 #cmakedefine _NBL_COMPILE_WITH_STL_WRITER_
@@ -39,11 +51,15 @@
 #cmakedefine _NBL_COMPILE_WITH_TGA_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_JPG_WRITER_
 #cmakedefine _NBL_COMPILE_WITH_PNG_WRITER_
+#ifdef _NBL_COMPILE_WITH_OPEN_EXR_
 #cmakedefine _NBL_COMPILE_WITH_OPENEXR_WRITER_
+#endif
+#ifdef _NBL_COMPILE_WITH_GLI_
 #cmakedefine _NBL_COMPILE_WITH_GLI_WRITER_
+#endif
+#cmakedefine _NBL_COMPILE_WITH_GLTF_WRITER_
 
 // compute interop
-#cmakedefine _NBL_COMPILE_WITH_OPENCL_
 #cmakedefine _NBL_COMPILE_WITH_CUDA_
 #cmakedefine _NBL_BUILD_OPTIX_
 
@@ -54,4 +70,30 @@
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
+// DDL exports
+#cmakedefine _NBL_SHARED_BUILD_
+#ifdef _NBL_SHARED_BUILD_
+    #if defined(__NBL_BUILDING_NABLA__) // currently compiling nabla, this define is passed through the commandline
+        #if defined(_MSC_VER)
+            #define NBL_API2 __declspec(dllexport)
+        #elif defined(__GNUC__)
+            #define NBL_API2 __attribute__ ((visibility ("default")))
+        #endif
+    #else
+        #if defined(_MSC_VER)
+            #define NBL_API2 __declspec(dllimport)
+        #else
+            #define NBL_API2
+        #endif
+    #endif
+#else
+    #define NBL_API2
 #endif
+#define NBL_API
+
+// any other target definitions for using Nabla as framework in another project
+#ifndef __NBL_BUILDING_NABLA__
+#include "define.h"
+#endif // __NBL_BUILDING_NABLA__
+
+#endif // __NBL_BUILD_CONFIG_OPTIONS_H_INCLUDED__

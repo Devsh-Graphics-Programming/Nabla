@@ -6,19 +6,17 @@
 #define __NBL_CORE_SRAIIBASEDEXITER_H_INCLUDED__
 
 #include "stddef.h"
-#include "nbl/core/Types.h"
+#include "nbl/core/decl/Types.h"
 
 /*! \file SRAIIBasedExiter.h
 	\brief File containing SRAIIBasedExiter utility struct for invoking functions upon leaving a scope.
 */
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 template<typename F>
-class SRAIIBasedExiter
+class NBL_API SRAIIBasedExiter
 {
 		F onDestr;
 
@@ -38,7 +36,6 @@ SRAIIBasedExiter<std::decay_t<F>> makeRAIIExiter(F&& _exitFn)
 	return SRAIIBasedExiter<std::decay_t<F>>(std::forward<F>(_exitFn));
 }
 
-}
 }
 
 #endif

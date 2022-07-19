@@ -5,30 +5,27 @@
 #ifndef __NBL_ASSET_I_IMAGE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_LOADER_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
+class NBL_API IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 {
 	public:
 
 	protected:
 
-		IImageLoader() = default;
+		IImageLoader() {}
 		virtual ~IImageLoader() = 0;
 
 	private:
 };
 
-}
 }
 
 #endif

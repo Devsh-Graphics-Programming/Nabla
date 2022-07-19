@@ -1,18 +1,15 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED__
-#define __NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED__
+#ifndef _NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED_
+#define _NBL_ASSET_C_OPENEXR_METADATA_H_INCLUDED_
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
 
-namespace nbl 
-{
-namespace asset
+namespace nbl::asset
 {
 
-class COpenEXRMetadata final : public IAssetMetadata
+class NBL_API COpenEXRMetadata final : public IAssetMetadata
 {
     public:
         class CImage : public IImageMetadata
@@ -25,6 +22,11 @@ class COpenEXRMetadata final : public IAssetMetadata
                     IImageMetadata::operator=(std::move(other));
                     std::swap(m_name,other.m_name);
                     return *this;
+                }
+
+                inline bool operator!=(const CImage& other) const
+                {
+                    return m_name != other.m_name || IImageMetadata::operator!=(other);
                 }
 
                 std::string m_name;
@@ -52,7 +54,6 @@ class COpenEXRMetadata final : public IAssetMetadata
         }
 };
 
-}   
 }
 
 #endif

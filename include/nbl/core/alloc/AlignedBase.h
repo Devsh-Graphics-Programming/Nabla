@@ -10,9 +10,7 @@
 #include "nbl/core/memory/new_delete.h"
 #include "nbl/core/memory/memory.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 //Maybe: Create a nbl::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
@@ -25,7 +23,7 @@ namespace core
 To make sure your object is aligned on heaps as well you need to inherit from
 `AlignedAllocOverrideBase` or one of its aliases instead. **/
 template<size_t object_alignment=_NBL_SIMD_ALIGNMENT>
-class NBL_FORCE_EBO alignas(object_alignment) AlignedBase
+class NBL_API NBL_FORCE_EBO alignas(object_alignment) AlignedBase
 {
     static_assert(is_alignment(object_alignment),"Alignments must be PoT and positive!");
     static_assert(object_alignment<=128,"Pending migration to GCC 7+ highest alignment on c++ class is 128 bytes");
@@ -36,13 +34,13 @@ namespace impl
 {
     //! Variadic template class for metaprogrammatically resolving max alignment resulting from multiple inheritance of AlignedBase. PLEASE DO NOT USE ANYWHERE ELSE.
     template <class... Ts>
-    class NBL_FORCE_EBO ResolveAlignment
+    class NBL_API NBL_FORCE_EBO ResolveAlignment
     {
     };
 
     //! Specialization of ResolveAlignment for recursively resolving the alignment of many types.
     template <class T, class... Ts>
-    class NBL_FORCE_EBO ResolveAlignment<T, Ts...> :  public T, public Ts...
+    class NBL_API NBL_FORCE_EBO ResolveAlignment<T, Ts...> :  public T, public Ts...
     {
         private:
             struct DummyForConditional {typedef uint8_t most_aligned_type;};
@@ -72,6 +70,7 @@ namespace impl
             template<class U> using operator_delete_array_t         = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete[](nullptr));
             template<class U> using operator_delete_w_size_t        = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete(nullptr,0ull));
             template<class U> using operator_delete_array_w_size_t  = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete[](nullptr,0ull));
+            template<class U> using operator_placement_delete_t     = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete(nullptr,nullptr));
 
             template<class,class=void> struct has_new_operator                  : std::false_type {};
             template<class,class=void> struct has_new_array_operator            : std::false_type {};
@@ -81,6 +80,7 @@ namespace impl
             template<class,class=void> struct has_delete_array_operator         : std::false_type {};
             template<class,class=void> struct has_delete_operator_w_size        : std::false_type {};
             template<class,class=void> struct has_delete_array_operator_w_size  : std::false_type {};
+            template<class,class=void> struct has_placement_delete_operator     : std::false_type {};
             template<class U> struct has_new_operator<U,std::void_t<operator_new_t<U> > >                                    : std::is_same<operator_new_t<U>,void*> {};
             template<class U> struct has_new_array_operator<U,std::void_t<operator_new_array_t<U> > >                        : std::is_same<operator_new_array_t<U>,void*> {};
             template<class U> struct has_placement_new_operator<U,std::void_t<operator_placement_new_t<U> > >                : std::is_same<operator_placement_new_t<U>,void*> {};
@@ -89,6 +89,7 @@ namespace impl
             template<class U> struct has_delete_array_operator<U,std::void_t<operator_delete_array_t<U> > >                  : std::is_same<operator_delete_array_t<U>,void> {};
             template<class U> struct has_delete_operator_w_size<U,std::void_t<operator_delete_w_size_t<U> > >                : std::is_same<operator_delete_w_size_t<U>,void> {};
             template<class U> struct has_delete_array_operator_w_size<U,std::void_t<operator_delete_array_w_size_t<U> > >    : std::is_same<operator_delete_array_w_size_t<U>,void> {};
+            template<class U> struct has_placement_delete_operator<U,std::void_t<operator_placement_delete_t<U> > >          : std::is_same<operator_placement_delete_t<U>,void> {};
         public:
             /** Now we could override the new and delete operators always with the same thing, and allocate aligned to `std::alignment_of<most_aligned_type>::value`,
             however we want to call the most aligned class' new and delete operators (if such exist) so its overrides actually matter.
@@ -126,6 +127,10 @@ namespace impl
             {
                 std::conditional<has_delete_array_operator_w_size<most_aligned_type>::value,most_aligned_type,DefaultAlignedAllocationOverriden>::type::operator delete[](ptr,size);
             }
+            static inline void operator delete(void* dummy, void* ptr) noexcept
+            {
+                std::conditional<has_placement_delete_operator<most_aligned_type>::value,most_aligned_type,DefaultAlignedAllocationOverriden>::type::operator delete(dummy,ptr);
+            }
 
     };
 
@@ -133,7 +138,7 @@ namespace impl
     /** Note regarding C++17, we don't overload the alignment on the versions with std::align_val_t.
     Why? Because we want to respect and not f-up the explicitly requested alignment. **/
     template <size_t object_alignment>
-    class NBL_FORCE_EBO ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
+    class NBL_API NBL_FORCE_EBO ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
     {
         public:
             //! The maximally aligned type for this recursion of N template parameters
@@ -173,6 +178,13 @@ namespace impl
             static inline void operator delete(void* ptr, size_t size) noexcept {operator delete(ptr);} //roll back to own operator with no size
             static inline void operator delete[](void* ptr, size_t size) noexcept {operator delete[](ptr);} //roll back to own operator with no size
 
+            // make the compiler shut up about memory not being freed if there is an exception
+            static inline void operator delete(void* dummy, void* ptr) noexcept
+            {
+                assert(false);
+                exit(-0x45);
+            }
+
             static inline bool isPtrAlignedForThisType(const void* ptr) noexcept
             {
                 return is_aligned_to(ptr,object_alignment);
@@ -201,13 +213,13 @@ static_assert(sizeof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compi
             static inline void operator delete(void* ptr)                noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr);} \
             static inline void operator delete[](void* ptr)              noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr);} \
             static inline void operator delete(void* ptr, size_t size)   noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr,size);} \
-            static inline void operator delete[](void* ptr, size_t size) noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr,size);}
+            static inline void operator delete[](void* ptr, size_t size) noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr,size);} \
+            static inline void operator delete(void* dummy, void* ptr)   noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(dummy,ptr);}
 #else
-struct NBL_FORCE_EBO AllocationOverrideDefault {};
+struct NBL_API NBL_FORCE_EBO AllocationOverrideDefault {};
 
 #define _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(...)
 #endif // NBL_TEST_NO_NEW_DELETE_OVERRIDE
-}
 }
 
 #endif

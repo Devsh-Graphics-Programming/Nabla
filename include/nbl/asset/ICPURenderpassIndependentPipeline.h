@@ -19,7 +19,7 @@ namespace asset
 	@see IRenderpassIndependentPipeline
 */
 
-class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
+class NBL_API ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
 {
 		using base_t = IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>;
 
@@ -83,7 +83,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
-		inline ICPUSpecializedShader* getShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage) 
+		inline ICPUSpecializedShader* getShaderAtStage(IShader::E_SHADER_STAGE _stage) 
 		{ 
 			assert(!isImmutable_debug());
 			return m_shaders[core::findLSB<uint32_t>(_stage)].get(); 
@@ -120,7 +120,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
-		inline void setShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) 
+		inline void setShaderAtStage(IShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) 
 		{
 			assert(!isImmutable_debug());
 			m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); 

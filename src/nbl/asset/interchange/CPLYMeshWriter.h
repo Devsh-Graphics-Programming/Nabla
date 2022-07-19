@@ -6,12 +6,10 @@
 #ifndef __NBL_ASSET_PLY_MESH_WRITER_H_INCLUDED__
 #define __NBL_ASSET_PLY_MESH_WRITER_H_INCLUDED__
 
-
 #include <iomanip>
 
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
-
 
 namespace nbl
 {
@@ -37,13 +35,20 @@ class CPLYMeshWriter : public asset::IAssetWriter
 
         virtual uint32_t getForcedFlags() { return 0u; }
 
-        virtual bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+        virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
     private:
-        void writeBinary(io::IWriteFile* _file, const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const;
-        void writeText(io::IWriteFile* _file, const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const;
 
-        void writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
+        struct SContext
+        {
+            SAssetWriteContext writeContext;
+            size_t fileOffset = 0;
+        };
+
+        void writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
+        void writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
+
+        void writeAttribBinary(SContext& context, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
 
         //! Creates new mesh buffer with the same attribute buffers mapped but with normalized types changed to corresponding true integer types.
         static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf);
@@ -51,7 +56,7 @@ class CPLYMeshWriter : public asset::IAssetWriter
         static std::string getTypeString(asset::E_FORMAT _t);
 
         template<typename T>
-        void writeVectorAsText(io::IWriteFile* _file, const T* _vec, size_t _elementsToWrite, bool flipVectors = false) const
+        void writeVectorAsText(SContext& context, const T* _vec, size_t _elementsToWrite, bool flipVectors = false) const
         {
 			constexpr size_t xID = 0u;
             std::stringstream ss;
@@ -67,7 +72,13 @@ class CPLYMeshWriter : public asset::IAssetWriter
 					ss << std::setprecision(6) << _vec[i] * (currentFlipOnVariable ? -1 : 1) << " ";
 			}
             auto str = ss.str();
-            _file->write(str.c_str(), str.size());
+
+            system::ISystem::future_t<size_t> future;
+            context.writeContext.outputFile->write(future, str.c_str(), context.fileOffset, str.size());
+            {
+                const auto bytesWritten = future.get();
+                context.fileOffset += bytesWritten;
+            }
         }
 };
 

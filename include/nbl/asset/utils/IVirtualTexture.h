@@ -6,21 +6,24 @@
 #define __NBL_ASSET_I_VIRTUAL_TEXTURE_H_INCLUDED__
 
 #include <functional>
-#include "nbl/asset/format/EFormat.h"
+
+#include "nbl/core/math/morton.h"
+#include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/alloc/PoolAddressAllocator.h"
-#include "nbl/core/math/morton.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
-#include "nbl/core/memory/memory.h"
+
+#include "nbl/asset/ISpecializedShader.h"
+#include "nbl/asset/ISampler.h"
+#include "nbl/asset/IImageView.h"
+#include "nbl/asset/IDescriptorSetLayout.h"
 #include "nbl/asset/filters/CPaddedCopyImageFilter.h"
 #include "nbl/asset/filters/CFillImageFilter.h"
-#include "nbl/asset/ISampler.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
-class IVirtualTextureBase
+class NBL_API IVirtualTextureBase
 {
 public:
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
@@ -39,7 +42,7 @@ public:
 };
 
 template <typename image_view_t, typename sampler_t>
-class IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
+class NBL_API IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
 {
     using this_type = IVirtualTexture<image_view_t, sampler_t>;
 protected:
@@ -139,7 +142,7 @@ public:
         uint64_t pgTab_x : 8;
         uint64_t pgTab_y : 8;
         uint64_t pgTab_layer : 8;
-        uint64_t maxMip : 4;
+        uint64_t maxMip : 4; // this is number of mip-maps plus 1 that the texture will have in the virtual texture (before the mip-tail)
         uint64_t wrap_x : 2;
         uint64_t wrap_y : 2;
 
@@ -163,7 +166,7 @@ public:
 
     struct NBL_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
     {
-        friend class this_type;
+        friend this_type;
     private:
         SMasterTextureData() = default;
     };
@@ -171,7 +174,7 @@ public:
 
     struct NBL_FORCE_EBO SViewAliasTextureData : STextureData<SViewAliasTextureData>
     {
-        friend class this_type;
+        friend this_type;
     private:
         SViewAliasTextureData() = default;
     };
@@ -210,7 +213,9 @@ protected:
 		texData.pgTab_y = _offset.y;
         texData.pgTab_layer = _offset.z;
 
-        texData.maxMip = _mipCount-1u-m_pgSzxy_log2;
+        const uint32_t maxMip = _mipCount-m_pgSzxy_log2;
+        assert(static_cast<int32_t>(maxMip) >= 0); // only textures of size at least half page size must be packed
+        texData.maxMip = maxMip;
 
         texData.wrap_x = SMasterTextureData::ETC_to_EWM(_wrapu);
         texData.wrap_y = SMasterTextureData::ETC_to_EWM(_wrapv);
@@ -243,7 +248,7 @@ protected:
 
         return params;
     }
-    ISampler::SParams getPhysicalPageSamplerParams() const
+    ISampler::SParams getPhysicalStorageFloatSamplerParams() const
     {
         ISampler::SParams params;
         params.AnisotropicFilter = m_tilePadding ? core::findMSB(m_tilePadding<<1) : 0u;
@@ -260,20 +265,43 @@ protected:
 
         return params;
     }
+    ISampler::SParams getPhysicalStorageNonFloatSamplerParams() const
+    {
+        ISampler::SParams params;
+        params.AnisotropicFilter = 0u; // TODO: don't apply padding to uint and int textures (is it even possible with all the view aliasing going on?)
+        params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
+        params.CompareEnable = false;
+        params.CompareFunc = ISampler::ECO_NEVER;
+        params.LodBias = 0.f;
+        params.MaxLod = 0.f;
+        params.MinLod = 0.f;
+        params.MaxFilter = ISampler::ETF_NEAREST;
+        params.MinFilter = ISampler::ETF_NEAREST;
+        params.MipmapMode = ISampler::ESMM_NEAREST;
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+
+        return params;
+    }
 
     virtual core::smart_refctd_ptr<sampler_t> createSampler(const ISampler::SParams& _params) const = 0;
 
-    core::smart_refctd_ptr<sampler_t> getPhysicalPageSampler() const
-    {
-        if (!m_physicalPageSampler)
-            m_physicalPageSampler = createSampler(getPhysicalPageSamplerParams());
-        return m_physicalPageSampler;
-    }
     core::smart_refctd_ptr<sampler_t> getPageTableSampler() const
     {
         if (!m_pageTableSampler)
             m_pageTableSampler = createSampler(getPageTableSamplerParams());
         return m_pageTableSampler;
+    }
+    core::smart_refctd_ptr<sampler_t> getPhysicalStorageFloatSampler() const
+    {
+        if (!m_physicalStorageFloatSampler)
+            m_physicalStorageFloatSampler = createSampler(getPhysicalStorageFloatSamplerParams());
+        return m_physicalStorageFloatSampler;
+    }
+    core::smart_refctd_ptr<sampler_t> getPhysicalStorageNonFloatSampler() const
+    {
+        if (!m_physicalStorageNonFloatSampler)
+            m_physicalStorageNonFloatSampler = createSampler(getPhysicalStorageNonFloatSamplerParams());
+        return m_physicalStorageNonFloatSampler;
     }
 
     uint32_t getMaxAllocationPageCount() const
@@ -382,7 +410,8 @@ protected:
     core::smart_refctd_ptr<image_t> m_pageTable;
     mutable core::smart_refctd_ptr<image_view_t> m_pageTableView;
     mutable core::smart_refctd_ptr<sampler_t> m_pageTableSampler;
-    mutable core::smart_refctd_ptr<sampler_t> m_physicalPageSampler;
+    mutable core::smart_refctd_ptr<sampler_t> m_physicalStorageFloatSampler;
+    mutable core::smart_refctd_ptr<sampler_t> m_physicalStorageNonFloatSampler;
 
     using pg_tab_addr_alctr_t = core::GeneralpurposeAddressAllocator<uint32_t>;
     std::array<pg_tab_addr_alctr_t, MAX_PAGE_TABLE_LAYERS> m_pageTableLayerAllocators;
@@ -521,7 +550,7 @@ protected:
                 return found->second;
 
             typename image_view_t::SCreationParams params;
-            params.flags = static_cast<IImageView<image_t>::E_CREATE_FLAGS>(0);
+            params.flags = static_cast<typename IImageView<image_t>::E_CREATE_FLAGS>(0);
             params.format = _format;
             params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
             params.subresourceRange.baseArrayLayer = 0u;
@@ -691,7 +720,7 @@ protected:
     auto createPageTableViewCreationParams() const
     {
         typename image_view_t::SCreationParams params;
-        params.flags = static_cast<image_view_t::E_CREATE_FLAGS>(0);
+        params.flags = static_cast<typename image_view_t::E_CREATE_FLAGS>(0);
         params.format = m_pageTable->getCreationParameters().format;
         params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
         params.subresourceRange.baseArrayLayer = 0u;
@@ -709,16 +738,16 @@ protected:
     {
         if (_subres.layerCount != 1u)
             return false;
-        if (SMasterTextureData::ETC_to_EWM(_uwrap)!=static_cast<SMasterTextureData::E_WRAP_MODE>(_addr.wrap_x))
+        if (SMasterTextureData::ETC_to_EWM(_uwrap)!=static_cast<typename SMasterTextureData::E_WRAP_MODE>(_addr.wrap_x))
             return false;
-        if (SMasterTextureData::ETC_to_EWM(_vwrap)!=static_cast<SMasterTextureData::E_WRAP_MODE>(_addr.wrap_y))
+        if (SMasterTextureData::ETC_to_EWM(_vwrap)!=static_cast<typename SMasterTextureData::E_WRAP_MODE>(_addr.wrap_y))
             return false;
         return true;
     }
 
     bool validateAliasCreation(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster)
     {
-        if (_subresRelativeToMaster.baseMipLevel+_subresRelativeToMaster.levelCount > _addr.maxMip+1u)
+        if (_subresRelativeToMaster.baseMipLevel+_subresRelativeToMaster.levelCount > _addr.maxMip)
             return false;
         return true;
     }
@@ -805,7 +834,7 @@ public:
             storage->deferredInitialization(tileExtent);
         }
 
-        auto initSampler = [this](SamplerArray::Sampler& s)
+        auto initSampler = [this](typename SamplerArray::Sampler& s)
         {
             const E_FORMAT format = s.format;
             const E_FORMAT_CLASS fc = getFormatClass(format);
@@ -815,7 +844,7 @@ public:
             IVTResidentStorage* storage = found->second.get();
             s.view = storage->createView(format);
         };
-        for (SamplerArray::Sampler& s : m_fsamplers.views)
+        for (typename SamplerArray::Sampler& s : m_fsamplers.views)
         {
             if (s.view)
                 continue;
@@ -848,11 +877,11 @@ public:
             else
                 views = &m_usamplers;
             auto views_rng = views->getViews();
-            auto view_it = std::find_if(views_rng.begin(), views_rng.end(), [format](const SamplerArray::Sampler& s) {return s.format == format;});
+            auto view_it = std::find_if(views_rng.begin(), views_rng.end(), [format](const typename SamplerArray::Sampler& s) {return s.format == format;});
             if (view_it == views_rng.end()) //no physical page texture view/sampler for requested format
             {
                 smplrIndex = views->views.size();
-                SamplerArray::Sampler sampler{ format, nullptr };
+                typename SamplerArray::Sampler sampler{ format, nullptr };
                 views->views.push_back(sampler);
             }
             else
@@ -1010,17 +1039,18 @@ protected:
         auto* samplers = _outSamplers;
 
         samplers[0] = getPageTableSampler();
-        std::fill(samplers+1, samplers+samplerCount, getPhysicalPageSampler());
+        std::fill(samplers+1, samplers+samplerCount, getPhysicalStorageFloatSampler());
+        //std::fill(samplers+1, samplers+samplerCount, getPhysicalStorageNonFloatSampler()); // TODO: @Crisspl fix issue #106 please
 
         auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
             bnd.binding = _binding;
             bnd.count = _count;
-            bnd.stageFlags = asset::ISpecializedShader::ESS_ALL;
+            bnd.stageFlags = asset::IShader::ESS_ALL;
             bnd.type = asset::EDT_COMBINED_IMAGE_SAMPLER;
             bnd.samplers = _samplers;
         };
 
-        fillBinding(bindings[0], _pgtBinding, 1u, samplers); // @Crisspl why is the count hardcoded to 1 !?
+        fillBinding(bindings[0], _pgtBinding, 1u, samplers);
 
         uint32_t i = 1u;
         if (getFloatViews().size())
@@ -1030,12 +1060,12 @@ protected:
         }
         if (getIntViews().size())
         {
-            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1); // @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
+            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1); // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
             ++i;
         }
         if (getUintViews().size())
         {
-            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1); // @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
+            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1); // TODO: @Crisspl this has to be wrong! Sampler state for an interpolated float texture is definitely wrong to use for a integer texture
         }
 
         return std::make_pair(bindingCount, samplerCount);
@@ -1232,6 +1262,6 @@ bool IVirtualTexture<image_view_t, sampler_t>::SMiptailPacker::computeMiptailOff
     return true;
 }
 
-}}
+}
 
 #endif

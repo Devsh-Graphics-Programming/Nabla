@@ -7,21 +7,24 @@
 
 #include "nbl/asset/ISampler.h"
 
-namespace nbl
-{
-namespace video
+#include "nbl/video/decl/IBackendObject.h"
+
+namespace nbl::video
 {
 
-class IGPUSampler : public asset::ISampler
+class NBL_API IGPUSampler : public asset::ISampler, public IBackendObject
 {
-protected:
-    virtual ~IGPUSampler() = default;
+    protected:
+        virtual ~IGPUSampler() = default;
 
-public:
-    using asset::ISampler::ISampler;
+    public:
+        IGPUSampler(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SParams& params) : ISampler(params), IBackendObject(std::move(dev)) {}
+
+        // OpenGL: const GLuint* handle
+        // Vulkan: const VkSampler
+        virtual const void* getNativeHandle() const = 0;
 };
 
-}
 }
 
 #endif

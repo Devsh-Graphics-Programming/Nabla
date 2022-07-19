@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
 #define __NBL_ASSET_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/filters/kernels/CommonImageFilterKernels.h"
 
@@ -18,7 +18,7 @@ namespace asset
 
 // A Kernel that's a derivative of another, `Kernel` must have a `d_weight` function
 template<class Kernel>
-class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>
+class NBL_API CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>
 {
 		using Base = CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>;
 

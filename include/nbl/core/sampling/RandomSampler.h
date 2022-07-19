@@ -6,17 +6,13 @@
 #define __NBL_CORE_RANDOM_SAMPLER_H_
 
 #include <random>
+#include "nbl/core/decl/Types.h"
 
-#include "nbl/core/Types.h"
-
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
-
-	class RandomSampler
-	{
+class NBL_API RandomSampler
+{
 	public:
 		RandomSampler(uint32_t _seed)
 		{
@@ -31,10 +27,9 @@ namespace core
 
 	protected:
 		std::mt19937 mersenneTwister;
-	};
+};
 
 
-}
 }
 
 #endif

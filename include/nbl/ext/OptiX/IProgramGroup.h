@@ -5,7 +5,7 @@
 #ifndef __NBL_EXT_OPTIX_PROGRAM_GROUP_H_INCLUDED__
 #define __NBL_EXT_OPTIX_PROGRAM_GROUP_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "optix.h"
 
@@ -19,7 +19,7 @@ namespace OptiX
 class IContext;
 
 
-class IProgramGroup final : public core::IReferenceCounted
+class NBL_API IProgramGroup final : public core::IReferenceCounted
 {
 	public:
 		inline OptixProgramGroup getOptiXHandle() {return programGroup;}

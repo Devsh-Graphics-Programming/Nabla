@@ -8,16 +8,15 @@
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/bawformat/Blob.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class ICPUMeshBuffer;
 
+#ifdef OLD_SHADERS
 #include "nbl/nblpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
+struct NBL_API NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
 {
 	//! Constructor filling all members
 	explicit MeshBufferBlobV3(const ICPUMeshBuffer*);
@@ -41,7 +40,6 @@ struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 //TODO bring it back
 //static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 
-#ifdef OLD_SHADERS
 static_assert(
     sizeof(MeshBufferBlobV3) ==
     sizeof(MeshBufferBlobV3::mat) + sizeof(MeshBufferBlobV3::box) + sizeof(MeshBufferBlobV3::descPtr) + sizeof(MeshBufferBlobV3::indexType) + sizeof(MeshBufferBlobV3::baseVertex)
@@ -49,12 +47,11 @@ static_assert(
     + sizeof(MeshBufferBlobV3::primitiveType) + sizeof(MeshBufferBlobV3::posAttrId) + sizeof(MeshBufferBlobV3::normalAttrId),
     "MeshBufferBlobV0: Size of blob is not sum of its contents!"
 );
-#endif
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV3 type; };
+struct NBL_API CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV3 type; };
+#endif
 
-}
 } // nbl::asset
 
 #endif

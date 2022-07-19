@@ -7,7 +7,6 @@
 #define __NBL_I_CAMERA_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "IEventReceiver.h"
 #include "matrixutil.h"
 
 namespace nbl
@@ -24,7 +23,7 @@ Because the ICameraScenNode is a SceneNode, it can be attached to any
 other scene node, and will follow its parents movement, rotation and so
 on.
 */
-class ICameraSceneNode : public ISceneNode, public IEventReceiver
+class NBL_API ICameraSceneNode : public ISceneNode
 {
 	public:
 
@@ -58,7 +57,7 @@ class ICameraSceneNode : public ISceneNode, public IEventReceiver
 		virtual const core::matrix3x4SIMD& getViewMatrix() const =0;
 
 		virtual const core::matrix4SIMD& getConcatenatedMatrix() const =0;
-
+#if 0
 		//! It is possible to send mouse and key events to the camera.
 		/** Most cameras may ignore this input, but camera scene nodes
 		which are created for example with
@@ -67,7 +66,7 @@ class ICameraSceneNode : public ISceneNode, public IEventReceiver
 		this input for changing their position, look at target or
 		whatever. */
 		virtual bool OnEvent(const SEvent& event) =0;
-
+#endif
 		//! Sets the look at target of the camera
 		/** If the camera's target and rotation are bound ( @see
 		bindTargetAndRotation() ) then calling this will also change

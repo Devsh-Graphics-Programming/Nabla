@@ -2,17 +2,16 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <utility>
-#include <regex>
-#include <filesystem>
-
-
-#include "os.h"
-
 #include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
+
+#include <utility>
+#include <regex>
+#include <filesystem>
+
+#include "nbl/system/CFileView.h"
 
 #include "nbl/builtin/MTLdefaults.h"
 
@@ -26,27 +25,34 @@ using namespace asset;
 #define FRAG_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
 #define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
 
-CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : IRenderpassIndependentPipelineLoader(_am)
+CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys) : 
+    IRenderpassIndependentPipelineLoader(_am), m_system(std::move(sys))
 {
     //create vertex shaders and insert them into cache
-    auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
+    auto registerShader = [&](auto constexprStringType, ICPUShader::E_SHADER_STAGE stage) -> void
     {
-        auto data = m_assetMgr->getFileSystem()->loadBuiltinData<decltype(constexprStringType)>();
-        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
+        core::smart_refctd_ptr<const system::IFile> data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
+        memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
+        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
+            std::move(buffer),
+            asset::IShader::buffer_contains_glsl_t{},
+            stage,
+            stage != ICPUShader::ESS_VERTEX
+            ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?"
+            : "?IrrlichtBAW PipelineLoaderMTL VertexShader?");
         
-        ICPUSpecializedShader::SInfo specInfo(
-            {}, nullptr, "main", stage,
-            stage!=ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?":"?IrrlichtBAW PipelineLoaderMTL VertexShader?"
-        );
+        ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main");
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
         const char* cacheKey = decltype(constexprStringType)::value;
-        insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) }), cacheKey);
+        auto assetbundle = SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) });
+        insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, cacheKey);
     };
 
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY){}, ICPUSpecializedShader::ESS_VERTEX);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUShader::ESS_VERTEX);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY){}, ICPUShader::ESS_VERTEX);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUShader::ESS_FRAGMENT);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUShader::ESS_FRAGMENT);
 }
 
 void CGraphicsPipelineLoaderMTL::initialize()
@@ -64,47 +70,45 @@ void CGraphicsPipelineLoaderMTL::initialize()
         // precompute the no UV pipeline layout
         {
             SPushConstantRange pcRng;
-            pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+            pcRng.stageFlags = ICPUShader::ESS_FRAGMENT;
             pcRng.offset = 0u;
             pcRng.size = sizeof(SMtl::params);
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
             static_assert(sizeof(SMtl::params) <= ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
 
             auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng + 1, nullptr, core::smart_refctd_ptr(ds1layout), nullptr, nullptr);
-            insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr, { core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) }), "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
+            auto assetbundle = SAssetBundle(nullptr, { core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) });
+            insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
         }
     }
 
     // default pipelines
-    auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
+    auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
+        system::path("Nabla default MTL material"),
+        system::IFile::ECF_READ,
+        const_cast<char*>(DUMMY_MTL_CONTENT),
+        strlen(DUMMY_MTL_CONTENT)
+    );
 
     SAssetLoadParams assetLoadParams;
-    auto bundle = loadAsset(default_mtl_file, assetLoadParams, &dfltOver);
+    auto bundle = loadAsset(default_mtl_file.get(), assetLoadParams, &dfltOver);
 
-    default_mtl_file->drop();
-
-
-    insertBuiltinAssetIntoCache(m_assetMgr, std::move(bundle), "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
+    insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
-bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
+bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
     if (!_file)
         return false;
 
-    const size_t prevPos = _file->getPos();
-
-    _file->seek(0ull);
-
     std::string mtl;
     mtl.resize(_file->getSize());
-    _file->read(mtl.data(), _file->getSize());
-    _file->seek(prevPos);
-
-    return mtl.find("newmtl") != std::string::npos;
+    system::IFile::success_t success;
+    _file->read(success, mtl.data(), 0, _file->getSize());
+    return success && mtl.find("newmtl")!=std::string::npos;
 }
 
-SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
@@ -114,16 +118,15 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         _hierarchyLevel,
         _override
     );
-    const std::string fullName = _file->getFileName().c_str();
+
+    const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = std::filesystem::path(fullName).parent_path().string();
-		if (dir.empty())
-			return "";
-		return dir+"/";
+		auto dir = fullName.filename().string();
+        return dir;
 	}();
 
-    auto materials = readMaterials(_file);
+    auto materials = readMaterials(_file, _params.logger);
 
     // because one for UV and one without UV
     constexpr uint32_t PIPELINE_PERMUTATION_COUNT = 2u;
@@ -132,7 +135,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
     auto retval = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(pipelineCount);
     auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount,core::smart_refctd_ptr(m_basicViewParamsSemantics));
     uint32_t offset = 0u;
-    for (const auto& material : materials)
+    for (auto& material : materials)
     {
         auto createPplnDescAndMeta = [&](const bool hasUV) -> void
         {
@@ -141,7 +144,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
             core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
             if (hasUV)
             {
-                const std::string dsCacheKey = fullName + "?" + material.name + "?_ds";
+                const std::string dsCacheKey = fullName.string() + "?" + material.name + "?_ds";
                 const uint32_t ds3HLevel = _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW;
                 ds3 = _override->findDefaultAsset<ICPUDescriptorSet>(dsCacheKey,ctx.inner,ds3HLevel).first;
                 if (!ds3)
@@ -232,7 +235,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
 
                     ICPUDescriptorSetLayout::SBinding bnd;
                     bnd.count = 1u;
-                    bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+                    bnd.stageFlags = ICPUShader::ESS_FRAGMENT;
                     bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
                     bnd.binding = 0u;
                     std::fill(bindings->begin(), bindings->end(), bnd);
@@ -251,11 +254,10 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
                     }
                     ds3Layout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
                 }
-
                 layout = core::move_and_static_cast<ICPUPipelineLayout>(noUVLayout->clone(0u)); // clone at 0 depth
                 layout->setDescriptorSetLayout(3u,std::move(ds3Layout));
-
-                _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ layout }), pplnLayoutCacheKey, _ctx.inner, pipelineHLevel);
+                auto bundle = SAssetBundle(nullptr,{ layout });
+                _ctx.loaderOverride->insertAssetIntoCache(bundle, pplnLayoutCacheKey, _ctx.inner, pipelineHLevel);
             }
         }
 
@@ -372,7 +374,7 @@ namespace
 
 const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const
 {
-    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
+    static const std::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
     {
         {"Ka", CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT},
         {"Kd", CMTLMetadata::CRenderpassIndependentPipeline::EMP_DIFFUSE},
@@ -388,7 +390,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
         {"Pm", CMTLMetadata::CRenderpassIndependentPipeline::EMP_METALLIC},
         {"Ps", CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHEEN}
     };
-    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> refl_str2type =
+    static const std::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> refl_str2type =
     {
         {"top", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSY},
         {"bottom", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_NEGY},
@@ -512,7 +514,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     return _bufPtr;
 }
 
-CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadImages(const std::string& relDir, const SMtl& _mtl, SContext& _ctx)
+CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadImages(const std::string& relDir, SMtl& _mtl, SContext& _ctx)
 {
     images_set_t images;
     image_views_set_t views;
@@ -525,13 +527,13 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             const uint32_t hierarchyLevel = _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW; // this is weird actually, we're not sure if we're loading image or image view
             SAssetBundle bundle;
             if (i != CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
-                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
-            else
+                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+            else // TODO: you should attempt to get derivative map FIRST, then restore and regenerate! (right now you're always restoring!)
             {
                 // we need bumpmap restored to create derivative map from it
                 const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
                 lp.restoreLevels = std::max(lp.restoreLevels, hierarchyLevel + restoreLevels);
-                bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
             if (asset)
@@ -628,8 +630,10 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
     for (uint32_t i = 0u; i < views.size(); ++i)
     {
+        const bool isBumpmap = i==CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP;
+
         core::smart_refctd_ptr<ICPUImage> image = images[i];
-        if (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP && views[i])
+        if (isBumpmap && views[i])
             image = views[i]->getCreationParameters().image;
         if (!image)
             continue;
@@ -640,15 +644,22 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             auto view = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>(viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
             if (view.first)
             {
+                if (isBumpmap)
+                {
+                    auto meta = view.second->selfCast<CDerivativeMapMetadata>()->getAssetSpecificMetadata(view.first.get());
+                    _mtl.params.bumpFactor *= static_cast<const CDerivativeMapMetadata::CImageView*>(meta)->scale[0];
+                }
                 views[i] = std::move(view.first);
                 continue;
             }
         }
 
-        if (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP)
+        float derivativeScale;
+        if (isBumpmap)
         {
             const ISampler::E_TEXTURE_CLAMP wrap = _mtl.isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP) ? ISampler::ETC_CLAMP_TO_BORDER : ISampler::ETC_REPEAT;
-            image = CDerivativeMapCreator::createDerivativeMapFromHeightMap(image.get(), wrap, wrap, ISampler::ETBC_FLOAT_OPAQUE_BLACK);
+            image = CDerivativeMapCreator::createDerivativeMapFromHeightMap<true>(image.get(), wrap, wrap, ISampler::ETBC_FLOAT_OPAQUE_BLACK, &derivativeScale);
+            _mtl.params.bumpFactor *= derivativeScale;
         }
 
         constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
@@ -660,14 +671,28 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
         viewParams.format = image->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];
+        asset::IImage::E_ASPECT_FLAGS aspectFlags = asset::IImage::EAF_COLOR_BIT;
+        if (isDepthOrStencilFormat(viewParams.format) && !isDepthOnlyFormat(viewParams.format))
+        {
+            if (isStencilOnlyFormat(viewParams.format))
+                aspectFlags = asset::IImage::EAF_STENCIL_BIT;
+            else
+                aspectFlags = asset::IImage::EAF_DEPTH_BIT;
+        }
+        viewParams.subresourceRange.aspectMask = aspectFlags;
         viewParams.subresourceRange.baseArrayLayer = 0u;
         viewParams.subresourceRange.layerCount = layerCount[isCubemap];
         viewParams.subresourceRange.baseMipLevel = 0u;
         viewParams.subresourceRange.levelCount = 1u;
         viewParams.image = std::move(image);
 
-        views[i] = ICPUImageView::create(std::move(viewParams));
-        _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ views[i] }), viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+        core::smart_refctd_ptr<IAssetMetadata> metaData;
+        auto view = ICPUImageView::create(std::move(viewParams));
+        if (isBumpmap)
+            metaData = core::make_smart_refctd_ptr<CDerivativeMapMetadata>(view.get(),&derivativeScale,true);
+        views[i] = view;
+        auto assetBundle = SAssetBundle(std::move(metaData),{view});
+        _ctx.loaderOverride->insertAssetIntoCache(assetBundle, viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
     }
 
     return views;
@@ -692,11 +717,16 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     return ds;
 }
 
-auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> core::vector<SMtl>
+auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const system::logger_opt_ptr logger) const -> core::vector<SMtl>
 {
     std::string mtl;
-    mtl.resize(_file->getSize());
-    _file->read(mtl.data(), _file->getSize());
+    size_t fileSize = _file->getSize();
+    mtl.resize(fileSize);
+
+    system::IFile::success_t success;
+    _file->read(success, mtl.data(), 0, fileSize);
+    if (!success)
+        return {};
 
     const char* bufPtr = mtl.c_str();
     const char* const bufEnd = mtl.c_str()+mtl.size();
@@ -835,8 +865,8 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 {
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
-                    sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
-                    os::Printer::log(tmpbuf, ELL_WARNING);
+                    sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().string().c_str(), currMaterial->name.c_str());
+                    logger.log(tmpbuf, system::ILogger::ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d
                     currMaterial->params.opacity = (1.f - readFloat());

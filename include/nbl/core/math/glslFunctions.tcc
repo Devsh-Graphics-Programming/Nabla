@@ -5,9 +5,8 @@
 #ifndef __NBL_CORE_GLSL_FUNCTIONS_TCC_INCLUDED__
 #define __NBL_CORE_GLSL_FUNCTIONS_TCC_INCLUDED__
 
-#include "nbl/core/compile_config.h"
+#include "nbl/core/declarations.h"
 
-#include "nbl/core/math/glslFunctions.h"
 #include "nbl/core/math/floatutil.tcc"
 #include "matrix4SIMD.h"
 
@@ -473,6 +472,8 @@ NBL_FORCE_INLINE T gcd(const T& a, const T& b)
 	return std::gcd(a,b);
 }
 
+// https://libcxx.llvm.org/docs/Cxx1zStatus.html "Mathematical Special Functions for C++17"
+#ifndef _NBL_PLATFORM_ANDROID_
 template<>
 NBL_FORCE_INLINE vectorSIMDf cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, const vectorSIMDf& x)
 {
@@ -494,6 +495,7 @@ NBL_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x)
 {
 	return 0.5*(std::cyl_bessel_i(double(v)-1.0,double(x))+std::cyl_bessel_i(double(v)+1.0,double(x)));
 }
+#endif
 
 
 } // end namespace core

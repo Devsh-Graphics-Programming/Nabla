@@ -5,23 +5,20 @@
 #ifndef __NBL_SYSTEM_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
 #define __NBL_SYSTEM_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
 
-
-#include "nbl/core/core.h"
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
+#include "nbl/system/DefaultFuncPtrLoader.h"
 
-namespace nbl
-{
-namespace system
+namespace nbl::system
 {
 
 template<class FuncPtrLoaderT=DefaultFuncPtrLoader>
-class DynamicFunctionCallerBase : public core::Unmovable
+class NBL_API DynamicFunctionCallerBase : public core::Unmovable
 {
 	protected:
 		static_assert(std::is_base_of<FuncPtrLoader,FuncPtrLoaderT>::value, "Need a function pointer loader derived from `FuncPtrLoader`");
 		FuncPtrLoaderT loader;
 	public:
-		DynamicFunctionCallerBase() : loader() {}
+		//DynamicFunctionCallerBase() : loader() {}
 		DynamicFunctionCallerBase(DynamicFunctionCallerBase&& other) : DynamicFunctionCallerBase()
 		{
 			operator=(std::move(other));
@@ -40,21 +37,17 @@ class DynamicFunctionCallerBase : public core::Unmovable
 };
 
 }
-}
 
 
-#define NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (Base::loader.loadFuncPtr( #FUNC_NAME ))
-#define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(p ## FUNC_NAME,other.p ## FUNC_NAME);
+#define NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,NBL_CONCATENATE(p , FUNC_NAME)(Base::loader.loadFuncPtr( #FUNC_NAME ))
+#define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(NBL_CONCATENATE(p, FUNC_NAME),other.NBL_CONCATENATE(p, FUNC_NAME));
 
 #define NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
-class CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
+class NBL_API CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
 {\
 	public:\
 		using Base = nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>;\
 \
-		CLASS_NAME() : Base()\
-		{\
-		}\
 		template<typename... T>\
 		CLASS_NAME(T&& ... args) : Base(std::forward<T>(args)...)\
 			NBL_FOREACH(NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR,__VA_ARGS__)\

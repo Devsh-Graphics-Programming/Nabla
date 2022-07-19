@@ -5,30 +5,33 @@
 #ifndef __NBL_VIDEO_I_GPU_BUFFER_VIEW_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_BUFFER_VIEW_H_INCLUDED__
 
-#include <utility>
-
 
 #include "nbl/asset/IBufferView.h"
 
-#include "IGPUBuffer.h"
+#include <utility>
 
-namespace nbl
-{
-namespace video
+#include "nbl/video/decl/IBackendObject.h"
+#include "nbl/video/IGPUBuffer.h"
+
+
+namespace nbl::video
 {
 
-class IGPUBufferView : public asset::IBufferView<IGPUBuffer>
+class NBL_API IGPUBufferView : public asset::IBufferView<IGPUBuffer>, public IBackendObject
 {
 public:
-    IGPUBufferView(core::smart_refctd_ptr<IGPUBuffer> _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) :
-        asset::IBufferView<IGPUBuffer>(std::move(_buffer), _format, _offset, _size)
+    IGPUBufferView(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<IGPUBuffer> _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) :
+        asset::IBufferView<IGPUBuffer>(std::move(_buffer), _format, _offset, _size), IBackendObject(std::move(dev))
     {}
+
+    // OpenGL: const GLuint* handle of GL_TEXTURE_BUFFER
+    // Vulkan: const VkBufferView*
+    virtual const void* getNativeHandle() const = 0;
 
 protected:
     virtual ~IGPUBufferView() = default;
 };
 
-}
 }
 
 #endif

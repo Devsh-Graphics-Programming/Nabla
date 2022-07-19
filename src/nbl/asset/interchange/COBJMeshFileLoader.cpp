@@ -3,16 +3,15 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/utils/IMeshManipulator.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
-#include "os.h"
-#include "IFileSystem.h"
-#include "IReadFile.h"
+#include "nbl/system/ISystem.h"
+#include "nbl/system/IFile.h"
 
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "COBJMeshFileLoader.h"
@@ -37,7 +36,7 @@ constexpr uint32_t NORMAL = 3u;
 constexpr uint32_t BND_NUM = 0u;
 
 //! Constructor
-COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
+COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), System(_manager->getSystem())
 {
 }
 
@@ -47,7 +46,7 @@ COBJMeshFileLoader::~COBJMeshFileLoader()
 {
 }
 
-asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
@@ -75,13 +74,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 	uint32_t smoothingGroup=0;
 
-	const std::string fullName = _file->getFileName().c_str();
+	const std::filesystem::path fullName = _file->getFileName();
 	const std::string relPath = [&fullName]() -> std::string
 	{
-		auto dir = std::filesystem::path(fullName).parent_path().string();
-		if (dir.empty())
-			return "";
-		return dir+"/";
+		auto dir = fullName.parent_path().string();
+		return dir;
 	}();
 
     //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
@@ -105,9 +102,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     std::string fileContents;
     fileContents.resize(filesize);
 	char* const buf = fileContents.data();
-	_file->read(buf, filesize);
-	const char* const bufEnd = buf+filesize;
 
+	system::IFile::success_t success;
+	_file->read(success, buf, 0, filesize);
+	if (!success)
+		return {};
+
+	const char* const bufEnd = buf+filesize;
 	// Process obj information
 	const char* bufPtr = buf;
 	std::string grpName, mtlName;
@@ -153,25 +154,31 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			if (ctx.useMaterials)
 			{
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-				#ifdef _NBL_DEBUG_OBJ_LOADER_
-					os::Printer::log("Reading material _file",tmpbuf);
-				#endif
+				_params.logger.log("Reading material _file %s", system::ILogger::ELL_DEBUG, tmpbuf);
 
-                std::string mtllib = relPath+tmpbuf;
+                std::string mtllib = tmpbuf;
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
-                SAssetLoadParams loadParams;
+                SAssetLoadParams loadParams(_params);
+				loadParams.workingDirectory = _file->getFileName().parent_path();
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
-				auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
-				if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)
-				for (auto ass : bundle.getContents())
-                {
-                    auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
-					const auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
-					if (!pplnMeta)
-						continue;
+                
+				if (bundle.getContents().empty())
+					break;
 
-                    pipelines.emplace(std::move(ppln),pplnMeta);
-                }
+				if (bundle.getMetadata())
+				{
+					auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
+					if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)
+					for (auto ass : bundle.getContents())
+					{
+						auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
+						const auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
+						if (!pplnMeta)
+							continue;
+
+						pipelines.emplace(std::move(ppln),pplnMeta);
+					}
+				}
 			}
 		}
 			break;
@@ -217,9 +224,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		case 's': // smoothing can be a group or off (equiv. to 0)
 			{
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _NBL_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded smoothing group start",tmpbuf, ELL_DEBUG);
-#endif
+				_params.logger.log("Loaded smoothing group start %s",system::ILogger::ELL_DEBUG, tmpbuf);
 				if (strcmp("off", tmpbuf)==0)
 					smoothingGroup=0u;
 				else
@@ -232,15 +237,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			{
 				noMaterial = false;
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _NBL_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded material start",tmpbuf, ELL_DEBUG);
-#endif
+				_params.logger.log("Loaded material start %s", system::ILogger::ELL_DEBUG, tmpbuf);
 				mtlName=tmpbuf;
 
                 if (ctx.useMaterials && !ctx.useGroups)
                 {
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
                     auto mbs = mb_bundle.getContents();
 					bool notempty = mbs.size()!=0ull;
                     {
@@ -251,7 +254,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     recalcNormals.push_back(false);
                     submeshWasLoadedFromCache.push_back(notempty);
                     //if submesh was loaded from cache - insert empty "cache key" (submesh loaded from cache won't be added to cache again)
-                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName));
+                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().string(), mtlName, grpName));
                     submeshMaterialNames.push_back(mtlName);
                 }
 			}
@@ -266,16 +269,16 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				indices.emplace_back();
 				recalcNormals.push_back(false);
 				submeshWasLoadedFromCache.push_back(false);
-				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), NO_MATERIAL_MTL_NAME, grpName));
+				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().string(), NO_MATERIAL_MTL_NAME, grpName));
 				submeshMaterialNames.push_back(NO_MATERIAL_MTL_NAME);
 			}
 
 			SObjVertex v;
 
 			// get all vertices data in this face (current line of obj _file)
-			const core::stringc wordBuffer = copyLine(bufPtr, bufEnd);
+			const std::string wordBuffer = copyLine(bufPtr, bufEnd);
 			const char* linePtr = wordBuffer.c_str();
-			const char* const endPtr = linePtr+wordBuffer.size();
+			const char* const endPtr = linePtr + wordBuffer.size();
 
 			core::vector<uint32_t> faceCorners;
 			faceCorners.reserve(32ull);
@@ -370,6 +373,20 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
+
+	// prune out invalid empty shape groups (TODO: convert to AoS and use an erase_if)
+	for (size_t i = 0ull; i < submeshes.size(); ++i)
+	if (indices[i].size())
+		i++;
+	else
+	{
+		submeshes.erase(submeshes.begin()+i);
+		indices.erase(indices.begin()+i);
+		recalcNormals.erase(recalcNormals.begin()+i);
+		submeshWasLoadedFromCache.erase(submeshWasLoadedFromCache.begin()+i);
+		submeshCacheKeys.erase(submeshCacheKeys.begin()+i);
+		submeshMaterialNames.erase(submeshMaterialNames.begin()+i);
+	}
 	
     core::unordered_set<pipeline_meta_pair_t,hash_t,key_equal_t> usedPipelines;
     {
@@ -385,9 +402,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             ixBufOffset += indices[i].size()*4ull;
 
             const uint32_t hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
-			#ifdef _NBL_DEBUG_OBJ_LOADER_
-				os::Printer::log("Has UV: ", hasUV ? "YES":"NO", ELL_DEBUG);
-			#endif
+			using namespace std::string_literals;
+			_params.logger.log("Has UV: "s + (hasUV ? "YES":"NO"), system::ILogger::ELL_DEBUG);
 			// search in loaded
 			pipeline_meta_pair_t pipeline;
 			{
@@ -500,7 +516,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     //at the very end, insert submeshes into cache
 	uint32_t i = 0u;
 	for (auto meshbuffer : mesh->getMeshBuffers())
-        _override->insertAssetIntoCache(SAssetBundle(meta,{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) }), submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+	{
+		auto bundle = SAssetBundle(meta,{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) });
+        _override->insertAssetIntoCache(bundle, submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+	}
 
 	return SAssetBundle(std::move(meta),{std::move(mesh)});
 }
@@ -619,10 +638,10 @@ uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uin
 }
 
 
-core::stringc COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd)
+std::string COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd)
 {
 	if (!inBuf)
-		return core::stringc();
+		return std::string();
 
 	const char* ptr = inBuf;
 	while (ptr<bufEnd)
@@ -632,7 +651,7 @@ core::stringc COBJMeshFileLoader::copyLine(const char* inBuf, const char* bufEnd
 		++ptr;
 	}
 	// we must avoid the +1 in case the array is used up
-	return core::stringc(inBuf, (uint32_t)(ptr-inBuf+((ptr < bufEnd) ? 1 : 0)));
+	return std::string(inBuf, (uint32_t)(ptr-inBuf+((ptr < bufEnd) ? 1 : 0)));
 }
 
 

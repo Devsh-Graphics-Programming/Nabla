@@ -5,7 +5,7 @@
 #ifndef __PROPERTY_ELEMENT_H_INCLUDED__
 #define __PROPERTY_ELEMENT_H_INCLUDED__
 
-#include "nbl/core/core.h"
+#include "nbl/core/declarations.h"
 #include "matrix4SIMD.h"
 #include <string>
 
@@ -16,7 +16,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-struct SPropertyElementData
+struct NBL_API SPropertyElementData
 {
 	enum Type
 	{
@@ -196,7 +196,7 @@ struct SPropertyElementData
 	};
 };
 
-struct SNamedPropertyElement : SPropertyElementData
+struct NBL_API SNamedPropertyElement : SPropertyElementData
 {
 	SNamedPropertyElement() : SPropertyElementData(), name("")
 	{
@@ -236,6 +236,9 @@ struct SNamedPropertyElement : SPropertyElementData
 			}
 
 			for (auto i = 0u; i < SPropertyElementData::MaxAttributes; i++)
+			{
+				if (SPropertyElementData::attributeStrings[type][i] == nullptr)
+					continue;
 				if (core::strcmpi(*it, SPropertyElementData::attributeStrings[type][i]) == 0)
 				{
 					it++;
@@ -247,6 +250,7 @@ struct SNamedPropertyElement : SPropertyElementData
 					else
 						return false;
 				}
+			}
 		}
 		return true;
 	}
@@ -301,7 +305,7 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 { using type = void; };
 
 
-class CPropertyElementManager
+class NBL_API CPropertyElementManager
 {
 	public:
 		static std::pair<bool, SNamedPropertyElement> createPropertyData(const char* _el, const char** _atts);
