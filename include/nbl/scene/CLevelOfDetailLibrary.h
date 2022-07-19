@@ -62,7 +62,7 @@ class NBL_API CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 
 				// 
 				bufferParams.size = lodBufferSize;
-				auto lodInfoBuffer = params.device->createBuffer(lodBufferSize);
+				auto lodInfoBuffer = params.device->createBuffer(bufferParams);
 				auto lodInfoMReqs = lodInfoBuffer->getMemoryReqs();
 				lodInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
 				params.device->allocate(lodInfoMReqs, lodInfoBuffer.get());

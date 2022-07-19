@@ -144,6 +144,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/scan/indirect.comp"
   "nbl/builtin/glsl/scan/parameters_struct.glsl"
   "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
+  # faster and easier scan
+  "nbl/builtin/glsl/scanning_append/scanning_append.glsl"
   # scene
   "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
@@ -175,6 +177,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
   "nbl/builtin/glsl/utils/morton.glsl"
+  "nbl/builtin/glsl/utils/surface_transform_transformedDerivatives.glsl"
+  "nbl/builtin/glsl/utils/surface_transform.glsl"
+  "nbl/builtin/glsl/utils/surface_transform_e.h"
   # virtual texturing
   "nbl/builtin/glsl/virtual_texturing/descriptors.glsl"
   "nbl/builtin/glsl/virtual_texturing/extensions.glsl"

@@ -457,15 +457,7 @@ if (ANDROID)
 endif()
 
 if(NOT NBL_STATIC_BUILD)
-	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)
-	set(NBL_ASSEMBLIES_MANIFEST_FILEPATH "${NBL_ASSEMBLY_DIRECTORY}/devshgraphicsprogramming.nabla.manifest" CACHE INTERNAL "" FORCE)
-	add_custom_command(OUTPUT "${NBL_ASSEMBLIES_MANIFEST_FILEPATH}"
-		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_GEN_DIRECTORY:PATH=${NBL_ASSEMBLY_DIRECTORY} -DNABLA_DLL_PATH:FILEPATH=$<TARGET_FILE:Nabla> -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaMSVCManifest.cmake
-		COMMENT "Launching nabla.manifest generation script!"
-		VERBATIM
-	)
-
-	add_custom_target(Nabla_with_manifest ALL DEPENDS ${NBL_ASSEMBLIES_MANIFEST_FILEPATH})
+	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
 endif()
 
@@ -655,8 +647,19 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
+if(NOT NBL_STATIC_BUILD)
+	add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
+		COMMAND ${CMAKE_COMMAND} -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${CMAKE_CURRENT_BINARY_DIR}/include/define.h -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
+		COMMENT "Launching defines.h generation script!"
+		VERBATIM
+	)
+	
+	add_custom_target(generate_define_header ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
+	add_dependencies(Nabla generate_define_header)
+endif()
+
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
-nbl_install_headers("${CMAKE_CURRENT_BINARY_DIR}/include/define.h" "${CMAKE_CURRENT_BINARY_DIR}/include")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
 nbl_install_config_header(BuildConfigOptions.h)
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311

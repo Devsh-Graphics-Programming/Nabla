@@ -619,10 +619,13 @@ using namespace nbl::asset;
 						}
 					}
 
-					//
 					skins[index].skeleton = skeletons[skeletonNodes[globalRootNode].skeletonID];
-					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
-					skins[index].inverseBindPose = {sizeof(core::matrix3x4SIMD)*skinJointRefCount,sizeof(core::matrix3x4SIMD)*jointCount,inverseBindPose};
+					skins[index].translationTable.offset = sizeof(ICPUSkeleton::joint_id_t) * skinJointRefCount;
+					skins[index].translationTable.size = sizeof(ICPUSkeleton::joint_id_t) * jointCount;
+					skins[index].translationTable.buffer = core::smart_refctd_ptr(vertexJointToSkeletonJoint);
+					skins[index].inverseBindPose.offset = sizeof(core::matrix3x4SIMD) * skinJointRefCount;
+					skins[index].inverseBindPose.size = sizeof(core::matrix3x4SIMD) * jointCount;
+					skins[index].inverseBindPose.buffer = core::smart_refctd_ptr(inverseBindPose);
 					skins[index].jointCount = jointCount;
 
 					auto translationTableIt = reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())+skinJointRefCount;

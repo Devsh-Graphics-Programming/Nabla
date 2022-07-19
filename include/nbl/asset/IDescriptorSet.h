@@ -6,6 +6,7 @@
 #define _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 
 #include <algorithm>
+#include <compare>
 
 
 #include "nbl/core/declarations.h"

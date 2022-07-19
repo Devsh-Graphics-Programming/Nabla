@@ -39,6 +39,7 @@ class NBL_API COIT
             asset::SPrimitiveAssemblyParams primAsm;
             asset::SBlendParams blend;
             asset::SRasterizationParams raster;
+            asset::SPushConstantRange pushConstants;
         };
 
         bool initialize(video::ILogicalDevice* dev, uint32_t w, uint32_t h,
@@ -126,8 +127,9 @@ class NBL_API COIT
                 m_proto_pipeline.vtx,
                 m_proto_pipeline.primAsm,
                 m_proto_pipeline.blend,
-                m_proto_pipeline.raster
-            ) = ext::FullScreenTriangle::createProtoPipeline(c2gparams);
+                m_proto_pipeline.raster,
+                m_proto_pipeline.pushConstants
+            ) = ext::FullScreenTriangle::createProtoPipeline(c2gparams, 0u);
 
             m_proto_pipeline.blend.blendParams[0].blendEnable = 1;
             m_proto_pipeline.blend.blendParams[0].srcColorFactor = asset::EBF_ONE;

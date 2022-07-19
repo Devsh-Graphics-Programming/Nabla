@@ -268,7 +268,7 @@ option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
-option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
+option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
