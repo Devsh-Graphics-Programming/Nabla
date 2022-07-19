@@ -151,7 +151,7 @@ struct SPhysicalDeviceFeatures
     
     bool scalarBlockLayout = false;     // or VK_EXT_scalar_block_layout
     
-    //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO]
+    //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO] https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
     
     bool uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
     
@@ -353,8 +353,6 @@ struct SPhysicalDeviceFeatures
     bool accelerationStructureHostCommands = false;
     bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
             
-    /* [!!NV Version below, struct doesn't exist in vk headers] VK_KHR_fragment_shader_barycentric */
-    
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
     //bool           pipelineFragmentShadingRate;
@@ -375,7 +373,6 @@ struct SPhysicalDeviceFeatures
     bool rayQuery = false;
 
     /* VK_KHR_ray_tracing !! Replaced/Removed */
-    /* VK_KHR_ray_tracing_maintenance1 *//* added in vk 1.3.213, the SDK isn't released yet at this moment :D */
 
     /* RayTracingPipelineFeaturesKHR *//* VK_KHR_ray_tracing_pipeline */
     bool rayTracingPipeline = false;
@@ -602,6 +599,9 @@ struct SPhysicalDeviceFeatures
     //bool           shaderSMBuiltins;
 
     // [TODO] Always enable, expose as limit
+    /* VK_KHR_fragment_shader_barycentric */
+
+    // [TODO] Always enable, expose as limit
     /* VK_NV_geometry_shader_passthrough */
 
     // [TODO] Always enable, expose as limit
@@ -615,10 +615,14 @@ struct SPhysicalDeviceFeatures
     /* GraphicsPipelineLibraryFeaturesEXT *//* VK_EXT_graphics_pipeline_library */
     //bool           graphicsPipelineLibrary;
 
+    // [TODO]
+    // lots of support for anything that isn't mobile (list of unsupported devices since the extension was published: https://pastebin.com/skZAbL4F)
+    /* VK_KHR_format_feature_flags2 */ // Promoted to core 1.3;
+
     // [TODO] this one isn't in the headers
     /* HostQueryResetFeatures *//* VK_EXT_host_query_reset *//* MOVED TO Vulkan 1.2 Core */
 
-    // [TODO] this one isn't in the headers
+    // [TODO] this one isn't in the headers // Always enable, expose as limit
     /* VK_AMD_shader_early_and_late_fragment_tests */
     //bool shaderEarlyAndLateFragmentTests;
 
@@ -640,6 +644,9 @@ struct SPhysicalDeviceFeatures
 
     // [TODO LATER] Won't expose for now, API changes necessary
     /* VK_AMD_texture_gather_bias_lod */
+
+    // [TODO LATER] when released in the SDK: https://github.com/Devsh-Graphics-Programming/Nabla/pull/357#discussion_r916899420
+    /* VK_KHR_ray_tracing_maintenance1 *//* added in vk 1.3.213, the SDK isn't released yet at this moment :D */
 
     // [TODO LATER] requires extra API work to use
     // GL Hint: in GL/GLES this is NV_scissor_exclusive
@@ -951,7 +958,6 @@ struct SPhysicalDeviceFeatures
     /* VK_EXT_separate_stencil_usage */
     /* VK_KHR_create_renderpass2 */
     /* VK_KHR_bind_memory2 */
-    /* VK_KHR_format_feature_flags2 */
     /* VK_NV_viewport_array2 */
     /* VK_EXT_image_compression_control */
     /* VK_EXT_image_compression_control_swapchain */

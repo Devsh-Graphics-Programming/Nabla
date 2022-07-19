@@ -766,6 +766,7 @@ public:
 			m_properties.limits.imageFootprint = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_texture_footprint);
 
 			// [TODO]
+			// https://github.com/Devsh-Graphics-Programming/Nabla/pull/357#discussion_r917052568
 			m_features.storagePushConstant8 = false;
 			m_features.storagePushConstant16 = false;
 			m_features.storageInputOutput16 = false;
