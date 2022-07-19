@@ -869,7 +869,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         submit_transfer.pWaitSemaphores = nullptr;
         submit_transfer.pWaitDstStageMask = nullptr;
     }
-    auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void
+    auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg) -> void
     {
 #define USE_NEW_IMAGE_UPLOAD_UTL
 
@@ -881,10 +881,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             toTransferDst.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
             toTransferDst.srcQueueFamilyIndex = transferFamIx;
             toTransferDst.dstQueueFamilyIndex = transferFamIx;
-            toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(img);
+            toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(gpuimg);
             toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
             toTransferDst.subresourceRange.baseMipLevel = 0u;
-            toTransferDst.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
+            toTransferDst.subresourceRange.levelCount = gpuimg->getCreationParameters().mipLevels;
             toTransferDst.subresourceRange.baseArrayLayer = 0u;
             toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
 
@@ -899,7 +899,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             auto regions = cpuimg->getRegions();
             _params.utilities->updateImageViaStagingBuffer(
                 cmdbuf_transfer.get(), transfer_fence.get(), _params.perQueue[EQU_TRANSFER].queue,
-                cpuimg->getBuffer(), regions, img, asset::EIL_TRANSFER_DST_OPTIMAL,
+                cpuimg->getBuffer(), regions, gpuimg, asset::EIL_TRANSFER_DST_OPTIMAL,
                 submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask);
 #else
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
