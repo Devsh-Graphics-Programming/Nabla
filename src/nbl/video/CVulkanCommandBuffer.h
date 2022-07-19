@@ -1070,20 +1070,38 @@ public:
         if (layout->getAPIType() != EAT_VULKAN)
             return false;
 
-        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 100u;
+        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 4u;
+        assert(descriptorSetCount <= MAX_DESCRIPTOR_SET_COUNT);
 
         VkPipelineLayout vk_pipelineLayout = IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject();
 
-        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT];
+        uint32_t dynamicOffsetCountPerSet[MAX_DESCRIPTOR_SET_COUNT] = {};
+
+        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT] = {};
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
         {
             if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
+            {
                 vk_descriptorSets[i] = IBackendObject::compatibility_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i], this)->getInternalObject();
+
+                if (dynamicOffsets) // count dynamic offsets per set, if there are any
+                {
+                    auto bindings = pDescriptorSets[i]->getLayout()->getBindings();
+                    for (const auto& binding : bindings)
+                    {
+                        if ((binding.type == asset::EDT_STORAGE_BUFFER_DYNAMIC) || (binding.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC))
+                            dynamicOffsetCountPerSet[i] += binding.count;
+                    }
+                }
+            }
         }
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
+        // We allow null descriptor sets in our bind function to skip a certain set number we don't use
         // Will bind [first, last) with one call
+        uint32_t dynamicOffsetsBindOffset = 0u;
+        uint32_t bindCallsCount = 0u;
         uint32_t first = ~0u;
         uint32_t last = ~0u;
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
@@ -1099,21 +1117,42 @@ public:
                     ++last;
 
                 // Do a look ahead
-                if ((i + 1 > descriptorSetCount - 1) || !pDescriptorSets[i + 1])
+                if ((i + 1 >= descriptorSetCount) || !pDescriptorSets[i + 1])
                 {
-                    vk->vk.vkCmdBindDescriptorSets(
-                        m_cmdbuf,
-                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-                        vk_pipelineLayout,
-                        firstSet+first, last - first, vk_descriptorSets+first, dynamicOffsetCount, dynamicOffsets);
+                    if (dynamicOffsets)
+                    {
+                        uint32_t dynamicOffsetCount = 0u;
+                        for (uint32_t setIndex = first; setIndex < last; ++setIndex)
+                            dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
+
+                        vk->vk.vkCmdBindDescriptorSets(
+                            m_cmdbuf,
+                            static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                            vk_pipelineLayout,
+                            // firstSet + first, last - first, vk_descriptorSets + first, vk_dynamicOffsetCount, vk_dynamicOffsets);
+                            firstSet + first, last - first, vk_descriptorSets + first,
+                            dynamicOffsetCount, dynamicOffsets + dynamicOffsetsBindOffset);
+
+                        dynamicOffsetsBindOffset += dynamicOffsetCount;
+                    }
+                    else
+                    {
+                        vk->vk.vkCmdBindDescriptorSets(
+                            m_cmdbuf,
+                            static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                            vk_pipelineLayout,
+                            firstSet+first, last - first, vk_descriptorSets+first, 0u, nullptr);
+                    }
+
                     first = ~0u;
                     last = ~0u;
+                    ++bindCallsCount;
                 }
             }
         }
 
-        // vk->vk.vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-        //     vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, dynamicOffsetCount, dynamicOffsets);
+        // with K slots you need at most (K+1)/2 calls
+        assert(bindCallsCount <= (MAX_DESCRIPTOR_SET_COUNT + 1) / 2);
 
         return true;
     }

@@ -145,6 +145,11 @@ public:
         blit.scratchMemoryByteSize = blit_filter_t::getRequiredScratchByteSize(&blit);
         blit.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blit.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
+        const core::vectorSIMDu32 inExtent(blit.inExtent.width, blit.inExtent.height, blit.inExtent.depth, 1);
+        const core::vectorSIMDu32 outExtent(blit.outExtent.width, blit.outExtent.height, blit.outExtent.depth, 1);
+        if (!blit_filter_t::blit_utils_t::computeScaledKernelPhasedLUT(blit.scratchMemory + blit_filter_t::getScratchOffset(&blit, blit_filter_t::ESU_SCALED_KERNEL_PHASED_LUT), inExtent, outExtent, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ))
+            return nullptr;
+
         const bool blit_succeeded = blit_filter_t::execute(&blit);
         _NBL_ALIGNED_FREE(blit.scratchMemory);
         if (!blit_succeeded)
