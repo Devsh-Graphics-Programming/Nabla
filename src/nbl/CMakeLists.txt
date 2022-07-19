@@ -426,6 +426,14 @@ if (UNIX)
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
+# Vulkan
+target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include")
+target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/volk")
+target_link_libraries(Nabla PRIVATE volk)
+if(WIN32)
+	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
+endif()
+
 if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
@@ -490,6 +498,7 @@ nbl_install_lib(IlmImf)
 nbl_install_lib(IlmThread)
 nbl_install_lib(Imath)
 nbl_install_lib(png_static)
+nbl_install_lib(volk)
 if(WIN32)
 	install(FILES
 			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
