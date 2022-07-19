@@ -51,6 +51,7 @@ set(nbl_resources_to_embed
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
+  "nbl/builtin/glsl/ieee754.glsl"
   # barycentric
   "nbl/builtin/glsl/barycentric/extensions.glsl"
   "nbl/builtin/glsl/barycentric/frag.glsl"
@@ -241,5 +242,24 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
+  # blit
+  "nbl/builtin/glsl/blit/formats_encode.glsl"
+  "nbl/builtin/glsl/blit/parameters.glsl"
+  "nbl/builtin/glsl/blit/multi_dimensional_array_addressing.glsl"
+  "nbl/builtin/glsl/blit/default_compute_common.comp"
+
+  "nbl/builtin/glsl/blit/default_compute_blit.comp"
+  "nbl/builtin/glsl/blit/blit/blit.glsl"
+  "nbl/builtin/glsl/blit/blit/descriptors.glsl"
+
+  "nbl/builtin/glsl/blit/default_compute_alpha_test.comp"
+  "nbl/builtin/glsl/blit/alpha_test/alpha_test.glsl"
+  "nbl/builtin/glsl/blit/alpha_test/descriptors.glsl"
+
+  "nbl/builtin/glsl/blit/default_compute_normalization.comp"
+  "nbl/builtin/glsl/blit/normalization/normalization.glsl"
+  "nbl/builtin/glsl/blit/normalization/descriptors.glsl"
+  "nbl/builtin/glsl/blit/normalization/shared_normalization.glsl"
+
 PARENT_SCOPE)
 
