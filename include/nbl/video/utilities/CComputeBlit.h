@@ -330,7 +330,8 @@ public:
 
 		constexpr auto MaxImageDim = 1 << 16;
 		const auto maxImageDims = core::vectorSIMDu32(MaxImageDim, MaxImageDim, MaxImageDim, MaxImageDim);
-		assert((inDim < maxImageDims) && (outDim < maxImageDims));
+		assert((inDim.x < maxImageDims.x) && (inDim.y < maxImageDims.y) && (inDim.z < maxImageDims.z));
+		assert((outDim.x < maxImageDims.x) && (outDim.y < maxImageDims.y) && (outDim.z < maxImageDims.z));
 
 		outPC.dims.x = (outDim.x << 16) | inDim.x;
 		outPC.dims.y = (outDim.y << 16) | inDim.y;
@@ -358,10 +359,10 @@ public:
 		outPC.outPixelCount = outImageExtent.x*outImageExtent.y*outImageExtent.z;
 
 		const core::vectorSIMDi32 windowDim = core::max(blit_utils_t::getRealWindowSize(imageType, scaledKernelX, scaledKernelY, scaledKernelZ), core::vectorSIMDi32(1, 1, 1, 1));
-		assert(windowDim < maxImageDims);
+		assert((windowDim.x < maxImageDims.x) && (windowDim.y < maxImageDims.y) && (windowDim.z < maxImageDims.z));
 
 		const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
-		assert(phaseCount < maxImageDims);
+		assert((phaseCount.x < maxImageDims.x) && (phaseCount.y < maxImageDims.y) && (phaseCount.z < maxImageDims.z));
 
 		outPC.windowDimPhaseCount.x = (phaseCount.x << 16) | windowDim.x;
 		outPC.windowDimPhaseCount.y = (phaseCount.y << 16) | windowDim.y;
