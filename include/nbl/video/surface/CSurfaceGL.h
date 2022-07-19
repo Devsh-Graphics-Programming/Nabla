@@ -73,8 +73,9 @@ class CSurfaceGLImpl : public Base<Window,ISurface>
             capabilities.minImageExtent = { 1u, 1u };
             capabilities.maxImageExtent = { static_cast<uint32_t>(physicalDevice->getLimits().maxImageDimension2D), static_cast<uint32_t>(physicalDevice->getLimits().maxImageDimension2D) };
             capabilities.maxImageArrayLayers = physicalDevice->getLimits().maxImageArrayLayers;
-            capabilities.supportedTransforms = ISurface::EST_IDENTITY_BIT;
-            capabilities.currentTransform = ISurface::EST_IDENTITY_BIT;
+            // Only supported transform exposed for OpenGL is mirror rotate 180 (effectively flip Y) to match Vulkan
+            capabilities.supportedTransforms = ISurface::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT;
+            capabilities.currentTransform = ISurface::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT;
             capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(ISurface::ECA_OPAQUE_BIT | ISurface::ECA_PRE_MULTIPLIED_BIT | ISurface::ECA_POST_MULTIPLIED_BIT);
             capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(
                 asset::IImage::EUF_TRANSFER_SRC_BIT | asset::IImage::EUF_TRANSFER_DST_BIT |

@@ -222,7 +222,7 @@ struct SOpenGLContextLocalCache
         return fbo;
     }
 
-    void updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* _pipeline, uint32_t ctxid);
+    void updateNextState_pipelineAndRaster(IOpenGL_FunctionTable* gl, const IGPUGraphicsPipeline* _pipeline, uint32_t ctxid);
 
     template<asset::E_PIPELINE_BIND_POINT PBP>
     inline void pushConstants(const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
