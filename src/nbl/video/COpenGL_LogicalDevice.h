@@ -978,6 +978,21 @@ protected:
         return true;
     }
 
+    EGLConfig getEglConfig()
+    {
+        return m_config;
+    }
+
+    const FeaturesType* getGlFeatures()
+    {
+        return m_glfeatures;
+    }
+
+    std::pair<EGLint, EGLint> getGlVersion()
+    {
+        return m_gl_ver;
+    }
+
 private:
     renderdoc_api_t* m_rdoc_api;
     CThreadHandler<FunctionTableType> m_threadHandler;

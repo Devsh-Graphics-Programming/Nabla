@@ -1008,6 +1008,11 @@ public:
         return returnedSoFar;
     }
 
+    inline const egl::CEGL* getEgl()
+    {
+        return m_egl;
+    }
+
     virtual void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) = 0;
     virtual void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline) = 0;
     virtual void destroyTexture(GLuint img) = 0;

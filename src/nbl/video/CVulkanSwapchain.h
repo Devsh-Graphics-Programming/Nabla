@@ -20,7 +20,7 @@ public:
         m_vkSwapchainKHR(swapchain)
     {}
 
-    static core::smart_refctd_ptr<ISwapchain> create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+    static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
 
     ~CVulkanSwapchain();
 
