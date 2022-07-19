@@ -1574,46 +1574,25 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
         core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(asset::EFF_TRANSFER_DST_BIT | asset::EFF_BLIT_SRC_BIT | asset::EFF_BLIT_DST_BIT);
 
-        IPhysicalDevice::SFormatImageUsage requiredFormatUsages = {};
-        requiredFormatUsages.transferDst = 1;
-        requiredFormatUsages.blitDst = 1;
-        requiredFormatUsages.blitSrc = 1;
+        // TODO(Erfan): Figure out where we add the usages when creating the IGPUImage + investigate how blitSrc/Dst can get through formatPromotion
+        //IPhysicalDevice::SFormatImageUsage requiredFormatUsages(cpuDeps[i]->getImageUsageFlags() | );
+        // requiredFormatUsages.transferDst = 1;
+        // requiredFormatUsages.blitDst = 1;
+        // requiredFormatUsages.blitSrc = 1;
 
-        const core::bitflag<asset::IImage::E_USAGE_FLAGS> imageUsageFlags = cpuDeps[i]->getImageUsageFlags();
-        if ((imageUsageFlags & asset::IImage::EUF_TRANSFER_SRC_BIT).value)
-            requiredFormatUsages.transferSrc = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_SAMPLED_BIT).value)
-            requiredFormatUsages.sampledImage = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_STORAGE_BIT).value)
-            requiredFormatUsages.storageImage = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_COLOR_ATTACHMENT_BIT).value)
-            requiredFormatUsages.attachment = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT).value)
-            requiredFormatUsages.attachment = 1;
-        
         const auto format = imageCreationParams.format;
 
         if(format != asset::EF_R8G8B8_SRGB)
             continue; // This Temporary format promotion code only works for this format
 
-        bool formatSupported = false;
-        if (imageCreationParams.tiling == asset::IImage::ET_OPTIMAL)
-        {
-            const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
-            formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
-        }
-        else
-        {
-            const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesLinear(format);
-            formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
-        }
+        IPhysicalDevice::SImageFormatPromotionRequest promotionRequest = {};
+        promotionRequest.originalFormat = format;
+        promotionRequest.usages = cpuDeps[i]->getImageUsageFlags() | asset::IImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT;
+        const asset::E_FORMAT promotedFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, imageCreationParams.tiling);
 
-        if (!formatSupported)
+        if (format != promotedFormat)
         {
             // promote
-            assert((format == asset::EF_R8G8B8_SRGB) && "Don't know how to promote other formats!");
-
-            const asset::E_FORMAT promotedFormat = asset::EF_R8G8B8A8_SRGB;
             {
                 asset::ICPUImage::SCreationParams creationParams = imageCreationParams;
                 creationParams.format = promotedFormat;
