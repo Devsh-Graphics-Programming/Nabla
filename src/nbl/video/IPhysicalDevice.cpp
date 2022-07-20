@@ -63,9 +63,9 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAGMENT_COMBINED_OUTPUT_RESOURCES",m_properties.limits.maxFragmentCombinedOutputResources);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAGMENT_DUAL_SRC_ATTACHMENTS",m_properties.limits.maxFragmentDualSrcAttachments);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_SHARED_MEMORY_SIZE",m_properties.limits.maxComputeSharedMemorySize);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_COUNT",m_properties.limits.maxComputeWorkGroupCount[0]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_COUNT",m_properties.limits.maxComputeWorkGroupCount[1]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_COUNT",m_properties.limits.maxComputeWorkGroupCount[2]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_COUNT_X",m_properties.limits.maxComputeWorkGroupCount[0]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_COUNT_Y",m_properties.limits.maxComputeWorkGroupCount[1]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_COUNT_Z",m_properties.limits.maxComputeWorkGroupCount[2]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_INVOCATIONS",m_properties.limits.maxComputeWorkGroupInvocations);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_X",m_properties.limits.maxWorkgroupSize[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_Y",m_properties.limits.maxWorkgroupSize[1]);
@@ -77,8 +77,8 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORTS",m_properties.limits.maxViewports);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORT_DIMS_X",m_properties.limits.maxViewportDims[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORT_DIMS_Y",m_properties.limits.maxViewportDims[1]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_BOUNDS_RANGE",m_properties.limits.viewportBoundsRange[0]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_BOUNDS_RANGE",m_properties.limits.viewportBoundsRange[1]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_BOUNDS_RANGE_BEGIN",m_properties.limits.viewportBoundsRange[0]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_BOUNDS_RANGE_END",m_properties.limits.viewportBoundsRange[1]);
     
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_SUB_PIXEL_BITS",m_properties.limits.viewportSubPixelBits);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_MEMORY_MAP_ALIGNMENT",m_properties.limits.minMemoryMapAlignment);
