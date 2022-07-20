@@ -79,7 +79,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_BOUNDS_RANGE",m_properties.limits.viewportBoundsRange[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_BOUNDS_RANGE",m_properties.limits.viewportBoundsRange[1]);
     
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_SUB_PIXEL-BITS",m_properties.limits.viewportSubPixelBits);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_SUB_PIXEL_BITS",m_properties.limits.viewportSubPixelBits);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_MEMORY_MAP_ALIGNMENT",m_properties.limits.minMemoryMapAlignment);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_BUFFER_VIEW_ALIGNMENT",m_properties.limits.bufferViewAlignment);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_UBO_ALIGNMENT",m_properties.limits.minUBOAlignment);
@@ -93,16 +93,16 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_WIDTH",m_properties.limits.maxFramebufferWidth);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_HEIGHT",m_properties.limits.maxFramebufferHeight);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_LAYERS",m_properties.limits.maxFramebufferLayers);
-    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_COLOR_SAMPLE_COUNTS",m_properties.limits.framebufferColorSampleCounts.value);
-    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_DEPTH_SAMPLE_COUNTS",m_properties.limits.framebufferDepthSampleCounts.value);
-    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_STENCIL_SAMPLE_COUNTS",m_properties.limits.framebufferStencilSampleCounts.value);
-    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_NO_ATTACHMENTS_SAMPLE_COUNTS",m_properties.limits.framebufferNoAttachmentsSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_COLOR_SAMPLE_COUNTS",m_properties.limits.framebufferColorSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_DEPTH_SAMPLE_COUNTS",m_properties.limits.framebufferDepthSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_STENCIL_SAMPLE_COUNTS",m_properties.limits.framebufferStencilSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_NO_ATTACHMENTS_SAMPLE_COUNTS",m_properties.limits.framebufferNoAttachmentsSampleCounts.value);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COLOR_ATTACHMENTS",m_properties.limits.maxColorAttachments);
-    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_COLOR_SAMPLE_COUNTS",m_properties.limits.sampledImageColorSampleCounts.value);
-    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS",m_properties.limits.sampledImageIntegerSampleCounts.value);
-    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_DEPTH_SAMPLE_COUNTS",m_properties.limits.sampledImageDepthSampleCounts.value);
-    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS",m_properties.limits.sampledImageStencilSampleCounts.value);
-    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_STORAGE_IMAGE_SAMPLE_COUNTS",m_properties.limits.storageImageSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_COLOR_SAMPLE_COUNTS",m_properties.limits.sampledImageColorSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS",m_properties.limits.sampledImageIntegerSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_DEPTH_SAMPLE_COUNTS",m_properties.limits.sampledImageDepthSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS",m_properties.limits.sampledImageStencilSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_STORAGE_IMAGE_SAMPLE_COUNTS",m_properties.limits.storageImageSampleCounts.value);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_MASK_WORDS",m_properties.limits.maxSampleMaskWords);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_TIMESTAMP_COMPUTE_AND_GRAPHICS",m_properties.limits.timestampComputeAndGraphics);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_TIMESTAMP_PERIOD_IN_NANO_SECONDS",m_properties.limits.timestampPeriodInNanoSeconds);
@@ -137,26 +137,26 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.shaderSubgroupQuad) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_QUAD");
     if (m_properties.limits.shaderSubgroupQuadAllStages) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_QUAD_ALL_STAGES");
 
-    // E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = EPCB_USER_CLIP_PLANES_ONLY;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_POINT_CLIPPING_BEHAVIOR",(uint32_t)m_properties.limits.pointClippingBehavior);
     
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_SET_DESCRIPTORS",m_properties.limits.maxPerSetDescriptors);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_MEMORY_ALLOCATION_SIZE",m_properties.limits.maxMemoryAllocationSize);
 
-    // E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat16 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat32 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat64 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderDenormPreserveFloat16 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderDenormPreserveFloat32 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderDenormPreserveFloat64 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderDenormFlushToZeroFloat16 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderDenormFlushToZeroFloat32 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderDenormFlushToZeroFloat64 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderRoundingModeRTEFloat16 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderRoundingModeRTEFloat32 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderRoundingModeRTEFloat64 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderRoundingModeRTZFloat16 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderRoundingModeRTZFloat32 = ETB_DONT_KNOW;
-    // E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT16",(uint32_t)m_properties.limits.shaderSignedZeroInfNanPreserveFloat16);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT32",(uint32_t)m_properties.limits.shaderSignedZeroInfNanPreserveFloat32);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT64",(uint32_t)m_properties.limits.shaderSignedZeroInfNanPreserveFloat64);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT16",(uint32_t)m_properties.limits.shaderDenormPreserveFloat16);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT32",(uint32_t)m_properties.limits.shaderDenormPreserveFloat32);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT64",(uint32_t)m_properties.limits.shaderDenormPreserveFloat64);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT16",(uint32_t)m_properties.limits.shaderDenormFlushToZeroFloat16);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT32",(uint32_t)m_properties.limits.shaderDenormFlushToZeroFloat32);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT64",(uint32_t)m_properties.limits.shaderDenormFlushToZeroFloat64);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT16",(uint32_t)m_properties.limits.shaderRoundingModeRTEFloat16);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT32",(uint32_t)m_properties.limits.shaderRoundingModeRTEFloat32);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT64",(uint32_t)m_properties.limits.shaderRoundingModeRTEFloat64);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT16",(uint32_t)m_properties.limits.shaderRoundingModeRTZFloat16);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT32",(uint32_t)m_properties.limits.shaderRoundingModeRTZFloat32);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT64",(uint32_t)m_properties.limits.shaderRoundingModeRTZFloat64);
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_STAGE_DESCRIPTOR_UPDATE_AFTER_BIND_SAMPLERS",m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_UPDATE_AFTER_BIND_DESCRIPTORS_IN_ALL_POOLS",m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools);
@@ -318,7 +318,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.allowCommandBufferQueryCopies) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_ALLOW_COMMAND_BUFFER_QUERY_COPIES");
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS",m_properties.limits.maxOptimallyResidentWorkgroupInvocations);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RESIDENT_INVOCATIONS",m_properties.limits.maxResidentInvocations);
-    // asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SPIRV_VERSION",(uint32_t)m_properties.limits.spirvVersion);
 
 
     // TODO: @achal test examples 14 and 48 on all APIs and GPUs
