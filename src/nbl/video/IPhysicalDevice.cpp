@@ -513,10 +513,6 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.bufferMarkerAMD) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_MARKER_AMD");
 
     // TODO: @achal test examples 14 and 48 on all APIs and GPUs
-    
-
-    // TODO: Add feature defines
-
 
     if (runningInRenderdoc)
         addGLSLDefineToPool(pool,"NBL_RUNNING_IN_RENDERDOC");
