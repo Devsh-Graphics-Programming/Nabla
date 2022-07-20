@@ -7,6 +7,7 @@
 #define __NBL_AABBOX_3D_H_INCLUDED__
 
 #include "line3d.h"
+#include <limits>
 
 namespace nbl
 {
@@ -22,7 +23,7 @@ class aabbox3d // : public AllocationOverrideDefault ?
 	public:
 
 		//! Default Constructor.
-		aabbox3d(): MinEdge(-1,-1,-1), MaxEdge(1,1,1) {}
+		aabbox3d(): MinEdge(numeric_limits<T>::max()), MaxEdge(numeric_limits<T>::min()) {}
 		//! Constructor with min edge and max edge.
 		aabbox3d(const vector3d<T>& min, const vector3d<T>& max): MinEdge(min), MaxEdge(max) {}
 		//! Constructor with only one point.
