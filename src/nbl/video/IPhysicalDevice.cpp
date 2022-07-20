@@ -93,16 +93,16 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_WIDTH",m_properties.limits.maxFramebufferWidth);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_HEIGHT",m_properties.limits.maxFramebufferHeight);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_LAYERS",m_properties.limits.maxFramebufferLayers);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_COLOR_SAMPLE_COUNTS",m_properties.limits.framebufferColorSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_DEPTH_SAMPLE_COUNTS",m_properties.limits.framebufferDepthSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_STENCIL_SAMPLE_COUNTS",m_properties.limits.framebufferStencilSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_FRAMEBUFFER_NO_ATTACHMENTS_SAMPLE_COUNTS",m_properties.limits.framebufferNoAttachmentsSampleCounts.value);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COLOR_ATTACHMENTS",m_properties.limits.maxColorAttachments);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageIntegerSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageDepthSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> storageImageSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);    
+    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_COLOR_SAMPLE_COUNTS",m_properties.limits.sampledImageColorSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS",m_properties.limits.sampledImageIntegerSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_DEPTH_SAMPLE_COUNTS",m_properties.limits.sampledImageDepthSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS",m_properties.limits.sampledImageStencilSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_NBL_GLSL_STORAGE_IMAGE_SAMPLE_COUNTS",m_properties.limits.storageImageSampleCounts.value);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_MASK_WORDS",m_properties.limits.maxSampleMaskWords);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_TIMESTAMP_COMPUTE_AND_GRAPHICS",m_properties.limits.timestampComputeAndGraphics);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_TIMESTAMP_PERIOD_IN_NANO_SECONDS",m_properties.limits.timestampPeriodInNanoSeconds);
@@ -126,7 +126,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VERTEX_OUTPUT_COMPONENTS",m_properties.limits.maxVertexOutputComponents);
     
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SUBGROUP_SIZE",m_properties.limits.subgroupSize);
-    // core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_UNKNOWN;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SUBGROUP_OPS_SHADER_STAGES",m_properties.limits.subgroupOpsShaderStages.value);
     if (m_properties.limits.shaderSubgroupBasic) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_BASIC");
     if (m_properties.limits.shaderSubgroupVote) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_VOTE");
     if (m_properties.limits.shaderSubgroupArithmetic) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_ARITHMETIC");
@@ -190,7 +190,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SUBGROUP_SIZE",m_properties.limits.maxSubgroupSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_SUBGROUPS",m_properties.limits.maxComputeWorkgroupSubgroups);
 
-    // core::bitflag<asset::IShader::E_SHADER_STAGE> requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_REQUIRED_SUBGROUP_SIZE_STAGES",m_properties.limits.requiredSubgroupSizeStages.value);
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_STORAGE_TEXEL_BUFFER_OFFSET_ALIGNMENT_BYTES",m_properties.limits.minSubgroupSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_UNIFORM_TEXEL_BUFFER_OFFSET_ALIGNMENT_BYTES",m_properties.limits.maxSubgroupSize);
@@ -254,18 +254,18 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
 
     if (m_properties.limits.variableSampleLocations) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VARIABLE_SAMPLE_LOCATIONS");
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_SUBPIXEL_BITS",m_properties.limits.sampleLocationSubPixelBits);
-    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_LOCATION_GRID_SIZE_X",m_properties.limits.maxSampleLocationGridSize[0]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_LOCATION_GRID_SIZE_Y",m_properties.limits.maxSampleLocationGridSize[1]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_SAMPLE_COUNTS",m_properties.limits.sampleLocationSampleCounts.value);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_LOCATION_GRID_SIZE_X",m_properties.limits.maxSampleLocationGridSize.width);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_LOCATION_GRID_SIZE_Y",m_properties.limits.maxSampleLocationGridSize.height);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_COORDINATE_RANGE_X",m_properties.limits.sampleLocationCoordinateRange[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_COORDINATE_RANGE_Y",m_properties.limits.sampleLocationCoordinateRange[1]);
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_IMPORTED_HOST_POINTER_ALIGNMENT",m_properties.limits.minImportedHostPointerAlignment);
 
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_X",m_properties.limits.minFragmentDensityTexelSize[0]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_Y",m_properties.limits.minFragmentDensityTexelSize[1]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAGMENT_DENSITY_TEXEL_SIZE_X",m_properties.limits.maxFragmentDensityTexelSize[0]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAGMENT_DENSITY_TEXEL_SIZE_Y",m_properties.limits.maxFragmentDensityTexelSize[1]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_X",m_properties.limits.minFragmentDensityTexelSize.width);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_Y",m_properties.limits.minFragmentDensityTexelSize.height);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAGMENT_DENSITY_TEXEL_SIZE_X",m_properties.limits.maxFragmentDensityTexelSize.width);
+    addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_MAX_FRAGMENT_DENSITY_TEXEL_SIZE_Y",m_properties.limits.maxFragmentDensityTexelSize.height);
     if (m_properties.limits.fragmentDensityInvocations) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FRAGMENT_DENSITY_INVOCATIONS");
 
     if (m_properties.limits.subsampledLoads) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SUBSAMPLED_LOADS");
@@ -286,7 +286,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_DISPATCH_INVOCATION_COUNT",m_properties.limits.maxRayDispatchInvocationCount);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_GROUP_HANDLE_ALIGNMENT",m_properties.limits.shaderGroupHandleAlignment);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_HIT_ATTRIBUTE_SIZE",m_properties.limits.maxRayHitAttributeSize);
-    // core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_COOPERATIVE_MATRIX_SUPPORTED_STAGES",m_properties.limits.cooperativeMatrixSupportedStages.value);
   
     if (m_properties.limits.shaderOutputViewportIndex) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_OUTPUT_VIEWPORT_INDEX");
     if (m_properties.limits.shaderOutputLayer) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_OUTPUT_LAYER");
