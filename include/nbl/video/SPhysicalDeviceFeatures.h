@@ -212,9 +212,9 @@ struct SPhysicalDeviceFeatures
     /* Vulkan Extensions */
 
     /* RasterizationOrderAttachmentAccessFeaturesARM *//* VK_ARM_rasterization_order_attachment_access */
-    bool rasterizationOrderColorAttachmentAccess;
-    bool rasterizationOrderDepthAttachmentAccess;
-    bool rasterizationOrderStencilAttachmentAccess;
+    bool rasterizationOrderColorAttachmentAccess = false;
+    bool rasterizationOrderDepthAttachmentAccess = false;
+    bool rasterizationOrderStencilAttachmentAccess = false;
     
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
@@ -421,7 +421,7 @@ struct SPhysicalDeviceFeatures
     bool rayTracingMotionBlurPipelineTraceRaysIndirect = false;
 
     /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
-    bool coverageReductionMode;
+    bool coverageReductionMode = false;
 
     /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
     bool deviceGeneratedCommands = false;
