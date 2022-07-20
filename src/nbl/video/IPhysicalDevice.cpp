@@ -14,42 +14,305 @@ IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, co
 
 void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderdoc)
 {
+    // uint32_t maxImageDimension1D = 0u;
+    // uint32_t maxImageDimension2D = 0u;
+    // uint32_t maxImageDimension3D = 0u;
+    // uint32_t maxImageDimensionCube = 0u;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_IMAGE_ARRAY_LAYERS", m_properties.limits.maxImageArrayLayers);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_BUFFER_VIEW_TEXELS", m_properties.limits.maxBufferViewTexels);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_UBO_SIZE",m_properties.limits.maxUBOSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SSBO_SIZE",m_properties.limits.maxSSBOSize);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_BUFFER_VIEW_TEXELS",m_properties.limits.maxBufferViewTexels);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_BUFFER_SIZE",core::min(m_properties.limits.maxBufferSize, ~0u));
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_IMAGE_ARRAY_LAYERS",m_properties.limits.maxImageArrayLayers);
+    // uint32_t maxPushConstantsSize = 0u;
+    // uint32_t maxMemoryAllocationCount = 0u;
+    // uint32_t maxSamplerAllocationCount = 0u;
+    // size_t bufferImageGranularity = 0ull;
 
+    // uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
+    // uint32_t maxPerStageDescriptorUBOs = 0u;
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_STAGE_SSBO_COUNT",m_properties.limits.maxPerStageDescriptorSSBOs);
-    
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SSBO_COUNT",m_properties.limits.maxDescriptorSetSSBOs);
+    // uint32_t maxPerStageDescriptorImages = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER, EDT_UNIFORM_TEXEL_BUFFER count against this limit.
+    // uint32_t maxPerStageDescriptorStorageImages = 0u;
+    // uint32_t maxPerStageDescriptorInputAttachments = 0u;
+    // uint32_t maxPerStageResources = 0u;
+
+    // uint32_t maxDescriptorSetSamplers = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_UBO_COUNT",m_properties.limits.maxDescriptorSetUBOs);
+    // uint32_t maxDescriptorSetDynamicOffsetUBOs = 0u;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SSBO_COUNT",m_properties.limits.maxDescriptorSetSSBOs);
+    // uint32_t maxDescriptorSetDynamicOffsetSSBOs = 0u;
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_TEXTURE_COUNT",m_properties.limits.maxDescriptorSetImages);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_STORAGE_IMAGE_COUNT",m_properties.limits.maxDescriptorSetStorageImages);
+    // uint32_t maxDescriptorSetInputAttachments = 0u;
 
+    // uint32_t maxTessellationGenerationLevel = 0u;
+    // uint32_t maxTessellationPatchSize = 0u;
+    // uint32_t maxTessellationControlPerVertexInputComponents = 0u;
+    // uint32_t maxTessellationControlPerVertexOutputComponents = 0u;
+    // uint32_t maxTessellationControlPerPatchOutputComponents = 0u;
+    // uint32_t maxTessellationControlTotalOutputComponents = 0u;
+    // uint32_t maxTessellationEvaluationInputComponents = 0u;
+    // uint32_t maxTessellationEvaluationOutputComponents = 0u;
+    // uint32_t maxGeometryShaderInvocations = 0u;
+    // uint32_t maxGeometryInputComponents = 0u;
+    // uint32_t maxGeometryOutputComponents = 0u;
+    // uint32_t maxGeometryOutputVertices = 0u;
+    // uint32_t maxGeometryTotalOutputComponents = 0u;
+    // uint32_t maxFragmentInputComponents = 0u;
+    // uint32_t maxFragmentOutputAttachments = 0u;
+    // uint32_t maxFragmentDualSrcAttachments = 0u;
+    // uint32_t maxFragmentCombinedOutputResources = 0u;
+    // uint32_t maxComputeSharedMemorySize;
+    // uint32_t maxComputeWorkGroupCount[3];
+    // uint32_t maxComputeWorkGroupInvocations = 0u;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_X",m_properties.limits.maxWorkgroupSize[0]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_Y",m_properties.limits.maxWorkgroupSize[1]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_Z",m_properties.limits.maxWorkgroupSize[2]);
+    // uint32_t subPixelPrecisionBits = 0u;
     addGLSLDefineToPool(pool,"NBL_LIMIT_MAX_DRAW_INDIRECT_COUNT",m_properties.limits.maxDrawIndirectCount);
-
+    // float    maxSamplerLodBias = 0.0f;
+    // uint8_t  maxSamplerAnisotropyLog2 = 0.0f;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORTS",m_properties.limits.maxViewports);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORT_WIDTH",m_properties.limits.maxViewportDims[0]);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORT_HEIGHT",m_properties.limits.maxViewportDims[1]);
+    // float    viewportBoundsRange[2]; // [min, max]
+    // uint32_t viewportSubPixelBits = 0u;
+    // size_t   minMemoryMapAlignment = 0ull;
+    // uint32_t bufferViewAlignment = 0u;
+    // uint32_t minUBOAlignment = 0u;
+    // uint32_t minSSBOAlignment = 0u;
+    // int32_t  minTexelOffset = 0;
+    // uint32_t maxTexelOffset = 0u;
+    // int32_t  minTexelGatherOffset = 0;
+    // uint32_t maxTexelGatherOffset = 0u;
+    // float    minInterpolationOffset = 0.0f;
+    // float    maxInterpolationOffset = 0.0f;
+    // uint32_t maxFramebufferWidth = 0u;
+    // uint32_t maxFramebufferHeight = 0u;
+    // uint32_t maxFramebufferLayers = 0u;
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // uint32_t maxColorAttachments = 0u;
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageIntegerSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageDepthSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> storageImageSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // uint32_t maxSampleMaskWords = 0u;
+    // bool timestampComputeAndGraphics = false;
+    // float timestampPeriodInNanoSeconds = 0.0f; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
+    // uint32_t maxClipDistances = 0u;
+    // uint32_t maxCullDistances = 0u;
+    // uint32_t maxCombinedClipAndCullDistances = 0u;
+    // uint32_t discreteQueuePriorities = 0u;
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_POINT_SIZE",m_properties.limits.pointSizeRange[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_POINT_SIZE",m_properties.limits.pointSizeRange[1]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_LINE_WIDTH",m_properties.limits.lineWidthRange[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_LINE_WIDTH",m_properties.limits.lineWidthRange[1]);
+    // float pointSizeGranularity = 0.f;
+    // float lineWidthGranularity = 0.f;
+    // bool strictLines = false;
+    // bool standardSampleLocations = false;
+    // uint64_t optimalBufferCopyOffsetAlignment = 0ull;
+    // uint64_t optimalBufferCopyRowPitchAlignment = 0ull;
+    // uint64_t nonCoherentAtomSize = 0ull;
 
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORTS",m_properties.limits.maxViewports);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORT_WIDTH",m_properties.limits.maxViewportDims[0]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VIEWPORT_HEIGHT",m_properties.limits.maxViewportDims[1]);
-
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_X",m_properties.limits.maxWorkgroupSize[0]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_Y",m_properties.limits.maxWorkgroupSize[1]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_WORKGROUP_SIZE_Z",m_properties.limits.maxWorkgroupSize[2]);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS",m_properties.limits.maxOptimallyResidentWorkgroupInvocations);
-
-    // TODO: Need upper and lower bounds on workgroup sizes!
-    // TODO: Need to know if subgroup size is constant/known
+    // uint32_t maxVertexOutputComponents = 0u;
+    
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SUBGROUP_SIZE",m_properties.limits.subgroupSize);
+    // core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_UNKNOWN;
+    // bool shaderSubgroupBasic = false;
+    // bool shaderSubgroupVote = false;
+    // bool shaderSubgroupArithmetic = false;
+    // bool shaderSubgroupBallot = false;
+    // bool shaderSubgroupShuffle = false;
+    // bool shaderSubgroupShuffleRelative = false;
+    // bool shaderSubgroupClustered = false;
+    // bool shaderSubgroupQuad = false;
+    // bool shaderSubgroupQuadAllStages = false;
+
+    // E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = EPCB_USER_CLIP_PLANES_ONLY;
+    
+    // uint32_t maxPerSetDescriptors = 0u;
+    // size_t maxMemoryAllocationSize = 0ull;
+
+    // E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat16 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat32 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat64 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderDenormPreserveFloat16 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderDenormPreserveFloat32 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderDenormPreserveFloat64 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderDenormFlushToZeroFloat16 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderDenormFlushToZeroFloat32 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderDenormFlushToZeroFloat64 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderRoundingModeRTEFloat16 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderRoundingModeRTEFloat32 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderRoundingModeRTEFloat64 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderRoundingModeRTZFloat16 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderRoundingModeRTZFloat32 = ETB_DONT_KNOW;
+    // E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
+
+    // uint32_t maxUpdateAfterBindDescriptorsInAllPools = ~0u;
+    // bool shaderUniformBufferArrayNonUniformIndexingNative = false;
+    // bool shaderSampledImageArrayNonUniformIndexingNative = false;
+    // bool shaderStorageBufferArrayNonUniformIndexingNative = false;
+    // bool shaderStorageImageArrayNonUniformIndexingNative = false;
+    // bool shaderInputAttachmentArrayNonUniformIndexingNative = false;
+    // bool robustBufferAccessUpdateAfterBind = false;
+    // bool quadDivergentImplicitLod = false;
+    // uint32_t maxPerStageDescriptorUpdateAfterBindSamplers = 0u;
+    // uint32_t maxPerStageDescriptorUpdateAfterBindUBOs = 0u;
+    // uint32_t maxPerStageDescriptorUpdateAfterBindSSBOs = 0u;
+    // uint32_t maxPerStageDescriptorUpdateAfterBindImages = 0u;
+    // uint32_t maxPerStageDescriptorUpdateAfterBindStorageImages = 0u;
+    // uint32_t maxPerStageDescriptorUpdateAfterBindInputAttachments = 0u;
+    // uint32_t maxPerStageUpdateAfterBindResources = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindSamplers = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindUBOs = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindSSBOs = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindImages = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindStorageImages = 0u;
+    // uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = 0u;
+
+    // bool filterMinmaxSingleComponentFormats = false;
+    // bool filterMinmaxImageComponentMapping = false;
+
+    // uint32_t minSubgroupSize = 0u;
+    // uint32_t maxSubgroupSize = 0u;
+    // uint32_t maxComputeWorkgroupSubgroups = 0u;
+    // core::bitflag<asset::IShader::E_SHADER_STAGE> requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
+
+    // size_t storageTexelBufferOffsetAlignmentBytes = 0ull;
+    // size_t uniformTexelBufferOffsetAlignmentBytes = 0ull;
+
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_BUFFER_SIZE",core::min(m_properties.limits.maxBufferSize, ~0u));
+
+    // float primitiveOverestimationSize = 0.0f;
+    // float maxExtraPrimitiveOverestimationSize = 0.0f;
+    // float extraPrimitiveOverestimationSizeGranularity = 0.0f;
+    // bool primitiveUnderestimation = false;
+    // bool conservativePointAndLineRasterization = false;
+    // bool degenerateTrianglesRasterized = false;
+    // bool degenerateLinesRasterized = false;
+    // bool fullyCoveredFragmentShaderInputVariable = false;
+    // bool conservativeRasterizationPostDepthCoverage = false;
+
+    // uint32_t maxDiscardRectangles = 0u;
+    // uint32_t lineSubPixelPrecisionBits = 0;
+    // uint32_t maxVertexAttribDivisor = 0;
+    // uint32_t maxSubpassShadingWorkgroupSizeAspectRatio = 0;
+
+    // bool integerDotProduct8BitUnsignedAccelerated;
+    // bool integerDotProduct8BitSignedAccelerated;
+    // bool integerDotProduct8BitMixedSignednessAccelerated;
+    // bool integerDotProduct4x8BitPackedUnsignedAccelerated;
+    // bool integerDotProduct4x8BitPackedSignedAccelerated;
+    // bool integerDotProduct4x8BitPackedMixedSignednessAccelerated;
+    // bool integerDotProduct16BitUnsignedAccelerated;
+    // bool integerDotProduct16BitSignedAccelerated;
+    // bool integerDotProduct16BitMixedSignednessAccelerated;
+    // bool integerDotProduct32BitUnsignedAccelerated;
+    // bool integerDotProduct32BitSignedAccelerated;
+    // bool integerDotProduct32BitMixedSignednessAccelerated;
+    // bool integerDotProduct64BitUnsignedAccelerated;
+    // bool integerDotProduct64BitSignedAccelerated;
+    // bool integerDotProduct64BitMixedSignednessAccelerated;
+    // bool integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating8BitSignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
+    // bool integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
+    // bool integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating16BitSignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
+    // bool integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating32BitSignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
+    // bool integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating64BitSignedAccelerated;
+    // bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
+
+    // uint64_t           maxGeometryCount = 0ull;
+    // uint64_t           maxInstanceCount = 0ull;
+    // uint64_t           maxPrimitiveCount = 0ull;
+    // uint32_t           maxPerStageDescriptorAccelerationStructures = 0u;
+    // uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures = 0u;
+    // uint32_t           maxDescriptorSetAccelerationStructures = 0u;
+    // uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures = 0u;
+    // uint32_t           minAccelerationStructureScratchOffsetAlignment = 0u;
+
+    // bool variableSampleLocations = false;
+    // uint32_t        sampleLocationSubPixelBits = 0;
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    // VkExtent2D      maxSampleLocationGridSize = { 0u, 0u };
+    // float           sampleLocationCoordinateRange[2];
+
+    // size_t minImportedHostPointerAlignment = 0x1ull<<63u;
+
+    // VkExtent2D         minFragmentDensityTexelSize = {0u, 0u};
+    // VkExtent2D         maxFragmentDensityTexelSize = {0u, 0u};
+    // bool           fragmentDensityInvocations = false;
+
+    // bool           subsampledLoads = false;
+    // bool           subsampledCoarseReconstructionEarlyAccess = false;
+    // uint32_t           maxSubsampledArrayLayers = 0u;
+    // uint32_t           maxDescriptorSetSubsampledSamplers = 0u;
+
+    // uint32_t  pciDomain = ~0u;
+    // uint32_t  pciBus = ~0u;
+    // uint32_t  pciDevice = ~0u;
+    // uint32_t  pciFunction = ~0u;
+
+    // uint32_t           shaderGroupHandleSize = 0u;
+    // uint32_t           maxRayRecursionDepth = 0u;
+    // uint32_t           maxShaderGroupStride = 0u;
+    // uint32_t           shaderGroupBaseAlignment = 0u;
+    // uint32_t           shaderGroupHandleCaptureReplaySize = 0u;
+    // uint32_t           maxRayDispatchInvocationCount = 0u;
+    // uint32_t           shaderGroupHandleAlignment = 0u;
+    // uint32_t           maxRayHitAttributeSize = 0u;
+
+    // core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
+  
+    // bool shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    // bool shaderOutputLayer = false;             // ALIAS: VK_EXT_shader_viewport_index_layer
+    // bool shaderIntegerFunctions2 = false;
+    // bool shaderSubgroupClock = false;
+    // bool imageFootprint = false;
+    // bool texelBufferAlignment = false;
+    // bool shaderSMBuiltins = false;
+    // bool shaderSubgroupPartitioned = false; /* VK_NV_shader_subgroup_partitioned */
+    // bool gcnShader = false; /* VK_AMD_gcn_shader */
+    // bool gpuShaderHalfFloat = false; /* VK_AMD_gpu_shader_half_float */
+    // bool gpuShaderInt16 = false; /* VK_AMD_gpu_shader_int16 */
+    // bool shaderBallot = false; /* VK_AMD_shader_ballot */
+    // bool shaderImageLoadStoreLod = false; /* VK_AMD_shader_image_load_store_lod */
+    // bool shaderTrinaryMinmax = false; /* VK_AMD_shader_trinary_minmax  */
+    // bool postDepthCoverage = false; /* VK_EXT_post_depth_coverage */
+    // bool shaderStencilExport = false; /* VK_EXT_shader_stencil_export */
+    // bool decorateString = false; /* VK_GOOGLE_decorate_string */
+    // bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */
+    // bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */
+    // bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */
+    // bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
+    // bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
+    // bool geometryShaderPassthrough = false; /* VK_NV_geometry_shader_passthrough */
+    // bool viewportSwizzle = false; /* VK_NV_viewport_swizzle */
+
+    // uint32_t computeUnits = 0u;
+    // bool dispatchBase = false; // true in Vk, false in GL
+    // bool allowCommandBufferQueryCopies = false;
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS",m_properties.limits.maxOptimallyResidentWorkgroupInvocations);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RESIDENT_INVOCATIONS",m_properties.limits.maxResidentInvocations);
+    // asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
+
+
     // TODO: @achal test examples 14 and 48 on all APIs and GPUs
     
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RESIDENT_INVOCATIONS",m_properties.limits.maxResidentInvocations);
-
 
     // TODO: Add feature defines
 
