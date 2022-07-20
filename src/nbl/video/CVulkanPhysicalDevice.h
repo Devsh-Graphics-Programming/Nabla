@@ -1352,6 +1352,7 @@ protected:
             {
                 texelBufferAlignmentFeatures.texelBufferAlignment = true;
                 addFeatureToChain(&texelBufferAlignmentFeatures);
+                selectedFeatures.push_back(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME);
             }
 
             VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL intelShaderIntegerFunctions2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL };
@@ -1359,6 +1360,7 @@ protected:
             {
                 intelShaderIntegerFunctions2.shaderIntegerFunctions2 = true;
                 addFeatureToChain(&intelShaderIntegerFunctions2);
+                selectedFeatures.push_back(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME);
             }
 
             VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR };
@@ -1366,6 +1368,7 @@ protected:
             {
                 shaderClockFeatures.shaderSubgroupClock = true;
                 addFeatureToChain(&shaderClockFeatures);
+                selectedFeatures.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
             }
 
             VkPhysicalDeviceShaderImageFootprintFeaturesNV shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV };
@@ -1373,6 +1376,7 @@ protected:
             {
                 shaderImageFootprintFeatures.imageFootprint = true;
                 addFeatureToChain(&shaderImageFootprintFeatures);
+                selectedFeatures.push_back(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME);
             }
         }
 

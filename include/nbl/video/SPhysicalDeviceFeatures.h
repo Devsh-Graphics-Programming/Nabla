@@ -321,10 +321,6 @@ struct SPhysicalDeviceFeatures
     bool shaderImageInt64Atomics = false;
     bool sparseImageInt64Atomics = false;
 
-    // [DO NOT EXPOSE] always enable if we can
-    /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
-    //bool           texelBufferAlignment;
-
     // [DO NOT EXPOSE] ever because of our disdain for XForm feedback
     /* TransformFeedbackFeaturesEXT *//* VK_EXT_transform_feedback */
     //bool           transformFeedback;
@@ -537,74 +533,73 @@ struct SPhysicalDeviceFeatures
     // [TODO] Promoted to VK1.1 core, haven't updated API to match
     /* VK_KHR_descriptor_update_template */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
+    /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
+
+    // Enabled by Default, Moved to Limits
     /* VK_NV_sample_mask_override_coverage */
 
-    // [TODO] Always enable, have it contribute to shaderSubgroup reporting & report as limit
-    /* VK_NV_shader_subgroup_partitioned */
+    // Enabled by Default, Moved to Limits
+    /* VK_NV_shader_subgroup_partitioned */ // [TODO] have it contribute to shaderSubgroup reporting
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_AMD_gcn_shader */
 
-    // [TODO] Always enable, expose as limit (Note: Promoted to VK_KHR_shader_float16_int8)
+    // Enabled by Default, Moved to Limits
     /* VK_AMD_gpu_shader_half_float */
 
-    // [TODO] Always enable, expose as limit (Note: Promoted to VK_AMD_gpu_shader_int16)
+    // Enabled by Default, Moved to Limits
     /* VK_AMD_gpu_shader_int16 */
 
-    // [TODO] Always enable, have it contribute to shaderSubgroup reporting
+    // Enabled by Default, Moved to Limits
     /* VK_AMD_shader_ballot */
-
-    // [TODO] Always enable, expose as limit
+    
+    // Enabled by Default, Moved to Limits
     /* VK_AMD_shader_image_load_store_lod */
 
-    // [TODO] Enable when available, report as limit
+    // Enabled by Default, Moved to Limits
     /* VK_AMD_shader_trinary_minmax */
 
-    // [TODO] needs to figure out how extending our LOAD_OP enum would affect the GL backend
-    /* VK_EXT_load_store_op_none */
-
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_EXT_post_depth_coverage */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_EXT_shader_stencil_export */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_GOOGLE_decorate_string */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_external_fence_fd */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_external_fence_win32 */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_external_memory_fd */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_external_memory_win32 */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_external_semaphore_fd */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_external_semaphore_win32 */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_shader_non_semantic_info */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
-    //bool           shaderSMBuiltins;
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_KHR_fragment_shader_barycentric */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_NV_geometry_shader_passthrough */
 
-    // [TODO] Always enable, expose as limit
+    // Enabled by Default, Moved to Limits
     /* VK_NV_viewport_swizzle */
 
     // [TODO] this one isn't in the headers
@@ -641,6 +636,9 @@ struct SPhysicalDeviceFeatures
     // Enabled by Default, Moved to Limits 
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
     //bool           imageFootprint;
+
+    // [TODO LATER] needs to figure out how extending our LOAD_OP enum would affect the GL backend
+    /* VK_EXT_load_store_op_none */
 
     // [TODO LATER] Won't expose for now, API changes necessary
     /* VK_AMD_texture_gather_bias_lod */

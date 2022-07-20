@@ -88,9 +88,9 @@ struct SPhysicalDeviceLimits
     uint32_t bufferViewAlignment = 0u;
     uint32_t minUBOAlignment = 0u;
     uint32_t minSSBOAlignment = 0u;
-    int32_t  minTexelOffset = 0u;
+    int32_t  minTexelOffset = 0;
     uint32_t maxTexelOffset = 0u;
-    int32_t  minTexelGatherOffset = 0u;
+    int32_t  minTexelGatherOffset = 0;
     uint32_t maxTexelGatherOffset = 0u;
     float    minInterpolationOffset = 0.0f;
     float    maxInterpolationOffset = 0.0f;
@@ -137,7 +137,7 @@ struct SPhysicalDeviceLimits
 
     /* Vulkan 1.1 Core  */
     uint32_t subgroupSize = 0u;
-    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::E_SHADER_STAGE(0u);
+    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_UNKNOWN;
     bool shaderSubgroupBasic = false;
     bool shaderSubgroupVote = false;
     bool shaderSubgroupArithmetic = false;
@@ -343,7 +343,7 @@ struct SPhysicalDeviceLimits
     uint32_t           maxRayHitAttributeSize = 0u;
 
     /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
-    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::E_SHADER_STAGE(0u);
+    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
 
     // [TODO LATER] not in header (previous comment: too much effort)
     // GLHint: Report false for both on GL
@@ -554,18 +554,43 @@ struct SPhysicalDeviceLimits
     //! uint32_t              maxVertexInputBindingStride;
 
     /*  Always enabled, reported as limits */
-    bool           shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
-    bool           shaderOutputLayer = false;             // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool shaderOutputLayer = false;             // ALIAS: VK_EXT_shader_viewport_index_layer
 
     /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
-    bool           shaderIntegerFunctions2 = false;
+    bool shaderIntegerFunctions2 = false;
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    bool           shaderSubgroupClock = false;
+    bool shaderSubgroupClock = false;
 
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
-    bool           imageFootprint = false;
+    bool imageFootprint = false;
 
+    /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
+    bool texelBufferAlignment = false;
+
+    // [TODO] implement the enable by default and expose behaviour for ones below once API changes
+
+    /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
+    bool shaderSMBuiltins = false;
+
+    bool shaderSubgroupPartitioned = false; /* VK_NV_shader_subgroup_partitioned */
+    bool gcnShader = false; /* VK_AMD_gcn_shader */
+    bool gpuShaderHalfFloat = false; /* VK_AMD_gpu_shader_half_float */
+    bool gpuShaderInt16 = false; /* VK_AMD_gpu_shader_int16 */
+    bool shaderBallot = false; /* VK_AMD_shader_ballot */
+    bool shaderImageLoadStoreLod = false; /* VK_AMD_shader_image_load_store_lod */
+    bool shaderTrinaryMinmax = false; /* VK_AMD_shader_trinary_minmax  */
+    bool postDepthCoverage = false; /* VK_EXT_post_depth_coverage */
+    bool shaderStencilExport = false; /* VK_EXT_shader_stencil_export */
+    bool decorateString = false; /* VK_GOOGLE_decorate_string */
+    bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */
+    bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */
+    bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */
+    bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
+    bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
+    bool geometryShaderPassthrough = false; /* VK_NV_geometry_shader_passthrough */
+    bool viewportSwizzle = false; /* VK_NV_viewport_swizzle */
 
     /* Nabla */
     uint32_t computeUnits = 0u;
