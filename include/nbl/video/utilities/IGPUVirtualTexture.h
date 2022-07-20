@@ -35,11 +35,10 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
     }
     static inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(
         ILogicalDevice* logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue, const asset::ICPUImage* _cpuimg,
-        uint32_t& waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
+        uint32_t& waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        video::IUtilities* utilities
     )
     {
-        core::smart_refctd_ptr<IUtilities> utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(logicalDevice));
-
         core::smart_refctd_ptr<IGPUImage> gpuImage;
         {
             auto cpuImageParams = _cpuimg->getCreationParameters();
@@ -69,11 +68,12 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
     }
     void from_CPU_ctor_impl(
         IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
-        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
+        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        video::IUtilities* utilities
     )
     {
         auto* cpuPgt = _cpuvt->getPageTable();
-        m_pageTable = createGPUImageFromCPU(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuPgt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore);
+        m_pageTable = createGPUImageFromCPU(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuPgt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities);
 
         m_precomputed = _cpuvt->getPrecomputedData();
 
@@ -87,7 +87,7 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
             auto* cpuStorage = static_cast<asset::ICPUVirtualTexture::ICPUVTResidentStorage*>(pair.second.get());
             const asset::E_FORMAT_CLASS fmtClass = pair.first;
 
-            m_storage.insert({fmtClass,core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuStorage,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore)});
+            m_storage.insert({fmtClass,core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuStorage,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities)});
         }
 
         auto createViewsFromCPU = [this](core::vector<SamplerArray::Sampler>& _dst, decltype(_cpuvt->getFloatViews()) _src) -> void
@@ -118,10 +118,10 @@ protected:
 
     public:
         IGPUVTResidentStorage(ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, const cpu_counterpart_t* _cpuStorage,
-            uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore
+            uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, video::IUtilities* utilities
         ) :
             storage_base_t(
-                createGPUImageFromCPU(_logicalDevice,cmdbuf,fenceToSignal,queue,_cpuStorage->image.get(),waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore),
+                createGPUImageFromCPU(_logicalDevice,cmdbuf,fenceToSignal,queue,_cpuStorage->image.get(),waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities),
                 _cpuStorage->tileAlctr,
                 _cpuStorage->m_alctrReservedSpace,
                 _cpuStorage->m_decodeAddr_layerShift,
@@ -225,7 +225,8 @@ public:
     */
     IGPUVirtualTexture(
         ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
-        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
+        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        video::IUtilities* utilities
     ) :
         base_t(
             _cpuvt->getPhysicalStorageExtentCallback(),
@@ -237,7 +238,7 @@ public:
             ),
         m_logicalDevice(_logicalDevice)
     {
-        from_CPU_ctor_impl(cmdbuf,fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore);
+        from_CPU_ctor_impl(cmdbuf,fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities);
     }
 
     /*
@@ -245,7 +246,7 @@ public:
         The queue must have TRANSFER capability
     */
     IGPUVirtualTexture(
-        ILogicalDevice* _logicalDevice, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
+        ILogicalDevice* _logicalDevice, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt, video::IUtilities* utilities,
         uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
         const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
     ) :
@@ -260,7 +261,7 @@ public:
         m_logicalDevice(_logicalDevice)
     {
         auto cmdbuf = createTransferCommandBuffer(_logicalDevice,queue);
-        from_CPU_ctor_impl(cmdbuf.get(),fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore);
+        from_CPU_ctor_impl(cmdbuf.get(),fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities);
         cmdbuf->end();
 
         IGPUQueue::SSubmitInfo info;
