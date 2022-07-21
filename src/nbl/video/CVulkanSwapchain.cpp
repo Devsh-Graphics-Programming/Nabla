@@ -63,9 +63,49 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
     assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
 
     VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
-    retval = device->getFunctionTable()->vk.vkGetSwapchainImagesKHR(device->getInternalObject(), vk_swapchain, &imageCount, vk_images);
-    if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-        return nullptr;
+
+    for (uint32_t i = 0; i < imageCount; i++)
+    {
+        VkImageSwapchainCreateInfoKHR vk_imgSwapchainCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHR };
+        vk_imgSwapchainCreateInfo.pNext = nullptr;
+        vk_imgSwapchainCreateInfo.swapchain = vk_swapchain;
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#swapchain-wsi-image-create-info
+        VkImageCreateInfo vk_imgCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+        vk_imgCreateInfo.pNext = &vk_imgSwapchainCreateInfo; // there are a lot of extensions
+        vk_imgCreateInfo.flags = static_cast<VkImageCreateFlags>(0);
+        vk_imgCreateInfo.imageType = static_cast<VkImageType>(VK_IMAGE_TYPE_2D);
+        vk_imgCreateInfo.format = getVkFormatFromFormat(params.surfaceFormat.format);
+        vk_imgCreateInfo.extent = { params.width, params.height, 1 };
+        vk_imgCreateInfo.mipLevels = 1;
+        vk_imgCreateInfo.arrayLayers = params.arrayLayers;
+        vk_imgCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        vk_imgCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+        vk_imgCreateInfo.usage = static_cast<VkImageUsageFlags>(params.imageUsage.value);
+        vk_imgCreateInfo.sharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
+        vk_imgCreateInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
+        vk_imgCreateInfo.pQueueFamilyIndices = params.queueFamilyIndices;
+        vk_imgCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        device->getFunctionTable()->vk.vkCreateImage(device->getInternalObject(), &vk_imgCreateInfo, nullptr, &vk_images[i]);
+
+        VkBindImageMemorySwapchainInfoKHR vk_bindImgMemorySwapchainInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHR };
+        vk_bindImgMemorySwapchainInfo.pNext = nullptr;
+        vk_bindImgMemorySwapchainInfo.imageIndex = i;
+        vk_bindImgMemorySwapchainInfo.swapchain = vk_swapchain;
+
+        VkBindImageMemoryInfo vk_bindImgMemoryInfo = { VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO };
+        vk_bindImgMemoryInfo.pNext = &vk_bindImgMemorySwapchainInfo;
+        vk_bindImgMemoryInfo.image = vk_images[i];
+        vk_bindImgMemoryInfo.memory = nullptr;
+
+        device->getFunctionTable()->vk.vkBindImageMemory2(device->getInternalObject(), 1, &vk_bindImgMemoryInfo);
+        assert(vk_images[i]);
+    }
+
+    //retval = device->getFunctionTable()->vk.vkGetSwapchainImagesKHR(device->getInternalObject(), vk_swapchain, &imageCount, vk_images);
+    //if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+    //    return nullptr;
 
     ISwapchain::images_array_t images = core::make_refctd_dynamic_array<ISwapchain::images_array_t>(imageCount);
 
