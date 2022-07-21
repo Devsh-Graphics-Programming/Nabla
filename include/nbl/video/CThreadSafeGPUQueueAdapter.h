@@ -34,11 +34,14 @@ class NBL_API CThreadSafeGPUQueueAdapter : public IGPUQueue
             return originalQueue->submit(_count, _submits, _fence);
         }
 
+        // TODO handle this thread safe gpu queue on swapchain present method
+        /*
         virtual ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override
         {
             std::lock_guard g(m);
             return originalQueue->present(info);
         }
+        */
 
         virtual bool startCapture() override 
         { 

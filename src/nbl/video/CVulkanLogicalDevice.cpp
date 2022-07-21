@@ -9,11 +9,6 @@
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapchain::SCreationParams&& params)
-{
-    return CVulkanSwapchain::create(core::smart_refctd_ptr<ILogicalDevice>(this), std::move(params));
-}
-
 core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
 {
     VkEventCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_EVENT_CREATE_INFO };

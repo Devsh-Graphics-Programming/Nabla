@@ -18,7 +18,7 @@
 namespace nbl::video
 {
 
-template <typename QueueType_, typename SwapchainType_>
+template <typename QueueType_>
 class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 {
     template <E_REQUEST_TYPE DestroyReqType>
@@ -49,11 +49,8 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 
 public:
     using QueueType = QueueType_;
-    using SwapchainType = SwapchainType_;
     using FunctionTableType = typename QueueType::FunctionTableType;
     using FeaturesType = COpenGLFeatureMap;
-
-    static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
     COpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, renderdoc_api_t* rdoc, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
         IOpenGL_LogicalDevice(std::move(api),physicalDevice,params,_egl),
@@ -165,56 +162,6 @@ public:
         return core::make_smart_refctd_ptr<COpenGLRenderpass>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), params);
     }
 
-    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
-    {
-        // TODO: Fix issues with referencing COpenGLLogicalDevice from the COpenGL_Swapchain implementation
-        // Can't just use a COpenGLSwapchain.cpp impl of create, since COpenGL_Swapchain is a templated class
-        // Then use this instead: (or eventually get rid of ILogicalDevice::createSwapchain
-        //return SwapchainType::create(core::smart_refctd_ptr<ILogicalDevice>(this), std::move(params));
-
-        if ((params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
-            return nullptr;
-
-        IGPUImage::SCreationParams imgci;
-        imgci.arrayLayers = params.arrayLayers;
-        imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
-        imgci.format = params.surfaceFormat.format;
-        imgci.mipLevels = 1u;
-        imgci.queueFamilyIndexCount = params.queueFamilyIndexCount;
-        imgci.queueFamilyIndices = params.queueFamilyIndices;
-        imgci.samples = asset::IImage::ESCF_1_BIT;
-        imgci.type = asset::IImage::ET_2D;
-        imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
-        imgci.usage = params.imageUsage;
-
-        auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
-        for (auto& img_dst : (*images))
-        {
-            img_dst = createImage(IGPUImage::SCreationParams(imgci));
-            auto mreq = img_dst->getMemoryReqs();
-            mreq.memoryTypeBits &= m_physicalDevice->getDeviceLocalMemoryTypeBits();
-            auto imgMem = IDeviceMemoryAllocator::allocate(mreq, img_dst.get());
-            if (!img_dst || !imgMem.isValid())
-                return nullptr;
-        }
-
-        EGLConfig fbconfig = m_config;
-        auto glver = m_gl_ver;
-
-        // master context must not be current while creating a context with whom it will be sharing
-        unbindMasterContext();
-        EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, m_threadHandler.glctx.ctx);
-        auto sc = SwapchainType::create(std::move(params), core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_egl, std::move(images), m_glfeatures, ctx, fbconfig, static_cast<COpenGLDebugCallback*>(m_physicalDevice->getDebugCallback()));
-        if (!sc)
-            return nullptr;
-        // wait until swapchain's internal thread finish context creation
-        sc->waitForInitComplete();
-        // make master context (in logical device internal thread) again
-        bindMasterContext();
-
-        return sc;
-    }
-    
     core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
     {
         assert(false && "not implemented");
@@ -1016,8 +963,8 @@ private:
 namespace nbl::video
 {
 
-using COpenGLLogicalDevice = COpenGL_LogicalDevice<COpenGLQueue,COpenGLSwapchain>;
-using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue,COpenGLESSwapchain>;
+using COpenGLLogicalDevice = COpenGL_LogicalDevice<COpenGLQueue>;
+using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue>;
 
 }
 

@@ -14,7 +14,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
     vk->vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(), m_vkSwapchainKHR, nullptr);
 }
 
-core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
+core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>& logicalDevice, ISwapchain::SCreationParams&& params)
 {
     constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
     if (params.surface->getAPIType() != EAT_VULKAN)
@@ -180,4 +180,43 @@ void CVulkanSwapchain::setObjectDebugName(const char* label) const
 	nameInfo.pObjectName = getObjectDebugName();
 	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
 }
+
+ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(IGPUQueue* queue, const SPresentInfo& info)
+{
+    auto logicalDevice = getOriginDevice();
+    auto* vk = static_cast<const CVulkanLogicalDevice*>(logicalDevice)->getFunctionTable();
+
+    auto vk_queue = static_cast<const CVulkanQueue*>(queue)->getInternalObject();
+
+    assert(info.waitSemaphoreCount <= 100);
+    VkSemaphore vk_waitSemaphores[100];
+    for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
+    {
+        if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
+            return ISwapchain::EPR_ERROR;
+
+        vk_waitSemaphores[i] = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(info.waitSemaphores[i], logicalDevice)->getInternalObject();
+    }
+
+    auto vk_swapchains = m_vkSwapchainKHR;
+
+    VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    presentInfo.waitSemaphoreCount = info.waitSemaphoreCount;
+    presentInfo.pWaitSemaphores = vk_waitSemaphores;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &vk_swapchains;
+    presentInfo.pImageIndices = &info.imgIndex;
+
+    VkResult retval = vk->vk.vkQueuePresentKHR(vk_queue, &presentInfo);
+    switch (retval)
+    {
+    case VK_SUCCESS:
+        return ISwapchain::EPR_SUCCESS;
+    case VK_SUBOPTIMAL_KHR:
+        return ISwapchain::EPR_SUBOPTIMAL;
+    default:
+        return ISwapchain::EPR_ERROR;
+    }
+}
+
 }

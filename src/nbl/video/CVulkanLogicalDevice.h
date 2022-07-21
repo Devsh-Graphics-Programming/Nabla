@@ -78,8 +78,6 @@ public:
         m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
     }
             
-    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override;
-    
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
     {
         VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };

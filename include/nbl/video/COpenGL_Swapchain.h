@@ -11,6 +11,7 @@
 #include "nbl/video/COpenGLFence.h"
 #include "nbl/video/COpenGLSemaphore.h"
 #include "nbl/video/COpenGLImage.h"
+#include "nbl/video/COpenGL_Queue.h"
 
 namespace nbl::video
 {
@@ -149,6 +150,18 @@ public:
         out_imgIx[0] = m_imgIx;
 
         return EAIR_SUCCESS;
+    }
+
+    E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info) override
+    {
+        for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
+        {
+            if (getOriginDevice() != info.waitSemaphores[i]->getOriginDevice())
+                return ISwapchain::EPR_ERROR;
+        }
+
+        bool retval = present(info.imgIndex, info.waitSemaphoreCount, info.waitSemaphores);
+        return retval ? ISwapchain::EPR_SUCCESS : ISwapchain::EPR_ERROR;
     }
 
     void waitForInitComplete()

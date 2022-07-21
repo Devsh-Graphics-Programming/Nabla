@@ -35,6 +35,13 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
             core::smart_refctd_ptr<ISwapchain> oldSwapchain = nullptr;
         };
 
+        struct SPresentInfo
+        {
+            uint32_t waitSemaphoreCount;
+            IGPUSemaphore* const* waitSemaphores;
+            uint32_t imgIndex;
+        };
+
         enum E_ACQUIRE_IMAGE_RESULT
         {
             EAIR_SUCCESS,
@@ -77,6 +84,8 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
             }
             return result;
         }
+
+        virtual E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info) = 0;
 
         inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, images_array_t&& images)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))

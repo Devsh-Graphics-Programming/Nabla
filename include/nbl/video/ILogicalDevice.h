@@ -457,8 +457,6 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             return createGraphicsPipelines(pipelineCache, ci, output);
         }
 
-        virtual core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) = 0;
-
         virtual void waitIdle() = 0;
 
         //

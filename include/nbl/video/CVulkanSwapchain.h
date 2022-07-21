@@ -20,7 +20,7 @@ public:
         m_vkSwapchainKHR(swapchain)
     {}
 
-    static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+    static core::smart_refctd_ptr<CVulkanSwapchain> create(const core::smart_refctd_ptr<ILogicalDevice>& logicalDevice, ISwapchain::SCreationParams&& params);
 
     ~CVulkanSwapchain();
 
@@ -28,7 +28,9 @@ public:
     inline VkSwapchainKHR getInternalObject() const {return m_vkSwapchainKHR;}
 
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
-	
+
+    E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info) override;
+
     void setObjectDebugName(const char* label) const override;
 
 private:
