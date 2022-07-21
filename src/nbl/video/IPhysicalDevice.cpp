@@ -25,7 +25,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SSBO_SIZE",m_properties.limits.maxSSBOSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PUSH_CONSTANTS_SIZE", m_properties.limits.maxPushConstantsSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_MEMORY_ALLOCATION_COUNT", m_properties.limits.maxMemoryAllocationCount);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLER_ALLOCATION_COUNT",m_properties.limits.maxSamplerAllocationCount);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLER_ALLOCATION_COUNT",m_properties.limits.maxSamplerAllocationCount); // shader doesn't need to know about that
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_BUFFER_IMAGE_GRANULARITY",m_properties.limits.bufferImageGranularity);
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_STAGE_DESCRIPTOR_SAMPLERS", m_properties.limits.maxPerStageDescriptorSamplers);
@@ -110,7 +110,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_CLIP_DISTANCES",m_properties.limits.maxClipDistances);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_CULL_DISTANCES",m_properties.limits.maxCullDistances);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMBINED_CLIP_AND_CULL_DISTANCES",m_properties.limits.maxCombinedClipAndCullDistances);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DISCRETE_QUEUE_PRIORITIES",m_properties.limits.discreteQueuePriorities);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DISCRETE_QUEUE_PRIORITIES",m_properties.limits.discreteQueuePriorities); // shader doesn't need to know about that
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_POINT_SIZE",m_properties.limits.pointSizeRange[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_POINT_SIZE",m_properties.limits.pointSizeRange[1]);
@@ -141,7 +141,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_POINT_CLIPPING_BEHAVIOR",(uint32_t)m_properties.limits.pointClippingBehavior);
     
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_SET_DESCRIPTORS",m_properties.limits.maxPerSetDescriptors);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_MEMORY_ALLOCATION_SIZE",m_properties.limits.maxMemoryAllocationSize);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_MEMORY_ALLOCATION_SIZE",m_properties.limits.maxMemoryAllocationSize); // shader doesn't need to know about that
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT16",(uint32_t)m_properties.limits.shaderSignedZeroInfNanPreserveFloat16);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT32",(uint32_t)m_properties.limits.shaderSignedZeroInfNanPreserveFloat32);
@@ -198,17 +198,17 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_BUFFER_SIZE",core::min(m_properties.limits.maxBufferSize, ~0u));
 
-    if (m_properties.limits.primitiveOverestimationSize) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PRIMITIVE_OVERESTIMATION_SIZE");
-    if (m_properties.limits.maxExtraPrimitiveOverestimationSize) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_EXTRA_PRIMITIVE_OVERESTIMATION_SIZE");
-    if (m_properties.limits.extraPrimitiveOverestimationSizeGranularity) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTRA_PRIMITIVE_OVERESTIMATION_SIZE_GRANULARITY");
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PRIMITIVE_UNDERESTIMATION",m_properties.limits.primitiveUnderestimation);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_CONSERVATIVE_POINT_AND_LINE_RASTERIZATION",m_properties.limits.conservativePointAndLineRasterization);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DEGENERATE_TRIANGLES_RASTERIZED",m_properties.limits.degenerateTrianglesRasterized);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DEGENERATE_LINES_RASTERIZED",m_properties.limits.degenerateLinesRasterized);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FULLY_COVERED_FRAGMENT_SHADER_INPUT_VARIABLE",m_properties.limits.fullyCoveredFragmentShaderInputVariable);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_CONSERVATIVE_RASTERIZATION_POST_DEPTH_COVERAGE",m_properties.limits.conservativeRasterizationPostDepthCoverage);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PRIMITIVE_OVERESTIMATION_SIZE", m_properties.limits.primitiveOverestimationSize);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_EXTRA_PRIMITIVE_OVERESTIMATION_SIZE", m_properties.limits.maxExtraPrimitiveOverestimationSize);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTRA_PRIMITIVE_OVERESTIMATION_SIZE_GRANULARITY", m_properties.limits.extraPrimitiveOverestimationSizeGranularity);
+    if (m_properties.limits.primitiveUnderestimation) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PRIMITIVE_UNDERESTIMATION");
+    if (m_properties.limits.conservativePointAndLineRasterization) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_CONSERVATIVE_POINT_AND_LINE_RASTERIZATION");
+    if (m_properties.limits.degenerateTrianglesRasterized) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DEGENERATE_TRIANGLES_RASTERIZED");
+    if (m_properties.limits.degenerateLinesRasterized) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DEGENERATE_LINES_RASTERIZED");
+    if (m_properties.limits.fullyCoveredFragmentShaderInputVariable) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FULLY_COVERED_FRAGMENT_SHADER_INPUT_VARIABLE");
+    if (m_properties.limits.conservativeRasterizationPostDepthCoverage) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_CONSERVATIVE_RASTERIZATION_POST_DEPTH_COVERAGE");
 
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_DISCARD_RECTANGLES",m_properties.limits.maxDiscardRectangles);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_DISCARD_RECTANGLES",m_properties.limits.maxDiscardRectangles); // shader doesn't need to know about
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_LINE_SUB_PIXEL_PRECISION_BITS",m_properties.limits.lineSubPixelPrecisionBits);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VERTEX_ATTRIB_DIVISOR",m_properties.limits.maxVertexAttribDivisor);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SUBPASS_SHADING_WORKGROUP_SIZE_ASPECT_RATIO",m_properties.limits.maxSubpassShadingWorkgroupSizeAspectRatio);
@@ -274,10 +274,11 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SUBSAMPLED_ARRAY_LAYERS",m_properties.limits.maxSubsampledArrayLayers);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_DESCRIPTOR_SET_SUBSAMPLED_SAMPLERS",m_properties.limits.maxDescriptorSetSubsampledSamplers);
 
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_DOMAN",m_properties.limits.pciDomain);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_BUS",m_properties.limits.pciBus);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_DEVICE",m_properties.limits.pciDevice);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_FUNCTION",m_properties.limits.pciFunction);
+    // no need to know
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_DOMAN",m_properties.limits.pciDomain);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_BUS",m_properties.limits.pciBus);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_DEVICE",m_properties.limits.pciDevice);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PCI_FUNCTION",m_properties.limits.pciFunction);
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_GROUP_HANDLE_SIZE",m_properties.limits.shaderGroupHandleSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_RECURSION_DEPTH",m_properties.limits.maxRayRecursionDepth);
@@ -294,8 +295,8 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.shaderIntegerFunctions2) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_INTEGER_FUNCTIONS_2");
     if (m_properties.limits.shaderSubgroupClock) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_CLOCK");
     if (m_properties.limits.imageFootprint) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_IMAGE_FOOTPRINT");
-    if (m_properties.limits.texelBufferAlignment) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_TEXEL_BUFFER_ALIGNMENT");
-    if (m_properties.limits.shaderSMBuiltins) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_S_M_BUILTINS");
+    // if (m_properties.limits.texelBufferAlignment) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_TEXEL_BUFFER_ALIGNMENT"); // shader doesn't need to know about that
+    if (m_properties.limits.shaderSMBuiltins) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SM_BUILTINS");
     if (m_properties.limits.shaderSubgroupPartitioned) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_PARTITIONED");
     if (m_properties.limits.gcnShader) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_GCN_SHADER");
     if (m_properties.limits.gpuShaderHalfFloat) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_GPU_SHADER_HALF_FLOAT");
@@ -308,7 +309,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.decorateString) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DECORATE_STRING");
     if (m_properties.limits.externalFence) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_FENCE");
     if (m_properties.limits.externalMemory) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_MEMORY");
-    if (m_properties.limits.externalSemaphore) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE");
+    // if (m_properties.limits.externalSemaphore) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE"); // not directly related to any shader stuff
     if (m_properties.limits.shaderNonSemanticInfo) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_NON_SEMANTIC_INFO");
     if (m_properties.limits.fragmentShaderBarycentric) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FRAGMENT_SHADER_BARYCENTRIC");
     if (m_properties.limits.geometryShaderPassthrough) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_GEOMETRY_SHADER_PASSTHROUGH");
@@ -344,7 +345,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.multiViewport) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_MULTI_VIEWPORT");
     if (m_features.samplerAnisotropy) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_ANISOTROPY");
     if (m_features.occlusionQueryPrecise) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_OCCLUSION_QUERY_PRECISE");
-    if (m_features.pipelineStatisticsQuery) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_STATISTICS_QUERY");
+    // if (m_features.pipelineStatisticsQuery) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_STATISTICS_QUERY"); // shader doesn't need to know about
     if (m_features.vertexPipelineStoresAndAtomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_VERTEX_PIPELINE_STORES_AND_ATOMICS");
     if (m_features.fragmentStoresAndAtomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_STORES_AND_ATOMICS");
     if (m_features.shaderTessellationAndGeometryPointSize) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE");
@@ -365,7 +366,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.shaderResourceResidency) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_RESIDENCY");
     if (m_features.shaderResourceMinLod) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_MIN_LOD");
     if (m_features.variableMultisampleRate) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_VARIABLE_MULTISAMPLE_RATE");
-    if (m_features.inheritedQueries) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_INHERITED_QUERIES");
+    // if (m_features.inheritedQueries) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_INHERITED_QUERIES"); // shader doesn't need to know about
     if (m_features.storageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STORAGE_BUFFER_16BIT_ACCESS");
     if (m_features.uniformAndStorageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
     if (m_features.storagePushConstant16) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STORAGE_PUSH_CONSTANT_16");
@@ -397,7 +398,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.descriptorBindingStorageBufferUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_STORAGE_BUFFER_UPDATE_AFTER_BIND");
     if (m_features.descriptorBindingUniformTexelBufferUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_UNIFORM_TEXEL_BUFFER_UPDATE_AFTER_BIND");
     if (m_features.descriptorBindingStorageTexelBufferUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_STORAGE_TEXEL_BUFFER_UPDATE_AFTER_BIND");
-    if (m_features.descriptorBindingUpdateUnusedWhilePending) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING");
+    // if (m_features.descriptorBindingUpdateUnusedWhilePending) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING"); // shader doesn't need to know about
     if (m_features.descriptorBindingPartiallyBound) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_PARTIALLY_BOUND");
     if (m_features.descriptorBindingVariableDescriptorCount) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT");
     if (m_features.runtimeDescriptorArray) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_RUNTIME_DESCRIPTOR_ARRAY");
@@ -451,10 +452,10 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.shaderImageInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_IMAGE_INT64_ATOMICS");
     if (m_features.sparseImageInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SPARSE_IMAGE_INT64_ATOMICS");
     if (m_features.accelerationStructure) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE");
-    if (m_features.accelerationStructureCaptureReplay) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_CAPTURE_REPLAY");
+    // if (m_features.accelerationStructureCaptureReplay) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_CAPTURE_REPLAY"); // shader doesn't need to know about
     if (m_features.accelerationStructureIndirectBuild) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_INDIRECT_BUILD");
     if (m_features.accelerationStructureHostCommands) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_HOST_COMMANDS");
-    if (m_features.descriptorBindingAccelerationStructureUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_ACCELERATION_STRUCTURE_UPDATE_AFTER_BIND");
+    // if (m_features.descriptorBindingAccelerationStructureUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_ACCELERATION_STRUCTURE_UPDATE_AFTER_BIND"); // shader doesn't need to know about
     if (m_features.rayQuery) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_RAY_QUERY");
     if (m_features.rayTracingPipeline) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_RAY_TRACING_PIPELINE");
     if (m_features.rayTracingPipelineTraceRaysIndirect) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_RAY_TRACING_PIPELINE_TRACE_RAYS_INDIRECT");
@@ -478,44 +479,44 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.representativeFragmentTest) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_REPRESENTATIVE_FRAGMENT_TEST");
     if (m_features.mixedAttachmentSamples) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_MIXED_ATTACHMENT_SAMPLES");
     if (m_features.hdrMetadata) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_HDR_METADATA");
-    if (m_features.displayTiming) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DISPLAY_TIMING");
+    // if (m_features.displayTiming) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DISPLAY_TIMING"); // shader doesn't need to know about
     if (m_features.rasterizationOrder) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_RASTERIZATION_ORDER");
     if (m_features.shaderExplicitVertexParameter) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_EXPLICIT_VERTEX_PARAMETER");
     if (m_features.shaderInfoAMD) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INFO_AMD");
     if (m_features.hostQueryReset) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_HOST_QUERY_RESET");
-    if (m_features.pipelineCreationCacheControl) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_CREATION_CACHE_CONTROL");
+    // if (m_features.pipelineCreationCacheControl) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_CREATION_CACHE_CONTROL"); // shader doesn't need to know about
     if (m_features.colorWriteEnable) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_COLOR_WRITE_ENABLE");
     if (m_features.conditionalRendering) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_CONDITIONAL_RENDERING");
     if (m_features.inheritedConditionalRendering) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_INHERITED_CONDITIONAL_RENDERING");
-    if (m_features.deviceMemoryReport) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DEVICE_MEMORY_REPORT");
+    // if (m_features.deviceMemoryReport) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DEVICE_MEMORY_REPORT"); // shader doesn't need to know about
     if (m_features.fragmentDensityMap) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_DENSITY_MAP");
     if (m_features.fragmentDensityMapDynamic) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_DENSITY_MAP_DYNAMIC");
     if (m_features.fragmentDensityMapNonSubsampledImages) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_DENSITY_MAP_NON_SUBSAMPLED_IMAGES");
     if (m_features.fragmentDensityMapDeferred) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_DENSITY_MAP_DEFERRED");
     if (m_features.robustImageAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ROBUST_IMAGE_ACCESS");
     if (m_features.inlineUniformBlock) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_INLINE_UNIFORM_BLOCK");
-    if (m_features.descriptorBindingInlineUniformBlockUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_INLINE_UNIFORM_BLOCK_UPDATE_AFTER_BIND");
+    // if (m_features.descriptorBindingInlineUniformBlockUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_INLINE_UNIFORM_BLOCK_UPDATE_AFTER_BIND"); // shader doesn't need to know about
     if (m_features.rectangularLines) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_RECTANGULAR_LINES");
     if (m_features.bresenhamLines) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_BRESENHAM_LINES");
     if (m_features.smoothLines) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SMOOTH_LINES");
     if (m_features.stippledRectangularLines) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STIPPLED_RECTANGULAR_LINES");
     if (m_features.stippledBresenhamLines) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STIPPLED_BRESENHAM_LINES");
     if (m_features.stippledSmoothLines) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STIPPLED_SMOOTH_LINES");
-    if (m_features.memoryPriority) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_MEMORY_PRIORITY");
+    // if (m_features.memoryPriority) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_MEMORY_PRIORITY"); // shader doesn't need to know about
     if (m_features.robustBufferAccess2) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ROBUST_BUFFER_ACCESS_2");
     if (m_features.robustImageAccess2) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ROBUST_IMAGE_ACCESS_2");
     if (m_features.nullDescriptor) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_NULL_DESCRIPTOR");
     if (m_features.performanceCounterQueryPools) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PERFORMANCE_COUNTER_QUERY_POOLS");
     if (m_features.performanceCounterMultipleQueryPools) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PERFORMANCE_COUNTER_MULTIPLE_QUERY_POOLS");
     if (m_features.pipelineExecutableInfo) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_EXECUTABLE_INFO");
-    if (m_features.maintenance4) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_MAINTENANCE_4");
+    // if (m_features.maintenance4) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_MAINTENANCE_4"); // shader doesn't need to know about
     if (m_features.deviceCoherentMemory) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DEVICE_COHERENT_MEMORY");
-    if (m_features.bufferMarkerAMD) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_MARKER_AMD");
+    // if (m_features.bufferMarkerAMD) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_MARKER_AMD"); // shader doesn't need to know about
 
     // TODO: @achal test examples 14 and 48 on all APIs and GPUs
 
     if (runningInRenderdoc)
-        addGLSLDefineToPool(pool,"NBL_RUNNING_IN_RENDERDOC");
+        addGLSLDefineToPool(pool,"NBL_GLSL_RUNNING_IN_RENDERDOC");
 }
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
