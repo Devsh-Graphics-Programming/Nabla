@@ -1354,7 +1354,7 @@ public:
 				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
 				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
 				{
-					define = "NBL_IMPL_";
+					define = "NBL_GLSL_IMPL_";
 					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
 					addGLSLDefineToPool(pool,define.c_str());
 				}

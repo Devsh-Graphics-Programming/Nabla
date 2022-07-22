@@ -284,7 +284,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_RECURSION_DEPTH",m_properties.limits.maxRayRecursionDepth);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SHADER_GROUP_STRIDE",m_properties.limits.maxShaderGroupStride);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_GROUP_BASE_ALIGNMENT",m_properties.limits.shaderGroupBaseAlignment);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_GROUP_HANDLE_CAPTURE_REPLAY_SIZE",m_properties.limits.shaderGroupHandleCaptureReplaySize);
+    // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_GROUP_HANDLE_CAPTURE_REPLAY_SIZE",m_properties.limits.shaderGroupHandleCaptureReplaySize); // [DO NOT EXPOSE] for capture tools 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_DISPATCH_INVOCATION_COUNT",m_properties.limits.maxRayDispatchInvocationCount);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_GROUP_HANDLE_ALIGNMENT",m_properties.limits.shaderGroupHandleAlignment);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_HIT_ATTRIBUTE_SIZE",m_properties.limits.maxRayHitAttributeSize);
@@ -307,9 +307,9 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.postDepthCoverage) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_POST_DEPTH_COVERAGE");
     if (m_properties.limits.shaderStencilExport) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_STENCIL_EXPORT");
     if (m_properties.limits.decorateString) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_DECORATE_STRING");
-    if (m_properties.limits.externalFence) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_FENCE");
-    if (m_properties.limits.externalMemory) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_MEMORY");
-    // if (m_properties.limits.externalSemaphore) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE"); // not directly related to any shader stuff
+    // if (m_properties.limits.externalFence) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_FENCE"); // [TODO] requires instance extensions, add them
+    // if (m_properties.limits.externalMemory) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_MEMORY"); // [TODO] requires instance extensions, add them
+    // if (m_properties.limits.externalSemaphore) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE"); // [TODO] requires instance extensions, add them
     if (m_properties.limits.shaderNonSemanticInfo) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_NON_SEMANTIC_INFO");
     if (m_properties.limits.fragmentShaderBarycentric) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_FRAGMENT_SHADER_BARYCENTRIC");
     if (m_properties.limits.geometryShaderPassthrough) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_GEOMETRY_SHADER_PASSTHROUGH");
@@ -452,7 +452,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.shaderImageInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_IMAGE_INT64_ATOMICS");
     if (m_features.sparseImageInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SPARSE_IMAGE_INT64_ATOMICS");
     if (m_features.accelerationStructure) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE");
-    // if (m_features.accelerationStructureCaptureReplay) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_CAPTURE_REPLAY"); // shader doesn't need to know about
+    // if (m_features.accelerationStructureCaptureReplay) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_CAPTURE_REPLAY"); // [DO NOT EXPOSE] for capture tools 
     if (m_features.accelerationStructureIndirectBuild) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_INDIRECT_BUILD");
     if (m_features.accelerationStructureHostCommands) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_HOST_COMMANDS");
     // if (m_features.descriptorBindingAccelerationStructureUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_ACCELERATION_STRUCTURE_UPDATE_AFTER_BIND"); // shader doesn't need to know about

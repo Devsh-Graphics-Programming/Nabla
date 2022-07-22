@@ -584,9 +584,9 @@ struct SPhysicalDeviceLimits
     bool postDepthCoverage = false; /* VK_EXT_post_depth_coverage */
     bool shaderStencilExport = false; /* VK_EXT_shader_stencil_export */
     bool decorateString = false; /* VK_GOOGLE_decorate_string */
-    bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */
-    bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */
-    bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */
+    bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */ // [TODO] requires instance extensions, add them
+    bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */ // [TODO] requires instance extensions, add them
+    bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */ // [TODO] requires instance extensions, add them
     bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
     bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
     bool geometryShaderPassthrough = false; /* VK_NV_geometry_shader_passthrough */
