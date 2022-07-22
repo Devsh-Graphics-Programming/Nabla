@@ -188,7 +188,9 @@ ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(IGPUQueue* queue, const S
 
     auto vk_queue = static_cast<const CVulkanQueue*>(queue)->getInternalObject();
 
-    assert(info.waitSemaphoreCount <= 100);
+    if (info.waitSemaphoreCount > 100)
+        return ISwapchain::EPR_ERROR;
+  
     VkSemaphore vk_waitSemaphores[100];
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {
