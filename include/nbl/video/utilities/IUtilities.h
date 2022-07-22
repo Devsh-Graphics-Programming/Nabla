@@ -143,9 +143,8 @@ class NBL_API IUtilities : public core::IReferenceCounted
             }
 
             const auto finalLayout = params.initialLayout;
-
-            if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
-                params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+        
+            assert(params.usage.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT));
 
             auto retImg = m_device->createImage(std::move(params));
             auto retImgMemReqs = retImg->getMemoryReqs();
@@ -260,9 +259,8 @@ class NBL_API IUtilities : public core::IReferenceCounted
             }
 
             const auto finalLayout = params.initialLayout;
-
-            if (!((params.usage & asset::IImage::EUF_TRANSFER_DST_BIT).value))
-                params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+            
+            assert(params.usage.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT));
 
             auto retImg = m_device->createImage(std::move(params));
             auto retImgMemReqs = retImg->getMemoryReqs();
@@ -366,6 +364,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             assert(cmdbuf->isResettable());
             assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
             assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+            assert(bufferRange.buffer->getCachedCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT));
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize = 0ull; uploadedSize < bufferRange.size;)

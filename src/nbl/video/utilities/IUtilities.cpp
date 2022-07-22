@@ -13,6 +13,13 @@ void IUtilities::updateImageViaStagingBuffer(
     const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
 
     auto* cmdpool = cmdbuf->getPool();
+    
+    if(cmdbuf == nullptr || fence == nullptr || queue == nullptr || regions.size() == 0 || dstImage == nullptr || (srcBuffer == nullptr || srcBuffer->getPointer() == nullptr))
+    {
+        assert(false);
+        return;
+    }
+
     assert(cmdbuf->isResettable());
     assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
     assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
