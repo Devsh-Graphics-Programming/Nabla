@@ -380,26 +380,6 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxDescriptorSetInlineUniformBlocks;
     //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
 
-    // [DO NOT EXPOSE] We will never expose this vendor specific meta-data (no new feature) to the user, but might use the extension to provide some cross platform meta-info in the Nabla section
-    /* ShaderCoreProperties2AMD *//* provided by VK_AMD_shader_core_properties2 */
-    //VkShaderCorePropertiesFlagsAMD    shaderCoreFeatures;
-    //uint32_t                          activeComputeUnitCount;
-    /* ShaderCorePropertiesAMD *//* provided by VK_AMD_shader_core_properties */
-    //uint32_t           shaderEngineCount;
-    //uint32_t           shaderArraysPerEngineCount;
-    //uint32_t           computeUnitsPerShaderArray;
-    //uint32_t           simdPerComputeUnit;
-    //uint32_t           wavefrontsPerSimd;
-    //uint32_t           wavefrontSize;
-    //uint32_t           sgprsPerSimd;
-    //uint32_t           minSgprAllocation;
-    //uint32_t           maxSgprAllocation;
-    //uint32_t           sgprAllocationGranularity;
-    //uint32_t           vgprsPerSimd;
-    //uint32_t           minVgprAllocation;
-    //uint32_t           maxVgprAllocation;
-    //uint32_t           vgprAllocationGranularity;
-
     // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedPropertiesEXT *//* provided by VK_EXT_blend_operation_advanced */
     //uint32_t           advancedBlendMaxColorAttachments;

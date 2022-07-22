@@ -12,6 +12,75 @@ enum E_SWAPCHAIN_MODE : uint32_t
     /* TODO: KHR_swapchain if SURFACE or DISPLAY flag present & KHR_display_swapchain if DISPLAY flag present */
 };
 
+//! [TODOS]:
+//! 
+//! ## LogicalDevice creation enabled features shouldn't necessarily equal the ones it reports as enabled (superset)
+//! 
+//! Basically what I'd imagine the usage of the API to be like.
+//! 
+//! **RARE: Creating a physical device with all advertised features/extensions:**
+//! ```cpp
+//! auto features = physicalDevice->getFeatures();
+//! 
+//! ILogicalDevice::SCreationParams params = {};
+//! params.queueParamsCount = ; // set queue stuff
+//! params.queueParams = ; // set queue stuff
+//! params.enabledFeatures = features;
+//! auto device = physicalDevice->createLogicalDevice(params);
+//! ```
+//! 
+//! **FREQUENT: Choosing a physical device with the features**
+//! ```cpp
+//! IPhysicalDevice::SRequiredProperties props = {}; // default initializes to apiVersion=1.1, deviceType = ET_UNKNOWN, pipelineCacheUUID = '\0', device UUID=`\0`, driverUUID=`\0`, deviceLUID=`\0`, deviceNodeMask= ~0u, driverID=UNKNOWN
+//! // example of particular config
+//! props.apiVersion = 1.2;
+//! props.deviceTypeMask = ~IPhysicalDevice::ET_CPU; // would be good to turn the enum into a mask
+//! props.driverIDMask = ~(EDI_AMD_PROPRIETARY|EDI_INTEL_PROPRIETARY_WINDOWS); // would be goot to turn the enum into a mask
+//! props.conformanceVersion = 1.2;
+//! 
+//! SDeviceFeatures requiredFeatures = {};
+//! requiredFeatures.rayQuery = true;
+//! 
+//! SDeviceLimits minimumLimits = {}; // would default initialize to worst possible values (small values for maximum sizes, large values for alignments, etc.)
+//! 
+//! // TODO: later add some stuff for requiring queue families, formats and minimum memory heap sizes
+//! 
+//! auto physicalDeviceCandidates = api->getCompatiblePhysicalDevices(props,requiredFeatures,minimumLimits,numSwapchains,supportedSwapchains,/*optional: would enforce tighter checks to actually accept compatibility, like formats, present modes and surface caps*/swapchainSupportDecider);
+//! if (physicalDeviceCandidates.empty())
+//! {
+//!     logError();
+//!     exit();
+//! }
+//! 
+//! // TODO: later iterate through candidate devices (fulfilling all the required criteria) to find the "best" one
+//! // std::sort(physicalDeviceCandidates.begin(),physicalDeviceCandidates.end(),SDefaultPhysicalDeviceOrder());
+//! auto physicalDevice = physicalDeviceCandidates.begin();
+//! assert(requiredFeatures < physicalDevice->getFeatures());
+//! assert(minimumLimits < physicalDevice->getLimits());
+//! 
+//! ILogicalDevice::SCreationParams params = {};
+//! params.queueParamsCount = ; // set queue stuff
+//! params.queueParams = ; // set queue stuff
+//! params.enabledFeatures = requiredFeatures;
+//! auto device = physicalDevice->createLogicalDevice(params);
+//! // this would be wrong, because during device creation we would enable additional features either due to:
+//! // - dependencies (like buffer address for raytracing)
+//! // - backend force-enabling them (like in OpenGL, where extensions are just enabled, you have no choice)
+//! // assert(requiredFeatures != device->getEnabledFeatures());
+//! assert(requiredFeatures < device->getEnabledFeatures());
+//! ```
+//! 
+//! ### `SDeviceFeatures` and `SDeviceLimits` should have a `operator<`
+//! 
+//! Basically to let us establish if features or limits are a superset of the requested.
+//! 
+//! If you need a `! = ` operator then define it as
+//! ```cpp
+//! inline bool operator!=(const& other) const
+//! {
+//!     return *this < other || other < *this;
+//! }
+//! ```
 struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
@@ -643,7 +712,25 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Won't expose for now, API changes necessary
     /* VK_AMD_texture_gather_bias_lod */
 
-    // [TODO LATER] when released in the SDK: https://github.com/Devsh-Graphics-Programming/Nabla/pull/357#discussion_r916899420
+    // [TODO LATER] when released in the SDK:
+    // -Support for `GLSL_EXT_ray_cull_mask`, lets call it `rayCullMask`
+    // - new pipeline stage and access masks but only in `KHR_synchronization2` which we don't use
+    // - two new acceleration structure query parameters
+    // - `rayTracingPipelineTraceRaysIndirect2` feature, same as `rayTracingPipelineTraceRaysIndirect` but with indirect SBTand dispatch dimensions
+    // 
+    // Lets have
+    // ```cpp
+    // bool accelerationStructureSizeAndBLASPointersQuery = false;
+    // 
+    // // Do not expose, we don't use KHR_synchronization2 yet
+    // //bool accelerationStructureCopyStageAndSBTAccessType;
+    // 
+    // bool rayCullMask = false;
+    // 
+    // bool rayTracingPipelineTraceRaysIndirectDimensionsAndSBT = false;
+    // ```
+    // 
+    // Lets enable `rayTracingMaintenance1`and `rayTracingPipelineTraceRaysIndirect2` whenever required by the above.
     /* VK_KHR_ray_tracing_maintenance1 *//* added in vk 1.3.213, the SDK isn't released yet at this moment :D */
 
     // [TODO LATER] requires extra API work to use
@@ -713,6 +800,9 @@ struct SPhysicalDeviceFeatures
 
     // [TODO] Always enable, expose as limit
     /* VK_KHR_spirv_1_4 */
+
+    // [TODO] handle with a single num
+    /* VK_KHR_display_swapchain */
 
     // [TODO LATER] (When it has documentation): Always enable, expose as limit
     /* VK_AMD_gpu_shader_half_float_fetch */
@@ -951,7 +1041,6 @@ struct SPhysicalDeviceFeatures
     // [TODO] Triage leftover extensions below    
 
     /* VK_NV_present_barrier */
-    /* VK_KHR_display_swapchain */
     /* VK_EXT_queue_family_foreign */
     /* VK_EXT_separate_stencil_usage */
     /* VK_KHR_create_renderpass2 */
