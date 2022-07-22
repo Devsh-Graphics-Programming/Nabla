@@ -9,7 +9,7 @@ using namespace nbl::asset;
 using namespace nbl::video;
 using namespace ext::CentralLimitBoxBlur;
 
-CBlurPerformer::CBlurPerformer(video::IVideoDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage)
+CBlurPerformer::CBlurPerformer(video::ILogicalDevice* device, uint32_t maxDimensionSize, bool useHalfStorage)
     : m_maxBlurLen(maxDimensionSize), m_halfFloatStorage(useHalfStorage)
 {
     static IGPUDescriptorSetLayout::SBinding bnd[] =
@@ -18,22 +18,22 @@ CBlurPerformer::CBlurPerformer(video::IVideoDriver* driver, uint32_t maxDimensio
             0u,
             EDT_STORAGE_BUFFER,
             1u,
-            ISpecializedShader::ESS_COMPUTE,
+            IShader::ESS_COMPUTE,
             nullptr
         },
         {
             1u,
             EDT_STORAGE_BUFFER,
             1u,
-            ISpecializedShader::ESS_COMPUTE,
+            IShader::ESS_COMPUTE,
             nullptr
         },
     };
 
-    m_dsLayout = driver->createGPUDescriptorSetLayout(bnd, bnd + sizeof(bnd) / sizeof(IGPUDescriptorSetLayout::SBinding));
+    m_dsLayout = device->createDescriptorSetLayout(bnd, bnd + sizeof(bnd) / sizeof(IGPUDescriptorSetLayout::SBinding));
 
     auto pcRange = getDefaultPushConstantRanges();
-    m_pplnLayout = driver->createGPUPipelineLayout(pcRange.begin(), pcRange.end(), core::smart_refctd_ptr(m_dsLayout));
+    m_pplnLayout = device->createPipelineLayout(pcRange.begin(), pcRange.end(), core::smart_refctd_ptr(m_dsLayout));
 
     const char* sourceFmt =
 R"===(#version 430 core
@@ -49,15 +49,16 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
     const size_t extraSize = 4u + 8u + 8u + 128u;
 
     auto source = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
-    snprintf(reinterpret_cast<char*>(source->getPointer()), source->getSize(), sourceFmt, DEFAULT_WORKGROUP_SIZE, PASSES_PER_AXIS, m_maxBlurLen,
+    snprintf(reinterpret_cast<char*>(source->getPointer()), source->getSize(), sourceFmt, DefaultWorkgroupSize, PassesPerAxis, m_maxBlurLen,
         useHalfStorage ? 1u : 0u);
 
-    auto shader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(std::move(source), asset::ICPUShader::buffer_contains_glsl));
+    // auto shader = device->createShader(core::make_smart_refctd_ptr<ICPUShader>(std::move(source), asset::ICPUShader::buffer_contains_glsl));
+    core::smart_refctd_ptr<video::IGPUShader> shader = nullptr;
 
-    auto specializedShader = driver->createGPUSpecializedShader(shader.get(),
-        asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
+    auto specializedShader = device->createSpecializedShader(shader.get(),
+        asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main"});
 
-    m_ppln = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pplnLayout), std::move(specializedShader));
+    m_ppln = device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_pplnLayout), std::move(specializedShader));
 }
 
 core::SRange<const SPushConstantRange> CBlurPerformer::getDefaultPushConstantRanges()
@@ -65,7 +66,7 @@ core::SRange<const SPushConstantRange> CBlurPerformer::getDefaultPushConstantRan
     static const SPushConstantRange ranges[1] =
     {
         {
-            ISpecializedShader::ESS_COMPUTE,
+            IShader::ESS_COMPUTE,
             0u,
             sizeof(Parameters_t)
         },

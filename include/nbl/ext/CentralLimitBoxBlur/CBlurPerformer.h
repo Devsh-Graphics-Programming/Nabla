@@ -14,18 +14,17 @@ namespace ext
 namespace CentralLimitBoxBlur
 {
 
-typedef uint32_t uint;
-struct alignas(16) uvec4
+struct uvec4
 {
-    uint x, y, z, w;
+    uint32_t x, y, z, w;
 };
 #include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters_struct.glsl"
 
 class CBlurPerformer final : public core::IReferenceCounted
 {
 public:
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_SIZE = 256u;
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t PASSES_PER_AXIS = 3u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t DefaultWorkgroupSize = 256u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t PassesPerAxis = 3u;
 
     typedef nbl_glsl_ext_Blur_Parameters_t Parameters_t;
 
@@ -34,18 +33,21 @@ public:
         uint32_t wg_count[3];
     };
 
-    CBlurPerformer(video::IVideoDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage);
+    CBlurPerformer(video::ILogicalDevice* device, uint32_t maxDimensionSize, bool useHalfStorage);
 
     static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
     static inline void defaultBarrier()
     {
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        // video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     }
 
-    static inline size_t getOutputBufferSize(const asset::VkExtent3D& inputDimensions, const uint32_t channelCount)
+    //! Returns the required size of a buffer needed to hold the output of one pass.
+    //! Typically used as an intermediate storage.
+    //! For example, for a 2D blur, use a buffer of the reported size to hold the result of the 1st pass/dispatch --input to the second pass/dispatch.
+    static inline size_t getPassOutputBufferSize(const asset::VkExtent3D& dims, const uint32_t channelCount)
     {
-        return inputDimensions.width * inputDimensions.height * inputDimensions.depth * channelCount * sizeof(float);
+        return dims.width * dims.height * dims.depth * channelCount * sizeof(float);
     }
 
     static inline uint32_t buildParameters(uint32_t numChannels, const asset::VkExtent3D& inputDimensions, Parameters_t* outParams, DispatchInfo_t* outInfos,
@@ -76,12 +78,12 @@ public:
                 assert(wrappingType[i] <= asset::ISampler::ETC_MIRROR);
 
                 const auto passAxis = i;
-                params.input_dimensions.w = (passAxis << 30) | (numChannels << 28) | (wrappingType[i] << 26);
+                params.input_dimensions.w = (passAxis << 30) | (numChannels << 27) | (wrappingType[i] << 25);
 
                 if (borderColor)
                 {
                     assert(borderColor[i] <= asset::ISampler::E_TEXTURE_BORDER_COLOR::ETBC_INT_OPAQUE_WHITE);
-                    params.input_dimensions.w |= borderColor[i] << 23;
+                    params.input_dimensions.w |= borderColor[i] << 22;
                 }
         
                 params.input_strides.x = 1u;
@@ -105,11 +107,11 @@ public:
         return passesRequired;
     }
 
-    static inline void dispatchHelper(video::IVideoDriver* driver, const video::IGPUPipelineLayout* pipelineLayout, const Parameters_t& params,
+    static inline void dispatchHelper(video::ILogicalDevice* device, const video::IGPUPipelineLayout* pipelineLayout, const Parameters_t& params,
         const DispatchInfo_t& dispatchInfo, bool issueDefaultBarrier = true)
     {
-        driver->pushConstants(pipelineLayout, video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
-        driver->dispatch(dispatchInfo.wg_count[0], dispatchInfo.wg_count[1], dispatchInfo.wg_count[2]);
+        // driver->pushConstants(pipelineLayout, video::IGPUShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
+        // driver->dispatch(dispatchInfo.wg_count[0], dispatchInfo.wg_count[1], dispatchInfo.wg_count[2]);
 
         if (issueDefaultBarrier)
             defaultBarrier();

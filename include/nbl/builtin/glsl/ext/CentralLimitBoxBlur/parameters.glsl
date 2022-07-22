@@ -25,25 +25,25 @@ float nbl_glsl_ext_Blur_Parameters_t_getRadius()
 uint nbl_glsl_ext_Blur_Parameters_t_getDirection()
 {
     nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
-    return (params.input_dimensions.w >> 30) & 0x3u;
+    return bitfieldExtract(params.input_dimensions.w, 30, 2);
 }
 
 uint nbl_glsl_ext_Blur_Parameters_t_getChannelCount()
 {
     nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
-    return (params.input_dimensions.w >> 28) & 0x3u;
+    return bitfieldExtract(params.input_dimensions.w, 27, 3);
 }
 
 uint nbl_glsl_ext_Blur_Parameters_t_getWrapMode()
 {
     nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
-    return (params.input_dimensions.w >> 26) & 0x3u;
+    return bitfieldExtract(params.input_dimensions.w, 25, 2);
 }
 
 uint nbl_glsl_ext_Blur_Parameters_t_getBorderColor()
 {
     nbl_glsl_ext_Blur_Parameters_t params = nbl_glsl_ext_Blur_getParameters();
-    return (params.input_dimensions.w >> 23) & 0x7u;
+    return bitfieldExtract(params.input_dimensions.w, 22, 3);
 }
 
 uvec4 nbl_glsl_ext_Blur_Parameters_t_getInputStrides()
