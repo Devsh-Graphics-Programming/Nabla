@@ -156,11 +156,10 @@ void IUtilities::updateImageViaStagingBuffer(
 
         // TODO(Erfan): apply changes from updateBufferRangeViaStagingBuffer to here regarding allocation size
         uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;
-        uint32_t subSize = static_cast<uint32_t>(core::min<uint64_t>(core::alignDown(m_defaultUploadBuffer.get()->max_size(), allocationAlignment), memoryNeededForRemainingRegions));
-        subSize = std::max(subSize, memoryLowerBound);
-        const uint32_t uploadBufferSize = core::alignUp(subSize, allocationAlignment);
+        uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
+        const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(memoryNeededForRemainingRegions, allocationAlignment, maxFreeBlock, memoryLowerBound);
         // cannot use `multi_place` because of the extra padding size we could have added
-        m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &uploadBufferSize, &allocationAlignment);
+        m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &allocationSize, &allocationAlignment);
         bool failedAllocation = (localOffset == video::StreamingTransientDataBufferMT<>::invalid_value);
 
         // keep trying again
@@ -206,9 +205,9 @@ void IUtilities::updateImageViaStagingBuffer(
             {
                 currentUploadBufferOffset += size;
                 currentUploadBufferOffset = core::alignUp(currentUploadBufferOffset, bufferOffsetAlignment);
-                if(currentUploadBufferOffset - localOffset <= uploadBufferSize)
+                if(currentUploadBufferOffset - localOffset <= allocationSize)
                 {
-                    availableUploadBufferMemory = uploadBufferSize - (currentUploadBufferOffset - localOffset);
+                    availableUploadBufferMemory = allocationSize - (currentUploadBufferOffset - localOffset);
                     return true;
                 }
                 else
@@ -217,7 +216,7 @@ void IUtilities::updateImageViaStagingBuffer(
 
             // currentUploadBufferOffset = localOffset
             // currentUploadBufferOffset = alignUp(currentUploadBufferOffset, bufferOffsetAlignment)
-            // availableUploadBufferMemory = uploadBufferSize
+            // availableUploadBufferMemory = allocationSize
             addToCurrentUploadBufferOffset(localOffset);
 
             bool anyTransferRecorded = false;
@@ -634,17 +633,17 @@ void IUtilities::updateImageViaStagingBuffer(
                 cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, dstImageLayout, regionsToCopy.size(), regionsToCopy.data());
             }
 
-            assert(anyTransferRecorded && "uploadBufferSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
+            assert(anyTransferRecorded && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
             
             // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
             if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate()) {
-                IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, uploadBufferSize);
+                IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, allocationSize);
                 m_device->flushMappedMemoryRanges(1u, &flushRange);
             }
         }
 
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &uploadBufferSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
+        m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
     }
 }
 

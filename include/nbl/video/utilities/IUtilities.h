@@ -117,6 +117,30 @@ class NBL_API IUtilities : public core::IReferenceCounted
         {
             return m_scanner.get();
         }
+        
+        //! This function provides some guards against streamingBuffer fragmentation or allocation failure
+        static uint32_t getAllocationSizeForStreamingBuffer(const size_t size, const size_t alignment, uint32_t maxFreeBlock, const uint32_t optimalTransferAtom)
+        {
+            // due to coherent flushing atom sizes, we need to pad
+            const size_t paddedSize = core::alignUp(size,alignment);
+            // if we aim to make a "slightly" smaller allocation we need to assume worst case about fragmentation
+            if (!core::is_aligned_to(maxFreeBlock,alignment) || maxFreeBlock>paddedSize)
+            {
+                // two freeblocks might be spawned, one for the front (due to alignment) and one for the end
+                const auto maxWastedSpace = (minStreamingBufferAllocationSize<<1)+alignment-1u;
+                if (maxFreeBlock>maxWastedSpace)
+                    maxFreeBlock = core::alignDown(maxFreeBlock-maxWastedSpace,alignment);
+                else
+                    maxFreeBlock = 0;
+            }
+            // don't want to be stuck doing tiny copies, better defragment the allocator by forcing an allocation failure
+            const bool largeEnoughTransfer = maxFreeBlock>=paddedSize || maxFreeBlock>=optimalTransferAtom;
+            // how big of an allocation we'll make
+            const uint32_t allocationSize = static_cast<uint32_t>(core::min<size_t>(
+                largeEnoughTransfer ? maxFreeBlock:optimalTransferAtom,paddedSize
+            ));
+            return allocationSize;
+        }
 
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalBufferOnDedMem(IGPUQueue* queue, IGPUBuffer::SCreationParams&& params, const void* data)
@@ -371,26 +395,10 @@ class NBL_API IUtilities : public core::IReferenceCounted
             {
                 // how much hasn't been uploaded yet
                 const size_t size = bufferRange.size-uploadedSize;
-                // due to coherent flushing atom sizes, we need to pad
-                const size_t paddedSize = core::alignUp(size,alignment);
                 // how large we can make the allocation
                 uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
-                // if we aim to make a "slightly" smaller allocation we need to assume worst case about fragmentation
-                if (!core::is_aligned_to(maxFreeBlock,alignment) || maxFreeBlock>paddedSize)
-                {
-                    // two freeblocks might be spawned, one for the front (due to alignment) and one for the end
-                    const auto maxWastedSpace = (minStreamingBufferAllocationSize<<1)+alignment-1u;
-                    if (maxFreeBlock>maxWastedSpace)
-                        maxFreeBlock = core::alignDown(maxFreeBlock-maxWastedSpace,alignment);
-                    else
-                        maxFreeBlock = 0;
-                }
-                // don't want to be stuck doing tiny copies, better defragment the allocator by forcing an allocation failure
-                const bool largeEnoughTransfer = maxFreeBlock>=paddedSize || maxFreeBlock>=optimalTransferAtom;
-                // how big of an allocation we'll make
-                const uint32_t allocationSize = static_cast<uint32_t>(core::min<size_t>(
-                    largeEnoughTransfer ? maxFreeBlock:optimalTransferAtom,paddedSize
-                ));
+                // get allocation size
+                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size, alignment, maxFreeBlock, optimalTransferAtom);
                 // make sure we dont overrun the destination buffer due to padding
                 const uint32_t subSize = core::min(allocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
@@ -546,24 +554,10 @@ class NBL_API IUtilities : public core::IReferenceCounted
             for (size_t downloadedSize = 0ull; downloadedSize < srcBufferRange.size;)
             {
                 const size_t notDownloadedSize = srcBufferRange.size - downloadedSize;
-                const size_t notDownloadedSizePadded = core::alignUp(notDownloadedSize, alignment);
                 // how large we can make the allocation
                 uint32_t maxFreeBlock = m_defaultDownloadBuffer.get()->max_size();
-                // if we aim to make a "slightly" smaller allocation we need to assume worst case about fragmentation
-                if (!core::is_aligned_to(maxFreeBlock,alignment) || maxFreeBlock>notDownloadedSizePadded)
-                {
-                    // two freeblocks might be spawned, one for the front (due to alignment) and one for the end
-                    const auto maxWastedSpace = (minStreamingBufferAllocationSize<<1)+alignment-1u;
-                    if (maxFreeBlock>maxWastedSpace)
-                        maxFreeBlock = core::alignDown(maxFreeBlock-maxWastedSpace,alignment);
-                    else
-                        maxFreeBlock = 0;
-                }
-                const bool largeEnoughTransfer = maxFreeBlock >= notDownloadedSizePadded || maxFreeBlock >= optimalTransferAtom;
-                const uint32_t allocationSize = static_cast<uint32_t>(
-                    core::min<size_t>(largeEnoughTransfer ? maxFreeBlock : optimalTransferAtom,
-                    notDownloadedSizePadded));
-
+                // get allocation size
+                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(notDownloadedSize, alignment, maxFreeBlock, optimalTransferAtom);
                 const uint32_t copySize = core::min(allocationSize, notDownloadedSize);
 
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
