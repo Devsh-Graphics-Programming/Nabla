@@ -14,7 +14,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
     vk->vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(), m_vkSwapchainKHR, nullptr);
 }
 
-core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>& logicalDevice, ISwapchain::SCreationParams&& params)
+core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 {
     constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
     if (params.surface->getAPIType() != EAT_VULKAN)
