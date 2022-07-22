@@ -182,7 +182,11 @@ struct SPhysicalDeviceLimits
     E_TRI_BOOLEAN shaderRoundingModeRTZFloat32 = ETB_DONT_KNOW;
     E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
  
-    //      or VK_EXT_descriptor_indexing:
+    // expose in 2 phases
+    // -Update After Bindand nonUniformEXT shader qualifier:
+    //      Descriptor Lifetime Tracking PR #345 will do this, cause I don't want to rewrite the tracking system again.
+    // -Actual Descriptor Indexing:
+    //      The whole 512k descriptor limits, runtime desc arrays, etc.will come later
     uint32_t maxUpdateAfterBindDescriptorsInAllPools = ~0u;
     bool shaderUniformBufferArrayNonUniformIndexingNative = false;
     bool shaderSampledImageArrayNonUniformIndexingNative = false;
@@ -210,9 +214,6 @@ struct SPhysicalDeviceLimits
     //      or VK_EXT_sampler_filter_minmax:
     bool filterMinmaxSingleComponentFormats = false;
     bool filterMinmaxImageComponentMapping = false;
-
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-
 
     /* Vulkan 1.3 Core  */
     
@@ -532,6 +533,14 @@ struct SPhysicalDeviceLimits
     //! uint32_t              maxVertexInputBindings;
     //! uint32_t              maxVertexInputAttributeOffset;
     //! uint32_t              maxVertexInputBindingStride;
+
+    /*
+    - Spec states minimum supported value should be at least ESCF_1_BIT
+    - it might be different for each integer format, best way is to query your integer format from physical device using vkGetPhysicalDeviceImageFormatProperties and get the sampleCounts
+    https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkImageFormatProperties.html
+    */
+    // [DO NOT EXPOSE] because it might be different for every texture format and usage
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
 
     /*  Always enabled, reported as limits */
     bool shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
