@@ -24,6 +24,13 @@ class NBL_API IUtilities : public core::IReferenceCounted
     public:
         IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(_device))
         {
+
+            /*
+            [TODO] staging buffer should be always bigger than the GeneralPurposeAddressAllocator's minBlockSize and optimalTransferAtom furthermore the staging buffer should be a multiple of the minBlockSize
+            [BUFFER] optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
+            [IMAGE] optimalTransferAtom = limits.maxResidentInvocations * FATTEST_BLOCK_BYTE_SIZE * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth);
+            */
+
             auto physicalDevice = m_device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
