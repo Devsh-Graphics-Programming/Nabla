@@ -167,7 +167,7 @@ void IUtilities::updateImageViaStagingBuffer(
         {
             if(currentRegion == 0 && currentLayerInRegion == 0 && currentSliceInLayer == 0 && currentRowInSlice == 0 && currentBlockInRow == 0)
             {
-                // TODO: Log Failed Allocation and return false;
+                // TODO: Remove This logic because another thread might be working with upload buffer and we simply should wait for it to finish (Consider adding timeout/maxTries)
                 _NBL_DEBUG_BREAK_IF(false && "Failed Initial Allocation.");
                 break;
             }
