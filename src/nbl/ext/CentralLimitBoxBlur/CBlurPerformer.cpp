@@ -35,30 +35,9 @@ CBlurPerformer::CBlurPerformer(video::ILogicalDevice* device, uint32_t maxDimens
     auto pcRange = getDefaultPushConstantRanges();
     m_pplnLayout = device->createPipelineLayout(pcRange.begin(), pcRange.end(), core::smart_refctd_ptr(m_dsLayout));
 
-    const char* sourceFmt =
-R"===(#version 430 core
-#define _NBL_GLSL_WORKGROUP_SIZE_ %u
-#define _NBL_GLSL_EXT_BLUR_PASS_COUNT_ %u
-#define _NBL_GLSL_EXT_BLUR_AXIS_DIM_ %u
-#define _NBL_GLSL_EXT_BLUR_HALF_STORAGE_ %u
-layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
- 
-#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/default_compute_blur.comp"
-)===";
+    auto specShader = createSpecializedShader("nbl/builtin/glsl/ext/CentralLimitBoxBlur/default_compute_blur.comp", m_maxBlurLen, useHalfStorage ? 1u : 0u, device);
 
-    const size_t extraSize = 4u + 8u + 8u + 128u;
-
-    auto source = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt) + extraSize + 1u);
-    snprintf(reinterpret_cast<char*>(source->getPointer()), source->getSize(), sourceFmt, DefaultWorkgroupSize, PassesPerAxis, m_maxBlurLen,
-        useHalfStorage ? 1u : 0u);
-
-    // auto shader = device->createShader(core::make_smart_refctd_ptr<ICPUShader>(std::move(source), asset::ICPUShader::buffer_contains_glsl));
-    core::smart_refctd_ptr<video::IGPUShader> shader = nullptr;
-
-    auto specializedShader = device->createSpecializedShader(shader.get(),
-        asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main"});
-
-    m_ppln = device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_pplnLayout), std::move(specializedShader));
+    m_ppln = device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_pplnLayout), std::move(specShader));
 }
 
 core::SRange<const SPushConstantRange> CBlurPerformer::getDefaultPushConstantRanges()
@@ -72,4 +51,22 @@ core::SRange<const SPushConstantRange> CBlurPerformer::getDefaultPushConstantRan
         },
     };
     return { ranges,ranges + 1 };
+}
+
+core::smart_refctd_ptr<video::IGPUSpecializedShader> CBlurPerformer::createSpecializedShader(const char* shaderIncludePath, const uint32_t axisDim, const bool useHalfStorage, video::ILogicalDevice* device)
+{
+    std::ostringstream shaderSourceStream;
+    shaderSourceStream
+        << "#version 460 core\n"
+        << "#define _NBL_GLSL_WORKGROUP_SIZE_ " << DefaultWorkgroupSize << "\n" // Todo(achal): Get the workgroup size from outside
+        << "#define _NBL_GLSL_EXT_BLUR_PASSES_PER_AXIS_ " << PassesPerAxis << "\n" // Todo(achal): Get this from outside?
+        << "#define _NBL_GLSL_EXT_BLUR_AXIS_DIM_ " << axisDim << "\n"
+        << "#define _NBL_GLSL_EXT_BLUR_HALF_STORAGE_ " << (useHalfStorage ? 1 : 0) << "\n"
+        << "#include \"" << shaderIncludePath << "\"\n";
+
+    auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, "CBlurPerformer::createSpecializedShader");
+    auto gpuUnspecShader = device->createShader(std::move(cpuShader));
+    auto specShader = device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+
+    return specShader;
 }

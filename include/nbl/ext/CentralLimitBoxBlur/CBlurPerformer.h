@@ -37,10 +37,7 @@ public:
 
     static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
-    static inline void defaultBarrier()
-    {
-        // video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    }
+    static core::smart_refctd_ptr<video::IGPUSpecializedShader> createSpecializedShader(const char* shaderIncludePath, const uint32_t axisDim, const bool useHalfStorage, video::ILogicalDevice* device);
 
     //! Returns the required size of a buffer needed to hold the output of one pass.
     //! Typically used as an intermediate storage.
@@ -107,15 +104,15 @@ public:
         return passesRequired;
     }
 
-    static inline void dispatchHelper(video::ILogicalDevice* device, const video::IGPUPipelineLayout* pipelineLayout, const Parameters_t& params,
-        const DispatchInfo_t& dispatchInfo, bool issueDefaultBarrier = true)
+    static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const Parameters_t& pushConstants, const DispatchInfo_t& dispatchInfo)
     {
-        // driver->pushConstants(pipelineLayout, video::IGPUShader::ESS_COMPUTE, 0u, sizeof(Parameters_t), &params);
-        // driver->dispatch(dispatchInfo.wg_count[0], dispatchInfo.wg_count[1], dispatchInfo.wg_count[2]);
-
-        if (issueDefaultBarrier)
-            defaultBarrier();
+        cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0, sizeof(Parameters_t), &pushConstants);
+        cmdbuf->dispatch(dispatchInfo.wg_count[0], dispatchInfo.wg_count[1], dispatchInfo.wg_count[2]);
     }
+
+    inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultDescriptorSetLayout() const { return m_dsLayout; }
+    inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout() const { return m_pplnLayout; }
+    inline core::smart_refctd_ptr<video::IGPUComputePipeline> getDefaultPipeline() const { return m_ppln; }
 
 private:
     core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dsLayout = nullptr;
