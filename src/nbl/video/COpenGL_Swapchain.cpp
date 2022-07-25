@@ -16,6 +16,8 @@ namespace nbl::video
 static_assert(OpenGLFunctionTableSize >= sizeof(COpenGLFunctionTable));
 static_assert(OpenGLFunctionTableSize >= sizeof(COpenGLESFunctionTable));
 
+static inline constexpr uint32_t MaxSemaphores = 50u;
+
 IOpenGL_FunctionTable* getFunctionPointer(video::E_API_TYPE apiType, SThreadHandlerInternalState* internalState)
 {  
     if (apiType == video::EAT_OPENGL)
@@ -66,13 +68,11 @@ void COpenGL_SwapchainThreadHandler::requestBlit(uint32_t _imgIx, uint32_t semCo
     needToBlit = true;
     request.imgIx = _imgIx;
     request.semCount = semCount;
-    request.sems.clear();
-    if (request.sems.capacity() < semCount)
-        request.sems.reserve(semCount);
+    request.sems = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<COpenGLSemaphore>>>(semCount);
     for (uint32_t i = 0u; i < semCount; ++i)
     {
         COpenGLSemaphore* sem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(sems[i], m_device.get());
-        request.sems.push_back(core::smart_refctd_ptr<COpenGLSemaphore>(sem));
+        request.sems->begin()[i] = core::smart_refctd_ptr<COpenGLSemaphore>(sem);
     }
 }
 
@@ -167,7 +167,7 @@ void COpenGL_SwapchainThreadHandler::work(typename base_t::lock_t& lock, typenam
     auto gl = getFunctionPointer(m_device->getAPIType(), &state);
     for (uint32_t i = 0u; i < request.semCount; ++i)
     {
-        core::smart_refctd_ptr<COpenGLSemaphore>& sem = request.sems[i];
+        core::smart_refctd_ptr<COpenGLSemaphore>& sem = request.sems->begin()[i];
         sem->wait(gl);
     }
 
@@ -275,8 +275,7 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
     auto* sc = new COpenGL_Swapchain<FunctionTableType>(
         std::move(params), std::move(device), device->getEgl(), std::move(images), device->getGlFeatures(), ctx, 
         fbconfig, static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()));
-    sc->m_threadHandler.request.sems.reserve(50);
-    
+
      if (!sc)
         return nullptr;
     // wait until swapchain's internal thread finish context creation

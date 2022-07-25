@@ -44,7 +44,7 @@ public:
     struct SRequest
     {
         uint32_t imgIx = 0u;
-        core::vector<core::smart_refctd_ptr<COpenGLSemaphore>> sems;
+        core::smart_refctd_dynamic_array<core::smart_refctd_ptr<COpenGLSemaphore>> sems;
         uint32_t semCount = 0;
     } request;
 protected:
