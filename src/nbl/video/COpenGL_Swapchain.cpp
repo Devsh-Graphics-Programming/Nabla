@@ -26,7 +26,7 @@ IOpenGL_FunctionTable* getFunctionPointer(video::E_API_TYPE apiType, SThreadHand
 }
 
 COpenGL_SwapchainThreadHandler::COpenGL_SwapchainThreadHandler(const egl::CEGL* _egl,
-    IOpenGL_LogicalDevice* dev,
+    core::smart_refctd_ptr<IOpenGL_LogicalDevice> dev,
     const void* _window,
     ISurface::E_PRESENT_MODE presentMode,
     core::SRange<core::smart_refctd_ptr<IGPUImage>> _images,
@@ -71,7 +71,7 @@ void COpenGL_SwapchainThreadHandler::requestBlit(uint32_t _imgIx, uint32_t semCo
         request.sems.reserve(semCount);
     for (uint32_t i = 0u; i < semCount; ++i)
     {
-        COpenGLSemaphore* sem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(sems[i], m_device);
+        COpenGLSemaphore* sem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(sems[i], m_device.get());
         request.sems.push_back(core::smart_refctd_ptr<COpenGLSemaphore>(sem));
     }
 }
@@ -89,7 +89,9 @@ void COpenGL_SwapchainThreadHandler::init(SThreadHandlerInternalState* state_ptr
     egl->call.peglBindAPI(m_device->getEGLAPI());
 
     EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, glctx.surface, glctx.surface, glctx.ctx);
-    assert(mcres == EGL_TRUE);
+    m_makeCurrentRes = mcres;
+    if (mcres != EGL_TRUE)
+        return;
 
     m_ctxCreatedCvar.notify_one();
 
@@ -119,8 +121,8 @@ void COpenGL_SwapchainThreadHandler::init(SThreadHandlerInternalState* state_ptr
     {
         auto& img = images.begin()[i];
         GLuint texture = m_texViews[i];
-        GLuint origtexture = IBackendObject::device_compatibility_cast<COpenGLImage*>(img.get(), m_device)->getOpenGLName();
-        GLenum format = IBackendObject::device_compatibility_cast<COpenGLImage*>(img.get(), m_device)->getOpenGLSizedFormat();
+        GLuint origtexture = IBackendObject::device_compatibility_cast<COpenGLImage*>(img.get(), m_device.get())->getOpenGLName();
+        GLenum format = IBackendObject::device_compatibility_cast<COpenGLImage*>(img.get(), m_device.get())->getOpenGLSizedFormat();
         gl->extGlTextureView(texture, GL_TEXTURE_2D, origtexture, format, 0, 1, 0, 1);
     }
 
@@ -193,6 +195,22 @@ void COpenGL_SwapchainThreadHandler::exit(SThreadHandlerInternalState* state)
     egl->call.peglDestroyContext(egl->display, glctx.ctx);
     egl->call.peglDestroySurface(egl->display, glctx.surface);
 }
+
+template <typename FunctionTableType_>
+COpenGL_Swapchain<FunctionTableType_>::COpenGL_Swapchain<FunctionTableType_>(
+    SCreationParams&& params,
+    core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
+    const egl::CEGL* _egl,
+    ImagesArrayType&& images,
+    const COpenGLFeatureMap* _features,
+    EGLContext _ctx,
+    EGLConfig _config,
+    COpenGLDebugCallback* _dbgCb
+) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev), std::move(params), std::move(images)),
+    m_threadHandler(
+        _egl, dev, m_params.surface->getNativeWindowHandle(), m_params.presentMode, { m_images->begin(),m_images->end() }, _features, _ctx, _config, _dbgCb
+    )
+{}
 
 template <typename FunctionTableType_>
 core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<FunctionTableType_>::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)

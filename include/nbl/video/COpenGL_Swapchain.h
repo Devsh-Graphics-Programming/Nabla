@@ -25,7 +25,7 @@ class COpenGL_SwapchainThreadHandler final : public system::IThreadHandler<COpen
 
 public:
     COpenGL_SwapchainThreadHandler(const egl::CEGL* _egl,
-        IOpenGL_LogicalDevice* dev,
+        core::smart_refctd_ptr<IOpenGL_LogicalDevice> dev,
         const void* _window,
         ISurface::E_PRESENT_MODE presentMode,
         core::SRange<core::smart_refctd_ptr<IGPUImage>> _images,
@@ -59,7 +59,7 @@ protected:
     bool continuePredicate() const { return needToBlit; }
 
 private:
-    IOpenGL_LogicalDevice* m_device;
+    core::smart_refctd_ptr<IOpenGL_LogicalDevice> m_device;
     uint64_t m_masterContextCallsWaited;
 
     const egl::CEGL* egl;
@@ -119,11 +119,7 @@ protected:
         EGLContext _ctx,
         EGLConfig _config,
         COpenGLDebugCallback* _dbgCb
-    ) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params),std::move(images)),
-        m_threadHandler(
-            _egl,dev.get(),m_params.surface->getNativeWindowHandle(),m_params.presentMode,{m_images->begin(),m_images->end()},_features,_ctx,_config,_dbgCb
-        )
-    {}
+    );
 
 private:
     COpenGL_SwapchainThreadHandler m_threadHandler;
