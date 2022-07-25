@@ -35,18 +35,23 @@ public:
         VkPhysicalDeviceMaintenance4Properties          maintanance4Properties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES, &vulkan13Properties};
         VkPhysicalDeviceInlineUniformBlockProperties    inlineUniformBlockProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES, &maintanance4Properties };
         VkPhysicalDeviceSubgroupSizeControlProperties   subgroupSizeControlProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES, &inlineUniformBlockProperties };
-        
+        VkPhysicalDeviceTexelBufferAlignmentProperties  texelBufferAlignmentProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES, &subgroupSizeControlProperties };
+
         // !! Always check the API version is >= 1.2 before using `vulkan12Properties`
-        VkPhysicalDeviceVulkan12Properties              vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES, &subgroupSizeControlProperties };
-        VkPhysicalDeviceDriverProperties                driverProperties              = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES, &vulkan12Properties };
-        VkPhysicalDeviceFloatControlsProperties         floatControlsProperties       = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES, &driverProperties };
-        VkPhysicalDeviceDescriptorIndexingProperties    descriptorIndexingProperties  = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES, &floatControlsProperties };
-        VkPhysicalDeviceDepthStencilResolveProperties   depthStencilResolveProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES, &descriptorIndexingProperties };
-        VkPhysicalDeviceSamplerFilterMinmaxProperties   samplerFilterMinmaxProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES, &depthStencilResolveProperties };
-        VkPhysicalDeviceTimelineSemaphoreProperties     timelineSemaphoreProperties   = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES, &samplerFilterMinmaxProperties };
+        VkPhysicalDeviceVulkan12Properties                  vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES, &texelBufferAlignmentProperties };
+        VkPhysicalDeviceDriverProperties                    driverProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES, &vulkan12Properties };
+        VkPhysicalDeviceFloatControlsProperties             floatControlsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES, &driverProperties };
+        VkPhysicalDeviceDescriptorIndexingProperties        descriptorIndexingProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES, &floatControlsProperties };
+        VkPhysicalDeviceDepthStencilResolveProperties       depthStencilResolveProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES, &descriptorIndexingProperties };
+        VkPhysicalDeviceSamplerFilterMinmaxProperties       samplerFilterMinmaxProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES, &depthStencilResolveProperties };
+        VkPhysicalDeviceTimelineSemaphoreProperties         timelineSemaphoreProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES, &samplerFilterMinmaxProperties };
+        VkPhysicalDeviceLineRasterizationPropertiesEXT      lineRasterizationPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT, &timelineSemaphoreProperties };
+        VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT vertexAttributeDivisorPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT, &lineRasterizationPropertiesEXT };
+        VkPhysicalDeviceSubpassShadingPropertiesHUAWEI      subpassShadingPropertiesHUAWEI = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBPASS_SHADING_PROPERTIES_HUAWEI, &vertexAttributeDivisorPropertiesEXT };
+        VkPhysicalDeviceShaderIntegerDotProductProperties   shaderIntegerDotProductProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES, &subpassShadingPropertiesHUAWEI };
 
         // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Properties`
-        VkPhysicalDeviceVulkan11Properties vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES, &timelineSemaphoreProperties };
+        VkPhysicalDeviceVulkan11Properties vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES, &shaderIntegerDotProductProperties };
 
         // Extensions
         VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT, &vulkan11Properties };
@@ -59,6 +64,8 @@ public:
         VkPhysicalDeviceDiscardRectanglePropertiesEXT discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT, &PCIBusInfoProperties };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR, &discardRectangleProperties };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR, &rayTracingPipelineProperties };
+        VkPhysicalDeviceFragmentDensityMapPropertiesEXT fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT, &accelerationStructureProperties };
+        VkPhysicalDeviceFragmentDensityMap2PropertiesEXT fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT, &fragmentDensityMapProperties };
         {
             //! Basically remove a query struct from the chain if it's not supported by vulkan version:
             //! We need to do these only for `vulkan12Properties` and `vulkan13Properties` since our minimum is Vulkan 1.1 and these two are only provided by VK_VESION_1_2/1_3 (not any extensions) 
@@ -77,7 +84,7 @@ public:
 
 
             VkPhysicalDeviceProperties2 deviceProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            deviceProperties.pNext = &accelerationStructureProperties;
+            deviceProperties.pNext = &fragmentDensityMap2Properties;
             vkGetPhysicalDeviceProperties2(m_vkPhysicalDevice, &deviceProperties);
 
             /* Vulkan 1.0 Core  */
@@ -241,21 +248,21 @@ public:
 
             if(isExtensionSupported(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
             {
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16;
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat32;
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat64;
-                m_properties.limits.shaderDenormPreserveFloat16             = floatControlsProperties.shaderDenormPreserveFloat16;
-                m_properties.limits.shaderDenormPreserveFloat32             = floatControlsProperties.shaderDenormPreserveFloat32;
-                m_properties.limits.shaderDenormPreserveFloat64             = floatControlsProperties.shaderDenormPreserveFloat64;
-                m_properties.limits.shaderDenormFlushToZeroFloat16          = floatControlsProperties.shaderDenormFlushToZeroFloat16;
-                m_properties.limits.shaderDenormFlushToZeroFloat32          = floatControlsProperties.shaderDenormFlushToZeroFloat32;
-                m_properties.limits.shaderDenormFlushToZeroFloat64          = floatControlsProperties.shaderDenormFlushToZeroFloat64;
-                m_properties.limits.shaderRoundingModeRTEFloat16            = floatControlsProperties.shaderRoundingModeRTEFloat16;
-                m_properties.limits.shaderRoundingModeRTEFloat32            = floatControlsProperties.shaderRoundingModeRTEFloat32;
-                m_properties.limits.shaderRoundingModeRTEFloat64            = floatControlsProperties.shaderRoundingModeRTEFloat64;
-                m_properties.limits.shaderRoundingModeRTZFloat16            = floatControlsProperties.shaderRoundingModeRTZFloat16;
-                m_properties.limits.shaderRoundingModeRTZFloat32            = floatControlsProperties.shaderRoundingModeRTZFloat32;
-                m_properties.limits.shaderRoundingModeRTZFloat64            = floatControlsProperties.shaderRoundingModeRTZFloat64;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat16 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat32 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderSignedZeroInfNanPreserveFloat64 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormPreserveFloat16 = floatControlsProperties.shaderDenormPreserveFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormPreserveFloat32 = floatControlsProperties.shaderDenormPreserveFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormPreserveFloat64 = floatControlsProperties.shaderDenormPreserveFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormFlushToZeroFloat16 = floatControlsProperties.shaderDenormFlushToZeroFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormFlushToZeroFloat32 = floatControlsProperties.shaderDenormFlushToZeroFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderDenormFlushToZeroFloat64 = floatControlsProperties.shaderDenormFlushToZeroFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTEFloat16 = floatControlsProperties.shaderRoundingModeRTEFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTEFloat32 = floatControlsProperties.shaderRoundingModeRTEFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTEFloat64 = floatControlsProperties.shaderRoundingModeRTEFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTZFloat16 = floatControlsProperties.shaderRoundingModeRTZFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTZFloat32 = floatControlsProperties.shaderRoundingModeRTZFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
+                m_properties.limits.shaderRoundingModeRTZFloat64 = floatControlsProperties.shaderRoundingModeRTZFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
             }
             
             if(isExtensionSupported(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
@@ -284,16 +291,11 @@ public:
                 m_properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindStorageImages;
                 m_properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindInputAttachments;
             }
-            
+
             if(isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
             {
                 m_properties.limits.filterMinmaxSingleComponentFormats = samplerFilterMinmaxProperties.filterMinmaxSingleComponentFormats;
                 m_properties.limits.filterMinmaxImageComponentMapping = samplerFilterMinmaxProperties.filterMinmaxImageComponentMapping;
-            }
-
-            if(apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
-            {
-                m_properties.limits.framebufferIntegerColorSampleCounts =  core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(vulkan12Properties.framebufferIntegerColorSampleCounts);
             }
 
             /* Vulkan 1.3 Core  */
@@ -312,6 +314,17 @@ public:
             else
             {
                 getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, m_properties.limits.minSubgroupSize, m_properties.limits.maxSubgroupSize);
+            }
+
+            if (isExtensionSupported(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
+            {
+                m_properties.limits.storageTexelBufferOffsetAlignmentBytes = texelBufferAlignmentProperties.storageTexelBufferOffsetAlignmentBytes;
+                m_properties.limits.uniformTexelBufferOffsetAlignmentBytes = texelBufferAlignmentProperties.uniformTexelBufferOffsetAlignmentBytes;
+            }
+            else
+            {
+                m_properties.limits.storageTexelBufferOffsetAlignmentBytes = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
+                m_properties.limits.uniformTexelBufferOffsetAlignmentBytes = deviceProperties.properties.limits.minTexelBufferOffsetAlignment;
             }
 
             /* Extensions */
@@ -375,7 +388,7 @@ public:
                 m_properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
                 m_properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
             }
-            
+
             /* RayTracingPipelinePropertiesKHR */
             if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
             {
@@ -387,6 +400,76 @@ public:
                 m_properties.limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
                 m_properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
                 m_properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMapPropertiesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+            {
+                m_properties.limits.minFragmentDensityTexelSize = fragmentDensityMapProperties.minFragmentDensityTexelSize;
+                m_properties.limits.maxFragmentDensityTexelSize = fragmentDensityMapProperties.maxFragmentDensityTexelSize;
+                m_properties.limits.fragmentDensityInvocations = fragmentDensityMapProperties.fragmentDensityInvocations;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMapPropertiesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+            {
+                m_properties.limits.subsampledLoads = fragmentDensityMap2Properties.subsampledLoads;
+                m_properties.limits.subsampledCoarseReconstructionEarlyAccess = fragmentDensityMap2Properties.subsampledCoarseReconstructionEarlyAccess;
+                m_properties.limits.maxSubsampledArrayLayers = fragmentDensityMap2Properties.maxSubsampledArrayLayers;
+                m_properties.limits.maxDescriptorSetSubsampledSamplers = fragmentDensityMap2Properties.maxDescriptorSetSubsampledSamplers;
+            }
+
+            /* VkPhysicalDeviceLineRasterizationPropertiesEXT */
+            if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
+            {
+                m_properties.limits.lineSubPixelPrecisionBits = lineRasterizationPropertiesEXT.lineSubPixelPrecisionBits;
+            }
+
+            /* VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT */
+            if (isExtensionSupported(VK_EXT_VERTEX_ATTRIBUTE_DIVISOR_EXTENSION_NAME))
+            {
+                m_properties.limits.maxVertexAttribDivisor = vertexAttributeDivisorPropertiesEXT.maxVertexAttribDivisor;
+            }
+
+            /* VkPhysicalDeviceSubpassShadingPropertiesHUAWEI */
+            if (isExtensionSupported(VK_HUAWEI_SUBPASS_SHADING_EXTENSION_NAME))
+            {
+                m_properties.limits.maxSubpassShadingWorkgroupSizeAspectRatio = subpassShadingPropertiesHUAWEI.maxSubpassShadingWorkgroupSizeAspectRatio;
+            }
+
+            /* VkPhysicalDeviceShaderIntegerDotProductProperties */
+            if (isExtensionSupported(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME))
+            {
+                m_properties.limits.integerDotProduct8BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct8BitUnsignedAccelerated;
+                m_properties.limits.integerDotProduct8BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct8BitSignedAccelerated;
+                m_properties.limits.integerDotProduct8BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProduct8BitMixedSignednessAccelerated;
+                m_properties.limits.integerDotProduct4x8BitPackedUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct4x8BitPackedUnsignedAccelerated;
+                m_properties.limits.integerDotProduct4x8BitPackedSignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct4x8BitPackedSignedAccelerated;
+                m_properties.limits.integerDotProduct4x8BitPackedMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProduct4x8BitPackedMixedSignednessAccelerated;
+                m_properties.limits.integerDotProduct16BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct16BitUnsignedAccelerated;
+                m_properties.limits.integerDotProduct16BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct16BitSignedAccelerated;
+                m_properties.limits.integerDotProduct16BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProduct16BitMixedSignednessAccelerated;
+                m_properties.limits.integerDotProduct32BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct32BitUnsignedAccelerated;
+                m_properties.limits.integerDotProduct32BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct32BitSignedAccelerated;
+                m_properties.limits.integerDotProduct32BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProduct32BitMixedSignednessAccelerated;
+                m_properties.limits.integerDotProduct64BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct64BitUnsignedAccelerated;
+                m_properties.limits.integerDotProduct64BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProduct64BitSignedAccelerated;
+                m_properties.limits.integerDotProduct64BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProduct64BitMixedSignednessAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating8BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating8BitSignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating16BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating16BitSignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating32BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating32BitSignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating64BitSignedAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating64BitSignedAccelerated;
+                m_properties.limits.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
             }
 
             /* Nabla */
@@ -461,7 +544,47 @@ public:
         VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &vulkan12Features };
 
         // Extensions
-        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &vulkan11Features };
+        VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, &vulkan11Features };
+        VkPhysicalDeviceHostQueryResetFeatures                          hostQueryResetFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES, &texelBufferAlignmentFeatures };
+        VkPhysicalDeviceImageRobustnessFeatures                         imageRobustnessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES, &hostQueryResetFeatures };
+        VkPhysicalDevicePipelineCreationCacheControlFeatures            pipelineCreationCacheControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES, &imageRobustnessFeatures };
+        VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT, &pipelineCreationCacheControlFeatures };
+        VkPhysicalDeviceConditionalRenderingFeaturesEXT                 conditionalRenderingFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT, &colorWriteEnableFeatures };
+        VkPhysicalDeviceDeviceMemoryReportFeaturesEXT                   deviceMemoryReportFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT, &conditionalRenderingFeatures };
+        VkPhysicalDeviceFragmentDensityMapFeaturesEXT                   fragmentDensityMapFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT, &deviceMemoryReportFeatures };
+        VkPhysicalDeviceFragmentDensityMap2FeaturesEXT                  fragmentDensityMap2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT, &fragmentDensityMapFeatures };
+        VkPhysicalDeviceInlineUniformBlockFeatures                      inlineUniformBlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES, &fragmentDensityMap2Features };
+        VkPhysicalDeviceLineRasterizationFeaturesEXT                    lineRasterizationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT, &inlineUniformBlockFeatures };
+        VkPhysicalDeviceMemoryPriorityFeaturesEXT                       memoryPriorityFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT, &lineRasterizationFeatures };
+        VkPhysicalDeviceRobustness2FeaturesEXT                          robustness2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT, &memoryPriorityFeatures };
+        VkPhysicalDevicePerformanceQueryFeaturesKHR                     performanceQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR, &robustness2Features };
+        VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR         pipelineExecutablePropertiesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR, &performanceQueryFeatures };
+        VkPhysicalDeviceMaintenance4Features                            maintenance4Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_FEATURES, &pipelineExecutablePropertiesFeatures };
+        VkPhysicalDeviceCoherentMemoryFeaturesAMD                       coherentMemoryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD, &maintenance4Features };
+        VkQueueFamilyGlobalPriorityPropertiesKHR                        globalPriorityProperties = { VK_STRUCTURE_TYPE_QUEUE_FAMILY_GLOBAL_PRIORITY_PROPERTIES_KHR, &coherentMemoryFeatures };
+        VkPhysicalDeviceCoverageReductionModeFeaturesNV                 coverageReductionModeFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV, &globalPriorityProperties };
+        VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV               deviceGeneratedCommandsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV, &coverageReductionModeFeatures };
+        VkPhysicalDeviceMeshShaderFeaturesNV                            meshShaderFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV, &deviceGeneratedCommandsFeatures };
+        VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV            representativeFragmentTestFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_REPRESENTATIVE_FRAGMENT_TEST_FEATURES_NV, &meshShaderFeatures };
+        VkPhysicalDeviceShaderImageFootprintFeaturesNV                  shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV, &representativeFragmentTestFeatures };
+        VkPhysicalDeviceComputeShaderDerivativesFeaturesNV              computeShaderDerivativesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV, &shaderImageFootprintFeatures };
+        VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR        workgroupMemoryExplicitLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR, &computeShaderDerivativesFeatures };
+        VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR     subgroupUniformControlFlowFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR, &workgroupMemoryExplicitLayout };
+        VkPhysicalDeviceShaderClockFeaturesKHR                          shaderClockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR, &subgroupUniformControlFlowFeatures };
+        VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL            intelShaderIntegerFunctions2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL, &shaderClockFeatures };
+        VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT               shaderImageAtomicInt64Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT, &intelShaderIntegerFunctions2 };
+        VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT                   shaderAtomicFloat2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT, &shaderImageAtomicInt64Features };
+        VkPhysicalDeviceShaderAtomicFloatFeaturesEXT                    shaderAtomicFloatFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT, &shaderAtomicFloat2Features };
+        VkPhysicalDeviceIndexTypeUint8FeaturesEXT                       indexTypeUint8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT, &shaderAtomicFloatFeatures };
+        VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM, &indexTypeUint8Features };
+        VkPhysicalDeviceShaderIntegerDotProductProperties               shaderIntegerDotProductFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES, &rasterizationOrderAttachmentAccessFeatures };
+        VkPhysicalDeviceShaderTerminateInvocationFeatures               shaderTerminateInvocationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES, &shaderIntegerDotProductFeatures };
+        VkPhysicalDeviceScalarBlockLayoutFeatures                       scalarBlockLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES, &shaderTerminateInvocationFeatures };
+        VkPhysicalDeviceVulkanMemoryModelFeatures                       vulkanMemoryModelFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES, &scalarBlockLayoutFeatures };
+        VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures             separateDepthStencilLayoutsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES, &vulkanMemoryModelFeatures };
+        VkPhysicalDeviceUniformBufferStandardLayoutFeatures             uniformBufferStandardLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES, &separateDepthStencilLayoutsFeatures };
+        VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV, &uniformBufferStandardLayoutFeatures };
+        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &rayTracingMotionBlurFeatures };
         VkPhysicalDeviceShaderFloat16Int8Features                       shaderFloat16Int8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &subgroupSizeControlFeatures };
         VkPhysicalDeviceDescriptorIndexingFeaturesEXT                   descriptorIndexingFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &shaderFloat16Int8Features };
         VkPhysicalDeviceScalarBlockLayoutFeaturesEXT                    scalarBlockLayoutFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT, &descriptorIndexingFeaturesEXT };
@@ -471,8 +594,7 @@ public:
         VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT       shaderDemoteToHelperInvocationFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, &separateDepthStencilLayoutsFeaturesKHR };
         VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR            shaderTerminateInvocationFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR, &shaderDemoteToHelperInvocationFeaturesEXT };
         VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR              shaderIntegerDotProductFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR, &shaderTerminateInvocationFeaturesKHR };
-        VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeaturesARM = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM, &shaderIntegerDotProductFeaturesKHR };
-        VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, &rasterizationOrderAttachmentAccessFeaturesARM };
+        VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, &shaderIntegerDotProductFeaturesKHR };
         VkPhysicalDeviceShaderAtomicInt64FeaturesKHR                    shaderAtomicInt64FeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES_KHR, &astcDecodeFeaturesEXT };
         VkPhysicalDevice8BitStorageFeaturesKHR                          _8BitStorageFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR, &shaderAtomicInt64FeaturesKHR };
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV, &_8BitStorageFeaturesKHR };
@@ -506,6 +628,7 @@ public:
             m_features.geometryShader = features.geometryShader;
             m_features.tessellationShader = features.tessellationShader;
             m_features.dualSrcBlend = features.dualSrcBlend;
+            m_features.sampleRateShading = features.sampleRateShading;
             m_features.logicOp = features.logicOp;
             m_features.multiDrawIndirect = features.multiDrawIndirect;
             m_features.drawIndirectFirstInstance = features.drawIndirectFirstInstance;
@@ -519,6 +642,7 @@ public:
             m_features.multiViewport = features.multiViewport;
             m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.occlusionQueryPrecise = features.occlusionQueryPrecise;
+            m_features.pipelineStatisticsQuery = features.pipelineStatisticsQuery;
             m_features.vertexPipelineStoresAndAtomics = features.vertexPipelineStoresAndAtomics;
             m_features.fragmentStoresAndAtomics = features.fragmentStoresAndAtomics;
             m_features.shaderTessellationAndGeometryPointSize = features.shaderTessellationAndGeometryPointSize;
@@ -551,6 +675,11 @@ public:
             
             /* Vulkan 1.2 Core  */
             
+            if (instanceApiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
+            {
+                m_features.subgroupBroadcastDynamicId = vulkan12Features.subgroupBroadcastDynamicId;
+            }
+
             if (isExtensionSupported(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
             {
                 m_features.storageBuffer8BitAccess = _8BitStorageFeaturesKHR.storageBuffer8BitAccess;
@@ -592,6 +721,7 @@ public:
                  m_features.descriptorBindingUpdateUnusedWhilePending = descriptorIndexingFeaturesEXT.descriptorBindingUpdateUnusedWhilePending;
                  m_features.descriptorBindingPartiallyBound = descriptorIndexingFeaturesEXT.descriptorBindingPartiallyBound;
                  m_features.descriptorBindingVariableDescriptorCount = descriptorIndexingFeaturesEXT.descriptorBindingVariableDescriptorCount;
+                 m_features.runtimeDescriptorArray = descriptorIndexingFeaturesEXT.runtimeDescriptorArray;
             }
 
             m_features.samplerMirrorClampToEdge = isExtensionSupported(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
@@ -602,6 +732,18 @@ public:
             {
                 m_features.shaderSubgroupExtendedTypes = shaderSubgroupExtendedTypesFeaturesKHR.shaderSubgroupExtendedTypes;
             }
+
+            if (isExtensionSupported(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
+            {
+                m_properties.limits.shaderOutputViewportIndex = true;
+                m_properties.limits.shaderOutputLayer = true;
+            }
+            else if (instanceApiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
+            {
+                m_properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
+                m_properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
+            }
+            m_features.shaderDemoteToHelperInvocation = isExtensionSupported(VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME);
 
             /* Vulkan 1.3 Core  */
             if(isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
@@ -647,11 +789,321 @@ public:
                 m_features.fragmentShaderSampleInterlock = fragmentShaderInterlockFeatures.fragmentShaderSampleInterlock;
                 m_features.fragmentShaderShadingRateInterlock = fragmentShaderInterlockFeatures.fragmentShaderShadingRateInterlock;
             }
-            
+
             /* BufferDeviceAddressFeaturesKHR */
             if (isExtensionSupported(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
             {
                 m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
+                m_features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
+            }
+
+            /* RayTracingMotionBlurFeaturesNV */
+            if (isExtensionSupported(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME))
+            {
+                m_features.rayTracingMotionBlur = rayTracingMotionBlurFeatures.rayTracingMotionBlur;
+                m_features.rayTracingMotionBlurPipelineTraceRaysIndirect = rayTracingMotionBlurFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect;
+            }
+
+            /* VkPhysicalDeviceUniformBufferStandardLayoutFeatures */
+            if (isExtensionSupported(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME))
+            {
+                m_features.uniformBufferStandardLayout = uniformBufferStandardLayoutFeatures.uniformBufferStandardLayout;
+            }
+
+            /* VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures */
+            if (isExtensionSupported(VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME))
+            {
+                m_features.separateDepthStencilLayouts = separateDepthStencilLayoutsFeatures.separateDepthStencilLayouts;
+            }
+
+            /* VkPhysicalDeviceVulkanMemoryModelFeatures */
+            if (isExtensionSupported(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME))
+            {
+                m_features.vulkanMemoryModel = vulkanMemoryModelFeatures.vulkanMemoryModel;
+                m_features.vulkanMemoryModelDeviceScope = vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope;
+                m_features.vulkanMemoryModelAvailabilityVisibilityChains = vulkanMemoryModelFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
+            }
+
+            /* VkPhysicalDeviceScalarBlockLayoutFeatures */
+            if (isExtensionSupported(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME))
+            {
+                m_features.scalarBlockLayout = scalarBlockLayoutFeatures.scalarBlockLayout;
+            }
+
+            /* VkPhysicalDeviceShaderTerminateInvocationFeatures */
+            if (isExtensionSupported(VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME))
+            {
+                m_features.shaderTerminateInvocation = shaderTerminateInvocationFeatures.shaderTerminateInvocation;
+            }
+
+            /* VkPhysicalDeviceShaderTerminateInvocationFeatures */
+            if (isExtensionSupported(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME))
+            {
+                // [TODO] there's a bunch of fields! https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR.html
+            }
+
+            /* VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM */
+            if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
+            {
+                m_features.rasterizationOrderColorAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderColorAttachmentAccess;
+                m_features.rasterizationOrderDepthAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess;
+                m_features.rasterizationOrderStencilAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess;
+            }
+
+            /* VkPhysicalDeviceShaderAtomicFloatFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME))
+            {
+                m_features.shaderBufferFloat32Atomics = shaderAtomicFloatFeatures.shaderBufferFloat32Atomics;
+                m_features.shaderBufferFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd;
+                m_features.shaderBufferFloat64Atomics = shaderAtomicFloatFeatures.shaderBufferFloat64Atomics;
+                m_features.shaderBufferFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd;
+                m_features.shaderSharedFloat32Atomics = shaderAtomicFloatFeatures.shaderSharedFloat32Atomics;
+                m_features.shaderSharedFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd;
+                m_features.shaderSharedFloat64Atomics = shaderAtomicFloatFeatures.shaderSharedFloat64Atomics;
+                m_features.shaderSharedFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd;
+                m_features.shaderImageFloat32Atomics = shaderAtomicFloatFeatures.shaderImageFloat32Atomics;
+                m_features.shaderImageFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd;
+                m_features.sparseImageFloat32Atomics = shaderAtomicFloatFeatures.sparseImageFloat32Atomics;
+                m_features.sparseImageFloat32AtomicAdd = shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd;
+            }
+
+            /* VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME))
+            {
+                m_features.shaderBufferFloat16Atomics = shaderAtomicFloat2Features.shaderBufferFloat16Atomics;
+                m_features.shaderBufferFloat16AtomicAdd = shaderAtomicFloat2Features.shaderBufferFloat16AtomicAdd;
+                m_features.shaderBufferFloat16AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat16AtomicMinMax;
+                m_features.shaderBufferFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat32AtomicMinMax;
+                m_features.shaderBufferFloat64AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat64AtomicMinMax;
+                m_features.shaderSharedFloat16Atomics = shaderAtomicFloat2Features.shaderSharedFloat16Atomics;
+                m_features.shaderSharedFloat16AtomicAdd = shaderAtomicFloat2Features.shaderSharedFloat16AtomicAdd;
+                m_features.shaderSharedFloat16AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat16AtomicMinMax;
+                m_features.shaderSharedFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat32AtomicMinMax;
+                m_features.shaderSharedFloat64AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat64AtomicMinMax;
+                m_features.shaderImageFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderImageFloat32AtomicMinMax;
+                m_features.sparseImageFloat32AtomicMinMax = shaderAtomicFloat2Features.sparseImageFloat32AtomicMinMax;
+            }
+
+            /* VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME))
+            {
+                m_features.shaderImageInt64Atomics = shaderImageAtomicInt64Features.shaderImageInt64Atomics;
+                m_features.sparseImageInt64Atomics = shaderImageAtomicInt64Features.sparseImageInt64Atomics;
+            }
+
+            /* VkPhysicalDeviceIndexTypeUint8FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME))
+            {
+                m_features.indexTypeUint8 = indexTypeUint8Features.indexTypeUint8;
+            }
+
+            /* VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL */
+            if (isExtensionSupported(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
+            {
+                m_properties.limits.shaderIntegerFunctions2 = intelShaderIntegerFunctions2.shaderIntegerFunctions2;
+            }
+
+            /* VkPhysicalDeviceShaderClockFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
+            {
+                m_properties.limits.shaderSubgroupClock = shaderClockFeatures.shaderSubgroupClock;
+                m_features.shaderDeviceClock = shaderClockFeatures.shaderDeviceClock;
+            }
+
+            /* VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME))
+            {
+                m_features.shaderSubgroupUniformControlFlow = subgroupUniformControlFlowFeatures.shaderSubgroupUniformControlFlow;
+            }
+
+            /* VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME))
+            {
+                m_features.workgroupMemoryExplicitLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout;
+                m_features.workgroupMemoryExplicitLayoutScalarBlockLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayoutScalarBlockLayout;
+                m_features.workgroupMemoryExplicitLayout8BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout8BitAccess;
+                m_features.workgroupMemoryExplicitLayout16BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout16BitAccess;
+            }
+
+            /* VkPhysicalDeviceComputeShaderDerivativesFeaturesNV */
+            if (isExtensionSupported(VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME))
+            {
+                m_features.computeDerivativeGroupQuads = computeShaderDerivativesFeatures.computeDerivativeGroupQuads;
+                m_features.computeDerivativeGroupLinear = computeShaderDerivativesFeatures.computeDerivativeGroupLinear;
+            }
+
+            /* VkPhysicalDeviceShaderImageFootprintFeaturesNV  */
+            if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
+            {
+                m_properties.limits.imageFootprint = shaderImageFootprintFeatures.imageFootprint;
+            }
+
+            /* VkPhysicalDeviceCoverageReductionModeFeaturesNV  */
+            if (isExtensionSupported(VK_NV_COVERAGE_REDUCTION_MODE_EXTENSION_NAME))
+            {
+                m_features.coverageReductionMode = coverageReductionModeFeatures.coverageReductionMode;
+            }
+
+            /* VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV  */
+            if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
+            {
+                m_features.deviceGeneratedCommands = deviceGeneratedCommandsFeatures.deviceGeneratedCommands;
+            }
+
+            /* VkPhysicalDeviceMeshShaderFeaturesNV  */
+            if (isExtensionSupported(VK_NV_MESH_SHADER_EXTENSION_NAME))
+            {
+                m_features.meshShader = meshShaderFeatures.meshShader;
+                m_features.taskShader = meshShaderFeatures.taskShader;
+            }
+
+            /* VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV  */
+            if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
+            {
+                m_features.representativeFragmentTest = representativeFragmentTestFeatures.representativeFragmentTest;
+            }
+
+            if (isExtensionSupported(VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME) || isExtensionSupported(VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME))
+            {
+                m_features.representativeFragmentTest = true;
+            }
+
+            if (isExtensionSupported(VK_EXT_HDR_METADATA_EXTENSION_NAME))
+            {
+                m_features.hdrMetadata = true;
+            }
+
+            if (isExtensionSupported(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME))
+            {
+                m_features.displayTiming = true;
+            }
+
+            if (isExtensionSupported(VK_AMD_RASTERIZATION_ORDER_EXTENSION_NAME))
+            {
+                m_features.rasterizationOrder = true;
+            }
+
+            if (isExtensionSupported(VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME))
+            {
+                m_features.shaderExplicitVertexParameter = true;
+            }
+
+            if (isExtensionSupported(VK_AMD_SHADER_INFO_EXTENSION_NAME))
+            {
+                m_features.shaderInfoAMD = true;
+            }
+
+            if (isExtensionSupported(VK_AMD_BUFFER_MARKER_EXTENSION_NAME))
+            {
+                m_features.bufferMarkerAMD = true;
+            }
+
+            /* VkPhysicalDeviceHostQueryResetFeatures */
+            if (isExtensionSupported(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME))
+            {
+                m_features.hostQueryReset = hostQueryResetFeatures.hostQueryReset;
+            }
+
+            /* VkPhysicalDeviceImageRobustnessFeatures */
+            if (isExtensionSupported(VK_EXT_IMAGE_ROBUSTNESS_EXTENSION_NAME))
+            {
+                m_features.robustImageAccess = imageRobustnessFeatures.robustImageAccess;
+            }
+
+            /* VkPhysicalDevicePipelineCreationCacheControlFeatures */
+            if (isExtensionSupported(VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME))
+            {
+                m_features.pipelineCreationCacheControl = pipelineCreationCacheControlFeatures.pipelineCreationCacheControl;
+            }
+
+            /* VkPhysicalDeviceColorWriteEnableFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
+            {
+                m_features.colorWriteEnable = colorWriteEnableFeatures.colorWriteEnable;
+            }
+
+            /* VkPhysicalDeviceConditionalRenderingFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
+            {
+                m_features.conditionalRendering = conditionalRenderingFeatures.conditionalRendering;
+                m_features.inheritedConditionalRendering = conditionalRenderingFeatures.inheritedConditionalRendering;
+            }
+
+            /* VkPhysicalDeviceDeviceMemoryReportFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
+            {
+                m_features.deviceMemoryReport = deviceMemoryReportFeatures.deviceMemoryReport;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMapFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+            {
+                m_features.fragmentDensityMap = fragmentDensityMapFeatures.fragmentDensityMap;
+                m_features.fragmentDensityMapDynamic = fragmentDensityMapFeatures.fragmentDensityMapDynamic;
+                m_features.fragmentDensityMapNonSubsampledImages = fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages;
+            }
+
+            /* VkPhysicalDeviceFragmentDensityMap2FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+            {
+                m_features.fragmentDensityMapDeferred = fragmentDensityMap2Features.fragmentDensityMapDeferred;
+            }
+
+            /* VkPhysicalDeviceInlineUniformBlockFeatures */
+            if (isExtensionSupported(VK_EXT_INLINE_UNIFORM_BLOCK_EXTENSION_NAME))
+            {
+                m_features.inlineUniformBlock = inlineUniformBlockFeatures.inlineUniformBlock;
+                m_features.descriptorBindingInlineUniformBlockUpdateAfterBind = inlineUniformBlockFeatures.descriptorBindingInlineUniformBlockUpdateAfterBind;
+            }
+
+            /* VkPhysicalDeviceLineRasterizationFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
+            {
+                m_features.rectangularLines = lineRasterizationFeatures.rectangularLines;
+                m_features.bresenhamLines = lineRasterizationFeatures.bresenhamLines;
+                m_features.smoothLines = lineRasterizationFeatures.smoothLines;
+                m_features.stippledRectangularLines = lineRasterizationFeatures.stippledRectangularLines;
+                m_features.stippledBresenhamLines = lineRasterizationFeatures.stippledBresenhamLines;
+                m_features.stippledSmoothLines = lineRasterizationFeatures.stippledSmoothLines;
+            }
+
+            /* VkPhysicalDeviceMemoryPriorityFeaturesEXT */
+            if (isExtensionSupported(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
+            {
+                m_features.memoryPriority = memoryPriorityFeatures.memoryPriority;
+            }
+
+            /* VkPhysicalDeviceRobustness2FeaturesEXT */
+            if (isExtensionSupported(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME))
+            {
+                m_features.robustBufferAccess2 = robustness2Features.robustBufferAccess2;
+                m_features.robustImageAccess2 = robustness2Features.robustImageAccess2;
+                m_features.nullDescriptor = robustness2Features.nullDescriptor;
+            }
+
+            /* VkPhysicalDevicePerformanceQueryFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
+            {
+                m_features.performanceCounterQueryPools = performanceQueryFeatures.performanceCounterQueryPools;
+                m_features.performanceCounterMultipleQueryPools = performanceQueryFeatures.performanceCounterMultipleQueryPools;
+            }
+
+            /* VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR */
+            if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
+            {
+                m_features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
+            }
+
+            /* VkPhysicalDeviceMaintenance4Features */
+            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                m_features.maintenance4 = maintenance4Features.maintenance4;
+            }
+
+            /* VkPhysicalDeviceCoherentMemoryFeaturesAMD */
+            if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
+            {
+                m_features.deviceCoherentMemory = coherentMemoryFeatures.deviceCoherentMemory;
             }
 
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);
@@ -886,6 +1338,41 @@ protected:
         {
             bufferDeviceAddressFeatures.bufferDeviceAddress = m_features.bufferDeviceAddress;
             addFeatureToChain(&bufferDeviceAddressFeatures);
+        }
+
+        // Always enable these when present, reported as limit later
+        {
+            VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT };
+            if (m_availableFeatureSet.find(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                texelBufferAlignmentFeatures.texelBufferAlignment = true;
+                addFeatureToChain(&texelBufferAlignmentFeatures);
+                selectedFeatures.push_back(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME);
+            }
+
+            VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL intelShaderIntegerFunctions2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL };
+            if (m_availableFeatureSet.find(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                intelShaderIntegerFunctions2.shaderIntegerFunctions2 = true;
+                addFeatureToChain(&intelShaderIntegerFunctions2);
+                selectedFeatures.push_back(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME);
+            }
+
+            VkPhysicalDeviceShaderClockFeaturesKHR shaderClockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR };
+            if (m_availableFeatureSet.find(VK_KHR_SHADER_CLOCK_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                shaderClockFeatures.shaderSubgroupClock = true;
+                addFeatureToChain(&shaderClockFeatures);
+                selectedFeatures.push_back(VK_KHR_SHADER_CLOCK_EXTENSION_NAME);
+            }
+
+            VkPhysicalDeviceShaderImageFootprintFeaturesNV shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV };
+            if (m_availableFeatureSet.find(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME) != m_availableFeatureSet.end())
+            {
+                shaderImageFootprintFeatures.imageFootprint = true;
+                addFeatureToChain(&shaderImageFootprintFeatures);
+                selectedFeatures.push_back(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME);
+            }
         }
 
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };

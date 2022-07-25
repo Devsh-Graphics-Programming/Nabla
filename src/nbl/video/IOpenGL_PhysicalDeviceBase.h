@@ -519,13 +519,17 @@ public:
 			GLuint maxElementIndex = 0u;
 			GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
-			// [TODO] robustBufferAccess: EGL_EXT_create_context_robustness&(IsGLES ? (Version>=320 || KHR_robustness || ARB_robustness):(Version>=450 || KHR_robustness || ARB_robustness))
-			m_features.robustBufferAccess = false;
+			m_features.robustBufferAccess = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_create_context_robustness) && 
+				((IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 450) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_KHR_robustness) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_robustness));
 			m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
 			m_features.independentBlend = IsGLES 
 				? (m_glfeatures.Version >= 320u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_draw_buffers_indexed) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_draw_buffers_indexed))
 				: true;
+			m_features.shaderDemoteToHelperInvocation = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_demote_to_helper_invocation);
+			m_features.shaderTerminateInvocation = true;
 
 			if (!IsGLES || m_glfeatures.Version >= 320u)
 			{
@@ -580,7 +584,17 @@ public:
 			}
 
 			m_features.logicOp = !IsGLES;
-			// [TODO] dualSrcBlend: IsGLES ? (GL_EXT_blend_func_extended):true
+			m_features.dualSrcBlend = !IsGLES || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_blend_func_extended);
+			m_features.sampleRateShading = IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 440u;
+
+			// always report as false in gl
+			m_features.vulkanMemoryModel = false;
+			m_features.vulkanMemoryModelDeviceScope = false;
+			m_features.vulkanMemoryModelAvailabilityVisibilityChains = false;
+
+			// there's no layout in GL, so report true since we can just ignore the separate layouts
+			m_features.separateDepthStencilLayouts = true;
+
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
 
 			m_features.drawIndirectFirstInstance = (IsGLES)
@@ -600,7 +614,9 @@ public:
 				? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array))
 				: true;
 
-			if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
+			if (m_glfeatures.Version >= 460u ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_texture_filter_anisotropic) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
 			{
 				GLint maxAnisotropy = 0;
 				GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
@@ -611,40 +627,84 @@ public:
 				}
 			}
 			
-			
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float))
+			{
+				m_features.shaderBufferFloat32Atomics = true;
+				m_features.shaderBufferFloat32AtomicAdd = true;
+				m_features.shaderSharedFloat32Atomics = true;
+				m_features.shaderSharedFloat32AtomicAdd = true;
+				m_features.shaderSharedFloat32Atomics = true;
+				m_features.shaderImageFloat32Atomics = true;
+				m_features.shaderImageFloat32AtomicAdd = true;
+				// TODO: verify, not sure about those
+				// m_features.sparseImageFloat32Atomics = true;
+				// m_features.sparseImageFloat32AtomicAdd = true;
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_shader_atomic_float_minmax))
+			{
+				m_features.shaderBufferFloat32Atomics = true;
+				m_features.shaderSharedFloat32Atomics = true;
+			}
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float64))
+			{
+				m_features.shaderBufferFloat64Atomics = true;
+				m_features.shaderBufferFloat64AtomicAdd = true;
+				m_features.shaderSharedFloat64Atomics = true;
+				m_features.shaderSharedFloat64AtomicAdd = true;
+			}
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_fp16_vector))
+			{
+				m_features.shaderBufferFloat16Atomics = true;
+				m_features.shaderBufferFloat16AtomicAdd = true;
+				m_features.shaderBufferFloat16AtomicMinMax = true;
+				m_features.shaderSharedFloat16Atomics = true;
+				m_features.shaderSharedFloat16AtomicAdd = true;
+				m_features.shaderSharedFloat16AtomicMinMax = true;
+			}
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_shader_atomic_float_minmax))
+			{
+				m_features.shaderBufferFloat32AtomicMinMax = true;
+				m_features.shaderSharedFloat32AtomicMinMax = true;
+			}
+
+			m_properties.limits.shaderSubgroupClock = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_shader_clock);
+			m_features.shaderDeviceClock = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_shader_realtime_clock);
+
 			m_features.occlusionQueryPrecise = !IsGLES;
-			
+
+			// No extension adds 64-bit image formats for GL
+			m_features.shaderImageInt64Atomics = false;
+			m_features.sparseImageInt64Atomics = false;
+
 			// [TODO] Work these out from limits -> set these after setting the limits below
 			// if any {vertex,control,eval,geom} stage has >0 allowable bindings for {ssbo,storageimage,storagebufferview}, then true
 			m_features.vertexPipelineStoresAndAtomics = false; 
 			m_features.fragmentStoresAndAtomics = false; 
 
-			// [TODO] shaderTessellationAndGeometryPointSize
-			/*
 			// An implementation supporting this feature must also support one or both of the [tessellationShader] or [geometryShader] features.
 			m_features.shaderTessellationAndGeometryPointSize = true;
-			if (OES_geometry_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=OES_geometry_point_size;
-			else if (EXT_geometry_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=EXT_geometry_point_size;
-			if (OES_tessellation_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=OES_tessellation_point_size;
-			else if (EXT_tessellation_shader)
-			   m_features.shaderTessellationAndGeometryPointSize &=EXT_tessellation_point_size;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_point_size);
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_point_size);
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_point_size);
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_point_size);
 			else if (!m_features.geometryShader) // tessellation not supported,
 			   m_features.shaderTessellationAndGeometryPointSize = false;
-			*/
 
-			
-			// [TODO] m_features.shaderImageGatherExtended = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5):true
-			// [TODO] m_features.shaderStorageImageExtendedFormats = !IsGLES
 			m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
-			// [TODO] m_features.shaderStorageImageReadWithoutFormat  :in GL, always false
-			// [TODO] m_features.shaderStorageImageWriteWithoutFormat :in GL, always false
-			// [TODO] m_features.shaderUniformBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5 || GL_NV_gpu_shader5):true
-			// [TODO] m_features.shaderSampledImageArrayDynamicIndexing  = IsGLES ? (Version>=320 || GL_OES_gpu_shader5 || GL_EXT_gpu_shader5 || GL_NV_gpu_shader5):true
-			// [TODO] m_features.shaderStorageBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
-			// [TODO] m_features.shaderStorageImageArrayDynamicIndexing  = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
+			m_features.shaderImageGatherExtended = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5)) : true;
+			m_features.shaderStorageImageExtendedFormats = !IsGLES;
+			m_features.shaderStorageImageReadWithoutFormat = false;
+			m_features.shaderStorageImageWriteWithoutFormat = false;
+			m_features.shaderUniformBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderSampledImageArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageImageArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
 
 			if constexpr (IsGLES)
 			{
@@ -670,64 +730,86 @@ public:
 			}
 		
 			m_features.vertexAttributeDouble = !IsGLES;
-			
-			// [TODO] shaderInt64 = NV_gpu_shader5 || GL_ARB_gpu_shader_int64 || GL_AMD_gpu_shader_int64 // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
-			// [TODO] shaderInt16 = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
-			// [TODO] shaderResourceResidency = ARB_sparse_texture2 || EXT_sparse_texture2 || AMD_sparse_texture
-			// [TODO] shaderResourceMinLod = EXT_sparse_texture2 || ARB_sparse_texture_clamp
+
+			m_features.shaderInt64 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int64); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
+			m_features.shaderInt16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
+			m_features.shaderResourceResidency = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_sparse_texture);
+			m_features.shaderResourceMinLod = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture_clamp);
 
 			m_features.variableMultisampleRate = true;
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 		
 			/* Vulkan 1.1 Core */
-
-			// [TODO] storageBuffer16BitAccess = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 && AMD_gpu_shader_half_float
-			// [TODO] uniformAndStorageBuffer16BitAccess = NV_gpu_shader5 || GL_AMD_gpu_shader_int16 && AMD_gpu_shader_half_float
-			// [TODO] storagePushConstant16
-			// [TODO] storageInputOutput16
+			m_features.storageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_features.uniformAndStorageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
 
 			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
 			
 			/* Vulkan 1.2 Core */
 			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
 			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
-			
-			// [TODO] storageBuffer8BitAccess = NV_gpu_shader5
-			// [TODO] uniformAndStorageBuffer8BitAccess = NV_gpu_shader5
-			// [TODO] storagePushConstant8 => for now make GL and GLES report false and leave a comment with a TODO: implemenent, then return true
-			
-			// [TODO] shaderBufferInt64Atomics  NV_shader_atomic_int64
-			// [TODO] shaderSharedInt64Atomics  probably false on GL, not sure
-			
-			// [TODO] shaderFloat16 = NV_gpu_shader5 || AMD_gpu_shader_half_float
-			// [TODO] shaderInt8 = NV_gpu_shader5
+			m_features.shaderSubgroupUniformControlFlow = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_subgroupuniform_qualifier);
 
-			// [TODO] descriptorIndexing = false
-			// [TODO] shaderInputAttachmentArrayDynamicIndexing = no input attachments in GL / GLES, so false
-			// [TODO] shaderUniformTexelBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
-			// [TODO] shaderStorageTexelBufferArrayDynamicIndexing = IsGLES ? (Version>=320 || GL_NV_gpu_shader5):true
-			// [TODO] shaderUniformBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderSampledImageArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderStorageBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderStorageImageArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderInputAttachmentArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderUniformTexelBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] shaderStorageTexelBufferArrayNonUniformIndexing = NV_gpu_shader5 || EXT_nonuniform_qualifier
-			// [TODO] descriptorBindingUniformBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingSampledImageUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingStorageImageUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingStorageBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingUniformTexelBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingStorageTexelBufferUpdateAfterBind = always report true for those in GL
-			// [TODO] descriptorBindingUpdateUnusedWhilePending = always report true for those in GL
-			// [TODO] descriptorBindingPartiallyBound = always report true for those in GL
-			// [TODO] descriptorBindingVariableDescriptorCount = false, GL limits on descriptor counts are so low, it makes no sense to bother to implement
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_viewport_layer_array) ||
+				m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array2))
+			{
+				m_properties.limits.shaderOutputViewportIndex = true;
+				m_properties.limits.shaderOutputLayer = true;
+			}
 
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_compute_shader_derivatives))
+			{
+				m_features.computeDerivativeGroupQuads = true;
+				m_features.computeDerivativeGroupLinear = true;
+			}
+
+			m_properties.limits.imageFootprint = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_texture_footprint);
+
+			// [TODO]
+			// not sure if any OpenGL extension provides that, but if it exists it would be one of those that allows 16bit int/float to be used for UBO/SSBO
+			m_features.storagePushConstant8 = false;
+			m_features.storagePushConstant16 = false;
+			m_features.storageInputOutput16 = false;
+			
+			m_features.shaderBufferInt64Atomics = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_atomic_int64);
+			m_features.shaderSharedInt64Atomics = false;
+			
+			m_features.shaderFloat16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_features.shaderInt8 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_features.storageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_features.uniformAndStorageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+
+			m_features.descriptorIndexing = false;
+			m_features.shaderInputAttachmentArrayDynamicIndexing = false;
+			m_features.shaderUniformTexelBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageTexelBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			bool reportArrayNonUniformIndexing = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_nonuniform_qualifier);
+			m_features.shaderUniformBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderSampledImageArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageImageArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderInputAttachmentArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderUniformTexelBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageTexelBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.descriptorBindingUniformBufferUpdateAfterBind = true;
+			m_features.descriptorBindingSampledImageUpdateAfterBind = true;
+			m_features.descriptorBindingStorageImageUpdateAfterBind = true;
+			m_features.descriptorBindingStorageBufferUpdateAfterBind = true;
+			m_features.descriptorBindingUniformTexelBufferUpdateAfterBind = true;
+			m_features.descriptorBindingStorageTexelBufferUpdateAfterBind = true;
+			m_features.descriptorBindingUpdateUnusedWhilePending = true;
+			m_features.descriptorBindingPartiallyBound = true;
+			m_features.descriptorBindingVariableDescriptorCount = false;
+			m_features.runtimeDescriptorArray = false;
 
 			m_features.samplerFilterMinmax = false; // no such sampler in GL
-			// [TODO] shaderSubgroupExtendedTypes = AMD_shader_ballot
+			m_features.shaderSubgroupExtendedTypes = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_ballot);
 			m_features.bufferDeviceAddress = false; // no such capability in GL
-			
+
+			m_features.stippledRectangularLines = !IsGLES;
+			m_features.stippledBresenhamLines = !IsGLES;
+			m_features.stippledSmoothLines = !IsGLES;
+
 			/* Vulkan 1.3 Core */
 			m_features.subgroupSizeControl = false;
 			m_features.computeFullSubgroups = false;
@@ -747,7 +829,14 @@ public:
 				m_features.fragmentShaderSampleInterlock = true;
 				m_features.fragmentShaderShadingRateInterlock = true;
 			}
-			
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_shader_framebuffer_fetch))
+			{
+				m_features.rasterizationOrderColorAttachmentAccess = true;
+				m_features.rasterizationOrderDepthAttachmentAccess = true;
+				m_features.rasterizationOrderStencilAttachmentAccess = true;
+			}
+
             m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
 
 			// TODO: move this to IPhysicalDevice::SFeatures
@@ -937,6 +1026,10 @@ public:
 			assert(core::is_alignment(m_properties.limits.minSSBOAlignment));
 			// TODO: GLES has a problem with reporting this
 			GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.bufferViewAlignment));
+			
+			// GL treated as VK1.1 impl; GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT treated as vk10_props.minTexelBufferOffsetAlignment
+			m_properties.limits.storageTexelBufferOffsetAlignmentBytes = m_properties.limits.bufferViewAlignment;
+			m_properties.limits.uniformTexelBufferOffsetAlignmentBytes = m_properties.limits.bufferViewAlignment;
 
 			if (!core::is_alignment(m_properties.limits.bufferViewAlignment))
 				m_properties.limits.bufferViewAlignment = 16u;
@@ -947,7 +1040,7 @@ public:
 			GetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelGatherOffset));
 			GetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelGatherOffset));
 	
-			if(!IsGLES || m_glfeatures.Version >= 320u)
+			if(!IsGLES || (m_glfeatures.Version >= 320u && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_shader_multisample_interpolation)))
 			{
 				GetFloatv(GL_MIN_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.minInterpolationOffset);
 				GetFloatv(GL_MAX_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.maxInterpolationOffset);
@@ -1033,21 +1126,21 @@ public:
 			/* Vulkan 1.2 Core  */
 
 			/*		VK_KHR_shader_float_controls */
-			m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = false;
-			m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = false;
-			m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = false;
-			m_properties.limits.shaderDenormPreserveFloat16             = false;
-			m_properties.limits.shaderDenormPreserveFloat32             = false;
-			m_properties.limits.shaderDenormPreserveFloat64             = false;
-			m_properties.limits.shaderDenormFlushToZeroFloat16          = false;
-			m_properties.limits.shaderDenormFlushToZeroFloat32          = false;
-			m_properties.limits.shaderDenormFlushToZeroFloat64          = false;
-			m_properties.limits.shaderRoundingModeRTEFloat16            = false;
-			m_properties.limits.shaderRoundingModeRTEFloat32            = false;
-			m_properties.limits.shaderRoundingModeRTEFloat64            = false;
-			m_properties.limits.shaderRoundingModeRTZFloat16            = false;
-			m_properties.limits.shaderRoundingModeRTZFloat32            = false;
-			m_properties.limits.shaderRoundingModeRTZFloat64            = false;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat16             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat32             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat64             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat16          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat32          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat64          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat16            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat32            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat64            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat16            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat32            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat64            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
 
 			/*		VK_EXT_descriptor_indexing */
 			m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools					= ~0u;
@@ -1058,7 +1151,7 @@ public:
 			m_properties.limits.shaderStorageImageArrayNonUniformIndexingNative			= nonUniformIndexing;
 			m_properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative		= false; //	No Input Attachments in	GL
 			m_properties.limits.robustBufferAccessUpdateAfterBind						= false; //	TODO
-			m_properties.limits.quadDivergentImplicitLod								= nonUniformIndexing;
+			m_properties.limits.quadDivergentImplicitLod								= false; // False in GL always
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers			= m_properties.limits.maxPerStageDescriptorSamplers;
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs				= m_properties.limits.maxPerStageDescriptorUBOs;
 			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs				= m_properties.limits.maxPerStageDescriptorSSBOs;
@@ -1078,12 +1171,10 @@ public:
 			m_properties.limits.filterMinmaxSingleComponentFormats = false;
 			m_properties.limits.filterMinmaxImageComponentMapping = false;
 
-			m_properties.limits.framebufferIntegerColorSampleCounts = framebufferSampleCountFlags;
-
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;
 			
-			// maxSubgroupSize can be overrided later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			// maxSubgroupSize can be overriden later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
 			getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, m_properties.limits.minSubgroupSize, m_properties.limits.maxSubgroupSize);
 
 			m_properties.limits.maxComputeWorkgroupSubgroups = m_properties.limits.maxComputeWorkGroupInvocations/m_properties.limits.minSubgroupSize;
@@ -1100,30 +1191,7 @@ public:
 			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;
 			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
-			
-			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
-			{
-				GLint subgroupSize = 0;
-				GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
-				m_properties.limits.maxSubgroupSize = subgroupSize;
 
-				GLint subgroupOpsStages = 0;
-				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
-				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
-				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
-				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
-				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
-				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
-				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
-			}
-			
-			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
@@ -1141,8 +1209,45 @@ public:
 				m_properties.limits.shaderSubgroupShuffleRelative = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR);
 				m_properties.limits.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
 				m_properties.limits.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
-			}
 
+				if (m_properties.limits.shaderSubgroupBasic)
+				{
+					GLint subgroupSize = 0;
+					GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
+					m_properties.limits.maxSubgroupSize = subgroupSize;
+				}
+
+				GLint subgroupOpsStages = 0;
+				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
+				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
+				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
+				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
+				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
+				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
+				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
+
+				// From https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_shader_subgroup.txt:
+				// <id> must be an integral constant expression when targeting SPIR - V 1.4 and below, otherwise it must
+				// be dynamically uniform within the subgroup.
+				// Since `m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;`, this is always true in GL.
+				m_features.subgroupBroadcastDynamicId = true;
+			}
+			// TODO: Use ARB_shader_ballot to perform runtime test for more specific subgroup min & max
+			// 
+			// If ARB_shader_ballot is available (desktop GL only)
+			// Run a dummy vertex, geometry, tessellation, fragment pipeline(reasonable workload, few thousand verts, render into the default back buffer / FBO), have them write gl_SubGroupSizeARB with atomicMinand atomicMax into an SSBO so we can get ranges.
+			//
+			// Also run 2 dummy compute shaders :
+			//
+			// 16x16x1 workgroup and a 128x64x1 dispatch grid
+			//	256x1x1 workgroup and 16k x 1 x 1 dispatch grid
+			//	and do the same.
 
 			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1350
 			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1351
@@ -1189,13 +1294,51 @@ public:
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
 				m_properties.limits.conservativeRasterizationPostDepthCoverage = true;
 
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_window_rectangles))
+			{
+				GetIntegerv(GL_MAX_WINDOW_RECTANGLES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxDiscardRectangles));
+			}
 
-			// [TODO] maxDiscardRectangles -> in GL requires EXT_window_rectangles and then the cap is MAX_WINDOW_RECTANGLES_EXT
+			/* 
+			sampleLocationSampleCounts!=0 and variableSampleLocations=true only if
+			https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_sample_locations.txt
+			or
+			https://www.khronos.org/registry/OpenGL/extensions/AMD/AMD_sample_positions.txt
+			available
+			
+			otherwise sampleLocationSampleCounts=0 and variableSampleLocations=false
+
+			you can always get the remaining info from:
+			https://www.khronos.org/registry/OpenGL/extensions/NV/ARB_texture_multisample.txt
+			which I think is core in GL 4.4 and possibly even in GLES 3.1
+			*/
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sample_locations))
+			{
+				m_properties.limits.variableSampleLocations = true;
+				GetIntegerv(GL_SAMPLE_LOCATION_PIXEL_GRID_WIDTH_ARB, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleLocationGridSize.width));
+				GetIntegerv(GL_SAMPLE_LOCATION_PIXEL_GRID_HEIGHT_ARB, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleLocationGridSize.height));
+				GetIntegerv(GL_SAMPLE_LOCATION_SUBPIXEL_BITS_ARB, reinterpret_cast<GLint*>(&m_properties.limits.sampleLocationSubPixelBits));
+			}
+			// [TODO] Fallback NBL_AMD_sample_positions & sampleLocationCoordinateRange
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_texture_multisample))
+			{
+				GetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, reinterpret_cast<GLint*>(&m_properties.limits.sampleLocationSampleCounts));
+			}
+		
 			// [TODO] SampleLocationsPropertiesEXT
-			// [TODO] CooperativeMatrixPropertiesNV
 
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_mesh_shader))
+			{
+				m_features.meshShader = true;
+				m_features.taskShader = true;
+			}
+
+			m_features.representativeFragmentTest = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_representative_fragment_test);
+			m_features.mixedAttachmentSamples = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_framebuffer_mixed_samples);
+			m_features.shaderExplicitVertexParameter = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_explicit_vertex_parameter);
 			
 			/* Nabla */
 			m_properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(m_properties.driverID);
@@ -1222,7 +1365,7 @@ public:
 				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
 				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
 				{
-					define = "NBL_IMPL_";
+					define = "NBL_GLSL_IMPL_";
 					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
 					addGLSLDefineToPool(pool,define.c_str());
 				}
