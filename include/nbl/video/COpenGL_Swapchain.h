@@ -40,6 +40,13 @@ public:
     core::smart_refctd_ptr<COpenGLSync> getSyncForImgIx(uint32_t imgix);
 
     egl::CEGL::Context glctx;
+
+    struct SRequest
+    {
+        uint32_t imgIx = 0u;
+        core::vector<core::smart_refctd_ptr<COpenGLSemaphore>> sems;
+        uint32_t semCount = 0;
+    } request;
 protected:
 
     void init(SThreadHandlerInternalState* state_ptr);
@@ -63,12 +70,6 @@ private:
     core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
     COpenGLDebugCallback* m_dbgCb;
     std::array<uint32_t, MaxImages> m_texViews;
-    struct SRequest
-    {
-        uint32_t imgIx = 0u;
-        core::vector<core::smart_refctd_ptr<COpenGLSemaphore>> sems;
-        uint32_t semCount = 0;
-    } request;
 
     bool needToBlit = false;
 
@@ -98,15 +99,6 @@ public:
 
         return true;
     }
-
-    static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(SCreationParams&& params,
-        core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
-        const egl::CEGL* _egl,
-        ImagesArrayType&& images,
-        const COpenGLFeatureMap* _features,
-        EGLContext _ctx,
-        EGLConfig _config,
-        COpenGLDebugCallback* _dbgCb);
 
     static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
 

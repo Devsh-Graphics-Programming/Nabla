@@ -195,44 +195,6 @@ void COpenGL_SwapchainThreadHandler::exit(SThreadHandlerInternalState* state)
 }
 
 template <typename FunctionTableType_>
-core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<FunctionTableType_>::create(SCreationParams&& params,
-    core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
-    const egl::CEGL* _egl,
-    ImagesArrayType&& images,
-    const COpenGLFeatureMap* _features,
-    EGLContext _ctx,
-    EGLConfig _config,
-    COpenGLDebugCallback* _dbgCb)
-{
-    if (!images || !images->size())
-        return nullptr;
-    if (images->size() < params.minImageCount)
-        return nullptr;
-    if (images->size() > MaxImages)
-        return nullptr;
-
-    auto extent = asset::VkExtent3D{ params.width, params.height };
-    for (auto& img : (*images))
-    {
-        auto& ci = img->getCreationParameters();
-        if (ci.type != asset::IImage::ET_2D)
-            return nullptr;
-        if (ci.arrayLayers != params.arrayLayers)
-            return nullptr;
-        if (ci.mipLevels != 1u)
-            return nullptr;
-        if (ci.extent.width != extent.width)
-            return nullptr;
-        if (ci.extent.height != extent.height)
-            return nullptr;
-    }
-
-    auto* sc = new COpenGL_Swapchain<FunctionTableType>(std::move(params), std::move(dev), _egl, std::move(images), _features, _ctx, _config, _dbgCb);
-    sc->request.sems.reserve(50);
-    return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
-}
-
-template <typename FunctionTableType_>
 core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<FunctionTableType_>::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 {
     if (params.surface->getAPIType() != EAT_OPENGL || (params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
@@ -268,15 +230,43 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
     // master context must not be current while creating a context with whom it will be sharing
     device->unbindMasterContext();
     EGLContext ctx = device->createGLContext(FunctionTableType::EGL_API_TYPE, device->getEgl(), glver.first, glver.second, fbconfig, device->getEglContext());
-    auto sc = COpenGL_Swapchain<FunctionTableType_>::create(std::move(params), std::move(device), device->getEgl(), images, device->getGlFeatures(), ctx, fbconfig, static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()));
-    if (!sc)
+
+    if (!images || !images->size())
+        return nullptr;
+    if (images->size() < params.minImageCount)
+        return nullptr;
+    if (images->size() > MaxImages)
+        return nullptr;
+
+    auto extent = asset::VkExtent3D{ params.width, params.height };
+    for (auto& img : (*images))
+    {
+        auto& ci = img->getCreationParameters();
+        if (ci.type != asset::IImage::ET_2D)
+            return nullptr;
+        if (ci.arrayLayers != params.arrayLayers)
+            return nullptr;
+        if (ci.mipLevels != 1u)
+            return nullptr;
+        if (ci.extent.width != extent.width)
+            return nullptr;
+        if (ci.extent.height != extent.height)
+            return nullptr;
+    }
+
+    auto* sc = new COpenGL_Swapchain<FunctionTableType>(
+        std::move(params), std::move(device), device->getEgl(), std::move(images), device->getGlFeatures(), ctx, 
+        fbconfig, static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()));
+    sc->m_threadHandler.request.sems.reserve(50);
+    
+     if (!sc)
         return nullptr;
     // wait until swapchain's internal thread finish context creation
-    m_threadHandler.waitForInitComplete();
+     sc->m_threadHandler.waitForInitComplete();
     // make master context (in logical device internal thread) again
     device->bindMasterContext();
 
-    return sc;
+    return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
 }
 
 core::smart_refctd_ptr<COpenGLSwapchain> createGLSwapchain(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
