@@ -26,7 +26,7 @@ void IUtilities::updateImageViaStagingBuffer(
 
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
     auto texelBlockDim = texelBlockInfo.getDimension();
-    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[0];
+    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[queue->getFamilyIndex()];
     auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
 
     // Queues supporting graphics and/or compute operations must report (1,1,1) in minImageTransferGranularity, meaning that there are no additional restrictions on the granularity of image transfer operations for these queues.
