@@ -999,12 +999,25 @@ public:
     inline uint64_t waitOnMasterContext(FunctionTableType& _gl, const uint64_t waitedCallsSoFar)
     {
         const uint64_t invokedSoFar = m_masterContextCallsInvoked.load();
-        assert(invokedSoFar>=waitedCallsSoFar); // something went very wrong with causality
-        if (invokedSoFar==waitedCallsSoFar)
+        assert(invokedSoFar >= waitedCallsSoFar); // something went very wrong with causality
+        if (invokedSoFar == waitedCallsSoFar)
             return waitedCallsSoFar;
         uint64_t returnedSoFar;
-        while ((returnedSoFar=m_masterContextCallsReturned.load())<invokedSoFar) {} // waiting on address deadlocks
-        _gl.glSync.pglWaitSync(m_masterContextSync.load(),0,GL_TIMEOUT_IGNORED);
+        while ((returnedSoFar = m_masterContextCallsReturned.load()) < invokedSoFar) {} // waiting on address deadlocks
+        _gl.glSync.pglWaitSync(m_masterContextSync.load(), 0, GL_TIMEOUT_IGNORED);
+        return returnedSoFar;
+    }
+
+    template <typename FunctionTableType>
+    inline uint64_t waitOnMasterContext(FunctionTableType* _gl, const uint64_t waitedCallsSoFar)
+    {
+        const uint64_t invokedSoFar = m_masterContextCallsInvoked.load();
+        assert(invokedSoFar >= waitedCallsSoFar); // something went very wrong with causality
+        if (invokedSoFar == waitedCallsSoFar)
+            return waitedCallsSoFar;
+        uint64_t returnedSoFar;
+        while ((returnedSoFar = m_masterContextCallsReturned.load()) < invokedSoFar) {} // waiting on address deadlocks
+        _gl->glSync.pglWaitSync(m_masterContextSync.load(), 0, GL_TIMEOUT_IGNORED);
         return returnedSoFar;
     }
 
@@ -1022,6 +1035,7 @@ public:
     virtual void destroySync(GLsync sync) = 0;
     virtual void setObjectDebugName(GLenum id, GLuint object, GLsizei len, const GLchar* label) = 0;
     virtual void destroyQueryPool(COpenGLQueryPool* qp) = 0;
+    virtual int getEGLAPI() = 0;
 };
 
 }

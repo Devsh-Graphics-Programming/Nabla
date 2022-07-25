@@ -11,7 +11,6 @@
 namespace nbl::video
 {
 
-// TODO: decouple swapchain from queue some more (make presentation a method of swapchain), then we can have fake UE5, Unity, Qt6 swapchains
 class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
     public:

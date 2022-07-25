@@ -657,6 +657,11 @@ public:
         }
     }
 
+    int getEGLAPI() override final
+    {
+        return QueueType_::FunctionTableType::EGL_API_TYPE;
+    }
+
     const void* getNativeHandle() const override { return &m_threadHandler.glctx; }
 
 protected:
