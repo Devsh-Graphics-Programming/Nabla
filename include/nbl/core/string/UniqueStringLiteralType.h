@@ -14,7 +14,7 @@ namespace core
 {
 
 template<char... chars>
-struct CharParameterPackToStringLiteral
+struct NBL_API CharParameterPackToStringLiteral
 {
 	_NBL_STATIC_INLINE_CONSTEXPR char value[] = { chars..., '\0' };
 };

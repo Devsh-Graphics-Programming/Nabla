@@ -19,7 +19,7 @@ namespace MitsubaLoader
 {
 
 
-class CElementSensor : public IElement
+class NBL_API CElementSensor : public IElement
 {
 	public:
 		enum Type

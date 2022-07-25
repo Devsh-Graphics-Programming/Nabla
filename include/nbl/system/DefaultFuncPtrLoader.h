@@ -19,7 +19,7 @@
 namespace nbl::system
 {
 
-class DefaultFuncPtrLoader final : FuncPtrLoader
+class NBL_API DefaultFuncPtrLoader final : FuncPtrLoader
 {
 	protected:
 		#if defined(_NBL_WINDOWS_API_)

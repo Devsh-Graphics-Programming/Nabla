@@ -23,7 +23,7 @@ namespace nbl::system
 * Every method playing around with object's state shared with the thread must begin with line: `auto raii_handler = createRAIIDisptachHandler();`!
 */
 template <typename CRTP, typename InternalStateType = void>
-class IThreadHandler
+class NBL_API IThreadHandler
 {
 private:
     // TODO: @AnastzIuk factor this out somewhere? `nbl/core/reflection` ?

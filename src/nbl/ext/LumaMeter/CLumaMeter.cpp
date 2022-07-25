@@ -69,7 +69,7 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefa
 				ISampler::ECO_ALWAYS
 			}
 		};
-		sampler = driver->createGPUSampler(params);
+		sampler = driver->createSampler(params);
 	}
 	return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }

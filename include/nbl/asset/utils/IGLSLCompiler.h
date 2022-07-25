@@ -20,7 +20,7 @@ namespace nbl::asset
 {
 
 //! Will be derivative of IShaderGenerator, but we have to establish interface first
-class IGLSLCompiler final : public core::IReferenceCounted
+class NBL_API IGLSLCompiler final : public core::IReferenceCounted
 {
 	public:
 		enum E_SPIRV_VERSION
@@ -191,6 +191,64 @@ class IGLSLCompiler final : public core::IReferenceCounted
 			*outCode = 0; // terminating char
 
 			return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), IShader::buffer_contains_glsl_t{}, original->getStage(), std::string(original->getFilepathHint()));
+		}
+
+		static inline const char* getStorageImageFormatQualifier(const asset::E_FORMAT format)
+		{
+			switch (format)
+			{
+			case asset::EF_R32G32B32A32_SFLOAT:
+				return "rgba32f";
+			case asset::EF_R16G16B16A16_SFLOAT:
+				return "rgba16f";
+			case asset::EF_R32G32_SFLOAT:
+				return "rg32f";
+			case asset::EF_R16G16_SFLOAT:
+				return "rg16f";
+			case asset::EF_B10G11R11_UFLOAT_PACK32:
+				return "r11f_g11f_b10f";
+			case asset::EF_R32_SFLOAT:
+				return "r32f";
+			case asset::EF_R16_SFLOAT:
+				return "r16f";
+			case asset::EF_R16G16B16A16_UNORM:
+				return "rgba16";
+			case asset::EF_A2B10G10R10_UNORM_PACK32:
+				return "rgb10_a2";
+			case asset::EF_R8G8B8A8_UNORM:
+				return "rgba8";
+			case asset::EF_R16G16_UNORM:
+				return "rg16";
+			case asset::EF_R8G8_UNORM:
+				return "rg8";
+			case asset::EF_R16_UNORM:
+				return "r16";
+			case asset::EF_R8_UNORM:
+				return "r8";
+			case asset::EF_R16G16B16A16_SNORM:
+				return "rgba16_snorm";
+			case asset::EF_R8G8B8A8_SNORM:
+				return "rgba8_snorm";
+			case asset::EF_R16G16_SNORM:
+				return "rg16_snorm";
+			case asset::EF_R8G8_SNORM:
+				return "rg8_snorm";
+			case asset::EF_R16_SNORM:
+				return "r16_snorm";
+			case asset::EF_R8_UINT:
+				return "r8ui";
+			case asset::EF_R16_UINT:
+				return "r16ui";
+			case asset::EF_R32_UINT:
+				return "r32ui";
+			case asset::EF_R32G32_UINT:
+				return "rg32ui";
+			case asset::EF_R32G32B32A32_UINT:
+				return "rgba32ui";
+			default:
+				assert(false);
+				return "";
+			}
 		}
 
 	private:

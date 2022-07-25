@@ -14,7 +14,7 @@
 namespace nbl::asset::material_compiler
 {
 
-class IR : public core::IReferenceCounted
+class NBL_API IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {

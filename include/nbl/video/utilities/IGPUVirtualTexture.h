@@ -11,7 +11,7 @@
 namespace nbl::video
 {
 
-class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IGPUSampler>
+class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IGPUSampler>
 {
     using base_t = asset::IVirtualTexture<IGPUImageView, IGPUSampler>;
 
@@ -20,7 +20,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
     static inline core::smart_refctd_ptr<IGPUCommandBuffer> createTransferCommandBuffer(ILogicalDevice* logicalDevice, IGPUQueue* queue)
     {
         const auto queueFamilyIndex = queue->getFamilyIndex();
-        assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IPhysicalDevice::EQF_TRANSFER_BIT);
+        assert((logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IPhysicalDevice::EQF_TRANSFER_BIT).value);
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
         core::smart_refctd_ptr<IGPUCommandBuffer> gpuCommandBuffer;
@@ -30,23 +30,28 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             assert(gpuCommandBuffer);
             // buffer should hold onto pool with refcounted backlink
         }
-        gpuCommandBuffer->begin(0u);
+        gpuCommandBuffer->begin(IGPUCommandBuffer::EU_NONE);
         return gpuCommandBuffer;
     }
     static inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(
         ILogicalDevice* logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue, const asset::ICPUImage* _cpuimg,
-        uint32_t& waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
+        uint32_t& waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        video::IUtilities* utilities
     )
     {
-        core::smart_refctd_ptr<IUtilities> utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(logicalDevice));
-
         core::smart_refctd_ptr<IGPUImage> gpuImage;
         {
             auto cpuImageParams = _cpuimg->getCreationParameters();
             cpuImageParams.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
 
             // TODO: Look at issue #167 on Nabla repo, at some point
-            auto gpuTexelBuffer = logicalDevice->createDeviceLocalGPUBufferOnDedMem(IGPUBuffer::SCreationParams(), _cpuimg->getBuffer()->getSize());
+            IGPUBuffer::SCreationParams bufferCreationParams = {};
+            bufferCreationParams.size = _cpuimg->getBuffer()->getSize();
+            auto gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);	
+            auto mreqs = gpuTexelBuffer->getMemoryReqs();
+            mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto gpubufMem = logicalDevice->allocate(mreqs, gpuTexelBuffer.get());
+
             uint32_t signalSemaphoreCount=0u;
             IGPUSemaphore* const* semaphoresToSignal = nullptr;
             utilities->updateBufferRangeViaStagingBuffer(
@@ -56,18 +61,19 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
 
             auto regions = _cpuimg->getRegions();
             assert(regions.size());
-            gpuImage = utilities->createFilledDeviceLocalGPUImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
+            gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
         }
 
         return gpuImage;
     }
     void from_CPU_ctor_impl(
         IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
-        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
+        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        video::IUtilities* utilities
     )
     {
         auto* cpuPgt = _cpuvt->getPageTable();
-        m_pageTable = createGPUImageFromCPU(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuPgt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore);
+        m_pageTable = createGPUImageFromCPU(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuPgt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities);
 
         m_precomputed = _cpuvt->getPrecomputedData();
 
@@ -81,7 +87,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             auto* cpuStorage = static_cast<asset::ICPUVirtualTexture::ICPUVTResidentStorage*>(pair.second.get());
             const asset::E_FORMAT_CLASS fmtClass = pair.first;
 
-            m_storage.insert({fmtClass,core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuStorage,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore)});
+            m_storage.insert({fmtClass,core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_logicalDevice.get(),cmdbuf,fenceToSignal,queue,cpuStorage,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities)});
         }
 
         auto createViewsFromCPU = [this](core::vector<SamplerArray::Sampler>& _dst, decltype(_cpuvt->getFloatViews()) _src) -> void
@@ -112,10 +118,10 @@ protected:
 
     public:
         IGPUVTResidentStorage(ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, const cpu_counterpart_t* _cpuStorage,
-            uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore
+            uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, video::IUtilities* utilities
         ) :
             storage_base_t(
-                createGPUImageFromCPU(_logicalDevice,cmdbuf,fenceToSignal,queue,_cpuStorage->image.get(),waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore),
+                createGPUImageFromCPU(_logicalDevice,cmdbuf,fenceToSignal,queue,_cpuStorage->image.get(),waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities),
                 _cpuStorage->tileAlctr,
                 _cpuStorage->m_alctrReservedSpace,
                 _cpuStorage->m_decodeAddr_layerShift,
@@ -160,13 +166,14 @@ protected:
             params.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
             // TODO: final layout should be readonly (if there's transfer necessary, then we start in transfer dst) and usage is shader sampled texture
 
-            image = m_logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(params));
+            image = m_logicalDevice->createImage(std::move(params));
+            m_logicalDevice->allocate(image->getMemoryReqs(), image.get());
         }
 
     private:
         core::smart_refctd_ptr<IGPUImageView> createView_internal(IGPUImageView::SCreationParams&& _params) const override
         {
-            return m_logicalDevice->createGPUImageView(std::move(_params));
+            return m_logicalDevice->createImageView(std::move(_params));
         }
 
         ILogicalDevice* m_logicalDevice;
@@ -218,7 +225,8 @@ public:
     */
     IGPUVirtualTexture(
         ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
-        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore
+        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        video::IUtilities* utilities
     ) :
         base_t(
             _cpuvt->getPhysicalStorageExtentCallback(),
@@ -230,7 +238,7 @@ public:
             ),
         m_logicalDevice(_logicalDevice)
     {
-        from_CPU_ctor_impl(cmdbuf,fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore);
+        from_CPU_ctor_impl(cmdbuf,fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities);
     }
 
     /*
@@ -238,7 +246,7 @@ public:
         The queue must have TRANSFER capability
     */
     IGPUVirtualTexture(
-        ILogicalDevice* _logicalDevice, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
+        ILogicalDevice* _logicalDevice, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt, video::IUtilities* utilities,
         uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
         const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
     ) :
@@ -253,7 +261,7 @@ public:
         m_logicalDevice(_logicalDevice)
     {
         auto cmdbuf = createTransferCommandBuffer(_logicalDevice,queue);
-        from_CPU_ctor_impl(cmdbuf.get(),fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore);
+        from_CPU_ctor_impl(cmdbuf.get(),fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities);
         cmdbuf->end();
 
         IGPUQueue::SSubmitInfo info;
@@ -298,7 +306,7 @@ public:
 protected:
     core::smart_refctd_ptr<IGPUImageView> createPageTableView() const override
     {
-        return m_logicalDevice->createGPUImageView(createPageTableViewCreationParams());
+        return m_logicalDevice->createImageView(createPageTableViewCreationParams());
     }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
@@ -310,11 +318,13 @@ protected:
     }
     core::smart_refctd_ptr<IGPUImage> createPageTableImage(IGPUImage::SCreationParams&& _params) const override
     {
-        return m_logicalDevice->createDeviceLocalGPUImageOnDedMem(std::move(_params));
+        auto img = m_logicalDevice->createImage(std::move(_params));
+        m_logicalDevice->allocate(img->getMemoryReqs(), img.get());
+        return img;
     }
     core::smart_refctd_ptr<IGPUSampler> createSampler(const asset::ISampler::SParams& _params) const override
     {
-        return m_logicalDevice->createGPUSampler(_params);
+        return m_logicalDevice->createSampler(_params);
     }
 };
 

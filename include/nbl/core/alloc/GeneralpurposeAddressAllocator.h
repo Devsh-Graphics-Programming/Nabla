@@ -21,7 +21,7 @@ namespace impl
 {
 
 template<typename _size_type>
-class GeneralpurposeAddressAllocatorBase
+class NBL_API GeneralpurposeAddressAllocatorBase
 {
     protected:
         //types
@@ -100,7 +100,9 @@ class GeneralpurposeAddressAllocatorBase
         // members
         size_type               bufferSize;
         size_type               freeSize;
+public: // TODO!
         uint32_t                freeListCount;
+protected:
         uint32_t                usingFirstBuffer;
         size_type               minBlockSize;
 
@@ -314,10 +316,10 @@ class GeneralpurposeAddressAllocatorBase
 
 
 template<typename _size_type, bool useBestFitStrategy>
-class GeneralpurposeAddressAllocatorStrategy;
+class NBL_API GeneralpurposeAddressAllocatorStrategy;
 
 template<typename _size_type>
-class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected GeneralpurposeAddressAllocatorBase<_size_type>
+class NBL_API GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
@@ -370,7 +372,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
 };
 
 template<typename _size_type>
-class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected GeneralpurposeAddressAllocatorBase<_size_type>
+class NBL_API GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected GeneralpurposeAddressAllocatorBase<_size_type>
 {
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
@@ -432,7 +434,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
 
 //! General-purpose allocator, really its like a buddy allocator that supports more sophisticated coalescing
 template<typename _size_type, class AllocStrategy = impl::GeneralpurposeAddressAllocatorStrategy<_size_type,false> >
-class GeneralpurposeAddressAllocator : public AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type>, protected AllocStrategy
+class NBL_API GeneralpurposeAddressAllocator : public AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type>, protected AllocStrategy
 {
     private:
         typedef AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type> Base;
@@ -697,7 +699,7 @@ namespace core
 
 // aliases
 template<typename size_type>
-class GeneralpurposeAddressAllocatorST : public GeneralpurposeAddressAllocator<size_type>
+class NBL_API GeneralpurposeAddressAllocatorST : public GeneralpurposeAddressAllocator<size_type>
 {
     public:
         inline void defragment() noexcept
@@ -707,7 +709,7 @@ class GeneralpurposeAddressAllocatorST : public GeneralpurposeAddressAllocator<s
 };
 
 template<typename size_type, class RecursiveLockable>
-class GeneralpurposeAddressAllocatorMT : public AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>
+class NBL_API GeneralpurposeAddressAllocatorMT : public AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>
 {
         using Base = AddressAllocatorBasicConcurrencyAdaptor<GeneralpurposeAddressAllocator<size_type>,RecursiveLockable>;
     public:

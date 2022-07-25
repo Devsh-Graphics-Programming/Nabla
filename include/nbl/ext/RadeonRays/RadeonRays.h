@@ -22,7 +22,7 @@ namespace RadeonRays
 {
 
 // this is a really bad mock (do not take inspiration from it for the real API)
-class MockSceneManager
+class NBL_API MockSceneManager
 {
 	public:
 		using MeshBufferGUID = uint32_t;
@@ -42,7 +42,7 @@ class MockSceneManager
 };
 
 
-class Manager final : public core::IReferenceCounted
+class NBL_API Manager final : public core::IReferenceCounted
 {
 	public:
 		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver);

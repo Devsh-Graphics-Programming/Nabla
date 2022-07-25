@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 
-class IRenderpassIndependentPipelineLoader : public IAssetLoader
+class NBL_API IRenderpassIndependentPipelineLoader : public IAssetLoader
 {
 	public:
 		virtual void initialize() override;

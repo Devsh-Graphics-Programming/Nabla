@@ -25,8 +25,6 @@ std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
 }
 
 #ifndef _NBL_EMBED_BUILTIN_RESOURCES_
-// will only be available in the app or library using irrlicht
-#if defined(_NBL_STATIC_LIB_) || !defined(NABLA_EXPORTS)
 
 #define _NBL_BUILTIN_PATH_AVAILABLE
 namespace nbl
@@ -71,7 +69,6 @@ inline std::string getBuiltinResourcesDirectoryPath()
 
 }
 }
-#endif
 #endif
 
 #endif

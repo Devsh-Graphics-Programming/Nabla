@@ -11,7 +11,7 @@ namespace nbl::scene
 {
 
 template<typename LoDChoiceParams=ILevelOfDetailLibrary::DefaultLoDChoiceParams, template<class...> class allocator=core::allocator>
-class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
+class NBL_API CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 {
 	public:
 		struct alignas(DrawcallInfo) LoDInfo : LoDInfoBase
@@ -45,12 +45,29 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 			ExplicitBufferCreationParameters explicitParams;
 			{
 				static_cast<CreationParametersBase&>(explicitParams) = params;
+				const uint32_t deviceLocalMemTypeBits = params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 
 				video::IGPUBuffer::SCreationParams bufferParams;
 				bufferParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-				explicitParams.lodTableInfoBuffer = {0ull,tableBufferSize,params.device->createDeviceLocalGPUBufferOnDedMem(bufferParams,tableBufferSize)};
+
+				// 
+				bufferParams.size = tableBufferSize;
+				auto lodTableInfoBuffer = params.device->createBuffer(bufferParams);
+				auto lodTableInfoMReqs = lodTableInfoBuffer->getMemoryReqs();
+				lodTableInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
+				params.device->allocate(lodTableInfoMReqs, lodTableInfoBuffer.get());
+
+				explicitParams.lodTableInfoBuffer = {0ull,tableBufferSize,lodTableInfoBuffer};
 				explicitParams.lodTableInfoBuffer.buffer->setObjectDebugName("LoD Table Infos");
-				explicitParams.lodInfoBuffer = {0ull,lodBufferSize,params.device->createDeviceLocalGPUBufferOnDedMem(bufferParams,lodBufferSize)};
+
+				// 
+				bufferParams.size = lodBufferSize;
+				auto lodInfoBuffer = params.device->createBuffer(bufferParams);
+				auto lodInfoMReqs = lodInfoBuffer->getMemoryReqs();
+				lodInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
+				params.device->allocate(lodInfoMReqs, lodInfoBuffer.get());
+
+				explicitParams.lodInfoBuffer = {0ull,lodBufferSize,lodInfoBuffer};
 				explicitParams.lodInfoBuffer.buffer->setObjectDebugName("LoD Infos");
 			}
 			return create(std::move(explicitParams),std::move(_alloc));

@@ -16,7 +16,7 @@ template<typename T>
 class aabbox3d;
 
 
-class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
+class NBL_API matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 4u;

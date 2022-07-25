@@ -177,6 +177,22 @@ Contact `newclients@devsh.eu` with inquires into contracting.
 
 - [ ] **iOS**
 
+## Build summary
+
+|    ![][BUILD_STATUS]     |   Release    |     RWDI     |    Debug     |
+| :----------------------: | :----------: | :----------: | :----------: |
+|   **Windows MSVC x64**   | ![][MSVC_1]  | ![][MSVC_2]  | ![][MSVC_3]  |
+| **Android Clang x86_64** | ![][CLANG_1] | ![][CLANG_2] | ![][CLANG_3] |
+|    **Linux GCC x64**     |   ![][NA]    |   ![][NA]    |   ![][NA]    |
+
+[MSVC_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[MSVC_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[MSVC_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[CLANG_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[CLANG_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[CLANG_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[NA]: https://img.shields.io/badge/free%20slot-n%2Fa-red
+[BUILD_STATUS]: https://img.shields.io/badge/build-status-blueviolet
 
 ## Required Build Tools and SDK's
 
@@ -311,12 +327,6 @@ on each submodule's directory required!
 
 ### CMake notes
 
-#### Make sure Python's executable is found
-
-- The paragraph concerns *Windows system* only
-
-Unfortunately on Windows there are often troubles with **Python 3.0+** versions, because it isn't able to find and determine `PYTHON_EXECUTABLE` variable, so you have to fill it manually. If you use **CMake-GUI** you will find it in advanced options.
-
 #### Consider CMake and Visual Studio version, **important**! 
 
 - The paragraph concerns *Visual Studio* only
@@ -403,6 +413,59 @@ addNablaModule(executableTest "${NBL_INSTALL_DIR}")
 If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
 
 I recommend you use `ExternalProject_Add` instead of `add_subdirectory` for **Nabla** as we haven't  tested its use by *3rdparty* applications that use *CMake* to build themselves yet.
+
+# Caveats and Particular Behaviour
+
+## Hardcoded Caps
+
+### Max Descriptor Sets is always 4
+
+## Debugging with RenderDoc
+
+###  Non-programmatic OpenGL catpures will be delimited inconsistently
+
+Due to our no-pollution opengl state isolation policy, we have 1 queue or swapchain = 1 thread = 1 gl context + 1 master context and thread for device calls.
+
+Renderdoc therefore serializes all calls, and presents them inside the capture in interleaved order (records them on a single timeline "as they happened").
+
+Furthermore it has no idea what constitutes a frame, because swap-buffers call happens on a separate thread than all the other API calls. **So use the `IGPUQueue` start/end capture methods!**
+
+### RenderDoc flips images for display in the ImageViewer tab on OpenGL captures
+
+Ctrl+F `localRenderer in https://github.com/baldurk/renderdoc/blob/4103f6a5455b9734e9bf74e254577f5c03188136/renderdoc/core/image_viewer.cpp
+
+### OpenGL/Vulkan Inconsistencies
+
+In certain cases same calls to Vulkan and OpenGL might result in y-flipped image relevant to the other API.
+
+Both APIs write (-1,-1) in NDC space to (0,0) in image space (two wrongs make right), and memory-wise (0,0) always represents the lowest byte in memory.
+
+This inconsistency comes from swapchain presentation. When presenting the swapchain, the image location (0,0) corresponds to **bottom-left** in OpenGL and **top-left** in Vulkan.
+
+#### Solution by Surface Transforms
+
+We solve this inconsistency by using [surface transforms](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceTransformFlagBitsKHR.html); This transforms are relative to `presentation engine’s natural orientation`. and we report `HORIZONTAL_MIRROR_180` support in our OpenGL backend and defer handling these rotations (relative to natural orientaion) to the user.
+
+We provide helper functions in both GLSL and C++ Nabla codebase to consider surface transforms, See [surface_transform.glsl](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+
+Note that it is common to apply surface transformation to projection matrices to account for this fact. See [getSurfaceTransformationMatrix](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h) and [Android Developers Guide to Pre-rotation](https://developer.android.com/games/optimize/vulkan-prerotation)
+
+Use [`ISwapchain getSurfaceTransform()`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/ISwapchain.h) to get the transformation from swapchain.
+
+- When generating projection matricies, take into account the aspect ratio (which is changed when rotating 90 or 270 degrees). For this, we have helper functions in both GLSL and the ISurface class:
+    - [`float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
+    - [`nbl_glsl_surface_transform_transformedExtents`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+
+- On the swapchain rendering pass, perform **one** of the following transforms:
+    - If rendering **directly to the swapchain**, you can apply the (post) transform matrix to your projection or combined view-projection matrix **for rendering** (don't pre-multiply with projection matrix for use outside rendering):
+        - [`matrix4SIMD ISurface::getSurfaceTransformationMatrix(const E_SURFACE_TRANSFORM_FLAGS transform)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
+        - [`nbl_glsl_surface_transform_applyToNDC`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl) (This takes in an NDC coordinate and multiplies it with the transform matrix in one function)
+
+    - If using `imageStore` to write **directly to the swapchain**, you can either:
+        - Apply a transform to the screen-space coordinates being written to the swapchain:
+            - [`nbl_glsl_surface_transform_applyToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+        - Apply an **inverse** transform to the screen-space coordinates (taken from `gl_GlobalInvocationID.xy`) before turning them into UV/world-space coordinates for rendering:
+            - [`nbl_glsl_surface_transform_applyInverseToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
 
 ## Automated Builds (TODO)
 

@@ -547,13 +547,13 @@ public:
 
     COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
 
-    inline bool begin(uint32_t _flags) override final
+    inline bool begin(core::bitflag<E_USAGE> _flags) override final
     {
-        reset(_flags);
+        reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
         return IGPUCommandBuffer::begin(_flags);
     }
     
-    inline bool begin(uint32_t _flags, const SInheritanceInfo* inheritanceInfo = nullptr) override final
+    inline bool begin(core::bitflag<E_USAGE> _flags, const SInheritanceInfo* inheritanceInfo = nullptr) override final
     {
         return IGPUCommandBuffer::begin(_flags, inheritanceInfo);
     }
@@ -563,7 +563,7 @@ public:
         assert(queriesActive.value == 0u); // No Queries should be active when command buffer ends
         return IGPUCommandBuffer::end();
     }
-    bool reset(uint32_t _flags) override final;
+    bool reset(core::bitflag<E_RESET_FLAGS> _flags) override final;
 
 
     bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override

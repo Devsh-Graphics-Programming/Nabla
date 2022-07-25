@@ -33,7 +33,7 @@ inline constexpr bool is_const_iterator_v =
     (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
 
 template<class AssetType>
-struct AssetBundleIterator
+struct NBL_API AssetBundleIterator
 {
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
@@ -82,7 +82,7 @@ struct AssetBundleIterator
 
 
 
-class IGPUObjectFromAssetConverter
+class NBL_API IGPUObjectFromAssetConverter
 {
     public:
 
@@ -381,7 +381,7 @@ class IGPUObjectFromAssetConverter
 };
 
 
-class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
+class NBL_API CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
 {
     public:
         using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
@@ -397,7 +397,7 @@ class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
 
 // need to specialize outside because of GCC
 template<>
-struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
+struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
 {
     inline std::size_t operator()(const asset::ICPURenderpassIndependentPipeline* _ppln) const
     {
@@ -430,7 +430,7 @@ struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependent
     }
 };
 template<>
-struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
+struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 {
     inline std::size_t operator()(const asset::ICPUComputePipeline* _ppln) const
     {
@@ -449,13 +449,13 @@ struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 };
 
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
+struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPURenderpassIndependentPipeline* lhs, const asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
 };
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
+struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPUComputePipeline* lhs, const asset::ICPUComputePipeline* rhs) const { return true; }
@@ -464,17 +464,15 @@ struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin, const asset::ICPUBuffer** const _end, SParams& _params) -> created_gpu_object_array<asset::ICPUBuffer> // TODO: improve for caches of very large buffers!!!
 {
-	const auto assetCount = std::distance(_begin, _end);
-	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUBuffer> >(assetCount);
+    const auto assetCount = std::distance(_begin, _end);
+    auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUBuffer> >(assetCount);
 
     const uint64_t alignment =
-        std::max<uint64_t>(
-            std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.SSBOAlignment),
-            std::max<uint64_t>(_params.limits.UBOAlignment, _NBL_SIMD_ALIGNMENT)
-        );
-    
-    auto reqs = _params.device->getDeviceLocalGPUMemoryReqs();
-    reqs.vulkanReqs.alignment = alignment;
+    std::max<uint64_t>(
+        std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.SSBOAlignment),
+        std::max<uint64_t>(_params.limits.UBOAlignment, _NBL_SIMD_ALIGNMENT)
+    );
+
     const uint64_t maxBufferSize = _params.limits.maxBufferSize;
     auto out = res->begin();
     auto firstInBlock = out;
@@ -505,11 +503,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 
     auto finalizeBlock = [&]() -> void
     {
-        reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
-        if (reqs.vulkanReqs.size==0u)
+        auto bufferSize = addrAllctr.get_allocated_size();
+        if (bufferSize==0u)
             return;
         
         IGPUBuffer::SCreationParams bufparams;
+        bufparams.size = bufferSize;
         bufparams.usage = core::bitflag(IGPUBuffer::EUF_TRANSFER_DST_BIT);
 
         for (auto it = firstInBlock; it != out; it++)
@@ -524,7 +523,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         bufparams.queueFamilyIndices = qfams;
         bufparams.queueFamilyIndexCount = (qfams[0] == qfams[1]) ? 1u : 2u;
         
-        auto gpubuffer = _params.device->createGPUBufferOnDedMem(bufparams, reqs);
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_NONE);
+        if(bufparams.usage.hasFlags(IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+
+        auto gpubuffer = _params.device->createBuffer(bufparams);
+        auto gpubufferMemReqs = gpubuffer->getMemoryReqs();
+        gpubufferMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpubufferMem = _params.device->allocate(gpubufferMemReqs, gpubuffer.get(), allocateFlags);
+
         for (auto it = firstInBlock; it != out; it++)
         {
             if (auto output = *it)
@@ -586,7 +593,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 namespace impl
 {
 template<typename MapIterator>
-struct CustomBoneNameIterator
+struct NBL_API CustomBoneNameIterator
 {
         inline CustomBoneNameIterator(const MapIterator& it) : m_it(it) {}
         inline CustomBoneNameIterator(MapIterator&& it) : m_it(std::move(it)) {}
@@ -805,10 +812,13 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         IGPUBuffer::SCreationParams params = {};
         params.usage = core::bitflag(video::IGPUBuffer::EUF_TRANSFER_SRC_BIT) | video::IGPUBuffer::EUF_TRANSFER_DST_BIT;
         const auto& cpuimgParams = cpuimg->getCreationParameters();
+        params.size = cpuimg->getBuffer()->getSize();
 
-        const size_t size = cpuimg->getBuffer()->getSize();
+        auto gpubuf = _params.device->createBuffer(params);
+        auto mreqs = gpubuf->getMemoryReqs();
+        mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get());
 
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(params, size);
         img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
 
         const auto format = cpuimg->getCreationParameters().format;
@@ -895,12 +905,12 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
         {
             auto buf = found->second;
-            assert(buf->getCachedCreationParams().declaredSize == cpuimg->getBuffer()->getSize());
+            assert(buf->getCachedCreationParams().size == cpuimg->getBuffer()->getSize());
 
             asset::SBufferRange<IGPUBuffer> bufrng;
             bufrng.buffer = buf;
             bufrng.offset = 0u;
-            bufrng.size = buf->getCachedCreationParams().declaredSize;
+            bufrng.size = buf->getCachedCreationParams().size;
 
             _params.utilities->updateBufferRangeViaStagingBuffer(
                 cmdbuf_transfer.get(),transfer_fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
@@ -949,7 +959,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             copyRegion.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT; // Todo(achal): all bits?
             copyRegion.imageSubresource.mipLevel = 0u;
             copyRegion.imageSubresource.baseArrayLayer = 0u;
-            copyRegion.imageSubresource.layerCount = 1u;
+            copyRegion.imageSubresource.layerCount = cpuimg->getCreationParameters().arrayLayers;
             copyRegion.imageOffset = { 0u,0u,0u };
             copyRegion.imageExtent = cpuimg->getCreationParameters().extent;
 
@@ -1093,7 +1103,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (needToCompMipsForThisImg(cpuimg))
             params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
 
-        auto gpuimg = _params.device->createDeviceLocalGPUImageOnDedMem(std::move(params));
+        auto gpuimg = _params.device->createImage(std::move(params));
+        auto gpuimgMemReqs = gpuimg->getMemoryReqs();
+        gpuimgMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpuimgMem = _params.device->allocate(gpuimgMemReqs, gpuimg.get());
 
 		res->operator[](i) = std::move(gpuimg);
     }
@@ -1260,7 +1273,7 @@ inline created_gpu_object_array<asset::ICPUSampler> IGPUObjectFromAssetConverter
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         const asset::ICPUSampler* cpusmplr = _begin[i];
-        res->operator[](i) = _params.device->createGPUSampler(cpusmplr->getParams());
+        res->operator[](i) = _params.device->createSampler(cpusmplr->getParams());
     }
 
     return res;
@@ -1296,7 +1309,7 @@ inline created_gpu_object_array<asset::ICPUPipelineLayout> IGPUObjectFromAssetCo
             if (cpupl->getDescriptorSetLayout(ds))
                 dsLayouts[ds] = (*gpuDSLayouts)[redirs[dslIter++]].get();
         }
-        res->operator[](i) = _params.device->createGPUPipelineLayout(
+        res->operator[](i) = _params.device->createPipelineLayout(
             cpupl->getPushConstantRanges().begin(), cpupl->getPushConstantRanges().end(),
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayouts[0]),
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>(dsLayouts[1]),
@@ -1349,7 +1362,7 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
             if (cpuppln->getShaderAtIndex(static_cast<asset::ICPURenderpassIndependentPipeline::E_SHADER_STAGE_IX>(s)))
                 shaders[local_shdr_count++] = (*gpuShaders)[shdrRedirs[shdrIter++]].get();
 
-        (*res)[i] = _params.device->createGPURenderpassIndependentPipeline(
+        (*res)[i] = _params.device->createRenderpassIndependentPipeline(
             _params.pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>(layout),
             shaders, shaders + local_shdr_count,
@@ -1428,7 +1441,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
             }
             (*tmpBindings)[bndIter++] = gpubnd;
         }
-        (*res)[i] = _params.device->createGPUDescriptorSetLayout((*tmpBindings).data(), (*tmpBindings).data() + bndIter);
+        (*res)[i] = _params.device->createDescriptorSetLayout((*tmpBindings).data(), (*tmpBindings).data() + bndIter);
     }
 
     return res;
@@ -1461,7 +1474,7 @@ inline created_gpu_object_array<asset::ICPUComputePipeline> IGPUObjectFromAssetC
     {
         auto layout = (*gpuLayouts)[layoutRedirs[i]];
         auto shdr = (*gpuShaders)[shdrRedirs[i]];
-        (*res)[i] = _params.device->createGPUComputePipeline(_params.pipelineCache, std::move(layout), std::move(shdr));
+        (*res)[i] = _params.device->createComputePipeline(_params.pipelineCache, std::move(layout), std::move(shdr));
     }
 
     return res;
@@ -1488,7 +1501,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSpecializedShader** c
     for (ptrdiff_t i = 0; i < assetCount; ++i)
     {
         auto a = gpuDeps->operator[](redirs[i]);
-        res->operator[](i) = _params.device->createGPUSpecializedShader(gpuDeps->operator[](redirs[i]).get(), _begin[i]->getSpecializationInfo());
+        res->operator[](i) = _params.device->createSpecializedShader(gpuDeps->operator[](redirs[i]).get(), _begin[i]->getSpecializationInfo());
     }
 
     return res;
@@ -1501,7 +1514,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUShader** const _begin
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
-        res->operator[](i) = _params.device->createGPUShader(core::smart_refctd_ptr<asset::ICPUShader>(const_cast<asset::ICPUShader*>(_begin[i])));
+        res->operator[](i) = _params.device->createShader(core::smart_refctd_ptr<asset::ICPUShader>(const_cast<asset::ICPUShader*>(_begin[i])));
     }
 
     return res;
@@ -1523,7 +1536,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBufferView** const _b
     {
         const asset::ICPUBufferView* cpubufview = _begin[i];
         IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[i]].get();
-        (*res)[i] = _params.device->createGPUBufferView(gpubuf->getBuffer(), cpubufview->getFormat(), gpubuf->getOffset() + cpubufview->getOffsetInBuffer(), cpubufview->getByteSize());;
+        (*res)[i] = _params.device->createBufferView(gpubuf->getBuffer(), cpubufview->getFormat(), gpubuf->getOffset() + cpubufview->getOffsetInBuffer(), cpubufview->getByteSize());;
     }
 
     return res;
@@ -1659,7 +1672,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
             memcpy(&params.components, &cpuparams.components, sizeof(params.components));
             params.subresourceRange = cpuparams.subresourceRange;
             params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;
-            (*res)[i] = _params.device->createGPUImageView(std::move(params));
+            (*res)[i] = _params.device->createImageView(std::move(params));
         }
     }
 
@@ -1817,7 +1830,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		for (ptrdiff_t i = 0u; i < assetCount; i++)
 		{
 			IGPUDescriptorSetLayout* gpulayout = gpuLayouts->operator[](layoutRedirs[i]).get();
-			res->operator[](i) = _params.device->createGPUDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
+			res->operator[](i) = _params.device->createDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
 			auto gpuds = res->operator[](i).get();
 
             const asset::ICPUDescriptorSet* cpuds = _begin[i];
@@ -1966,9 +1979,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
     {
         // Create buffer with cpuas->getAccelerationStructureSize
         IGPUBuffer::SCreationParams gpuBufParams = {};
+        gpuBufParams.size = asSize;
         gpuBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
-        auto gpubuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuBufParams, asSize);
-            
+        auto gpubuf = _params.device->createBuffer(gpuBufParams);
+        auto mreqs = gpubuf->getMemoryReqs();
+        mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+        assert(gpubufMem.isValid());
+
         // Create GPUAccelerationStructure with that buffer
         video::IGPUAccelerationStructure::SCreationParams creatationParams = {};
         creatationParams.bufferRange.buffer = gpubuf;
@@ -1976,7 +1994,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
         creatationParams.bufferRange.size = asSize;
         creatationParams.flags = cpuas->getCreationParameters().flags;
         creatationParams.type = cpuas->getCreationParameters().type;
-        return _params.device->createGPUAccelerationStructure(std::move(creatationParams));
+        return _params.device->createAccelerationStructure(std::move(creatationParams));
     };
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
@@ -2209,8 +2227,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
 
             // Allocate Scratch Buffer
             IGPUBuffer::SCreationParams gpuScratchBufParams = {};
+            gpuScratchBufParams.size = totalScratchBufferSize;
             gpuScratchBufParams.usage = core::bitflag(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT; 
-            auto gpuScratchBuf = _params.device->createDeviceLocalGPUBufferOnDedMem(gpuScratchBufParams, totalScratchBufferSize);
+            auto gpuScratchBuf = _params.device->createBuffer(gpuScratchBufParams);
+            auto mreqs = gpuScratchBuf->getMemoryReqs();
+            mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto gpuScratchBufMem = _params.device->allocate(mreqs, gpuScratchBuf.get(), IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+
+
             for (ptrdiff_t i = 0u; i < toCreateAndBuild.size(); ++i)
             {
                 auto & gpuBuildInfo = buildGeomInfos[i];

@@ -8,7 +8,7 @@ namespace nbl {
 namespace asset
 {
 
-class ICPURenderpass : public IRenderpass, public IAsset
+class NBL_API ICPURenderpass : public IRenderpass, public IAsset
 {
 public:
     using IRenderpass::IRenderpass;

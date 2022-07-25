@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <compare>
 
 #include "nbl/asset/ICPUBuffer.h"
 
@@ -49,7 +50,7 @@ namespace nbl::asset
 	could have been a long time ago.
 */
 
-class ISpecializedShader : public virtual core::IReferenceCounted
+class NBL_API ISpecializedShader : public virtual core::IReferenceCounted
 {
 	public:
 		//! Parameter class used in constructor of ISpecializedShader
@@ -74,6 +75,8 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 					uint32_t specConstID;		//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
 					uint32_t offset;			//!< The byte offset of the specialization constant value within the supplied data buffer.		
 					size_t size;				//!< The byte size of the specialization constant value within the supplied data buffer.
+				
+					auto operator<=>(const SMapEntry&) const = default;
 				};
 
 				SInfo() = default;

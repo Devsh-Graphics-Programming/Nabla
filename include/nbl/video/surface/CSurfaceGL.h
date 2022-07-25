@@ -36,7 +36,7 @@ class CSurfaceGLImpl : public Base<Window,ISurface>
             return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
         }
 
-        bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
+        inline bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
         {
             const E_API_TYPE pdev_api = dev->getAPIType();
             // GL/GLES backends have just 1 queue family and device
@@ -45,7 +45,7 @@ class CSurfaceGLImpl : public Base<Window,ISurface>
             return _queueFamIx==0u && dev==*base_t::m_api->getPhysicalDevices().begin();
         }
         
-        void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override
+        inline void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override
         {
             // Todo(achal): Need to properly map asset::E_FORMAT which would also dictate
             // formatCount
@@ -60,21 +60,22 @@ class CSurfaceGLImpl : public Base<Window,ISurface>
             // formats[0].colorSpace.primary = ;
         }
 
-        ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override
+        inline ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override
         {
             return static_cast<ISurface::E_PRESENT_MODE>(ISurface::EPM_IMMEDIATE | ISurface::EPM_FIFO | ISurface::EPM_FIFO_RELAXED);
         }
 
-        bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
+        inline bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override
         {
             capabilities.minImageCount = 2u;
             capabilities.maxImageCount = ~0u;
             capabilities.currentExtent = { this->getWidth(), this->getHeight() };
             capabilities.minImageExtent = { 1u, 1u };
-            capabilities.maxImageExtent = { static_cast<uint32_t>(physicalDevice->getLimits().maxTextureSize), static_cast<uint32_t>(physicalDevice->getLimits().maxTextureSize) };
+            capabilities.maxImageExtent = { static_cast<uint32_t>(physicalDevice->getLimits().maxImageDimension2D), static_cast<uint32_t>(physicalDevice->getLimits().maxImageDimension2D) };
             capabilities.maxImageArrayLayers = physicalDevice->getLimits().maxImageArrayLayers;
-            capabilities.supportedTransforms = ISurface::EST_IDENTITY_BIT;
-            capabilities.currentTransform = ISurface::EST_IDENTITY_BIT;
+            // Only supported transform exposed for OpenGL is mirror rotate 180 (effectively flip Y) to match Vulkan
+            capabilities.supportedTransforms = ISurface::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT;
+            capabilities.currentTransform = ISurface::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT;
             capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(ISurface::ECA_OPAQUE_BIT | ISurface::ECA_PRE_MULTIPLIED_BIT | ISurface::ECA_POST_MULTIPLIED_BIT);
             capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(
                 asset::IImage::EUF_TRANSFER_SRC_BIT | asset::IImage::EUF_TRANSFER_DST_BIT |
@@ -102,13 +103,13 @@ class CSurfaceNativeGLWin32 : public CSurfaceNativeGL<ui::IWindowWin32,CSurfaceN
         using base_t = CSurfaceNativeGL<ui::IWindowWin32,CSurfaceNativeGLWin32>;
         using base_t::base_t;
 
-        uint32_t getWidth() const override 
+        inline uint32_t getWidth() const override 
         { 
             RECT wr;
             GetWindowRect(m_handle, &wr);
             return wr.right - wr.left;
         }
-        uint32_t getHeight() const override 
+        inline uint32_t getHeight() const override 
         { 
             RECT wr;
             GetWindowRect(m_handle, &wr);

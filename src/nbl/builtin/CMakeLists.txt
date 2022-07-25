@@ -6,11 +6,18 @@ function(nbl_add_builtin_resources)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py)
   list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py)
 
+  # Just in case if not found yet (3rd parties should've found it already though regardless of platform)
+  find_package(Python3 REQUIRED)
+
+  set(RESOURCES_FILE ${CMAKE_BINARY_DIR}/include/nbl/builtin/resources.txt)
+
+  string(REPLACE ";" "," RESOURCES_ARGS "${ARGV}")
   file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/include/nbl/builtin/)
+  file(WRITE ${RESOURCES_FILE} ${RESOURCES_ARGS})
   add_custom_command(
     OUTPUT "${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include ${RESOURCES_FILE}
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include ${RESOURCES_FILE}
     COMMENT "Generated built-in resources"
     DEPENDS ${builtin_dependencies_list}
     VERBATIM  
@@ -44,6 +51,7 @@ set(nbl_resources_to_embed
   # generic GLSL headers after this line
   "nbl/builtin/glsl/macros.glsl"
   "nbl/builtin/glsl/algorithm.glsl"
+  "nbl/builtin/glsl/ieee754.glsl"
   # barycentric
   "nbl/builtin/glsl/barycentric/extensions.glsl"
   "nbl/builtin/glsl/barycentric/frag.glsl"
@@ -125,7 +133,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/cos_weighted.glsl"
   "nbl/builtin/glsl/sampling/linear.glsl"
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
-  #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
+  "nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
   "nbl/builtin/glsl/sampling/quantized_sequence.glsl"
   # global exclusive scan
@@ -136,6 +144,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/scan/indirect.comp"
   "nbl/builtin/glsl/scan/parameters_struct.glsl"
   "nbl/builtin/glsl/scan/virtual_workgroup.glsl"
+  # faster and easier scan
+  "nbl/builtin/glsl/scanning_append/scanning_append.glsl"
   # scene
   "nbl/builtin/glsl/scene/animation.glsl"
   "nbl/builtin/glsl/scene/keyframe.glsl"
@@ -143,7 +153,7 @@ set(nbl_resources_to_embed
   # shapes
   "nbl/builtin/glsl/shapes/aabb.glsl"
   "nbl/builtin/glsl/shapes/frustum.glsl"
-  #"nbl/builtin/glsl/shapes/rectangle.glsl"
+  "nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"
   # skinning
   "nbl/builtin/glsl/skinning/cache_descriptor_set.glsl"
@@ -167,6 +177,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/utils/normal_encode.glsl"
   "nbl/builtin/glsl/utils/transform.glsl"
   "nbl/builtin/glsl/utils/morton.glsl"
+  "nbl/builtin/glsl/utils/surface_transform_transformedDerivatives.glsl"
+  "nbl/builtin/glsl/utils/surface_transform.glsl"
+  "nbl/builtin/glsl/utils/surface_transform_e.h"
   # virtual texturing
   "nbl/builtin/glsl/virtual_texturing/descriptors.glsl"
   "nbl/builtin/glsl/virtual_texturing/extensions.glsl"
@@ -229,5 +242,24 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl"
   "nbl/builtin/glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl"
+  # blit
+  "nbl/builtin/glsl/blit/formats_encode.glsl"
+  "nbl/builtin/glsl/blit/parameters.glsl"
+  "nbl/builtin/glsl/blit/multi_dimensional_array_addressing.glsl"
+  "nbl/builtin/glsl/blit/default_compute_common.comp"
+
+  "nbl/builtin/glsl/blit/default_compute_blit.comp"
+  "nbl/builtin/glsl/blit/blit/blit.glsl"
+  "nbl/builtin/glsl/blit/blit/descriptors.glsl"
+
+  "nbl/builtin/glsl/blit/default_compute_alpha_test.comp"
+  "nbl/builtin/glsl/blit/alpha_test/alpha_test.glsl"
+  "nbl/builtin/glsl/blit/alpha_test/descriptors.glsl"
+
+  "nbl/builtin/glsl/blit/default_compute_normalization.comp"
+  "nbl/builtin/glsl/blit/normalization/normalization.glsl"
+  "nbl/builtin/glsl/blit/normalization/descriptors.glsl"
+  "nbl/builtin/glsl/blit/normalization/shared_normalization.glsl"
+
 PARENT_SCOPE)
 

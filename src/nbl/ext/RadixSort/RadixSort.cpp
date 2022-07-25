@@ -15,7 +15,7 @@ RadixSort::RadixSort(video::IDriver* driver, const uint32_t wg_size) : m_wg_size
 
 	{
 		video::IGPUDescriptorSetLayout::SBinding binding = { 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-		m_scan_ds_layout = driver->createGPUDescriptorSetLayout(&binding, &binding + 1);
+		m_scan_ds_layout = driver->createDescriptorSetLayout(&binding, &binding + 1);
 	}
 
 	{
@@ -23,22 +23,22 @@ RadixSort::RadixSort(video::IDriver* driver, const uint32_t wg_size) : m_wg_size
 		video::IGPUDescriptorSetLayout::SBinding binding[count];
 		for (uint32_t i = 0; i < count; ++i)
 			binding[i] = { i, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUSpecializedShader::ESS_COMPUTE, nullptr };
-		m_sort_ds_layout = driver->createGPUDescriptorSetLayout(binding, binding + count);
+		m_sort_ds_layout = driver->createDescriptorSetLayout(binding, binding + count);
 	}
 
-	m_pipeline_layout = driver->createGPUPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_scan_ds_layout),
+	m_pipeline_layout = driver->createPipelineLayout(&pc_range, &pc_range + 1, core::smart_refctd_ptr(m_scan_ds_layout),
 		core::smart_refctd_ptr(m_sort_ds_layout));
 
-	m_histogram_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+	m_histogram_pipeline = driver->createComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
 		createShader("nbl/builtin/glsl/ext/RadixSort/default_histogram.comp", driver));
 
-	m_upsweep_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+	m_upsweep_pipeline = driver->createComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
 		createShader_Scan("nbl/builtin/glsl/ext/Scan/default_upsweep.comp", driver));
 
-	m_downsweep_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+	m_downsweep_pipeline = driver->createComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
 		createShader_Scan("nbl/builtin/glsl/ext/Scan/default_downsweep.comp", driver));
 
-	m_scatter_pipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
+	m_scatter_pipeline = driver->createComputePipeline(nullptr, core::smart_refctd_ptr(m_pipeline_layout),
 		createShader("nbl/builtin/glsl/ext/RadixSort/default_scatter.comp", driver));
 }
 
@@ -99,8 +99,8 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shader), asset::ICPUShader::buffer_contains_glsl),
 		asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
 
-	auto gpu_shader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpu_specialized_shader->getUnspecialized()));
-	auto gpu_shader_specialized = driver->createGPUSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
+	auto gpu_shader = driver->createShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpu_specialized_shader->getUnspecialized()));
+	auto gpu_shader_specialized = driver->createSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
 
 	return gpu_shader_specialized;
 }
@@ -130,8 +130,8 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 		core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shader), asset::ICPUShader::buffer_contains_glsl),
 		asset::ISpecializedShader::SInfo{ nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE });
 
-	auto gpu_shader = driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpu_specialized_shader->getUnspecialized()));
-	auto gpu_shader_specialized = driver->createGPUSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
+	auto gpu_shader = driver->createShader(core::smart_refctd_ptr<const asset::ICPUShader>(cpu_specialized_shader->getUnspecialized()));
+	auto gpu_shader_specialized = driver->createSpecializedShader(gpu_shader.get(), cpu_specialized_shader->getSpecializationInfo());
 
 	return gpu_shader_specialized;
 }

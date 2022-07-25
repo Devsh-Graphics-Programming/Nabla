@@ -8,7 +8,7 @@
 #define FAST_FLOAT_SHUFFLE(X,Y) _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(X),Y))
 
 template <class T, class X>
-class NBL_FORCE_EBO SIMD_32bitSwizzleAble
+class NBL_API NBL_FORCE_EBO SIMD_32bitSwizzleAble
 {
 		template<int mask>
 		inline X shuffleFunc(X reg) const;

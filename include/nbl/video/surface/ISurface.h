@@ -16,7 +16,7 @@ namespace nbl::video
 
 class IPhysicalDevice;
 
-class ISurface : public core::IReferenceCounted
+class NBL_API ISurface : public core::IReferenceCounted
 {
     protected:
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
@@ -72,6 +72,108 @@ class ISurface : public core::IReferenceCounted
             EST_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
         };
 
+        #include "nbl/builtin/glsl/utils/surface_transform_e.h"
+        static_assert(int(EST_IDENTITY_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_IDENTITY);
+        static_assert(int(EST_ROTATE_90_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_90);
+        static_assert(int(EST_ROTATE_180_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_180);
+        static_assert(int(EST_ROTATE_270_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_270);
+        static_assert(int(EST_HORIZONTAL_MIRROR_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR);
+        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_90_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90);
+        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_180_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180);
+        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_270_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270);
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_IDENTITY
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_90
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_180
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_270
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180
+        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270
+
+        // A matrix that can be pre-multiplied to the projection matrix in order to apply the
+        // surface transform.
+        static inline core::matrix4SIMD getSurfaceTransformationMatrix(const E_SURFACE_TRANSFORM_FLAGS transform)
+        {
+            const float sin90 = 1.0, cos90 = 0.0,
+                sin180 = 0.0, cos180 = -1.0,
+                sin270 = -1.0, cos270 = 0.0;
+
+            switch (transform)
+            {
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_90_BIT:
+                return core::matrix4SIMD(
+                    cos90, -sin90, 0.0, 0.0,
+                    sin90, cos90, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                );
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_180_BIT:
+                return core::matrix4SIMD(
+                    cos180, -sin180, 0.0, 0.0,
+                    sin180, cos180, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                );
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_270_BIT:
+                return core::matrix4SIMD(
+                    cos270, -sin270, 0.0, 0.0,
+                    sin270, cos270, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                );
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_BIT:
+                return core::matrix4SIMD(
+                    -1.0, 0.0, 0.0, 0.0,
+                    0.0, 1.0, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                );
+            // The same matricies as the rotation ones above, but with the horizontal mirror matrix
+            // (directly above this) pre-multiplied
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_90_BIT:
+                return core::matrix4SIMD(
+                    -cos90, sin90, 0.0, 0.0,
+                    sin90, cos90, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                );
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT:
+                return core::matrix4SIMD(
+                    -cos180, sin180, 0.0, 0.0,
+                    sin180, cos180, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                );
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_270_BIT:
+                return core::matrix4SIMD(
+                    -cos270, sin270, 0.0, 0.0,
+                    sin270, cos270, 0.0, 0.0,
+                    0.0, 0.0, 1.0, 0.0,
+                    0.0, 0.0, 0.0, 1.0
+                );
+            default:
+                return core::matrix4SIMD();
+            }
+        }
+
+        static inline float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)
+        {
+            switch (transform)
+            {
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_90_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_270_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_90_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_270_BIT:
+                return float(h) / w;
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_180_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_BIT:
+            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT:
+                return float(w) / h;
+            default:
+                return float(w) / h;
+            }
+        }
+
         enum E_COMPOSITE_ALPHA : uint32_t
         {
             ECA_OPAQUE_BIT = 0x00000001,
@@ -111,7 +213,7 @@ class ISurface : public core::IReferenceCounted
 
 // Base for use with Nabla's window wrappers
 template<class Window, class ImmediateBase>
-class CSurface : public ImmediateBase
+class NBL_API CSurface : public ImmediateBase
 {
     public:
         inline const void* getNativeWindowHandle() const override final
@@ -132,7 +234,7 @@ class CSurface : public ImmediateBase
 
 // Base to make surfaces directly from Native OS window handles
 template<class Window, class ImmediateBase>
-class CSurfaceNative : public ImmediateBase
+class NBL_API CSurfaceNative : public ImmediateBase
 {
     public:
         inline const void* getNativeWindowHandle() const override final

@@ -7,7 +7,7 @@
 namespace nbl::system
 {
 
-class CStdoutLogger : public IThreadsafeLogger
+class NBL_API CStdoutLogger : public IThreadsafeLogger
 {
 	public:
 		CStdoutLogger(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}

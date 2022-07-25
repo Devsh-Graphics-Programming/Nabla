@@ -9,7 +9,7 @@
 
 namespace nbl::video
 {
-class IPresentationOracle
+class NBL_API IPresentationOracle
 {
     public:
         //! demark CPU work on a frame start and end

@@ -14,7 +14,7 @@ namespace nbl::scene
 {
 
 
-class ITransformTree : public virtual core::IReferenceCounted
+class NBL_API ITransformTree : public virtual core::IReferenceCounted
 {
 	public:
 		using node_t = uint32_t;
@@ -65,7 +65,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[TransformTree::RenderDescriptorSetBindingCount];
 			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
-			return device->createGPUDescriptorSetLayout(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
+			return device->createDescriptorSetLayout(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
 		}
 		
 		//
@@ -160,8 +160,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!poolLayout || !renderLayout)
 				return false;
 
-			outPoolDS = device->createGPUDescriptorSet(dsp.get(),std::move(poolLayout));
-			outRenderDS = device->createGPUDescriptorSet(dsp.get(),std::move(renderLayout));
+			outPoolDS = device->createDescriptorSet(dsp.get(),std::move(poolLayout));
+			outRenderDS = device->createDescriptorSet(dsp.get(),std::move(renderLayout));
 			if (!outPoolDS || !outRenderDS)
 				return false;
 
@@ -200,7 +200,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requests > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
 };
 
-class ITransformTreeWithoutNormalMatrices : public ITransformTree
+class NBL_API ITransformTreeWithoutNormalMatrices : public ITransformTree
 {
 	public:
 		using property_pool_t = video::CPropertyPool<core::allocator,
@@ -259,7 +259,7 @@ class ITransformTreeWithoutNormalMatrices : public ITransformTree
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 };
 
-class ITransformTreeWithNormalMatrices : public ITransformTree
+class NBL_API ITransformTreeWithNormalMatrices : public ITransformTree
 {
 	public:
 		struct normal_matrix_t

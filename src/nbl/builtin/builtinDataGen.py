@@ -17,10 +17,12 @@ else:
     #arguments
     outputFilename = sys.argv[1]
     cmakeSourceDir = sys.argv[2]
-    resourcePaths = sys.argv[3].split(';')
+    resourcesFile  = sys.argv[3]
+
+    with open(resourcesFile, "r") as f:
+        resourcePaths = f.read().rstrip().split(',')
+
     #opening a file
-
-
     outp = open(outputFilename,"w+")
   
     outp.write("#include <stdlib.h>\n")

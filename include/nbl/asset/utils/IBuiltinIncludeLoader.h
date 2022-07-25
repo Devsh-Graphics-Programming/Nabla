@@ -16,7 +16,7 @@ namespace nbl
 namespace asset
 {
 
-class IBuiltinIncludeLoader : public core::IReferenceCounted
+class NBL_API IBuiltinIncludeLoader : public core::IReferenceCounted
 {
 	protected:
 		using HandleFunc_t = std::function<std::string(const std::string&)>;

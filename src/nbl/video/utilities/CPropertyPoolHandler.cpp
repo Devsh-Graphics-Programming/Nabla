@@ -9,7 +9,7 @@ using namespace video;
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
 {
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
-	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageSSBOs-2u)/2u,MaxPropertiesPerDispatch);
+	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
 	m_alignment = core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
 
 	auto system = m_device->getPhysicalDevice()->getSystem();
@@ -21,8 +21,8 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	}
 
 	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "????");
-	auto gpushader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
-	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(), { nullptr,nullptr,"main"});
+	auto gpushader = m_device->createShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
+	auto specshader = m_device->createSpecializedShader(gpushader.get(), { nullptr,nullptr,"main"});
 
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+2u;
 	//m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
@@ -36,14 +36,14 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		bindings[j].stageFlags = asset::IShader::ESS_COMPUTE;
 		bindings[j].samplers = nullptr;
 	}
-	auto dsLayout = m_device->createGPUDescriptorSetLayout(bindings,bindings+4);
+	auto dsLayout = m_device->createDescriptorSetLayout(bindings,bindings+4);
 	// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
 	auto descPool = m_device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	m_dsCache = core::make_smart_refctd_ptr<TransferDescriptorSetCache>(m_device.get(),std::move(descPool),core::smart_refctd_ptr(dsLayout));
 	
 	const asset::SPushConstantRange baseDWORD = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)*2u};
-	auto layout = m_device->createGPUPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
-	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
+	auto layout = m_device->createPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
+	m_pipeline = m_device->createComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
 
 
@@ -349,12 +349,12 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			}
 		}
 
-		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
+		constexpr auto invalid_address = video::StreamingTransientDataBufferMT<>::invalid_value;
 		auto addr = invalid_address;
 		const auto size = static_cast<uint32_t>(core::alignUp(memoryUsage.getUsage()+worstCasePadding,m_alignment));
 		// because right now the GPUEventWrapper cant distinguish between placeholder fences and fences which will actually be signalled
 		auto waitUntil = std::min(video::GPUEventWrapper::default_wait(),maxWaitPoint);
-		upBuff->multi_alloc(waitUntil,1u,&addr,&size,&m_alignment);
+		upBuff->multi_allocate(waitUntil,1u,&addr,&size,&m_alignment);
 		if (addr!=invalid_address)
 		{
 			const auto endDWORD = baseDWORDs+doneDWORDs;
@@ -423,7 +423,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			// flush if needed
 			if (upBuff->needsManualFlushOrInvalidate())
 			{
-				IDriverMemoryAllocation::MappedMemoryRange flushRange;
+				IDeviceMemoryAllocation::MappedMemoryRange flushRange;
 				flushRange.memory = uploadBuffer.buffer->getBoundMemory();
 				flushRange.range = {addr,size};
 				m_device->flushMappedMemoryRanges(1u,&flushRange);
@@ -431,10 +431,10 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
 			if (transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger,baseDWORDs,endDWORD))
 			{
-				upBuff->multi_free(1u,&addr,&size,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+				upBuff->multi_deallocate(1u,&addr,&size,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
 				return doneDWORDs;
 			}
-			upBuff->multi_free(1u,&addr,&size);
+			upBuff->multi_deallocate(1u,&addr,&size);
 		}
 		return 0u;
 	};

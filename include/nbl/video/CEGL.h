@@ -8,7 +8,7 @@ namespace nbl::video::egl
 {
 
 // any EGL handles are not native EGL handles, they come from our EGL over WGL/GLX/EGL implementation!
-class CEGL
+class NBL_API CEGL
 {
     public:
         //

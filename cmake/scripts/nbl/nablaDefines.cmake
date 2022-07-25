@@ -38,11 +38,17 @@ else()
 	message(FATAL_ERROR  "NBL_GEN_DIRECTORY variable must be specified for this script!")
 endif()
 
-file(READ "${NBL_ROOT_PATH}/include/nabla.h.in" NBL_NABLA_IMPORT_HEADER_CODE)
+if(NOT DEFINED _NABLA_DLL_NAME_)
+	message(FATAL_ERROR  "_NABLA_DLL_NAME_ variable must be specified for this script!")
+endif()
+
+if(NOT DEFINED _NABLA_INSTALL_DIR_)
+	message(FATAL_ERROR  "_NABLA_INSTALL_DIR_ variable must be specified for this script!")
+endif()
+
+configure_file("${NBL_ROOT_PATH}/cmake/install/nbl/sharedDefines.h.in" "${NBL_GEN_DIRECTORY}/define.h")
 file(READ "${NBL_WRAPPER_FILE}" NBL_WRAPPER_CODE)
+file(READ "${NBL_GEN_DIRECTORY}/define.h" NBL_WRAPPER_CODE_2)
 
-string(APPEND NBL_NABLA_HEADER "${NBL_WRAPPER_CODE}")
-string(APPEND NBL_NABLA_HEADER "${NBL_NABLA_IMPORT_HEADER_CODE}")
-
-file(WRITE "${NBL_GEN_DIRECTORY}/nabla.h.in" "${NBL_NABLA_HEADER}")
-configure_file("${NBL_GEN_DIRECTORY}/nabla.h.in" "${NBL_GEN_DIRECTORY}/nabla.h") # TODO: replace it with string(CONFIGURE ...) when CMake dev team fix this utility
+string(APPEND NBL_NABLA_INSTALL_HEADER "${NBL_WRAPPER_CODE}${NBL_WRAPPER_CODE_2}")
+file(WRITE "${NBL_GEN_DIRECTORY}/define.h" "${NBL_NABLA_INSTALL_HEADER}")

@@ -13,9 +13,9 @@ namespace nbl
 	{
 		namespace FullScreenTriangle
 		{
-			using NBL_PROTO_PIPELINE = std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>, asset::SVertexInputParams, asset::SPrimitiveAssemblyParams, asset::SBlendParams, nbl::asset::SRasterizationParams>;
+			using NBL_PROTO_PIPELINE = std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>, asset::SVertexInputParams, asset::SPrimitiveAssemblyParams, asset::SBlendParams, nbl::asset::SRasterizationParams, asset::SPushConstantRange>;
 
-			inline NBL_PROTO_PIPELINE createProtoPipeline(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams)
+			inline NBL_PROTO_PIPELINE createProtoPipeline(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, uint32_t pushConstantOffset)
 			{
 				if (!cpu2gpuParams.assetManager)
 					assert(false);
@@ -66,6 +66,12 @@ namespace nbl
 				rasterParams.depthWriteEnable = false;
 				rasterParams.depthTestEnable = false;
 
+				// Push constant for surface transform and screen size, used in VS
+				auto& swapchainOrientationConstants = std::get<asset::SPushConstantRange>(protoPipeline);
+				swapchainOrientationConstants.stageFlags = asset::IShader::ESS_VERTEX;
+				swapchainOrientationConstants.offset = pushConstantOffset;
+				swapchainOrientationConstants.size = 1 * sizeof(uint32_t);
+
 				return protoPipeline;
 			}
 
@@ -75,7 +81,7 @@ namespace nbl
 					assert(false);
 
 				video::IGPUSpecializedShader* gpuShaders[] = { std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader>>(protoPipeline).get(), gpuFragmentShader.get() };
-				auto gpuRenderpassIndependentPipeline = logicalDevice->createGPURenderpassIndependentPipeline
+				auto gpuRenderpassIndependentPipeline = logicalDevice->createRenderpassIndependentPipeline
 				(	
 					nullptr,
 					std::move(pipelineLayout),
@@ -96,10 +102,18 @@ namespace nbl
 				records.
 			*/
 
-			inline bool recordDrawCalls(video::IGPUCommandBuffer* commandBuffer)
-			{
+			inline bool recordDrawCalls(
+				core::smart_refctd_ptr<nbl::video::IGPUGraphicsPipeline> gpuGraphicsPipeline, 
+				uint32_t pushConstantOffset,
+				video::ISurface::E_SURFACE_TRANSFORM_FLAGS swapchainTransform, 
+				video::IGPUCommandBuffer* commandBuffer
+			) {
 				_NBL_STATIC_INLINE_CONSTEXPR auto VERTEX_COUNT = 3;
 				_NBL_STATIC_INLINE_CONSTEXPR auto INSTANCE_COUNT = 1;
+
+				auto layout = gpuGraphicsPipeline->getRenderpassIndependentPipeline()->getLayout();
+				uint32_t surfaceTransform = uint32_t(swapchainTransform);
+				commandBuffer->pushConstants(layout, asset::IShader::ESS_VERTEX, pushConstantOffset, 1 * sizeof(uint32_t), &surfaceTransform);
 
 				return commandBuffer->draw(VERTEX_COUNT, INSTANCE_COUNT, 0, 0);
 			}

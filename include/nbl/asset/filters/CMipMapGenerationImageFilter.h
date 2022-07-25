@@ -24,7 +24,7 @@ namespace asset
 // (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 
 template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, class ResamplingKernelX = CKaiserImageFilterKernel<>, class ReconstructionKernelX = CMitchellImageFilterKernel<>, class ResamplingKernelY = ResamplingKernelX, class ReconstructionKernelY = ReconstructionKernelX, class ResamplingKernelZ = ResamplingKernelY, class ReconstructionKernelZ = ReconstructionKernelY>
-class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle,Dither,Normalization,Clamp, ResamplingKernelX,ReconstructionKernelX, ResamplingKernelY,ReconstructionKernelY, ResamplingKernelZ,ReconstructionKernelZ> >, public CBasicImageFilterCommon
+class NBL_API CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle,Dither,Normalization,Clamp, ResamplingKernelX,ReconstructionKernelX, ResamplingKernelY,ReconstructionKernelY, ResamplingKernelZ,ReconstructionKernelZ> >, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}
@@ -122,6 +122,8 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			//not all kernels are default-constructible, this is going to be a problem (i already added appropriate ctor for blit filter state class though)
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
 			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
+
+			pseudo_base_t::blit_utils_t::computeScaledKernelPhasedLUT(blit.scratchMemory + pseudo_base_t::getScratchOffset(&blit, pseudo_base_t::ESU_SCALED_KERNEL_PHASED_LUT), blit.inExtentLayerCount, blit.outExtentLayerCount, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ);
 			return blit;
 		}
 };

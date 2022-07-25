@@ -17,7 +17,7 @@ namespace asset
 {
 
 // fill a section of the image with a uniform value
-class CFillImageFilter : public CImageFilter<CFillImageFilter>
+class NBL_API CFillImageFilter : public CImageFilter<CFillImageFilter>
 {
 	public:
 		virtual ~CFillImageFilter() {}

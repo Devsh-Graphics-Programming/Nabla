@@ -18,7 +18,7 @@
 namespace nbl::system
 {
 
-class ILogger : public core::IReferenceCounted
+class NBL_API ILogger : public core::IReferenceCounted
 {
 	public:
 		enum E_LOG_LEVEL : uint8_t
@@ -110,7 +110,7 @@ class ILogger : public core::IReferenceCounted
 		core::bitflag<E_LOG_LEVEL> m_logLevelMask;
 };
 
-class logger_opt_ptr final
+class NBL_API logger_opt_ptr final
 {
 	public:
 		logger_opt_ptr(ILogger* const _logger) : logger(_logger) {}
@@ -128,7 +128,7 @@ class logger_opt_ptr final
 		mutable ILogger* logger;
 };
 
-class logger_opt_smart_ptr final
+class NBL_API logger_opt_smart_ptr final
 {
 	public:
 		logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}

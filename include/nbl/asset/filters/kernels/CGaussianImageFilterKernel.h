@@ -17,7 +17,7 @@ namespace asset
 
 // Truncated Gaussian filter, with stddev = 1.0, if you want a different stddev then you need to scale it with `CScaledImageFilterKernel`
 template<uint32_t support=3u>
-class CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel<support>,std::ratio<support,1> >
+class NBL_API CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel<support>,std::ratio<support,1> >
 {
 		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel<support>,std::ratio<support,1> >;
 

@@ -10,7 +10,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_FORCE_EBO BlobSerializable
+class NBL_API NBL_FORCE_EBO BlobSerializable
 {
 	public:
 		virtual ~BlobSerializable() {}

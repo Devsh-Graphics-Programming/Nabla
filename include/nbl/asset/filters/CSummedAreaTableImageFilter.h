@@ -19,7 +19,7 @@ namespace asset
 {
 
 template<bool ExclusiveMode>
-class CSummedAreaTableImageFilterBase
+class NBL_API CSummedAreaTableImageFilterBase
 {
 	public:
 		class CSummStateBase
@@ -64,7 +64,7 @@ class CSummedAreaTableImageFilterBase
 */
 
 template<bool ExclusiveMode = false>
-class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, public CSummedAreaTableImageFilterBase<ExclusiveMode>
+class NBL_API CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, public CSummedAreaTableImageFilterBase<ExclusiveMode>
 {
 	public:
 		virtual ~CSummedAreaTableImageFilter() {}

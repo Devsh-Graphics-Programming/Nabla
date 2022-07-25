@@ -14,11 +14,11 @@ namespace nbl
 namespace core
 {
 	template <class T>
-	class vector2d;
+	class NBL_API vector2d;
 
 	//! Specifies a 2 dimensional size.
 	template <class T>
-	class dimension2d // : public AllocationOverrideDefault
+	class NBL_API dimension2d // : public AllocationOverrideDefault
 	{
 		public:
 			//! Default constructor for empty dimension

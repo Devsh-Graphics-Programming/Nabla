@@ -54,51 +54,51 @@ enum E_GLSL_VAR_TYPE
 };
 
 template<E_SHADER_RESOURCE_TYPE restype>
-struct SShaderResource;
+struct NBL_API SShaderResource;
 
 template<>
-struct SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
+struct NBL_API SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
 {
     bool multisample;
     IImageView<ICPUImage>::E_TYPE viewType;
     bool shadow;
 };
 template<>
-struct SShaderResource<ESRT_SAMPLED_IMAGE>
+struct NBL_API SShaderResource<ESRT_SAMPLED_IMAGE>
 {
 
 };
 template<>
-struct SShaderResource<ESRT_STORAGE_IMAGE>
+struct NBL_API SShaderResource<ESRT_STORAGE_IMAGE>
 {
     E_FORMAT format;
     IImageView<ICPUImage>::E_TYPE viewType;
     bool shadow;
 };
 template<>
-struct SShaderResource<ESRT_UNIFORM_TEXEL_BUFFER>
+struct NBL_API SShaderResource<ESRT_UNIFORM_TEXEL_BUFFER>
 {
 
 };
 template<>
-struct SShaderResource<ESRT_STORAGE_TEXEL_BUFFER>
+struct NBL_API SShaderResource<ESRT_STORAGE_TEXEL_BUFFER>
 {
 
 };
 template<>
-struct SShaderResource<ESRT_SAMPLER>
+struct NBL_API SShaderResource<ESRT_SAMPLER>
 {
 
 };
 template<>
-struct SShaderResource<ESRT_INPUT_ATTACHMENT>
+struct NBL_API SShaderResource<ESRT_INPUT_ATTACHMENT>
 {
     uint32_t inputAttachmentIndex;
 };
 
 namespace impl
 {
-struct SShaderMemoryBlock
+struct NBL_API SShaderMemoryBlock
 {
     bool restrict_;
     bool volatile_;
@@ -154,25 +154,25 @@ struct SShaderMemoryBlock
 }
 
 template<>
-struct SShaderResource<ESRT_UNIFORM_BUFFER> : public impl::SShaderMemoryBlock
+struct NBL_API SShaderResource<ESRT_UNIFORM_BUFFER> : public impl::SShaderMemoryBlock
 {
 
 };
 template<>
-struct SShaderResource<ESRT_STORAGE_BUFFER> : public impl::SShaderMemoryBlock
+struct NBL_API SShaderResource<ESRT_STORAGE_BUFFER> : public impl::SShaderMemoryBlock
 {
 
 };
 
 
 //! push-constants are treated seprately (see SIntrospectionData in ICPUShader.h)
-struct SShaderPushConstant : public impl::SShaderMemoryBlock
+struct NBL_API SShaderPushConstant : public impl::SShaderMemoryBlock
 {
     // todo
 };
 
 
-struct SShaderResourceVariant
+struct NBL_API SShaderResourceVariant
 {
     //! binding
     uint32_t binding;
@@ -215,21 +215,21 @@ inline bool operator<(const SShaderResourceVariant& _lhs, const SShaderResourceV
 }
 
 template<E_SHADER_INFO_TYPE type>
-struct SShaderInfo;
+struct NBL_API SShaderInfo;
 
 template<>
-struct SShaderInfo<ESIT_STAGE_INPUT>
+struct NBL_API SShaderInfo<ESIT_STAGE_INPUT>
 {
 
 };
 template<>
-struct SShaderInfo<ESIT_STAGE_OUTPUT>
+struct NBL_API SShaderInfo<ESIT_STAGE_OUTPUT>
 {
     //! for dual source blending. Only relevant in Fragment Stage
     uint32_t colorIndex;
 };
 
-struct SShaderInfoVariant
+struct NBL_API SShaderInfoVariant
 {
     uint32_t location;
     struct {

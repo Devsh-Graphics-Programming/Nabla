@@ -19,7 +19,7 @@ namespace video
 {
 
 template <typename MDIStructType = asset::DrawElementsIndirectCommand_t>
-class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
+class NBL_API CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
 {
         using base_t = asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>;
         using Triangle = typename base_t::Triangle;
@@ -50,9 +50,9 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
             m_utilities = core::make_smart_refctd_ptr<IUtilities>(core::smart_refctd_ptr<ILogicalDevice>(driver));
 
             // TODO: call this->instantiateDataStorage() here and then copy CPU data to the initialized storage
-            base_t::m_packerDataStore.MDIDataBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
-            base_t::m_packerDataStore.indexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuIdxBuff->getSize(),cpuIdxBuff->getPointer());
-            base_t::m_packerDataStore.vertexBuffer = m_utilities->createFilledDeviceLocalGPUBufferOnDedMem(queue, cpuVtxBuff->getSize(),cpuVtxBuff->getPointer());
+            base_t::m_packerDataStore.MDIDataBuffer = m_utilities->createFilledDeviceLocalBufferOnDedMem(queue, cpuMDIBuff->getSize(),cpuMDIBuff->getPointer());
+            base_t::m_packerDataStore.indexBuffer = m_utilities->createFilledDeviceLocalBufferOnDedMem(queue, cpuIdxBuff->getSize(),cpuIdxBuff->getPointer());
+            base_t::m_packerDataStore.vertexBuffer = m_utilities->createFilledDeviceLocalBufferOnDedMem(queue, cpuVtxBuff->getSize(),cpuVtxBuff->getPointer());
         }
 
         void instantiateDataStorage();
@@ -67,7 +67,7 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         {
             auto createBufferView = [&](core::smart_refctd_ptr<IGPUBuffer>&& buff, asset::E_FORMAT format) -> core::smart_refctd_ptr<asset::IDescriptor>
             {
-                return m_driver->createGPUBufferView(buff.get(),format);
+                return m_driver->createBufferView(buff.get(),format);
             };
             return base_t::getDescriptorSetWritesForUTB(outWrites,outInfo,dstSet,createBufferView,params);
         }
@@ -80,6 +80,19 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
 template <typename MDIStructType>
 void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
+    // Update to NewBufferAPI when porting
+    // auto createAndAllocateBuffer = [&](size_t size) -> auto
+    // {
+    //     video::IGPUBuffer::SCreationParams creationParams = {};
+    //     creationParams.size = size;
+    //     creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT; ???
+    //     auto buffer = params.device->createBuffer(creationParams);	
+    //     auto mreqs = buffer->getMemoryReqs();
+    //     mreqs.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+    //     auto gpubufMem = params.device->allocate(mreqs, buffer.get());
+    //     return buffer;
+    // };
+
     const uint32_t MDIDataBuffByteSize = base_t::m_MDIDataAlctr.get_total_size() * sizeof(MDIStructType);
     const uint32_t idxBuffByteSize = base_t::m_idxBuffAlctr.get_total_size() * sizeof(uint16_t);
     const uint32_t vtxBuffByteSize = base_t::m_vtxBuffAlctr.get_total_size();

@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 
-class IBuffer : public core::IBuffer, public IDescriptor
+class NBL_API IBuffer : public core::IBuffer, public IDescriptor
 {
 	public:
 		E_CATEGORY getTypeCategory() const override { return EC_BUFFER; }
@@ -45,7 +45,7 @@ class IBuffer : public core::IBuffer, public IDescriptor
 };
 
 template<class BufferType>
-struct SBufferBinding
+struct NBL_API SBufferBinding
 {
 	bool isValid() const
 	{
@@ -60,8 +60,13 @@ struct SBufferBinding
 };
 
 template<typename BufferType>
-struct SBufferRange
+struct NBL_API SBufferRange
 {
+	// Temp Fix, If you want to uncomment this then fix every example having compile issues -> add core::smart_refctd_ptr around the buffer to be an r-value ref
+	// SBufferRange(const size_t& _offset, const size_t& _size, core::smart_refctd_ptr<BufferType>&& _buffer)
+	// 	: offset(_offset), size(_size), buffer(core::smart_refctd_ptr<BufferType>(_buffer)) {}
+	// SBufferRange() : offset(0ull), size(0ull), buffer(nullptr) {}
+
 	inline bool isValid() const
 	{
 		return buffer && size && (offset+size<=buffer->getSize());
@@ -70,6 +75,7 @@ struct SBufferRange
 	size_t offset = 0ull;
 	size_t size = 0ull;
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+
 	inline bool operator==(const SBufferRange<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && size==rhs.size; }
 	inline bool operator!=(const SBufferRange<BufferType>& rhs) const { return !operator==(rhs); }
 };

@@ -178,7 +178,7 @@ namespace core
 	}
 
 	//! DOCUMENTATION TODO
-	struct CaseInsensitiveHash
+	struct NBL_API CaseInsensitiveHash
 	{
 		inline std::size_t operator()(const std::string& val) const
 		{
@@ -190,7 +190,7 @@ namespace core
 			return seed;
 		}
 	};
-	struct CaseInsensitiveEquals
+	struct NBL_API CaseInsensitiveEquals
 	{
 		inline bool operator()(const std::string& A, const std::string& B) const
 		{

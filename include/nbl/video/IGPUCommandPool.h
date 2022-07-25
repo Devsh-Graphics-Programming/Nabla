@@ -12,7 +12,7 @@
 namespace nbl::video
 {
 
-class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
+class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
 public:
         static inline constexpr uint32_t COMMAND_SEGMENT_SIZE = 128u << 10u;

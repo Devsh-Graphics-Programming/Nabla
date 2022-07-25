@@ -24,7 +24,7 @@ namespace nbl::asset
 
 	@see IAsset
 */
-class ICPUBuffer : public asset::IBuffer, public asset::IAsset
+class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
 {
     protected:
         virtual ~ICPUBuffer()
@@ -142,7 +142,7 @@ template<
     typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
     bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
 >
-class CCustomAllocatorCPUBuffer;
+class NBL_API CCustomAllocatorCPUBuffer;
 
 //! Specialization of ICPUBuffer capable of taking custom allocators
 /*
@@ -157,7 +157,7 @@ class CCustomAllocatorCPUBuffer;
 */
 
 template<typename Allocator>
-class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
+class NBL_API CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {
 		static_assert(sizeof(typename Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
 	protected:
@@ -188,7 +188,7 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 };
 
 template<typename Allocator>
-class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
+class NBL_API CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
 {
 		using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
 	protected:
