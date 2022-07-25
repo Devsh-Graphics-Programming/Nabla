@@ -664,7 +664,26 @@ public:
 
     const void* getNativeHandle() const override { return &m_threadHandler.glctx; }
 
-protected:
+    EGLConfig getEglConfig() override
+    {
+        return m_config;
+    }
+
+    EGLContext getEglContext() override
+    {
+        return m_threadHandler.glctx.ctx;
+    }
+
+    const FeaturesType* getGlFeatures() override
+    {
+        return m_glfeatures;
+    }
+
+    std::pair<EGLint, EGLint> getGlVersion() override
+    {
+        return m_gl_ver;
+    }
+
     void bindMasterContext()
     {
         SRequestMakeCurrent req_params;
@@ -682,6 +701,7 @@ protected:
         m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
 
+protected:
     inline system::logger_opt_ptr getLogger() const {return m_physicalDevice->getDebugCallback()->getLogger();}
 
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
@@ -933,21 +953,6 @@ protected:
                 return false;
         }
         return true;
-    }
-
-    EGLConfig getEglConfig()
-    {
-        return m_config;
-    }
-
-    const FeaturesType* getGlFeatures()
-    {
-        return m_glfeatures;
-    }
-
-    std::pair<EGLint, EGLint> getGlVersion()
-    {
-        return m_gl_ver;
     }
 
 private:

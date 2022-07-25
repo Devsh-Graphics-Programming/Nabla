@@ -238,7 +238,7 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
     if (params.surface->getAPIType() != EAT_OPENGL || (params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
         return nullptr;
 
-    auto device = core::smart_refctd_ptr_static_cast<COpenGL_LogicalDevice>(logicalDevice);
+    auto device = core::smart_refctd_ptr_static_cast<IOpenGL_LogicalDevice>(logicalDevice);
     IGPUImage::SCreationParams imgci;
     imgci.arrayLayers = params.arrayLayers;
     imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
@@ -257,7 +257,7 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
         img_dst = device->createImage(IGPUImage::SCreationParams(imgci));
         auto mreq = img_dst->getMemoryReqs();
         mreq.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-        auto imgMem = IDeviceMemoryAllocator::allocate(mreq, img_dst.get());
+        auto imgMem = device->allocate(mreq, img_dst.get());
         if (!img_dst || !imgMem.isValid())
             return nullptr;
     }
@@ -267,8 +267,8 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
 
     // master context must not be current while creating a context with whom it will be sharing
     device->unbindMasterContext();
-    EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, device->getEgl(), glver.first, glver.second, fbconfig, m_threadHandler.glctx.ctx);
-    auto sc = create(std::move(params), core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), device->getEgl(), std::move(images), device->getGlFeatures(), ctx, fbconfig, static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()));
+    EGLContext ctx = device->createGLContext(FunctionTableType::EGL_API_TYPE, device->getEgl(), glver.first, glver.second, fbconfig, device->getEglContext());
+    auto sc = COpenGL_Swapchain<FunctionTableType_>::create(std::move(params), std::move(device), device->getEgl(), images, device->getGlFeatures(), ctx, fbconfig, static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()));
     if (!sc)
         return nullptr;
     // wait until swapchain's internal thread finish context creation
@@ -279,8 +279,18 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
     return sc;
 }
 
+core::smart_refctd_ptr<COpenGLSwapchain> createGLSwapchain(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
+{
+    return COpenGLSwapchain::create(std::move(logicalDevice), std::move(params));
+}
+
+core::smart_refctd_ptr<COpenGLESSwapchain> createGLESSwapchain(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
+{
+    return COpenGLESSwapchain::create(std::move(logicalDevice), std::move(params));
+}
+
 template <typename FunctionTableType_>
-nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableType_>::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
+nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableType_>::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
 {
     COpenGLSemaphore* glSem = IBackendObject::compatibility_cast<COpenGLSemaphore*>(semaphore, this);
     COpenGLFence* glFen = IBackendObject::compatibility_cast<COpenGLFence*>(fence, this);
@@ -310,7 +320,7 @@ nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableTy
 }
 
 template <typename FunctionTableType_>
-nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_>::present(IGPUQueue* queue, const SPresentInfo& info) override
+nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_>::present(IGPUQueue* queue, const SPresentInfo& info)
 {
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {

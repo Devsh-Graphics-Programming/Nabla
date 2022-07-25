@@ -311,7 +311,7 @@ class IOpenGL_LogicalDeviceBase
 // Implementation of both GL and GLES is the same code (see COpenGL_LogicalDevice) thanks to IOpenGL_FunctionTable abstraction layer
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
-protected:
+public:
     static EGLContext createGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
     {
         egl->call.peglBindAPI(apiType);
@@ -319,17 +319,17 @@ protected:
         const EGLint ctx_attributes[] = {
             EGL_CONTEXT_MAJOR_VERSION, major,
             EGL_CONTEXT_MINOR_VERSION, minor,
-// ANGLE validation is bugged and produces false positives, this flag turns off validation (glGetError wont ever return non-zero value then)
-#ifdef _NBL_PLATFORM_ANDROID_
-            EGL_CONTEXT_OPENGL_NO_ERROR_KHR, EGL_TRUE,
-#endif
-// ANGLE does not support debug contexts
-#if defined(_NBL_DEBUG) && !defined(_NBL_PLATFORM_ANDROID_)
-            EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
-#endif
-            //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
+            // ANGLE validation is bugged and produces false positives, this flag turns off validation (glGetError wont ever return non-zero value then)
+            #ifdef _NBL_PLATFORM_ANDROID_
+                        EGL_CONTEXT_OPENGL_NO_ERROR_KHR, EGL_TRUE,
+            #endif
+                        // ANGLE does not support debug contexts
+                        #if defined(_NBL_DEBUG) && !defined(_NBL_PLATFORM_ANDROID_)
+                                    EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+                        #endif
+                                    //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
 
-            EGL_NONE
+                                    EGL_NONE
         };
 
         EGLContext ctx = egl->call.peglCreateContext(egl->display, config, master, ctx_attributes);
@@ -337,6 +337,8 @@ protected:
 
         return ctx;
     }
+
+protected:
     static auto createWindowlessGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
     {
         egl::CEGL::Context retval;
@@ -1036,6 +1038,12 @@ public:
     virtual void setObjectDebugName(GLenum id, GLuint object, GLsizei len, const GLchar* label) = 0;
     virtual void destroyQueryPool(COpenGLQueryPool* qp) = 0;
     virtual int getEGLAPI() = 0;
+    virtual EGLConfig getEglConfig() = 0;
+    virtual EGLContext getEglContext() = 0;
+    virtual const COpenGLFeatureMap* getGlFeatures() = 0;
+    virtual std::pair<EGLint, EGLint> getGlVersion() = 0;
+    virtual void bindMasterContext() = 0;
+    virtual void unbindMasterContext() = 0;
 };
 
 }

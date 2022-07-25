@@ -141,6 +141,10 @@ private:
 using COpenGLSwapchain = COpenGL_Swapchain<COpenGLFunctionTable>;
 using COpenGLESSwapchain = COpenGL_Swapchain<COpenGLESFunctionTable>;
 
+// TODO i don't like this, but needed for linking (figure out better way)
+core::smart_refctd_ptr<COpenGLSwapchain> createGLSwapchain(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+core::smart_refctd_ptr<COpenGLESSwapchain> createGLESSwapchain(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+
 }
 
 #endif
