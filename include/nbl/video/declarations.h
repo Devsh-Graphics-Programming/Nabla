@@ -22,6 +22,10 @@
 // platform and API specific stuff
 #include "nbl/video/COpenGL_Connection.h"
 #include "nbl/video/CVulkanConnection.h"
+// [TODO] problem with this class is that it has an IThreadHandler templated on the OpenGL function table
+// if I leave the function table undefined, it errors, and if I load in the function table in the include header, 
+// I get "'gl*': redefinition; different linkage"
+//#include "nbl/video/COpenGL_Swapchain.h"
 #include "nbl/video/CVulkanSwapchain.h"
 #include "nbl/video/surface/CSurfaceGL.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"

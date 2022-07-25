@@ -14,8 +14,8 @@
 namespace nbl::video
 {
 
-template <typename FunctionTableType_, typename ThreadHandler>
-core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_, ThreadHandler>> COpenGL_Swapchain<FunctionTableType_, ThreadHandler>::create(SCreationParams&& params,
+template <typename FunctionTableType_>
+core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<FunctionTableType_>::create(SCreationParams&& params,
     core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
     const egl::CEGL* _egl,
     ImagesArrayType&& images,
@@ -51,8 +51,8 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_, ThreadHandler>> COp
     return core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>>(sc, core::dont_grab);
 }
 
-template <typename FunctionTableType_, typename ThreadHandler>
-core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_, ThreadHandler>> COpenGL_Swapchain<FunctionTableType_, ThreadHandler>::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
+template <typename FunctionTableType_>
+core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<FunctionTableType_>::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 {
     if (params.surface->getAPIType() != EAT_OPENGL || (params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
         return nullptr;
@@ -98,8 +98,8 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_, ThreadHandler>> COp
     return sc;
 }
 
-template <typename FunctionTableType_, typename ThreadHandler>
-nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableType_, ThreadHandler>::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
+template <typename FunctionTableType_>
+nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableType_>::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override
 {
     COpenGLSemaphore* glSem = IBackendObject::compatibility_cast<COpenGLSemaphore*>(semaphore, this);
     COpenGLFence* glFen = IBackendObject::compatibility_cast<COpenGLFence*>(fence, this);
@@ -128,8 +128,8 @@ nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableTy
     return EAIR_SUCCESS;
 }
 
-template <typename FunctionTableType_, typename ThreadHandler>
-nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_, ThreadHandler>::present(IGPUQueue* queue, const SPresentInfo& info) override
+template <typename FunctionTableType_>
+nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_>::present(IGPUQueue* queue, const SPresentInfo& info) override
 {
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {
@@ -141,8 +141,8 @@ nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_, T
     return retval ? ISwapchain::EPR_SUCCESS : ISwapchain::EPR_ERROR;
 }
 
-template <typename FunctionTableType_, typename ThreadHandler>
-void COpenGL_Swapchain<FunctionTableType_, ThreadHandler>::waitForInitComplete()
+template <typename FunctionTableType_>
+void COpenGL_Swapchain<FunctionTableType_>::waitForInitComplete()
 {
     m_threadHandler.waitForInitComplete();
 }
