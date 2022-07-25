@@ -221,4 +221,10 @@ ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(IGPUQueue* queue, const S
     }
 }
 
+ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(CThreadSafeGPUQueueAdapter* queue, const SPresentInfo& info)
+{
+    std::lock_guard g(queue->m);
+    return present(queue->getUnderlyingQueue(), info);
+}
+
 }

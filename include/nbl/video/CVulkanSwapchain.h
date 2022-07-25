@@ -10,6 +10,7 @@ namespace nbl::video
 {
 
 class ILogicalDevice;
+class CThreadSafeGPUQueueAdapter;
 
 class CVulkanSwapchain final : public ISwapchain
 {
@@ -30,6 +31,8 @@ public:
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
 
     E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info) override;
+
+    E_PRESENT_RESULT present(CThreadSafeGPUQueueAdapter* queue, const SPresentInfo& info);
 
     void setObjectDebugName(const char* label) const override;
 
