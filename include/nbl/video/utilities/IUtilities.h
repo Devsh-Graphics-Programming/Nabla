@@ -49,7 +49,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             const uint32_t imageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
             const uint32_t optimalTransferAtom = core::max(bufferOptimalTransferAtom, imageOptimalTransferAtom);
 
-            // optimalTransferAtom < minBlockSize < stagingBufferSize/4
+            // nonCoherentAtomSize < minBlockSize < optimalTransferAtom < stagingBuffeRSize/4
             assert(limits.nonCoherentAtomSize < minStreamingBufferAllocationSize);
             assert(minStreamingBufferAllocationSize < optimalTransferAtom);
             assert(optimalTransferAtom * 4u < upstreamSize);
