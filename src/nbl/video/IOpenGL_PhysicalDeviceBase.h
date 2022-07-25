@@ -766,7 +766,7 @@ public:
 			m_properties.limits.imageFootprint = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_texture_footprint);
 
 			// [TODO]
-			// https://github.com/Devsh-Graphics-Programming/Nabla/pull/357#discussion_r917052568
+			// not sure if any OpenGL extension provides that, but if it exists it would be one of those that allows 16bit int/float to be used for UBO/SSBO
 			m_features.storagePushConstant8 = false;
 			m_features.storagePushConstant16 = false;
 			m_features.storageInputOutput16 = false;
@@ -1171,8 +1171,6 @@ public:
 			m_properties.limits.filterMinmaxSingleComponentFormats = false;
 			m_properties.limits.filterMinmaxImageComponentMapping = false;
 
-			m_properties.limits.framebufferIntegerColorSampleCounts = framebufferSampleCountFlags;
-
 			/* Vulkan 1.3 Core  */
 			m_properties.limits.maxBufferSize = maxBufferSize;
 			
@@ -1301,6 +1299,19 @@ public:
 				GetIntegerv(GL_MAX_WINDOW_RECTANGLES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxDiscardRectangles));
 			}
 
+			/* 
+			sampleLocationSampleCounts!=0 and variableSampleLocations=true only if
+			https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_sample_locations.txt
+			or
+			https://www.khronos.org/registry/OpenGL/extensions/AMD/AMD_sample_positions.txt
+			available
+			
+			otherwise sampleLocationSampleCounts=0 and variableSampleLocations=false
+
+			you can always get the remaining info from:
+			https://www.khronos.org/registry/OpenGL/extensions/NV/ARB_texture_multisample.txt
+			which I think is core in GL 4.4 and possibly even in GLES 3.1
+			*/
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sample_locations))
 			{
 				m_properties.limits.variableSampleLocations = true;
@@ -1354,7 +1365,7 @@ public:
 				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
 				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
 				{
-					define = "NBL_IMPL_";
+					define = "NBL_GLSL_IMPL_";
 					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
 					addGLSLDefineToPool(pool,define.c_str());
 				}

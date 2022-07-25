@@ -298,11 +298,6 @@ public:
                 m_properties.limits.filterMinmaxImageComponentMapping = samplerFilterMinmaxProperties.filterMinmaxImageComponentMapping;
             }
 
-            if(apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
-            {
-                m_properties.limits.framebufferIntegerColorSampleCounts =  core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(vulkan12Properties.framebufferIntegerColorSampleCounts);
-            }
-
             /* Vulkan 1.3 Core  */
             if(isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
                 m_properties.limits.maxBufferSize = maintanance4Properties.maxBufferSize;

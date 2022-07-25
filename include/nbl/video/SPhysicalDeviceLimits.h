@@ -182,7 +182,11 @@ struct SPhysicalDeviceLimits
     E_TRI_BOOLEAN shaderRoundingModeRTZFloat32 = ETB_DONT_KNOW;
     E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
  
-    //      or VK_EXT_descriptor_indexing:
+    // expose in 2 phases
+    // -Update After Bindand nonUniformEXT shader qualifier:
+    //      Descriptor Lifetime Tracking PR #345 will do this, cause I don't want to rewrite the tracking system again.
+    // -Actual Descriptor Indexing:
+    //      The whole 512k descriptor limits, runtime desc arrays, etc.will come later
     uint32_t maxUpdateAfterBindDescriptorsInAllPools = ~0u;
     bool shaderUniformBufferArrayNonUniformIndexingNative = false;
     bool shaderSampledImageArrayNonUniformIndexingNative = false;
@@ -210,9 +214,6 @@ struct SPhysicalDeviceLimits
     //      or VK_EXT_sampler_filter_minmax:
     bool filterMinmaxSingleComponentFormats = false;
     bool filterMinmaxImageComponentMapping = false;
-
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-
 
     /* Vulkan 1.3 Core  */
     
@@ -380,26 +381,6 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxDescriptorSetInlineUniformBlocks;
     //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
 
-    // [DO NOT EXPOSE] We will never expose this vendor specific meta-data (no new feature) to the user, but might use the extension to provide some cross platform meta-info in the Nabla section
-    /* ShaderCoreProperties2AMD *//* provided by VK_AMD_shader_core_properties2 */
-    //VkShaderCorePropertiesFlagsAMD    shaderCoreFeatures;
-    //uint32_t                          activeComputeUnitCount;
-    /* ShaderCorePropertiesAMD *//* provided by VK_AMD_shader_core_properties */
-    //uint32_t           shaderEngineCount;
-    //uint32_t           shaderArraysPerEngineCount;
-    //uint32_t           computeUnitsPerShaderArray;
-    //uint32_t           simdPerComputeUnit;
-    //uint32_t           wavefrontsPerSimd;
-    //uint32_t           wavefrontSize;
-    //uint32_t           sgprsPerSimd;
-    //uint32_t           minSgprAllocation;
-    //uint32_t           maxSgprAllocation;
-    //uint32_t           sgprAllocationGranularity;
-    //uint32_t           vgprsPerSimd;
-    //uint32_t           minVgprAllocation;
-    //uint32_t           maxVgprAllocation;
-    //uint32_t           vgprAllocationGranularity;
-
     // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
     /* BlendOperationAdvancedPropertiesEXT *//* provided by VK_EXT_blend_operation_advanced */
     //uint32_t           advancedBlendMaxColorAttachments;
@@ -553,6 +534,14 @@ struct SPhysicalDeviceLimits
     //! uint32_t              maxVertexInputAttributeOffset;
     //! uint32_t              maxVertexInputBindingStride;
 
+    /*
+    - Spec states minimum supported value should be at least ESCF_1_BIT
+    - it might be different for each integer format, best way is to query your integer format from physical device using vkGetPhysicalDeviceImageFormatProperties and get the sampleCounts
+    https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkImageFormatProperties.html
+    */
+    // [DO NOT EXPOSE] because it might be different for every texture format and usage
+    // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+
     /*  Always enabled, reported as limits */
     bool shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
     bool shaderOutputLayer = false;             // ALIAS: VK_EXT_shader_viewport_index_layer
@@ -584,9 +573,9 @@ struct SPhysicalDeviceLimits
     bool postDepthCoverage = false; /* VK_EXT_post_depth_coverage */
     bool shaderStencilExport = false; /* VK_EXT_shader_stencil_export */
     bool decorateString = false; /* VK_GOOGLE_decorate_string */
-    bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */
-    bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */
-    bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */
+    bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */ // [TODO] requires instance extensions, add them
+    bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */ // [TODO] requires instance extensions, add them
+    bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */ // [TODO] requires instance extensions, add them
     bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
     bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
     bool geometryShaderPassthrough = false; /* VK_NV_geometry_shader_passthrough */
