@@ -9,12 +9,14 @@
 #include "nbl/video/SOpenGLContextLocalCache.h"
 
 #include "nbl/video/CEGL.h"
-
+#include "nbl/core/xxHash256.h"
 
 #include "nbl/video/debug/COpenGLDebugCallback.h"
 #ifndef EGL_CONTEXT_OPENGL_NO_ERROR_KHR
 #	define EGL_CONTEXT_OPENGL_NO_ERROR_KHR 0x31B3
 #endif
+
+#include "nbl/asset/ICPUMeshBuffer.h" // for MAX_PUSH_CONSTANT_BYTESIZE
 
 namespace nbl::video
 {
@@ -333,27 +335,40 @@ public:
 		default: strcpy(m_properties.driverName, "UNKNOWN"); break;
 		}
 
+		bool isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+		bool isAMDGPU = (m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+		bool isNVIDIAGPU = (m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
 
 		// conformanceVersion
-		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+		if(isIntelGPU)
 			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
+		else if(isAMDGPU)
 			m_properties.conformanceVersion = {3u, 3u, 0u, 0u};
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+		else if(isNVIDIAGPU)
 			m_properties.conformanceVersion = {4u, 4u, 0u, 0u};
 		else
-		{
-			// TODO(Erfan):???
-		}
+			m_properties.conformanceVersion = {3u, 1u, 0u, 0u};
 
-		m_glfeatures.isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+		m_glfeatures.isIntelGPU = isIntelGPU;
+
+		m_properties.driverVersion = 0u;
+		m_properties.vendorID = ~0u;
+		m_properties.deviceID = 0u;
+		strcpy(m_properties.deviceName, renderer);
+		uint64_t deviceNameHash[4] = {};
+		static_assert(VK_MAX_PHYSICAL_DEVICE_NAME_SIZE >= sizeof(uint64_t)*4);
+		core::XXHash_256(m_properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE, deviceNameHash);
+		memcpy(m_properties.pipelineCacheUUID, &deviceNameHash, sizeof(uint64_t)*4);
+		
+		memset(m_properties.driverUUID, 0, VK_UUID_SIZE);
+		memset(m_properties.deviceLUID, 0, VK_LUID_SIZE);
+		m_properties.deviceNodeMask = 0x00000001;
+		m_properties.deviceLUIDValid = false;
 
 		// Heuristic to detect Physical Device Type until we have something better:
-		if(m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS)
+		if(isIntelGPU)
 			m_properties.deviceType = E_TYPE::ET_INTEGRATED_GPU;
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY)
-			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
-		else if(m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY)
+		else if(isAMDGPU || isNVIDIAGPU)
 			m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
 		else if(hasInString(renderer, "virgl", true))
 			m_properties.deviceType = E_TYPE::ET_VIRTUAL_GPU;
@@ -498,94 +513,314 @@ public:
 			}
 		}
 
-		GLint num = 0;
-
-		GetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqUBOAlignment);
-		assert(core::is_alignment(m_glfeatures.reqUBOAlignment));
-		GetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqSSBOAlignment);
-		assert(core::is_alignment(m_glfeatures.reqSSBOAlignment));
-		// TODO: GLES has a problem with reporting this
-		GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &m_glfeatures.reqTBOAlignment);
-		if (!core::is_alignment(m_glfeatures.reqTBOAlignment))
-			m_glfeatures.reqTBOAlignment = 16u;
-		//assert(core::is_alignment(m_glfeatures.reqTBOAlignment)); 
-		//m_glfeatures.reqSSBOAlignment = 64u; // uncomment to emulate chromebook
-
-		GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxUBOSize));
-		GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxSSBOSize));
-		GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_glfeatures.maxTBOSizeInTexels));
-		m_glfeatures.maxBufferSize = std::max(m_glfeatures.maxUBOSize, m_glfeatures.maxSSBOSize);
-
-		GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxUBOBindings));
-		GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_glfeatures.maxSSBOBindings));
-		GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindings));
-		GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
-		GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_glfeatures.maxImageBindings));
-		GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_glfeatures.MaxColorAttachments));
-
-		if constexpr (!IsGLES)
-			GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &m_glfeatures.minMemoryMapAlignment);
-		else
-			m_glfeatures.minMemoryMapAlignment = 0; // TODO: probably wise to set it to 4
-
-		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, m_glfeatures.MaxComputeWGSize);
-		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, m_glfeatures.MaxComputeWGSize + 1);
-		GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, m_glfeatures.MaxComputeWGSize + 2);
-
-		GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
-		m_glfeatures.MaxArrayTextureLayers = num;
+		// PhysicalDevice Features
+		{
+			/* Vulkan 1.0 Core */
+			GLuint maxElementIndex = 0u;
+			GetIntegerv(GL_MAX_ELEMENT_INDEX, reinterpret_cast<GLint*>(&maxElementIndex));
 		
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
-		{
-			m_features.allowCommandBufferQueryCopies = true;
-		}
-
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
-		{
-			GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
-			m_glfeatures.MaxAnisotropy = static_cast<uint8_t>(num);
-			m_features.samplerAnisotropy = true;
-			m_properties.limits.maxSamplerAnisotropyLog2 = std::log2((float)m_glfeatures.MaxAnisotropy);
-		}
-		else m_glfeatures.MaxAnisotropy = 0u;
-
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_geometry_shader4))
-		{
-			GetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &num);
-			m_glfeatures.MaxGeometryVerticesOut = static_cast<uint32_t>(num);
-			m_features.geometryShader = true;
-		}
-
-		if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_lod_bias))
-			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &m_glfeatures.MaxTextureLODBias);
-
-		if constexpr (!IsGLES)
-		{
-			GetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
-		}
-		else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance)) // ES
-		{
-				GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, &num);
-		}
-		m_glfeatures.MaxUserClipPlanes = static_cast<uint8_t>(num);
-
-		GetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
-		m_glfeatures.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
-
-		// TODO: move this to IPhysicalDevice::SFeatures
-		const bool runningInRenderDoc = (m_rdoc_api != nullptr);
-		m_glfeatures.runningInRenderDoc = runningInRenderDoc;
-
-		// physical device features
-		{
-			m_features.robustBufferAccess = false; // TODO: there's an extension for that in GL
+			m_features.robustBufferAccess = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_create_context_robustness) && 
+				((IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 450) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_KHR_robustness) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_robustness));
+			m_features.fullDrawIndexUint32 = (maxElementIndex == 0xffff'ffff);
 			m_features.imageCubeArray = true; //we require OES_texture_cube_map_array on GLES
+			m_features.independentBlend = IsGLES 
+				? (m_glfeatures.Version >= 320u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_draw_buffers_indexed) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_draw_buffers_indexed))
+				: true;
+			m_features.shaderDemoteToHelperInvocation = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_demote_to_helper_invocation);
+			m_features.shaderTerminateInvocation = true;
+
+			if (!IsGLES || m_glfeatures.Version >= 320u)
+			{
+				#define GLENUM_WITH_SUFFIX(X) X
+				#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_tessellation_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_OES
+				#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_tessellation_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_EXT
+				#include "nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_tessellation_shader))
+			{
+				//!! no _INTEL suffix
+				#define GLENUM_WITH_SUFFIX(X) X##_INTEL
+				// #include "src/nbl/video/GL/limit_queries/tessellation_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+		
+			if (!IsGLES || m_glfeatures.Version >= 320u)
+			{
+				#define GLENUM_WITH_SUFFIX(X) X
+				#include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_OES_geometry_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_OES
+				#include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_geometry_shader))
+			{
+				#define GLENUM_WITH_SUFFIX(X) X##_EXT
+				#include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+			// else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_geometry_shader))
+			{
+				//!! no _INTEL suffix
+				#define GLENUM_WITH_SUFFIX(X) X##_INTEL
+				// #include "nbl/video/GL/limit_queries/geometry_shader.h"
+				#undef GLENUM_WITH_SUFFIX
+			}
+
 			m_features.logicOp = !IsGLES;
+			m_features.dualSrcBlend = !IsGLES || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_blend_func_extended);
+			m_features.sampleRateShading = IsGLES ? m_glfeatures.Version >= 320u : m_glfeatures.Version >= 440u;
+
+			// always report as false in gl
+			m_features.vulkanMemoryModel = false;
+			m_features.vulkanMemoryModelDeviceScope = false;
+			m_features.vulkanMemoryModelAvailabilityVisibilityChains = false;
+
+			// there's no layout in GL, so report true since we can just ignore the separate layouts
+			m_features.separateDepthStencilLayouts = true;
+
 			m_features.multiDrawIndirect = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) : true;
-			m_features.multiViewport = IsGLES ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) : true;
+
+			m_features.drawIndirectFirstInstance = (IsGLES)
+				? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_multi_draw_indirect) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_base_instance)) 
+				: true;
+
+			m_features.depthClamp = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp);
+			m_features.depthBiasClamp = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_clamp) : true;
+
+			m_features.fillModeNonSolid = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_polygon_mode) : true;
+			m_features.depthBounds = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_depth_bounds_test);
+			m_features.wideLines = true;
+			m_features.largePoints = true;
+			m_features.alphaToOne = (IsGLES) ? m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_multisample_compatibility) : true; // GLES?
+		
+			m_features.multiViewport = IsGLES 
+				? (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_viewport_array) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array))
+				: true;
+
+			if (m_glfeatures.Version >= 460u ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_texture_filter_anisotropic) ||
+				m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_texture_filter_anisotropic))
+			{
+				GLint maxAnisotropy = 0;
+				GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
+				if(maxAnisotropy)
+				{
+					m_features.samplerAnisotropy = true;
+					m_properties.limits.maxSamplerAnisotropyLog2 = core::findMSB(static_cast<uint32_t>(maxAnisotropy));
+				}
+			}
+			
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float))
+			{
+				m_features.shaderBufferFloat32Atomics = true;
+				m_features.shaderBufferFloat32AtomicAdd = true;
+				m_features.shaderSharedFloat32Atomics = true;
+				m_features.shaderSharedFloat32AtomicAdd = true;
+				m_features.shaderSharedFloat32Atomics = true;
+				m_features.shaderImageFloat32Atomics = true;
+				m_features.shaderImageFloat32AtomicAdd = true;
+				// TODO: verify, not sure about those
+				// m_features.sparseImageFloat32Atomics = true;
+				// m_features.sparseImageFloat32AtomicAdd = true;
+			}
+			else if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_shader_atomic_float_minmax))
+			{
+				m_features.shaderBufferFloat32Atomics = true;
+				m_features.shaderSharedFloat32Atomics = true;
+			}
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_float64))
+			{
+				m_features.shaderBufferFloat64Atomics = true;
+				m_features.shaderBufferFloat64AtomicAdd = true;
+				m_features.shaderSharedFloat64Atomics = true;
+				m_features.shaderSharedFloat64AtomicAdd = true;
+			}
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_shader_atomic_fp16_vector))
+			{
+				m_features.shaderBufferFloat16Atomics = true;
+				m_features.shaderBufferFloat16AtomicAdd = true;
+				m_features.shaderBufferFloat16AtomicMinMax = true;
+				m_features.shaderSharedFloat16Atomics = true;
+				m_features.shaderSharedFloat16AtomicAdd = true;
+				m_features.shaderSharedFloat16AtomicMinMax = true;
+			}
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_INTEL_shader_atomic_float_minmax))
+			{
+				m_features.shaderBufferFloat32AtomicMinMax = true;
+				m_features.shaderSharedFloat32AtomicMinMax = true;
+			}
+
+			m_properties.limits.shaderSubgroupClock = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_shader_clock);
+			m_features.shaderDeviceClock = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_shader_realtime_clock);
+
+			m_features.occlusionQueryPrecise = !IsGLES;
+
+			// No extension adds 64-bit image formats for GL
+			m_features.shaderImageInt64Atomics = false;
+			m_features.sparseImageInt64Atomics = false;
+
+			// [TODO] Work these out from limits -> set these after setting the limits below
+			// if any {vertex,control,eval,geom} stage has >0 allowable bindings for {ssbo,storageimage,storagebufferview}, then true
+			m_features.vertexPipelineStoresAndAtomics = false; 
+			m_features.fragmentStoresAndAtomics = false; 
+
+			// An implementation supporting this feature must also support one or both of the [tessellationShader] or [geometryShader] features.
+			m_features.shaderTessellationAndGeometryPointSize = true;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_point_size);
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_point_size);
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_point_size);
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_shader))
+			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_point_size);
+			else if (!m_features.geometryShader) // tessellation not supported,
+			   m_features.shaderTessellationAndGeometryPointSize = false;
+
+			m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
+			m_features.shaderImageGatherExtended = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5)) : true;
+			m_features.shaderStorageImageExtendedFormats = !IsGLES;
+			m_features.shaderStorageImageReadWithoutFormat = false;
+			m_features.shaderStorageImageWriteWithoutFormat = false;
+			m_features.shaderUniformBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderSampledImageArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageImageArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+
+			if constexpr (IsGLES)
+			{
+				if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_clip_cull_distance))
+				{
+					m_features.shaderClipDistance = true;
+					m_features.shaderCullDistance = true;
+					GetIntegerv(GL_MAX_CLIP_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
+					GetIntegerv(GL_MAX_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+					GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+				}
+			}
+			else
+			{
+				m_features.shaderClipDistance = true;
+				GetIntegerv(GL_MAX_CLIP_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxClipDistances));
+				if (m_glfeatures.Version >= 460u || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_cull_distance))
+				{
+					m_features.shaderCullDistance = true;
+					GetIntegerv(GL_MAX_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCullDistances));
+					GetIntegerv(GL_MAX_COMBINED_CLIP_AND_CULL_DISTANCES, reinterpret_cast<GLint*>(&m_properties.limits.maxCombinedClipAndCullDistances));
+				}
+			}
+		
 			m_features.vertexAttributeDouble = !IsGLES;
-			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
+
+			m_features.shaderInt64 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int64); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
+			m_features.shaderInt16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
+			m_features.shaderResourceResidency = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_sparse_texture);
+			m_features.shaderResourceMinLod = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture_clamp);
+
+			m_features.variableMultisampleRate = true;
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
+		
+			/* Vulkan 1.1 Core */
+			m_features.storageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_features.uniformAndStorageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+
+			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
+			
+			/* Vulkan 1.2 Core */
+			m_features.samplerMirrorClampToEdge = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_mirror_clamp_to_edge) : true;
+			m_features.drawIndirectCount = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_indirect_parameters) || m_glfeatures.Version >= 460u);
+			m_features.shaderSubgroupUniformControlFlow = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_subgroupuniform_qualifier);
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_viewport_layer_array) ||
+				m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_viewport_array2))
+			{
+				m_properties.limits.shaderOutputViewportIndex = true;
+				m_properties.limits.shaderOutputLayer = true;
+			}
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_compute_shader_derivatives))
+			{
+				m_features.computeDerivativeGroupQuads = true;
+				m_features.computeDerivativeGroupLinear = true;
+			}
+
+			m_properties.limits.imageFootprint = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_texture_footprint);
+
+			// [TODO]
+			// not sure if any OpenGL extension provides that, but if it exists it would be one of those that allows 16bit int/float to be used for UBO/SSBO
+			m_features.storagePushConstant8 = false;
+			m_features.storagePushConstant16 = false;
+			m_features.storageInputOutput16 = false;
+			
+			m_features.shaderBufferInt64Atomics = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_atomic_int64);
+			m_features.shaderSharedInt64Atomics = false;
+			
+			m_features.shaderFloat16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_features.shaderInt8 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_features.storageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_features.uniformAndStorageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+
+			m_features.descriptorIndexing = false;
+			m_features.shaderInputAttachmentArrayDynamicIndexing = false;
+			m_features.shaderUniformTexelBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			m_features.shaderStorageTexelBufferArrayDynamicIndexing = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5)) : true;
+			bool reportArrayNonUniformIndexing = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_nonuniform_qualifier);
+			m_features.shaderUniformBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderSampledImageArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageImageArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderInputAttachmentArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderUniformTexelBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.shaderStorageTexelBufferArrayNonUniformIndexing = reportArrayNonUniformIndexing;
+			m_features.descriptorBindingUniformBufferUpdateAfterBind = true;
+			m_features.descriptorBindingSampledImageUpdateAfterBind = true;
+			m_features.descriptorBindingStorageImageUpdateAfterBind = true;
+			m_features.descriptorBindingStorageBufferUpdateAfterBind = true;
+			m_features.descriptorBindingUniformTexelBufferUpdateAfterBind = true;
+			m_features.descriptorBindingStorageTexelBufferUpdateAfterBind = true;
+			m_features.descriptorBindingUpdateUnusedWhilePending = true;
+			m_features.descriptorBindingPartiallyBound = true;
+			m_features.descriptorBindingVariableDescriptorCount = false;
+			m_features.runtimeDescriptorArray = false;
+
+			m_features.samplerFilterMinmax = false; // no such sampler in GL
+			m_features.shaderSubgroupExtendedTypes = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_ballot);
+			m_features.bufferDeviceAddress = false; // no such capability in GL
+
+			m_features.stippledRectangularLines = !IsGLES;
+			m_features.stippledBresenhamLines = !IsGLES;
+			m_features.stippledSmoothLines = !IsGLES;
+
+			/* Vulkan 1.3 Core */
+			m_features.subgroupSizeControl = false;
+			m_features.computeFullSubgroups = false;
+
+			/* Vulkan Extensions */
+			
+			// [TODO] CooperativeMatrixFeaturesNV
+			/* [NOT SUPPORTED IN GL] BufferDeviceAddressFeaturesKHR */
+			/* [NOT SUPPORTED IN GL] AccelerationStructureFeaturesKHR */ 
+			/* [NOT SUPPORTED IN GL] RayTracingPipelineFeaturesKHR */
+			/* [NOT SUPPORTED IN GL] RayQueryFeaturesKHR */
 
 			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_fragment_shader_interlock))
 			{
@@ -594,9 +829,22 @@ public:
 				m_features.fragmentShaderSampleInterlock = true;
 				m_features.fragmentShaderShadingRateInterlock = true;
 			}
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_shader_framebuffer_fetch))
+			{
+				m_features.rasterizationOrderColorAttachmentAccess = true;
+				m_features.rasterizationOrderDepthAttachmentAccess = true;
+				m_features.rasterizationOrderStencilAttachmentAccess = true;
+			}
+
+            m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
+
+			// TODO: move this to IPhysicalDevice::SFeatures
+			const bool runningInRenderDoc = (m_rdoc_api != nullptr);
+			m_glfeatures.runningInRenderDoc = runningInRenderDoc;
 		}
 
-		// physical device limits
+		// PhysicalDevice Limits
 		{
 			int majorVer = 0;
 			int minorVer = 0;
@@ -606,7 +854,7 @@ public:
 			m_properties.apiVersion.minor = minorVer;
 			m_properties.apiVersion.patch = 0u;
 			
-			/* Vulkan Core 1.0 */
+			/* Vulkan 1.0 Core  */
 			GLint64 maxTextureSize = 0u; // 1D + 2D
 			GLint64 max3DTextureSize = 0u; // 1D + 2D
 			GLint64 maxCubeMapTextureSize = 0u;
@@ -617,37 +865,141 @@ public:
 			m_properties.limits.maxImageDimension2D	= maxTextureSize;
 			m_properties.limits.maxImageDimension3D	= max3DTextureSize;
 			m_properties.limits.maxImageDimensionCube =	maxCubeMapTextureSize;
-			m_properties.limits.maxImageArrayLayers = m_glfeatures.MaxArrayTextureLayers;
-			m_properties.limits.maxBufferViewSizeTexels = m_glfeatures.maxTBOSizeInTexels;
-			m_properties.limits.maxUBOSize = m_glfeatures.maxUBOSize;
-			m_properties.limits.maxSSBOSize = m_glfeatures.maxSSBOSize;
+			GetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, reinterpret_cast<GLint*>(&m_properties.limits.maxImageArrayLayers));
+			GetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxBufferViewTexels));
+			GetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxUBOSize));
+			GetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&m_properties.limits.maxSSBOSize));
+
+			m_properties.limits.maxPushConstantsSize = asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
+			m_properties.limits.maxMemoryAllocationCount = 1000'000'000;
+			m_properties.limits.maxSamplerAllocationCount = 1000'000;
 			
-			GLint max_ssbos[5];
-			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, max_ssbos + 0);
-			GetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, max_ssbos + 1);
-			GetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, max_ssbos + 2);
-			GetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, max_ssbos + 3);
-			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, max_ssbos + 4);
-			uint32_t maxSSBOsPerStage = static_cast<uint32_t>(*std::min_element(max_ssbos, max_ssbos + 5));
-			m_properties.limits.maxPerStageDescriptorSSBOs = maxSSBOsPerStage;
+			m_properties.limits.bufferImageGranularity = std::numeric_limits<size_t>::max(); // buffer and image in the same memory can't be done in gl
 			
-			m_properties.limits.maxDescriptorSetUBOs = m_glfeatures.maxUBOBindings;
-			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = SOpenGLState::MaxDynamicOffsetUBOs;
-			m_properties.limits.maxDescriptorSetSSBOs = m_glfeatures.maxSSBOBindings;
-			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = SOpenGLState::MaxDynamicOffsetSSBOs;
-			m_properties.limits.maxDescriptorSetImages = m_glfeatures.maxTextureBindings;
-			m_properties.limits.maxDescriptorSetStorageImages = m_glfeatures.maxImageBindings;
+			GLuint maxCombinedShaderOutputResources;
+			GLuint maxFragmentShaderUniformBlocks;
+			GLuint maxTextureImageUnits;
+			GetIntegerv(GL_MAX_COMBINED_SHADER_OUTPUT_RESOURCES, reinterpret_cast<GLint*>(&maxCombinedShaderOutputResources));
+			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&maxFragmentShaderUniformBlocks));
+			GetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&maxTextureImageUnits));
+
+			uint32_t maxFragmentShaderResources = maxCombinedShaderOutputResources + maxFragmentShaderUniformBlocks + maxTextureImageUnits;
+			uint32_t maxComputeShaderResources = 0u;
+			uint32_t maxVertexShaderResources = 0u;
+			uint32_t maxTessControlShaderResources = 0u;
+			uint32_t maxTessEvalShaderResources = 0u;
+			uint32_t maxGeometryShaderResources = 0u;
+
+			GLint maxSSBO[6];
+			GetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS, maxSSBO + 0);
+			GetIntegerv(GL_MAX_VERTEX_SHADER_STORAGE_BLOCKS, maxSSBO + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_SHADER_STORAGE_BLOCKS, maxSSBO + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_SHADER_STORAGE_BLOCKS, maxSSBO + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_SHADER_STORAGE_BLOCKS, maxSSBO + 4);
+			GetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, maxSSBO + 5);
+			maxComputeShaderResources += maxSSBO[0u];
+			maxVertexShaderResources += maxSSBO[1u];
+			maxTessControlShaderResources += maxSSBO[2u];
+			maxTessEvalShaderResources += maxSSBO[3u];
+			maxGeometryShaderResources += maxSSBO[4u];
+
+			uint32_t maxPerStageSSBOs = static_cast<uint32_t>(*std::min_element(maxSSBO, maxSSBO + 6));
+
+			GLint maxSampler[5];
+			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, maxSampler + 0);
+			GetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, maxSampler + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS, maxSampler + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS, maxSampler + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_TEXTURE_IMAGE_UNITS, maxSampler + 4);
+			maxComputeShaderResources += maxSampler[0u];
+			maxVertexShaderResources += maxSampler[1u];
+			maxTessControlShaderResources += maxSampler[2u];
+			maxTessEvalShaderResources += maxSampler[3u];
+			maxGeometryShaderResources += maxSampler[4u];
+			uint32_t maxPerStageSamplers = static_cast<uint32_t>(*std::min_element(maxSampler, maxSampler + 5));
 			
-			GLint maxComputeSharedMemorySize = 0;
-			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, &maxComputeSharedMemorySize);
-			m_properties.limits.maxComputeSharedMemorySize = maxComputeSharedMemorySize;
-			m_properties.limits.maxWorkgroupSize[0] = m_glfeatures.MaxComputeWGSize[0];
-			m_properties.limits.maxWorkgroupSize[1] = m_glfeatures.MaxComputeWGSize[1];
-			m_properties.limits.maxWorkgroupSize[2] = m_glfeatures.MaxComputeWGSize[2];
+			GLint maxUBOs[6];
+			GetIntegerv(GL_MAX_COMPUTE_UNIFORM_BLOCKS, maxUBOs + 0);
+			GetIntegerv(GL_MAX_VERTEX_UNIFORM_BLOCKS, maxUBOs + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_UNIFORM_BLOCKS, maxUBOs + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_UNIFORM_BLOCKS, maxUBOs + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_UNIFORM_BLOCKS, maxUBOs + 4);
+			GetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, maxUBOs + 5);
+			maxComputeShaderResources += maxUBOs[0u];
+			maxVertexShaderResources += maxUBOs[1u];
+			maxTessControlShaderResources += maxUBOs[2u];
+			maxTessEvalShaderResources += maxUBOs[3u];
+			maxGeometryShaderResources += maxUBOs[4u];
+			uint32_t maxPerStageUBOs = static_cast<uint32_t>(*std::min_element(maxUBOs, maxUBOs + 6));
 			
+			GLint maxStorageImages[6];
+			GetIntegerv(GL_MAX_COMPUTE_IMAGE_UNIFORMS, maxStorageImages + 0);
+			GetIntegerv(GL_MAX_VERTEX_IMAGE_UNIFORMS, maxStorageImages + 1);
+			GetIntegerv(GL_MAX_TESS_CONTROL_IMAGE_UNIFORMS, maxStorageImages + 2);
+			GetIntegerv(GL_MAX_TESS_EVALUATION_IMAGE_UNIFORMS, maxStorageImages + 3);
+			GetIntegerv(GL_MAX_GEOMETRY_IMAGE_UNIFORMS, maxStorageImages + 4);
+			GetIntegerv(GL_MAX_FRAGMENT_IMAGE_UNIFORMS, maxStorageImages + 5);
+			maxComputeShaderResources += maxStorageImages[0u];
+			maxVertexShaderResources += maxStorageImages[1u];
+			maxTessControlShaderResources += maxStorageImages[2u];
+			maxTessEvalShaderResources += maxStorageImages[3u];
+			maxGeometryShaderResources += maxStorageImages[4u];
+			uint32_t maxPerStageStorageImages = static_cast<uint32_t>(*std::min_element(maxStorageImages, maxStorageImages + 6));
+			
+			// Max PerStage Descriptors
+			m_properties.limits.maxPerStageDescriptorSamplers = maxPerStageSamplers;
+			m_properties.limits.maxPerStageDescriptorUBOs = maxPerStageUBOs;
+			m_properties.limits.maxPerStageDescriptorSSBOs = maxPerStageSSBOs;
+			m_properties.limits.maxPerStageDescriptorImages = m_properties.limits.maxPerStageDescriptorSamplers; // OpenGL glBindTextures is used to bind a BufferView (UTB), so they use the same slots as regular textures
+			m_properties.limits.maxPerStageDescriptorStorageImages = maxPerStageStorageImages;
+			m_properties.limits.maxPerStageDescriptorInputAttachments = 0u;
+			
+			//m_properties.limits.maxPerStageResources
+			{
+				m_properties.limits.maxPerStageResources = maxFragmentShaderResources;
+				m_properties.limits.maxPerStageResources = core::max(maxComputeShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxVertexShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxTessControlShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxTessEvalShaderResources, m_properties.limits.maxPerStageResources);
+				m_properties.limits.maxPerStageResources = core::max(maxGeometryShaderResources, m_properties.limits.maxPerStageResources);
+			}
+
+			// Max Descriptors
+			GetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetSamplers));
+			GetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetUBOs));
+			m_properties.limits.maxDescriptorSetDynamicOffsetUBOs = m_properties.limits.maxDescriptorSetUBOs;
+			GetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetSSBOs));
+			m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs = m_properties.limits.maxDescriptorSetSSBOs;
+			m_properties.limits.maxDescriptorSetImages = m_properties.limits.maxDescriptorSetSamplers; // OpenGL glBindTextures is used to bind a BufferView (UTB), so they use the same slots as regular textures
+			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&m_properties.limits.maxDescriptorSetStorageImages));
+			m_properties.limits.maxDescriptorSetInputAttachments = 0u;
+
+			GetIntegerv(GL_MAX_VERTEX_OUTPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxVertexOutputComponents));
+
+			GetIntegerv(GL_MAX_FRAGMENT_INPUT_COMPONENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentInputComponents));
+			GetIntegerv(GL_MAX_DRAW_BUFFERS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentOutputAttachments));
+			GetIntegerv(GL_MAX_DUAL_SOURCE_DRAW_BUFFERS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentDualSrcAttachments));
+			GetIntegerv(GL_MAX_COMBINED_IMAGE_UNITS_AND_FRAGMENT_OUTPUTS, reinterpret_cast<GLint*>(&m_properties.limits.maxFragmentCombinedOutputResources));
+
+			GetIntegerv(GL_MAX_COMPUTE_SHARED_MEMORY_SIZE, reinterpret_cast<GLint*>(&m_properties.limits.maxComputeSharedMemorySize));
+			
+			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, reinterpret_cast<GLint*>(&m_properties.limits.maxComputeWorkGroupInvocations));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0, reinterpret_cast<GLint*>(m_properties.limits.maxComputeWorkGroupCount));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, reinterpret_cast<GLint*>(m_properties.limits.maxComputeWorkGroupCount + 1));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, reinterpret_cast<GLint*>(m_properties.limits.maxComputeWorkGroupCount + 2));
+
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 1));
+			GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, reinterpret_cast<GLint*>(m_properties.limits.maxWorkgroupSize + 2));
+			
+			
+			GetIntegerv(GL_SUBPIXEL_BITS, reinterpret_cast<GLint*>(&m_properties.limits.subPixelPrecisionBits));
+
 			// GL doesnt have any limit on this (???)
 			m_properties.limits.maxDrawIndirectCount = std::numeric_limits<decltype(m_properties.limits.maxDrawIndirectCount)>::max();
 			
+			GetFloatv(GL_MAX_TEXTURE_LOD_BIAS, &m_properties.limits.maxSamplerLodBias);
+
 			GLint maxViewportExtent[2]{0,0};
 			GetIntegerv(GL_MAX_VIEWPORT_DIMS, maxViewportExtent);
 			GLint maxViewports = 16;
@@ -655,44 +1007,191 @@ public:
 			m_properties.limits.maxViewports = maxViewports;
 			m_properties.limits.maxViewportDims[0] = maxViewportExtent[0];
 			m_properties.limits.maxViewportDims[1] = maxViewportExtent[1];
-
-			m_properties.limits.bufferViewAlignment = m_glfeatures.reqTBOAlignment;
-			m_properties.limits.UBOAlignment = m_glfeatures.reqUBOAlignment;
-			m_properties.limits.SSBOAlignment = m_glfeatures.reqSSBOAlignment;
 			
+			int32_t maxDim = static_cast<int32_t>(core::max(m_properties.limits.maxViewportDims[0], m_properties.limits.maxViewportDims[1]));
+			m_properties.limits.viewportBoundsRange[0] = -2 * maxDim;
+			m_properties.limits.viewportBoundsRange[1] = 2 * maxDim - 1;
+
+			GetIntegerv(GL_VIEWPORT_SUBPIXEL_BITS, reinterpret_cast<GLint*>(&m_properties.limits.viewportSubPixelBits));
+
+			if(IsGLES)
+				m_properties.limits.minMemoryMapAlignment = 16ull;
+			else
+				GetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minMemoryMapAlignment));
+
+			
+			GetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minUBOAlignment));
+			assert(core::is_alignment(m_properties.limits.minUBOAlignment));
+			GetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.minSSBOAlignment));
+			assert(core::is_alignment(m_properties.limits.minSSBOAlignment));
+			// TODO: GLES has a problem with reporting this
+			GetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, reinterpret_cast<GLint*>(&m_properties.limits.bufferViewAlignment));
+			
+			// GL treated as VK1.1 impl; GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT treated as vk10_props.minTexelBufferOffsetAlignment
+			m_properties.limits.storageTexelBufferOffsetAlignmentBytes = m_properties.limits.bufferViewAlignment;
+			m_properties.limits.uniformTexelBufferOffsetAlignmentBytes = m_properties.limits.bufferViewAlignment;
+
+			if (!core::is_alignment(m_properties.limits.bufferViewAlignment))
+				m_properties.limits.bufferViewAlignment = 16u;
+			// assert(core::is_alignment(m_properties.limits.bufferViewAlignment)); 
+
+			GetIntegerv(GL_MIN_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelOffset));
+			GetIntegerv(GL_MAX_PROGRAM_TEXEL_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelOffset));
+			GetIntegerv(GL_MIN_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.minTexelGatherOffset));
+			GetIntegerv(GL_MAX_PROGRAM_TEXTURE_GATHER_OFFSET, reinterpret_cast<GLint*>(&m_properties.limits.maxTexelGatherOffset));
+	
+			if(!IsGLES || (m_glfeatures.Version >= 320u && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_shader_multisample_interpolation)))
+			{
+				GetFloatv(GL_MIN_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.minInterpolationOffset);
+				GetFloatv(GL_MAX_FRAGMENT_INTERPOLATION_OFFSET, &m_properties.limits.maxInterpolationOffset);
+			}
+
+			GetIntegerv(GL_MAX_FRAMEBUFFER_WIDTH, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferWidth));
+			GetIntegerv(GL_MAX_FRAMEBUFFER_HEIGHT, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferHeight));
+
+			if(!IsGLES || m_glfeatures.Version>=320u)
+				GetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferLayers));
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_shader))
+				GetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS_OES, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferLayers));
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_shader))
+				GetIntegerv(GL_MAX_FRAMEBUFFER_LAYERS_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxFramebufferLayers));
+
+			auto getSampleCountFlagsFromSampleCount = [](GLint samples) -> core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>
+			{
+				return core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>((0x1u<<(1+core::findMSB(static_cast<uint32_t>(samples))))-1u);
+			};
+
+			GLint maxFramebufferSamples = 0;
+			GetIntegerv(GL_MAX_FRAMEBUFFER_SAMPLES, &maxFramebufferSamples);
+			auto framebufferSampleCountFlags = getSampleCountFlagsFromSampleCount(maxFramebufferSamples);
+			m_properties.limits.framebufferColorSampleCounts = framebufferSampleCountFlags;
+			m_properties.limits.framebufferDepthSampleCounts = framebufferSampleCountFlags;
+			m_properties.limits.framebufferStencilSampleCounts = framebufferSampleCountFlags;
+			m_properties.limits.framebufferNoAttachmentsSampleCounts = framebufferSampleCountFlags;
+
+			GetIntegerv(GL_MAX_COLOR_ATTACHMENTS, reinterpret_cast<GLint*>(&m_properties.limits.maxColorAttachments));
+			
+			GLint maxColorTextureSamples = 0;
+			GetIntegerv(GL_MAX_COLOR_TEXTURE_SAMPLES, &maxColorTextureSamples);
+			auto colorSampleCountFlags = getSampleCountFlagsFromSampleCount(maxColorTextureSamples);
+			GLint maxDepthTextureSamples = 0;
+			GetIntegerv(GL_MAX_DEPTH_TEXTURE_SAMPLES, &maxDepthTextureSamples);
+			auto depthSampleCountFlags = getSampleCountFlagsFromSampleCount(maxDepthTextureSamples);
+			m_properties.limits.sampledImageColorSampleCounts = colorSampleCountFlags;
+			m_properties.limits.sampledImageIntegerSampleCounts = colorSampleCountFlags;
+			m_properties.limits.sampledImageDepthSampleCounts = depthSampleCountFlags;
+			m_properties.limits.sampledImageStencilSampleCounts = depthSampleCountFlags;
+			m_properties.limits.storageImageSampleCounts = colorSampleCountFlags;
+			
+			GetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleMaskWords));
+			
+			m_properties.limits.timestampComputeAndGraphics = (IsGLES) ? m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_disjoint_timer_query) : true;
 			m_properties.limits.timestampPeriodInNanoSeconds = 1.0f;
+
+			m_properties.limits.discreteQueuePriorities = 1u;
 
 			GetFloatv(GL_POINT_SIZE_RANGE, m_properties.limits.pointSizeRange);
 			GetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, m_properties.limits.lineWidthRange);
 			
-			m_properties.limits.nonCoherentAtomSize = 256ull;
+			GetFloatv(GL_POINT_SIZE_GRANULARITY, &m_properties.limits.pointSizeGranularity);
+			GetFloatv(GL_LINE_WIDTH_GRANULARITY, &m_properties.limits.lineWidthGranularity);
 			
+			m_properties.limits.strictLines = false;
+			m_properties.limits.standardSampleLocations = false; // TODO: Investigate
+
+			m_properties.limits.optimalBufferCopyOffsetAlignment = 8ull;
+			m_properties.limits.optimalBufferCopyRowPitchAlignment = 8ull;
+			m_properties.limits.nonCoherentAtomSize = 256ull;
+
+			const uint64_t maxTBOSizeInBytes = (IsGLES) 
+				? (m_properties.limits.maxBufferViewTexels * getTexelOrBlockBytesize(asset::EF_R32G32B32A32_UINT))     // m_properties.limits.maxBufferViewTexels * GLES Fattest Format 
+				: (m_properties.limits.maxBufferViewTexels * getTexelOrBlockBytesize(asset::EF_R64G64B64A64_SFLOAT)); // m_properties.limits.maxBufferViewTexels * GL Fattest Format 
+
+			const uint64_t maxBufferSize = std::max(std::max((uint64_t)m_properties.limits.maxUBOSize, (uint64_t)m_properties.limits.maxSSBOSize), maxTBOSizeInBytes);
+
+			/* Vulkan 1.1 Core  */
+			
+			
+			// Temporary GL Specific -> [TODO] Remove later
+			m_glfeatures.maxUBOBindings = m_properties.limits.maxDescriptorSetUBOs;
+			m_glfeatures.maxSSBOBindings = m_properties.limits.maxDescriptorSetSSBOs;
+			m_glfeatures.maxTextureBindings = m_properties.limits.maxDescriptorSetSamplers;
+			GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&m_glfeatures.maxTextureBindingsCompute));
+			m_glfeatures.maxImageBindings = m_properties.limits.maxDescriptorSetStorageImages;
+
+
+			m_properties.limits.maxPerSetDescriptors = m_properties.limits.maxDescriptorSetUBOs + m_properties.limits.maxDescriptorSetSSBOs + m_properties.limits.maxDescriptorSetSamplers + m_properties.limits.maxDescriptorSetStorageImages;
+			m_properties.limits.maxMemoryAllocationSize = maxBufferSize; // TODO(Erfan): 
+
+			/* Vulkan 1.2 Core  */
+
+			/*		VK_KHR_shader_float_controls */
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat16   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat32   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderSignedZeroInfNanPreserveFloat64   = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat16             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat32             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormPreserveFloat64             = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat16          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat32          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderDenormFlushToZeroFloat64          = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat16            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat32            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTEFloat64            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat16            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat32            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+			m_properties.limits.shaderRoundingModeRTZFloat64            = SPhysicalDeviceLimits::ETB_DONT_KNOW;
+
+			/*		VK_EXT_descriptor_indexing */
+			m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools					= ~0u;
+			bool nonUniformIndexing = m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_EXT_nonuniform_qualifier);
+			m_properties.limits.shaderUniformBufferArrayNonUniformIndexingNative		= nonUniformIndexing;
+			m_properties.limits.shaderSampledImageArrayNonUniformIndexingNative			= nonUniformIndexing;
+			m_properties.limits.shaderStorageBufferArrayNonUniformIndexingNative		= nonUniformIndexing;
+			m_properties.limits.shaderStorageImageArrayNonUniformIndexingNative			= nonUniformIndexing;
+			m_properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative		= false; //	No Input Attachments in	GL
+			m_properties.limits.robustBufferAccessUpdateAfterBind						= false; //	TODO
+			m_properties.limits.quadDivergentImplicitLod								= false; // False in GL always
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers			= m_properties.limits.maxPerStageDescriptorSamplers;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs				= m_properties.limits.maxPerStageDescriptorUBOs;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs				= m_properties.limits.maxPerStageDescriptorSSBOs;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindImages				= m_properties.limits.maxPerStageDescriptorImages;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindStorageImages		= m_properties.limits.maxPerStageDescriptorStorageImages;
+			m_properties.limits.maxPerStageDescriptorUpdateAfterBindInputAttachments	= 0u;  // No Input Attachments in GL
+			m_properties.limits.maxPerStageUpdateAfterBindResources						= m_properties.limits.maxPerStageResources;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindSamplers					= m_properties.limits.maxDescriptorSetSamplers;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindUBOs						= m_properties.limits.maxDescriptorSetUBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs		= m_properties.limits.maxDescriptorSetDynamicOffsetUBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindSSBOs					= m_properties.limits.maxDescriptorSetSSBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs		= m_properties.limits.maxDescriptorSetDynamicOffsetSSBOs;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindImages					= m_properties.limits.maxDescriptorSetImages;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindStorageImages			= m_properties.limits.maxDescriptorSetStorageImages;
+			m_properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments			= 0u; // No	Input Attachments in GL
+			
+			m_properties.limits.filterMinmaxSingleComponentFormats = false;
+			m_properties.limits.filterMinmaxImageComponentMapping = false;
+
+			/* Vulkan 1.3 Core  */
+			m_properties.limits.maxBufferSize = maxBufferSize;
+			
+			// maxSubgroupSize can be overriden later by KHR_shader_subgroup::GL_SUBGROUP_SIZE_KHR
+			getMinMaxSubgroupSizeFromDriverID(m_properties.driverID, m_properties.limits.minSubgroupSize, m_properties.limits.maxSubgroupSize);
+
+			m_properties.limits.maxComputeWorkgroupSubgroups = m_properties.limits.maxComputeWorkGroupInvocations/m_properties.limits.minSubgroupSize;
+			m_properties.limits.requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
+			
+			
+			// https://github.com/KhronosGroup/OpenGL-API/issues/51
+			// https://www.khronos.org/opengl/wiki/Vertex_Post-Processing#Clipping
+			if(isNVIDIAGPU || IsGLES)
+				m_properties.limits.pointClippingBehavior = SLimits::EPCB_USER_CLIP_PLANES_ONLY;
+			else
+				m_properties.limits.pointClippingBehavior = SLimits::EPCB_ALL_CLIP_PLANES;
+
 			/* SubgroupProperties */
 			m_properties.limits.subgroupSize = 0u;
 			m_properties.limits.subgroupOpsShaderStages = static_cast<asset::IShader::E_SHADER_STAGE>(0u);
-			
-			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
-			{
-				GLint subgroupSize = 0;
-				GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
 
-				GLint subgroupOpsStages = 0;
-				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
-				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
-				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
-				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
-				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
-				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
-				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
-			}
-			
-			// TODO: @achal handle ARB, EXT, NVidia and AMD extensions which can be used to spoof
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_KHR_shader_subgroup))
 			{
 				GLboolean subgroupQuadAllStages = GL_FALSE;
@@ -710,13 +1209,144 @@ public:
 				m_properties.limits.shaderSubgroupShuffleRelative = (subgroup & GL_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT_KHR);
 				m_properties.limits.shaderSubgroupClustered = (subgroup & GL_SUBGROUP_FEATURE_CLUSTERED_BIT_KHR);
 				m_properties.limits.shaderSubgroupQuad = (subgroup & GL_SUBGROUP_FEATURE_QUAD_BIT_KHR);
+
+				if (m_properties.limits.shaderSubgroupBasic)
+				{
+					GLint subgroupSize = 0;
+					GetIntegerv(GL_SUBGROUP_SIZE_KHR, &subgroupSize);
+					m_properties.limits.maxSubgroupSize = subgroupSize;
+				}
+
+				GLint subgroupOpsStages = 0;
+				GetIntegerv(GL_SUBGROUP_SUPPORTED_STAGES_KHR, &subgroupOpsStages);
+				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
+				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
+				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
+				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
+				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_FRAGMENT;
+				if (subgroupOpsStages & GL_COMPUTE_SHADER_BIT)
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_COMPUTE;
+
+				// From https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_shader_subgroup.txt:
+				// <id> must be an integral constant expression when targeting SPIR - V 1.4 and below, otherwise it must
+				// be dynamically uniform within the subgroup.
+				// Since `m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;`, this is always true in GL.
+				m_features.subgroupBroadcastDynamicId = true;
 			}
+			// TODO: Use ARB_shader_ballot to perform runtime test for more specific subgroup min & max
+			// 
+			// If ARB_shader_ballot is available (desktop GL only)
+			// Run a dummy vertex, geometry, tessellation, fragment pipeline(reasonable workload, few thousand verts, render into the default back buffer / FBO), have them write gl_SubGroupSizeARB with atomicMinand atomicMax into an SSBO so we can get ranges.
+			//
+			// Also run 2 dummy compute shaders :
+			//
+			// 16x16x1 workgroup and a 128x64x1 dispatch grid
+			//	256x1x1 workgroup and 16k x 1 x 1 dispatch grid
+			//	and do the same.
+
+			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1350
+			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1351
+			// https://github.com/KhronosGroup/SPIRV-Cross/issues/1352
+			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_thread_group) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_ballot))
+				m_properties.limits.shaderSubgroupBasic = true;
+			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_group_vote) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gcn_shader))
+				m_properties.limits.shaderSubgroupVote = true;
+			if(m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_thread_group) || (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_ballot)))
+				m_properties.limits.shaderSubgroupBallot = true;
+
+			/* ConservativeRasterizationPropertiesEXT */
+			m_properties.limits.primitiveOverestimationSize = 0.f;
+			m_properties.limits.maxExtraPrimitiveOverestimationSize = 0.f;
+			m_properties.limits.extraPrimitiveOverestimationSizeGranularity = 0.f;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_dilate))
+			{
+				GetFloatv(GL_CONSERVATIVE_RASTER_DILATE_RANGE_NV, &m_properties.limits.maxExtraPrimitiveOverestimationSize);
+				GetFloatv(GL_CONSERVATIVE_RASTER_DILATE_GRANULARITY_NV, &m_properties.limits.extraPrimitiveOverestimationSizeGranularity);
+			}
+			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
+				m_properties.limits.primitiveOverestimationSize = 1.f/512.f;
+
+			m_properties.limits.primitiveUnderestimation = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_underestimation))
+				m_properties.limits.primitiveUnderestimation = true;
+
+			m_properties.limits.conservativePointAndLineRasterization = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster))
+				m_properties.limits.conservativePointAndLineRasterization = true;
+
+			m_properties.limits.degenerateTrianglesRasterized = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_pre_snap_triangles) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
+				m_properties.limits.degenerateTrianglesRasterized = true;
+			m_properties.limits.degenerateLinesRasterized = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_pre_snap))
+				m_properties.limits.degenerateLinesRasterized = true;
+
+			m_properties.limits.fullyCoveredFragmentShaderInputVariable = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_conservative_raster_underestimation))
+				m_properties.limits.fullyCoveredFragmentShaderInputVariable = true;
+
+			m_properties.limits.conservativeRasterizationPostDepthCoverage = false;
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_INTEL_conservative_rasterization))
+				m_properties.limits.conservativeRasterizationPostDepthCoverage = true;
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_window_rectangles))
+			{
+				GetIntegerv(GL_MAX_WINDOW_RECTANGLES_EXT, reinterpret_cast<GLint*>(&m_properties.limits.maxDiscardRectangles));
+			}
+
+			/* 
+			sampleLocationSampleCounts!=0 and variableSampleLocations=true only if
+			https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_sample_locations.txt
+			or
+			https://www.khronos.org/registry/OpenGL/extensions/AMD/AMD_sample_positions.txt
+			available
+			
+			otherwise sampleLocationSampleCounts=0 and variableSampleLocations=false
+
+			you can always get the remaining info from:
+			https://www.khronos.org/registry/OpenGL/extensions/NV/ARB_texture_multisample.txt
+			which I think is core in GL 4.4 and possibly even in GLES 3.1
+			*/
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sample_locations))
+			{
+				m_properties.limits.variableSampleLocations = true;
+				GetIntegerv(GL_SAMPLE_LOCATION_PIXEL_GRID_WIDTH_ARB, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleLocationGridSize.width));
+				GetIntegerv(GL_SAMPLE_LOCATION_PIXEL_GRID_HEIGHT_ARB, reinterpret_cast<GLint*>(&m_properties.limits.maxSampleLocationGridSize.height));
+				GetIntegerv(GL_SAMPLE_LOCATION_SUBPIXEL_BITS_ARB, reinterpret_cast<GLint*>(&m_properties.limits.sampleLocationSubPixelBits));
+			}
+			// [TODO] Fallback NBL_AMD_sample_positions & sampleLocationCoordinateRange
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_texture_multisample))
+			{
+				GetIntegerv(GL_MAX_SAMPLE_MASK_WORDS, reinterpret_cast<GLint*>(&m_properties.limits.sampleLocationSampleCounts));
+			}
+		
+			// [TODO] SampleLocationsPropertiesEXT
 
 			/* !NOT SUPPORTED: AccelerationStructurePropertiesKHR  */
 			/* !NOT SUPPORTED: RayTracingPipelinePropertiesKHR */
+
+			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_mesh_shader))
+			{
+				m_features.meshShader = true;
+				m_features.taskShader = true;
+			}
+
+			m_features.representativeFragmentTest = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_representative_fragment_test);
+			m_features.mixedAttachmentSamples = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_framebuffer_mixed_samples);
+			m_features.shaderExplicitVertexParameter = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_shader_explicit_vertex_parameter);
 			
 			/* Nabla */
-			m_properties.limits.maxBufferSize = std::max(m_properties.limits.maxUBOSize, m_properties.limits.maxSSBOSize);
+			m_properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(m_properties.driverID);
+			m_properties.limits.dispatchBase = false;
+
+			if (m_glfeatures.isFeatureAvailable(m_glfeatures.NBL_ARB_query_buffer_object))
+				m_properties.limits.allowCommandBufferQueryCopies = true;
+
 			// TODO: get this from OpenCL interop, or just a GPU Device & Vendor ID table
 			GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,reinterpret_cast<int32_t*>(&m_properties.limits.maxOptimallyResidentWorkgroupInvocations));
 			m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(m_properties.limits.maxOptimallyResidentWorkgroupInvocations),512u);
@@ -727,7 +1357,7 @@ public:
 		}
 
 		std::ostringstream pool;
-		addCommonGLSLDefines(pool,runningInRenderDoc);
+		addCommonGLSLDefines(pool,m_glfeatures.runningInRenderDoc);
 		{
 			std::string define;
 			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
@@ -735,7 +1365,7 @@ public:
 				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
 				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
 				{
-					define = "NBL_IMPL_";
+					define = "NBL_GLSL_IMPL_";
 					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
 					addGLSLDefineToPool(pool,define.c_str());
 				}

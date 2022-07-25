@@ -45,6 +45,8 @@ public:
 	"GL_AMD_shader_stencil_value_export",
 	"GL_AMD_gpu_shader_int64",
 	"GL_AMD_shader_ballot",
+	"GL_AMD_gpu_shader_int16",
+	"GL_AMD_gpu_shader_half_float",
 	"GL_APPLE_aux_depth_stencil",
 	"GL_APPLE_client_storage",
 	"GL_APPLE_element_array",
@@ -65,8 +67,8 @@ public:
 	"GL_ARB_bindless_texture",
 	"GL_ARB_buffer_storage",
 	"GL_ARB_blend_func_extended",
-	"GL_ARB_cl_event",
 	"GL_ARB_clip_control",
+	"GL_ARB_cl_event",
 	"GL_ARB_color_buffer_float",
 	"GL_ARB_compatibility",
 	"GL_ARB_compressed_texture_pixel_storage",
@@ -201,6 +203,8 @@ public:
 	"GL_ARB_sparse_texture_clamp",
 	"GL_ARB_gl_spirv",
 	"GL_ARB_spirv_extensions",
+	"GL_ARB_sample_locations",
+	"GL_ARB_texture_filter_anisotropic",
 	"GL_ATI_draw_buffers",
 	"GL_ATI_element_array",
 	"GL_ATI_envmap_bumpmap",
@@ -238,6 +242,7 @@ public:
 	"GL_EXT_depth_bounds_test",
 	"GL_EXT_direct_state_access",
 	"GL_EXT_draw_buffers2",
+	"GL_EXT_draw_buffers_indexed",
 	"GL_EXT_draw_instanced",
 	"GL_EXT_draw_range_elements",
 	"GL_EXT_fog_coord",
@@ -246,6 +251,7 @@ public:
 	"GL_EXT_framebuffer_multisample_blit_scaled",
 	"GL_EXT_framebuffer_object",
 	"GL_EXT_framebuffer_sRGB",
+	"GL_EXT_geometry_shader",
 	"GL_EXT_geometry_shader4",
 	"GL_EXT_gpu_program_parameters",
 	"GL_EXT_gpu_shader4",
@@ -258,6 +264,7 @@ public:
 	"GL_EXT_misc_attribute",
 	"GL_EXT_multi_draw_arrays",
 	"GL_EXT_multisample",
+	"GL_EXT_multisample_compatibility",
 	"GL_EXT_packed_depth_stencil",
 	"GL_EXT_packed_float",
 	"GL_EXT_packed_pixels",
@@ -279,6 +286,7 @@ public:
 	"GL_EXT_stencil_two_side",
 	"GL_EXT_stencil_wrap",
 	"GL_EXT_subtexture",
+	"GL_EXT_tessellation_shader",
 	"GL_EXT_texture",
 	"GL_EXT_texture3D",
 	"GL_EXT_texture_array",
@@ -294,6 +302,7 @@ public:
 	"GL_EXT_texture_integer",
 	"GL_EXT_texture_lod_bias",
 	"GL_EXT_texture_mirror_clamp",
+	"GL_EXT_texture_mirror_clamp_to_edge",
 	"GL_EXT_texture_object",
 	"GL_EXT_texture_perturb_normal",
 	"GL_EXT_texture_shared_exponent",
@@ -328,6 +337,17 @@ public:
 	"GL_EXT_clip_control",
 	"GL_EXT_clip_cull_distance",
 	"GL_EXT_debug_label",
+	"GL_EXT_nonuniform_qualifier",
+	"GL_EXT_disjoint_timer_query",
+	"GL_EXT_window_rectangles",
+	"GL_EXT_blend_func_extended",
+	"GL_EXT_demote_to_helper_invocation",
+	"GL_EXT_shader_realtime_clock",
+	"GL_EXT_subgroupuniform_qualifier",
+	"GL_EXT_geometry_point_size",
+	"GL_EXT_tessellation_point_size",
+	"GL_EXT_gpu_shader5",
+	"GL_EXT_create_context_robustness",
 	"GL_FfdMaskSGIX",
 	"GL_GREMEDY_frame_terminator",
 	"GL_GREMEDY_string_marker",
@@ -349,6 +369,7 @@ public:
 	"GL_INTEL_texture_scissor",
 	"GL_INTEL_conservative_rasterization",
 	"GL_INTEL_blackhole_render",
+	"GL_INTEL_shader_atomic_float_minmax",
 	"GL_KHR_debug",
 	"GL_MESA_pack_invert",
 	"GL_MESA_resize_buffers",
@@ -387,6 +408,7 @@ public:
 	"GL_NV_parameter_buffer_object2",
 	"GL_NV_pixel_data_range",
 	"GL_NV_point_sprite",
+	"GL_NV_polygon_mode",
 	"GL_NV_present_video",
 	"GL_NV_primitive_restart",
 	"GL_NV_register_combiners",
@@ -421,6 +443,7 @@ public:
 	"GL_NV_vertex_program3",
 	"GL_NV_vertex_program4",
 	"GL_NV_video_capture",
+	"GL_NV_viewport_array",
 	"GL_NV_viewport_array2",
 	"GL_NV_stereo_view_rendering",
 	"GL_NV_sample_mask_override_coverage",
@@ -438,8 +461,14 @@ public:
 	"GL_NV_shader_atomic_fp16_vector",
 	"GL_NV_command_list",
 	"GL_NV_shader_atomic_float64",
+	"GL_NV_conservative_raster",
+	"GL_NV_conservative_raster_dilate",
 	"GL_NV_conservative_raster_pre_snap",
+	"GL_NV_conservative_raster_pre_snap_triangles",
+	"GL_NV_conservative_raster_underestimation",
 	"GL_NV_shader_texture_footprint",
+	"GL_NV_framebuffer_mixed_samples",
+	"GL_NV_representative_fragment_test",
 	"GL_OML_interlace",
 	"GL_OML_resample",
 	"GL_OML_subsample",
@@ -523,6 +552,7 @@ public:
 	"GL_KHR_blend_equation_advanced",
 	"GL_KHR_blend_equation_advanced_coherent",
 	"GL_KHR_shader_subgroup",
+	"GL_KHR_robustness",
 	//"GLX_EXT_swap_control_tear",
 	"GL_NVX_gpu_memory_info",
 	"GL_NVX_multiview_per_view_attributes",
@@ -534,7 +564,14 @@ public:
 	"GL_OES_sample_shading",
 	"GL_OES_copy_image",
 	"GL_OES_viewport_array",
-	"GL_OES_draw_elements_base_vertex"
+	"GL_OES_draw_buffers_indexed",
+	"GL_OES_draw_elements_base_vertex",
+	"GL_OES_geometry_shader",
+	"GL_OES_tessellation_shader",
+	"GL_OES_shader_multisample_interpolation",
+	"GL_OES_geometry_point_size",
+	"GL_OES_tessellation_point_size",
+	"GL_OES_gpu_shader5"
 };
 	enum EOpenGLFeatures {
 		NBL_3DFX_multisample = 0,
@@ -567,6 +604,8 @@ public:
 		NBL_AMD_shader_stencil_value_export,
 		NBL_AMD_gpu_shader_int64,
 		NBL_AMD_shader_ballot,
+		NBL_AMD_gpu_shader_int16,
+		NBL_AMD_gpu_shader_half_float,
 		NBL_APPLE_aux_depth_stencil,
 		NBL_APPLE_client_storage,
 		NBL_APPLE_element_array,
@@ -623,8 +662,8 @@ public:
 		NBL_ARB_half_float_pixel,
 		NBL_ARB_half_float_vertex,
 		NBL_ARB_imaging,
-		NBL_ARB_instanced_arrays,
 		NBL_ARB_indirect_parameters,
+		NBL_ARB_instanced_arrays,
 		NBL_ARB_internalformat_query,
 		NBL_ARB_internalformat_query2,
 		NBL_ARB_map_buffer_alignment,
@@ -723,6 +762,8 @@ public:
 		NBL_ARB_sparse_texture_clamp,
 		NBL_ARB_gl_spirv,
 		NBL_ARB_spirv_extensions,
+		NBL_ARB_sample_locations,
+		NBL_ARB_texture_filter_anisotropic,
 		NBL_ATI_draw_buffers,
 		NBL_ATI_element_array,
 		NBL_ATI_envmap_bumpmap,
@@ -760,6 +801,7 @@ public:
 		NBL_EXT_depth_bounds_test,
 		NBL_EXT_direct_state_access,
 		NBL_EXT_draw_buffers2,
+		NBL_EXT_draw_buffers_indexed,
 		NBL_EXT_draw_instanced,
 		NBL_EXT_draw_range_elements,
 		NBL_EXT_fog_coord,
@@ -768,6 +810,7 @@ public:
 		NBL_EXT_framebuffer_multisample_blit_scaled,
 		NBL_EXT_framebuffer_object,
 		NBL_EXT_framebuffer_sRGB,
+		NBL_EXT_geometry_shader,
 		NBL_EXT_geometry_shader4,
 		NBL_EXT_gpu_program_parameters,
 		NBL_EXT_gpu_shader4,
@@ -780,6 +823,7 @@ public:
 		NBL_EXT_misc_attribute,
 		NBL_EXT_multi_draw_arrays,
 		NBL_EXT_multisample,
+		NBL_EXT_multisample_compatibility,
 		NBL_EXT_packed_depth_stencil,
 		NBL_EXT_packed_float,
 		NBL_EXT_packed_pixels,
@@ -801,6 +845,7 @@ public:
 		NBL_EXT_stencil_two_side,
 		NBL_EXT_stencil_wrap,
 		NBL_EXT_subtexture,
+		NBL_EXT_tessellation_shader,
 		NBL_EXT_texture,
 		NBL_EXT_texture3D,
 		NBL_EXT_texture_array,
@@ -816,6 +861,7 @@ public:
 		NBL_EXT_texture_integer,
 		NBL_EXT_texture_lod_bias,
 		NBL_EXT_texture_mirror_clamp,
+		NBL_EXT_texture_mirror_clamp_to_edge,
 		NBL_EXT_texture_object,
 		NBL_EXT_texture_perturb_normal,
 		NBL_EXT_texture_shared_exponent,
@@ -850,6 +896,17 @@ public:
 		NBL_EXT_clip_control,
 		NBL_EXT_clip_cull_distance,
 		NBL_EXT_debug_label,
+		NBL_EXT_nonuniform_qualifier,
+		NBL_EXT_disjoint_timer_query,
+		NBL_EXT_window_rectangles,
+		NBL_EXT_blend_func_extended,
+		NBL_EXT_demote_to_helper_invocation,
+		NBL_EXT_shader_realtime_clock,
+		NBL_EXT_subgroupuniform_qualifier,
+		NBL_EXT_geometry_point_size,
+		NBL_EXT_tessellation_point_size,
+		NBL_EXT_gpu_shader5,
+		NBL_EXT_create_context_robustness,
 		NBL_FfdMaskSGIX,
 		NBL_GREMEDY_frame_terminator,
 		NBL_GREMEDY_string_marker,
@@ -871,6 +928,7 @@ public:
 		NBL_INTEL_texture_scissor,
 		NBL_INTEL_conservative_rasterization,
 		NBL_INTEL_blackhole_render,
+		NBL_INTEL_shader_atomic_float_minmax,
 		NBL_KHR_debug,
 		NBL_MESA_pack_invert,
 		NBL_MESA_resize_buffers,
@@ -909,6 +967,7 @@ public:
 		NBL_NV_parameter_buffer_object2,
 		NBL_NV_pixel_data_range,
 		NBL_NV_point_sprite,
+		NBL_NV_polygon_mode,
 		NBL_NV_present_video,
 		NBL_NV_primitive_restart,
 		NBL_NV_register_combiners,
@@ -943,6 +1002,7 @@ public:
 		NBL_NV_vertex_program3,
 		NBL_NV_vertex_program4,
 		NBL_NV_video_capture,
+		NBL_NV_viewport_array,
 		NBL_NV_viewport_array2,
 		NBL_NV_stereo_view_rendering,
 		NBL_NV_sample_mask_override_coverage,
@@ -960,8 +1020,14 @@ public:
 		NBL_NV_shader_atomic_fp16_vector,
 		NBL_NV_command_list,
 		NBL_NV_shader_atomic_float64,
+		NBL_NV_conservative_raster,
+		NBL_NV_conservative_raster_dilate,
 		NBL_NV_conservative_raster_pre_snap,
+		NBL_NV_conservative_raster_pre_snap_triangles,
+		NBL_NV_conservative_raster_underestimation,
 		NBL_NV_shader_texture_footprint,
+		NBL_NV_framebuffer_mixed_samples,
+		NBL_NV_representative_fragment_test,
 		NBL_OML_interlace,
 		NBL_OML_resample,
 		NBL_OML_subsample,
@@ -1045,6 +1111,7 @@ public:
 		NBL_KHR_blend_equation_advanced,
 		NBL_KHR_blend_equation_advanced_coherent,
 		NBL_KHR_shader_subgroup,
+		NBL_KHR_robustness,
 		NBL_NVX_gpu_memory_info,
 		NBL_NVX_multiview_per_view_attributes,
 		NBL_OES_read_format,
@@ -1055,7 +1122,14 @@ public:
 		NBL_OES_sample_shading,
 		NBL_OES_copy_image,
 		NBL_OES_viewport_array,
+		NBL_OES_draw_buffers_indexed,
 		NBL_OES_draw_elements_base_vertex,
+		NBL_OES_geometry_shader,
+		NBL_OES_tessellation_shader,
+		NBL_OES_shader_multisample_interpolation,
+		NBL_OES_geometry_point_size,
+		NBL_OES_tessellation_point_size,
+		NBL_OES_gpu_shader5,
 
 		NBL_OpenGL_Feature_Count
 	};
@@ -1140,20 +1214,6 @@ public:
 	uint16_t ShaderLanguageVersion = 0;
 
 	//!
-	int32_t reqUBOAlignment;
-	//!
-	int32_t reqSSBOAlignment;
-	//!
-	int32_t reqTBOAlignment;
-	//!
-	uint64_t maxUBOSize;
-	//!
-	uint64_t maxSSBOSize;
-	//!
-	uint64_t maxTBOSizeInTexels;
-	//!
-	uint64_t maxBufferSize;
-	//!
 	uint32_t maxUBOBindings;
 	//!
 	uint32_t maxSSBOBindings;
@@ -1164,38 +1224,6 @@ public:
 	uint32_t maxTextureBindingsCompute;
 	//!
 	uint32_t maxImageBindings;
-	//!
-	int32_t minMemoryMapAlignment;
-	//!
-	int32_t MaxComputeWGSize[3];
-	//!
-	uint32_t MaxArrayTextureLayers;
-	//! Maxmimum texture layers supported by the engine
-	uint8_t MaxTextureUnits;
-	//! Maximal Anisotropy
-	uint8_t MaxAnisotropy;
-	//! Number of user clipplanes
-	uint8_t MaxUserClipPlanes;
-	//! Number of rendertargets available as MRTs
-	uint8_t MaxMultipleRenderTargets;
-	//! Optimal number of indices per meshbuffer
-	uint32_t MaxIndices;
-	//! Optimal number of vertices per meshbuffer
-	uint32_t MaxVertices;
-	//! Maximal vertices handled by geometry shaders
-	uint32_t MaxGeometryVerticesOut;
-	//! Maximal LOD Bias
-	float MaxTextureLODBias;
-	//!
-	uint32_t MaxVertexStreams;
-	//!
-	uint32_t MaxXFormFeedbackComponents;
-	//!
-	uint32_t MaxGPUWaitTimeout;
-	//! Gives the upper and lower bound on warp/wavefront/SIMD-lane size
-	uint32_t InvocationSubGroupSize[2];
-	//!
-	uint32_t MaxColorAttachments;
 
 	bool isIntelGPU = false;
 	// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)

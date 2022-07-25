@@ -65,17 +65,7 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
         // 100% blocking version, guaranteed to **not** return TIMEOUT or NOT_READY
         virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
         {
-            E_ACQUIRE_IMAGE_RESULT result=EAIR_NOT_READY;
-            while (result==EAIR_NOT_READY||result==EAIR_TIMEOUT)
-            {
-                result = acquireNextImage(999999999ull,semaphore,fence,out_imgIx);
-                if (result==EAIR_ERROR)
-                {
-                    assert(false);
-                    break;
-                }
-            }
-            return result;
+            return acquireNextImage(std::numeric_limits<uint64_t>::max(),semaphore,fence,out_imgIx);
         }
 
         inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, images_array_t&& images)

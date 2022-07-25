@@ -68,7 +68,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			ScratchBufferRanges retval;
 			{
 				const auto& limits = logicalDevice->getPhysicalDevice()->getLimits();
-				const auto ssboAlignment = limits.SSBOAlignment;
+				const auto ssboAlignment = limits.minSSBOAlignment;
 
 				retval.pvsInstances.offset = 0u;
 				retval.lodDrawCallCounts.offset = retval.pvsInstances.size = core::alignUp(maxTotalInstances*2u*sizeof(uint32_t),ssboAlignment);
