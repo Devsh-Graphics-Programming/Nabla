@@ -26,13 +26,36 @@ class NBL_API IUtilities : public core::IReferenceCounted
         {
 
             /*
-            [TODO] staging buffer should be always bigger than the GeneralPurposeAddressAllocator's minBlockSize and optimalTransferAtom furthermore the staging buffer should be a multiple of the minBlockSize
+            [TODO] staging buffer should be always bigger than the 3xGeneralPurposeAddressAllocator's minBlockSize and optimalTransferAtom furthermore the staging buffer should be a multiple of the minBlockSize
             [BUFFER] optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
             [IMAGE] optimalTransferAtom = limits.maxResidentInvocations * FATTEST_BLOCK_BYTE_SIZE * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth);
             */
-
+            
             auto physicalDevice = m_device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();
+
+            
+            auto queueFamProps = physicalDevice->getQueueFamilyProperties();
+            uint32_t minImageTransferGranularityVolume = 1u; // minImageTransferGranularity.width * height * depth
+
+            for (uint32_t i = 0; i < queueFamProps.size(); i++)
+            {
+                uint32_t volume = queueFamProps[i].minImageTransferGranularity.width * queueFamProps[i].minImageTransferGranularity.height * queueFamProps[i].minImageTransferGranularity.depth;
+                if(minImageTransferGranularityVolume < volume)
+                    minImageTransferGranularityVolume = volume;
+            }
+
+            const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
+            const uint32_t imageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
+            const uint32_t optimalTransferAtom = core::max(bufferOptimalTransferAtom, imageOptimalTransferAtom);
+
+            // optimalTransferAtom < minBlockSize < stagingBufferSize/4
+            assert(limits.nonCoherentAtomSize < minStreamingBufferAllocationSize);
+            assert(minStreamingBufferAllocationSize < optimalTransferAtom);
+            assert(optimalTransferAtom * 4u < upstreamSize);
+            assert(optimalTransferAtom * 4u < downstreamSize);
+            assert(static_cast<uint64_t>(minStreamingBufferAllocationSize) % limits.nonCoherentAtomSize == 0u);
+
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
             bool shaderDeviceAddressSupport = false; //TODO(Erfan)
             auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
@@ -152,7 +175,11 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalBufferOnDedMem(IGPUQueue* queue, IGPUBuffer::SCreationParams&& params, const void* data)
         {
-            assert(params.usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT));
+            if(!params.usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
+            {
+                assert(false);
+                return nullptr;
+            }
             auto buffer = m_device->createBuffer(params);
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
@@ -175,7 +202,11 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
             const auto finalLayout = params.initialLayout;
         
-            assert(params.usage.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT));
+            if(!params.usage.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT))
+            {
+                assert(false);
+                return nullptr;
+            }
 
             auto retImg = m_device->createImage(std::move(params));
             auto retImgMemReqs = retImg->getMemoryReqs();
@@ -291,7 +322,11 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
             const auto finalLayout = params.initialLayout;
             
-            assert(params.usage.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT));
+            if(!params.usage.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT))
+            {
+                assert(false);
+                return nullptr;
+            }
 
             auto retImg = m_device->createImage(std::move(params));
             auto retImgMemReqs = retImg->getMemoryReqs();
