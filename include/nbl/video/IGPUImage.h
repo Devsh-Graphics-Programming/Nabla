@@ -78,6 +78,7 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 		}
 
 		//! foreign image constructor
+		//! TODO investigation into VK/CUDA interop to refine this
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			core::smart_refctd_ptr<ISwapchain> backingSwapchain = nullptr,
 			uint32_t backingSwapchainIx = 0)

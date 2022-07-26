@@ -12,7 +12,7 @@ CVulkanImage::~CVulkanImage()
     {
         // This is a swapchain image, we will drop the ref to the swapchain and set the corresponding imageExists to false
         auto vkswapchain = core::smart_refctd_ptr_static_cast<CVulkanSwapchain>(m_optionalBackingSwapchain);
-        vkswapchain->m_imageExists->begin()[m_optionalIndexWithinSwapchain].store(false, std::memory_order_release);
+        vkswapchain->freeImageExists(m_optionalIndexWithinSwapchain);
     }
     // Note: we don't destroy a swapchain image as that's invalid
     else

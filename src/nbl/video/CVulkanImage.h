@@ -25,6 +25,7 @@ class CVulkanImage : public IGPUImage
 		{}
 
 		// foreign image
+		// TODO investigation into VK/CUDA interop to refine this
 		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
 			VkImage _vkimg,
 			core::smart_refctd_ptr<ISwapchain> _backingSwapchain = nullptr,

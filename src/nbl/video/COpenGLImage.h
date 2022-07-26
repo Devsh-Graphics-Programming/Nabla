@@ -37,8 +37,7 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 			GLuint name
 		) : IGPUImage(std::move(dev), SDeviceMemoryRequirements{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
 			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
-		{
-		}
+		{}
 		
 	
 		bool initMemory(
