@@ -140,7 +140,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceRange
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u);
 			uint32_t		baseMipLevel = 0u;
 			uint32_t		levelCount = 0u;
 			uint32_t		baseArrayLayer = 0u;
@@ -148,7 +148,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceLayers
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u);
 			uint32_t		mipLevel = 0u;
 			uint32_t		baseArrayLayer = 0u;
 			uint32_t		layerCount = 0u;

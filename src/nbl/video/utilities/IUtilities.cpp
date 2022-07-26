@@ -1,4 +1,5 @@
 #include "nbl/video/utilities/IUtilities.h"
+#include "nbl/asset/filters/CConvertFormatImageFilter.h"
 #include <numeric>
 
 namespace nbl::video
@@ -21,6 +22,8 @@ public:
         , srcImageFormat(srcImageFormat)
     {
         dstImageFormat = dstImage->getCreationParameters().format;
+        if(srcImageFormat == asset::EF_UNKNOWN)
+            srcImageFormat = dstImageFormat;
         asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
 
         memcpy(&minImageTransferGranularity, &queueFamilyProps.minImageTransferGranularity, sizeof(VkExtent3D));
@@ -174,7 +177,10 @@ public:
 
         const asset::IImage::SBufferCopy & region = regions[currentRegion];
         
+        asset::TexelBlockInfo srcImageTexelBlockInfo(srcImageFormat);
         asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
+        
+        const auto srcBufferByteStrides = srcImageTexelBlockInfo.convert3DBlockStridesTo1DByteStrides(region.getBlockStrides(srcImageTexelBlockInfo));
 
         const auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
         const auto subresourceSizeInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(subresourceSize);
@@ -256,75 +262,142 @@ public:
         {
             uint32_t layersToUploadMemorySize = eachLayerNeededMemory * uploadableArrayLayers;
 
-            if(regionBlockStrides.x != imageExtentInBlocks.x)
-            {
-                // Can't copy all rows at once, there is more padding at the end of rows, copy row by row:
-                for(uint32_t layer = 0; layer < uploadableArrayLayers; ++layer)
-                {
-                    for(uint32_t z = 0; z < imageExtentInBlocks.z; ++z)
-                    {
-                        for(uint32_t y = 0; y < imageExtentInBlocks.y; ++y)
-                        {
-                            auto localImageOffset = core::vector3du32_SIMD(0u, 0u + y, 0u + z, currentLayerInRegion + layer);
-                            uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                            uint64_t offsetInUploadBuffer = stagingBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory + y * eachRowNeededMemory;
-                            memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                                    reinterpret_cast<uint8_t const*>(srcBufferData)+offsetInCPUBuffer,
-                                    eachRowNeededMemory);
-                        }
-                    }
-                }
-            }
-            else if (regionBlockStrides.y != imageExtentInBlocks.y)
-            {
-                assert(imageOffsetInBlocks.x == 0u);
-                // Can't copy all slices at once, there is more padding at the end of slices, copy slice by slice
-                                    
-                for(uint32_t layer = 0; layer < uploadableArrayLayers; ++layer)
-                {
-                    for(uint32_t z = 0; z < imageExtentInBlocks.z; ++z)
-                    {
-                        auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u + z, currentLayerInRegion + layer);
-                        uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                        uint64_t offsetInUploadBuffer = stagingBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory;
-                        memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                                reinterpret_cast<uint8_t const*>(srcBufferData)+offsetInCPUBuffer,
-                                eachSliceNeededMemory);
-                    }
-                }
-            }
-            else
-            {
-                // We can copy all arrays and slices at once, because imageExtent is fit to bufferRowLength and bufferImageHeight
-                assert(imageOffsetInBlocks.x == 0u);
-                assert(imageOffsetInBlocks.y == 0u);
-                auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u, currentLayerInRegion);
-                uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                uint64_t offsetInUploadBuffer = stagingBufferOffset;
-                memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                        reinterpret_cast<uint8_t const*>(srcBufferData)+offsetInCPUBuffer,
-                        layersToUploadMemorySize);
-            }
-                                
+            bool copySuccess = false;
+            
             regionToCopyNext.bufferOffset = stagingBufferOffset;
-            regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
-            regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
+            regionToCopyNext.bufferRowLength = imageExtent.x;
+            regionToCopyNext.bufferImageHeight = imageExtent.y;
             regionToCopyNext.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
             regionToCopyNext.imageSubresource.mipLevel = region.imageSubresource.mipLevel;
             regionToCopyNext.imageSubresource.baseArrayLayer = region.imageSubresource.baseArrayLayer + currentLayerInRegion;
-            regionToCopyNext.imageOffset.x = region.imageOffset.x + 0u; assert(currentBlockInRow == 0);
-            regionToCopyNext.imageOffset.y = region.imageOffset.y + 0u; assert(currentRowInSlice == 0);
-            regionToCopyNext.imageOffset.z = region.imageOffset.z + 0u; assert(currentSliceInLayer == 0);
+            regionToCopyNext.imageOffset.x = region.imageOffset.x + 0u;
+            regionToCopyNext.imageOffset.y = region.imageOffset.y + 0u;
+            regionToCopyNext.imageOffset.z = region.imageOffset.z + 0u;
             regionToCopyNext.imageExtent.width    = imageExtent.x;
             regionToCopyNext.imageExtent.height   = imageExtent.y;
             regionToCopyNext.imageExtent.depth    = imageExtent.z;
             regionToCopyNext.imageSubresource.layerCount = uploadableArrayLayers;
 
-            addToCurrentUploadBufferOffset(layersToUploadMemorySize);
+            auto dstImageParams = dstImage->getCreationParameters();
+            
+            auto cpuImageRegionsDynArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1);
+            auto& cpuImageRegion = cpuImageRegionsDynArray->front();
+            cpuImageRegion = {};
+            cpuImageRegion.bufferOffset = 0u;
+            cpuImageRegion.bufferRowLength = imageExtent.x;
+            cpuImageRegion.bufferImageHeight = imageExtent.y;
+            cpuImageRegion.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
+            cpuImageRegion.imageSubresource.mipLevel = 0u;
+            cpuImageRegion.imageSubresource.baseArrayLayer = 0u;
+            cpuImageRegion.imageOffset.x = 0u;
+            cpuImageRegion.imageOffset.y = 0u;
+            cpuImageRegion.imageOffset.z = 0u;
+            cpuImageRegion.imageExtent.width    = imageExtent.x;
+            cpuImageRegion.imageExtent.height   = imageExtent.y;
+            cpuImageRegion.imageExtent.depth    = imageExtent.z;
+            cpuImageRegion.imageSubresource.layerCount = uploadableArrayLayers;
 
-            currentLayerInRegion += uploadableArrayLayers;
-            updateCurrentOffsets();
-            return true;
+            auto imageOffset = core::vector3du32_SIMD(regionToCopyNext.imageOffset.x, regionToCopyNext.imageOffset.y, regionToCopyNext.imageOffset.z);
+
+
+            /*
+                We have to first construct two `ICPUImage`s from each of those buffers let's call them `inCPUImage` and `outCPUImage`
+                Then we will create fake ICPUBuffers that point to srcBufferData and stagingBufferPointer with correct offsets
+                Then we have to set the buffer and regions for each one of those ICPUImages using setBufferAndRegions
+                Finally we fill the filter state and `execute` which require in/out CPUImages
+            */
+
+            // inCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u and the format being srcImageFormat
+            // the buffer of this image is set to (srcBufferData+Offset) and the related region is set to cover the whole copy region (offset from 0)
+            uint64_t offsetInCPUBuffer = region.bufferOffset + core::dot(imageOffset, srcBufferByteStrides)[0];
+            uint8_t* inCpuBufferPointer = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(srcBufferData) + offsetInCPUBuffer);
+            asset::ICPUImage::SCreationParams inCPUImageParams = dstImageParams;
+            inCPUImageParams.format = srcImageFormat;
+            inCPUImageParams.extent = regionToCopyNext.imageExtent;
+            inCPUImageParams.arrayLayers = regionToCopyNext.imageSubresource.layerCount;
+            inCPUImageParams.mipLevels = 1u;
+            core::smart_refctd_ptr<asset::ICPUImage> inCPUImage = asset::ICPUImage::create(std::move(inCPUImageParams));
+            core::smart_refctd_ptr<asset::ICPUBuffer> inCPUBuffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(layersToUploadMemorySize/*TODO*/, inCpuBufferPointer, core::adopt_memory);
+            inCPUImage->setBufferAndRegions(std::move(inCPUBuffer), cpuImageRegionsDynArray);
+
+            // outCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u
+            // the buffer of this image is set to (stagingBufferPointer + stagingBufferOffset) and the rwlated region is set to cover the whole copy region (offset from 0)
+            asset::ICPUImage::SCreationParams outCPUImageParams = dstImageParams;
+            uint8_t* outCpuBufferPointer = reinterpret_cast<uint8_t*>(stagingBufferPointer) + stagingBufferOffset;
+            outCPUImageParams.extent = regionToCopyNext.imageExtent;
+            outCPUImageParams.arrayLayers = regionToCopyNext.imageSubresource.layerCount;
+            outCPUImageParams.mipLevels = 1u;
+            core::smart_refctd_ptr<asset::ICPUImage> outCPUImage = asset::ICPUImage::create(std::move(outCPUImageParams));
+            core::smart_refctd_ptr<asset::ICPUBuffer> outCPUBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(layersToUploadMemorySize, outCpuBufferPointer, core::adopt_memory);
+            outCPUImage->setBufferAndRegions(std::move(outCPUBuffer), cpuImageRegionsDynArray);
+
+            // In = srcBuffer, Out = stagingBuffer
+            if (srcImageFormat == dstImageFormat)
+            {
+                using CopyFilter = asset::CCopyImageFilter;
+                CopyFilter copyFilter;
+                CopyFilter::state_type state = {};
+
+                state.extent = regionToCopyNext.imageExtent;
+                state.layerCount = regionToCopyNext.imageSubresource.layerCount;
+
+                state.inOffset.x = 0;
+                state.inOffset.y = 0;
+                state.inOffset.z = 0;
+                state.inBaseLayer = 0u;
+                state.inMipLevel = 0u;
+                state.inImage = inCPUImage.get();
+
+                state.outOffset.x = 0;
+                state.outOffset.y = 0;
+                state.outOffset.z = 0;
+                state.outBaseLayer = 0u;
+                state.outMipLevel = 0u;
+                state.outImage = outCPUImage.get();
+
+                if (copyFilter.execute(core::execution::par_unseq,&state))
+                    copySuccess = true;
+            }
+            else
+            {
+                using ConverFilter = asset::CConvertFormatImageFilter<>;
+                ConverFilter convertFilter;
+                ConverFilter::state_type state = {};
+                
+                state.extent = regionToCopyNext.imageExtent;
+                state.layerCount = regionToCopyNext.imageSubresource.layerCount;
+                
+                state.inOffset.x = 0;
+                state.inOffset.y = 0;
+                state.inOffset.z = 0;
+                state.inBaseLayer = 0u;
+                state.inMipLevel = 0u;
+                state.inImage = inCPUImage.get();
+
+                state.outOffset.x = 0;
+                state.outOffset.y = 0;
+                state.outOffset.z = 0;
+                state.outBaseLayer = 0u;
+                state.outMipLevel = 0u;
+                state.outImage = outCPUImage.get();
+            
+                if (convertFilter.execute(core::execution::par_unseq,&state))
+                    copySuccess = true;
+            }
+
+            if(copySuccess)
+            {
+                addToCurrentUploadBufferOffset(layersToUploadMemorySize);
+
+                currentLayerInRegion += uploadableArrayLayers;
+                updateCurrentOffsets();
+                return true;
+            }
+            else
+            {
+                assert(false);
+                return false;
+            }
         }
         else if (currentBlockInRow == 0 && currentRowInSlice == 0 && canTransferMipLevelsPartially && uploadableSlices > 0)
         {
@@ -535,6 +608,10 @@ void IUtilities::updateImageViaStagingBuffer(
     assert(cmdbuf->isResettable());
     assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
     assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+    if(dstImage->getCreationParameters().samples != asset::IImage::ESCF_1_BIT)
+    {
+        _NBL_TODO("Erfan hasn't figured out yet how to copy to multisampled images");
+    }
 
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
     auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[queue->getFamilyIndex()];
