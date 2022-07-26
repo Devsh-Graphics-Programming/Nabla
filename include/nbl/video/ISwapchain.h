@@ -86,6 +86,8 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 
         virtual E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info) = 0;
 
+        virtual core::smart_refctd_ptr<IGPUImage> createImage(uint32_t imageIndex) = 0;
+
         inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, images_array_t&& images)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))
         {

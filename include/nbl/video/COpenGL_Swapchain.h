@@ -29,6 +29,8 @@ public:
 
     E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info);
 
+    core::smart_refctd_ptr<IGPUImage> createImage(uint32_t imageIndex) override;
+
     const void* getNativeHandle() const;
 
 protected:

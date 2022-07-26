@@ -394,4 +394,13 @@ nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_>::
     return ISwapchain::EPR_SUCCESS;
 }
 
+template <typename FunctionTableType_>
+core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType_>::createImage(uint32_t imageIndex)
+{
+    if (!setImageExists(imageIndex))
+        return nullptr;
+    // TODO create/get the image here
+    return m_images->begin()[imageIndex];
+}
+
 }

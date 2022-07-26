@@ -227,4 +227,12 @@ ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(CThreadSafeGPUQueueAdapte
     return present(queue->getUnderlyingQueue(), info);
 }
 
+core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(uint32_t imageIndex)
+{
+    if (!setImageExists(imageIndex))
+        return nullptr;
+    // TODO create/get the image here
+    return m_images->begin()[imageIndex];
+}
+
 }

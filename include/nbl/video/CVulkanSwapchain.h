@@ -34,6 +34,8 @@ public:
 
     E_PRESENT_RESULT present(CThreadSafeGPUQueueAdapter* queue, const SPresentInfo& info);
 
+    core::smart_refctd_ptr<IGPUImage> createImage(uint32_t imageIndex) override;
+
     void setObjectDebugName(const char* label) const override;
 
 private:
