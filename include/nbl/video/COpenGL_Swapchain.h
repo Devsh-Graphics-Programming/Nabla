@@ -16,7 +16,7 @@ class COpenGLESFunctionTable;
 class COpenGL_SwapchainThreadHandler;
 
 template <typename FunctionTableType_>
-class NBL_API2 COpenGL_Swapchain final : public ISwapchain
+class COpenGL_Swapchain final : public ISwapchain
 {
     static inline constexpr uint32_t MaxImages = 4;
 public:
@@ -25,11 +25,16 @@ public:
 
     static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
 
+    inline core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
+    {
+        return { m_images->begin(), m_images->end() };
+    }
+
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
 
     E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info);
 
-    core::smart_refctd_ptr<IGPUImage> createImage(uint32_t imageIndex) override;
+    core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) override;
 
     const void* getNativeHandle() const;
 
@@ -49,6 +54,7 @@ protected:
 private:
     std::unique_ptr<COpenGL_SwapchainThreadHandler> m_threadHandler;
     uint32_t m_imgIx = 0u;
+    ImagesArrayType m_images;
 };
 
 using COpenGLSwapchain = COpenGL_Swapchain<COpenGLFunctionTable>;

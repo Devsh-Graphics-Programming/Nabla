@@ -246,11 +246,13 @@ COpenGL_Swapchain<FunctionTableType_>::COpenGL_Swapchain<FunctionTableType_>(
     EGLContext _ctx,
     EGLConfig _config,
     COpenGLDebugCallback* _dbgCb
-) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev), std::move(params), std::move(images)),
-    m_threadHandler(new COpenGL_SwapchainThreadHandler(
+) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev), std::move(params), images->size())
+{
+    m_images = std::move(images);
+    m_threadHandler = std::unique_ptr<COpenGL_SwapchainThreadHandler>(new COpenGL_SwapchainThreadHandler(
         _egl, dev, m_params.surface->getNativeWindowHandle(), m_params.presentMode, { m_images->begin(),m_images->end() }, _features, _ctx, _config, _dbgCb
-    ))
-{}
+    ));
+}
 
 template <typename FunctionTableType_>
 const void* COpenGL_Swapchain<FunctionTableType_>::getNativeHandle() const { return &m_threadHandler->glctx; }
@@ -395,7 +397,7 @@ nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_>::
 }
 
 template <typename FunctionTableType_>
-core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType_>::createImage(uint32_t imageIndex)
+core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType_>::createImage(const uint32_t imageIndex)
 {
     if (!setImageExists(imageIndex))
         return nullptr;

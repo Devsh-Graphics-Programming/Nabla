@@ -15,10 +15,11 @@ class CThreadSafeGPUQueueAdapter;
 class CVulkanSwapchain final : public ISwapchain
 {
 public:
-    CVulkanSwapchain(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, SCreationParams&& params,
-        images_array_t&& images, VkSwapchainKHR swapchain)
-        : ISwapchain(std::move(logicalDevice), std::move(params), std::move(images)),
-        m_vkSwapchainKHR(swapchain)
+    CVulkanSwapchain(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, SCreationParams&& params, 
+        IGPUImage::SCreationParams&& imgCreationParams, uint32_t imageCount, 
+        VkSwapchainKHR swapchain)
+        : ISwapchain(std::move(logicalDevice), std::move(params), imageCount),
+        m_vkSwapchainKHR(swapchain), m_imgCreationParams(std::move(imgCreationParams))
     {}
 
     static core::smart_refctd_ptr<CVulkanSwapchain> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
@@ -34,12 +35,13 @@ public:
 
     E_PRESENT_RESULT present(CThreadSafeGPUQueueAdapter* queue, const SPresentInfo& info);
 
-    core::smart_refctd_ptr<IGPUImage> createImage(uint32_t imageIndex) override;
+    core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) override;
 
     void setObjectDebugName(const char* label) const override;
 
 private:
     VkSwapchainKHR m_vkSwapchainKHR;
+    IGPUImage::SCreationParams m_imgCreationParams;
 };
 
 }

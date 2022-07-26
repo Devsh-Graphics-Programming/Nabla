@@ -57,11 +57,7 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
             EPR_ERROR // There are other types of errors as well for if they are ever required in the future
         };
 
-        inline uint32_t getImageCount() const { return m_images->size(); }
-        inline core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
-        {
-            return { m_images->begin(), m_images->end() };
-        }
+        inline uint32_t getImageCount() const { return m_imageCount; }
 
         // The value passed to `preTransform` when creating the swapchain. "pre" refers to the transform happening
         // as an operation before the presentation engine presents the image.
@@ -86,12 +82,12 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 
         virtual E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUImage> createImage(uint32_t imageIndex) = 0;
+        virtual core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) = 0;
 
-        inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, images_array_t&& images)
-            : IBackendObject(std::move(dev)), m_params(std::move(params)), m_images(std::move(images))
+        inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, uint32_t imageCount)
+            : IBackendObject(std::move(dev)), m_params(std::move(params)), m_imageCount(imageCount)
         {
-            m_imageExists = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::atomic<bool>>>(m_images->size());
+            m_imageExists = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::atomic<bool>>>(imageCount);
         }
         
         inline const auto& getCreationParameters() const
@@ -109,7 +105,7 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
         virtual ~ISwapchain() = default;
 
         SCreationParams m_params;
-        images_array_t m_images;
+        uint32_t m_imageCount;
         core::smart_refctd_dynamic_array<std::atomic<bool>> m_imageExists;
         
         // Returns false if the image already existed
