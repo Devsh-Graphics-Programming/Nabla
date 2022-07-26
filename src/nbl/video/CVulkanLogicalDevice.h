@@ -26,7 +26,7 @@
 #include "nbl/video/CVulkanMemoryAllocation.h"
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanBufferView.h"
-#include "nbl/video/CVulkanForeignImage.h"
+#include "nbl/video/CVulkanImage.h"
 #include "nbl/video/CVulkanDeferredOperation.h"
 #include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"

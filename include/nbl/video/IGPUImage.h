@@ -64,7 +64,7 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 	protected:
 		// nullptr if this is not a swapchain image
 		core::smart_refctd_ptr<ISwapchain> m_optionalBackingSwapchain = nullptr;
-		uint32_t m_optionalIndexWithinSwapchain;
+		uint32_t m_optionalIndexWithinSwapchain = 0;
 
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
@@ -80,12 +80,15 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 		//! foreign image constructor
 		//! TODO investigation into VK/CUDA interop to refine this
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			SCreationParams&& _params,
 			core::smart_refctd_ptr<ISwapchain> backingSwapchain = nullptr,
 			uint32_t backingSwapchainIx = 0)
 			: base_t(SDeviceMemoryRequirements{}), IBackendObject(std::move(dev)),
 			m_optionalBackingSwapchain(backingSwapchain),
 			m_optionalIndexWithinSwapchain(backingSwapchainIx)
-		{}
+		{
+			params = std::move(_params);
+		}
 };
 
 

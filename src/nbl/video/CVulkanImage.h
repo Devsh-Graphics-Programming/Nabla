@@ -27,10 +27,10 @@ class CVulkanImage : public IGPUImage
 		// foreign image
 		// TODO investigation into VK/CUDA interop to refine this
 		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
-			VkImage _vkimg,
+			IGPUImage::SCreationParams&& _params, VkImage _vkimg,
 			core::smart_refctd_ptr<ISwapchain> _backingSwapchain = nullptr,
 			uint32_t _backingSwapchainIx = 0)
-			: IGPUImage(std::move(_vkdev), _backingSwapchain, _backingSwapchainIx), m_vkImage(_vkimg)
+			: IGPUImage(std::move(_vkdev), std::move(_params), _backingSwapchain, _backingSwapchainIx), m_vkImage(_vkimg)
 		{}
 
 		inline const void* getNativeHandle() const override {return &m_vkImage;}
