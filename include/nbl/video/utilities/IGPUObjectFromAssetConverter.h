@@ -469,8 +469,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 
     const uint64_t alignment =
     std::max<uint64_t>(
-        std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.SSBOAlignment),
-        std::max<uint64_t>(_params.limits.UBOAlignment, _NBL_SIMD_ALIGNMENT)
+        std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.minSSBOAlignment),
+        std::max<uint64_t>(_params.limits.minUBOAlignment, _NBL_SIMD_ALIGNMENT)
     );
 
     const uint64_t maxBufferSize = _params.limits.maxBufferSize;

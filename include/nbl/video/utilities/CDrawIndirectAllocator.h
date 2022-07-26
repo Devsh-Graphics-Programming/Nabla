@@ -38,7 +38,7 @@ class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
             // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
-            explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.SSBOAlignment);
+            explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.minSSBOAlignment);
 
             creationParams.size = explicit_params.drawCommandBuffer.size;
             explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(creationParams);
@@ -47,7 +47,7 @@ class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
             auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, explicit_params.drawCommandBuffer.buffer.get());
 
             explicit_params.drawCountBuffer.offset = 0ull;
-            explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
+            explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.minSSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
             {
                 creationParams.size = explicit_params.drawCountBuffer.size;

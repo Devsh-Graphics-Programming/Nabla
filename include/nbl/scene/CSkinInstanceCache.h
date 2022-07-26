@@ -40,16 +40,16 @@ class NBL_API CSkinInstanceCache final : public ISkinInstanceCache
                 };
 
                 explicit_params.jointNodeBuffer.offset = 0ull;
-                explicit_params.jointNodeBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(joint_t),limits.SSBOAlignment);
+                explicit_params.jointNodeBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(joint_t),limits.minSSBOAlignment);
                 explicit_params.jointNodeBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.jointNodeBuffer.size);
                 explicit_params.skinningMatrixBuffer.offset = 0ull;
-                explicit_params.skinningMatrixBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(skinning_matrix_t),limits.SSBOAlignment);
+                explicit_params.skinningMatrixBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(skinning_matrix_t),limits.minSSBOAlignment);
                 explicit_params.skinningMatrixBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.skinningMatrixBuffer.size);
                 explicit_params.recomputedTimestampBuffer.offset = 0ull;
-                explicit_params.recomputedTimestampBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(recomputed_stamp_t),limits.SSBOAlignment);
+                explicit_params.recomputedTimestampBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(recomputed_stamp_t),limits.minSSBOAlignment);
                 explicit_params.recomputedTimestampBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.recomputedTimestampBuffer.size);
                 explicit_params.inverseBindPoseOffsetBuffer.offset = 0ull;
-                explicit_params.inverseBindPoseOffsetBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(inverse_bind_pose_offset_t),limits.SSBOAlignment);
+                explicit_params.inverseBindPoseOffsetBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(inverse_bind_pose_offset_t),limits.minSSBOAlignment);
                 explicit_params.inverseBindPoseOffsetBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.inverseBindPoseOffsetBuffer.size);
             }
             explicit_params.inverseBindPosePool = video::CPropertyPool<core::allocator,inverse_bind_pose_t>::create(params.device,params.inverseBindPoseCapacity);

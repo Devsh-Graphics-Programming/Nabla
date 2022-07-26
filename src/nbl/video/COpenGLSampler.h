@@ -75,7 +75,10 @@ class COpenGLSampler : public IGPUSampler
 			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_MAG_FILTER, m_params.MaxFilter==ETF_NEAREST ? GL_NEAREST : GL_LINEAR);
 
 			if (m_params.AnisotropicFilter && gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_filter_anisotropic))
-				gl->glTexture.pglSamplerParameteri(m_GLname, gl->TEXTURE_MAX_ANISOTROPY, std::min(1u<<m_params.AnisotropicFilter, uint32_t(gl->getFeatures()->MaxAnisotropy)));
+			{
+				uint32_t maxSamplerAnisotropy = 1u<<uint32_t(dev->getPhysicalDevice()->getLimits().maxSamplerAnisotropyLog2);
+				gl->glTexture.pglSamplerParameteri(m_GLname, gl->TEXTURE_MAX_ANISOTROPY, std::min(1u<<m_params.AnisotropicFilter, maxSamplerAnisotropy));
+			}
 
 			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_S, getTextureWrapMode(m_params.TextureWrapU, gl));
 			gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_T, getTextureWrapMode(m_params.TextureWrapV, gl));
@@ -86,22 +89,22 @@ class COpenGLSampler : public IGPUSampler
 			gl->glTexture.pglSamplerParameterf(m_GLname, GL_TEXTURE_MIN_LOD, m_params.MinLod);
 			gl->glTexture.pglSamplerParameterf(m_GLname, GL_TEXTURE_MAX_LOD, m_params.MaxLod);
 
-            if (m_params.CompareEnable)
-            {
-                gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+			if (m_params.CompareEnable)
+			{
+				gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
-                constexpr GLenum compareFuncMap[8]{
-                    GL_NEVER,
-                    GL_LESS,
-                    GL_EQUAL,
-                    GL_LEQUAL,
-                    GL_GREATER,
-                    GL_NOTEQUAL,
-                    GL_GEQUAL,
-                    GL_ALWAYS
-                };
-                gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_FUNC, compareFuncMap[m_params.CompareFunc]);
-            }
+				constexpr GLenum compareFuncMap[8]{
+					GL_NEVER,
+					GL_LESS,
+					GL_EQUAL,
+					GL_LEQUAL,
+					GL_GREATER,
+					GL_NOTEQUAL,
+					GL_GEQUAL,
+					GL_ALWAYS
+				};
+				gl->glTexture.pglSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_FUNC, compareFuncMap[m_params.CompareFunc]);
+			}
 
 			if (!gl->isGLES() || gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_OES_texture_border_clamp))
 			{

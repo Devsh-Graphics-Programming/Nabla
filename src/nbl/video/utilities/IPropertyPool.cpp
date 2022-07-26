@@ -35,7 +35,7 @@ bool IPropertyPool::validateBlocks(const ILogicalDevice* device, const uint32_t 
         const auto& memBlk = _memoryBlocks[i];
         if (!memBlk.isValid())
             return false;
-        if (memBlk.offset%device->getPhysicalDevice()->getLimits().SSBOAlignment)
+        if (memBlk.offset%device->getPhysicalDevice()->getLimits().minSSBOAlignment)
             return false;
         if (memBlk.size<propertySizes[i]*capacity)
             return false;
