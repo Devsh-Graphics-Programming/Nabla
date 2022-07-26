@@ -23,7 +23,15 @@ class CVulkanImage : public IGPUImage
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
 			: IGPUImage(std::move(_vkdev), reqs, std::move(_params)), m_vkImage(_vkimg)
 		{}
-		
+
+		// foreign image
+		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
+			VkImage _vkimg,
+			core::smart_refctd_ptr<ISwapchain> _backingSwapchain = nullptr,
+			uint32_t _backingSwapchainIx = 0)
+			: IGPUImage(std::move(_vkdev), _backingSwapchain, _backingSwapchainIx), m_vkImage(_vkimg)
+		{}
+
 		inline const void* getNativeHandle() const override {return &m_vkImage;}
 		inline VkImage getInternalObject() const { return m_vkImage; }
 

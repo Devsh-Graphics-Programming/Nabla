@@ -18,6 +18,8 @@
 namespace nbl::video
 {
 
+class ISwapchain;
+
 class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacked,asset::IImage>, public IBackendObject
 {
 	private:
@@ -60,6 +62,10 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
+		// nullptr if this is not a swapchain image
+		core::smart_refctd_ptr<ISwapchain> m_optionalBackingSwapchain = nullptr;
+		uint32_t m_optionalIndexWithinSwapchain;
+
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
 		//! constructor
@@ -70,6 +76,15 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 		{
 			params = std::move(_params);
 		}
+
+		//! foreign image constructor
+		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			core::smart_refctd_ptr<ISwapchain> backingSwapchain = nullptr,
+			uint32_t backingSwapchainIx = 0)
+			: base_t(SDeviceMemoryRequirements{}), IBackendObject(std::move(dev)),
+			m_optionalBackingSwapchain(backingSwapchain),
+			m_optionalIndexWithinSwapchain(backingSwapchainIx)
+		{}
 };
 
 
