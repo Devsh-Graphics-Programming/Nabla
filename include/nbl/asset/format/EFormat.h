@@ -589,10 +589,10 @@ struct NBL_API TexelBlockInfo
         }
 
 
-        inline auto	convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
+        inline core::vector4du32_SIMD convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
         {
             // shuffle and put a 1 in the first element
-            auto& retval = blockStrides;
+            core::vector4du32_SIMD retval = blockStrides;
             retval = retval.wxyz();
             // byte stride for x+ step
             retval[0] = blockByteSize;
@@ -605,7 +605,7 @@ struct NBL_API TexelBlockInfo
             return retval;
         }
 
-        inline auto	convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
+        inline core::vector4du32_SIMD convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
         {
             return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
         }
