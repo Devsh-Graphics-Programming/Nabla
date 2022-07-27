@@ -13,6 +13,7 @@ namespace nbl::video
 
 class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
+    friend class IGPUImage;
     public:
         using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;
 
@@ -87,15 +88,15 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
         // Vulkan: const VkSwapchainKHR*
         virtual const void* getNativeHandle() const = 0;
 
-        void freeImageExists(uint32_t ix) { m_imageExists.fetch_and(~(1U << ix)); }
-
     protected:
         virtual ~ISwapchain() = default;
 
         SCreationParams m_params;
         uint32_t m_imageCount;
         std::atomic_uint32_t m_imageExists = 0;
-        
+
+        void freeImageExists(uint32_t ix) { m_imageExists.fetch_and(~(1U << ix)); }
+
         // Returns false if the image already existed
         bool setImageExists(uint32_t ix) { return (m_imageExists.fetch_or(1U << ix) & (1U << ix)) == 0; }
 

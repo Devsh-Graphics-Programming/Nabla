@@ -89,6 +89,8 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 		{
 			params = std::move(_params);
 		}
+
+		void freeSwapchainImageExists() { m_optionalBackingSwapchain->freeImageExists(m_optionalIndexWithinSwapchain); }
 };
 
 
