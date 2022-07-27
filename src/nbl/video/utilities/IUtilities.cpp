@@ -247,7 +247,7 @@ public:
         if(uploadableSlices > 0 && minImageTransferGranularity.depth > 1u && (imageOffsetInBlocks.z + currentSliceInLayer + uploadableSlices) < subresourceSizeInBlocks.z)
             uploadableSlices = core::alignDown(uploadableSlices, minImageTransferGranularity.depth);
         // B: There is remaining slices left in layer -> Copy Rows
-        uint32_t uploadableRows = 2u;
+        uint32_t uploadableRows = availableMemory / eachRowNeededMemory;
         uint32_t remainingRows = imageExtentInBlocks.y - currentRowInSlice;
         uploadableRows = core::min(uploadableRows, remainingRows);
         if(uploadableRows > 0 && minImageTransferGranularity.height > 1u && (imageOffsetInBlocks.y + currentRowInSlice + uploadableRows) < subresourceSizeInBlocks.y)
