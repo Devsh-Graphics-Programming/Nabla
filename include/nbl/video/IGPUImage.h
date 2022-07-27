@@ -12,13 +12,12 @@
 #include "nbl/asset/IImage.h"
 
 #include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/ISwapchain.h"
 #include "nbl/video/decl/IBackendObject.h"
 
 
 namespace nbl::video
 {
-
-class ISwapchain;
 
 class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacked,asset::IImage>, public IBackendObject
 {

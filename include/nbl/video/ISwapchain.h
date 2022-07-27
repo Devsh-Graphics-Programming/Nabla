@@ -3,13 +3,14 @@
 
 
 #include "nbl/video/surface/ISurface.h"
-#include "nbl/video/IGPUImage.h"
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IGPUFence.h"
 #include "nbl/core/util/bitflag.h"
 
 namespace nbl::video
 {
+class IGPUImage;
+class IGPUQueue;
 
 class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
