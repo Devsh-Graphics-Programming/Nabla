@@ -515,11 +515,11 @@ public:
 			}
 			
 			infos[0].desc = inImageView;
-			infos[0].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+			infos[0].image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 			infos[0].image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 			infos[1].desc = outImageView;
-			infos[1].image.imageLayout = asset::EIL_GENERAL;
+			infos[1].image.imageLayout = asset::IImage::EL_GENERAL;
 			infos[1].image.sampler = nullptr;
 
 			if (coverageAdjustmentScratchBuffer)
@@ -621,8 +621,8 @@ public:
 			video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
 			readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
 			readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
-			readyForNorm.oldLayout = asset::EIL_GENERAL;
-			readyForNorm.newLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+			readyForNorm.oldLayout = asset::IImage::EL_GENERAL;
+			readyForNorm.newLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 			readyForNorm.srcQueueFamilyIndex = ~0u;
 			readyForNorm.dstQueueFamilyIndex = ~0u;
 			readyForNorm.image = normalizationInImage;
