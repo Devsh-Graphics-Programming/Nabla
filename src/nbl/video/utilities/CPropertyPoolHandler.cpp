@@ -56,7 +56,7 @@ bool CPropertyPoolHandler::transferProperties(
 {
 	if (requestsBegin==requestsEnd)
 		return true;
-	if (!scratch.buffer || !scratch.buffer->getCachedCreationParams().canUpdateSubRange)
+	if (!scratch.buffer || !scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
 	{
 		logger.log("CPropertyPoolHandler: Need a valid scratch buffer which can have updates staged from the commandbuffer!",system::ILogger::ELL_ERROR);
 		return false;

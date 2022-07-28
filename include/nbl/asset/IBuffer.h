@@ -1,7 +1,6 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_BUFFER_H_INCLUDED_
 #define _NBL_ASSET_I_BUFFER_H_INCLUDED_
 
@@ -16,8 +15,9 @@ namespace nbl::asset
 class NBL_API IBuffer : public core::IBuffer, public IDescriptor
 {
 	public:
-		E_CATEGORY getTypeCategory() const override { return EC_BUFFER; }
+		E_CATEGORY getTypeCategory() const override {return EC_BUFFER;}
 
+		//!
         enum E_USAGE_FLAGS : uint32_t
         {
             EUF_NONE = 0x00000000,
@@ -37,11 +37,29 @@ class NBL_API IBuffer : public core::IBuffer, public IDescriptor
             EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT = 0x00080000,
             EUF_ACCELERATION_STRUCTURE_STORAGE_BIT = 0x00100000,
             EUF_SHADER_BINDING_TABLE_BIT = 0x00000400,
+			//! synthetic Nabla inventions
+			// whether `IGPUCommandBuffer::updateBuffer` can be used on this buffer
+			EUF_INLINE_UPDATE_VIA_CMDBUF = 0x80000000u,
         };
 
+		//!
+		struct SCreationParams
+		{
+			size_t size = 0ull;
+			core::bitflag<E_USAGE_FLAGS> usage = EUF_NONE;
+		};
+
+		//!
+		inline const SCreationParams& getCreationParams() const {return m_creationParams;}
+
+		//! Returns size in bytes.
+		uint64_t getSize() const override { return m_creationParams.size; }
+
 	protected:
-		IBuffer() = default;
+		IBuffer(const SCreationParams& _creationParams) : m_creationParams(_creationParams) {}
 		virtual ~IBuffer() = default;
+
+		SCreationParams m_creationParams;
 };
 
 template<class BufferType>
