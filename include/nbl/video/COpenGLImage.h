@@ -19,6 +19,8 @@ class IOpenGL_FunctionTable;
 
 class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 {
+	friend COpenGLSwapchain;
+	friend COpenGLESSwapchain;
 	protected:
 		virtual ~COpenGLImage();
 

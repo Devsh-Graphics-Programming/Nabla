@@ -25,11 +25,6 @@ public:
 
     static core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
 
-    inline core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
-    {
-        return { m_images->begin(), m_images->end() };
-    }
-
     E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
 
     E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info);
@@ -44,7 +39,7 @@ protected:
         SCreationParams&& params,
         core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
         const egl::CEGL* _egl,
-        ImagesArrayType&& images,
+        uint32_t imgCount, IGPUImage::SCreationParams imgCreationParams,
         const COpenGLFeatureMap* _features,
         EGLContext _ctx,
         EGLConfig _config,
@@ -54,7 +49,7 @@ protected:
 private:
     std::unique_ptr<COpenGL_SwapchainThreadHandler> m_threadHandler;
     uint32_t m_imgIx = 0u;
-    ImagesArrayType m_images;
+    IGPUImage::SCreationParams m_imgCreationParams;
 };
 
 using COpenGLSwapchain = COpenGL_Swapchain<COpenGLFunctionTable>;

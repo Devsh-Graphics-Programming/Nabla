@@ -39,6 +39,13 @@ bool COpenGLImage::initMemory(
 
 COpenGLImage::~COpenGLImage()
 {
+	if (m_optionalBackingSwapchain)
+	{
+		freeSwapchainImageExists();
+	}
+
+	// TODO Deletion behaviour here for swapchain images is the same as would've happened inside the 
+	// COpenGL_SwapchainThreadHandler quit, but won't happen in the same thread
     auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
     device->destroyTexture(name);
     // temporary fbos are created in the background to perform blits and color clears
