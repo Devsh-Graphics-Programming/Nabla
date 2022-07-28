@@ -18,14 +18,23 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacked,asset::IImage>, public IBackendObject
+class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBackendObject
 {
-	private:
-		using base_t = core::impl::ResolveAlignment<IDeviceMemoryBacked, asset::IImage>;
-
 	public:
-		_NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDeviceMemoryBacked,asset::IImage)
-			
+		enum E_TILING : uint8_t
+		{
+			ET_OPTIMAL,
+			ET_LINEAR
+		};
+		struct SCreationParams : asset::IImage::SCreationParams, IDeviceMemoryBacked::SCreationParams
+		{
+			E_CREATE_FLAGS flags;
+			// stuff below is irrelevant in OpenGL backend
+			E_TILING tiling = ET_OPTIMAL;
+			E_LAYOUT initialLayout = EL_UNDEFINED;
+		};
+
+		//!
 		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
 
 		//!
@@ -64,14 +73,9 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 
 		//! constructor
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			std::unique_ptr<ICleanup>&& _preStep,
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
-			std::unique_ptr<ICleanup>&& _postStep,
 			SCreationParams&& _params
-		) : base_t(std::move(_preStep),reqs,std::move(_postStep)), IBackendObject(std::move(dev))
-		{
-			params = std::move(_params);
-		}
+		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)) {}
 };
 
 

@@ -939,24 +939,27 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const FormatPromotionReques
     return promoted;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage> req, const asset::IImage::E_TILING tiling)
+asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsage> req, const IGPUImage::E_TILING tiling)
 {
-    format_image_cache_t& cache = tiling == asset::IImage::E_TILING::ET_LINEAR 
+    format_image_cache_t& cache = tiling == IGPUImage::E_TILING::ET_LINEAR 
         ? this->m_formatPromotionCache.linearTilingImages 
         : this->m_formatPromotionCache.optimalTilingImages;
     auto cached = cache.find(req);
     if (cached != cache.end())
         return cached->second;
-    auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f) {
+
+    auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f)
+    {
         switch (tiling)
         {
-        case asset::IImage::E_TILING::ET_LINEAR:
-            return getImageFormatUsagesLinear(f);
-        case asset::IImage::E_TILING::ET_OPTIMAL:
-            return getImageFormatUsagesOptimal(f);
-        default:
-            assert(false); // Invalid tiling
+            case IGPUImage::E_TILING::ET_LINEAR:
+                return getImageFormatUsagesLinear(f);
+            case IGPUImage::E_TILING::ET_OPTIMAL:
+                return getImageFormatUsagesOptimal(f);
+            default:
+                assert(false); // Invalid tiling
         }
+        return SFormatImageUsage{}; // compiler please shut up
     };
 
     if (req.usages < getImageFormatUsagesTiling(req.originalFormat))
