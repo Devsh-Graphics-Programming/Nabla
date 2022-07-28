@@ -249,7 +249,6 @@ struct NBL_API SRasterizationParams
     E_POLYGON_MODE polygonMode = EPM_FILL;
     E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
 	E_COMPARE_OP depthCompareOp = ECO_GREATER;
-    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT; //TODO depr
 	uint32_t sampleMask[2] = {~0u,~0u};
     float minSampleShading = 0.f;
     float depthBiasSlopeFactor = 0.f;
@@ -293,7 +292,7 @@ struct NBL_API SRasterizationParams
         reinterpret_cast<uint16_t*>(bf_dst)[0] = bf;
     }
 } PACK_STRUCT;
-static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
+static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 2u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
 
 enum E_LOGIC_OP : uint8_t
 {
