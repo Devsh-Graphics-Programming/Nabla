@@ -392,7 +392,7 @@ public:
 
     void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override final
     {
-        if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_OPENGL)
+        if (memory.memory == nullptr || memory.memory->getAPIType() != (IsGLES ? EAT_OPENGL_ES:EAT_OPENGL))
             return nullptr;
 
         assert(!memory.memory->isCurrentlyMapped());

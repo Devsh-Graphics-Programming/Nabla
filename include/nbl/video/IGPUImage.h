@@ -28,7 +28,6 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 		};
 		struct SCreationParams : asset::IImage::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{
-			E_CREATE_FLAGS flags;
 			// stuff below is irrelevant in OpenGL backend
 			E_TILING tiling = ET_OPTIMAL;
 			E_LAYOUT initialLayout = EL_UNDEFINED;

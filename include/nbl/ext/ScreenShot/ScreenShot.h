@@ -64,7 +64,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
 		bufferCreationParams.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
-		gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);
+		gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));
 		auto gpuTexelBufferMemReqs = gpuTexelBuffer->getMemoryReqs();
 		gpuTexelBufferMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
 		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, gpuTexelBuffer.get());
