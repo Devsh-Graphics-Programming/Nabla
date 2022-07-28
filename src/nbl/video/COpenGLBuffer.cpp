@@ -9,10 +9,12 @@ namespace nbl::video
 
 COpenGLBuffer::~COpenGLBuffer()
 {
-    if (BufferName == 0u)
-        return;
-    auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
-    device->destroyBuffer(BufferName);
+    preDestroyStep();
+    if (!getMemoryReqs().merelyObservesHandle)
+    {
+        auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
+        device->destroyBuffer(BufferName);
+    }
 }
 
 void COpenGLBuffer::setObjectDebugName(const char* label) const

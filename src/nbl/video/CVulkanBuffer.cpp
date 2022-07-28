@@ -7,9 +7,13 @@ namespace nbl::video
 
 CVulkanBuffer::~CVulkanBuffer()
 {
-    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-    auto* vk = vulkanDevice->getFunctionTable();
-    vk->vk.vkDestroyBuffer(vulkanDevice->getInternalObject(), m_vkBuffer, nullptr);
+	preDestroyStep();
+	if (!getMemoryReqs().merelyObservesHandle)
+	{
+		const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+		auto* vk = vulkanDevice->getFunctionTable();
+		vk->vk.vkDestroyBuffer(vulkanDevice->getInternalObject(), m_vkBuffer, nullptr);
+	}
 }
 
 void CVulkanBuffer::setObjectDebugName(const char* label) const

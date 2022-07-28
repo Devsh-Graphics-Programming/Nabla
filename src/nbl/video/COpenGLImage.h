@@ -30,14 +30,22 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 		//! constructor
 		COpenGLImage(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			std::unique_ptr<ICleanup>&& _preStep,
 			const uint32_t deviceLocalMemoryTypeBits,
+			std::unique_ptr<ICleanup>&& _postStep,
 			IGPUImage::SCreationParams&& _params,
 			GLenum internalFormat,
 			GLenum target,
 			GLuint name
-		) : IGPUImage(std::move(dev), SDeviceMemoryRequirements{0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true}, std::move(_params)),
-			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
+		) : IGPUImage(
+				std::move(dev),
+				std::move(_preStep),
+				SDeviceMemoryRequirements{0ull/*TODO-SIZE*/,deviceLocalMemoryTypeBits,63u,true,true,false},
+				std::move(_postStep),
+				std::move(_params)
+			), IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
 		{
+			assert(name!=0u);
 		}
 		
 	
@@ -69,6 +77,7 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 					assert(false);
 					break;
 			}
+			return true;
 		}
 
 		void setObjectDebugName(const char* label) const override;

@@ -7,7 +7,8 @@ namespace nbl::video
 
 CVulkanImage::~CVulkanImage()
 {
-    if (m_vkImage != VK_NULL_HANDLE)
+    preDestroyStep();
+    if (!getMemoryReqs().merelyObservesHandle)
     {
         const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
         auto* vk = vulkanDevice->getFunctionTable();

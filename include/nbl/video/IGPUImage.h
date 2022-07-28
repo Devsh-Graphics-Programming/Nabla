@@ -64,9 +64,11 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 
 		//! constructor
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements reqs,
-			SCreationParams&& _params)
-			: base_t(reqs), IBackendObject(std::move(dev))
+			std::unique_ptr<ICleanup>&& _preStep,
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
+			std::unique_ptr<ICleanup>&& _postStep,
+			SCreationParams&& _params
+		) : base_t(std::move(_preStep),reqs,std::move(_postStep)), IBackendObject(std::move(dev))
 		{
 			params = std::move(_params);
 		}

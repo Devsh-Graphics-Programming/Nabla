@@ -24,10 +24,19 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
     public:
         COpenGLBuffer(
             core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+            std::unique_ptr<ICleanup>&& _preStep,
+            std::unique_ptr<ICleanup>&& _postStep,
             const IGPUBuffer::SCachedCreationParams& cachedCreationParams,
             GLuint bufferName
-        ) : IGPUBuffer(std::move(dev), SDeviceMemoryRequirements{cachedCreationParams.size, 0xffffffffu, 0u, true, true},cachedCreationParams), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
+        ) : IGPUBuffer(
+            std::move(dev),
+            std::move(_preStep),
+            SDeviceMemoryRequirements{cachedCreationParams.size,0xffffffffu,63u,true,true,false},
+            std::move(_postStep),
+            cachedCreationParams
+        ), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
         {
+            assert(BufferName != 0u);
         }
 
         bool initMemory(
@@ -46,6 +55,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
             if (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
                 cachedFlags |= GL_MAP_COHERENT_BIT;
             gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.size,nullptr,cachedFlags);
+            return true;
         }
 
         void setObjectDebugName(const char* label) const override;

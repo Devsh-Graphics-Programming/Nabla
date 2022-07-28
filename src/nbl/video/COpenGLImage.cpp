@@ -7,8 +7,9 @@ namespace nbl::video
 
 COpenGLImage::~COpenGLImage()
 {
+    preDestroyStep();
+
     auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
-    device->destroyTexture(name);
     // temporary fbos are created in the background to perform blits and color clears
     COpenGLFramebuffer::hash_t fbohash;
     if (asset::isDepthOrStencilFormat(params.format))
@@ -16,6 +17,9 @@ COpenGLImage::~COpenGLImage()
     else
         fbohash = COpenGLFramebuffer::getHashColorImage(this);
     device->destroyFramebuffer(fbohash);
+    // destroy only if not observing (we own)
+    if (!getMemoryReqs().merelyObservesHandle)
+        device->destroyTexture(name);
 }
 
 void COpenGLImage::setObjectDebugName(const char* label) const

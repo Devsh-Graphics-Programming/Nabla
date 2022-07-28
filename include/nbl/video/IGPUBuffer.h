@@ -52,9 +52,12 @@ class NBL_API IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, pu
 	protected:
 		IGPUBuffer(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+			std::unique_ptr<ICleanup>&& _preStep,
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
+			std::unique_ptr<ICleanup>&& _postStep,
 			const SCachedCreationParams& cachedCreationParams
-		) : IDeviceMemoryBacked(reqs), IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
+		) : IDeviceMemoryBacked(std::move(_preStep),reqs,std::move(_postStep)),
+			IBackendObject(std::move(dev)), m_cachedCreationParams(cachedCreationParams)
 		{
 		}
 
