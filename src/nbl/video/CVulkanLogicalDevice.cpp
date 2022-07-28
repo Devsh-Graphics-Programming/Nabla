@@ -42,7 +42,7 @@ core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapch
     vk_createInfo.imageExtent = { params.width, params.height };
     vk_createInfo.imageArrayLayers = params.arrayLayers;
     vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage.value);
-    vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
+    vk_createInfo.imageSharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
     vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
@@ -70,23 +70,33 @@ core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapch
         return nullptr;
 
     ISwapchain::images_array_t images = core::make_refctd_dynamic_array<ISwapchain::images_array_t>(imageCount);
-
-    uint32_t i = 0u;
-    for (auto& image : (*images))
     {
-        CVulkanForeignImage::SCreationParams creationParams;
-        creationParams.flags = static_cast<CVulkanForeignImage::E_CREATE_FLAGS>(0); // Todo(achal)
+        IDeviceMemoryBacked::SDeviceMemoryRequirements memReqs;
+        memReqs.size = 0ull;
+        memReqs.memoryTypeBits = 0x0u;
+        memReqs.alignmentLog2 = 63u;
+        memReqs.prefersDedicatedAllocation = true;
+        memReqs.requiresDedicatedAllocation = true;
+        IGPUImage::SCreationParams creationParams;
+        creationParams.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0);
         creationParams.type = CVulkanImage::ET_2D;
         creationParams.format = params.surfaceFormat.format;
         creationParams.extent = { params.width, params.height, 1u };
         creationParams.mipLevels = 1u;
         creationParams.arrayLayers = params.arrayLayers;
-        creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
+        creationParams.samples = CVulkanImage::ESCF_1_BIT;
         creationParams.usage = params.imageUsage;
-
-        image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams),
-            vk_images[i++]);
+        creationParams.merelyObservesHandle = true;
+        uint32_t i = 0u;
+        for (auto& image : (*images))
+        {
+            image = core::make_smart_refctd_ptr<CVulkanImage>(
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+                memReqs,
+                std::move(creationParams),
+                vk_images[i++]
+            );
+        }
     }
 
     return core::make_smart_refctd_ptr<CVulkanSwapchain>(
@@ -275,7 +285,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     }
 }
 
-core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImage::SCreationParams&& params)
+core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::SCreationParams&& params)
 {
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     vk_createInfo.pNext = nullptr; // there are a lot of extensions
@@ -288,7 +298,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImag
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
     vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
     vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
-    vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
+    vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
     vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
@@ -314,7 +324,10 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImag
         imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
 
         return core::make_smart_refctd_ptr<CVulkanImage>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_image, imageMemReqs);
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+            imageMemReqs,
+            std::move(params), vk_image
+        );
     }
     else
     {
@@ -549,7 +562,7 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
             vk_multisampleStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
             vk_multisampleStates[i].pNext = nullptr;
             vk_multisampleStates[i].flags = 0u;
-            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(rasterizationParams.rasterizationSamplesHint);            
+            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(creationParams[i].rasterizationSamples);
             vk_multisampleStates[i].sampleShadingEnable = rasterizationParams.sampleShadingEnable;
             vk_multisampleStates[i].minSampleShading = rasterizationParams.minSampleShading;
             vk_multisampleStates[i].pSampleMask = rasterizationParams.sampleMask;

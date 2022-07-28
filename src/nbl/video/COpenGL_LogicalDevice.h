@@ -170,22 +170,21 @@ public:
         if ((params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
             return nullptr;
 
-        IGPUImage::SCreationParams imgci;
-        imgci.arrayLayers = params.arrayLayers;
-        imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
-        imgci.format = params.surfaceFormat.format;
-        imgci.mipLevels = 1u;
-        imgci.queueFamilyIndexCount = params.queueFamilyIndexCount;
-        imgci.queueFamilyIndices = params.queueFamilyIndices;
-        imgci.samples = asset::IImage::ESCF_1_BIT;
-        imgci.type = asset::IImage::ET_2D;
-        imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
-        imgci.usage = params.imageUsage;
-
         auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
         for (auto& img_dst : (*images))
         {
-            img_dst = createImage(IGPUImage::SCreationParams(imgci));
+            IGPUImage::SCreationParams imgci = {};
+            imgci.arrayLayers = params.arrayLayers;
+            imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
+            imgci.format = params.surfaceFormat.format;
+            imgci.mipLevels = 1u;
+            imgci.queueFamilyIndexCount = params.queueFamilyIndexCount;
+            imgci.queueFamilyIndices = params.queueFamilyIndices;
+            imgci.samples = asset::IImage::ESCF_1_BIT;
+            imgci.type = asset::IImage::ET_2D;
+            imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
+            imgci.usage = params.imageUsage;
+            img_dst = createImage(std::move(imgci));
             auto mreq = img_dst->getMemoryReqs();
             mreq.memoryTypeBits &= m_physicalDevice->getDeviceLocalMemoryTypeBits();
             auto imgMem = IDeviceMemoryAllocator::allocate(mreq, img_dst.get());
@@ -267,10 +266,10 @@ public:
         return ret;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
+    core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) override
     {
         SRequestBufferCreate reqParams;
-        reqParams.creationParams = creationParams;
+        reqParams.creationParams = std::move(creationParams);
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(reqParams),&output);
         m_masterContextCallsInvoked++;
