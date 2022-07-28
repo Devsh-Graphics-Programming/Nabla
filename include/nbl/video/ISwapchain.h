@@ -96,10 +96,10 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
         uint32_t m_imageCount;
         std::atomic_uint32_t m_imageExists = 0;
 
-        void freeImageExists(uint32_t ix) { std::cout << "freeImageExists(" << ix << ");\n"; m_imageExists.fetch_and(~(1U << ix)); }
+        void freeImageExists(uint32_t ix) { m_imageExists.fetch_and(~(1U << ix)); }
 
         // Returns false if the image already existed
-        bool setImageExists(uint32_t ix) { std::cout << "setImageExists(" << ix << ");\n"; return (m_imageExists.fetch_or(1U << ix) & (1U << ix)) == 0; }
+        bool setImageExists(uint32_t ix) { return (m_imageExists.fetch_or(1U << ix) & (1U << ix)) == 0; }
 
 };
 
