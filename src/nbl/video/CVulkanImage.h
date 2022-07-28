@@ -20,12 +20,9 @@ class CVulkanImage : public IGPUImage
 	public:
 		CVulkanImage(
 			core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
-			std::unique_ptr<ICleanup>&& _preStep,
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
-			std::unique_ptr<ICleanup>&& _postStep,
 			IGPUImage::SCreationParams&& _params, VkImage _vkimg
-		) : IGPUImage(std::move(_vkdev),std::move(_preStep),reqs,std::move(_postStep),std::move(_params)),
-			m_vkImage(_vkimg)
+		) : IGPUImage(std::move(_vkdev),reqs,std::move(_params)), m_vkImage(_vkimg)
 		{
 			assert(m_vkImage != VK_NULL_HANDLE);
 		}

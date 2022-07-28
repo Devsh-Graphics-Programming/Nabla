@@ -24,16 +24,12 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
     public:
         COpenGLBuffer(
             core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-            std::unique_ptr<ICleanup>&& _preStep,
-            std::unique_ptr<ICleanup>&& _postStep,
-            const IGPUBuffer::SCachedCreationParams& cachedCreationParams,
+            IGPUBuffer::SCreationParams&& cachedCreationParams,
             GLuint bufferName
         ) : IGPUBuffer(
             std::move(dev),
-            std::move(_preStep),
-            SDeviceMemoryRequirements{cachedCreationParams.size,0xffffffffu,63u,true,true,false},
-            std::move(_postStep),
-            cachedCreationParams
+            SDeviceMemoryRequirements{m_creationParams.size,0xffffffffu,63u,true,true},
+            std::move(cachedCreationParams)
         ), IOpenGLMemoryAllocation(getOriginDevice()), BufferName(bufferName), cachedFlags(0)
         {
             assert(BufferName != 0u);
@@ -46,7 +42,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
         {
             if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
                 return false;
-            cachedFlags =   (m_cachedCreationParams.canUpdateSubRange ? GL_DYNAMIC_STORAGE_BIT:0)|
+            cachedFlags =   (m_creationParams.usage.hasFlags(EUF_INLINE_UPDATE_VIA_CMDBUF) ? GL_DYNAMIC_STORAGE_BIT : 0) |
                             (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) ? 0:GL_CLIENT_STORAGE_BIT);
             if (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT))
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_READ_BIT;
@@ -54,7 +50,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IOpenGLMemoryAllocation
                 cachedFlags |= GL_MAP_PERSISTENT_BIT|GL_MAP_WRITE_BIT;
             if (memoryPropertyFlags.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
                 cachedFlags |= GL_MAP_COHERENT_BIT;
-            gl->extGlNamedBufferStorage(BufferName,cachedMemoryReqs.size,nullptr,cachedFlags);
+            gl->extGlNamedBufferStorage(BufferName,m_creationParams.size,nullptr,cachedFlags);
             return true;
         }
 

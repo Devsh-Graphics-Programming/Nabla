@@ -8,7 +8,7 @@ namespace nbl::video
 CVulkanBuffer::~CVulkanBuffer()
 {
 	preDestroyStep();
-	if (!getMemoryReqs().merelyObservesHandle)
+	if (m_cachedCreationParams.merelyObservesHandle)
 	{
 		const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
 		auto* vk = vulkanDevice->getFunctionTable();

@@ -17,12 +17,9 @@ class CVulkanBuffer : public IGPUBuffer
     public:
         CVulkanBuffer(
             core::smart_refctd_ptr<ILogicalDevice>&& dev,
-            std::unique_ptr<ICleanup>&& _preStep,
             const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
-            std::unique_ptr<ICleanup>&& _postStep,
-            const IGPUBuffer::SCachedCreationParams& cachedCreationParams, VkBuffer buffer
-        ) : IGPUBuffer(std::move(dev),std::move(_preStep),reqs,std::move(_postStep),cachedCreationParams),
-            m_vkBuffer(buffer)
+            IGPUBuffer::SCreationParams&& creationParams, VkBuffer buffer
+        ) : IGPUBuffer(std::move(dev),reqs,std::move(creationParams)), m_vkBuffer(buffer)
         {
             assert(m_vkBuffer != VK_NULL_HANDLE);
         }
@@ -59,7 +56,6 @@ class CVulkanBuffer : public IGPUBuffer
         core::smart_refctd_ptr<IDeviceMemoryAllocation> m_memory = nullptr;
         uint64_t m_memBindingOffset;
         VkBuffer m_vkBuffer;
-        uint64_t m_bufferSize;
 };
 
 }

@@ -351,7 +351,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp

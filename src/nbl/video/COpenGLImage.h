@@ -30,22 +30,19 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 		//! constructor
 		COpenGLImage(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			std::unique_ptr<ICleanup>&& _preStep,
 			const uint32_t deviceLocalMemoryTypeBits,
-			std::unique_ptr<ICleanup>&& _postStep,
 			IGPUImage::SCreationParams&& _params,
 			GLenum internalFormat,
 			GLenum target,
 			GLuint name
 		) : IGPUImage(
 				std::move(dev),
-				std::move(_preStep),
-				SDeviceMemoryRequirements{0ull/*TODO-SIZE*/,deviceLocalMemoryTypeBits,63u,true,true,false},
-				std::move(_postStep),
+				SDeviceMemoryRequirements{0xdeadbeefBADC0FFEull,deviceLocalMemoryTypeBits,63u,true,true},
 				std::move(_params)
 			), IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
 		{
 			assert(name!=0u);
+			m_cachedMemoryReqs.size = getImageDataSizeInBytes();
 		}
 		
 	
@@ -56,22 +53,32 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 		{
 			if(!IOpenGLMemoryAllocation::initMemory(gl, allocateFlags, memoryPropertyFlags))
 				return false;
-			GLsizei samples = params.samples;
-			switch (params.type) // TODO what about multisample targets?
+			GLsizei samples = m_creationParams.samples;
+			switch (m_creationParams.type) // TODO what about multisample targets?
 			{
 				case IGPUImage::ET_1D:
-					gl->extGlTextureStorage2D(name, target, params.mipLevels, internalFormat,
-																	params.extent.width, params.arrayLayers);
+					gl->extGlTextureStorage2D(
+						name, target, m_creationParams.mipLevels, internalFormat,
+						m_creationParams.extent.width, m_creationParams.arrayLayers
+					);
 					break;
 				case IGPUImage::ET_2D:
 					if (samples == 1)
-						gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat, params.extent.width, params.extent.height, params.arrayLayers);
+						gl->extGlTextureStorage3D(
+							name, target, m_creationParams.mipLevels, internalFormat,
+							m_creationParams.extent.width, m_creationParams.extent.height, m_creationParams.arrayLayers
+						);
 					else
-						gl->extGlTextureStorage3DMultisample(name, target, samples, internalFormat, params.extent.width, params.extent.height, params.arrayLayers, GL_TRUE);
+						gl->extGlTextureStorage3DMultisample(
+							name, target, samples, internalFormat,
+							m_creationParams.extent.width, m_creationParams.extent.height, m_creationParams.arrayLayers, GL_TRUE
+						);
 					break;
 				case IGPUImage::ET_3D:
-					gl->extGlTextureStorage3D(name, target, params.mipLevels, internalFormat,
-																	params.extent.width, params.extent.height, params.extent.depth);
+					gl->extGlTextureStorage3D(
+						name, target, m_creationParams.mipLevels, internalFormat,
+						m_creationParams.extent.width, m_creationParams.extent.height, m_creationParams.extent.depth
+					);
 					break;
 				default:
 					assert(false);

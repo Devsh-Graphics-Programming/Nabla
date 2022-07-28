@@ -12,13 +12,13 @@ COpenGLImage::~COpenGLImage()
     auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
     // temporary fbos are created in the background to perform blits and color clears
     COpenGLFramebuffer::hash_t fbohash;
-    if (asset::isDepthOrStencilFormat(params.format))
+    if (asset::isDepthOrStencilFormat(m_creationParams.format))
         fbohash = COpenGLFramebuffer::getHashDepthStencilImage(this);
     else
         fbohash = COpenGLFramebuffer::getHashColorImage(this);
     device->destroyFramebuffer(fbohash);
     // destroy only if not observing (we own)
-    if (!getMemoryReqs().merelyObservesHandle)
+    if (!m_cachedCreationParams.merelyObservesHandle)
         device->destroyTexture(name);
 }
 

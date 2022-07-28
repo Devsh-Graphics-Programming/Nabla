@@ -14,13 +14,44 @@ namespace nbl::video
 class IDeviceMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
+        //! If you bound an "exotic" memory object to the resource, you might require "special" cleanups in the destructor
+        struct ICleanup
+        {
+            virtual ~ICleanup() = 0;
+        };
+
+        //!
+		struct SCachedCreationParams
+		{
+            // A Pre-Destroy-Step is called out just before a `vkDestory` or `glDelete`, this is only useful for "imported" resources
+            std::unique_ptr<ICleanup> preDestroyStep = nullptr;
+            // A Pre-Destroy-Step is called in this class' destructor, this is only useful for "imported" resources
+            std::unique_ptr<ICleanup> postDestroytStep = nullptr;
+            // If non zero, then we're doing concurrent resource sharing
+            uint8_t queueFamilyIndexCount = 0u;
+            // Whether the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
+            bool merelyObservesHandle = false;
+
+            //! If you specify queue family indices, then you're concurrent sharing
+            inline bool isConcurrentSharing() const
+            {
+                return queueFamilyIndexCount!=0u;
+            }
+        };
+
+        //!
+        inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
+
         //! We need to know to cast to `IGPUBuffer` or `IGPUImage`
         enum E_OBJECT_TYPE : bool
         {
             EOT_BUFFER,
             EOT_IMAGE
         };
-
+        
+        //! Return type of memory backed object (image or buffer)
+        virtual E_OBJECT_TYPE getObjectType() const = 0;
+        
         //! For allocating from Heaps exposed to Nabla
         struct SDeviceMemoryRequirements
         {
@@ -34,23 +65,11 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             uint32_t prefersDedicatedAllocation : 1; // TODO: C++23 default-initialize to true
             // whether you need to have one allocation exclusively bound to this resource, always true in OpenGL
             uint32_t requiresDedicatedAllocation : 1; // TODO: C++23 default-initialize to true
-            // Whether the destructor will skip the call to `vkDestory` or `glDelete` on the handle, this is only useful for "imported" images
-            uint32_t merelyObservesHandle : 1; // TODO: C++23 default-initialize to false
         };
         static_assert(sizeof(SDeviceMemoryRequirements)==16);
 
-        //! If you bound an "exotic" memory object to the resource, you might require "special" cleanups in the destructor
-        struct ICleanup
-        {
-            virtual ~ICleanup() = 0;
-        };
-        
-
-        //! Return type of memory backed object (image or buffer)
-        virtual E_OBJECT_TYPE getObjectType() const = 0;
-
         //! Before allocating memory from the driver or trying to bind a range of an existing allocation
-        inline const SDeviceMemoryRequirements& getMemoryReqs() const {return cachedMemoryReqs;}
+        inline const SDeviceMemoryRequirements& getMemoryReqs() const {return m_cachedMemoryReqs;}
 
         //! Returns the allocation which is bound to the resource
         virtual IDeviceMemoryAllocation* getBoundMemory() = 0;
@@ -61,24 +80,29 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         //! Returns the offset in the allocation at which it is bound to the resource
         virtual size_t getBoundMemoryOffset() const = 0;
 
+        //! For constructor parameter only
+        struct SCreationParams : SCachedCreationParams
+        {
+            const uint32_t* queueFamilyIndices = nullptr;
+        };
+
     protected:
-        inline IDeviceMemoryBacked(std::unique_ptr<ICleanup>&& _preStep, const SDeviceMemoryRequirements& reqs, std::unique_ptr<ICleanup>&& _postStep)
-            : preStep(std::move(_preStep)), cachedMemoryReqs(reqs), postStep(std::move(_postStep)) {}
+        inline IDeviceMemoryBacked(SCreationParams&& _creationParams, const SDeviceMemoryRequirements& reqs)
+            : m_cachedCreationParams(std::move(_creationParams)), m_cachedMemoryReqs(reqs) {}
         inline virtual ~IDeviceMemoryBacked()
         {
-            assert(!preStep); // derived class should have already cleared this out
+            assert(!m_cachedCreationParams.preDestroyStep); // derived class should have already cleared this out
         }
 
         // it's the derived class' responsibility to call this in its destructor
         inline void preDestroyStep()
         {
-            preStep = nullptr;
+            m_cachedCreationParams.preDestroyStep = nullptr;
         }
 
         //! members
-        std::unique_ptr<ICleanup> preStep;
-        SDeviceMemoryRequirements cachedMemoryReqs;
-        std::unique_ptr<ICleanup> postStep;
+        SCachedCreationParams m_cachedCreationParams;
+        SDeviceMemoryRequirements m_cachedMemoryReqs;
 };
 
 } // end namespace nbl::video
