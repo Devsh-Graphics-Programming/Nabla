@@ -26,7 +26,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PUSH_CONSTANTS_SIZE", m_properties.limits.maxPushConstantsSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_MEMORY_ALLOCATION_COUNT", m_properties.limits.maxMemoryAllocationCount);
     // addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLER_ALLOCATION_COUNT",m_properties.limits.maxSamplerAllocationCount); // shader doesn't need to know about that
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_BUFFER_IMAGE_GRANULARITY",m_properties.limits.bufferImageGranularity);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_BUFFER_IMAGE_GRANULARITY",core::min(m_properties.limits.bufferImageGranularity, std::numeric_limits<int32_t>::max()));
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_STAGE_DESCRIPTOR_SAMPLERS", m_properties.limits.maxPerStageDescriptorSamplers);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_STAGE_DESCRIPTOR_UBOS", m_properties.limits.maxPerStageDescriptorUBOs);
@@ -81,7 +81,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_BOUNDS_RANGE_END",m_properties.limits.viewportBoundsRange[1]);
     
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_VIEWPORT_SUB_PIXEL_BITS",m_properties.limits.viewportSubPixelBits);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_MEMORY_MAP_ALIGNMENT",m_properties.limits.minMemoryMapAlignment);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_MEMORY_MAP_ALIGNMENT",core::min(m_properties.limits.minMemoryMapAlignment, 1u << 30));
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_BUFFER_VIEW_ALIGNMENT",m_properties.limits.bufferViewAlignment);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_UBO_ALIGNMENT",m_properties.limits.minUBOAlignment);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_SSBO_ALIGNMENT",m_properties.limits.minSSBOAlignment);
@@ -120,9 +120,9 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_LINE_WIDTH_GRANULARITY",m_properties.limits.lineWidthGranularity);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_STRICT_LINES",m_properties.limits.strictLines);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_STANDARD_SAMPLE_LOCATIONS",m_properties.limits.standardSampleLocations);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_OPTIMAL_BUFFER_COPY_OFFSET_ALIGNMENT",m_properties.limits.optimalBufferCopyOffsetAlignment);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_OPTIMAL_BUFFER_COPY_ROW_PITCH_ALIGNMENT",m_properties.limits.optimalBufferCopyRowPitchAlignment);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_NON_COHERENT_ATOM_SIZE",m_properties.limits.nonCoherentAtomSize);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_OPTIMAL_BUFFER_COPY_OFFSET_ALIGNMENT",core::min(m_properties.limits.optimalBufferCopyOffsetAlignment, 1u << 30));
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_OPTIMAL_BUFFER_COPY_ROW_PITCH_ALIGNMENT",core::min(m_properties.limits.optimalBufferCopyRowPitchAlignment, 1u << 30));
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_NON_COHERENT_ATOM_SIZE",core::min(m_properties.limits.nonCoherentAtomSize, std::numeric_limits<int32_t>::max()));
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VERTEX_OUTPUT_COMPONENTS",m_properties.limits.maxVertexOutputComponents);
     
@@ -196,7 +196,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_STORAGE_TEXEL_BUFFER_OFFSET_ALIGNMENT_BYTES",m_properties.limits.minSubgroupSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_UNIFORM_TEXEL_BUFFER_OFFSET_ALIGNMENT_BYTES",m_properties.limits.maxSubgroupSize);
 
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_BUFFER_SIZE",core::min(m_properties.limits.maxBufferSize, ~0u));
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_BUFFER_SIZE",core::min(m_properties.limits.maxBufferSize, std::numeric_limits<int32_t>::max()));
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_PRIMITIVE_OVERESTIMATION_SIZE", m_properties.limits.primitiveOverestimationSize);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_EXTRA_PRIMITIVE_OVERESTIMATION_SIZE", m_properties.limits.maxExtraPrimitiveOverestimationSize);
@@ -244,9 +244,9 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.integerDotProductAccumulatingSaturating64BitSignedAccelerated) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_INTEGER_DOT_PRODUCT_ACCUMULATING_SATURATING_64BIT_SIGNED_ACCELERATED");
     if (m_properties.limits.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_INTEGER_DOT_PRODUCT_ACCUMULATING_SATURATING_64BIT_MIXED_SIGNEDNESS_ACCELERATED");
 
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_GEOMETRY_COUNT",m_properties.limits.maxGeometryCount);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_INSTANCE_COUNT",m_properties.limits.maxInstanceCount);
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PRIMITIVE_COUNT",m_properties.limits.maxPrimitiveCount);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_GEOMETRY_COUNT",core::min(m_properties.limits.maxGeometryCount, std::numeric_limits<int32_t>::max()));
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_INSTANCE_COUNT",core::min(m_properties.limits.maxInstanceCount, std::numeric_limits<int32_t>::max()));
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PRIMITIVE_COUNT",core::min(m_properties.limits.maxPrimitiveCount, std::numeric_limits<int32_t>::max()));
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_STAGE_DESCRIPTOR_ACCELERATION_STRUCTURES",m_properties.limits.maxPerStageDescriptorAccelerationStructures);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_PER_STAGE_DESCRIPTOR_UPDATE_AFTER_BIND_ACCELERATION_STRUCTURES",m_properties.limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_DESCRIPTOR_SET_ACCELERATION_STRUCTURES",m_properties.limits.maxDescriptorSetAccelerationStructures);
@@ -261,7 +261,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_COORDINATE_RANGE_X",m_properties.limits.sampleLocationCoordinateRange[0]);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_COORDINATE_RANGE_Y",m_properties.limits.sampleLocationCoordinateRange[1]);
 
-    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_IMPORTED_HOST_POINTER_ALIGNMENT",m_properties.limits.minImportedHostPointerAlignment);
+    addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_IMPORTED_HOST_POINTER_ALIGNMENT",core::min(m_properties.limits.minImportedHostPointerAlignment, 1u << 30));
 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_X",m_properties.limits.minFragmentDensityTexelSize.width);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_Y",m_properties.limits.minFragmentDensityTexelSize.height);

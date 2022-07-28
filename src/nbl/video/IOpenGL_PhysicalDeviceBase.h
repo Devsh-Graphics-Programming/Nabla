@@ -874,7 +874,7 @@ public:
 			m_properties.limits.maxMemoryAllocationCount = 1000'000'000;
 			m_properties.limits.maxSamplerAllocationCount = 1000'000;
 			
-			m_properties.limits.bufferImageGranularity = std::numeric_limits<uint32_t>::max(); // buffer and image in the same memory can't be done in gl // max 64 bit causes issues with GLSL define
+			m_properties.limits.bufferImageGranularity = std::numeric_limits<size_t>::max(); // buffer and image in the same memory can't be done in gl
 			
 			GLuint maxCombinedShaderOutputResources;
 			GLuint maxFragmentShaderUniformBlocks;
