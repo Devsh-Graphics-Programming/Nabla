@@ -31,13 +31,11 @@ protected:
     COpenGL_Swapchain(
         SCreationParams&& params,
         core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
-        const egl::CEGL* _egl,
         uint32_t imgCount, IGPUImage::SCreationParams&& imgCreationParams,
-        const COpenGLFeatureMap* _features,
-        EGLContext _ctx,
-        EGLConfig _config,
-        COpenGLDebugCallback* _dbgCb
-    );
+        std::unique_ptr<COpenGL_SwapchainThreadHandler> _threadHandler
+    ) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev), std::move(params), std::move(imgCreationParams), imgCount),
+        m_threadHandler(std::move(_threadHandler))
+    {}
 
 private:
     std::unique_ptr<COpenGL_SwapchainThreadHandler> m_threadHandler;

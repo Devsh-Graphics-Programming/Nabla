@@ -231,39 +231,6 @@ public:
 };
 
 template <typename FunctionTableType>
-COpenGL_Swapchain<FunctionTableType>::COpenGL_Swapchain<FunctionTableType>(
-    SCreationParams&& params,
-    core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
-    const egl::CEGL* _egl,
-    uint32_t imgCount, IGPUImage::SCreationParams&& imgCreationParams,
-    const COpenGLFeatureMap* _features,
-    EGLContext _ctx,
-    EGLConfig _config,
-    COpenGLDebugCallback* _dbgCb
-) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev), std::move(params), std::move(imgCreationParams), imgCount)
-{
-    _egl->call.peglBindAPI(dev->getEGLAPI());
-
-    const EGLint surface_attributes[] = {
-        EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
-        // EGL_GL_COLORSPACE is supported only for EGL 1.5 and later
-        _egl->version.minor >= 5 ? EGL_GL_COLORSPACE : EGL_NONE, EGL_GL_COLORSPACE_SRGB,
-
-        EGL_NONE
-    };
-
-    auto surface = _egl->call.peglCreateWindowSurface(_egl->display, _config, (EGLNativeWindowType)m_params.surface->getNativeWindowHandle(), surface_attributes);
-    assert(surface != EGL_NO_SURFACE);
-
-    m_threadHandler = std::unique_ptr<COpenGL_SwapchainThreadHandler>(new COpenGL_SwapchainThreadHandler(
-        _egl, dev.get(), m_params.presentMode, imgCount, imgCreationParams.extent.width, imgCreationParams.extent.height, _features, { _ctx, surface }, _dbgCb, imgCreationParams.format
-    ));
-    m_threadHandler->start();
-
-    m_imgCreationParams = std::move(imgCreationParams);
-}
-
-template <typename FunctionTableType>
 const void* COpenGL_Swapchain<FunctionTableType>::getNativeHandle() const { return &m_threadHandler->glctx; }
 
 template <typename FunctionTableType>
@@ -295,10 +262,34 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> COpenGL_Swapchain<F
     if (params.minImageCount > ISwapchain::MaxImages)
         return nullptr;
 
-    auto* sc = new COpenGL_Swapchain<FunctionTableType>(
-        std::move(params), std::move(device), device->getEgl(), params.minImageCount, std::move(imgci), device->getGlFeatures(), ctx,
-        fbconfig, static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()));
+    auto egl = device->getEgl();
+    egl->call.peglBindAPI(device->getEGLAPI());
 
+    const EGLint surface_attributes[] = {
+        EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
+        // EGL_GL_COLORSPACE is supported only for EGL 1.5 and later
+        egl->version.minor >= 5 ? EGL_GL_COLORSPACE : EGL_NONE, EGL_GL_COLORSPACE_SRGB,
+
+        EGL_NONE
+    };
+
+    auto surface = egl->call.peglCreateWindowSurface(egl->display, fbconfig, (EGLNativeWindowType)params.surface->getNativeWindowHandle(), surface_attributes);
+    assert(surface != EGL_NO_SURFACE);
+
+    std::unique_ptr<COpenGL_SwapchainThreadHandler> threadHandler(new COpenGL_SwapchainThreadHandler(
+        egl, 
+        device.get(), 
+        params.presentMode, 
+        params.minImageCount, params.width, params.height,
+        device->getGlFeatures(), { ctx, surface }, 
+        static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()), 
+        params.surfaceFormat.format
+    ));
+
+    auto* sc = new COpenGL_Swapchain<FunctionTableType>(
+        std::move(params), std::move(device), params.minImageCount, std::move(imgci), std::move(threadHandler)
+     );
+     sc->m_threadHandler->start();
      if (!sc)
         return nullptr;
     // wait until swapchain's internal thread finish context creation
