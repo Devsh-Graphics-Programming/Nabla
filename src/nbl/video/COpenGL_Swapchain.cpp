@@ -39,10 +39,12 @@ public:
     const COpenGLFeatureMap* features;
     uint32_t imageCount;
     uint32_t imgWidth, imgHeight;
-    uint32_t fbos[ISwapchain::MaxImages]{};
     core::smart_refctd_ptr<COpenGLSync> syncs[ISwapchain::MaxImages];
     COpenGLDebugCallback* m_dbgCb;
-    std::array<uint32_t, ISwapchain::MaxImages> m_texViews;
+    std::array<uint32_t, ISwapchain::MaxImages> m_fbos;
+    std::array<uint32_t, ISwapchain::MaxImages> m_textures;
+    asset::E_FORMAT m_ourFormat;
+    GLenum m_glFormat;
 
     bool needToBlit = false;
 
@@ -55,7 +57,8 @@ public:
         uint32_t _imgCount, uint32_t _imgWidth, uint32_t _imgHeight,
         const COpenGLFeatureMap* _features,
         egl::CEGL::Context _glctx,
-        COpenGLDebugCallback* _dbgCb
+        COpenGLDebugCallback* _dbgCb,
+        asset::E_FORMAT format
     ) : m_device(dev), m_masterContextCallsWaited(0),
         egl(_egl),
         m_presentMode(presentMode),
@@ -64,7 +67,8 @@ public:
         imageCount(_imgCount),
         imgWidth(_imgWidth),
         imgHeight(_imgHeight),
-        m_dbgCb(_dbgCb)
+        m_dbgCb(_dbgCb),
+        m_ourFormat(format)
     {}
 
     void requestBlit(uint32_t _imgIx, uint32_t semCount, IGPUSemaphore* const* const sems)
@@ -89,18 +93,25 @@ public:
         return syncs[imgix];
     }
 
-    void createImgViewFbo(uint32_t imgix, core::smart_refctd_ptr<IGPUImage> image)
+    core::smart_refctd_ptr<IGPUImage> createImageAsImported(uint32_t imgix, IGPUImage::SCreationParams&& params)
     {
-        auto lk = base_t::createRAIIDispatchHandler();
-        request.initializeImg = image;
-        request.imgIx = imgix;
+        GLuint texture = m_textures[imgix];
+
+        auto image = core::make_smart_refctd_ptr<COpenGLImage>(
+            core::smart_refctd_ptr<const ILogicalDevice>(m_device),
+            0, std::move(params), 
+            m_glFormat,
+            GL_TEXTURE_2D,
+            m_textures[imgix]
+        );
+
+        return image;
     }
 
     egl::CEGL::Context glctx;
 
     struct SRequest
     {
-        core::smart_refctd_ptr<IGPUImage> initializeImg = nullptr;
         uint32_t imgIx = 0u;
         core::smart_refctd_dynamic_array<core::smart_refctd_ptr<COpenGLSemaphore>> sems;
         uint32_t semCount = 0;
@@ -143,6 +154,35 @@ public:
         if (m_dbgCb)
             gl->extGlDebugMessageCallback(m_dbgCb->m_callback, m_dbgCb);
 
+        m_glFormat = getSizedOpenGLFormatFromOurFormat(gl, m_ourFormat);
+        
+        gl->glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
+        gl->extGlCreateFramebuffers(imageCount, m_fbos.data());
+
+        for (uint32_t i = 0; i < imageCount; i++)
+        {
+            GLuint fbo = m_fbos.data()[i];
+
+            // Create texture
+            gl->extGlCreateTextures(GL_TEXTURE_2D_ARRAY, 1, &m_textures.data()[i]);
+
+            // Init memory
+            GLuint textureName = m_textures.data()[i];
+            gl->extGlTextureStorage3D(
+                textureName, GL_TEXTURE_2D_ARRAY, 1, m_glFormat,
+                imgWidth, imgHeight, 1
+            );
+
+            // Create FBO
+            gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, textureName, 0, GL_TEXTURE_2D);
+            GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
+            gl->extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
+
+            GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
+            assert(status == GL_FRAMEBUFFER_COMPLETE);
+        }
+
+
         for (uint32_t i = 0u; i < imageCount; ++i)
         {
             syncs[i] = core::make_smart_refctd_ptr<COpenGLSync>();
@@ -155,55 +195,28 @@ public:
     void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& state)
     {
         auto gl = getFunctionTable(m_device->getAPIType(), &state);
-        if (request.initializeImg)
+        needToBlit = false;
+
+        const uint32_t imgix = request.imgIx;
+        const uint32_t w = imgWidth;
+        const uint32_t h = imgHeight;
+
+        for (uint32_t i = 0u; i < request.semCount; ++i)
         {
-            // Create texture view
-            gl->glTexture.pglGenTextures(1, &m_texViews.data()[request.imgIx]);
-
-            GLuint texture = m_texViews[request.imgIx];
-            GLuint origtexture = IBackendObject::device_compatibility_cast<COpenGLImage*>(request.initializeImg.get(), m_device)->getOpenGLName();
-            GLenum format = IBackendObject::device_compatibility_cast<COpenGLImage*>(request.initializeImg.get(), m_device)->getOpenGLSizedFormat();
-            gl->extGlTextureView(texture, GL_TEXTURE_2D, origtexture, format, 0, 1, 0, 1);
-                
-            // Create FBO
-            gl->glGeneral.pglEnable(IOpenGL_FunctionTable::FRAMEBUFFER_SRGB);
-            gl->extGlCreateFramebuffers(1, &fbos[request.imgIx]);
-
-            GLuint fbo = fbos[request.imgIx];
-            gl->extGlNamedFramebufferTexture(fbo, GL_COLOR_ATTACHMENT0, m_texViews[request.imgIx], 0, GL_TEXTURE_2D);
-            GLenum drawbuffer0 = GL_COLOR_ATTACHMENT0;
-            gl->extGlNamedFramebufferDrawBuffers(fbo, 1, &drawbuffer0);
-
-            GLenum status = gl->extGlCheckNamedFramebufferStatus(fbo, GL_FRAMEBUFFER);
-            assert(status == GL_FRAMEBUFFER_COMPLETE);
-
-            request.initializeImg = nullptr;
+            core::smart_refctd_ptr<COpenGLSemaphore>& sem = request.sems->begin()[i];
+            sem->wait(gl);
         }
-        else
-        {
-            needToBlit = false;
 
-            const uint32_t imgix = request.imgIx;
-            const uint32_t w = imgWidth;
-            const uint32_t h = imgHeight;
+        // need to possibly wait for master context (image & view creation, etc.)
+        // likely not needed anymore, leaving just to be sure
+        m_masterContextCallsWaited = m_device->waitOnMasterContext(gl, m_masterContextCallsWaited);
 
-            for (uint32_t i = 0u; i < request.semCount; ++i)
-            {
-                core::smart_refctd_ptr<COpenGLSemaphore>& sem = request.sems->begin()[i];
-                sem->wait(gl);
-            }
-
-            // need to possibly wait for master context (image & view creation, etc.)
-            // likely not needed anymore, leaving just to be sure
-            m_masterContextCallsWaited = m_device->waitOnMasterContext(gl, m_masterContextCallsWaited);
-
-            gl->extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-            syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>();
-            syncs[imgix]->init(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(m_device), gl, false);
-            // swap buffers performs an implicit flush before swapping 
-            // https://www.khronos.org/registry/EGL/sdk/docs/man/html/eglSwapBuffers.xhtml
-            egl->call.peglSwapBuffers(egl->display, glctx.surface);
-        }
+        gl->extGlBlitNamedFramebuffer(m_fbos.begin()[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+        syncs[imgix] = core::make_smart_refctd_ptr<COpenGLSync>();
+        syncs[imgix]->init(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(m_device), gl, false);
+        // swap buffers performs an implicit flush before swapping 
+        // https://www.khronos.org/registry/EGL/sdk/docs/man/html/eglSwapBuffers.xhtml
+        egl->call.peglSwapBuffers(egl->display, glctx.surface);
     }
 
     void exit(SThreadHandlerInternalState* state)
@@ -243,7 +256,7 @@ COpenGL_Swapchain<FunctionTableType>::COpenGL_Swapchain<FunctionTableType>(
     assert(surface != EGL_NO_SURFACE);
 
     m_threadHandler = std::unique_ptr<COpenGL_SwapchainThreadHandler>(new COpenGL_SwapchainThreadHandler(
-        _egl, dev.get(), m_params.presentMode, imgCount, imgCreationParams.extent.width, imgCreationParams.extent.height, _features, { _ctx, surface }, _dbgCb
+        _egl, dev.get(), m_params.presentMode, imgCount, imgCreationParams.extent.width, imgCreationParams.extent.height, _features, { _ctx, surface }, _dbgCb, imgCreationParams.format
     ));
     m_threadHandler->start();
 
@@ -376,16 +389,7 @@ core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType>::createIm
     imgCreationParams.preDestroyCleanup = std::unique_ptr<ICleanup>(swapchainRef.release());
     imgCreationParams.importedHandle = true;
 
-    auto img_dst = core::smart_refctd_ptr_static_cast<COpenGLImage>(device->createImage(std::move(imgCreationParams)));
-    auto mreq = img_dst->getMemoryReqs();
-    mreq.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-    auto imgMem = device->allocate(mreq, img_dst.get());
-    if (!img_dst || !imgMem.isValid())
-        return nullptr;
-
-    m_threadHandler->createImgViewFbo(imageIndex, img_dst);
-
-    return img_dst;
+    return m_threadHandler->createImageAsImported(imageIndex, std::move(imgCreationParams));
 }
 
 template core::smart_refctd_ptr<COpenGLSwapchain> COpenGLSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);

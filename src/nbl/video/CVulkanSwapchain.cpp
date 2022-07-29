@@ -241,7 +241,6 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
     creationParams.preDestroyCleanup = std::unique_ptr<ICleanup>(swapchainRef.release());
     creationParams.importedHandle = true;
 
-    // TODO swapchain cleanup stuff
     auto image = core::make_smart_refctd_ptr<CVulkanImage>(
         std::move(device),
         m_imgMemRequirements, std::move(creationParams), vk_images[imageIndex]);
