@@ -81,10 +81,6 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
-		// nullptr if this is not a swapchain image
-		core::smart_refctd_ptr<ISwapchain> m_optionalBackingSwapchain = nullptr;
-		uint32_t m_optionalIndexWithinSwapchain = 0;
-
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
 		//! constructor
@@ -92,8 +88,6 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
 			SCreationParams&& _params
 		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)) {}
-
-		void freeSwapchainImageExists() { m_optionalBackingSwapchain->freeImageExists(m_optionalIndexWithinSwapchain); }
 };
 
 

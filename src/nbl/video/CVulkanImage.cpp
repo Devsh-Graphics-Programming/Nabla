@@ -9,12 +9,8 @@ namespace nbl::video
 CVulkanImage::~CVulkanImage()
 {
     preDestroyStep();
+    // don't destroy imported handles
     if (!m_cachedCreationParams.importedHandle)
-    {
-        freeSwapchainImageExists();
-    }
-    // Note: we don't destroy a swapchain image as that's invalid
-    else
     {
         if (m_vkImage != VK_NULL_HANDLE)
         {

@@ -9,24 +9,23 @@
 
 namespace nbl::video
 {
+//! If you bound an "exotic" memory object to the resource, you might require "special" cleanups in the destructor
+struct ICleanup
+{
+    virtual ~ICleanup() = 0;
+};
 
 //! Interface from which resources backed by IDeviceMemoryAllocation inherit from
 class IDeviceMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
-        //! If you bound an "exotic" memory object to the resource, you might require "special" cleanups in the destructor
-        struct ICleanup
-        {
-            virtual ~ICleanup() = 0;
-        };
-
         //!
         struct SCachedCreationParams
         {
             // A Pre-Destroy-Step is called out just before a `vkDestory` or `glDelete`, this is only useful for "imported" resources
             std::unique_ptr<ICleanup> preDestroyCleanup = nullptr;
             // A Post-Destroy-Step is called in this class' destructor, this is only useful for "imported" resources
-            std::unique_ptr<ICleanup> postDestroytCleanup = nullptr;
+            std::unique_ptr<ICleanup> postDestroyCleanup = nullptr;
             // If non zero, then we're doing concurrent resource sharing
             uint8_t queueFamilyIndexCount = 0u;
             // Whether the handle is imported, thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects

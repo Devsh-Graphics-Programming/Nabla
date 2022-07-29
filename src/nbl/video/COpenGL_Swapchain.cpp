@@ -383,11 +383,15 @@ core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType_>::createI
         return nullptr;
 
     auto& device = m_threadHandler->m_device;
-    auto& imgCreationParamsCopy = m_imgCreationParams;
-    auto img_dst = core::smart_refctd_ptr_static_cast<COpenGLImage>(device->createImage(std::move(imgCreationParamsCopy)));
-    img_dst->m_optionalBackingSwapchain = core::smart_refctd_ptr<ISwapchain>(this);
-    img_dst->m_optionalIndexWithinSwapchain = imageIndex;
+    auto imgCreationParams = std::move(m_imgCreationParams);
+    std::unique_ptr<CCleanupSwapchainReference> swapchainRef(new CCleanupSwapchainReference{});
+    swapchainRef->m_swapchain = core::smart_refctd_ptr<ISwapchain>(this);
+    swapchainRef->m_imageIndex = imageIndex;
 
+    imgCreationParams.preDestroyCleanup = std::unique_ptr<ICleanup>(swapchainRef.release());
+    imgCreationParams.importedHandle = true;
+
+    auto img_dst = core::smart_refctd_ptr_static_cast<COpenGLImage>(device->createImage(std::move(imgCreationParams)));
     auto mreq = img_dst->getMemoryReqs();
     mreq.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
     auto imgMem = device->allocate(mreq, img_dst.get());

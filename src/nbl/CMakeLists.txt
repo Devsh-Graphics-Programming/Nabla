@@ -310,6 +310,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
 
 # OpenGL
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp

@@ -14,7 +14,6 @@ class IGPUQueue;
 
 class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 {
-    friend class IGPUImage;
     public:
         using images_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUImage>>;
 
@@ -90,6 +89,17 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
         // Vulkan: const VkSwapchainKHR*
         virtual const void* getNativeHandle() const = 0;
 
+        struct CCleanupSwapchainReference : public ICleanup
+        {
+            core::smart_refctd_ptr<ISwapchain> m_swapchain;
+            uint32_t m_imageIndex;
+
+            ~CCleanupSwapchainReference()
+            {
+                m_swapchain->freeImageExists(m_imageIndex);
+            }
+        };
+
     protected:
         virtual ~ISwapchain() = default;
 
@@ -97,6 +107,7 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
         uint32_t m_imageCount;
         std::atomic_uint32_t m_imageExists = 0;
 
+        friend class CCleanupSwapchainReference;
         void freeImageExists(uint32_t ix) { m_imageExists.fetch_and(~(1U << ix)); }
 
         // Returns false if the image already existed
