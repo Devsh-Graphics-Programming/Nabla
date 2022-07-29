@@ -324,7 +324,7 @@ using namespace nbl::asset;
 				{
 					auto desc = material.descriptorSet->getDescriptors(i).begin();
 					desc->desc = defaultImageView;
-					desc->image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+					desc->image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 					desc->image.sampler = defaultSampler;
 				}
 				auto setImage = [&cpuTextures,&material](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
@@ -1084,7 +1084,6 @@ using namespace nbl::asset;
 											};
 
 											std::vector<VertexInfluenceData> vertexInfluenceDataContainer;
-
 											for (uint16_t i = 0; i < overrideReferencesCount; ++i)
 											{
 												VertexInfluenceData& vertexInfluenceData = vertexInfluenceDataContainer.emplace_back();
@@ -1107,13 +1106,13 @@ using namespace nbl::asset;
 											std::vector<typename VertexInfluenceData::ComponentData> skinComponentUnlimitedStream;
 											{
 												for (const auto& vertexInfluenceData : vertexInfluenceDataContainer)
-													for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
-													{
-														auto& data = skinComponentUnlimitedStream.emplace_back();
+												for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
+												{
+													auto& data = skinComponentUnlimitedStream.emplace_back();
 
-														data.joint = skinComponent.joint;
-														data.weight = skinComponent.weight;
-													}
+													data.joint = skinComponent.joint;
+													data.weight = skinComponent.weight;
+												}
 											}
 
 											//! sort, cache and keep only biggest influencers
@@ -1147,16 +1146,10 @@ using namespace nbl::asset;
 											maxJointsPerVertex = std::max(maxJointsPerVertex == 0xdeadbeef ? 0u : maxJointsPerVertex, validWeights);
 										}
 
-										using REPACK_JOINTS_FORMAT = E_FORMAT;
-										using REPACK_WEIGHTS_FORMAT = E_FORMAT;
-
-										auto getRepackFormats = [&]() -> std::pair<REPACK_JOINTS_FORMAT, REPACK_WEIGHTS_FORMAT>
+										E_FORMAT repackJointsFormat = EF_UNKNOWN;
+										E_FORMAT repackWeightsFormat = EF_UNKNOWN;
+										switch (maxJointsPerVertex)
 										{
-											E_FORMAT repackJointsFormat = EF_UNKNOWN;
-											E_FORMAT repackWeightsFormat = EF_UNKNOWN;
-
-											switch (maxJointsPerVertex)
-											{
 											case 1u:
 											{
 												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
@@ -1186,9 +1179,23 @@ using namespace nbl::asset;
 												else if (std::is_same<WeightCompomentT, float>::value)
 													repackWeightsFormat = EF_R32G32_SFLOAT;
 											} break;
+/*
+											// just rely on format promotion to fix these up
+											case 3u:
+											{
+												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
+													repackJointsFormat = EF_R8G8B8_UINT;
+												else if (std::is_same<JointComponentT, uint16_t>::value)
+													repackJointsFormat = EF_R16G16B16_UINT;
 
-											// TODO: what about the 3 joint case with less than 1024 joints?
-
+												if constexpr (std::is_same<WeightCompomentT, uint8_t>::value)
+													repackWeightsFormat = EF_R8G8B8_UINT;
+												else if (std::is_same<WeightCompomentT, uint16_t>::value)
+													repackWeightsFormat = EF_R16G16B16_UINT;
+												else if (std::is_same<WeightCompomentT, float>::value)
+													repackWeightsFormat = EF_R32G32B32_SFLOAT;
+											} break;
+*/
 											default:
 											{
 												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
@@ -1203,12 +1210,8 @@ using namespace nbl::asset;
 												else if (std::is_same<WeightCompomentT, float>::value)
 													repackWeightsFormat = EF_R32G32B32A32_SFLOAT;
 											} break; //! vertex formats need to be PoT
-											}
+										}
 
-											return std::make_pair(repackJointsFormat, repackWeightsFormat);
-										};
-
-										const auto [repackJointsFormat, repackWeightsFormat] = getRepackFormats();
 										{
 											const size_t repackJointsTexelByteSize = asset::getTexelOrBlockBytesize(repackJointsFormat);
 											const size_t repackWeightsTexelByteSize = asset::getTexelOrBlockBytesize(repackWeightsFormat);
@@ -1219,8 +1222,7 @@ using namespace nbl::asset;
 											memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
 											memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
 											{ //! pack buffers and quantize weights buffer
-
-												_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
+												constexpr uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
 
 												struct QuantRequest
 												{
@@ -1248,6 +1250,7 @@ using namespace nbl::asset;
 													} bestWeightsFit;
 												} quantRequest;
 
+#if 1 // TODO: rewrite this complex as F function
 												for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
 												{
 													auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
@@ -1415,6 +1418,7 @@ using namespace nbl::asset;
 													overrideSkinningBuffers.weightsAttributes.cpuBuffer = std::move(vOverrideQuantizedWeightsBuffer);
 													overrideSkinningBuffers.weightsAttributes.format = weightsQuantizeFormat;
 												}
+#endif
 											}
 										}
 									};

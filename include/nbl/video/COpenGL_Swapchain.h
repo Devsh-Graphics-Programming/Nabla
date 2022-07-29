@@ -34,12 +34,11 @@ public:
     const void* getNativeHandle() const;
 
 protected:
-    // images will be created in COpenGLLogicalDevice::createSwapchain
     COpenGL_Swapchain(
         SCreationParams&& params,
         core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
         const egl::CEGL* _egl,
-        uint32_t imgCount, IGPUImage::SCreationParams imgCreationParams,
+        uint32_t imgCount, IGPUImage::SCreationParams&& imgCreationParams,
         const COpenGLFeatureMap* _features,
         EGLContext _ctx,
         EGLConfig _config,

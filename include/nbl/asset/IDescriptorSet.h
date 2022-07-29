@@ -15,7 +15,6 @@
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/IDescriptorSetLayout.h" //for E_DESCRIPTOR_TYPE
 #include "nbl/core/SRange.h"
-#include "nbl/asset/EImageLayout.h"
 
 namespace nbl::asset
 {
@@ -54,7 +53,7 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 					// This will be ignored if the DS layout already has an immutable sampler specified for the binding.
                     core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
                     //! Irrelevant in OpenGL backend
-                    E_IMAGE_LAYOUT imageLayout;
+                    IImage::E_LAYOUT imageLayout;
                 };
                     
 				core::smart_refctd_ptr<IDescriptor> desc;
@@ -111,7 +110,7 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						image = {nullptr,EIL_UNDEFINED};
+						image = {nullptr,IImage::EL_UNDEFINED};
 					desc = std::move(other.desc);
 					if (desc)
 					{

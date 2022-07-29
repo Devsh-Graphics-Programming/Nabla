@@ -48,10 +48,8 @@ class NBL_API CPropertyPool final : public IPropertyPool
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
             video::IGPUBuffer::SCreationParams params;
-            params.canUpdateSubRange = false; // maybe user provide?
             params.queueFamilyIndexCount = 0u;
             params.queueFamilyIndices = nullptr;
-            params.sharingMode = asset::ESM_EXCLUSIVE;
             params.usage = usage;
             for (auto i = 0u; i < PropertyCount; i++)
             {

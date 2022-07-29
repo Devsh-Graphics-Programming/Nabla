@@ -190,7 +190,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     }
 }
 
-core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImage::SCreationParams&& params)
+core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::SCreationParams&& params)
 {
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     vk_createInfo.pNext = nullptr; // there are a lot of extensions
@@ -203,7 +203,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImag
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
     vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
     vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
-    vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
+    vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
     vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
@@ -229,7 +229,10 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(asset::IImag
         imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
 
         return core::make_smart_refctd_ptr<CVulkanImage>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_image, imageMemReqs);
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+            imageMemReqs,
+            std::move(params), vk_image
+        );
     }
     else
     {
@@ -464,7 +467,7 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
             vk_multisampleStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
             vk_multisampleStates[i].pNext = nullptr;
             vk_multisampleStates[i].flags = 0u;
-            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(rasterizationParams.rasterizationSamplesHint);            
+            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(creationParams[i].rasterizationSamples);
             vk_multisampleStates[i].sampleShadingEnable = rasterizationParams.sampleShadingEnable;
             vk_multisampleStates[i].minSampleShading = rasterizationParams.minSampleShading;
             vk_multisampleStates[i].pSampleMask = rasterizationParams.sampleMask;

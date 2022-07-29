@@ -19,14 +19,22 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacked,asset::IImage>, public IBackendObject
+class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBackendObject
 {
-	private:
-		using base_t = core::impl::ResolveAlignment<IDeviceMemoryBacked, asset::IImage>;
-
 	public:
-		_NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDeviceMemoryBacked,asset::IImage)
-			
+		enum E_TILING : uint8_t
+		{
+			ET_OPTIMAL,
+			ET_LINEAR
+		};
+		struct SCreationParams : asset::IImage::SCreationParams, IDeviceMemoryBacked::SCreationParams
+		{
+			// stuff below is irrelevant in OpenGL backend
+			E_TILING tiling = ET_OPTIMAL;
+			E_LAYOUT initialLayout = EL_UNDEFINED;
+		};
+
+		//!
 		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
 
 		//!
@@ -69,25 +77,9 @@ class NBL_API IGPUImage : public core::impl::ResolveAlignment<IDeviceMemoryBacke
 
 		//! constructor
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements reqs,
-			SCreationParams&& _params)
-			: base_t(reqs), IBackendObject(std::move(dev))
-		{
-			params = std::move(_params);
-		}
-
-		//! foreign image constructor
-		//! TODO investigation into VK/CUDA interop to refine this
-		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			SCreationParams&& _params,
-			core::smart_refctd_ptr<ISwapchain> backingSwapchain = nullptr,
-			uint32_t backingSwapchainIx = 0)
-			: base_t(SDeviceMemoryRequirements{}), IBackendObject(std::move(dev)),
-			m_optionalBackingSwapchain(backingSwapchain),
-			m_optionalIndexWithinSwapchain(backingSwapchainIx)
-		{
-			params = std::move(_params);
-		}
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
+			SCreationParams&& _params
+		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)) {}
 
 		void freeSwapchainImageExists() { m_optionalBackingSwapchain->freeImageExists(m_optionalIndexWithinSwapchain); }
 };

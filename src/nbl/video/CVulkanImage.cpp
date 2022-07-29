@@ -8,7 +8,8 @@ namespace nbl::video
 
 CVulkanImage::~CVulkanImage()
 {
-    if (m_optionalBackingSwapchain)
+    preDestroyStep();
+    if (!m_cachedCreationParams.importedHandle)
     {
         freeSwapchainImageExists();
     }

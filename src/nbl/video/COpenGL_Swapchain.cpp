@@ -237,7 +237,7 @@ COpenGL_Swapchain<FunctionTableType_>::COpenGL_Swapchain<FunctionTableType_>(
     SCreationParams&& params,
     core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
     const egl::CEGL* _egl,
-    uint32_t imgCount, IGPUImage::SCreationParams imgCreationParams,
+    uint32_t imgCount, IGPUImage::SCreationParams&& imgCreationParams,
     const COpenGLFeatureMap* _features,
     EGLContext _ctx,
     EGLConfig _config,
@@ -262,7 +262,7 @@ COpenGL_Swapchain<FunctionTableType_>::COpenGL_Swapchain<FunctionTableType_>(
     ));
     m_threadHandler->start();
 
-    m_imgCreationParams = imgCreationParams;
+    m_imgCreationParams = std::move(imgCreationParams);
 }
 
 template <typename FunctionTableType_>
@@ -298,7 +298,7 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
         return nullptr;
 
     auto* sc = new COpenGL_Swapchain<FunctionTableType>(
-        std::move(params), std::move(device), device->getEgl(), params.minImageCount, IGPUImage::SCreationParams(imgci), device->getGlFeatures(), ctx,
+        std::move(params), std::move(device), device->getEgl(), params.minImageCount, std::move(imgci), device->getGlFeatures(), ctx,
         fbconfig, static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()));
 
      if (!sc)
@@ -383,7 +383,8 @@ core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType_>::createI
         return nullptr;
 
     auto& device = m_threadHandler->m_device;
-    auto img_dst = core::smart_refctd_ptr_static_cast<COpenGLImage>(device->createImage(IGPUImage::SCreationParams(m_imgCreationParams)));
+    auto& imgCreationParamsCopy = m_imgCreationParams;
+    auto img_dst = core::smart_refctd_ptr_static_cast<COpenGLImage>(device->createImage(std::move(imgCreationParamsCopy)));
     img_dst->m_optionalBackingSwapchain = core::smart_refctd_ptr<ISwapchain>(this);
     img_dst->m_optionalIndexWithinSwapchain = imageIndex;
 

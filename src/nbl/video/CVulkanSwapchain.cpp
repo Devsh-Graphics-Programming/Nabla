@@ -40,7 +40,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     vk_createInfo.imageExtent = { params.width, params.height };
     vk_createInfo.imageArrayLayers = params.arrayLayers;
     vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage.value);
-    vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
+    vk_createInfo.imageSharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
     vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
@@ -62,19 +62,26 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
 
     assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
 
+    IDeviceMemoryBacked::SDeviceMemoryRequirements memReqs;
+    memReqs.size = 0ull;
+    memReqs.memoryTypeBits = 0x0u;
+    memReqs.alignmentLog2 = 63u;
+    memReqs.prefersDedicatedAllocation = true;
+    memReqs.requiresDedicatedAllocation = true;
     IGPUImage::SCreationParams imgParams;
-    imgParams.flags = static_cast<IGPUImage::E_CREATE_FLAGS>(0); // Todo(achal)
+    imgParams.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0);
     imgParams.type = CVulkanImage::ET_2D;
     imgParams.format = params.surfaceFormat.format;
     imgParams.extent = { params.width, params.height, 1u };
     imgParams.mipLevels = 1u;
     imgParams.arrayLayers = params.arrayLayers;
-    imgParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
+    imgParams.samples = CVulkanImage::ESCF_1_BIT;
     imgParams.usage = params.imageUsage;
+    imgParams.importedHandle = true;
 
     return core::make_smart_refctd_ptr<CVulkanSwapchain>(
         device, std::move(params),
-        std::move(imgParams), imageCount,
+        std::move(imgParams), std::move(memReqs), imageCount,
         vk_swapchain);
 }
 
@@ -227,10 +234,10 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
         return nullptr;
 
+    // TODO swapchain cleanup stuff
     auto image = core::make_smart_refctd_ptr<CVulkanImage>(
         std::move(device),
-        std::move(m_imgCreationParams), vk_images[imageIndex],
-        core::smart_refctd_ptr<CVulkanSwapchain>(this), imageIndex);
+        std::move(m_imgMemRequirements), std::move(m_imgCreationParams), vk_images[imageIndex]);
 
     return image;
 }

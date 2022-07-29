@@ -42,7 +42,7 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
         core::smart_refctd_ptr<IGPUImage> gpuImage;
         {
             auto cpuImageParams = _cpuimg->getCreationParameters();
-            cpuImageParams.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            cpuImageParams.initialLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
 
             // TODO: Look at issue #167 on Nabla repo, at some point
             IGPUBuffer::SCreationParams bufferCreationParams = {};

@@ -219,10 +219,10 @@ public:
         return ret;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
+    core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) override
     {
         SRequestBufferCreate reqParams;
-        reqParams.creationParams = creationParams;
+        reqParams.creationParams = std::move(creationParams);
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(reqParams),&output);
         m_masterContextCallsInvoked++;
@@ -345,7 +345,7 @@ public:
 
     void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override final
     {
-        if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_OPENGL)
+        if (memory.memory == nullptr || memory.memory->getAPIType() != (IsGLES ? EAT_OPENGL_ES:EAT_OPENGL))
             return nullptr;
 
         assert(!memory.memory->isCurrentlyMapped());

@@ -433,7 +433,7 @@ public:
             if ((bindInfo.buffer->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
                 continue;
 
-            if (bindInfo.buffer->getCachedCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+            if (bindInfo.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
             {
                 if(!bindInfo.memory->getAllocateFlags().hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
                 {
@@ -463,7 +463,7 @@ public:
         return !anyFailed;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams)
+    core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
@@ -471,7 +471,7 @@ public:
         vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
         vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
         vk_createInfo.usage = static_cast<VkBufferUsageFlags>(creationParams.usage.value);
-        vk_createInfo.sharingMode = static_cast<VkSharingMode>(creationParams.sharingMode); 
+        vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
         vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
         vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
 
@@ -495,7 +495,11 @@ public:
             bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
             return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), bufferMemoryReqs, creationParams, vk_buffer);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+                bufferMemoryReqs,
+                std::move(creationParams),
+                vk_buffer
+            );
         }
         else
         {
@@ -561,7 +565,7 @@ public:
         }
     }
 
-    core::smart_refctd_ptr<IGPUImage> createImage(asset::IImage::SCreationParams&& params) override;
+    core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params) override;
 
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
     {
@@ -675,7 +679,7 @@ public:
                     for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
                     {
                         const auto& descriptorWriteImageInfo = pDescriptorWrites[i].info[j].image;
-                        if (descriptorWriteImageInfo.imageLayout != asset::EIL_UNDEFINED)
+                        if (descriptorWriteImageInfo.imageLayout != asset::IImage::EL_UNDEFINED)
                         {
                             VkSampler vk_sampler = VK_NULL_HANDLE;
                             if (descriptorWriteImageInfo.sampler && (descriptorWriteImageInfo.sampler->getAPIType() == EAT_VULKAN))

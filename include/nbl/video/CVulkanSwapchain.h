@@ -16,10 +16,10 @@ class CVulkanSwapchain final : public ISwapchain
 {
 public:
     CVulkanSwapchain(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, SCreationParams&& params, 
-        IGPUImage::SCreationParams&& imgCreationParams, uint32_t imageCount, 
+        IGPUImage::SCreationParams&& imgCreationParams, IDeviceMemoryBacked::SDeviceMemoryRequirements&& imgMemRequirements, uint32_t imageCount,
         VkSwapchainKHR swapchain)
         : ISwapchain(std::move(logicalDevice), std::move(params), imageCount),
-        m_vkSwapchainKHR(swapchain), m_imgCreationParams(std::move(imgCreationParams))
+        m_vkSwapchainKHR(swapchain), m_imgCreationParams(std::move(imgCreationParams)), m_imgMemRequirements(std::move(imgMemRequirements))
     {}
 
     static core::smart_refctd_ptr<CVulkanSwapchain> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
@@ -42,6 +42,7 @@ public:
 private:
     VkSwapchainKHR m_vkSwapchainKHR;
     IGPUImage::SCreationParams m_imgCreationParams;
+    IDeviceMemoryBacked::SDeviceMemoryRequirements m_imgMemRequirements;
 };
 
 }

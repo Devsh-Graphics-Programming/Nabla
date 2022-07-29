@@ -143,7 +143,7 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
-            IGPUBuffer::SCachedCreationParams creationParams;
+            IGPUBuffer::SCreationParams creationParams;
         };
         struct SRequestBufferViewCreate
         {
@@ -555,7 +555,7 @@ protected:
                 gl.extGlCreateBuffers(1,&bufferName);
                 if (bufferName!=0)
                 {
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.creationParams, bufferName);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device),std::move(p.creationParams),bufferName);
                 }
                 else
                 {
@@ -602,7 +602,7 @@ protected:
                         assert(false);
                         break;
                 }
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.deviceLocalMemoryTypeBits, std::move(p.creationParams), internalFormat, target, name);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device),p.deviceLocalMemoryTypeBits,std::move(p.creationParams),internalFormat,target,name);
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:

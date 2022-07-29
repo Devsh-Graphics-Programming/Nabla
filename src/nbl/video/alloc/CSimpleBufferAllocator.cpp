@@ -10,10 +10,10 @@ using namespace nbl;
 using namespace video;
 
 CSimpleBufferAllocator::value_type CSimpleBufferAllocator::allocate(
-    const IGPUBuffer::SCreationParams& creationParams,
+    IGPUBuffer::SCreationParams&& creationParams,
     const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
 {
-    auto buffer = m_device->createBuffer(creationParams);
+    auto buffer = m_device->createBuffer(std::move(creationParams));
     auto reqs = buffer->getMemoryReqs();
     reqs.memoryTypeBits &= m_memoryTypesToUse;
     auto mem = m_device->allocate(reqs,buffer.get(),allocateFlags);

@@ -36,22 +36,16 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 			uint32_t internalFormat,
 			uint32_t target,
 			uint32_t name
-		) : IGPUImage(std::move(dev), SDeviceMemoryRequirements{ 0ull/*TODO-SIZE*/, deviceLocalMemoryTypeBits, 8u /*alignment=log2(256u)*/, true, true }, std::move(_params)),
-			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
-		{}
-
-		//! foreign constructor
-		COpenGLImage(
-			core::smart_refctd_ptr<const ILogicalDevice> && dev,
-			IGPUImage::SCreationParams && _params,
-			uint32_t internalFormat,
-			uint32_t target,
-			uint32_t name,
-			core::smart_refctd_ptr<ISwapchain> _backingSwapchain = nullptr,
-			uint32_t _backingSwapchainIx = 0
-		) : IGPUImage(std::move(dev), std::move(_params), _backingSwapchain, _backingSwapchainIx),
-			IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
-		{}
+		) : IGPUImage(
+				std::move(dev),
+				SDeviceMemoryRequirements{0xdeadbeefBADC0FFEull,deviceLocalMemoryTypeBits,63u,true,true},
+				std::move(_params)
+			), IOpenGLMemoryAllocation(getOriginDevice()), internalFormat(internalFormat), target(target), name(name)
+		{
+			assert(name!=0u);
+			m_cachedMemoryReqs.size = getImageDataSizeInBytes();
+		}
+		
 
 		bool initMemory(
 			IOpenGL_FunctionTable* gl,
