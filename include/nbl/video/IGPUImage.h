@@ -32,6 +32,18 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 			// stuff below is irrelevant in OpenGL backend
 			E_TILING tiling = ET_OPTIMAL;
 			E_LAYOUT initialLayout = EL_UNDEFINED;
+			
+			SCreationParams() = default;
+
+			SCreationParams(const asset::IImage::SCreationParams& params) 
+				: asset::IImage::SCreationParams(params)
+			{ }
+
+			SCreationParams& operator =(const asset::IImage::SCreationParams& rhs)
+			{
+				static_cast<asset::IImage::SCreationParams&>(*this) = rhs;
+				return *this;
+			}
 		};
 
 		//!
