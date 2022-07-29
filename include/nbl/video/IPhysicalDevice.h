@@ -362,7 +362,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
                 transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
                 transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
-                attachment(usages.hasFlags(core::bitflag(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)|asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)),
+                attachment((usages & (core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
                 attachmentBlend(usages.hasFlags(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)), // TODO: should conservatively deduct to be false
                 // Deduced as false. User may patch it up later
                 blitSrc(0),
