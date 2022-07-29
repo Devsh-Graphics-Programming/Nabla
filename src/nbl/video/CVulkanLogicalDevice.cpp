@@ -86,7 +86,7 @@ core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapch
         creationParams.arrayLayers = params.arrayLayers;
         creationParams.samples = CVulkanImage::ESCF_1_BIT;
         creationParams.usage = params.imageUsage;
-        creationParams.merelyObservesHandle = true;
+        creationParams.importedHandle = true;
         uint32_t i = 0u;
         for (auto& image : (*images))
         {

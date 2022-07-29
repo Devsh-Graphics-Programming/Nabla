@@ -18,7 +18,7 @@ COpenGLImage::~COpenGLImage()
         fbohash = COpenGLFramebuffer::getHashColorImage(this);
     device->destroyFramebuffer(fbohash);
     // destroy only if not observing (we own)
-    if (!m_cachedCreationParams.merelyObservesHandle)
+    if (!m_cachedCreationParams.importedHandle)
         device->destroyTexture(name);
 }
 

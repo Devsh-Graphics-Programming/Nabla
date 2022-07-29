@@ -21,16 +21,16 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         };
 
         //!
-		struct SCachedCreationParams
-		{
+        struct SCachedCreationParams
+        {
             // A Pre-Destroy-Step is called out just before a `vkDestory` or `glDelete`, this is only useful for "imported" resources
-            std::unique_ptr<ICleanup> preDestroyStep = nullptr;
-            // A Pre-Destroy-Step is called in this class' destructor, this is only useful for "imported" resources
-            std::unique_ptr<ICleanup> postDestroytStep = nullptr;
+            std::unique_ptr<ICleanup> preDestroyCleanup = nullptr;
+            // A Post-Destroy-Step is called in this class' destructor, this is only useful for "imported" resources
+            std::unique_ptr<ICleanup> postDestroytCleanup = nullptr;
             // If non zero, then we're doing concurrent resource sharing
             uint8_t queueFamilyIndexCount = 0u;
-            // Whether the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
-            bool merelyObservesHandle = false;
+            // Whether the handle is imported, thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
+            bool importedHandle = false;
 
             //! If you specify queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
@@ -91,13 +91,13 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             : m_cachedCreationParams(std::move(_creationParams)), m_cachedMemoryReqs(reqs) {}
         inline virtual ~IDeviceMemoryBacked()
         {
-            assert(!m_cachedCreationParams.preDestroyStep); // derived class should have already cleared this out
+            assert(!m_cachedCreationParams.preDestroyCleanup); // derived class should have already cleared this out
         }
 
         // it's the derived class' responsibility to call this in its destructor
         inline void preDestroyStep()
         {
-            m_cachedCreationParams.preDestroyStep = nullptr;
+            m_cachedCreationParams.preDestroyCleanup = nullptr;
         }
 
         //! members

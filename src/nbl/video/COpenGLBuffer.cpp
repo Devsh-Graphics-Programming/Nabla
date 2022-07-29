@@ -10,7 +10,7 @@ namespace nbl::video
 COpenGLBuffer::~COpenGLBuffer()
 {
     preDestroyStep();
-    if (!m_cachedCreationParams.merelyObservesHandle)
+    if (!m_cachedCreationParams.importedHandle)
     {
         auto* device = static_cast<IOpenGL_LogicalDevice*>(const_cast<ILogicalDevice*>(getOriginDevice()));
         device->destroyBuffer(BufferName);
