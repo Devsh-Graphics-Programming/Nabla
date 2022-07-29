@@ -28,7 +28,21 @@ class NBL_API IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, pu
 		// Vulkan: const VkBuffer*
 		virtual const void* getNativeHandle() const = 0;
 
-		struct SCreationParams : asset::IBuffer::SCreationParams, IDeviceMemoryBacked::SCreationParams {};
+		struct SCreationParams : asset::IBuffer::SCreationParams, IDeviceMemoryBacked::SCreationParams
+		{
+SCreationParams() = default;
+			
+SCreationParams(const asset::IBuffer::SCreationParams& params) 
+	: asset::IBuffer::SCreationParams(params)
+{ }
+
+SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
+{
+	static_cast<asset::IBuffer::SCreationParams&>(*this) = rhs;
+	return *this;
+}
+		};
+
 	protected:
 		IGPUBuffer(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
