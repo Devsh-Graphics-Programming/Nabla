@@ -16,7 +16,6 @@ CVulkanSwapchain::~CVulkanSwapchain()
 
 core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 {
-    constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
     if (params.surface->getAPIType() != EAT_VULKAN)
         return nullptr;
 
@@ -60,7 +59,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
         return nullptr;
 
-    assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
+    assert(imageCount <= ISwapchain::MaxImages);
 
     IDeviceMemoryBacked::SDeviceMemoryRequirements memReqs;
     memReqs.size = 0ull;
@@ -182,7 +181,6 @@ ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(CThreadSafeGPUQueueAdapte
 
 core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t imageIndex)
 {
-    constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
     if (!setImageExists(imageIndex))
         return nullptr;
 
@@ -229,8 +227,9 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
 
     auto device = core::smart_refctd_ptr<const CVulkanLogicalDevice>(static_cast<const CVulkanLogicalDevice*>(getOriginDevice()));
     // TODO avoid getting all the images each time
-    VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
-    auto retval = device->getFunctionTable()->vk.vkGetSwapchainImagesKHR(device->getInternalObject(), m_vkSwapchainKHR, &m_imageCount, vk_images);
+    VkImage vk_images[ISwapchain::MaxImages];
+    uint32_t imageCount = m_imageCount;
+    auto retval = device->getFunctionTable()->vk.vkGetSwapchainImagesKHR(device->getInternalObject(), m_vkSwapchainKHR, &imageCount, vk_images);
     if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
         return nullptr;
 

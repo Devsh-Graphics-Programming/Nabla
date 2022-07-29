@@ -24,18 +24,21 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 	protected:
 		virtual ~COpenGLImage();
 
-		uint32_t internalFormat;
-		uint32_t target;
-		uint32_t name;
+		using GLuint = uint32_t;
+		using GLenum = uint32_t;
+
+		GLenum internalFormat;
+		GLenum target;
+		GLuint name;
 	public:
 		//! constructor
 		COpenGLImage(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			const uint32_t deviceLocalMemoryTypeBits,
 			IGPUImage::SCreationParams&& _params,
-			uint32_t internalFormat,
-			uint32_t target,
-			uint32_t name
+			GLenum internalFormat,
+			GLenum target,
+			GLuint name
 		) : IGPUImage(
 				std::move(dev),
 				SDeviceMemoryRequirements{0xdeadbeefBADC0FFEull,deviceLocalMemoryTypeBits,63u,true,true},

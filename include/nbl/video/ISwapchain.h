@@ -5,11 +5,11 @@
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IGPUFence.h"
+#include "nbl/video/IGPUImage.h"
 #include "nbl/core/util/bitflag.h"
 
 namespace nbl::video
 {
-class IGPUImage;
 class IGPUQueue;
 
 class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
@@ -59,7 +59,7 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
             EPR_ERROR // There are other types of errors as well for if they are ever required in the future
         };
 
-        inline uint32_t getImageCount() const { return m_imageCount; }
+        inline uint8_t getImageCount() const { return m_imageCount; }
 
         // The value passed to `preTransform` when creating the swapchain. "pre" refers to the transform happening
         // as an operation before the presentation engine presents the image.
@@ -76,8 +76,8 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 
         virtual core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) = 0;
 
-        inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, uint32_t imageCount)
-            : IBackendObject(std::move(dev)), m_params(std::move(params)), m_imageCount(imageCount)
+        inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, IGPUImage::SCreationParams&& imgCreationParams, uint8_t imageCount)
+            : IBackendObject(std::move(dev)), m_params(std::move(params)), m_imageCount(imageCount), m_imgCreationParams(std::move(imgCreationParams))
         {}
         
         inline const auto& getCreationParameters() const
@@ -104,14 +104,18 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
         virtual ~ISwapchain() = default;
 
         SCreationParams m_params;
-        uint32_t m_imageCount;
+        uint8_t m_imageCount;
         std::atomic_uint32_t m_imageExists = 0;
+        IGPUImage::SCreationParams m_imgCreationParams;
 
         friend class CCleanupSwapchainReference;
         void freeImageExists(uint32_t ix) { m_imageExists.fetch_and(~(1U << ix)); }
 
         // Returns false if the image already existed
         bool setImageExists(uint32_t ix) { return (m_imageExists.fetch_or(1U << ix) & (1U << ix)) == 0; }
+
+    public:
+        static inline constexpr uint32_t MaxImages = sizeof(m_imageExists) * 8u;
 
 };
 

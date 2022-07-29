@@ -14,13 +14,10 @@
 namespace nbl::video
 {
 
-static inline constexpr uint32_t OpenGLFunctionTableSize = 6672u;
+static inline constexpr uint32_t OpenGLFunctionTableSize = std::max(sizeof(COpenGLFunctionTable), sizeof(COpenGLESFunctionTable));
 using SThreadHandlerInternalState = std::array<uint8_t, OpenGLFunctionTableSize>;
 
-static_assert(OpenGLFunctionTableSize >= sizeof(COpenGLFunctionTable));
-static_assert(OpenGLFunctionTableSize >= sizeof(COpenGLESFunctionTable));
-
-IOpenGL_FunctionTable* getFunctionPointer(video::E_API_TYPE apiType, SThreadHandlerInternalState* internalState)
+IOpenGL_FunctionTable* getFunctionTable(video::E_API_TYPE apiType, SThreadHandlerInternalState* internalState)
 {
     if (apiType == video::EAT_OPENGL)
         return reinterpret_cast<COpenGLFunctionTable*>(internalState);
@@ -31,26 +28,38 @@ IOpenGL_FunctionTable* getFunctionPointer(video::E_API_TYPE apiType, SThreadHand
 
 class COpenGL_SwapchainThreadHandler final : public system::IThreadHandler<COpenGL_SwapchainThreadHandler, SThreadHandlerInternalState>
 {
-    friend COpenGLSwapchain;
-    friend COpenGLESSwapchain;
-    static inline constexpr uint32_t MaxImages = 4u;
-    using base_t = system::IThreadHandler<COpenGL_SwapchainThreadHandler, SThreadHandlerInternalState>;
-    friend base_t;
-
 public:
+    using base_t = system::IThreadHandler<COpenGL_SwapchainThreadHandler, SThreadHandlerInternalState>;
+
+    IOpenGL_LogicalDevice* m_device;
+    uint64_t m_masterContextCallsWaited;
+
+    const egl::CEGL* egl;
+    ISurface::E_PRESENT_MODE m_presentMode;
+    const COpenGLFeatureMap* features;
+    uint32_t imageCount;
+    uint32_t imgWidth, imgHeight;
+    uint32_t fbos[ISwapchain::MaxImages]{};
+    core::smart_refctd_ptr<COpenGLSync> syncs[ISwapchain::MaxImages];
+    COpenGLDebugCallback* m_dbgCb;
+    std::array<uint32_t, ISwapchain::MaxImages> m_texViews;
+
+    bool needToBlit = false;
+
+    EGLBoolean m_makeCurrentRes = EGL_FALSE;
+    //std::condition_variable m_ctxCreatedCvar;
+
     COpenGL_SwapchainThreadHandler(const egl::CEGL* _egl,
-        core::smart_refctd_ptr<IOpenGL_LogicalDevice> dev,
-        const void* _window,
+        IOpenGL_LogicalDevice* dev,
         ISurface::E_PRESENT_MODE presentMode,
         uint32_t _imgCount, uint32_t _imgWidth, uint32_t _imgHeight,
         const COpenGLFeatureMap* _features,
-        EGLContext _ctx, EGLSurface _surface,
-        EGLConfig _config,
+        egl::CEGL::Context _glctx,
         COpenGLDebugCallback* _dbgCb
     ) : m_device(dev), m_masterContextCallsWaited(0),
         egl(_egl),
         m_presentMode(presentMode),
-        glctx{ _ctx,_surface },
+        glctx(_glctx),
         features(_features),
         imageCount(_imgCount),
         imgWidth(_imgWidth),
@@ -68,7 +77,7 @@ public:
         request.sems = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<COpenGLSemaphore>>>(semCount);
         for (uint32_t i = 0u; i < semCount; ++i)
         {
-            COpenGLSemaphore* sem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(sems[i], m_device.get());
+            COpenGLSemaphore* sem = IBackendObject::device_compatibility_cast<COpenGLSemaphore*>(sems[i], m_device);
             request.sems->begin()[i] = core::smart_refctd_ptr<COpenGLSemaphore>(sem);
         }
     }
@@ -96,7 +105,6 @@ public:
         core::smart_refctd_dynamic_array<core::smart_refctd_ptr<COpenGLSemaphore>> sems;
         uint32_t semCount = 0;
     } request;
-protected:
 
     void init(SThreadHandlerInternalState* state_ptr)
     {
@@ -104,10 +112,9 @@ protected:
 
         EGLBoolean mcres = egl->call.peglMakeCurrent(egl->display, glctx.surface, glctx.surface, glctx.ctx);
         m_makeCurrentRes = mcres;
+        //m_ctxCreatedCvar.notify_one();
         if (mcres != EGL_TRUE)
             return;
-
-        m_ctxCreatedCvar.notify_one();
 
         switch (m_presentMode)
         {
@@ -127,7 +134,7 @@ protected:
         else if (m_device->getAPIType() == video::EAT_OPENGL_ES)
             new (state_ptr) COpenGLESFunctionTable(egl, features, core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
         else assert(false);
-        auto gl = getFunctionPointer(m_device->getAPIType(), state_ptr);
+        auto gl = getFunctionTable(m_device->getAPIType(), state_ptr);
 
 #ifdef _NBL_DEBUG
         gl->glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -147,15 +154,15 @@ protected:
 
     void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& state)
     {
-        auto gl = getFunctionPointer(m_device->getAPIType(), &state);
+        auto gl = getFunctionTable(m_device->getAPIType(), &state);
         if (request.initializeImg)
         {
             // Create texture view
             gl->glTexture.pglGenTextures(1, &m_texViews.data()[request.imgIx]);
 
             GLuint texture = m_texViews[request.imgIx];
-            GLuint origtexture = IBackendObject::device_compatibility_cast<COpenGLImage*>(request.initializeImg.get(), m_device.get())->getOpenGLName();
-            GLenum format = IBackendObject::device_compatibility_cast<COpenGLImage*>(request.initializeImg.get(), m_device.get())->getOpenGLSizedFormat();
+            GLuint origtexture = IBackendObject::device_compatibility_cast<COpenGLImage*>(request.initializeImg.get(), m_device)->getOpenGLName();
+            GLenum format = IBackendObject::device_compatibility_cast<COpenGLImage*>(request.initializeImg.get(), m_device)->getOpenGLSizedFormat();
             gl->extGlTextureView(texture, GL_TEXTURE_2D, origtexture, format, 0, 1, 0, 1);
                 
             // Create FBO
@@ -187,6 +194,7 @@ protected:
             }
 
             // need to possibly wait for master context (image & view creation, etc.)
+            // likely not needed anymore, leaving just to be sure
             m_masterContextCallsWaited = m_device->waitOnMasterContext(gl, m_masterContextCallsWaited);
 
             gl->extGlBlitNamedFramebuffer(fbos[imgix], 0, 0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -200,10 +208,6 @@ protected:
 
     void exit(SThreadHandlerInternalState* state)
     {
-        // TODO this should be in destructor for COpenGLImage
-        auto gl = getFunctionPointer(m_device->getAPIType(), state);
-        gl->~IOpenGL_FunctionTable();
-
         egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         egl->call.peglDestroyContext(egl->display, glctx.ctx);
         egl->call.peglDestroySurface(egl->display, glctx.surface);
@@ -211,29 +215,10 @@ protected:
 
     bool wakeupPredicate() const { return needToBlit; }
     bool continuePredicate() const { return needToBlit; }
-
-private:
-    core::smart_refctd_ptr<IOpenGL_LogicalDevice> m_device;
-    uint64_t m_masterContextCallsWaited;
-
-    const egl::CEGL* egl;
-    ISurface::E_PRESENT_MODE m_presentMode;
-    const COpenGLFeatureMap* features;
-    uint32_t imageCount;
-    uint32_t imgWidth, imgHeight;
-    uint32_t fbos[MaxImages]{};
-    core::smart_refctd_ptr<COpenGLSync> syncs[MaxImages];
-    COpenGLDebugCallback* m_dbgCb;
-    std::array<uint32_t, MaxImages> m_texViews;
-
-    bool needToBlit = false;
-
-    EGLBoolean m_makeCurrentRes = EGL_FALSE;
-    std::condition_variable m_ctxCreatedCvar;
 };
 
-template <typename FunctionTableType_>
-COpenGL_Swapchain<FunctionTableType_>::COpenGL_Swapchain<FunctionTableType_>(
+template <typename FunctionTableType>
+COpenGL_Swapchain<FunctionTableType>::COpenGL_Swapchain<FunctionTableType>(
     SCreationParams&& params,
     core::smart_refctd_ptr<IOpenGL_LogicalDevice>&& dev,
     const egl::CEGL* _egl,
@@ -242,7 +227,7 @@ COpenGL_Swapchain<FunctionTableType_>::COpenGL_Swapchain<FunctionTableType_>(
     EGLContext _ctx,
     EGLConfig _config,
     COpenGLDebugCallback* _dbgCb
-) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev), std::move(params), imgCount)
+) : ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>(dev), std::move(params), std::move(imgCreationParams), imgCount)
 {
     _egl->call.peglBindAPI(dev->getEGLAPI());
 
@@ -258,18 +243,18 @@ COpenGL_Swapchain<FunctionTableType_>::COpenGL_Swapchain<FunctionTableType_>(
     assert(surface != EGL_NO_SURFACE);
 
     m_threadHandler = std::unique_ptr<COpenGL_SwapchainThreadHandler>(new COpenGL_SwapchainThreadHandler(
-        _egl, dev, m_params.surface->getNativeWindowHandle(), m_params.presentMode, imgCount, imgCreationParams.extent.width, imgCreationParams.extent.height, _features, _ctx, surface, _config, _dbgCb
+        _egl, dev.get(), m_params.presentMode, imgCount, imgCreationParams.extent.width, imgCreationParams.extent.height, _features, { _ctx, surface }, _dbgCb
     ));
     m_threadHandler->start();
 
     m_imgCreationParams = std::move(imgCreationParams);
 }
 
-template <typename FunctionTableType_>
-const void* COpenGL_Swapchain<FunctionTableType_>::getNativeHandle() const { return &m_threadHandler->glctx; }
+template <typename FunctionTableType>
+const void* COpenGL_Swapchain<FunctionTableType>::getNativeHandle() const { return &m_threadHandler->glctx; }
 
-template <typename FunctionTableType_>
-core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<FunctionTableType_>::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
+template <typename FunctionTableType>
+core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> COpenGL_Swapchain<FunctionTableType>::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 {
     if (params.surface->getAPIType() != EAT_OPENGL || (params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
         return nullptr;
@@ -294,7 +279,7 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType_>> COpenGL_Swapchain<
     device->unbindMasterContext();
     EGLContext ctx = device->createGLContext(FunctionTableType::EGL_API_TYPE, device->getEgl(), glver.first, glver.second, fbconfig, device->getEglContext());
 
-    if (params.minImageCount > MaxImages)
+    if (params.minImageCount > ISwapchain::MaxImages)
         return nullptr;
 
     auto* sc = new COpenGL_Swapchain<FunctionTableType>(
@@ -321,8 +306,8 @@ core::smart_refctd_ptr<COpenGLESSwapchain> createGLESSwapchain(const core::smart
     return COpenGLESSwapchain::create(std::move(logicalDevice), std::move(params));
 }
 
-template <typename FunctionTableType_>
-nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableType_>::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
+template <typename FunctionTableType>
+nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableType>::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
 {
     COpenGLSemaphore* glSem = IBackendObject::compatibility_cast<COpenGLSemaphore*>(semaphore, this);
     COpenGLFence* glFen = IBackendObject::compatibility_cast<COpenGLFence*>(fence, this);
@@ -351,8 +336,8 @@ nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableTy
     return EAIR_SUCCESS;
 }
 
-template <typename FunctionTableType_>
-nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_>::present(IGPUQueue* queue, const SPresentInfo& info)
+template <typename FunctionTableType>
+nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType>::present(IGPUQueue* queue, const SPresentInfo& info)
 {
     for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
     {
@@ -376,8 +361,8 @@ nbl::video::ISwapchain::E_PRESENT_RESULT COpenGL_Swapchain<FunctionTableType_>::
     return ISwapchain::EPR_SUCCESS;
 }
 
-template <typename FunctionTableType_>
-core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType_>::createImage(const uint32_t imageIndex)
+template <typename FunctionTableType>
+core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType>::createImage(const uint32_t imageIndex)
 {
     if (!setImageExists(imageIndex))
         return nullptr;
@@ -398,22 +383,12 @@ core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType_>::createI
     if (!img_dst || !imgMem.isValid())
         return nullptr;
 
-    // weird validation that the original impl did
-    auto& ci = img_dst->getCreationParameters();
-    if (ci.type != asset::IImage::ET_2D)
-        return nullptr;
-    if (ci.arrayLayers != m_imgCreationParams.arrayLayers)
-        return nullptr;
-    if (ci.mipLevels != 1u)
-        return nullptr;
-    if (ci.extent.width != m_imgCreationParams.extent.width)
-        return nullptr;
-    if (ci.extent.height != m_imgCreationParams.extent.height)
-        return nullptr;
-    
     m_threadHandler->createImgViewFbo(imageIndex, img_dst);
 
     return img_dst;
 }
+
+template core::smart_refctd_ptr<COpenGLSwapchain> COpenGLSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+template core::smart_refctd_ptr<COpenGLESSwapchain> COpenGLESSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
 
 }

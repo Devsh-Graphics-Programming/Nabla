@@ -12,7 +12,6 @@
 #include "nbl/asset/IImage.h"
 
 #include "nbl/video/IGPUBuffer.h"
-#include "nbl/video/ISwapchain.h"
 #include "nbl/video/decl/IBackendObject.h"
 
 
