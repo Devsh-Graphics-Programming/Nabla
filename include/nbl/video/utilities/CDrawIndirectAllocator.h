@@ -41,7 +41,7 @@ class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
             explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.minSSBOAlignment);
 
             creationParams.size = explicit_params.drawCommandBuffer.size;
-            explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(creationParams);
+            explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(std::move(creationParams));
             auto mreqsDrawCmdBuf = explicit_params.drawCommandBuffer.buffer->getMemoryReqs();
             mreqsDrawCmdBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, explicit_params.drawCommandBuffer.buffer.get());
@@ -51,7 +51,7 @@ class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
             if (explicit_params.drawCountBuffer.size)
             {
                 creationParams.size = explicit_params.drawCountBuffer.size;
-                explicit_params.drawCountBuffer.buffer = params.device->createBuffer(creationParams);
+                explicit_params.drawCountBuffer.buffer = params.device->createBuffer(std::move(creationParams));
                 auto mreqsDrawCountBuf = explicit_params.drawCountBuffer.buffer->getMemoryReqs();
                 mreqsDrawCountBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
                 auto gpubufMem = params.device->allocate(mreqsDrawCountBuf, explicit_params.drawCountBuffer.buffer.get());
