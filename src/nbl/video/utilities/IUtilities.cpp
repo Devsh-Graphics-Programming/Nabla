@@ -837,6 +837,7 @@ void IUtilities::updateImageViaStagingBuffer(
 
     ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, /*TODO*/dstImage->getCreationParameters().format, dstImage);
 
+    // TODO[FUTURE]: consider benefits of using `limits->optimalBufferCopyOffsetAlignment` and `limits->optimalBufferCopyRowPitchAlignment`
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
     const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth); 
 
