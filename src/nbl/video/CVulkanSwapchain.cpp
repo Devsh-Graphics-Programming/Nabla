@@ -76,7 +76,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     imgParams.arrayLayers = params.arrayLayers;
     imgParams.samples = CVulkanImage::ESCF_1_BIT;
     imgParams.usage = params.imageUsage;
-    imgParams.importedHandle = true;
+    imgParams.skipHandleDestroy = true;
 
     return core::make_smart_refctd_ptr<CVulkanSwapchain>(
         device, std::move(params),
@@ -239,7 +239,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
     swapchainRef->m_imageIndex = imageIndex;
 
     creationParams.preDestroyCleanup = std::unique_ptr<ICleanup>(swapchainRef.release());
-    creationParams.importedHandle = true;
+    creationParams.skipHandleDestroy = true;
 
     auto image = core::make_smart_refctd_ptr<CVulkanImage>(
         std::move(device),

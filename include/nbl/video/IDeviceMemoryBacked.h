@@ -28,8 +28,8 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             std::unique_ptr<ICleanup> postDestroyCleanup = nullptr;
             // If non zero, then we're doing concurrent resource sharing
             uint8_t queueFamilyIndexCount = 0u;
-            // Whether the handle is imported, thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
-            bool importedHandle = false;
+            // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
+            bool skipHandleDestroy = false;
 
             //! If you specify queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
