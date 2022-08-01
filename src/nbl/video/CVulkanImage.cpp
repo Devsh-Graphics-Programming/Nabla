@@ -10,7 +10,7 @@ CVulkanImage::~CVulkanImage()
 {
     preDestroyStep();
     // don't destroy imported handles
-    if (!m_cachedCreationParams.importedHandle)
+    if (!m_cachedCreationParams.skipHandleDestroy)
     {
         if (m_vkImage != VK_NULL_HANDLE)
         {

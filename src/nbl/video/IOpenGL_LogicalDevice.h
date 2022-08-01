@@ -998,19 +998,6 @@ public:
         : ILogicalDevice(std::move(api),physicalDevice,params), m_masterContextCallsInvoked(0u), m_masterContextCallsReturned(0u), m_masterContextSync(nullptr), m_egl(_egl) {}
 
     template <typename FunctionTableType>
-    inline uint64_t waitOnMasterContext(FunctionTableType& _gl, const uint64_t waitedCallsSoFar)
-    {
-        const uint64_t invokedSoFar = m_masterContextCallsInvoked.load();
-        assert(invokedSoFar >= waitedCallsSoFar); // something went very wrong with causality
-        if (invokedSoFar == waitedCallsSoFar)
-            return waitedCallsSoFar;
-        uint64_t returnedSoFar;
-        while ((returnedSoFar = m_masterContextCallsReturned.load()) < invokedSoFar) {} // waiting on address deadlocks
-        _gl.glSync.pglWaitSync(m_masterContextSync.load(), 0, GL_TIMEOUT_IGNORED);
-        return returnedSoFar;
-    }
-
-    template <typename FunctionTableType>
     inline uint64_t waitOnMasterContext(FunctionTableType* _gl, const uint64_t waitedCallsSoFar)
     {
         const uint64_t invokedSoFar = m_masterContextCallsInvoked.load();

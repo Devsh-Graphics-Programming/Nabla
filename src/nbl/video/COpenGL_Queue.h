@@ -230,7 +230,7 @@ class COpenGL_Queue final : public IGPUQueue
                     }
                     
                     // need to possibly wait for master context (object creation, and buffer mapping and flushing)
-                    m_masterContextCallsWaited = m_device->waitOnMasterContext(gl,m_masterContextCallsWaited);
+                    m_masterContextCallsWaited = m_device->waitOnMasterContext(&gl,m_masterContextCallsWaited);
 
                     if (barrierBits)
                         gl.glSync.pglMemoryBarrier(barrierBits);

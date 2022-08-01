@@ -36,7 +36,6 @@ public:
 
     const egl::CEGL* egl;
     ISurface::E_PRESENT_MODE m_presentMode;
-    const COpenGLFeatureMap* features;
     uint32_t imageCount;
     uint32_t imgWidth, imgHeight;
     core::smart_refctd_ptr<COpenGLSync> syncs[ISwapchain::MaxImages];
@@ -46,7 +45,7 @@ public:
     asset::E_FORMAT m_ourFormat;
     GLenum m_glFormat;
 
-    bool needToBlit = false;
+    std::atomic_bool needToBlit = false;
 
     EGLBoolean m_makeCurrentRes = EGL_FALSE;
     //std::condition_variable m_ctxCreatedCvar;
@@ -55,7 +54,6 @@ public:
         IOpenGL_LogicalDevice* dev,
         ISurface::E_PRESENT_MODE presentMode,
         uint32_t _imgCount, uint32_t _imgWidth, uint32_t _imgHeight,
-        const COpenGLFeatureMap* _features,
         egl::CEGL::Context _glctx,
         COpenGLDebugCallback* _dbgCb,
         asset::E_FORMAT format
@@ -63,7 +61,6 @@ public:
         egl(_egl),
         m_presentMode(presentMode),
         glctx(_glctx),
-        features(_features),
         imageCount(_imgCount),
         imgWidth(_imgWidth),
         imgHeight(_imgHeight),
@@ -75,7 +72,7 @@ public:
     {
         auto raii_handler = base_t::createRAIIDispatchHandler();
 
-        needToBlit = true;
+        needToBlit.store(true);
         request.imgIx = _imgIx;
         request.semCount = semCount;
         request.sems = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<COpenGLSemaphore>>>(semCount);
@@ -141,9 +138,9 @@ public:
         }
 
         if (m_device->getAPIType() == video::EAT_OPENGL)
-            new (state_ptr) COpenGLFunctionTable(egl, features, core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
+            new (state_ptr) COpenGLFunctionTable(egl, m_device->getGlFeatures(), core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
         else if (m_device->getAPIType() == video::EAT_OPENGL_ES)
-            new (state_ptr) COpenGLESFunctionTable(egl, features, core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
+            new (state_ptr) COpenGLESFunctionTable(egl, m_device->getGlFeatures(), core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
         else assert(false);
         auto gl = getFunctionTable(m_device->getAPIType(), state_ptr);
 
@@ -195,7 +192,7 @@ public:
     void work(typename base_t::lock_t& lock, typename base_t::internal_state_t& state)
     {
         auto gl = getFunctionTable(m_device->getAPIType(), &state);
-        needToBlit = false;
+        needToBlit.store(false);
 
         const uint32_t imgix = request.imgIx;
         const uint32_t w = imgWidth;
@@ -226,8 +223,8 @@ public:
         egl->call.peglDestroySurface(egl->display, glctx.surface);
     }
 
-    bool wakeupPredicate() const { return needToBlit; }
-    bool continuePredicate() const { return needToBlit; }
+    bool wakeupPredicate() const { return needToBlit.load(); }
+    bool continuePredicate() const { return needToBlit.load(); }
 };
 
 template <typename FunctionTableType>
@@ -236,7 +233,8 @@ const void* COpenGL_Swapchain<FunctionTableType>::getNativeHandle() const { retu
 template <typename FunctionTableType>
 core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> COpenGL_Swapchain<FunctionTableType>::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 {
-    if (params.surface->getAPIType() != EAT_OPENGL || (params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
+    // surfaces are only supported by queue family index 0 on opengl
+    if (!params.surface->isSupportedForPhysicalDevice(logicalDevice->getPhysicalDevice(), 0u) || params.surface->getAPIType() != EAT_OPENGL || (params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
         return nullptr;
 
     auto device = core::smart_refctd_ptr_static_cast<IOpenGL_LogicalDevice>(logicalDevice);
@@ -281,7 +279,7 @@ core::smart_refctd_ptr<COpenGL_Swapchain<FunctionTableType>> COpenGL_Swapchain<F
         device.get(), 
         params.presentMode, 
         params.minImageCount, params.width, params.height,
-        device->getGlFeatures(), { ctx, surface }, 
+        { ctx, surface }, 
         static_cast<COpenGLDebugCallback*>(device->getPhysicalDevice()->getDebugCallback()), 
         params.surfaceFormat.format
     ));
@@ -378,7 +376,7 @@ core::smart_refctd_ptr<IGPUImage> COpenGL_Swapchain<FunctionTableType>::createIm
     swapchainRef->m_imageIndex = imageIndex;
 
     imgCreationParams.preDestroyCleanup = std::unique_ptr<ICleanup>(swapchainRef.release());
-    imgCreationParams.importedHandle = true;
+    imgCreationParams.skipHandleDestroy = true;
 
     return m_threadHandler->createImageAsImported(imageIndex, std::move(imgCreationParams));
 }
