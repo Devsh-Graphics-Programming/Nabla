@@ -667,14 +667,14 @@ struct SPhysicalDeviceLimits
         if (viewportBoundsRange[1] > _rhs.viewportBoundsRange[1]) return false;
         if (viewportSubPixelBits > _rhs.viewportSubPixelBits) return false;
         if (minMemoryMapAlignment < _rhs.minMemoryMapAlignment) return false;
-        if (bufferViewAlignment > _rhs.bufferViewAlignment) return false;
-        if (minUBOAlignment > _rhs.minUBOAlignment) return false;
-        if (minSSBOAlignment > _rhs.minSSBOAlignment) return false;
-        if (minTexelOffset > _rhs.minTexelOffset) return false;
+        if (bufferViewAlignment < _rhs.bufferViewAlignment) return false;
+        if (minUBOAlignment < _rhs.minUBOAlignment) return false;
+        if (minSSBOAlignment < _rhs.minSSBOAlignment) return false;
+        if (minTexelOffset < _rhs.minTexelOffset) return false;
         if (maxTexelOffset > _rhs.maxTexelOffset) return false;
-        if (minTexelGatherOffset > _rhs.minTexelGatherOffset) return false;
+        if (minTexelGatherOffset < _rhs.minTexelGatherOffset) return false;
         if (maxTexelGatherOffset > _rhs.maxTexelGatherOffset) return false;
-        if (minInterpolationOffset > _rhs.minInterpolationOffset) return false;
+        if (minInterpolationOffset < _rhs.minInterpolationOffset) return false;
         if (maxInterpolationOffset > _rhs.maxInterpolationOffset) return false;
         if (maxFramebufferWidth > _rhs.maxFramebufferWidth) return false;
         if (maxFramebufferHeight > _rhs.maxFramebufferHeight) return false;
@@ -702,8 +702,8 @@ struct SPhysicalDeviceLimits
         if (lineWidthGranularity < _rhs.lineWidthGranularity) return false;
         if (strictLines > _rhs.strictLines) return false;
         if (standardSampleLocations > _rhs.standardSampleLocations) return false;
-        if (optimalBufferCopyOffsetAlignment > _rhs.optimalBufferCopyOffsetAlignment) return false;
-        if (optimalBufferCopyRowPitchAlignment > _rhs.optimalBufferCopyRowPitchAlignment) return false;
+        if (optimalBufferCopyOffsetAlignment < _rhs.optimalBufferCopyOffsetAlignment) return false;
+        if (optimalBufferCopyRowPitchAlignment < _rhs.optimalBufferCopyRowPitchAlignment) return false;
         if (nonCoherentAtomSize > _rhs.nonCoherentAtomSize) return false;
         if (subgroupSize > _rhs.subgroupSize) return false;
         if (!_rhs.subgroupOpsShaderStages.hasFlags(subgroupOpsShaderStages)) return false;
@@ -758,12 +758,15 @@ struct SPhysicalDeviceLimits
         if (maxDescriptorSetUpdateAfterBindInputAttachments > _rhs.maxDescriptorSetUpdateAfterBindInputAttachments) return false;
         if (filterMinmaxSingleComponentFormats && !_rhs.filterMinmaxSingleComponentFormats) return false;
         if (filterMinmaxImageComponentMapping && !_rhs.filterMinmaxImageComponentMapping) return false;
-        if (minSubgroupSize > _rhs.minSubgroupSize) return false;
+        
+        // TODO revise how to implement < for min/maxSubgroupSize
+        if (minSubgroupSize < _rhs.minSubgroupSize) return false;
         if (maxSubgroupSize > _rhs.maxSubgroupSize) return false;
+
         if (maxComputeWorkgroupSubgroups > _rhs.maxComputeWorkgroupSubgroups) return false;
         if (!_rhs.requiredSubgroupSizeStages.hasFlags(requiredSubgroupSizeStages)) return false;
-        if (storageTexelBufferOffsetAlignmentBytes > _rhs.storageTexelBufferOffsetAlignmentBytes) return false;
-        if (uniformTexelBufferOffsetAlignmentBytes > _rhs.uniformTexelBufferOffsetAlignmentBytes) return false;
+        if (storageTexelBufferOffsetAlignmentBytes < _rhs.storageTexelBufferOffsetAlignmentBytes) return false;
+        if (uniformTexelBufferOffsetAlignmentBytes < _rhs.uniformTexelBufferOffsetAlignmentBytes) return false;
         if (maxBufferSize > _rhs.maxBufferSize) return false;
         if (primitiveOverestimationSize > _rhs.primitiveOverestimationSize) return false;
         if (maxExtraPrimitiveOverestimationSize > _rhs.maxExtraPrimitiveOverestimationSize) return false;
@@ -815,18 +818,21 @@ struct SPhysicalDeviceLimits
         if (maxPerStageDescriptorUpdateAfterBindAccelerationStructures > _rhs.maxPerStageDescriptorUpdateAfterBindAccelerationStructures) return false;
         if (maxDescriptorSetAccelerationStructures > _rhs.maxDescriptorSetAccelerationStructures) return false;
         if (maxDescriptorSetUpdateAfterBindAccelerationStructures > _rhs.maxDescriptorSetUpdateAfterBindAccelerationStructures) return false;
-        if (minAccelerationStructureScratchOffsetAlignment > _rhs.minAccelerationStructureScratchOffsetAlignment) return false;
+        if (minAccelerationStructureScratchOffsetAlignment < _rhs.minAccelerationStructureScratchOffsetAlignment) return false;
         if (variableSampleLocations && !_rhs.variableSampleLocations) return false;
         if (sampleLocationSubPixelBits > _rhs.sampleLocationSubPixelBits) return false;
         if (!_rhs.sampleLocationSampleCounts.hasFlags(sampleLocationSampleCounts)) return false;
         if (maxSampleLocationGridSize.width > _rhs.maxSampleLocationGridSize.width) return false;
         if (maxSampleLocationGridSize.height > _rhs.maxSampleLocationGridSize.height) return false;
         if (sampleLocationCoordinateRange[0] < _rhs.sampleLocationCoordinateRange[0] || sampleLocationCoordinateRange[1] > _rhs.sampleLocationCoordinateRange[1]) return false;
-        if (minImportedHostPointerAlignment > _rhs.minImportedHostPointerAlignment) return false;
+        if (minImportedHostPointerAlignment < _rhs.minImportedHostPointerAlignment) return false;
+
+        // TODO: Revise min/maxFragmentDensityTexelSize
         if (minFragmentDensityTexelSize.width < _rhs.minFragmentDensityTexelSize.width) return false;
         if (minFragmentDensityTexelSize.height < _rhs.minFragmentDensityTexelSize.height) return false;
         if (maxFragmentDensityTexelSize.width > _rhs.maxFragmentDensityTexelSize.width) return false;
         if (maxFragmentDensityTexelSize.height > _rhs.maxFragmentDensityTexelSize.height) return false;
+
         if (fragmentDensityInvocations && !_rhs.fragmentDensityInvocations) return false;
         if (subsampledLoads && !_rhs.subsampledLoads) return false;
         if (subsampledCoarseReconstructionEarlyAccess && !_rhs.subsampledCoarseReconstructionEarlyAccess) return false;
@@ -839,10 +845,10 @@ struct SPhysicalDeviceLimits
         if (shaderGroupHandleSize > _rhs.shaderGroupHandleSize) return false;
         if (maxRayRecursionDepth > _rhs.maxRayRecursionDepth) return false;
         if (maxShaderGroupStride > _rhs.maxShaderGroupStride) return false;
-        if (shaderGroupBaseAlignment > _rhs.shaderGroupBaseAlignment) return false;
+        if (shaderGroupBaseAlignment < _rhs.shaderGroupBaseAlignment) return false;
         if (shaderGroupHandleCaptureReplaySize > _rhs.shaderGroupHandleCaptureReplaySize) return false;
         if (maxRayDispatchInvocationCount > _rhs.maxRayDispatchInvocationCount) return false;
-        if (shaderGroupHandleAlignment > _rhs.shaderGroupHandleAlignment) return false;
+        if (shaderGroupHandleAlignment < _rhs.shaderGroupHandleAlignment) return false;
         if (maxRayHitAttributeSize > _rhs.maxRayHitAttributeSize) return false;
         if (!_rhs.cooperativeMatrixSupportedStages.hasFlags(cooperativeMatrixSupportedStages)) return false;
         if (shaderOutputViewportIndex && !_rhs.shaderOutputViewportIndex) return false;
