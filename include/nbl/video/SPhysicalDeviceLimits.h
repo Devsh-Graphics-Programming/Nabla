@@ -614,7 +614,7 @@ struct SPhysicalDeviceLimits
         if (maxPushConstantsSize > _rhs.maxPushConstantsSize) return false;
         if (maxMemoryAllocationCount > _rhs.maxMemoryAllocationCount) return false;
         if (maxSamplerAllocationCount > _rhs.maxSamplerAllocationCount) return false;
-        if (bufferImageGranularity > _rhs.bufferImageGranularity) return false;
+        if (bufferImageGranularity < _rhs.bufferImageGranularity) return false;
         if (maxPerStageDescriptorSamplers > _rhs.maxPerStageDescriptorSamplers) return false;
         if (maxPerStageDescriptorUBOs > _rhs.maxPerStageDescriptorUBOs) return false;
         if (maxPerStageDescriptorSSBOs > _rhs.maxPerStageDescriptorSSBOs) return false;
@@ -770,7 +770,7 @@ struct SPhysicalDeviceLimits
         if (maxBufferSize > _rhs.maxBufferSize) return false;
         if (primitiveOverestimationSize > _rhs.primitiveOverestimationSize) return false;
         if (maxExtraPrimitiveOverestimationSize > _rhs.maxExtraPrimitiveOverestimationSize) return false;
-        if (extraPrimitiveOverestimationSizeGranularity > _rhs.extraPrimitiveOverestimationSizeGranularity) return false;
+        if (extraPrimitiveOverestimationSizeGranularity < _rhs.extraPrimitiveOverestimationSizeGranularity) return false;
         if (primitiveUnderestimation && !_rhs.primitiveUnderestimation) return false;
         if (conservativePointAndLineRasterization && !_rhs.conservativePointAndLineRasterization) return false;
         if (degenerateTrianglesRasterized && !_rhs.degenerateTrianglesRasterized) return false;
