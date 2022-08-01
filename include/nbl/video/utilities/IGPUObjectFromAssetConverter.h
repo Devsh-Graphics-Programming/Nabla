@@ -1086,7 +1086,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         const asset::ICPUImage* cpuimg = _begin[i];
-        IGPUImage::SCreationParams params = cpuimg->getCreationParameters();
+        IGPUImage::SCreationParams params = {};
+        params = cpuimg->getCreationParameters();
         params.initialLayout = asset::IImage::EL_UNDEFINED;
 
         const bool integerFmt = asset::isIntegerFormat(params.format);
