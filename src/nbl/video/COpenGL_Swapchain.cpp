@@ -308,6 +308,7 @@ core::smart_refctd_ptr<COpenGLESSwapchain> createGLESSwapchain(const core::smart
     return COpenGLESSwapchain::create(std::move(logicalDevice), std::move(params));
 }
 
+// TODO should return EAIR_SUBOPTIMAL if the swapchain doesn't match surface size
 template <typename FunctionTableType>
 nbl::video::ISwapchain::E_ACQUIRE_IMAGE_RESULT COpenGL_Swapchain<FunctionTableType>::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx)
 {
