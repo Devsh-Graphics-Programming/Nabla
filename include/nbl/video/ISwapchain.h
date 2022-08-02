@@ -78,7 +78,10 @@ class NBL_API ISwapchain : public core::IReferenceCounted, public IBackendObject
 
         inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, IGPUImage::SCreationParams&& imgCreationParams, uint8_t imageCount)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_imageCount(imageCount), m_imgCreationParams(std::move(imgCreationParams))
-        {}
+        {
+            // don't need to keep a reference to the old swapchain anymore
+            m_params.oldSwapchain = nullptr;
+        }
         
         inline const auto& getCreationParameters() const
         {
