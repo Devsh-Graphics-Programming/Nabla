@@ -20,6 +20,11 @@ public:
         , srcBuffer(srcBuffer)
         , dstImage(dstImage)
         , srcImageFormat(srcImageFormat)
+        , currentBlockInRow(0u)
+        , currentRowInSlice(0u)
+        , currentSliceInLayer(0u)
+        , currentLayerInRegion(0u)
+        , currentRegion(0u)
     {
         dstImageFormat = dstImage->getCreationParameters().format;
         if(srcImageFormat == asset::EF_UNKNOWN)
@@ -147,7 +152,7 @@ public:
     // ! updates `availableMemory` (availableMemory -= consumedMemory)
     // ! updates `stagingBufferOffset` based on consumed memory and alignment requirements
     // ! this function may do format conversions when copying from `srcBuffer` to `stagingBuffer` if srcBufferFormat != dstImage->Format passed as constructor parameters
-    bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy & regionToCopyNext, size_t& availableMemory, size_t& stagingBufferOffset, void * stagingBufferPointer)
+    bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, size_t& availableMemory, size_t& stagingBufferOffset, void* stagingBufferPointer)
     {
         if(isFinished())
             return false;
@@ -282,7 +287,7 @@ public:
                 inCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
                 inCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
                 inCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
-                inCpuImageRegion.imageSubresource.layerCount = uploadableArrayLayers;
+                inCpuImageRegion.imageSubresource.layerCount = core::max(uploadableArrayLayers, 1u);
 
                 auto localImageOffset = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
                 uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, srcBufferByteStrides)[0];
@@ -315,7 +320,7 @@ public:
                 outCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
                 outCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
                 outCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
-                outCpuImageRegion.imageSubresource.layerCount = uploadableArrayLayers;
+                outCpuImageRegion.imageSubresource.layerCount = core::max(uploadableArrayLayers, 1u);
 
                 asset::ICPUImage::SCreationParams outCPUImageParams = dstImageParams;
                 uint8_t* outCpuBufferPointer = reinterpret_cast<uint8_t*>(stagingBufferPointer) + stagingBufferOffset;
@@ -362,7 +367,7 @@ public:
             // In = srcBuffer, Out = stagingBuffer
             if (srcImageFormat == dstImageFormat)
             {
-#ifdef OLD
+#ifdef OLD_BUT_GOLD
                 if(regionBlockStrides.x != imageExtentInBlocks.x)
                 {
                     // Can't copy all rows at once, there is more padding at the end of rows, copy row by row:
@@ -489,7 +494,7 @@ public:
 
             if (srcImageFormat == dstImageFormat)
             {
-#ifdef OLD
+#ifdef OLD_BUT_GOLD
                 if(regionBlockStrides.x != imageExtentInBlocks.x)
                 {
                     // Can't copy all rows at once, there is more padding at the end of rows, copy row by row:
@@ -609,7 +614,7 @@ public:
 
             if (srcImageFormat == dstImageFormat)
             {
-#ifdef OLD
+#ifdef OLD_BUT_GOLD
                 if(regionBlockStrides.x != imageExtentInBlocks.x)
                 {
                     // Can't copy all rows at once, there is padding, copy row by row
@@ -711,7 +716,7 @@ public:
 
             if (srcImageFormat == dstImageFormat)
             {
-#ifdef OLD
+#ifdef OLD_BUT_GOLD
                 auto localImageOffset = core::vector3du32_SIMD(0u + currentBlockInRow, 0u + currentRowInSlice, 0u + currentSliceInLayer, currentLayerInRegion);
                 uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
                 memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+stagingBufferOffset,
