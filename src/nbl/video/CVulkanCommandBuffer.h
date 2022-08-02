@@ -1398,6 +1398,8 @@ private:
 
         CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
         vulkanCommandPool->emplace_n(m_argListTail, begin, end);
+        // TODO: verify this
+        if (!m_argListHead) m_argListHead = m_argListTail;
 
         return true;
     }
