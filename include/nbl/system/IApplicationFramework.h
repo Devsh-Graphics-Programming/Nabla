@@ -52,6 +52,8 @@ class NBL_API IApplicationFramework : public core::IReferenceCounted
             return onAppTerminated_impl();
         }
 
+        virtual void onResize(uint32_t w, uint32_t h) {}
+
         virtual void workLoopBody() = 0;
         virtual bool keepRunning() = 0;
         std::vector<std::string> argv;
