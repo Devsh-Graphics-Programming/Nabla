@@ -12,6 +12,15 @@ CVulkanCommandPool::~CVulkanCommandPool()
     vk->vk.vkDestroyCommandPool(vulkanDevice->getInternalObject(), m_vkCommandPool, nullptr);
 }
 
+void CVulkanCommandPool::reset()
+{
+	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	auto* vk = vulkanDevice->getFunctionTable();
+	// TODO work out: always use release resources flag?
+	vk->vk.vkResetCommandPool(vulkanDevice->getInternalObject(), m_vkCommandPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+	IGPUCommandPool::reset();
+}
+
 void CVulkanCommandPool::setObjectDebugName(const char* label) const
 {
     IBackendObject::setObjectDebugName(label);

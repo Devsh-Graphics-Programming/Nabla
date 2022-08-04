@@ -11,8 +11,12 @@
 namespace nbl::video
 {
 
+class IGPUCommandBuffer;
+
 class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
+    friend class IGPUCommandBuffer;
+
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
@@ -31,11 +35,21 @@ class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendO
         // Vulkan: const VkCommandPool*
         virtual const void* getNativeHandle() const = 0;
 
+        virtual void reset()
+        {
+            assert(!getCreationFlags().hasFlags(ECF_RESET_COMMAND_BUFFER_BIT));
+            // Increase reset counter
+            m_resetCount.fetch_add(1);
+        }
+
     protected:
         virtual ~IGPUCommandPool() = default;
 
         core::bitflag<E_CREATE_FLAGS> m_flags;
         uint32_t m_familyIx;
+        std::atomic_uint32_t m_resetCount;
+
+        virtual uint32_t getResetCounter() { return m_resetCount.load(); }
 };
 
 }

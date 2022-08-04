@@ -39,8 +39,25 @@ public:
         freeSpaceInCmdPool();
     }
 
-    bool begin(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo=nullptr) override
+    void resetCommon() override
     {
+        freeSpaceInCmdPool();
+        IGPUCommandBuffer::resetCommon();
+    }
+
+    bool begin(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo = nullptr) override
+    {
+        // Resources are freed when the command buffer is reset, so:
+        // - When ECF_RESET_COMMAND_BUFFER_BIT is set on the command pool and we are resetting the command buffer
+        //     - Command buffer is reset when calling begin or reset (handled elsewhere)
+        // - When ECF_RESET_COMMAND_BUFFER_BIT is NOT set on the command pool, and the pool has been reset
+        if (m_cmdpool->getCreationFlags().hasFlags(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+        {
+            // "reset" the command buffer by removing existing resources
+            if (m_state != ES_PENDING) freeSpaceInCmdPool();
+        }
+        else checkForCommandPoolReset();
+
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
         beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags.value);

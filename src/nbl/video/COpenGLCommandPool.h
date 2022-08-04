@@ -39,7 +39,12 @@ class COpenGLCommandPool final : public IGPUCommandPool
             std::unique_lock<std::mutex> lk(mutex);
             mempool.free_n<T>(const_cast<T*>(ptr), n);
         }
-        
+
+        void reset() override
+        {
+            // TODO reset some memory here?
+        }
+
 		inline const void* getNativeHandle() const override {return nullptr;}
 
     private:

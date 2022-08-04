@@ -542,9 +542,19 @@ public:
 
     COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
 
+    void resetCommon() override
+    {
+        freeSpaceInCmdPool();
+        m_commands.clear();
+        IGPUCommandBuffer::resetCommon();
+    }
+
     inline bool begin(core::bitflag<E_USAGE> _flags) override final
     {
-        reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
+        if (m_cmdpool->getCreationFlags().hasFlags(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+            reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
+        else checkForCommandPoolReset();
+
         return IGPUCommandBuffer::begin(_flags);
     }
     

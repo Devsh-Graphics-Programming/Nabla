@@ -70,6 +70,8 @@ public:
             head = next;
         }
     }
+
+    void reset() override;
     
 	inline const void* getNativeHandle() const override {return &m_vkCommandPool;}
     VkCommandPool getInternalObject() const {return m_vkCommandPool;}

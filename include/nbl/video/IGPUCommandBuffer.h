@@ -227,6 +227,25 @@ protected:
             for (uint32_t i = _first + 1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
                 _destPplnLayouts[i] = nullptr;
     }
+
+    uint32_t m_resetCount = 0;
+
+    virtual void resetCommon()
+    {
+        m_resetCount = m_cmdpool->getResetCounter();
+        m_state = ES_INITIAL;
+    }
+
+    // This should be called on every command buffer method
+    // Only doing it in begin for now, we expect that the command pool won't be reset midway through recording a command buffer
+    inline bool checkForCommandPoolReset()
+    {
+        if (m_cmdpool->getResetCounter() <= m_resetCount)
+            return false;
+
+        resetCommon();
+        return true;
+    }
 };
 
 }
