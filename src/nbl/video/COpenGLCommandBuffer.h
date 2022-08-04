@@ -560,6 +560,10 @@ public:
     
     inline bool begin(core::bitflag<E_USAGE> _flags, const SInheritanceInfo* inheritanceInfo = nullptr) override final
     {
+        if (m_cmdpool->getCreationFlags().hasFlags(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+            reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
+        else checkForCommandPoolReset();
+
         return IGPUCommandBuffer::begin(_flags, inheritanceInfo);
     }
 

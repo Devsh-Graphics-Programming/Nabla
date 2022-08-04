@@ -43,6 +43,7 @@ class COpenGLCommandPool final : public IGPUCommandPool
         void reset() override
         {
             // TODO reset some memory here?
+            IGPUCommandPool::reset();
         }
 
 		inline const void* getNativeHandle() const override {return nullptr;}
