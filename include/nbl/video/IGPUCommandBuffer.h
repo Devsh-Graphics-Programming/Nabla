@@ -240,8 +240,7 @@ protected:
     // Only doing it in begin for now, we expect that the command pool won't be reset midway through recording a command buffer
     inline bool checkForCommandPoolReset()
     {
-        uint32_t val = m_cmdpool->getResetCounter().load();
-        if (val <= m_resetCount)
+        if (m_cmdpool->getResetCounter().load() <= m_resetCount)
             return false;
 
         return resetCommon();

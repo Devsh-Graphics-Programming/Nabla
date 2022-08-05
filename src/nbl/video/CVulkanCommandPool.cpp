@@ -14,6 +14,8 @@ CVulkanCommandPool::~CVulkanCommandPool()
 
 void CVulkanCommandPool::reset()
 {
+	// Free everything in the memory pool from all command buffers
+	// TODO figure out if this is the best way to do it
 	mempool.reset();
 
 	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());

@@ -544,6 +544,7 @@ public:
 
     bool resetCommon() override
     {
+        // TODO free the resources from the pool reset itself
         freeSpaceInCmdPool();
         m_commands.clear();
         return IGPUCommandBuffer::resetCommon();

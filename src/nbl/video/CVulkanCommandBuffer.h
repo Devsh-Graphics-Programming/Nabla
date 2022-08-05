@@ -39,11 +39,19 @@ public:
         releaseResourcesBackToPool();
     }
 
+    bool resetCommon() override
+    {
+        // Recognize that the data has been released from the pool
+        m_argListHead = nullptr;
+        m_argListTail = nullptr;
+        return IGPUCommandBuffer::resetCommon();
+    }
+
     bool begin(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo = nullptr) override
     {
+        checkForCommandPoolReset();
         if (canReset())
             releaseResourcesBackToPool();
-        checkForCommandPoolReset();
 
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
