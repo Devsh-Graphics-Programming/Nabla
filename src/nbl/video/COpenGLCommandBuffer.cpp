@@ -115,8 +115,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         if (!IGPUCommandBuffer::canReset())
             return false;
 
-        freeSpaceInCmdPool();
-        m_commands.clear();
+        releaseResourcesBackToPool();
         return IGPUCommandBuffer::reset(_flags);
     }
 

@@ -542,17 +542,24 @@ public:
 
     COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
 
-    bool resetCommon() override
+    void releaseResourcesBackToPool()
     {
-        // TODO free the resources from the pool reset itself
         freeSpaceInCmdPool();
         m_commands.clear();
+    }
+
+    bool resetCommon() override
+    {
+        // TODO resources for all command buffers need to freed from the command pool instead,
+        // this function should just make sure the command buffer stops pointing to memory that has
+        // been freed from the pool
+        releaseResourcesBackToPool();
         return IGPUCommandBuffer::resetCommon();
     }
 
     inline bool begin(core::bitflag<E_USAGE> _flags) override final
     {
-        if (m_cmdpool->getCreationFlags().hasFlags(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+        if (canReset())
             reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
         else checkForCommandPoolReset();
 
@@ -561,7 +568,7 @@ public:
     
     inline bool begin(core::bitflag<E_USAGE> _flags, const SInheritanceInfo* inheritanceInfo = nullptr) override final
     {
-        if (m_cmdpool->getCreationFlags().hasFlags(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
+        if (canReset())
             reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
         else checkForCommandPoolReset();
 
