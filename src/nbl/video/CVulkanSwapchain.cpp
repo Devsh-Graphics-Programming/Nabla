@@ -170,8 +170,6 @@ ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(IGPUQueue* queue, const S
         return ISwapchain::EPR_SUCCESS;
     case VK_SUBOPTIMAL_KHR:
         return ISwapchain::EPR_SUBOPTIMAL;
-    case VK_ERROR_OUT_OF_DATE_KHR:
-        std::cout << "VK_ERROR_OUT_OF_DATE_KHR\n***\n***\n***\n" << std::endl;
     default:
         return ISwapchain::EPR_ERROR;
     }
