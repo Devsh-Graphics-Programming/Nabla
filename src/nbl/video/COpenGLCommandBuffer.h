@@ -542,11 +542,11 @@ public:
 
     COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
 
-    void resetCommon() override
+    bool resetCommon() override
     {
         freeSpaceInCmdPool();
         m_commands.clear();
-        IGPUCommandBuffer::resetCommon();
+        return IGPUCommandBuffer::resetCommon();
     }
 
     inline bool begin(core::bitflag<E_USAGE> _flags) override final

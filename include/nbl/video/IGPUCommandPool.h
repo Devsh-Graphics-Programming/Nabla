@@ -26,7 +26,7 @@ class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendO
             ECF_PROTECTED_BIT = 0x04
         };
 
-        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIx(_familyIx) {}
+        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIx(_familyIx), m_resetCount(0) {}
 
         core::bitflag<E_CREATE_FLAGS> getCreationFlags() const { return m_flags; }
         uint32_t getQueueFamilyIndex() const { return m_familyIx; }
@@ -37,7 +37,6 @@ class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendO
 
         virtual void reset()
         {
-            assert(!getCreationFlags().hasFlags(ECF_RESET_COMMAND_BUFFER_BIT));
             // Increase reset counter
             m_resetCount.fetch_add(1);
         }
@@ -49,7 +48,7 @@ class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendO
         uint32_t m_familyIx;
         std::atomic_uint32_t m_resetCount;
 
-        virtual uint32_t getResetCounter() { return m_resetCount.load(); }
+        std::atomic_uint32_t& getResetCounter() { return m_resetCount; }
 };
 
 }

@@ -80,6 +80,12 @@ public:
         return free_n<T>(ptr, 1u);
     }
 
+    // TODO are we gonna keep this?
+    void reset()
+    {
+        m_alctr.reset();
+    }
+
 private:
     allocator_type m_alctr;
 };

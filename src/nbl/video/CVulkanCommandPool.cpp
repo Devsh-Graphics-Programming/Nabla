@@ -14,10 +14,11 @@ CVulkanCommandPool::~CVulkanCommandPool()
 
 void CVulkanCommandPool::reset()
 {
+	mempool.reset();
+
 	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
 	auto* vk = vulkanDevice->getFunctionTable();
-	// TODO work out: always use release resources flag?
-	vk->vk.vkResetCommandPool(vulkanDevice->getInternalObject(), m_vkCommandPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+	vk->vk.vkResetCommandPool(vulkanDevice->getInternalObject(), m_vkCommandPool, 0);
 	IGPUCommandPool::reset();
 }
 

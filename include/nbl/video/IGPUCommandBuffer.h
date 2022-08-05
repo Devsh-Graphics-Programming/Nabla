@@ -97,7 +97,7 @@ public:
             assert(false);
             return false;
         }
-        return base_t::reset(_flags);
+        return resetCommon();
     }
 
     uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
@@ -230,21 +230,21 @@ protected:
 
     uint32_t m_resetCount = 0;
 
-    virtual void resetCommon()
+    virtual bool resetCommon()
     {
-        m_resetCount = m_cmdpool->getResetCounter();
-        m_state = ES_INITIAL;
+        m_resetCount = m_cmdpool->getResetCounter().load();
+        return base_t::reset(ERF_NONE);
     }
 
     // This should be called on every command buffer method
     // Only doing it in begin for now, we expect that the command pool won't be reset midway through recording a command buffer
     inline bool checkForCommandPoolReset()
     {
-        if (m_cmdpool->getResetCounter() <= m_resetCount)
+        uint32_t val = m_cmdpool->getResetCounter().load();
+        if (val <= m_resetCount)
             return false;
 
-        resetCommon();
-        return true;
+        return resetCommon();
     }
 };
 

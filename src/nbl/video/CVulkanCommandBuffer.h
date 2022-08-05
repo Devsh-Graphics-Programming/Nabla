@@ -36,27 +36,14 @@ public:
 
     ~CVulkanCommandBuffer()
     {
-        freeSpaceInCmdPool();
-    }
-
-    void resetCommon() override
-    {
-        freeSpaceInCmdPool();
-        IGPUCommandBuffer::resetCommon();
+        releaseResourcesBackToPool();
     }
 
     bool begin(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo = nullptr) override
     {
-        // Resources are freed when the command buffer is reset, so:
-        // - When ECF_RESET_COMMAND_BUFFER_BIT is set on the command pool and we are resetting the command buffer
-        //     - Command buffer is reset when calling begin or reset (handled elsewhere)
-        // - When ECF_RESET_COMMAND_BUFFER_BIT is NOT set on the command pool, and the pool has been reset
-        if (m_cmdpool->getCreationFlags().hasFlags(video::IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT))
-        {
-            // "reset" the command buffer by removing existing resources
-            if (m_state != ES_PENDING) freeSpaceInCmdPool();
-        }
-        else checkForCommandPoolReset();
+        if (canReset())
+            releaseResourcesBackToPool();
+        checkForCommandPoolReset();
 
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
@@ -126,7 +113,8 @@ public:
         if(!IGPUCommandBuffer::canReset())
             return false;
 
-        freeSpaceInCmdPool();
+        if (_flags.hasFlags(ERF_RELEASE_RESOURCES_BIT))
+            releaseResourcesBackToPool();
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
@@ -1396,7 +1384,7 @@ public:
     VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
 
 private:
-    void freeSpaceInCmdPool()
+    void releaseResourcesBackToPool()
     {
         if (m_cmdpool->getAPIType() == EAT_VULKAN && m_argListHead)
         {
