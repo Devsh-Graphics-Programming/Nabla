@@ -18,7 +18,7 @@ namespace nbl::asset
 //! An enum for the color format of textures used by the Nabla.
 // @Crisspl it would be dandy if the values (or at least ordering) of our enums matched vulkan's
 /** A color format specifies how color information is stored. */
-enum E_FORMAT : uint32_t
+enum E_FORMAT : uint8_t
 {
     //! Custom shizz we wont ever use
     EF_D16_UNORM,
@@ -229,7 +229,7 @@ enum E_FORMAT : uint32_t
 	EF_UNKNOWN
 };
 
-enum E_FORMAT_CLASS : uint32_t
+enum E_FORMAT_CLASS : uint8_t
 {
     EFC_8_BIT,
     EFC_16_BIT,

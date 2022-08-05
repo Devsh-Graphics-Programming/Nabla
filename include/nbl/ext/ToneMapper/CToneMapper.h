@@ -141,7 +141,7 @@ class NBL_API CToneMapper : public core::IReferenceCounted, public core::Interfa
 			pInfos[1].buffer.size = getParameterBufferSize<_operator,MeterMode>(arrayLayers);
 			pInfos[1].buffer.offset = 0u;
 			pInfos[2].desc = inputImageDescriptor;
-			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[2].image.imageLayout = static_cast<asset::IImage::E_LAYOUT>(0u);
 			pInfos[2].image.sampler = nullptr;
 
 			uint32_t outputImageIx;
@@ -162,7 +162,7 @@ class NBL_API CToneMapper : public core::IReferenceCounted, public core::Interfa
 				outputImageIx = 0u;
 
 			pInfos[outputImageIx].desc = outputImageDescriptor;
-			pInfos[outputImageIx].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[outputImageIx].image.imageLayout = static_cast<asset::IImage::E_LAYOUT>(0u);
 			pInfos[outputImageIx].image.sampler = nullptr;
 
 

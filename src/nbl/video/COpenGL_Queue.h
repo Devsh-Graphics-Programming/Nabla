@@ -12,7 +12,6 @@
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/SOpenGLContextLocalCache.h"
 #include "nbl/video/COpenGLCommandBuffer.h"
-#include "nbl/video/COpenGL_Swapchain.h"
 #include "nbl/video/COpenGLQueryPool.h"
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
@@ -231,7 +230,7 @@ class COpenGL_Queue final : public IGPUQueue
                     }
                     
                     // need to possibly wait for master context (object creation, and buffer mapping and flushing)
-                    m_masterContextCallsWaited = m_device->waitOnMasterContext(gl,m_masterContextCallsWaited);
+                    m_masterContextCallsWaited = m_device->waitOnMasterContext(&gl,m_masterContextCallsWaited);
 
                     if (barrierBits)
                         gl.glSync.pglMemoryBarrier(barrierBits);
@@ -428,32 +427,6 @@ class COpenGL_Queue final : public IGPUQueue
             if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
                 return false;
             return true;
-        }
-
-        ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override
-        {
-            for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
-            {
-                if (m_originDevice != info.waitSemaphores[i]->getOriginDevice())
-                    return ISwapchain::EPR_ERROR;
-            }
-
-            for (uint32_t i = 0u; i < info.swapchainCount; ++i)
-            {
-                if (m_originDevice != info.swapchains[i]->getOriginDevice())
-                    return ISwapchain::EPR_ERROR;
-            }
-
-            using swapchain_t = COpenGL_Swapchain<FunctionTableType_>;
-            bool retval = true;
-            for (uint32_t i = 0u; i < info.swapchainCount; ++i)
-            {
-                swapchain_t* sc = static_cast<swapchain_t*>(info.swapchains[i]);
-                const uint32_t imgix = info.imgIndices[i];
-                retval &= sc->present(imgix, info.waitSemaphoreCount, info.waitSemaphores);
-            }
-
-            return retval ? ISwapchain::EPR_SUCCESS : ISwapchain::EPR_ERROR;
         }
 
         void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash)

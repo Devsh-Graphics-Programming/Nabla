@@ -32,7 +32,7 @@ class NBL_API CSkinInstanceCache final : public ISkinInstanceCache
                     video::IGPUBuffer::SCreationParams creationParams = {};
                     creationParams.size = size;
                     creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-                    auto buffer = params.device->createBuffer(creationParams);	
+                    auto buffer = params.device->createBuffer(std::move(creationParams));	
                     auto mreqs = buffer->getMemoryReqs();
                     mreqs.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
                     auto gpubufMem = params.device->allocate(mreqs, buffer.get());

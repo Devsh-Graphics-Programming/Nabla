@@ -55,13 +55,12 @@ class NBL_API COIT
                     params.extent = { w, h, 1u };
                     params.flags = static_cast<video::IGPUImage::E_CREATE_FLAGS>(0);
                     params.format = fmt;
-                    params.initialLayout = asset::EIL_UNDEFINED;
+                    params.initialLayout = asset::IImage::EL_UNDEFINED;
                     params.mipLevels = 1u;
                     //indices
                     params.queueFamilyIndexCount = 0;
                     params.queueFamilyIndices = nullptr;
                     params.samples = asset::IImage::ESCF_1_BIT;
-                    params.sharingMode = asset::ESM_CONCURRENT;
                     params.tiling = asset::IImage::ET_OPTIMAL;
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
@@ -199,7 +198,7 @@ class NBL_API COIT
 
                 info.desc = images[i];
                 info.image.sampler = nullptr;
-                info.image.imageLayout = asset::EIL_GENERAL; // TODO for Vulkan
+                info.image.imageLayout = asset::IImage::EL_GENERAL; // TODO for Vulkan
             }
 
             return bindingCount;
@@ -224,13 +223,13 @@ class NBL_API COIT
             clearval.float32[2] = 1.f;
             clearval.float32[3] = 1.f;
             asset::IImage::SSubresourceRange subres = m_images.vis->getCreationParameters().subresourceRange;
-            cmdbuf->clearColorImage(m_images.vis->getCreationParameters().image.get(), asset::EIL_UNDEFINED, &clearval, 1u, &subres);
+            cmdbuf->clearColorImage(m_images.vis->getCreationParameters().image.get(), asset::IImage::EL_UNDEFINED, &clearval, 1u, &subres);
 
             if (m_images.spinlock)
             {
                 clearval.uint32[0] = 0u;
                 subres = m_images.spinlock->getCreationParameters().subresourceRange;
-                cmdbuf->clearColorImage(m_images.spinlock->getCreationParameters().image.get(), asset::EIL_UNDEFINED, &clearval, 1u, &subres);
+                cmdbuf->clearColorImage(m_images.spinlock->getCreationParameters().image.get(), asset::IImage::EL_UNDEFINED, &clearval, 1u, &subres);
             }
             // TODO barrier?
         }
@@ -244,8 +243,8 @@ class NBL_API COIT
                 imgbarrier[i].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
                 imgbarrier[i].dstQueueFamilyIndex = qfam;
                 imgbarrier[i].srcQueueFamilyIndex = qfam;
-                imgbarrier[i].oldLayout = asset::EIL_GENERAL;
-                imgbarrier[i].newLayout = asset::EIL_GENERAL;
+                imgbarrier[i].oldLayout = asset::IImage::EL_GENERAL;
+                imgbarrier[i].newLayout = asset::IImage::EL_GENERAL;
             }
             imgbarrier[0].image = m_images.color->getCreationParameters().image;
             imgbarrier[0].subresourceRange = m_images.color->getCreationParameters().subresourceRange;
@@ -277,8 +276,8 @@ class NBL_API COIT
             imgbarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
             imgbarrier.dstQueueFamilyIndex = qfam;
             imgbarrier.srcQueueFamilyIndex = qfam;
-            imgbarrier.oldLayout = asset::EIL_GENERAL;
-            imgbarrier.newLayout = asset::EIL_GENERAL;
+            imgbarrier.oldLayout = asset::IImage::EL_GENERAL;
+            imgbarrier.newLayout = asset::IImage::EL_GENERAL;
             imgbarrier.image = m_images.vis->getCreationParameters().image;
             imgbarrier.subresourceRange = m_images.vis->getCreationParameters().subresourceRange;
 

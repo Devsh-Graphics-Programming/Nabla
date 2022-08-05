@@ -107,12 +107,6 @@ enum E_DEPENDENCY_FLAGS
     EDF_DEVICE_GROUP_BIT = 0x04
 };
 
-enum E_SHARING_MODE : uint8_t
-{
-    ESM_EXCLUSIVE = 0,
-    ESM_CONCURRENT = 1
-};
-
 }
 
 #endif

@@ -314,7 +314,7 @@ struct SPhysicalDeviceLimits
     float           sampleLocationCoordinateRange[2];
 
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
-    size_t minImportedHostPointerAlignment = 0x1ull<<63u;
+    size_t minImportedHostPointerAlignment = 0x1ull << 63u;
     
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
     VkExtent2D         minFragmentDensityTexelSize = {0u, 0u};
