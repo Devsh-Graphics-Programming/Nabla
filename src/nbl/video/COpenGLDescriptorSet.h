@@ -11,7 +11,6 @@
 
 #include "COpenGLBuffer.h"
 #include "COpenGLBufferView.h"
-#include "COpenGLImage.h"
 #include "COpenGLImageView.h"
 #include "COpenGLSampler.h"
 

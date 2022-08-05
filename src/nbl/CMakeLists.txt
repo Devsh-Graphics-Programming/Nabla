@@ -310,6 +310,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
 
 # OpenGL
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
@@ -329,6 +330,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Swapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 # Vulkan
@@ -351,7 +353,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp

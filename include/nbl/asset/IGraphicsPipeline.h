@@ -19,7 +19,7 @@ public:
     struct SCreationParams
     {
         core::smart_refctd_ptr<const renderpass_independent_t> renderpassIndependent;
-        IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
+        IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamples = IImage::ESCF_1_BIT;
         core::smart_refctd_ptr<const RenderpassType> renderpass;
         uint32_t subpassIx = 0u;
         core::bitflag<ICPURenderpassIndependentPipeline::E_PIPELINE_CREATION> createFlags;
@@ -42,9 +42,11 @@ public:
     }
 
     const renderpass_independent_t* getRenderpassIndependentPipeline() const { return m_params.renderpassIndependent.get(); }
+
+    // TODO: why do we have these getters for lazy people!?
     const renderpass_t* getRenderpass() const { return m_params.renderpass.get(); }
     uint32_t getSubpassIndex() const { return m_params.subpassIx; }
-    IImage::E_SAMPLE_COUNT_FLAGS getRasterSamplesHint() const { return m_params.rasterizationSamplesHint; }
+
     const SCreationParams& getCreationParameters() const { return m_params; }
 
 protected:

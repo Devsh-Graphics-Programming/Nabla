@@ -18,7 +18,7 @@
 namespace nbl::video
 {
 
-template <typename QueueType_, typename SwapchainType_>
+template <typename QueueType_>
 class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 {
     template <E_REQUEST_TYPE DestroyReqType>
@@ -49,11 +49,8 @@ class COpenGL_LogicalDevice : public IOpenGL_LogicalDevice
 
 public:
     using QueueType = QueueType_;
-    using SwapchainType = SwapchainType_;
     using FunctionTableType = typename QueueType::FunctionTableType;
     using FeaturesType = COpenGLFeatureMap;
-
-    static_assert(std::is_same_v<typename QueueType::FunctionTableType, typename SwapchainType::FunctionTableType>, "QueueType and SwapchainType come from 2 different backends!");
 
     COpenGL_LogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, renderdoc_api_t* rdoc, const SCreationParams& params, const egl::CEGL* _egl, const FeaturesType* _features, EGLConfig config, EGLint major, EGLint minor) :
         IOpenGL_LogicalDevice(std::move(api),physicalDevice,params,_egl),
@@ -165,51 +162,6 @@ public:
         return core::make_smart_refctd_ptr<COpenGLRenderpass>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), params);
     }
 
-    core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) override final
-    {
-        if ((params.presentMode == ISurface::EPM_MAILBOX) || (params.presentMode == ISurface::EPM_UNKNOWN))
-            return nullptr;
-
-        IGPUImage::SCreationParams imgci;
-        imgci.arrayLayers = params.arrayLayers;
-        imgci.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
-        imgci.format = params.surfaceFormat.format;
-        imgci.mipLevels = 1u;
-        imgci.queueFamilyIndexCount = params.queueFamilyIndexCount;
-        imgci.queueFamilyIndices = params.queueFamilyIndices;
-        imgci.samples = asset::IImage::ESCF_1_BIT;
-        imgci.type = asset::IImage::ET_2D;
-        imgci.extent = asset::VkExtent3D{ params.width, params.height, 1u };
-        imgci.usage = params.imageUsage;
-
-        auto images = core::make_refctd_dynamic_array<typename SwapchainType::ImagesArrayType>(params.minImageCount);
-        for (auto& img_dst : (*images))
-        {
-            img_dst = createImage(IGPUImage::SCreationParams(imgci));
-            auto mreq = img_dst->getMemoryReqs();
-            mreq.memoryTypeBits &= m_physicalDevice->getDeviceLocalMemoryTypeBits();
-            auto imgMem = IDeviceMemoryAllocator::allocate(mreq, img_dst.get());
-            if (!img_dst || !imgMem.isValid())
-                return nullptr;
-        }
-
-        EGLConfig fbconfig = m_config;
-        auto glver = m_gl_ver;
-
-        // master context must not be current while creating a context with whom it will be sharing
-        unbindMasterContext();
-        EGLContext ctx = createGLContext(FunctionTableType::EGL_API_TYPE, m_egl, glver.first, glver.second, fbconfig, m_threadHandler.glctx.ctx);
-        auto sc = SwapchainType::create(std::move(params),core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),m_egl,std::move(images),m_glfeatures,ctx,fbconfig,static_cast<COpenGLDebugCallback*>(m_physicalDevice->getDebugCallback()));
-        if (!sc)
-            return nullptr;
-        // wait until swapchain's internal thread finish context creation
-        sc->waitForInitComplete();
-        // make master context (in logical device internal thread) again
-        bindMasterContext();
-
-        return sc;
-    }
-    
     core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
     {
         assert(false && "not implemented");
@@ -267,10 +219,10 @@ public:
         return ret;
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) override
+    core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) override
     {
         SRequestBufferCreate reqParams;
-        reqParams.creationParams = creationParams;
+        reqParams.creationParams = std::move(creationParams);
         core::smart_refctd_ptr<IGPUBuffer> output;
         auto& req = m_threadHandler.request(std::move(reqParams),&output);
         m_masterContextCallsInvoked++;
@@ -393,7 +345,7 @@ public:
 
     void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override final
     {
-        if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_OPENGL)
+        if (memory.memory == nullptr || memory.memory->getAPIType() != (IsGLES ? EAT_OPENGL_ES:EAT_OPENGL))
             return nullptr;
 
         assert(!memory.memory->isCurrentlyMapped());
@@ -705,9 +657,33 @@ public:
         }
     }
 
+    int getEGLAPI() override final
+    {
+        return QueueType_::FunctionTableType::EGL_API_TYPE;
+    }
+
     const void* getNativeHandle() const override { return &m_threadHandler.glctx; }
 
-protected:
+    EGLConfig getEglConfig() override
+    {
+        return m_config;
+    }
+
+    EGLContext getEglContext() override
+    {
+        return m_threadHandler.glctx.ctx;
+    }
+
+    const FeaturesType* getGlFeatures() override
+    {
+        return m_glfeatures;
+    }
+
+    std::pair<EGLint, EGLint> getGlVersion() override
+    {
+        return m_gl_ver;
+    }
+
     void bindMasterContext()
     {
         SRequestMakeCurrent req_params;
@@ -725,6 +701,7 @@ protected:
         m_threadHandler.template waitForRequestCompletion<SRequestMakeCurrent>(req);
     }
 
+protected:
     inline system::logger_opt_ptr getLogger() const {return m_physicalDevice->getDebugCallback()->getLogger();}
 
     bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _output) override final
@@ -996,8 +973,8 @@ private:
 namespace nbl::video
 {
 
-using COpenGLLogicalDevice = COpenGL_LogicalDevice<COpenGLQueue,COpenGLSwapchain>;
-using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue,COpenGLESSwapchain>;
+using COpenGLLogicalDevice = COpenGL_LogicalDevice<COpenGLQueue>;
+using COpenGLESLogicalDevice = COpenGL_LogicalDevice<COpenGLESQueue>;
 
 }
 

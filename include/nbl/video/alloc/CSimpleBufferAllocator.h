@@ -1,7 +1,6 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H_
 #define _NBL_VIDEO_C_SIMPLE_BUFFER_ALLOCATOR_H_
 
@@ -25,8 +24,9 @@ class CSimpleBufferAllocator : public IBufferAllocator
     inline ILogicalDevice* getDevice() {return m_device.get();}
 
     value_type allocate(
-        const IGPUBuffer::SCreationParams& creationParams,
-        const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE);
+        IGPUBuffer::SCreationParams&& creationParams,
+        const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE
+    );
 
     inline void deallocate(value_type& allocation)
     {

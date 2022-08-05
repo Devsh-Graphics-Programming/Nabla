@@ -22,7 +22,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 	video::IGPUSemaphore* semaphore,
 	const video::IGPUImageView* gpuImageView,
 	const asset::E_ACCESS_FLAGS accessMask,
-	const asset::E_IMAGE_LAYOUT imageLayout)
+	const asset::IImage::E_LAYOUT imageLayout)
 {
 	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&video::IPhysicalDevice::EQF_TRANSFER_BIT);
 
@@ -64,7 +64,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
 		bufferCreationParams.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
-		gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);
+		gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));
 		auto gpuTexelBufferMemReqs = gpuTexelBuffer->getMemoryReqs();
 		gpuTexelBufferMemReqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
 		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, gpuTexelBuffer.get());
@@ -73,7 +73,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		barrier.barrier.srcAccessMask = accessMask;
 		barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
 		barrier.oldLayout = imageLayout;
-		barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+		barrier.newLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
 		barrier.srcQueueFamilyIndex = ~0u;
 		barrier.dstQueueFamilyIndex = ~0u;
 		barrier.image = gpuImage;
@@ -90,11 +90,11 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 			0u, nullptr,
 			1u, &barrier);
 
-		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::EIL_TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
+		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::IImage::EL_TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
 
 		barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
 		barrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
-		barrier.oldLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+		barrier.oldLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = imageLayout;
 		gpuCommandBuffer->pipelineBarrier(
 			asset::EPSF_TRANSFER_BIT,
@@ -179,7 +179,7 @@ inline bool createScreenShot(
 	asset::IAssetManager* assetManager,
 	system::IFile* outFile,
 	const asset::E_ACCESS_FLAGS accessMask,
-	const asset::E_IMAGE_LAYOUT imageLayout)
+	const asset::IImage::E_LAYOUT imageLayout)
 {
 	assert(outFile->getFlags()&system::IFile::ECF_WRITE);
 	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);
@@ -194,7 +194,7 @@ inline bool createScreenShot(
 	const video::IGPUImageView* gpuImageView,
 	asset::IAssetManager* assetManager,
 	const std::filesystem::path& filename,
-	const asset::E_IMAGE_LAYOUT imageLayout,
+	const asset::IImage::E_LAYOUT imageLayout,
 	const asset::E_ACCESS_FLAGS accessMask = asset::EAF_ALL_IMAGE_ACCESSES_DEVSH)
 {
 	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);
