@@ -3,14 +3,12 @@
 
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/video/ISwapchain.h"
 
 namespace nbl::video
 {
 
 class IGPUFence;
 class IGPUSemaphore;
-class ISwapchain;
 
 class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
 {
@@ -30,14 +28,6 @@ class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
             uint32_t commandBufferCount = 0u;
             IGPUCommandBuffer*const * commandBuffers = nullptr;
         };
-        struct SPresentInfo
-        {
-            uint32_t waitSemaphoreCount;
-            IGPUSemaphore*const * waitSemaphores;
-            uint32_t swapchainCount;
-            ISwapchain*const * swapchains;
-            const uint32_t* imgIndices;
-        };
 
         //! `flags` takes bits from E_CREATE_FLAGS
         IGPUQueue(ILogicalDevice* originDevice, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
@@ -52,9 +42,6 @@ class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
 
         //
         virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
-
-        //
-        virtual ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) = 0;
 
         // getters
         float getPriority() const { return m_priority; }

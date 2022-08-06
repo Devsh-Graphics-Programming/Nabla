@@ -339,7 +339,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct SFormatImageUsage
         {
-            uint8_t isInitialized : 1u;
+            uint8_t isInitialized : 1u; // TODO: get rid of this
 
             uint16_t sampledImage : 1u; // samplerND
             uint16_t storageImage : 1u; // imageND
@@ -362,8 +362,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
                 transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
                 transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
-                attachment((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
-                attachmentBlend((usages& core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)).value != 0),
+                attachment((usages & (core::bitflag(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
+                attachmentBlend(usages.hasFlags(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)), // TODO: should conservatively deduct to be false
                 // Deduced as false. User may patch it up later -> (Erfan) Investigate later and whether it's added to new Usage Flags, the user can't because the format promotion functions take IImage::E_USAGE_FLAGS as params;
                 blitSrc(0),
                 blitDst(0),
@@ -547,7 +547,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         using SImageFormatPromotionRequest = FormatPromotionRequest<IPhysicalDevice::SFormatImageUsage>;
 
         asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
-        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const asset::IImage::E_TILING tiling);
+        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling);
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}

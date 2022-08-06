@@ -59,9 +59,10 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
 
             {
+                IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = downstreamSize;
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT|IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT; // GPU write to RAM usages
-                auto buffer = m_device->createBuffer(streamingBufferCreationParams);
+                auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
 
@@ -81,9 +82,10 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             {
+                IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = upstreamSize;
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
-                auto buffer = m_device->createBuffer(streamingBufferCreationParams);
+                auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
 
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
@@ -172,7 +174,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 assert(false);
                 return nullptr;
             }
-            auto buffer = m_device->createBuffer(params);
+            auto buffer = m_device->createBuffer(std::move(params));
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto mem = m_device->allocate(mreqs, buffer.get());
@@ -210,8 +212,8 @@ class NBL_API IUtilities : public core::IReferenceCounted
             IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
             barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            barrier.oldLayout = asset::EIL_UNDEFINED;
-            barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.oldLayout = asset::IImage::EL_UNDEFINED;
+            barrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
             barrier.srcQueueFamilyIndex = ~0u;
             barrier.dstQueueFamilyIndex = ~0u;
             barrier.image = retImg;
@@ -222,17 +224,17 @@ class NBL_API IUtilities : public core::IReferenceCounted
             barrier.subresourceRange.levelCount = retImg->getCreationParameters().mipLevels;
             cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
 
-            cmdbuf->copyBufferToImage(srcBuffer, retImg.get(), asset::EIL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
+            cmdbuf->copyBufferToImage(srcBuffer, retImg.get(), asset::IImage::EL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
 
-            if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
+            if (finalLayout != asset::IImage::EL_TRANSFER_DST_OPTIMAL)
             {
                 // Cannot transition to UNDEFINED and PREINITIALIZED
                 // TODO: Take an extra parameter that let's the user choose the newLayout or an output parameter that tells the user the final layout
-                if(finalLayout != asset::EIL_UNDEFINED && finalLayout != asset::EIL_PREINITIALIZED)
+                if(finalLayout != asset::IImage::EL_UNDEFINED && finalLayout != asset::IImage::EL_PREINITIALIZED)
                 {
                     barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
                     barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
-                    barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                    barrier.oldLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
                     barrier.newLayout = finalLayout;
                     cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
                 }
@@ -295,7 +297,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 auto* physicalDevice = m_device->getPhysicalDevice();
                 const auto validateFormatFeature = [&params, physicalDevice](const auto format, const auto reqFormatUsages) -> bool
                 {
-                    if (params.tiling == asset::IImage::ET_OPTIMAL)
+                    if (params.tiling == IGPUImage::ET_OPTIMAL)
                         return (physicalDevice->getImageFormatUsagesOptimal(params.format) & reqFormatUsages) == reqFormatUsages;
                     else
                         return (physicalDevice->getImageFormatUsagesLinear(params.format) & reqFormatUsages) == reqFormatUsages;
@@ -330,8 +332,8 @@ class NBL_API IUtilities : public core::IReferenceCounted
             IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
             barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            barrier.oldLayout = asset::EIL_UNDEFINED;
-            barrier.newLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            barrier.oldLayout = asset::IImage::EL_UNDEFINED;
+            barrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
             barrier.srcQueueFamilyIndex = ~0u;
             barrier.dstQueueFamilyIndex = ~0u;
             barrier.image = retImg;
@@ -342,13 +344,13 @@ class NBL_API IUtilities : public core::IReferenceCounted
             barrier.subresourceRange.levelCount = retImg->getCreationParameters().mipLevels;
             cmdbuf->pipelineBarrier(asset::EPSF_TOP_OF_PIPE_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
 
-            cmdbuf->copyImage(srcImage, asset::EIL_TRANSFER_SRC_OPTIMAL, retImg.get(), asset::EIL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
+            cmdbuf->copyImage(srcImage, asset::IImage::EL_TRANSFER_SRC_OPTIMAL, retImg.get(), asset::IImage::EL_TRANSFER_DST_OPTIMAL, regionCount, pRegions);
 
-            if (finalLayout != asset::EIL_TRANSFER_DST_OPTIMAL)
+            if (finalLayout != asset::IImage::EL_TRANSFER_DST_OPTIMAL)
             {
                 barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
                 barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
-                barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+                barrier.oldLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
                 barrier.newLayout = finalLayout;
                 cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &barrier);
             }
@@ -422,7 +424,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             assert(cmdbuf->isResettable());
             assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
             assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
-            assert(bufferRange.buffer->getCachedCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT));
+            assert(bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT));
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize = 0ull; uploadedSize < bufferRange.size;)
@@ -726,12 +728,12 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
         void updateImageViaStagingBuffer(
             IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
-            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
             uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore);
 
         void updateImageViaStagingBuffer(
             IGPUFence* fence, IGPUQueue* queue,
-            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
             uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
             const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
         );
@@ -739,7 +741,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //! WARNING: This function blocks and stalls the GPU!
         void updateImageViaStagingBuffer(
             IGPUQueue* queue,
-            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+            asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
             uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
             const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
         );

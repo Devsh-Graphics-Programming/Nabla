@@ -89,11 +89,10 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 		IGPUBuffer::SCreationParams creationParams;
 		creationParams.size = minimalBuffSize;
 		creationParams.usage = static_cast<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT);
-		creationParams.sharingMode = asset::E_SHARING_MODE::ESM_EXCLUSIVE;
 		creationParams.queueFamilyIndices = 0u;
 		creationParams.queueFamilyIndices = nullptr;
 
-		m_linesBuffer = m_device->createBuffer(creationParams);
+		m_linesBuffer = m_device->createBuffer(std::move(creationParams));
 		auto mreqs = m_linesBuffer->getMemoryReqs();
 		mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 		auto linesMem = m_device->allocate(mreqs, m_linesBuffer.get());

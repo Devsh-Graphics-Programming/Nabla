@@ -379,7 +379,7 @@ public:
 		GetError();
 		size_t VRAMSize = 0u;
 		GLint tmp[4] = {0,0,0,0};
-		switch (m_properties.deviceType)
+		switch (m_properties.driverID)
 		{
 		case E_DRIVER_ID::EDI_AMD_PROPRIETARY:
 			GetIntegerv(0x87FC,tmp); //TEXTURE_FREE_MEMORY_ATI, only textures

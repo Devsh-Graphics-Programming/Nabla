@@ -205,7 +205,7 @@ class CAsyncSingleBufferSubAllocator
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            multi_deallocate(count,addr,bytes);
+            multi_deallocate(count,addr,bytes,nullptr);
         }
         // TODO: improve signature of this function in the future
         template<typename T=core::IReferenceCounted>

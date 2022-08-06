@@ -310,6 +310,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
 
 # OpenGL
 	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
@@ -329,6 +330,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Swapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 # Vulkan
@@ -351,7 +353,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanForeignImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp
@@ -674,50 +675,50 @@ macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
 
-# Install main lib
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
+
+nbl_install_lib(Nabla)
+
 if(NBL_STATIC_BUILD)
-	nbl_install_lib(Nabla)
+	# install dependencies, they are required only for static Nabla builds
+	nbl_install_lib(egl)
+	nbl_install_lib(glslang)
+	nbl_install_lib(GenericCodeGen)
+	nbl_install_lib(MachineIndependent)
+	nbl_install_lib(HLSL)
+	nbl_install_lib(jpeg-static)
+	if (_NBL_COMPILE_WITH_OPEN_EXR_)
+		nbl_install_lib(Half)
+		nbl_install_lib(Iex)
+		nbl_install_lib(IexMath)
+		nbl_install_lib(IlmImf)
+		nbl_install_lib(IlmThread)
+		nbl_install_lib(Imath)
+	endif()
+	nbl_install_lib(png_static)
+
+	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
+		install(FILES
+				"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
+			DESTINATION lib
+		)
+	endif()
+	nbl_install_lib(shaderc)
+	nbl_install_lib(shaderc_util)
+	nbl_install_lib(SPIRV)
+	nbl_install_lib(SPIRV-Tools-static) # TODO: make this function/macro work with alias target
+	nbl_install_lib(SPIRV-Tools-opt)
+	nbl_install_lib(OGLCompiler)
+	nbl_install_lib(OSDependent)
+	nbl_install_lib(zlibstatic)
+	nbl_install_lib(simdjson)
+	nbl_install_lib(volk)
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		nbl_install_program(tbb)
+		nbl_install_program(tbbmalloc)
+		nbl_install_program(tbbmalloc_proxy)
+	endif()
 else()
 	nbl_install_program(Nabla)
-endif()
-
-#install dependencies
-nbl_install_lib(egl)
-nbl_install_lib(glslang)
-nbl_install_lib(GenericCodeGen)
-nbl_install_lib(MachineIndependent)
-nbl_install_lib(HLSL)
-nbl_install_lib(jpeg-static)
-if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	nbl_install_lib(Half)
-	nbl_install_lib(Iex)
-	nbl_install_lib(IexMath)
-	nbl_install_lib(IlmImf)
-	nbl_install_lib(IlmThread)
-	nbl_install_lib(Imath)
-endif()
-nbl_install_lib(png_static)
-
-if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
-	install(FILES
-			"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
-		DESTINATION lib
-	)
-endif()
-nbl_install_lib(shaderc)
-nbl_install_lib(shaderc_util)
-nbl_install_lib(SPIRV)
-nbl_install_lib(SPIRV-Tools-static) # TODO: make this function/macro work with alias target
-nbl_install_lib(SPIRV-Tools-opt)
-nbl_install_lib(OGLCompiler)
-nbl_install_lib(OSDependent)
-nbl_install_lib(zlibstatic)
-nbl_install_lib(simdjson)
-nbl_install_lib(volk)
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	nbl_install_program(tbb)
-	nbl_install_program(tbbmalloc)
-	nbl_install_program(tbbmalloc_proxy)
 endif()

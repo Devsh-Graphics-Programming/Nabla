@@ -40,6 +40,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
 		set(NBL_EXECUTABLE_SOURCES 
+			${NBL_ROOT_PATH}/examples_tests/common/CommonAPI.cpp
 			main.cpp
 			${_EXTRA_SOURCES}
 		)

@@ -8,6 +8,7 @@ namespace nbl::video
 {
 
 class ILogicalDevice;
+class IOpenGL_FunctionTable;
 
 class IOpenGLMemoryAllocation : public IDeviceMemoryAllocation
 {

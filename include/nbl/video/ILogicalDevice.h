@@ -192,7 +192,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         //! Utility wrapper for the pointer based func
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(const IGPUBuffer::SCreationParams& creationParams) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) { return nullptr; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
@@ -226,7 +226,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
 
         //! Creates an Image (@see ICPUImage)
-        virtual core::smart_refctd_ptr<IGPUImage> createImage(asset::IImage::SCreationParams&& params) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params) { return nullptr; }
 
         //! The counterpart of @see bindBufferMemory for images
         virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
@@ -456,8 +456,6 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             auto ci = core::SRange<const IGPUGraphicsPipeline::SCreationParams>{ params, params + count };
             return createGraphicsPipelines(pipelineCache, ci, output);
         }
-
-        virtual core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) = 0;
 
         virtual void waitIdle() = 0;
 
