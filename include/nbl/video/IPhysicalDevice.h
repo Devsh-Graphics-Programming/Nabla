@@ -358,6 +358,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SFormatImageUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages)
                 : isInitialized(1), 
+                log2MaxSamples(0),
                 sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
                 storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
                 transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
@@ -522,7 +523,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         struct FormatPromotionRequest
         {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            FORMAT_USAGE usages;
+            FORMAT_USAGE usages = FORMAT_USAGE(0);
 
             struct hash
             {
