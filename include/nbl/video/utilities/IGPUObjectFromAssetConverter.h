@@ -896,7 +896,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             auto regions = cpuimg->getRegions();
             _params.utilities->updateImageViaStagingBuffer(
                 cmdbuf_transfer.get(), transfer_fence.get(), _params.perQueue[EQU_TRANSFER].queue,
-                cpuimg->getBuffer(), asset::EF_UNKNOWN, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL, regions,
+                cpuimg->getBuffer(), cpuimg->getCreationParameters().format, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL, regions,
                 submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask);
 #else
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
@@ -1089,16 +1089,35 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         IGPUImage::SCreationParams params = {};
         params = cpuimg->getCreationParameters();
         params.initialLayout = asset::IImage::EL_UNDEFINED;
+        
+        IPhysicalDevice::SImageFormatPromotionRequest promotionRequest = {};
+        promotionRequest.originalFormat = params.format;
+        promotionRequest.usages = {};
 
         const bool integerFmt = asset::isIntegerFormat(params.format);
         if (!integerFmt)
             params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
 
-        if (cpuimg->getRegions().size() && !(params.usage.value & asset::IImage::EUF_TRANSFER_DST_BIT))
+        if (cpuimg->getRegions().size())
+        {
             params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+        }
 
         if (needToCompMipsForThisImg(cpuimg))
+        {
             params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
+            // TODO: revise the next two lines
+            promotionRequest.usages.blitDst = true;
+            promotionRequest.usages.blitSrc = true;
+        }
+        
+        promotionRequest.usages = promotionRequest.usages | params.usage;
+        auto newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
+        assert(params.format != asset::EF_UNKNOWN); // No feasible supported format found that for creating this image
+        if(params.format != newFormat)
+        {
+            params.format = newFormat;
+        }
 
         auto gpuimg = _params.device->createImage(std::move(params));
         auto gpuimgMemReqs = gpuimg->getMemoryReqs();
@@ -1146,8 +1165,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                 // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
                 if (_params.device->getAPIType() == EAT_VULKAN)
                 {
-                    assert(_params.device->getPhysicalDevice()->getImageFormatUsagesOptimal(cpuimg->getCreationParameters().format).sampledImage);
-                    assert(asset::isFloatingPointFormat(cpuimg->getCreationParameters().format) || asset::isNormalizedFormat(cpuimg->getCreationParameters().format)); // // for blits, can lift are polyphase compute
+                    assert(_params.device->getPhysicalDevice()->getImageFormatUsagesOptimal(gpuimg->getCreationParameters().format).sampledImage);
+                    assert(asset::isFloatingPointFormat(gpuimg->getCreationParameters().format) || asset::isNormalizedFormat(gpuimg->getCreationParameters().format)); // // for blits, can lift are polyphase compute
                 }
                 cmdComputeMip(cpuimg, gpuimg, newLayout);
             }
@@ -1563,7 +1582,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
     core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuDeps);
 
-#if 1
+#if 0
     core::vector<core::smart_refctd_ptr<asset::ICPUImage>> promotedImages(cpuDeps.size(), nullptr); // not tightly packed, this is temp storage, these really need to stay alive until their GPU counterparts are created
     for (size_t i = 0ull; i < cpuDeps.size(); ++i)
     {

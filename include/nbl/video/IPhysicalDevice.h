@@ -522,7 +522,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         struct FormatPromotionRequest
         {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            FORMAT_USAGE usages;
+            FORMAT_USAGE usages = {}; // TODO: Investigate why FormatPromotionRequest default initialization doesn't make all usages 0
 
             struct hash
             {
