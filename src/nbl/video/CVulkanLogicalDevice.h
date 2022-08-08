@@ -470,7 +470,7 @@ public:
         vk_createInfo.pNext = nullptr;
         vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
         vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
-        vk_createInfo.usage = static_cast<VkBufferUsageFlags>(creationParams.usage.value);
+        vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
         vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
         vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
         vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
