@@ -550,27 +550,31 @@ public:
 
     bool resetCommon() override
     {
-        // TODO resources for all command buffers need to freed from the command pool instead,
+        // TODO resources for all command buffers already got freed from the command pool,
         // this function should just make sure the command buffer stops pointing to memory that has
         // been freed from the pool
+        // (this currently causes a crash due to double free)
         releaseResourcesBackToPool();
         return IGPUCommandBuffer::resetCommon();
     }
 
     inline bool begin(core::bitflag<E_USAGE> _flags) override final
     {
-        if (canReset())
+        checkForCommandPoolReset();
+        // skip reset if command pool was reset above and state is initial
+        if (canReset() && m_state != ES_INITIAL)
             reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
-        else checkForCommandPoolReset();
 
         return IGPUCommandBuffer::begin(_flags);
     }
     
     inline bool begin(core::bitflag<E_USAGE> _flags, const SInheritanceInfo* inheritanceInfo = nullptr) override final
     {
-        if (canReset())
+        checkForCommandPoolReset();
+        // skip reset if command pool was reset above and state is initial
+        if (canReset() && m_state != ES_INITIAL)
             reset(E_RESET_FLAGS::ERF_RELEASE_RESOURCES_BIT);
-        else checkForCommandPoolReset();
+
 
         return IGPUCommandBuffer::begin(_flags, inheritanceInfo);
     }

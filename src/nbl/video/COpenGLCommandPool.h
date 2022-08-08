@@ -42,7 +42,10 @@ class COpenGLCommandPool final : public IGPUCommandPool
 
         void reset() override
         {
-            // TODO reset some memory here?
+            // Free everything in the memory pool from all command buffers
+            // TODO figure out if this is the best way to do it
+            mempool.reset();
+
             IGPUCommandPool::reset();
         }
 
