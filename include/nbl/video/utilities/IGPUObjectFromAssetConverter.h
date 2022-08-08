@@ -1571,12 +1571,6 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
         core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(asset::EFF_TRANSFER_DST_BIT | asset::EFF_BLIT_SRC_BIT | asset::EFF_BLIT_DST_BIT);
 
-        // TODO(Erfan): Figure out where we add the usages when creating the IGPUImage + investigate how blitSrc/Dst can get through formatPromotion
-        //IPhysicalDevice::SFormatImageUsage requiredFormatUsages(cpuDeps[i]->getImageUsageFlags() | );
-        // requiredFormatUsages.transferDst = 1;
-        // requiredFormatUsages.blitDst = 1;
-        // requiredFormatUsages.blitSrc = 1;
-
         const auto format = imageCreationParams.format;
 
         if(format != asset::EF_R8G8B8_SRGB)
@@ -1585,6 +1579,9 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         IPhysicalDevice::SImageFormatPromotionRequest promotionRequest = {};
         promotionRequest.originalFormat = format;
         promotionRequest.usages = cpuDeps[i]->getImageUsageFlags() | asset::IImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT;
+        promotionRequest.usages.blitDst = true;
+        promotionRequest.usages.blitSrc = true;
+        promotionRequest.usages.transferDst = true;
         const asset::E_FORMAT promotedFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
 
         if (format != promotedFormat)

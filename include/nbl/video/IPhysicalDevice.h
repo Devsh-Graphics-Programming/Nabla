@@ -364,7 +364,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
                 attachment((usages & (core::bitflag(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
                 attachmentBlend(usages.hasFlags(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)), // TODO: should conservatively deduct to be false
-                // Deduced as false. User may patch it up later -> (Erfan) Investigate later and whether it's added to new Usage Flags, the user can't because the format promotion functions take IImage::E_USAGE_FLAGS as params;
+                // Deduced as false. User may patch it up later
                 blitSrc(0),
                 blitDst(0),
                 storageImageAtomic(0)
