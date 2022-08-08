@@ -287,19 +287,23 @@ public:
                 inCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
                 inCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
                 inCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
-                inCpuImageRegion.imageSubresource.layerCount = core::max(uploadableArrayLayers, 1u);
+                inCpuImageRegion.imageSubresource.layerCount = core::max(regionToCopyNext.imageSubresource.layerCount, 1u);
 
                 auto localImageOffset = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
                 uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, srcBufferByteStrides)[0];
                 uint8_t* inCpuBufferPointer = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(srcBuffer->getPointer()) + offsetInCPUBuffer);
                 asset::ICPUImage::SCreationParams inCPUImageParams = dstImageParams;
+                inCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
                 inCPUImageParams.format = srcImageFormat;
                 inCPUImageParams.extent = regionToCopyNext.imageExtent;
                 inCPUImageParams.arrayLayers = regionToCopyNext.imageSubresource.layerCount;
                 inCPUImageParams.mipLevels = 1u;
                 inCPUImage = asset::ICPUImage::create(std::move(inCPUImageParams));
+                assert(inCPUImage);
                 core::smart_refctd_ptr<asset::ICPUBuffer> inCPUBuffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(srcBuffer->getSize(), inCpuBufferPointer, core::adopt_memory);
                 inCPUImage->setBufferAndRegions(std::move(inCPUBuffer), inCpuImageRegionsDynArray);
+                assert(inCPUImage->getBuffer());
+                assert(inCPUImage->getRegions().size() > 0u);
             }
 
             // outCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u
@@ -320,16 +324,20 @@ public:
                 outCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
                 outCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
                 outCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
-                outCpuImageRegion.imageSubresource.layerCount = core::max(uploadableArrayLayers, 1u);
+                outCpuImageRegion.imageSubresource.layerCount = core::max(regionToCopyNext.imageSubresource.layerCount, 1u);
 
                 asset::ICPUImage::SCreationParams outCPUImageParams = dstImageParams;
                 uint8_t* outCpuBufferPointer = reinterpret_cast<uint8_t*>(stagingBufferPointer) + stagingBufferOffset;
+                outCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
                 outCPUImageParams.extent = regionToCopyNext.imageExtent;
                 outCPUImageParams.arrayLayers = regionToCopyNext.imageSubresource.layerCount;
                 outCPUImageParams.mipLevels = 1u;
                 outCPUImage = asset::ICPUImage::create(std::move(outCPUImageParams));
+                assert(outCPUImage);
                 core::smart_refctd_ptr<asset::ICPUBuffer> outCPUBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(outCPUBufferSize, outCpuBufferPointer, core::adopt_memory);
                 outCPUImage->setBufferAndRegions(std::move(outCPUBuffer), outCpuImageRegionsDynArray);
+                assert(outCPUImage->getBuffer());
+                assert(outCPUImage->getRegions().size() > 0u);
             }
         };
 

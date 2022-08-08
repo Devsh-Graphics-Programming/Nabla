@@ -242,7 +242,7 @@ class NBL_API IImage : public IDescriptor
 			VkExtent3D									extent;
 			uint32_t									mipLevels;
 			uint32_t									arrayLayers;
-			E_CREATE_FLAGS								flags = ECF_NONE;
+			E_CREATE_FLAGS								flags = ECF_NONE; // TODO: bitflags
 			core::bitflag<E_USAGE_FLAGS>				usage = EUF_NONE;
 
 			inline bool operator==(const SCreationParams& rhs) const
