@@ -896,7 +896,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             auto regions = cpuimg->getRegions();
             _params.utilities->updateImageViaStagingBuffer(
                 cmdbuf_transfer.get(), transfer_fence.get(), _params.perQueue[EQU_TRANSFER].queue,
-                cpuimg->getBuffer(), regions, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL,
+                cpuimg->getBuffer(), asset::EF_UNKNOWN, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL, regions,
                 submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask);
 #else
         if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())

@@ -822,7 +822,7 @@ private:
 
 void IUtilities::updateImageViaStagingBuffer(
     IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
-    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore)
 {
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
@@ -847,8 +847,14 @@ void IUtilities::updateImageViaStagingBuffer(
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
     auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[queue->getFamilyIndex()];
     auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
+    
+    if(srcFormat == asset::EF_UNKNOWN)
+    {
+        // If valid srcFormat is not provided, assume srcBuffer is laid out in memory based on dstImage format
+        srcFormat = dstImage->getCreationParameters().format;
+    }
 
-    ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, /*TODO*/dstImage->getCreationParameters().format, dstImage);
+    ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, srcFormat, dstImage);
 
     // TODO[FUTURE]: consider benefits of using `limits->optimalBufferCopyOffsetAlignment` and `limits->optimalBufferCopyRowPitchAlignment`
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
@@ -946,7 +952,7 @@ void IUtilities::updateImageViaStagingBuffer(
 
 void IUtilities::updateImageViaStagingBuffer(
     IGPUFence* fence, IGPUQueue* queue,
-    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
     const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
 )
@@ -956,7 +962,7 @@ void IUtilities::updateImageViaStagingBuffer(
     m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
     assert(cmdbuf);
     cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-    updateImageViaStagingBuffer(cmdbuf.get(),fence,queue,srcBuffer,regions,dstImage,dstImageLayout,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore);
+    updateImageViaStagingBuffer(cmdbuf.get(),fence,queue,srcBuffer,srcFormat,dstImage,dstImageLayout,regions,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore);
     cmdbuf->end();
     IGPUQueue::SSubmitInfo submit;
     submit.commandBufferCount = 1u;
@@ -972,13 +978,13 @@ void IUtilities::updateImageViaStagingBuffer(
 
 void IUtilities::updateImageViaStagingBuffer(
     IGPUQueue* queue,
-    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
     const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
 )
 {
     auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBuffer(fence.get(),queue,srcBuffer,regions,dstImage,dstImageLayout,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
+    updateImageViaStagingBuffer(fence.get(),queue,srcBuffer,srcFormat,dstImage,dstImageLayout,regions,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
     auto* fenceptr = fence.get();
     m_device->blockForFences(1u,&fenceptr);
 }
