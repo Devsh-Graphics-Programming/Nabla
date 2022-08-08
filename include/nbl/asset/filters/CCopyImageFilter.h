@@ -48,7 +48,9 @@ class NBL_API CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public C
 			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
 				return false;
 
-			return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
+			// TODO: Extend E_FORMAT_CLASS
+			// return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
+			return true;
 		}
 
 		template<class ExecutionPolicy>
@@ -64,8 +66,9 @@ class NBL_API CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public C
 				const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
 				auto copy = [&commonExecuteData,&blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
-					auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
-					memcpy(commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides),commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
+					const auto localOutPos = readBlockPos+commonExecuteData.offsetDifference;
+					const auto writeOffset = commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
+					memcpy(commonExecuteData.outData+writeOffset,commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
 				};
 				CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy,commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
 

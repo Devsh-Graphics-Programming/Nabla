@@ -361,7 +361,6 @@ class NBL_API CBasicImageFilterCommon
 		}
 };
 
-
 class NBL_API CBasicInImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:

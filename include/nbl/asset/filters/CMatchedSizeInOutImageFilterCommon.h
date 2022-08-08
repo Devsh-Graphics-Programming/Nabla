@@ -141,11 +141,6 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 			range.offset = state->outOffset;
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(subresource,range,state->outImage))
 				return false;
-
-			// TODO: remove this later when we can actually write/encode to block formats
-			if (isBlockCompressionFormat(state->outImage->getCreationParameters().format))
-				return false;
-
 			return true;
 		}
 
