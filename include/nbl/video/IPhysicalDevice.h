@@ -269,6 +269,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SFormatBufferUsage()
                 : isInitialized(0)
+                , vertexAttribute(0)
+                , bufferView(0)
+                , storageBufferView(0)
+                , storageBufferViewAtomic(0)
+                , accelerationStructureVertex(0)
             {}
 
             SFormatBufferUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages)
@@ -354,6 +359,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SFormatImageUsage()
                 : isInitialized(0)
+                , sampledImage(0)
+                , storageImage(0)
+                , storageImageAtomic(0)
+                , attachment(0)
+                , attachmentBlend(0)
+                , blitSrc(0)
+                , blitDst(0)
+                , transferSrc(0)
+                , transferDst(0)
+                , log2MaxSamples(0)
             {}
 
             SFormatImageUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages)
@@ -523,7 +538,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         struct FormatPromotionRequest
         {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            FORMAT_USAGE usages = FORMAT_USAGE(0);
+            FORMAT_USAGE usages = FORMAT_USAGE();
 
             struct hash
             {
