@@ -92,6 +92,7 @@ class NBL_API IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				{
 					auto& region = newRegions->operator[](i);
 					region.bufferOffset = bufferSize;
+					region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
 					region.imageSubresource.mipLevel = i;
 					region.imageSubresource.baseArrayLayer = 0;
 					region.imageSubresource.layerCount = newImageParams.arrayLayers;

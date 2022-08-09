@@ -294,7 +294,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	core::smart_refctd_ptr<ICPUBuffer> texelBuffer = nullptr;
 
 	ICPUImage::SBufferCopy& region = regions->front();
-
+	
+	region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0u;
 	region.imageSubresource.baseArrayLayer = 0u;
 	region.imageSubresource.layerCount = 1u;
