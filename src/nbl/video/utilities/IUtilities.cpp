@@ -532,58 +532,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         // In = srcBuffer, Out = stagingBuffer
         if (srcImageFormat == dstImageFormat)
         {
-#ifdef OLD_BUT_GOLD
-            if(regionBlockStrides.x != imageExtentInBlocks.x)
-            {
-                // Can't copy all rows at once, there is more padding at the end of rows, copy row by row:
-                for(uint32_t layer = 0; layer < uploadableArrayLayers; ++layer)
-                {
-                    for(uint32_t z = 0; z < imageExtentInBlocks.z; ++z)
-                    {
-                        for(uint32_t y = 0; y < imageExtentInBlocks.y; ++y)
-                        {
-                            auto localImageOffset = core::vector3du32_SIMD(0u, 0u + y, 0u + z, currentLayerInRegion + layer);
-                            uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                            uint64_t offsetInUploadBuffer = stagingBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory + y * eachRowNeededMemory;
-                            memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                    eachRowNeededMemory);
-                        }
-                    }
-                }
-            }
-            else if (regionBlockStrides.y != imageExtentInBlocks.y)
-            {
-                assert(imageOffsetInBlocks.x == 0u);
-                // Can't copy all slices at once, there is more padding at the end of slices, copy slice by slice
-                                    
-                for(uint32_t layer = 0; layer < uploadableArrayLayers; ++layer)
-                {
-                    for(uint32_t z = 0; z < imageExtentInBlocks.z; ++z)
-                    {
-                        auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u + z, currentLayerInRegion + layer);
-                        uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                        uint64_t offsetInUploadBuffer = stagingBufferOffset + layer * eachLayerNeededMemory + z * eachSliceNeededMemory;
-                        memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                eachSliceNeededMemory);
-                    }
-                }
-            }
-            else
-            {
-                // We can copy all arrays and slices at once, because imageExtent is fit to bufferRowLength and bufferImageHeight
-                assert(imageOffsetInBlocks.x == 0u);
-                assert(imageOffsetInBlocks.y == 0u);
-                auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u, currentLayerInRegion);
-                uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                uint64_t offsetInUploadBuffer = stagingBufferOffset;
-                memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                        layersToUploadMemorySize);
-            }
-            copySuccess = true;
-#else
             using CopyFilter = asset::CCopyImageFilter;
             CopyFilter copyFilter;
             CopyFilter::state_type state = {};
@@ -598,7 +546,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
             if (copyFilter.execute(core::execution::par_unseq,&state))
                 copySuccess = true;
-#endif
         }
         else
         {
@@ -659,51 +606,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
         if (srcImageFormat == dstImageFormat)
         {
-#ifdef OLD_BUT_GOLD
-            if(regionBlockStrides.x != imageExtentInBlocks.x)
-            {
-                // Can't copy all rows at once, there is more padding at the end of rows, copy row by row:
-                for(uint32_t z = 0; z < uploadableSlices; ++z)
-                {
-                    for(uint32_t y = 0; y < imageExtentInBlocks.y; ++y)
-                    {
-                        auto localImageOffset = core::vector4du32_SIMD(0u, 0u + y, 0u + currentSliceInLayer + z, currentLayerInRegion);
-                        uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                        uint64_t offsetInUploadBuffer = stagingBufferOffset + z * eachSliceNeededMemory + y * eachRowNeededMemory;
-                        memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                                reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                                eachRowNeededMemory);
-                    }
-                }
-            }
-            else if (regionBlockStrides.y != imageExtentInBlocks.y)
-            {
-                assert(imageOffsetInBlocks.x == 0u);
-                // Can't copy all slices at once, there is more padding at the end of slices, copy slice by slice
-                for(uint32_t z = 0; z < uploadableSlices; ++z)
-                {
-                    auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u + currentSliceInLayer + z, currentLayerInRegion);
-                    uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                    uint64_t offsetInUploadBuffer = stagingBufferOffset + z * eachSliceNeededMemory;
-                    memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                            eachSliceNeededMemory);
-                }
-            }
-            else
-            {
-                // We can copy all arrays and slices at once, because imageExtent is fit to bufferRowLength and bufferImageHeight
-                assert(imageOffsetInBlocks.x == 0u);
-                assert(imageOffsetInBlocks.y == 0u);
-                auto localImageOffset = core::vector3du32_SIMD(0u, 0u, 0u + currentSliceInLayer, currentLayerInRegion);
-                uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                uint64_t offsetInUploadBuffer = stagingBufferOffset;
-                memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                        slicesToUploadMemorySize);
-            }
-            copySuccess = true;
-#else
             using CopyFilter = asset::CCopyImageFilter;
             CopyFilter copyFilter;
             CopyFilter::state_type state = {};
@@ -718,7 +620,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
             if (copyFilter.execute(core::execution::par_unseq,&state))
                 copySuccess = true;
-#endif
         }
         else
         {
@@ -779,33 +680,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
         if (srcImageFormat == dstImageFormat)
         {
-#ifdef OLD_BUT_GOLD
-            if(regionBlockStrides.x != imageExtentInBlocks.x)
-            {
-                // Can't copy all rows at once, there is padding, copy row by row
-                for(uint32_t y = 0; y < uploadableRows; ++y)
-                {
-                    auto localImageOffset = core::vector3du32_SIMD(0u, 0u + currentRowInSlice + y, 0u + currentSliceInLayer, currentLayerInRegion);
-                    uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                    uint64_t offsetInUploadBuffer = stagingBufferOffset + y*eachRowNeededMemory;
-                    memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                            reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                            eachRowNeededMemory);
-                }
-            }
-            else
-            {
-                // We can copy all rows at once, because imageExtent is fit to rowLength
-                assert(imageOffsetInBlocks.x == 0);
-                auto localImageOffset = core::vector3du32_SIMD(0u, 0u + currentRowInSlice, 0u + currentSliceInLayer, currentLayerInRegion);
-                uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-                uint64_t offsetInUploadBuffer = stagingBufferOffset;
-                memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+offsetInUploadBuffer,
-                        reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                        rowsToUploadMemorySize);
-            }
-            copySuccess = true;
-#else
             using CopyFilter = asset::CCopyImageFilter;
             CopyFilter copyFilter;
             CopyFilter::state_type state = {};
@@ -820,7 +694,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
             if (copyFilter.execute(core::execution::par_unseq,&state))
                 copySuccess = true;
-#endif
         }
         else
         {
@@ -881,15 +754,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
         if (srcImageFormat == dstImageFormat)
         {
-#ifdef OLD_BUT_GOLD
-            auto localImageOffset = core::vector3du32_SIMD(0u + currentBlockInRow, 0u + currentRowInSlice, 0u + currentSliceInLayer, currentLayerInRegion);
-            uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, regionBlockStridesInBytes)[0];
-            memcpy( reinterpret_cast<uint8_t*>(stagingBufferPointer)+stagingBufferOffset,
-                    reinterpret_cast<uint8_t const*>(srcBuffer->getPointer())+offsetInCPUBuffer,
-                    blocksToUploadMemorySize);
-              
-            copySuccess = true;
-#else
             using CopyFilter = asset::CCopyImageFilter;
             CopyFilter copyFilter;
             CopyFilter::state_type state = {};
@@ -904,7 +768,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
             if (copyFilter.execute(core::execution::par_unseq,&state))
                 copySuccess = true;
-#endif
         }
         else
         {
