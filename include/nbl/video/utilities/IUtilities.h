@@ -757,7 +757,56 @@ class NBL_API IUtilities : public core::IReferenceCounted
         core::smart_refctd_ptr<CScanner> m_scanner;
     };
 
-}
+class NBL_API ImageRegionIterator
+{
+public:
+    ImageRegionIterator(
+        const core::SRange<const asset::IImage::SBufferCopy>& copyRegions,
+        IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
+        asset::ICPUBuffer const* srcBuffer,
+        asset::E_FORMAT srcImageFormat,
+        video::IGPUImage* const dstImage
+    );
+    
+    // ! Memory you need to allocate to transfer the remaining regions in one submit.
+    // ! WARN: It's okay to use less memory than the return value of this function for your staging memory, in that usual case more than 1 copy regions will be needed to transfer the remaining regions.
+    size_t getMemoryNeededForRemainingRegions() const;
 
+    // ! Gives `regionToCopyNext` based on `availableMemory`
+    // ! memcopies the data from `srcBuffer` to `stagingBuffer`, preparing it for launch and submit to copy to GPU buffer
+    // ! updates `availableMemory` (availableMemory -= consumedMemory)
+    // ! updates `stagingBufferOffset` based on consumed memory and alignment requirements
+    // ! this function may do format conversions when copying from `srcBuffer` to `stagingBuffer` if srcBufferFormat != dstImage->Format passed as constructor parameters
+    bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, size_t& availableMemory, size_t& stagingBufferOffset, void* stagingBufferPointer);
+
+    // ! returns true when there is no more regions left over to copy
+    bool isFinished() const { return currentRegion == regions.size(); }
+    uint32_t getCurrentBlockInRow() const { return currentBlockInRow; }
+    uint32_t getCurrentRowInSlice() const { return currentRowInSlice; }
+    uint32_t getCurrentSliceInLayer() const { return currentSliceInLayer; }
+    uint32_t getCurrentLayerInRegion() const { return currentLayerInRegion; }
+    uint32_t getCurrentRegion() const { return currentRegion; }
+
+private:
+    core::SRange<const asset::IImage::SBufferCopy> regions;
+
+    bool canTransferMipLevelsPartially = false;
+    VkExtent3D minImageTransferGranularity;
+    uint32_t bufferOffsetAlignment = 1u;
+
+    asset::E_FORMAT srcImageFormat;
+    asset::E_FORMAT dstImageFormat;
+    asset::ICPUBuffer const* srcBuffer;
+    video::IGPUImage* const dstImage;
+    
+    // Block Offsets 
+    uint32_t currentBlockInRow = 0u;
+    uint32_t currentRowInSlice = 0u;
+    uint32_t currentSliceInLayer = 0u;
+    uint32_t currentLayerInRegion = 0u;
+    uint32_t currentRegion = 0u;
+};
+
+}
 
 #endif
