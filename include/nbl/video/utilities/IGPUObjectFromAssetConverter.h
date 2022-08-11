@@ -979,6 +979,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             blitRegion.dstSubresource.mipLevel = i;
             blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
 
+            // TODO: Remove the requirement that the transfer queue has graphics caps,
             cmdbuf_transfer->blitImage(gpuimg, asset::IImage::EL_TRANSFER_SRC_OPTIMAL, gpuimg,
                 asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR);
 
