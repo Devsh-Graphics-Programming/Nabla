@@ -435,7 +435,14 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
     // ! Function to create mock cpu images that can go into image filters for copying/converting
     auto createMockInOutCPUImagesForFilter = [&](core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage, core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage, const size_t outCPUBufferSize) -> void
-    {
+    {        
+        /*
+            We have to first construct two `ICPUImage`s from each of those buffers `inCPUImage` and `outCPUImage`
+            Then we will create fake ICPUBuffers that point to srcBuffer and stagingBuffer with correct offsets
+            Then we have to set the buffer and regions for each one of those ICPUImages using setBufferAndRegions
+            Finally we fill the filter state and `execute` which require in/out CPUImages
+        */
+            
         auto dstImageParams = dstImage->getCreationParameters();
 
         // inCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u and the format being srcImageFormat
@@ -530,13 +537,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageExtent.depth    = imageExtent.z;
         regionToCopyNext.imageSubresource.layerCount = uploadableArrayLayers;
 
-        /*
-            We have to first construct two `ICPUImage`s from each of those buffers let's call them `inCPUImage` and `outCPUImage`
-            Then we will create fake ICPUBuffers that point to srcBuffer and stagingBuffer with correct offsets
-            Then we have to set the buffer and regions for each one of those ICPUImages using setBufferAndRegions
-            Finally we fill the filter state and `execute` which require in/out CPUImages
-        */
-            
         core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, layersToUploadMemorySize);
