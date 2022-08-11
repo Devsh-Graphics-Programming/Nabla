@@ -32,6 +32,7 @@ void IUtilities::updateImageViaStagingBuffer(
     auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[queue->getFamilyIndex()];
     auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
     
+    assert(dstImage->getCreationParameters().format != asset::EF_UNKNOWN);
     if(srcFormat == asset::EF_UNKNOWN)
     {
         // If valid srcFormat is not provided, assume srcBuffer is laid out in memory based on dstImage format
@@ -222,6 +223,7 @@ ImageRegionIterator::ImageRegionIterator(
 size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
 {
     asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
+    assert(dstImageTexelBlockInfo.getBlockByteSize()>0u);
     auto texelBlockDim = dstImageTexelBlockInfo.getDimension();
     size_t memoryNeededForRemainingRegions = 0ull;
     for (uint32_t i = currentRegion; i < regions.size(); ++i)
