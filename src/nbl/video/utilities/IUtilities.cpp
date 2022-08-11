@@ -395,7 +395,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
     };
     
-    // Swizzle for when promoted image has more channels that src channel
+    // Swizzle for when promoted image has more channels that src channel, only used when srcImageFormat!=dstImageFormat
     asset::ICPUImageView::SComponentMapping componentMapping;
     componentMapping.r = asset::ICPUImageView::SComponentMapping::ES_ZERO;
     componentMapping.g = asset::ICPUImageView::SComponentMapping::ES_ZERO;
@@ -404,7 +404,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     auto srcChannelCount = asset::getFormatChannelCount(srcImageFormat);
     for (uint32_t c = 0u; c < srcChannelCount; c++)
         componentMapping[c] = asset::ICPUImageView::SComponentMapping::ES_IDENTITY;
-
 
     uint32_t eachBlockNeededMemory  = imageExtentBlockStridesInBytes[0];  // = blockByteSize
     uint32_t eachRowNeededMemory    = imageExtentBlockStridesInBytes[1];  // = blockByteSize * imageExtentInBlocks.x
