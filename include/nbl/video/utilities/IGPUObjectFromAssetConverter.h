@@ -1047,7 +1047,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         promotionRequest.usages = promotionRequest.usages | params.usage;
         auto newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
 
-        assert(params.format != asset::EF_UNKNOWN); // No feasible supported format found that for creating this image
+        assert(params.format != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
         if(params.format != newFormat)
             params.format = newFormat;
 
