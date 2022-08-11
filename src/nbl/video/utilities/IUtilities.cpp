@@ -392,6 +392,17 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
             currentRegion++;
         }
     };
+    
+    // Swizzle for when promoted image has more channels that src channel
+    asset::ICPUImageView::SComponentMapping componentMapping;
+    componentMapping.r = asset::ICPUImageView::SComponentMapping::ES_ZERO;
+    componentMapping.g = asset::ICPUImageView::SComponentMapping::ES_ZERO;
+    componentMapping.b = asset::ICPUImageView::SComponentMapping::ES_ZERO;
+    componentMapping.a = asset::ICPUImageView::SComponentMapping::ES_ONE;
+    auto srcChannelCount = asset::getFormatChannelCount(srcImageFormat);
+    for (uint32_t c = 0u; c < srcChannelCount; c++)
+        componentMapping[c] = asset::ICPUImageView::SComponentMapping::ES_IDENTITY;
+
 
     uint32_t eachBlockNeededMemory  = imageExtentBlockStridesInBytes[0];  // = blockByteSize
     uint32_t eachRowNeededMemory    = imageExtentBlockStridesInBytes[1];  // = blockByteSize * imageExtentInBlocks.x
@@ -549,9 +560,10 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CConvertFormatImageFilter<>;
+            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
             ConverFilter convertFilter;
             ConverFilter::state_type state = {};
+            state.swizzle = componentMapping;
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
@@ -623,9 +635,10 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CConvertFormatImageFilter<>;
+            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
             ConverFilter convertFilter;
             ConverFilter::state_type state = {};
+            state.swizzle = componentMapping;
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
@@ -697,9 +710,10 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CConvertFormatImageFilter<>;
+            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
             ConverFilter convertFilter;
             ConverFilter::state_type state = {};
+            state.swizzle = componentMapping; 
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
@@ -771,9 +785,10 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CConvertFormatImageFilter<>;
+            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
             ConverFilter convertFilter;
             ConverFilter::state_type state = {};
+            state.swizzle = componentMapping; 
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
