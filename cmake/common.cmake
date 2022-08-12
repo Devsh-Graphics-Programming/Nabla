@@ -638,3 +638,62 @@ endmacro()
 macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()
+
+function(NBL_UPDATE_SUBMODULES)
+	macro(NBL_WRAPPER_COMMAND GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE)
+		set(SHOULD_RECURSIVE ${SHOULD_RECURSIVE})
+	
+		if(SHOULD_RECURSIVE)
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init --recursive ${GIT_SUBMODULE_PATH}\n")
+		else()
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init ${GIT_SUBMODULE_PATH}\n")
+		endif()
+	endmacro()
+	
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
+		set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
+		set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
+		message(STATUS "test")
+		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
+			NBL_WRAPPER_COMMAND("" "" TRUE)
+		else()
+			NBL_WRAPPER_COMMAND("" ./3rdparty TRUE)
+			#NBL_WRAPPER_COMMAND("" ./ci TRUE) TODO: enable it once we merge Ditt, etc
+			NBL_WRAPPER_COMMAND("" ./examples_tests FALSE)
+			NBL_WRAPPER_COMMAND(examples_tests ./media FALSE)
+		endif()
+				
+		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
+
+		if(WIN32)
+			find_package(GitBash REQUIRED)
+		
+			execute_process(COMMAND "${GIT_BASH_EXECUTABLE}" "-c"
+[=[
+>&2 echo ""
+clear
+./nbl-update-submodules.cmd 2>&1 | tee nbl-update-submodules.log
+sleep 1
+clear
+tput setaf 2; echo -e "Submodules have been updated! 
+Created nbl-update-submodules.log in your build directory. 
+This window will be closed in 5 seconds..."
+sleep 5
+]=]
+				WORKING_DIRECTORY ${NBL_ROOT_PATH_BINARY}
+				OUTPUT_VARIABLE _NBL_TMP_OUTPUT_
+				RESULT_VARIABLE _NBL_TMP_RET_CODE_
+				OUTPUT_STRIP_TRAILING_WHITESPACE
+				ERROR_STRIP_TRAILING_WHITESPACE
+			)
+
+			unset(_NBL_TMP_OUTPUT_)
+			unset(_NBL_TMP_RET_CODE_)
+		else()
+			execute_process(COMMAND "./${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
+		endif()
+	else()
+		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "NBL_UPDATE_GIT_SUBMODULE is turned OFF therefore submodules won't get updated.")
+	endif()
+endfunction()
