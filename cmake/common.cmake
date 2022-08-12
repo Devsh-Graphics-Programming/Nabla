@@ -691,7 +691,7 @@ sleep 5
 			unset(_NBL_TMP_OUTPUT_)
 			unset(_NBL_TMP_RET_CODE_)
 		else()
-			execute_process(COMMAND "./${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
+			execute_process(COMMAND "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}")
 		endif()
 	else()
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "NBL_UPDATE_GIT_SUBMODULE is turned OFF therefore submodules won't get updated.")
