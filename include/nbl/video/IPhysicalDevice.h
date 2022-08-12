@@ -478,7 +478,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             EQF_PROTECTED_BIT = 0x10
         };
 
-        
         /* QueueFamilyProperties2
 * 
                 - VkQueueFamilyCheckpointProperties2NV, VkQueueFamilyCheckpointPropertiesNV [DON'T EXPOSE]: 

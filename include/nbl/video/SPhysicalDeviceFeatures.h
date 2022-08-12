@@ -1,17 +1,10 @@
 #ifndef _NBL_VIDEO_S_PHYSICAL_DEVICE_FEATURES_H_INCLUDED_
 #define _NBL_VIDEO_S_PHYSICAL_DEVICE_FEATURES_H_INCLUDED_
 
+#include "nbl/video/ECommonEnums.h"
+
 namespace nbl::video
 {
-    
-enum E_SWAPCHAIN_MODE : uint32_t
-{
-    ESM_NONE = 0,
-    ESM_SURFACE = 0x01,
-    // ESM_DISPLAY = 0x02 TODO, as we won't write the API interfaces to deal with direct-to-display swapchains yet.,
-    /* TODO: KHR_swapchain if SURFACE or DISPLAY flag present & KHR_display_swapchain if DISPLAY flag present */
-};
-
 //! [TODOS]:
 //! 
 //! ## LogicalDevice creation enabled features shouldn't necessarily equal the ones it reports as enabled (superset)

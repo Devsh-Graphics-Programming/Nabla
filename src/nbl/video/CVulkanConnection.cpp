@@ -10,9 +10,7 @@ namespace nbl::video
 {
     core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        const uint32_t requiredFeatureCount, video::IAPIConnection::E_FEATURE* requiredFeatures,
-        const uint32_t optionalFeatureCount, video::IAPIConnection::E_FEATURE* optionalFeatures,
-        core::smart_refctd_ptr<system::ILogger>&& logger, bool enableValidation)
+        core::smart_refctd_ptr<system::ILogger>&& logger, const Features& featuresToEnable)
     {
         if (volkInitialize() != VK_SUCCESS)
         {
@@ -55,7 +53,7 @@ namespace nbl::video
         const char* requiredLayerNames[MAX_LAYER_COUNT] = { nullptr };
         uint32_t requiredLayerNameCount = 0u;
         {
-            if (enableValidation)
+            if (featuresToEnable.validations)
                 requiredLayerNames[requiredLayerNameCount++] = "VK_LAYER_KHRONOS_validation";
         }
         assert(requiredLayerNameCount <= MAX_LAYER_COUNT);
@@ -109,60 +107,55 @@ namespace nbl::video
         };
 
         FeatureSetType availableFeatureSet = getAvailableFeatureSet(availableExtensions);
-
-        auto insertFeatureIfAvailable = [&logger, &availableFeatureSet](const E_FEATURE feature, auto& featureSet) -> bool
+        
+        auto patchDependencies = [](FeatureSetType& selectedFeatureSet, Features& actualFeaturesToEnable) -> void
         {
-            const auto depFeatures = IAPIConnection::getDependentFeatures(feature);
-
-            constexpr uint32_t MAX_VULKAN_NAME_COUNT_PER_FEATURE = 8u;  // each feature/extension can spawn multiple extension names (mostly platform-specific ones)
-            constexpr uint32_t MAX_FEATURE_COUNT = 1u << 9;
-            const char* vulkanNames[MAX_FEATURE_COUNT * MAX_VULKAN_NAME_COUNT_PER_FEATURE];
-            uint32_t vulkanNameCount = 0u;
-            for (const auto& depFeature : depFeatures)
-            {
-                uint32_t count = 0u;
-                getVulkanExtensionNamesFromFeature(depFeature, count, vulkanNames + vulkanNameCount);
-
-                for (uint32_t index = 0u; index < count; ++index)
-                {
-                    if (availableFeatureSet.find(vulkanNames[vulkanNameCount + index]) == availableFeatureSet.end())
-                    {
-                        LOG(logger, "Failed to find instance extension: %s\n", system::ILogger::ELL_ERROR, vulkanNames[vulkanNameCount + index]);
-                        return false;
-                    }
-                }
-                vulkanNameCount += count;
-            }
-            assert(vulkanNameCount <= MAX_FEATURE_COUNT * MAX_VULKAN_NAME_COUNT_PER_FEATURE);
-
-            featureSet.insert(vulkanNames, vulkanNames + vulkanNameCount);
-
-            return true;
+            // TODO: No current extension needs another, except when we add DISPLAY Swapchain mode because:
+            // VK_KHR_display Requires VK_KHR_surface to be enabled
+            return;
         };
 
         FeatureSetType selectedFeatureSet;
-        for (uint32_t i = 0u; i < requiredFeatureCount; ++i)
+        if(featuresToEnable.debugUtils)
         {
-            if (!insertFeatureIfAvailable(requiredFeatures[i], selectedFeatureSet))
-                return nullptr;
+            selectedFeatureSet.insert(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
-
-        for (uint32_t i = 0u; i < optionalFeatureCount; ++i)
+        if(featuresToEnable.swapchainMode.hasFlags(E_SWAPCHAIN_MODE::ESM_SURFACE))
         {
-            if (!insertFeatureIfAvailable(optionalFeatures[i], selectedFeatureSet))
-                continue;
+            selectedFeatureSet.insert(VK_KHR_SURFACE_EXTENSION_NAME);
+#if defined(_NBL_PLATFORM_WINDOWS_)
+            selectedFeatureSet.insert(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#endif
         }
+        Features enabledFeatures = featuresToEnable;
+        patchDependencies(selectedFeatureSet, enabledFeatures);
 
         const size_t totalFeatureCount = selectedFeatureSet.size() + 1ull;
         core::vector<const char*> selectedFeatures(totalFeatureCount);
         uint32_t k = 0u;
         for (const auto& feature : selectedFeatureSet)
             selectedFeatures[k++] = feature.c_str();
-        selectedFeatures[k++] = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
+        
+        const bool selectedFeaturesSupported = std::all_of(selectedFeatures.begin(), selectedFeatures.end(),
+            [availableFeatureSet, &logger](const char* extensionName)
+            {
+                bool found = availableFeatureSet.find(extensionName) != availableFeatureSet.end();
+
+                if (!found)
+                {
+                    LOG(logger, "Failed to find extension: %s\n", system::ILogger::ELL_ERROR, extensionName);
+                    return false;
+                }
+
+                return true;
+            });
+
+        if(!selectedFeaturesSupported)
+            return nullptr;
 
         std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
         VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
-        if (logger)
+        if (logger && enabledFeatures.debugUtils)
         {
             auto logLevelMask = logger->getLogLevelMask();
             debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
@@ -195,7 +188,7 @@ namespace nbl::video
             applicationInfo.engineVersion = NABLA_VERSION_INTEGER;
 
             VkInstanceCreateInfo createInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
-            createInfo.pNext = debugCallback ? (VkDebugUtilsMessengerCreateInfoEXT*)&debugMessengerCreateInfo : nullptr;
+            createInfo.pNext = enabledFeatures.debugUtils ? (VkDebugUtilsMessengerCreateInfoEXT*)&debugMessengerCreateInfo : nullptr;
             createInfo.flags = static_cast<VkInstanceCreateFlags>(0);
             createInfo.pApplicationInfo = &applicationInfo;
             createInfo.enabledLayerCount = requiredLayerNameCount;
@@ -256,10 +249,13 @@ namespace nbl::video
 
     CVulkanConnection::CVulkanConnection(
         VkInstance instance,
+        const Features& enabledFeatures,
         std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger)
-        : IAPIConnection(), m_vkInstance(instance), m_debugCallback(std::move(debugCallback)),
-        m_vkDebugUtilsMessengerEXT(vk_debugMessenger)
+        : IAPIConnection(enabledFeatures)
+        , m_vkInstance(instance)
+        , m_debugCallback(std::move(debugCallback))
+        , m_vkDebugUtilsMessengerEXT(vk_debugMessenger)
     {}
 
     CVulkanConnection::~CVulkanConnection()
@@ -271,25 +267,4 @@ namespace nbl::video
     }
 
     IDebugCallback* CVulkanConnection::getDebugCallback() const { return m_debugCallback.get(); }
-
-    void CVulkanConnection::getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, uint32_t& extNameCount, const char** extNames)
-    {
-        extNameCount = 0u;
-
-        switch (feature)
-        {
-        case IAPIConnection::EF_SURFACE:
-        {
-            extNames[extNameCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
-#if defined(_NBL_PLATFORM_WINDOWS_)
-            extNames[extNameCount++] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
-#endif
-        } break;
-
-        default:
-            break;
-        }
-
-        assert(extNameCount <= 8u); // it is rare that any feature will spawn more than 8 "variations" (usually due to OS-specific stuff), consequently the caller might only provide enough memory to write <= 8 of them
-    }
 }

@@ -28,6 +28,8 @@
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IDeviceMemoryAllocator.h"
 
+#include "nbl/video/SPhysicalDeviceFeatures.h"
+
 namespace nbl::video
 {
 
@@ -63,6 +65,9 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         {
             uint32_t queueParamsCount;
             const SQueueCreationParams* queueParams;
+            SPhysicalDeviceFeatures featuresToEnable;
+
+            // TODO: Remove these
             uint32_t requiredFeatureCount;
             E_FEATURE* requiredFeatures;
             uint32_t optionalFeatureCount;
@@ -515,7 +520,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
-            : m_api(api), m_physicalDevice(physicalDevice)
+            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable)
         {
             uint32_t qcnt = 0u;
             uint32_t greatestFamNum = 0u;
@@ -592,6 +597,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
+        SPhysicalDeviceFeatures m_enabledFeatures;
         IPhysicalDevice* m_physicalDevice;
 
         using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;

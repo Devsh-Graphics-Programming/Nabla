@@ -24,8 +24,10 @@ core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE
     if (!egl.initialize())
         return nullptr;
     std::filesystem::current_path(cwdBackup);
-
-    auto retval = new COpenGL_Connection<API_TYPE>();
+    
+    Features enabledFeatures = {};
+    enabledFeatures.swapchainMode = E_SWAPCHAIN_MODE::ESM_SURFACE;
+    auto retval = new COpenGL_Connection<API_TYPE>(enabledFeatures);
     std::unique_ptr<IPhysicalDevice> physicalDevice;
     if constexpr (API_TYPE==EAT_OPENGL)
         physicalDevice.reset(COpenGLPhysicalDevice::create(retval,retval->m_rdoc_api,std::move(sys),std::move(egl),std::move(dbgCb)));

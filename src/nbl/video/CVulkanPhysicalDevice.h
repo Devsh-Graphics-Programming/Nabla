@@ -1244,6 +1244,20 @@ public:
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {
+        if(m_features < params.featuresToEnable)
+        {
+            assert(false); // Requested features are not all supported by physical device
+            return nullptr;
+        }
+
+        // TODO: implicit dependancy patcher/verifier
+        // + alter params.featuresToEnable to account for dependency between features
+        // + (?) some depend on non exposed extension/features, add those to extension strings and feature chain(?) respectively
+        // + verify those that depend on instance extensions
+        // TODO: get feature chain + extension names from params.featuresToEnable
+        // + Account for enable by default, exposed as limits ones.
+        // TODO: pass the new patched params to logical device constructor
+
         auto insertFeatureIfAvailable = [this](const ILogicalDevice::E_FEATURE feature, auto& featureSet) -> bool
         {
             constexpr uint32_t MAX_COUNT = 1 << 12u;
