@@ -287,12 +287,12 @@ option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
-if(NBL_UPDATE_GIT_SUBMODULE)
-execute_process(COMMAND git submodule init
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-execute_process(COMMAND git submodule sync --recursive
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-endif()
+option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
+option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
+find_package(Git REQUIRED)
+include(common)
+
+NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
