@@ -82,6 +82,7 @@ namespace nbl::video
         using FeatureSetType = core::unordered_set<core::string>;
 
         // TODO: Figure out whether to have hard requirements for featuresToEnable and fail of not available or someway to report the available instance features to user?!
+        // Or maybe have soft requirements and just log some warning that requested feature is not available? figure out the pros and cons of these choices
         auto getAvailableFeatureSet = [&logger, requiredLayerNameCount, requiredLayerNames](VkExtensionProperties* extensions) -> FeatureSetType
         {
             uint32_t totalCount = 0u;
