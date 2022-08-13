@@ -81,8 +81,6 @@ namespace nbl::video
 
         using FeatureSetType = core::unordered_set<core::string>;
 
-        // TODO: Figure out whether to have hard requirements for featuresToEnable and fail of not available or someway to report the available instance features to user?!
-        // Or maybe have soft requirements and just log some warning that requested feature is not available? figure out the pros and cons of these choices
         auto getAvailableFeatureSet = [&logger, requiredLayerNameCount, requiredLayerNames](VkExtensionProperties* extensions) -> FeatureSetType
         {
             uint32_t totalCount = 0u;
@@ -110,50 +108,60 @@ namespace nbl::video
 
         FeatureSetType availableFeatureSet = getAvailableFeatureSet(availableExtensions);
         
+        FeatureSetType selectedFeatureSet;
+        bool allRequestedFeaturesSupported = true;
+
+        auto insertToFeatureSetIfAvailable = [&](const char* extStr, const char* featureName)
+        {
+            bool found = availableFeatureSet.find(extStr) != availableFeatureSet.end();
+            
+            if (found)
+            {
+                selectedFeatureSet.insert(extStr);
+            }
+            else
+            {
+                LOG(logger, "Feature Unavailable: %s\n", system::ILogger::ELL_ERROR, featureName);
+                allRequestedFeaturesSupported = false;
+            }
+        };
         auto patchDependencies = [](FeatureSetType& selectedFeatureSet, Features& actualFeaturesToEnable) -> void
         {
+            // Vulkan Spec:
+            // If an extension is supported (as queried by vkEnumerateInstanceExtensionProperties or
+            //    vkEnumerateDeviceExtensionProperties), then required extensions of that extension must also be
+            //    supported for the same instance or physical device.
+            // -> So No need to use `insertToFeatureSetIfAvailable` because when vulkan reports an extension as supported it also has their dependancies supported
             // TODO: No current extension needs another, except when we add DISPLAY Swapchain mode because:
             // VK_KHR_display Requires VK_KHR_surface to be enabled
             return;
         };
 
-        FeatureSetType selectedFeatureSet;
+
         if(featuresToEnable.debugUtils)
         {
-            selectedFeatureSet.insert(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            insertToFeatureSetIfAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, "debugUtils");
         }
         if(featuresToEnable.swapchainMode.hasFlags(E_SWAPCHAIN_MODE::ESM_SURFACE))
         {
-            selectedFeatureSet.insert(VK_KHR_SURFACE_EXTENSION_NAME);
+            insertToFeatureSetIfAvailable(VK_KHR_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
 #if defined(_NBL_PLATFORM_WINDOWS_)
-            selectedFeatureSet.insert(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+            insertToFeatureSetIfAvailable(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
 #endif
         }
         Features enabledFeatures = featuresToEnable;
         patchDependencies(selectedFeatureSet, enabledFeatures);
 
         const size_t totalFeatureCount = selectedFeatureSet.size();
-        core::vector<const char*> selectedFeatures(totalFeatureCount);
+        core::vector<const char*> extensionStringsToEnable(totalFeatureCount);
         uint32_t k = 0u;
         for (const auto& feature : selectedFeatureSet)
-            selectedFeatures[k++] = feature.c_str();
-        
-        const bool selectedFeaturesSupported = std::all_of(selectedFeatures.begin(), selectedFeatures.end(),
-            [availableFeatureSet, &logger](const char* extensionName)
-            {
-                bool found = availableFeatureSet.find(extensionName) != availableFeatureSet.end();
+            extensionStringsToEnable[k++] = feature.c_str();
 
-                if (!found)
-                {
-                    LOG(logger, "Failed to find extension: %s\n", system::ILogger::ELL_ERROR, extensionName);
-                    return false;
-                }
-
-                return true;
-            });
-
-        if(!selectedFeaturesSupported)
-            return nullptr;
+        // TODO: Figure out whether to have hard requirements for featuresToEnable and fail of not available or someway to report the available instance features/layer to user in the Features structure?!
+        // Or maybe have soft requirements and just log some warning that requested feature instance is not available? figure out the pros and cons of these choices
+        // if(!allRequestedFeaturesSupported)
+        //     return nullptr;
 
         std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
         VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
@@ -195,8 +203,8 @@ namespace nbl::video
             createInfo.pApplicationInfo = &applicationInfo;
             createInfo.enabledLayerCount = requiredLayerNameCount;
             createInfo.ppEnabledLayerNames = requiredLayerNames;
-            createInfo.enabledExtensionCount = static_cast<uint32_t>(selectedFeatures.size());
-            createInfo.ppEnabledExtensionNames = selectedFeatures.data();
+            createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStringsToEnable.size());
+            createInfo.ppEnabledExtensionNames = extensionStringsToEnable.data();
 
             if (vkCreateInstance(&createInfo, nullptr, &vk_instance) != VK_SUCCESS)
                 return nullptr;

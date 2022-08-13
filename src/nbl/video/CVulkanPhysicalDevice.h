@@ -1258,6 +1258,17 @@ protected:
         // + Account for enable by default, exposed as limits ones.
         // TODO: pass the new patched params to logical device constructor
 
+        // Important notes on extension dependancies, both instance and device
+        /*
+            If an extension is supported (as queried by vkEnumerateInstanceExtensionProperties or vkEnumerateDeviceExtensionProperties), 
+            then required extensions of that extension must also be supported for the same instance or physical device.
+
+            Any device extension that has an instance extension dependency that is not enabled by vkCreateInstance is considered to be unsupported,
+            hence it must not be returned by vkEnumerateDeviceExtensionProperties for any VkPhysicalDevice child of the instance. Instance extensions do not have dependencies on device extensions.
+
+            Conclusion: We don't need to specifically check instance extension dependancies but we can do it through apiConnection->getEnableFeatures to hint the user on what might be wrong 
+        */
+
         auto insertFeatureIfAvailable = [this](const ILogicalDevice::E_FEATURE feature, auto& featureSet) -> bool
         {
             constexpr uint32_t MAX_COUNT = 1 << 12u;

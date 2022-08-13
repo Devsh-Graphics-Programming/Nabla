@@ -16,6 +16,10 @@ class IPhysicalDevice;
 class NBL_API2 IAPIConnection : public core::IReferenceCounted
 {
     public:
+
+        // Equivalent to Instance Extensions and Layers
+        // Any device feature that has an api connection feature dependency that is not enabled is considered to be unsupported,
+        //  for example you need to enable E_SWAPCHAIN_MODE::ESM_SURFACE in order for the physical device to report support in SPhysicalDeviceFeatures::swapchainMode
         struct Features
         {
             // VK_KHR_surface, VK_KHR_win32_surface, VK_KHR_display(TODO)
