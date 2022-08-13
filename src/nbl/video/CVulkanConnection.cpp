@@ -81,6 +81,7 @@ namespace nbl::video
 
         using FeatureSetType = core::unordered_set<core::string>;
 
+        // TODO: Figure out whether to have hard requirements for featuresToEnable and fail of not available or someway to report the available instance features to user?!
         auto getAvailableFeatureSet = [&logger, requiredLayerNameCount, requiredLayerNames](VkExtensionProperties* extensions) -> FeatureSetType
         {
             uint32_t totalCount = 0u;
@@ -130,7 +131,7 @@ namespace nbl::video
         Features enabledFeatures = featuresToEnable;
         patchDependencies(selectedFeatureSet, enabledFeatures);
 
-        const size_t totalFeatureCount = selectedFeatureSet.size() + 1ull;
+        const size_t totalFeatureCount = selectedFeatureSet.size();
         core::vector<const char*> selectedFeatures(totalFeatureCount);
         uint32_t k = 0u;
         for (const auto& feature : selectedFeatureSet)
@@ -231,7 +232,7 @@ namespace nbl::video
                 return nullptr;
         }
 
-        CVulkanConnection* apiRaw = new CVulkanConnection(vk_instance, std::move(debugCallback), vk_debugMessenger);
+        CVulkanConnection* apiRaw = new CVulkanConnection(vk_instance, enabledFeatures, std::move(debugCallback), vk_debugMessenger);
         core::smart_refctd_ptr<CVulkanConnection> api(apiRaw, core::dont_grab);
         auto& physicalDevices = api->m_physicalDevices;
         physicalDevices.reserve(physicalDeviceCount);
