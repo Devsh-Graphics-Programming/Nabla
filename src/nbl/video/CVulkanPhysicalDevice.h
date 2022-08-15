@@ -1131,7 +1131,6 @@ public:
             m_properties.limits.shaderSubgroupPartitioned = isExtensionSupported(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME);
             m_properties.limits.gcnShader = isExtensionSupported(VK_AMD_GCN_SHADER_EXTENSION_NAME);
             m_properties.limits.gpuShaderHalfFloat = isExtensionSupported(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME);
-            m_properties.limits.gpuShaderInt16 = isExtensionSupported(VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME);
             m_properties.limits.shaderBallot = isExtensionSupported(VK_AMD_SHADER_BALLOT_EXTENSION_NAME);
             m_properties.limits.shaderImageLoadStoreLod = isExtensionSupported(VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME);
             m_properties.limits.shaderTrinaryMinmax = isExtensionSupported(VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME);
@@ -1309,7 +1308,8 @@ protected:
             VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
             VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
 
-            if(m_properties.apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
+            const bool useVk12Struct = m_properties.apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0);
+            if(useVk12Struct)
             {
                 // Because of weird reasons we need to use this struct when we can (version >= 1.2)
                 // Vulkan can't fix the past, only the future, which is why this is so messed up
@@ -1379,7 +1379,6 @@ protected:
             VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT              fragmentShaderInterlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT, nullptr };
             
             VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-            vk_deviceFeatures2.pNext = firstFeatureInChain;
             vk_deviceFeatures2.features = {};
 
             auto insertExtensionIfAvailable = [&](const char* extName) -> bool
@@ -1390,10 +1389,7 @@ protected:
                     return true;
                 }
                 else
-                {
-                    // TODO: Log some error
                     return false;
-                }
             };
 
             // Enable by Default ones, exposed as limits, add names to string and structs to feature struct
@@ -1414,79 +1410,89 @@ protected:
                     addFeatureToChain(&_8BitStorageFeaturesKHR);
                 }
             
-                //if (isExtensionSupported(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.shaderBufferInt64Atomics = shaderAtomicInt64FeaturesKHR.shaderBufferInt64Atomics;
-                //    m_properties.limits.shaderSharedInt64Atomics = shaderAtomicInt64FeaturesKHR.shaderSharedInt64Atomics;
-                //}
+                if (insertExtensionIfAvailable(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
+                {
+                    // All Requirements Promoted to Vulkan 1.1 
+                    shaderAtomicInt64FeaturesKHR.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
+                    shaderAtomicInt64FeaturesKHR.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
+                    addFeatureToChain(&shaderAtomicInt64FeaturesKHR);
+                }
 
-                //if (isExtensionSupported(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.shaderFloat16 = shaderFloat16Int8Features.shaderFloat16;
-                //    m_properties.limits.shaderInt8 = shaderFloat16Int8Features.shaderInt8;
-                //}
+                if (insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
+                {
+                    // All Requirements Promoted to Vulkan 1.1 
+                    shaderFloat16Int8Features.shaderFloat16 = m_properties.limits.shaderFloat16;
+                    shaderFloat16Int8Features.shaderInt8 = m_properties.limits.shaderInt8;
+                    addFeatureToChain(&shaderFloat16Int8Features);
+                }
+                
+                insertExtensionIfAvailable(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME); // No Extension Requirements
+                if (useVk12Struct)
+                {
+                    vulkan12Features.shaderOutputViewportIndex = m_properties.limits.shaderOutputViewportIndex;
+                    vulkan12Features.shaderOutputLayer = m_properties.limits.shaderOutputLayer;
+                }
             
-                //if (isExtensionSupported(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.shaderOutputViewportIndex = true;
-                //    m_properties.limits.shaderOutputLayer = true;
-                //}
-                //else if (instanceApiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
-                //{
-                //    m_properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
-                //    m_properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
-                //}
+                if (insertExtensionIfAvailable(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
+                {
+                    // All Requirements Promoted to Vulkan 1.1
+                    intelShaderIntegerFunctions2.shaderIntegerFunctions2 = m_properties.limits.shaderIntegerFunctions2;
+                    addFeatureToChain(&intelShaderIntegerFunctions2);
+                }
+
+                if (insertExtensionIfAvailable(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
+                {
+                    // All Requirements Promoted to Vulkan 1.1
+                    shaderClockFeatures.shaderSubgroupClock = m_properties.limits.shaderSubgroupClock;
+                    addFeatureToChain(&shaderClockFeatures);
+                }
             
-                //if (isExtensionSupported(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.shaderIntegerFunctions2 = intelShaderIntegerFunctions2.shaderIntegerFunctions2;
-                //}
+                if (insertExtensionIfAvailable(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
+                {
+                    // All Requirements Promoted to Vulkan 1.1
+                    shaderImageFootprintFeatures.imageFootprint = m_properties.limits.imageFootprint;
+                    addFeatureToChain(&shaderImageFootprintFeatures);
+                }
 
-                //if (isExtensionSupported(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.shaderSubgroupClock = shaderClockFeatures.shaderSubgroupClock;
-                //}
-            
-                //if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.imageFootprint = shaderImageFootprintFeatures.imageFootprint;
-                //}
+                if(insertExtensionIfAvailable(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
+                {
+                    // All Requirements Promoted to Vulkan 1.1
+                    texelBufferAlignmentFeatures.texelBufferAlignment = m_properties.limits.texelBufferAlignment;
+                    addFeatureToChain(&texelBufferAlignmentFeatures);
+                }
 
-                //if(isExtensionSupported(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.texelBufferAlignment = texelBufferAlignmentFeatures.texelBufferAlignment;
-                //}
+                if(insertExtensionIfAvailable(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+                {
+                    // No Extension Requirements
+                    shaderSMBuiltinsFeatures.shaderSMBuiltins = m_properties.limits.shaderSMBuiltins;
+                    addFeatureToChain(&shaderSMBuiltinsFeatures);
+                }
 
-                //if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-                //{
-                //    m_properties.limits.shaderSMBuiltins = shaderSMBuiltinsFeatures.shaderSMBuiltins;
-                //}
+                insertExtensionIfAvailable(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME); // No Extension Requirements
+                insertExtensionIfAvailable(VK_AMD_GCN_SHADER_EXTENSION_NAME); // No Extension Requirements
+                insertExtensionIfAvailable(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME); // No Extension Requirements
+                insertExtensionIfAvailable(VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME); 
+                insertExtensionIfAvailable(VK_AMD_SHADER_BALLOT_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME);
 
-                //m_properties.limits.shaderSubgroupPartitioned = isExtensionSupported(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME);
-                //m_properties.limits.gcnShader = isExtensionSupported(VK_AMD_GCN_SHADER_EXTENSION_NAME);
-                //m_properties.limits.gpuShaderHalfFloat = isExtensionSupported(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME);
-                //m_properties.limits.gpuShaderInt16 = isExtensionSupported(VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME);
-                //m_properties.limits.shaderBallot = isExtensionSupported(VK_AMD_SHADER_BALLOT_EXTENSION_NAME);
-                //m_properties.limits.shaderImageLoadStoreLod = isExtensionSupported(VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME);
-                //m_properties.limits.shaderTrinaryMinmax = isExtensionSupported(VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME);
-                //m_properties.limits.postDepthCoverage = isExtensionSupported(VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME);
-                //m_properties.limits.shaderStencilExport = isExtensionSupported(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
-                //m_properties.limits.decorateString = isExtensionSupported(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
 
-                //// TODO: ask why we merged fd and win32 which are for POSIX and WIN32 respectively, they have their own functions although similar, we also have "VK_KHR_external_fence_EXTENSION_NAME/memory/semaphore" which is in Core 1.1
-                //m_properties.limits.externalFence = isExtensionSupported(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
-                //m_properties.limits.externalMemory = isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-                //m_properties.limits.externalSemaphore = isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
-
-                //m_properties.limits.shaderNonSemanticInfo = isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
-                //m_properties.limits.fragmentShaderBarycentric = isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
-                //m_properties.limits.geometryShaderPassthrough = isExtensionSupported(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME);
-                //m_properties.limits.viewportSwizzle = isExtensionSupported(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME);
+                insertExtensionIfAvailable(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME);
             }
 
             // featuresToEnable, add names to string (+ requirements) and structs to feature struct
 
-
+            
+            vk_deviceFeatures2.pNext = firstFeatureInChain;
         }
 
         // Important notes on extension dependancies, both instance and device
