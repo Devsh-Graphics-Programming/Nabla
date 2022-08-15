@@ -23,8 +23,8 @@ class CVulkanCommandBuffer : public IGPUCommandBuffer
 {
 public:
     CVulkanCommandBuffer(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, E_LEVEL level,
-        VkCommandBuffer _vkcmdbuf, core::smart_refctd_ptr<IGPUCommandPool>&& commandPool)
-        : IGPUCommandBuffer(std::move(logicalDevice), level, std::move(commandPool)), m_cmdbuf(_vkcmdbuf)
+        VkCommandBuffer _vkcmdbuf, core::smart_refctd_ptr<IGPUCommandPool>&& commandPool, system::logger_opt_smart_ptr&& logger)
+        : IGPUCommandBuffer(std::move(logicalDevice), level, std::move(commandPool), std::move(logger)), m_cmdbuf(_vkcmdbuf)
     {
         if (m_cmdpool->getAPIType() == EAT_VULKAN)
         {
@@ -39,7 +39,7 @@ public:
         freeSpaceInCmdPool();
     }
 
-    bool begin(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo=nullptr) override
+    bool begin_impl(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo) override
     {
         VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
         beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
@@ -48,6 +48,7 @@ public:
         VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
         if (inheritanceInfo)
         {
+            // TODO(achal): Remove
             core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = { inheritanceInfo->renderpass, inheritanceInfo->framebuffer };
 
             vk_inheritanceInfo.pNext = nullptr;
@@ -57,6 +58,7 @@ public:
             // if (!inheritanceInfo->framebuffer || inheritanceInfo->framebuffer->getAPIType() != EAT_VULKAN || !inheritanceInfo->framebuffer->isCompatibleDevicewise(this))
             //     return false;
 
+            // TODO(achal): Remove
             // if (!saveReferencesToResources(tmp, tmp + 2))
             if (!saveReferencesToResources(tmp, tmp + 1))
                 return false;
@@ -75,66 +77,35 @@ public:
         beginInfo.pInheritanceInfo = inheritanceInfo ? &vk_inheritanceInfo : nullptr;
         
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        VkResult retval = vk->vk.vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
-        if(retval == VK_SUCCESS)
-        {
-            return IGPUCommandBuffer::begin(recordingFlags);
-        }
-        else
-        {
-            assert(false);
-            return false;
-        }
-        
+        const VkResult retval = vk->vk.vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
+        return retval == VK_SUCCESS;
     }
 
-    bool end() override
+    bool end_impl() override final
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         VkResult retval = vk->vk.vkEndCommandBuffer(m_cmdbuf);
-        if(retval == VK_SUCCESS)
-        {
-            return IGPUCommandBuffer::end();
-        }
-        else
-        {
-            assert(false);
-            return false;
-        }
+        return retval == VK_SUCCESS;
     }
 
-    bool reset(core::bitflag<E_RESET_FLAGS> _flags) override
+    bool reset_impl(core::bitflag<E_RESET_FLAGS> flags) override
     {
-        if(!IGPUCommandBuffer::canReset())
-            return false;
-
-        freeSpaceInCmdPool();
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-
-        if (vk->vk.vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(_flags.value)) == VK_SUCCESS)
-        {
-            return IGPUCommandBuffer::reset(_flags);
-        }
-        else
-        {
-            assert(false);
-            return false;
-        }
+        const VkResult result = vk->vk.vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(flags.value));
+        return result == VK_SUCCESS;
     }
 
-    virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    // TODO(achal): This entire function is temporary. Vulkan doesn't need to do anything after IGPUCommandBuffer::releaseResouurcesBackToPool.
+    // I will remove before merge.
+    void releaseResourcesBackToPool_impl() override
     {
-        if (!buffer || (buffer->getAPIType() != EAT_VULKAN))
-            return false;
+        // TODO(achal): This call is temporary. It frees the old Vulkan-specific segmented list which is still around 
+        // just for testing. I will remove this before the merge.
+        freeSpaceInCmdPool();
+    }
 
-        if (!emplace<IGPUCommandPool::CBindIndexBufferCmd>(core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = { core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-
+    bool bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    {
         assert(indexType < asset::EIT_UNKNOWN);
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
@@ -148,23 +119,15 @@ public:
         return true;
     }
 
-    bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex,
-        uint32_t firstInstance) override
+    bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
     {
-        if (!emplace<IGPUCommandPool::CDrawCmd>())
-            return false;
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDraw(m_cmdbuf, vertexCount, instanceCount, firstVertex, firstInstance);
         return true;
     }
 
-    bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex,
-        int32_t vertexOffset, uint32_t firstInstance) override
+    bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
     {
-        if (!emplace<IGPUCommandPool::CDrawIndexedCmd>())
-            return false;
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndexed(m_cmdbuf, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         return true;
@@ -175,7 +138,7 @@ public:
         if (!buffer || buffer->getAPIType() != EAT_VULKAN)
             return false;
 
-        if (!emplace<IGPUCommandPool::CDrawIndirectCmd>(core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
@@ -200,7 +163,7 @@ public:
         if (!buffer || buffer->getAPIType() != EAT_VULKAN)
             return false;
 
-        if (!emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(core::smart_refctd_ptr<const buffer_t>(buffer)))
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
@@ -228,7 +191,7 @@ public:
         if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
             return false;
 
-        if (!emplace<IGPUCommandPool::CDrawIndirectCountCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
@@ -259,7 +222,7 @@ public:
         if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
             return false;
 
-        if (!emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
             return false;
 
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
@@ -981,19 +944,8 @@ public:
         return true;
     }
 
-    bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
+    bool beginRenderPass_impl(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
     {
-        if ((pRenderPassBegin->renderpass->getAPIType() != EAT_VULKAN) || (pRenderPassBegin->framebuffer->getAPIType() != EAT_VULKAN))
-            return false;
-
-        IGPUCommandPool::CBeginRenderPassCmd* cmd = emplace<IGPUCommandPool::CBeginRenderPassCmd>(std::move(pRenderPassBegin->renderpass), std::move(pRenderPassBegin->framebuffer));
-        if (!cmd)
-            return false;
-
-        // const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const renderpass_t>(pRenderPassBegin->renderpass), core::smart_refctd_ptr<const framebuffer_t>(pRenderPassBegin->framebuffer) };
-        // if (!saveReferencesToResources(tmp, tmp + 2))
-        //     return false;
-
         constexpr uint32_t MAX_CLEAR_VALUE_COUNT = (1 << 12ull) / sizeof(VkClearValue);
         VkClearValue vk_clearValues[MAX_CLEAR_VALUE_COUNT];
         assert(pRenderPassBegin->clearValueCount <= MAX_CLEAR_VALUE_COUNT);
@@ -1030,12 +982,6 @@ public:
 
     bool endRenderPass() override
     {
-        if (!emplace<IGPUCommandPool::CEndRenderPassCmd>())
-        {
-            __debugbreak();
-            return false;
-        }
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdEndRenderPass(m_cmdbuf);
         return true;

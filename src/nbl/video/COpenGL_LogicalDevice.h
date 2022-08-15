@@ -107,11 +107,16 @@ public:
                 const uint32_t ix = offset + j;
                 // wait until queue's internal thread finish context creation
                 static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->waitForInitComplete();
+
+                // TODO(achal): Just some debug code. Remove.
+                std::cout << "Queue's internal thread ID: " << static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->getUnderlyingThreadID() << "\n";
             }
         }
 
         m_threadHandler.start();
         m_threadHandler.waitForInitComplete();
+        // TODO(achal): Just some debug code. Remove.
+        std::cout << "Master context thread ID: " << m_threadHandler.getThreadID() << "\n";
     }
 
     core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params) override final

@@ -27,9 +27,7 @@ public:
         ArgumentReferenceSegment* next;
     };
 
-    CVulkanCommandPool(core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags, uint32_t queueFamilyIndex,
-        VkCommandPool vk_commandPool)
+    CVulkanCommandPool(core::smart_refctd_ptr<ILogicalDevice>&& dev, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags, uint32_t queueFamilyIndex, VkCommandPool vk_commandPool)
         : IGPUCommandPool(std::move(dev), flags.value, queueFamilyIndex),
         m_vkCommandPool(vk_commandPool), mempool(NODES_PER_BLOCK * sizeof(ArgumentReferenceSegment),
             1u, MAX_BLOCK_COUNT, static_cast<uint32_t>(sizeof(ArgumentReferenceSegment)))
@@ -79,7 +77,11 @@ public:
     void setObjectDebugName(const char* label) const override;
 
 private:
+    bool reset_impl() override;
+
     VkCommandPool m_vkCommandPool;
+
+    // TODO(achal): Remove.
     core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> mempool;
 };
 

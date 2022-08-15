@@ -5,177 +5,191 @@
 namespace nbl::video
 {
 
-void COpenGLCommandPool::CBindIndexBufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
+void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
 {
-    auto* buffer = static_cast<const COpenGLBuffer*>(m_indexBuffer.get());
-    ctxlocal->nextState.vertexInputParams.vaoval.idxBinding = { m_offset, core::smart_refctd_ptr<const COpenGLBuffer>(buffer) };
-    ctxlocal->nextState.vertexInputParams.vaoval.idxType = m_indexType;
-}
-
-void COpenGLCommandPool::CDrawCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
-{
-    ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-    const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
-    GLenum glpt = COpenGLCommandBuffer::getGLprimitiveType(primType);
-
-    gl->extGlDrawArraysInstancedBaseInstance(glpt, m_firstVertex, m_vertexCount, m_instanceCount, m_firstInstance);
-}
-
-void COpenGLCommandPool::CDrawIndexedCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
-{
-    ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-    const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
-    GLenum glpt = COpenGLCommandBuffer::getGLprimitiveType(primType);
-    GLenum idxType = GL_INVALID_ENUM;
-    switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
+    GLuint GLname = 0u;
+    if (m_fboHash != SOpenGLState::NULL_FBO_HASH)
     {
-    case asset::EIT_16BIT:
-        idxType = GL_UNSIGNED_SHORT;
-        break;
-    case asset::EIT_32BIT:
-        idxType = GL_UNSIGNED_INT;
-        break;
-    default: break;
+        auto* found = fboCache.get(m_fboHash);
+        if (found)
+        {
+            GLname = *found;
+        }
+        else
+        {
+            GLname = m_fbo->createGLFBO(gl);
+            if (GLname)
+                fboCache.insert(m_fboHash, GLname);
+        }
+
+        assert(GLname != 0u); // TODO uncomment this
     }
 
-    if (idxType != GL_INVALID_ENUM)
-    {
-        const GLuint64 ixsz = idxType == GL_UNSIGNED_INT ? 4u : 2u;
+    gl->glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, GLname);
+}
 
-        GLuint64 idxBufOffset = ctxlocal->currentState.vertexInputParams.vaoval.idxBinding.offset + ixsz * m_firstIndex;
-        static_assert(sizeof(idxBufOffset) == sizeof(void*), "Bad reinterpret_cast");
-        gl->extGlDrawElementsInstancedBaseVertexBaseInstance(glpt, m_indexCount, idxType, reinterpret_cast<void*>(idxBufOffset), m_instanceCount, m_vertexOffset, m_firstInstance);
+void COpenGLCommandPool::CClearNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    GLuint fbo = 0u;
+    if (m_fboHash != SOpenGLState::NULL_FBO_HASH)
+    {
+        auto* found = fboCache.get(m_fboHash);
+        if (!found)
+            return; // TODO(achal): Log warning?
+
+        fbo = *found;
+
+        const GLfloat depth = m_clearValue.depthStencil.depth;
+        const GLint stencil = m_clearValue.depthStencil.stencil;
+
+        switch (m_bufferType)
+        {
+        case GL_COLOR:
+        {
+            if (asset::isFloatingPointFormat(m_format) || asset::isNormalizedFormat(m_format))
+            {
+                const GLfloat* colorf = m_clearValue.color.float32;
+                gl->extGlClearNamedFramebufferfv(fbo, m_bufferType, m_drawBufferIndex, colorf);
+            }
+            else if (asset::isIntegerFormat(m_format))
+            {
+                if (asset::isSignedFormat(m_format))
+                {
+                    const GLint* colori = m_clearValue.color.int32;
+                    gl->extGlClearNamedFramebufferiv(fbo, m_bufferType, m_drawBufferIndex, colori);
+                }
+                else
+                {
+                    const GLuint* coloru = m_clearValue.color.uint32;
+                    gl->extGlClearNamedFramebufferuiv(fbo, m_bufferType, m_drawBufferIndex, coloru);
+                }
+            }
+        } break;
+
+        case GL_DEPTH:
+        {
+            gl->extGlClearNamedFramebufferfv(fbo, m_bufferType, 0, &depth);
+        } break;
+
+        case GL_STENCIL:
+        {
+            gl->extGlClearNamedFramebufferiv(fbo, m_bufferType, 0, &stencil);
+        } break;
+
+        case GL_DEPTH_STENCIL:
+        {
+            gl->extGlClearNamedFramebufferfi(fbo, m_bufferType, 0, depth, stencil);
+        } break;
+
+        default:
+            assert(!"Invalid Code Path.");
+        }
     }
 }
 
-void COpenGLCommandPool::CDrawIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
+void COpenGLCommandPool::CViewportArrayVCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
 {
-    if (m_maxDrawCount == 0u)
-        return;
-
-    ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(m_buffer);
-
-    ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-    const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
-    GLenum glpt = COpenGLCommandBuffer::getGLprimitiveType(primType);
-
-    GLuint64 offset = m_offset;
-    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-    gl->extGlMultiDrawArraysIndirect(glpt, reinterpret_cast<void*>(offset), m_maxDrawCount, m_stride);
+    gl->extGlViewportArrayv(m_first, m_count, m_params);
 }
 
-void COpenGLCommandPool::CDrawIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
+void COpenGLCommandPool::CDepthRangeArrayVCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
 {
-    if (m_maxDrawCount == 0u)
-        return;
-
-    ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(m_buffer);
-    ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(m_countBuffer);
-
-    ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-    const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
-    GLenum glpt = COpenGLCommandBuffer::getGLprimitiveType(primType);
-
-    GLuint64 offset = m_offset;
-    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-    gl->extGlMultiDrawArraysIndirectCount(glpt, reinterpret_cast<void*>(offset), m_countBufferOffset, m_maxDrawCount, m_stride);
+    gl->extGlDepthRangeArrayv(m_first, m_count, m_params);
 }
 
-void COpenGLCommandPool::CDrawIndexedIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
+void COpenGLCommandPool::CPolygonModeCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
 {
-    if (m_maxDrawCount == 0u)
-        return;
-
-    ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(m_buffer);
-
-    ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-    GLenum idxType = GL_INVALID_ENUM;
-    switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
-    {
-    case asset::EIT_16BIT:
-        idxType = GL_UNSIGNED_SHORT;
-        break;
-    case asset::EIT_32BIT:
-        idxType = GL_UNSIGNED_INT;
-        break;
-    default:
-        break;
-    }
-
-    const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
-    GLenum glpt = COpenGLCommandBuffer::getGLprimitiveType(primType);
-
-    GLuint64 offset = m_offset;
-    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-    gl->extGlMultiDrawElementsIndirect(glpt, idxType, reinterpret_cast<void*>(offset), m_maxDrawCount, m_stride);
+    gl->extGlPolygonMode(GL_FRONT_AND_BACK, m_mode);
 }
 
-void COpenGLCommandPool::CDrawIndexedIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
+void COpenGLCommandPool::CEnableCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
 {
-    if (m_maxDrawCount == 0u)
-        return;
-
-    ctxlocal->nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(m_buffer);
-    ctxlocal->nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr_static_cast<const COpenGLBuffer>(m_countBuffer);
-
-    ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_ALL, ctxid);
-
-    GLenum idxType = GL_INVALID_ENUM;
-    switch (ctxlocal->currentState.vertexInputParams.vaoval.idxType)
-    {
-    case asset::EIT_16BIT:
-        idxType = GL_UNSIGNED_SHORT;
-        break;
-    case asset::EIT_32BIT:
-        idxType = GL_UNSIGNED_INT;
-        break;
-    default:
-        break;
-    }
-
-    const asset::E_PRIMITIVE_TOPOLOGY primType = ctxlocal->currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
-    GLenum glpt = COpenGLCommandBuffer::getGLprimitiveType(primType);
-
-    GLuint64 offset = m_offset;
-    static_assert(sizeof(offset) == sizeof(void*), "Bad reinterpret_cast");
-    gl->extGlMultiDrawElementsIndirectCount(glpt, idxType, reinterpret_cast<void*>(offset), m_countBufferOffset, m_maxDrawCount, m_stride);
+    gl->glGeneral.pglEnable(m_cap);
 }
 
-void COpenGLCommandPool::CBeginRenderPassCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
+void COpenGLCommandPool::CDisableCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
 {
-    auto framebuf = core::smart_refctd_ptr_static_cast<const video::COpenGLFramebuffer>(m_framebuffer);
-
-    ctxlocal->nextState.framebuffer.hash = framebuf->getHashValue();
-    ctxlocal->nextState.framebuffer.fbo = std::move(framebuf);
-    ctxlocal->flushStateGraphics(gl, SOpenGLContextLocalCache::GSB_FRAMEBUFFER, ctxid);
-
-    GLuint fbo = ctxlocal->currentState.framebuffer.GLname;
-    if (fbo)
-    {
-        IGPUCommandBuffer::SRenderpassBeginInfo beginInfo = {};
-        beginInfo.clearValueCount = m_clearValueCount;
-        beginInfo.clearValues = m_clearValues;
-        beginInfo.framebuffer = m_framebuffer;
-        beginInfo.renderArea = m_renderArea;
-        beginInfo.renderpass = m_renderpass;
-        COpenGLCommandBuffer::beginRenderpass_clearAttachments(gl, ctxlocal, ctxid, beginInfo, fbo, logger);
-    }
-
-    executingCmdbuf->currentlyRecordingRenderPass = m_renderpass.get();
+    gl->glGeneral.pglDisable(m_cap);
 }
 
-void COpenGLCommandPool::CEndRenderPassCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf)
+void COpenGLCommandPool::CCullFaceCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
 {
-    ctxLocal->nextState.framebuffer.hash = SOpenGLState::NULL_FBO_HASH;
-    ctxLocal->nextState.framebuffer.GLname = 0u;
-    ctxLocal->nextState.framebuffer.fbo = nullptr;
-    executingCmdbuf->currentlyRecordingRenderPass = nullptr;
+    gl->glShader.pglCullFace(m_mode);
 }
 
+void COpenGLCommandPool::CStencilOpSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glFragment.pglStencilOpSeparate(m_face, m_sfail, m_dpfail, m_dppass);
+}
+
+void COpenGLCommandPool::CStencilFuncSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glFragment.pglStencilFuncSeparate(m_face, m_func, m_ref, m_mask);
+}
+
+void COpenGLCommandPool::CStencilMaskSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glFragment.pglStencilMaskSeparate(m_face, m_mask);
+}
+
+void COpenGLCommandPool::CDepthFuncCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glShader.pglDepthFunc(m_func);
+}
+
+void COpenGLCommandPool::CFrontFaceCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glShader.pglFrontFace(m_mode);
+}
+
+void COpenGLCommandPool::CPolygonOffsetCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glShader.pglPolygonOffset(m_factor, m_units);
+}
+
+void COpenGLCommandPool::CLineWidthCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glShader.pglLineWidth(m_width);
+}
+
+void COpenGLCommandPool::CMinSampleShadingCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->extGlMinSampleShading(m_value);
+}
+
+void COpenGLCommandPool::CSampleMaskICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glFragment.pglSampleMaski(m_maskNumber, m_mask);
+}
+
+void COpenGLCommandPool::CDepthMaskCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glShader.pglDepthMask(m_flag);
+}
+
+void COpenGLCommandPool::CLogicOpCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->extGlLogicOp(m_opcode);
+}
+
+void COpenGLCommandPool::CEnableICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->extGlEnablei(m_cap, m_index);
+}
+
+void COpenGLCommandPool::CDisableICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->extGlDisablei(m_cap, m_index);
+}
+
+void COpenGLCommandPool::CBlendFuncSeparateICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->extGlBlendFuncSeparatei(m_buf, m_srcRGB, m_dstRGB, m_srcAlpha, m_dstAlpha);
+}
+
+void COpenGLCommandPool::CColorMaskICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->extGlColorMaski(m_buf, m_red, m_green, m_blue, m_alpha);
+}
 
 }

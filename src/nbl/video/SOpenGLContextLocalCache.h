@@ -127,6 +127,12 @@ struct SOpenGLContextLocalCache
         }
     };
 
+    SOpenGLContextLocalCache()
+        : VAOMap(maxVAOCacheSize, vao_cache_t::disposal_func_t(VAODisposalFunc(nullptr))),
+        GraphicsPipelineMap(maxPipelineCacheSize, pipeline_cache_t::disposal_func_t(PipelineDisposalFunc(nullptr))),
+        FBOCache(maxFBOCacheSize, fbo_cache_t::disposal_func_t(FBODisposalFunc(nullptr)))
+    {}
+
     explicit SOpenGLContextLocalCache(IOpenGL_FunctionTable* _gl) : 
         VAOMap(maxVAOCacheSize, vao_cache_t::disposal_func_t(VAODisposalFunc(_gl))),
         GraphicsPipelineMap(maxPipelineCacheSize, pipeline_cache_t::disposal_func_t(PipelineDisposalFunc(_gl))),
@@ -251,6 +257,8 @@ struct SOpenGLContextLocalCache
 
     // state flushing 
     void flushStateGraphics(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
+    // TODO(achal): Temporary, just to make the old code still work.
+    bool flushStateGraphics2(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
     void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
 
     inline SBeforeClearStateBackup backupAndFlushStateClear(IOpenGL_FunctionTable* gl, uint32_t ctxid, bool color, bool depth, bool stencil)
@@ -274,6 +282,31 @@ struct SOpenGLContextLocalCache
         }
 
         flushStateGraphics(gl, GSB_RASTER_PARAMETERS, ctxid);
+
+        return backup;
+    }
+    // TODO(achal): Temporary.
+    inline SBeforeClearStateBackup backupAndFlushStateClear2(IGPUCommandPool* cmdpool, IGPUCommandPool::CommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CommandSegment*& segmentListTail, const bool color, const bool depth, const bool stencil, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+    {
+        SBeforeClearStateBackup backup;
+        memcpy(backup.colorWrite, currentState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4);
+        backup.depthWrite = currentState.rasterParams.depthWriteEnable;
+        backup.stencilWrite_back = currentState.rasterParams.stencilFunc_back.mask;
+        backup.stencilWrite_front = currentState.rasterParams.stencilFunc_front.mask;
+        //TODO dithering (? i think vulkan doesnt have dithering at all), scissor test (COpenGLCommandBuffer impl doesnt support scissor yet)
+        // "The pixel ownership test, the scissor test, dithering, and the buffer writemasks affect the operation of glClear."
+
+        if (color)
+            std::fill_n(nextState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4u, GL_TRUE);
+        if (depth)
+            nextState.rasterParams.depthWriteEnable = GL_TRUE;
+        if (stencil)
+        {
+            nextState.rasterParams.stencilFunc_back.mask = ~0u;
+            nextState.rasterParams.stencilFunc_front.mask = ~0u;
+        }
+
+        flushStateGraphics2(GSB_RASTER_PARAMETERS, cmdpool, segmentListHeadItr, segmentListTail, apiType, features);
 
         return backup;
     }

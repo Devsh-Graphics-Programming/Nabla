@@ -441,6 +441,12 @@ protected:
         {
         }
 
+        // TODO(achal): Just some debug code. Remove.
+        inline std::thread::id getThreadID()
+        {
+            return this->m_thread.get_id();
+        }
+
         uint32_t getQueueCount() const
         {
             return m_queueCount;

@@ -350,7 +350,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
                 vpparams[4*i + 3] = viewport.height;
             }
 
-            double vpdparams[SOpenGLState::MAX_VIEWPORT_COUNT*4];
+            double vpdparams[SOpenGLState::MAX_VIEWPORT_COUNT*4]; // TODO(achal): Why times 4?
             for (uint32_t i = 0u; i < SOpenGLState::MAX_VIEWPORT_COUNT; ++i)
             {
                 auto& vpdc = nextState.rasterParams.viewport_depth[i];
@@ -528,8 +528,6 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             DISABLE_ENABLE(nextState.rasterParams.primitiveRestartEnable, GL_PRIMITIVE_RESTART_FIXED_INDEX);
             UPDATE_STATE(rasterParams.primitiveRestartEnable);
         }
-
-
         if (!gl->isGLES() && STATE_NEQ(rasterParams.logicOpEnable)) {
             DISABLE_ENABLE(nextState.rasterParams.logicOpEnable, IOpenGL_FunctionTable::COLOR_LOGIC_OP);
             UPDATE_STATE(rasterParams.logicOpEnable);
@@ -766,9 +764,380 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
             UPDATE_STATE(pixelUnpack.BCdepth);
         }
     }
+}
+
+bool SOpenGLContextLocalCache::flushStateGraphics2(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+{
+    if (stateBits & GSB_FRAMEBUFFER)
+    {
+        if (STATE_NEQ(framebuffer.hash))
+        {
+            // TODO(achal): Cannot set this on the main thread, not sure why is this required?
+            // currentState.framebuffer.GLname = ; 
+
+            UPDATE_STATE(framebuffer.hash);
+            UPDATE_STATE(framebuffer.fbo);
+
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindFramebufferCmd>(segmentListHeadItr, segmentListTail, currentState.framebuffer.hash, core::smart_refctd_ptr<const COpenGLFramebuffer>(currentState.framebuffer.fbo)))
+                return false;
+        }
+    }
+
+    if (stateBits & GSB_RASTER_PARAMETERS)
+    {
+#define DISABLE_ENABLE(able, what)\
+    {\
+        if (able)\
+        {\
+            if (!cmdpool->emplace<COpenGLCommandPool::CEnableCmd>(segmentListHeadItr, segmentListTail, what))\
+                return false;\
+        }\
+        else\
+        {\
+            if (!cmdpool->emplace<COpenGLCommandPool::CDisableCmd>(segmentListHeadItr, segmentListTail, what))\
+                return false;\
+        }\
+    }
+
+        // viewports
+        {
+            GLfloat vpparams[SOpenGLState::MAX_VIEWPORT_COUNT * 4];
+            for (uint32_t i = 0u; i < SOpenGLState::MAX_VIEWPORT_COUNT; ++i)
+            {
+                auto& viewport = nextState.rasterParams.viewport[i];
+                vpparams[4 * i + 0] = viewport.x;
+                vpparams[4 * i + 1] = viewport.y;
+                vpparams[4 * i + 2] = viewport.width;
+                vpparams[4 * i + 3] = viewport.height;
+            }
+
+            double vpdparams[SOpenGLState::MAX_VIEWPORT_COUNT * 4]; // TODO(achal): This should be two.
+            for (uint32_t i = 0u; i < SOpenGLState::MAX_VIEWPORT_COUNT; ++i)
+            {
+                auto& vpdc = nextState.rasterParams.viewport_depth[i];
+                vpdparams[2 * i + 0] = vpdc.minDepth;
+                vpdparams[2 * i + 1] = vpdc.maxDepth;
+            }
+
+            {
+                uint32_t first = 0u;
+                uint32_t count = 0u;
+                for (uint32_t i = 0u; i < SOpenGLState::MAX_VIEWPORT_COUNT; ++i)
+                {
+                    if (STATE_NEQ(rasterParams.viewport[i]))
+                    {
+                        if ((count++) == 0u)
+                            first = i;
+                    }
+                    else if (count)
+                    {
+                        if (!cmdpool->emplace<COpenGLCommandPool::CViewportArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpparams + (4u * first)))
+                            return false;
+
+                        count = 0;
+                    }
+                }
+                if (count)
+                {
+                    if (!cmdpool->emplace<COpenGLCommandPool::CViewportArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpparams + (4u * first)))
+                        return false;
+                }
+            }
+
+            {
+                uint32_t first = 0u;
+                uint32_t count = 0u;
+                for (uint32_t i = 0u; i < SOpenGLState::MAX_VIEWPORT_COUNT; ++i)
+                {
+                    if (STATE_NEQ(rasterParams.viewport_depth[i]))
+                    {
+                        if ((count++) == 0u)
+                            first = i;
+                    }
+                    else if (count)
+                    {
+                        if (!cmdpool->emplace<COpenGLCommandPool::CDepthRangeArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpdparams + (2u * first)))
+                            return false;
+                        count = 0u;
+                    }
+                }
+                if (count)
+                {
+                    if (!cmdpool->emplace<COpenGLCommandPool::CDepthRangeArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpdparams + (2u * first)))
+                        return false;
+                }
+            }
+
+            // update all
+            for (uint32_t i = 0u; i < SOpenGLState::MAX_VIEWPORT_COUNT; ++i)
+            {
+                UPDATE_STATE(rasterParams.viewport[i]);
+                UPDATE_STATE(rasterParams.viewport_depth[i]);
+            }
+        }
+        // end viewports
+
+        if (STATE_NEQ(rasterParams.polygonMode))
+        {
+            if (apiType != EAT_OPENGL_ES)
+            {
+                if (!cmdpool->emplace<COpenGLCommandPool::CPolygonModeCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.polygonMode))
+                    return false;
+
+                UPDATE_STATE(rasterParams.polygonMode);
+            }
+        }
+
+        if (STATE_NEQ(rasterParams.faceCullingEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.faceCullingEnable, GL_CULL_FACE);
+            UPDATE_STATE(rasterParams.faceCullingEnable);
+        }
+
+        if (STATE_NEQ(rasterParams.cullFace))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CCullFaceCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.cullFace))
+                return false;
+
+            UPDATE_STATE(rasterParams.cullFace);
+        }
+
+        if (STATE_NEQ(rasterParams.stencilTestEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.stencilTestEnable, GL_STENCIL_TEST);
+            UPDATE_STATE(rasterParams.stencilTestEnable);
+        }
+
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilOp_front))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilOpSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilOp_front.sfail, nextState.rasterParams.stencilOp_front.dpfail, nextState.rasterParams.stencilOp_front.dppass))
+                return false;
+
+            UPDATE_STATE(rasterParams.stencilOp_front);
+        }
+
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilOp_back))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilOpSeparateCmd>(segmentListHeadItr, segmentListTail, GL_BACK, nextState.rasterParams.stencilOp_back.sfail, nextState.rasterParams.stencilOp_back.dpfail, nextState.rasterParams.stencilOp_back.dppass))
+                return false;
+
+            UPDATE_STATE(rasterParams.stencilOp_back);
+        }
+
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilFunc_front))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilFuncSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilFunc_front.func, nextState.rasterParams.stencilFunc_front.ref, nextState.rasterParams.stencilFunc_front.mask))
+                return false;
+
+            UPDATE_STATE(rasterParams.stencilFunc_front);
+        }
+
+        if (STATE_NEQ(rasterParams.stencilWriteMask_front))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilMaskSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilWriteMask_front))
+                return false;
+
+            UPDATE_STATE(rasterParams.stencilWriteMask_front);
+        }
+
+        if (STATE_NEQ(rasterParams.stencilWriteMask_back))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilMaskSeparateCmd>(segmentListHeadItr, segmentListTail, GL_BACK, nextState.rasterParams.stencilWriteMask_back))
+                return false;
+
+            UPDATE_STATE(rasterParams.stencilWriteMask_back);
+        }
+
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilFunc_back))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilFuncSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilFunc_back.func, nextState.rasterParams.stencilFunc_back.ref, nextState.rasterParams.stencilFunc_back.mask))
+                return false;
+
+            UPDATE_STATE(rasterParams.stencilFunc_back);
+        }
+
+        if (STATE_NEQ(rasterParams.depthTestEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.depthTestEnable, GL_DEPTH_TEST);
+            UPDATE_STATE(rasterParams.depthTestEnable);
+        }
+
+        if (nextState.rasterParams.depthTestEnable && STATE_NEQ(rasterParams.depthFunc))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CDepthFuncCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.depthFunc))
+                return false;
+
+            UPDATE_STATE(rasterParams.depthFunc);
+        }
+
+        if (STATE_NEQ(rasterParams.frontFace))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CFrontFaceCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.frontFace))
+                return false;
+
+            UPDATE_STATE(rasterParams.frontFace);
+        }
+
+        if (STATE_NEQ(rasterParams.depthClampEnable))
+        {
+            if (apiType == EAT_OPENGL_ES)
+            {
+                if (features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_depth_clamp))
+                {
+                    DISABLE_ENABLE(nextState.rasterParams.depthClampEnable, IOpenGL_FunctionTable::DEPTH_CLAMP);
+                    UPDATE_STATE(rasterParams.depthClampEnable);
+                }
+            }
+            else
+            {
+                DISABLE_ENABLE(nextState.rasterParams.depthClampEnable, IOpenGL_FunctionTable::DEPTH_CLAMP);
+            }
+        }
+
+        if (STATE_NEQ(rasterParams.rasterizerDiscardEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.rasterizerDiscardEnable, GL_RASTERIZER_DISCARD);
+            UPDATE_STATE(rasterParams.rasterizerDiscardEnable);
+        }
+
+        if (STATE_NEQ(rasterParams.polygonOffsetEnable))
+        {
+            if (apiType != EAT_OPENGL_ES)
+            {
+                DISABLE_ENABLE(nextState.rasterParams.polygonOffsetEnable, IOpenGL_FunctionTable::POLYGON_OFFSET_POINT);
+                DISABLE_ENABLE(nextState.rasterParams.polygonOffsetEnable, IOpenGL_FunctionTable::POLYGON_OFFSET_LINE);
+            }
+            DISABLE_ENABLE(nextState.rasterParams.polygonOffsetEnable, GL_POLYGON_OFFSET_FILL);
+            UPDATE_STATE(rasterParams.polygonOffsetEnable);
+        }
+
+        if (STATE_NEQ(rasterParams.polygonOffset))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CPolygonOffsetCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.polygonOffset.factor, nextState.rasterParams.polygonOffset.units))
+                return false;
+
+            UPDATE_STATE(rasterParams.polygonOffset);
+        }
+
+        if (STATE_NEQ(rasterParams.lineWidth))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CLineWidthCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.lineWidth))
+                return false;
+
+            UPDATE_STATE(rasterParams.lineWidth);
+        }
+
+        if (STATE_NEQ(rasterParams.sampleShadingEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.sampleShadingEnable, GL_SAMPLE_SHADING);
+            UPDATE_STATE(rasterParams.sampleShadingEnable);
+        }
+
+        if (nextState.rasterParams.sampleShadingEnable && STATE_NEQ(rasterParams.minSampleShading))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CMinSampleShadingCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.minSampleShading))
+                return false;
+
+            UPDATE_STATE(rasterParams.minSampleShading);
+        }
+
+        if (STATE_NEQ(rasterParams.sampleMaskEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.sampleMaskEnable, GL_SAMPLE_MASK);
+            UPDATE_STATE(rasterParams.sampleMaskEnable);
+        }
+
+        if (nextState.rasterParams.sampleMaskEnable && STATE_NEQ(rasterParams.sampleMask[0]))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CSampleMaskICmd>(segmentListHeadItr, segmentListTail, 0u, nextState.rasterParams.sampleMask[0]))
+                return false;
+
+            UPDATE_STATE(rasterParams.sampleMask[0]);
+        }
+
+        if (nextState.rasterParams.sampleMaskEnable && STATE_NEQ(rasterParams.sampleMask[1]))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CSampleMaskICmd>(segmentListHeadItr, segmentListTail, 1u, nextState.rasterParams.sampleMask[1]))
+                return false;
+
+            UPDATE_STATE(rasterParams.sampleMask[1]);
+        }
+
+        if (STATE_NEQ(rasterParams.depthWriteEnable))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CDepthMaskCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.depthWriteEnable))
+                return false;
+
+            UPDATE_STATE(rasterParams.depthWriteEnable);
+        }
+
+        if ((apiType != EAT_OPENGL_ES) && STATE_NEQ(rasterParams.multisampleEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.multisampleEnable, IOpenGL_FunctionTable::MULTISAMPLE);
+            UPDATE_STATE(rasterParams.multisampleEnable);
+        }
+
+        if ((apiType != EAT_OPENGL_ES) && STATE_NEQ(rasterParams.primitiveRestartEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.primitiveRestartEnable, GL_PRIMITIVE_RESTART_FIXED_INDEX);
+            UPDATE_STATE(rasterParams.primitiveRestartEnable);
+        }
+
+        if ((apiType != EAT_OPENGL_ES) && STATE_NEQ(rasterParams.logicOpEnable))
+        {
+            DISABLE_ENABLE(nextState.rasterParams.logicOpEnable, IOpenGL_FunctionTable::COLOR_LOGIC_OP);
+            UPDATE_STATE(rasterParams.logicOpEnable);
+        }
+
+        if ((apiType != EAT_OPENGL_ES) && STATE_NEQ(rasterParams.logicOp))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CLogicOpCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.logicOp))
+                return false;
+
+            UPDATE_STATE(rasterParams.logicOp);
+        }
+
+        for (GLuint i = 0u; i < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+        {
+            if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendEnable))
+            {
+                bool enable = nextState.rasterParams.drawbufferBlend[i].blendEnable;
+                if (enable)
+                {
+                    if (!cmdpool->emplace<COpenGLCommandPool::CEnableICmd>(segmentListHeadItr, segmentListTail, GL_BLEND, i))
+                        return false;
+                }
+                else
+                {
+                    if (!cmdpool->emplace<COpenGLCommandPool::CDisableICmd>(segmentListHeadItr, segmentListTail, GL_BLEND, i))
+                        return false;
+                }
+                UPDATE_STATE(rasterParams.drawbufferBlend[i].blendEnable);
+            }
+
+            if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendFunc))
+            {
+                if (!cmdpool->emplace<COpenGLCommandPool::CBlendFuncSeparateICmd>(segmentListHeadItr, segmentListTail, i, nextState.rasterParams.drawbufferBlend[i].blendFunc.srcRGB, nextState.rasterParams.drawbufferBlend[i].blendFunc.dstRGB, nextState.rasterParams.drawbufferBlend[i].blendFunc.srcAlpha, nextState.rasterParams.drawbufferBlend[i].blendFunc.dstAlpha))
+                    return false;
+
+                UPDATE_STATE(rasterParams.drawbufferBlend[i].blendFunc);
+            }
+
+            if (STATE_NEQ(rasterParams.drawbufferBlend[i].colorMask))
+            {
+                if (!cmdpool->emplace<COpenGLCommandPool::CColorMaskICmd>(segmentListHeadItr, segmentListTail, i, nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[0], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[1], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[2], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[3]))
+                    return false;
+
+                UPDATE_STATE(rasterParams.drawbufferBlend[i].colorMask);
+            }
+        }
+#undef DISABLE_ENABLE
+    }
+
+    return true;
+}
 #undef STATE_NEQ
 #undef UPDATE_STATE
-}
 
 void SOpenGLContextLocalCache::flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid)
 {

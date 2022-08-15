@@ -12,298 +12,384 @@ class COpenGLCommandBuffer;
 
 class COpenGLCommandPool final : public IGPUCommandPool
 {
-        constexpr static inline size_t MIN_ALLOC_SZ = 64ull;
-        // TODO: there's an optimization possible if we set the block size to 64kb (max cmd upload size) and then:
-        // - use Pool Address Allocator within a block
-        // - allocate new block whenever we want to update buffer via cmdbuf
-        // - set the pool's brick size to the maximum data store by any command possible
-        // - when a command needs an unbounded variable length list of arguments, store it via linked list (chunk it)
-        //constexpr static inline size_t MAX_COMMAND_STORAGE_SZ = 32ull;
-        constexpr static inline size_t BLOCK_SIZE = 1ull<<21u;
-        constexpr static inline size_t MAX_BLOCK_COUNT = 256u;
+    constexpr static inline size_t MIN_ALLOC_SZ = 64ull;
+    // TODO: there's an optimization possible if we set the block size to 64kb (max cmd upload size) and then:
+    // - use Pool Address Allocator within a block
+    // - allocate new block whenever we want to update buffer via cmdbuf
+    // - set the pool's brick size to the maximum data store by any command possible
+    // - when a command needs an unbounded variable length list of arguments, store it via linked list (chunk it)
+    //constexpr static inline size_t MAX_COMMAND_STORAGE_SZ = 32ull;
+    constexpr static inline size_t BLOCK_SIZE = 1ull<<21u;
+    constexpr static inline size_t MAX_BLOCK_COUNT = 256u;
 
-    public:
-        class ICommand;
+public:
+    using IGPUCommandPool::IGPUCommandPool;
+    COpenGLCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IGPUCommandPool(std::move(dev), _flags.value, _familyIx), mempool(BLOCK_SIZE,0u,MAX_BLOCK_COUNT,MIN_ALLOC_SZ) {}
 
-        class CBindIndexBufferCmd;
-
-        class CDrawCmd;
-        class CDrawIndexedCmd;
-
-        class CDrawIndirectCommonBase;
-        class CDrawIndirectCmd;
-        class CDrawIndexedIndirectCmd;
-        class CDrawIndirectCountCmd;
-        class CDrawIndexedIndirectCountCmd;
-
-        class CBeginRenderPassCmd;
-        class CEndRenderPassCmd;
-
-        using IGPUCommandPool::IGPUCommandPool;
-        COpenGLCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx) : IGPUCommandPool(std::move(dev), _flags.value, _familyIx), mempool(BLOCK_SIZE,0u,MAX_BLOCK_COUNT,MIN_ALLOC_SZ) {}
-
-        template <typename T, typename... Args>
-        T* emplace_n(uint32_t n, Args&&... args)
-        {
-            //static_assert(n*sizeof(T)<=MAX_COMMAND_STORAGE_SZ,"Command Data Store Type larger than preset limit!");
-            std::unique_lock<std::mutex> lk(mutex);
-            return mempool.emplace_n<T>(n, std::forward<Args>(args)...);
-        }
-        template <typename T>
-        void free_n(const T* ptr, uint32_t n)
-        {
-            //static_assert(n*sizeof(T)<=MAX_COMMAND_STORAGE_SZ,"Command Data Store Type larger than preset limit!");
-            std::unique_lock<std::mutex> lk(mutex);
-            mempool.free_n<T>(const_cast<T*>(ptr), n);
-        }
+    template <typename T, typename... Args>
+    T* emplace_n(uint32_t n, Args&&... args)
+    {
+        //static_assert(n*sizeof(T)<=MAX_COMMAND_STORAGE_SZ,"Command Data Store Type larger than preset limit!");
+        std::unique_lock<std::mutex> lk(mutex);
+        return mempool.emplace_n<T>(n, std::forward<Args>(args)...);
+    }
+    template <typename T>
+    void free_n(const T* ptr, uint32_t n)
+    {
+        //static_assert(n*sizeof(T)<=MAX_COMMAND_STORAGE_SZ,"Command Data Store Type larger than preset limit!");
+        std::unique_lock<std::mutex> lk(mutex);
+        mempool.free_n<T>(const_cast<T*>(ptr), n);
+    }
         
-		inline const void* getNativeHandle() const override {return nullptr;}
+	inline const void* getNativeHandle() const override {return nullptr;}
 
-    private:
-        std::mutex mutex;
-        core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,false,uint32_t> mempool;
-};
-
-class NBL_FORCE_EBO COpenGLCommandPool::ICommand
-{
-public:
-    virtual void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) = 0;
-
-    using base_cmd_t = void;
-
-protected:
-    template <typename CRTP, typename... Args>
-    static uint32_t end_offset(const Args&... args)
+    class IOpenGLCommand : public IGPUCommandPool::ICommand
     {
-        using other_base_t = typename CRTP::base_cmd_t;
-        if constexpr (std::is_void_v<other_base_t>)
-            return sizeof(CRTP);
-        else
-            return other_base_t::calc_size(args...) - sizeof(other_base_t) + sizeof(CRTP);
-    }
-};
+    public:
+        IOpenGLCommand(const uint32_t size) : ICommand(size) {}
 
-class COpenGLCommandPool::CBindIndexBufferCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CBindIndexBufferCmd
-{
-public:
-    using base_cmd_t = IGPUCommandPool::CBindIndexBufferCmd;
+        virtual void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) = 0;
+    };
 
-    CBindIndexBufferCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& indexBuffer, const size_t offset, const asset::E_INDEX_TYPE indexType)
-        : base_cmd_t(indexBuffer), m_offset(offset), m_indexType(indexType)
+    template<typename CRTP>
+    class IOpenGLFixedSizeCommand : public IOpenGLCommand
     {
-        m_size = calc_size(indexBuffer, offset, indexType);
-    }
+    public:
+        template <typename... Args>
+        static uint32_t calc_size(const Args&...)
+        {
+            return core::alignUp(sizeof(CRTP), alignof(CRTP));
+        }
+    protected:
+        IOpenGLFixedSizeCommand() : IOpenGLCommand(calc_size()) {}
+    };
 
-    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& indexBuffer, const size_t offset, const asset::E_INDEX_TYPE indexType)
-    {
-        return core::alignUp(end_offset<CBindIndexBufferCmd>(indexBuffer), alignof(CBindIndexBufferCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+    class CBindFramebufferCmd;
+    class CClearNamedFramebufferCmd;
+    class CViewportArrayVCmd;
+    class CDepthRangeArrayVCmd;
+    class CPolygonModeCmd;
+    class CEnableCmd;
+    class CDisableCmd;
+    class CCullFaceCmd;
+    class CStencilOpSeparateCmd;
+    class CStencilFuncSeparateCmd;
+    class CStencilMaskSeparateCmd;
+    class CDepthFuncCmd;
+    class CFrontFaceCmd;
+    class CPolygonOffsetCmd;
+    class CLineWidthCmd;
+    class CMinSampleShadingCmd;
+    class CSampleMaskICmd;
+    class CDepthMaskCmd;
+    class CLogicOpCmd;
+    class CEnableICmd;
+    class CDisableICmd;
+    class CBlendFuncSeparateICmd;
+    class CColorMaskICmd;
 
 private:
-    size_t m_offset;
-    asset::E_INDEX_TYPE m_indexType;
+    std::mutex mutex;
+    core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,false,uint32_t> mempool;
 };
 
-class COpenGLCommandPool::CDrawCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CDrawCmd
+class COpenGLCommandPool::CBindFramebufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindFramebufferCmd>
 {
 public:
-    using base_cmd_t = IGPUCommandPool::CDrawCmd;
+    CBindFramebufferCmd(const COpenGLFramebuffer::hash_t& fboHash, const core::smart_refctd_ptr<const COpenGLFramebuffer>& fbo) : m_fboHash(fboHash), m_fbo(fbo) {}
 
-    CDrawCmd(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance)
-        : m_vertexCount(vertexCount), m_instanceCount(instanceCount), m_firstVertex(firstVertex), m_firstInstance(firstInstance)
-    {
-        m_size = calc_size(vertexCount, instanceCount, firstVertex, firstInstance);
-    }
-
-    static uint32_t calc_size(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance)
-    {
-        return core::alignUp(end_offset<CDrawCmd>(), alignof(CDrawCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 
 private:
-    uint32_t m_vertexCount;
-    uint32_t m_instanceCount;
-    uint32_t m_firstVertex;
-    uint32_t m_firstInstance;
+    COpenGLFramebuffer::hash_t m_fboHash;
+    core::smart_refctd_ptr<const COpenGLFramebuffer> m_fbo;
 };
 
-class COpenGLCommandPool::CDrawIndexedCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CDrawIndexedCmd
+class COpenGLCommandPool::CClearNamedFramebufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CClearNamedFramebufferCmd>
 {
 public:
-    using base_cmd_t = IGPUCommandPool::CDrawIndexedCmd;
+    CClearNamedFramebufferCmd(const COpenGLFramebuffer::hash_t& fboHash, const asset::E_FORMAT format, const GLenum bufferType, const asset::SClearValue& clearValue, const GLint drawBufferIndex)
+        : m_fboHash(fboHash), m_format(format), m_bufferType(bufferType), m_clearValue(clearValue), m_drawBufferIndex(drawBufferIndex)
+    {}
 
-    CDrawIndexedCmd(const uint32_t indexCount, const uint32_t instanceCount, const uint32_t firstIndex, const int32_t vertexOffset, const uint32_t firstInstance)
-        : m_indexCount(indexCount), m_instanceCount(instanceCount), m_firstIndex(firstIndex), m_vertexOffset(vertexOffset), m_firstInstance(firstInstance)
-    {
-        m_size = calc_size(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-    }
-
-    static uint32_t calc_size(const uint32_t indexCount, const uint32_t instanceCount, const uint32_t firstIndex, const int32_t vertexOffset, const uint32_t firstInstance)
-    {
-        return core::alignUp(end_offset<CDrawIndexedCmd>(), alignof(CDrawIndexedCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 
 private:
-    uint32_t m_indexCount;
-    uint32_t m_instanceCount;
-    uint32_t m_firstIndex;
-    uint32_t m_vertexOffset;
-    uint32_t m_firstInstance;
+    const COpenGLFramebuffer::hash_t m_fboHash;
+    const asset::E_FORMAT m_format;
+    const GLenum m_bufferType;
+    const asset::SClearValue m_clearValue;
+    const GLint m_drawBufferIndex;
 };
 
-class COpenGLCommandPool::CDrawIndirectCommonBase : public COpenGLCommandPool::ICommand
+class COpenGLCommandPool::CViewportArrayVCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CViewportArrayVCmd>
 {
 public:
-    CDrawIndirectCommonBase(const size_t offset, const uint32_t maxDrawCount, const uint32_t stride) : m_offset(offset), m_maxDrawCount(maxDrawCount), m_stride(stride) {}
-
-protected:
-    size_t m_offset;
-    uint32_t m_maxDrawCount;
-    uint32_t m_stride;
-};
-
-class COpenGLCommandPool::CDrawIndirectCmd : public COpenGLCommandPool::CDrawIndirectCommonBase, public IGPUCommandPool::CDrawIndirectCmd
-{
-public:
-    using base_cmd_t = IGPUCommandPool::CDrawIndirectCmd;
-
-    CDrawIndirectCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const uint32_t maxDrawCount, const uint32_t stride)
-        : CDrawIndirectCommonBase(offset, maxDrawCount, stride), base_cmd_t(buffer)
+    CViewportArrayVCmd(const GLuint first, const GLsizei count, const GLfloat* params)
+        : m_first(first), m_count(count)
     {
-        m_size = calc_size(buffer, offset, maxDrawCount, stride);
+        memcpy(m_params, params, (m_count-m_first)*sizeof(GLfloat)*4ull);
     }
 
-    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const uint32_t maxDrawCount, const uint32_t stride)
-    {
-        return core::alignUp(end_offset<CDrawIndirectCmd>(buffer), alignof(CDrawIndirectCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
-};
-
-class COpenGLCommandPool::CDrawIndirectCountCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CDrawIndirectCountCmd
-{
-public:
-    using base_cmd_t = IGPUCommandPool::CDrawIndirectCountCmd;
-
-    CDrawIndirectCountCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer,
-        const size_t countBufferOffset, const uint32_t maxDrawCount, const uint32_t stride)
-        : base_cmd_t(buffer, countBuffer), m_offset(offset), m_countBufferOffset(countBufferOffset), m_maxDrawCount(maxDrawCount), m_stride(stride)
-    {
-        m_size = calc_size(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
-    }
-
-    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer,
-        const size_t countBufferOffset, const  uint32_t maxDrawCount, const uint32_t stride)
-    {
-        return core::alignUp(end_offset<CDrawIndirectCountCmd>(buffer, countBuffer), alignof(CDrawIndirectCountCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 
 private:
-    size_t m_offset;
-    size_t m_countBufferOffset;
-    uint32_t m_maxDrawCount;
-    uint32_t m_stride;
+    const GLuint m_first;
+    const GLsizei m_count;
+    GLfloat m_params[SOpenGLState::MAX_VIEWPORT_COUNT * 4];
 };
 
-class COpenGLCommandPool::CDrawIndexedIndirectCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CDrawIndexedIndirectCmd
+class COpenGLCommandPool::CDepthRangeArrayVCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CDepthRangeArrayVCmd>
 {
 public:
-    using base_cmd_t = IGPUCommandPool::CDrawIndexedIndirectCmd;
-
-    CDrawIndexedIndirectCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const uint32_t maxDrawCount, const uint32_t stride)
-        : base_cmd_t(buffer), m_offset(offset), m_maxDrawCount(maxDrawCount), m_stride(stride)
+    CDepthRangeArrayVCmd(const GLuint first, const GLsizei count, const GLdouble* params)
+        : m_first(first), m_count(count)
     {
-        m_size = calc_size(buffer, offset, maxDrawCount, stride);
+        memcpy(m_params, params, (m_count - m_first) * sizeof(GLdouble) * 2ull);
     }
 
-    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const  uint32_t maxDrawCount, const uint32_t stride)
-    {
-        return core::alignUp(end_offset<CDrawIndexedIndirectCmd>(buffer), alignof(CDrawIndexedIndirectCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 
 private:
-    size_t m_offset;
-    size_t m_countBufferOffset;
-    uint32_t m_maxDrawCount;
-    uint32_t m_stride;
+    const GLuint m_first;
+    const GLsizei m_count;
+    GLdouble m_params[SOpenGLState::MAX_VIEWPORT_COUNT * 2];
 };
 
-class COpenGLCommandPool::CDrawIndexedIndirectCountCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CDrawIndexedIndirectCountCmd
+class COpenGLCommandPool::CPolygonModeCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CPolygonModeCmd>
 {
 public:
-    using base_cmd_t = IGPUCommandPool::CDrawIndexedIndirectCountCmd;
+    CPolygonModeCmd(const GLenum mode) : m_mode(mode) {}
 
-    CDrawIndexedIndirectCountCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer,
-        const size_t countBufferOffset, const uint32_t maxDrawCount, const uint32_t stride)
-        : base_cmd_t(buffer, countBuffer), m_offset(offset), m_countBufferOffset(countBufferOffset), m_maxDrawCount(maxDrawCount), m_stride(stride)
-    {
-        m_size = calc_size(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
-    }
-
-    static uint32_t calc_size(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const size_t offset, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer,
-        const size_t countBufferOffset, const  uint32_t maxDrawCount, const uint32_t stride)
-    {
-        return core::alignUp(end_offset<CDrawIndexedIndirectCountCmd>(buffer, countBuffer), alignof(CDrawIndexedIndirectCountCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 
 private:
-    size_t m_offset;
-    size_t m_countBufferOffset;
-    uint32_t m_maxDrawCount;
-    uint32_t m_stride;
+    const GLenum m_mode;
 };
 
-class COpenGLCommandPool::CBeginRenderPassCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CBeginRenderPassCmd
+class COpenGLCommandPool::CEnableCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CEnableCmd>
 {
 public:
-    using base_cmd_t = IGPUCommandPool::CBeginRenderPassCmd;
+    CEnableCmd(const GLenum cap) : m_cap(cap) {}
 
-    CBeginRenderPassCmd(const IGPUCommandBuffer::SRenderpassBeginInfo& beginInfo, const asset::E_SUBPASS_CONTENTS subpassContents)
-        : base_cmd_t(beginInfo.renderpass, beginInfo.framebuffer), m_renderArea(beginInfo.renderArea), m_clearValueCount(beginInfo.clearValueCount), m_subpassContents(subpassContents)
-    {
-        m_size = calc_size(beginInfo, subpassContents);
-        if (m_clearValueCount > 0u)
-            memcpy(m_clearValues, beginInfo.clearValues, m_clearValueCount * sizeof(asset::SClearValue));
-    }
-
-    static uint32_t calc_size(const IGPUCommandBuffer::SRenderpassBeginInfo& beginInfo, const asset::E_SUBPASS_CONTENTS subpassContents)
-    {
-        return core::alignUp(end_offset<CBeginRenderPassCmd>(beginInfo.renderpass, beginInfo.framebuffer), alignof(CBeginRenderPassCmd));
-    }
-
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 
 private:
-    const VkRect2D m_renderArea;
-    const uint32_t m_clearValueCount;
-    asset::SClearValue m_clearValues[asset::IRenderpass::SCreationParams::MaxColorAttachments];
-    const asset::E_SUBPASS_CONTENTS m_subpassContents;
+    const GLenum m_cap;
 };
 
-class COpenGLCommandPool::CEndRenderPassCmd : public COpenGLCommandPool::ICommand, public IGPUCommandPool::CEndRenderPassCmd
+class COpenGLCommandPool::CDisableCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CDisableCmd>
 {
 public:
-    using base_cmd_t = IGPUCommandPool::CEndRenderPassCmd;
+    CDisableCmd(const GLenum cap) : m_cap(cap) {}
 
-    static uint32_t calc_size()
-    {
-        return core::alignUp(end_offset<CEndRenderPassCmd>(), alignof(CBeginRenderPassCmd));
-    }
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 
-    void operator() (IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxLocal, uint32_t ctxid, const system::logger_opt_ptr logger, const COpenGLCommandBuffer* executingCmdbuf) override;
+private:
+    const GLenum m_cap;
+};
+
+class COpenGLCommandPool::CCullFaceCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CCullFaceCmd>
+{
+public:
+    CCullFaceCmd(const GLenum mode) : m_mode(mode) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_mode;
+};
+
+class COpenGLCommandPool::CStencilOpSeparateCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CStencilOpSeparateCmd>
+{
+public:
+    CStencilOpSeparateCmd(const GLenum face, const GLenum sfail, const GLenum dpfail, const GLenum dppass)
+        : m_face(face), m_sfail(sfail), m_dpfail(dpfail), m_dppass(dppass)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_face;
+    const GLenum m_sfail;
+    const GLenum m_dpfail;
+    const GLenum m_dppass;
+};
+
+class COpenGLCommandPool::CStencilFuncSeparateCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CStencilFuncSeparateCmd>
+{
+public:
+    CStencilFuncSeparateCmd(const GLenum face, const GLenum func, const GLint ref, const GLuint mask) : 
+        m_face(face), m_func(func), m_ref(ref), m_mask(mask)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_face;
+    const GLenum m_func;
+    const GLint m_ref;
+    const GLuint m_mask;
+};
+
+class COpenGLCommandPool::CStencilMaskSeparateCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CStencilMaskSeparateCmd>
+{
+public:
+    CStencilMaskSeparateCmd(const GLenum face, const GLuint mask) : m_face(face), m_mask(mask) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_face;
+    const GLuint m_mask;
+};
+
+class COpenGLCommandPool::CDepthFuncCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CDepthFuncCmd>
+{
+public:
+    CDepthFuncCmd(const GLenum func) : m_func(func) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_func;
+};
+
+class COpenGLCommandPool::CFrontFaceCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CFrontFaceCmd>
+{
+public:
+    CFrontFaceCmd(const GLenum mode) : m_mode(mode) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_mode;
+};
+
+class COpenGLCommandPool::CPolygonOffsetCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CPolygonOffsetCmd>
+{
+public:
+    CPolygonOffsetCmd(const GLfloat factor, const GLfloat units) : m_factor(factor), m_units(units) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLfloat m_factor;
+    const GLfloat m_units;
+};
+
+class COpenGLCommandPool::CLineWidthCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CLineWidthCmd>
+{
+public:
+    CLineWidthCmd(const GLfloat width) : m_width(width) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLfloat m_width;
+};
+
+class COpenGLCommandPool::CMinSampleShadingCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMinSampleShadingCmd>
+{
+public:
+    CMinSampleShadingCmd(const GLfloat value) : m_value(value) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLfloat m_value;
+};
+
+class COpenGLCommandPool::CSampleMaskICmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CSampleMaskICmd>
+{
+public:
+    CSampleMaskICmd(const GLuint maskNumber, const GLbitfield mask) : m_maskNumber(maskNumber), m_mask(mask) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_maskNumber;
+    const GLbitfield m_mask;
+};
+
+class COpenGLCommandPool::CDepthMaskCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CDepthMaskCmd>
+{
+public:
+    CDepthMaskCmd(const GLboolean flag) : m_flag(flag) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLboolean m_flag;
+};
+
+class COpenGLCommandPool::CLogicOpCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CLogicOpCmd>
+{
+public:
+    CLogicOpCmd(const GLenum opcode) : m_opcode(opcode) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_opcode;
+};
+
+class COpenGLCommandPool::CEnableICmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CEnableICmd>
+{
+public:
+    CEnableICmd(const GLenum cap, const GLuint index) : m_cap(cap), m_index(index) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_cap;
+    const GLuint m_index;
+};
+
+class COpenGLCommandPool::CDisableICmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CDisableICmd>
+{
+public:
+    CDisableICmd(const GLenum cap, const GLuint index) : m_cap(cap), m_index(index) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_cap;
+    const GLuint m_index;
+};
+
+class COpenGLCommandPool::CBlendFuncSeparateICmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBlendFuncSeparateICmd>
+{
+public:
+    CBlendFuncSeparateICmd(const GLuint buf, const GLenum srcRGB, const GLenum dstRGB, const GLenum srcAlpha, const GLenum dstAlpha)
+        : m_buf(buf), m_srcRGB(srcRGB), m_dstRGB(dstRGB), m_srcAlpha(srcAlpha), m_dstAlpha(dstAlpha)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_buf;
+    const GLenum m_srcRGB;
+    const GLenum m_dstRGB;
+    const GLenum m_srcAlpha;
+    const GLenum m_dstAlpha;
+};
+
+class COpenGLCommandPool::CColorMaskICmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CColorMaskICmd>
+{
+public:
+    CColorMaskICmd(const GLuint buf, const GLboolean red, const GLboolean green, const GLboolean blue, const GLboolean alpha)
+        : m_buf(buf), m_red(red), m_green(green), m_blue(blue), m_alpha(alpha)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_buf;
+    const GLboolean m_red;
+    const GLboolean m_green;
+    const GLboolean m_blue;
+    const GLboolean m_alpha;
 };
 
 }

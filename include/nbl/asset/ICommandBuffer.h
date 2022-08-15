@@ -213,34 +213,9 @@ public:
 
     // hm now i think having begin(), reset() and end() as command buffer API is a little weird
 
-    virtual bool begin(core::bitflag<E_USAGE> _flags)
-    {
-        if(m_state == ES_RECORDING)
-        {
-            assert(false);
-            return false;
-        }
-        m_state = ES_RECORDING;
-        m_recordingFlags = _flags;
-        return true;
-    }
-   
-    virtual bool reset(core::bitflag<E_RESET_FLAGS> _flags)
-    {
-        m_state = ES_INITIAL;
-        return true;
-    }
-
-    virtual bool end()
-    {
-        if(m_state!=ES_RECORDING)
-        {
-            assert(false);
-            return false;
-        }
-        m_state = ES_EXECUTABLE;
-        return true;
-    }
+    virtual bool begin(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo = nullptr) = 0;
+    virtual bool reset(core::bitflag<E_RESET_FLAGS> flags) = 0;
+    virtual bool end() = 0;
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
 
@@ -300,7 +275,7 @@ public:
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) = 0;
 
-    virtual bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, E_SUBPASS_CONTENTS content) = 0;
+    virtual bool beginRenderPass_impl(const SRenderpassBeginInfo* pRenderPassBegin, E_SUBPASS_CONTENTS content) = 0;
     virtual bool nextSubpass(E_SUBPASS_CONTENTS contents) = 0;
     virtual bool endRenderPass() = 0;
 

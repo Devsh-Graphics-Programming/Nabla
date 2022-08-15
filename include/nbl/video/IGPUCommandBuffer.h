@@ -54,7 +54,6 @@ class NBL_API IGPUCommandBuffer :
     >;
 
 public:
-
     inline bool isResettable() const
     {
         return m_cmdpool->getCreationFlags().hasFlags(IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
@@ -67,44 +66,107 @@ public:
         return false;
     }
 
-    virtual bool begin(core::bitflag<E_USAGE> _flags, const SInheritanceInfo* inheritanceInfo = nullptr)
+    bool begin(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo = nullptr) override final
     {
-        if (!isResettable())
+        if (m_state == ES_RECORDING || m_state == ES_PENDING)
         {
-            if(m_state != ES_INITIAL)
+            m_logger.log("Failed to begin command buffer: command buffer must not be in RECORDING or PENDING state.", system::ILogger::ELL_ERROR);
+            return false;
+        }
+
+        if (m_level == EL_PRIMARY && (flags.hasFlags(static_cast<E_USAGE>(EU_ONE_TIME_SUBMIT_BIT | EU_SIMULTANEOUS_USE_BIT))))
+        {
+            m_logger.log("Failed to begin command buffer: a primary command buffer must not have both EU_ONE_TIME_SUBMIT_BIT and EU_SIMULTANEOUS_USE_BIT set.", system::ILogger::ELL_ERROR);
+            return false;
+        }
+
+        if (m_level == EL_SECONDARY && inheritanceInfo == nullptr)
+        {
+            m_logger.log("Failed to begin command buffer: a secondary command buffer must have inheritance info.", system::ILogger::ELL_ERROR);
+            return false;
+        }
+
+        checkForParentPoolReset();
+
+        if (m_state != ES_INITIAL)
+        {
+            releaseResourcesBackToPool();
+
+            if (!canReset())
             {
-                assert(false);
+                m_logger.log("Failed to begin command buffer: command buffer allocated from a command pool with ECF_RESET_COMMAND_BUFFER_BIT flag not set cannot be reset, and command buffer not in INITIAL state.", system::ILogger::ELL_ERROR);
+                m_state = ES_INVALID;
                 return false;
             }
         }
 
-        if(m_state == ES_PENDING)
-        {
-            assert(false);
-            return false;
-        }
+        assert(m_state == ES_INITIAL);
 
         if (inheritanceInfo != nullptr)
             m_cachedInheritanceInfo = *inheritanceInfo;
 
-        return base_t::begin(_flags);
+        m_recordingFlags = flags;
+        m_state = ES_RECORDING;
+
+        return begin_impl(flags, inheritanceInfo);
     }
 
-    virtual bool reset(core::bitflag<E_RESET_FLAGS> _flags)
+    bool reset(core::bitflag<E_RESET_FLAGS> flags) override final
     {
         if (!canReset())
         {
-            assert(false);
+            m_logger.log("Failed to reset command buffer.", system::ILogger::ELL_ERROR);
+            m_state = ES_INVALID;
             return false;
         }
 
-        deleteCommandSegmentList();
-        return base_t::reset(_flags);
+        if (checkForParentPoolReset())
+            return true;
+
+        releaseResourcesBackToPool();
+        m_state = ES_INITIAL;
+        
+        return reset_impl(flags);
     }
 
-    uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
+    bool end() override final
+    {
+        if (m_state != ES_RECORDING)
+        {
+            m_logger.log("Failed to end command buffer: not in RECORDING state.", system::ILogger::ELL_ERROR);
+            return false;
+        }
 
-    IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
+        m_state = ES_EXECUTABLE;
+        return end_impl();
+    }
+
+    bool bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override final
+    {
+        if (!buffer || (buffer->getAPIType() != getAPIType()))
+            return false;
+
+        if (!m_cmdpool->emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+            return false;
+
+        return bindIndexBuffer_impl(buffer, offset, indexType);
+    }
+
+    bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content)
+    {
+        const auto apiType = getAPIType();
+        if ((apiType != pRenderPassBegin->renderpass->getAPIType()) || (apiType != pRenderPassBegin->framebuffer->getAPIType()))
+            return false;
+
+        if (!m_cmdpool->emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_segmentListHeadItr, m_segmentListTail, std::move(pRenderPassBegin->renderpass), std::move(pRenderPassBegin->framebuffer)))
+            return false;
+
+        return beginRenderPass_impl(pRenderPassBegin, content);
+    }
+
+    inline uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
+
+    inline IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
 
     bool regenerateMipmaps(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
     {
@@ -183,14 +245,17 @@ public:
 protected: 
     friend class IGPUQueue;
 
-    IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool)
+    IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool), m_logger(std::move(logger))
     {
-    }
-    virtual ~IGPUCommandBuffer()
-    {
-        deleteCommandSegmentList();
     }
 
+    virtual ~IGPUCommandBuffer()
+    {
+        if (!checkForParentPoolReset())
+            releaseResourcesBackToPool();
+    }
+
+    system::logger_opt_smart_ptr m_logger;
     core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
     SInheritanceInfo m_cachedInheritanceInfo;
 
@@ -233,92 +298,42 @@ protected:
                 _destPplnLayouts[i] = nullptr;
     }
 
-    template <typename Cmd, typename... Args>
-    Cmd* emplace(Args&&... args)
-    {
-        if (m_segmentListTail == nullptr)
-        {
-            void* cmdSegmentMem = m_cmdpool->m_commandSegmentPool.allocate(IGPUCommandPool::COMMAND_SEGMENT_SIZE, alignof(IGPUCommandPool::CommandSegment));
-            if (!cmdSegmentMem)
-                return nullptr;
+    virtual bool begin_impl(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo) = 0;
+    virtual bool reset_impl(core::bitflag<E_RESET_FLAGS> flags) { return true; };
+    virtual bool end_impl() = 0;
 
-            m_segmentListTail = new (cmdSegmentMem) IGPUCommandPool::CommandSegment;
-            m_segmentListHeadItr.m_segment = m_segmentListTail;
-        }
+    virtual void releaseResourcesBackToPool_impl() {}
 
-        // Cmd* cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
-        Cmd* cmd = m_segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
-        if (!cmd)
-        {
-            void* nextSegmentMem = m_cmdpool->m_commandSegmentPool.allocate(IGPUCommandPool::COMMAND_SEGMENT_SIZE, alignof(IGPUCommandPool::CommandSegment));
-            if (nextSegmentMem == nullptr)
-                return nullptr;
+    virtual bool bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
 
-            IGPUCommandPool::CommandSegment* nextSegment = new (nextSegmentMem) IGPUCommandPool::CommandSegment;
-
-            // cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
-            cmd = m_segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
-            if (!cmd)
-                return nullptr;
-
-            m_segmentListTail->params.m_next = nextSegment;
-            m_segmentListTail = m_segmentListTail->params.m_next;
-        }
-
-        if (m_segmentListHeadItr.m_cmd == nullptr)
-            m_segmentListHeadItr.m_cmd = cmd;
-
-        return cmd;
-    }
-
+    // TODO(achal): private
     IGPUCommandPool::CommandSegment::Iterator m_segmentListHeadItr = {};
     IGPUCommandPool::CommandSegment* m_segmentListTail = nullptr;
 
-    private:
-        void deleteCommandSegmentList()
-        {
-            IGPUCommandPool::CommandSegment::Iterator itr = m_segmentListHeadItr;
+private:
+    // Be wary of making it protected/calling it in the derived classes because it sets state which will overwrite the state set in base class methods.
+    inline bool checkForParentPoolReset()
+    {
+        if (m_cmdpool->getResetCounter() <= m_resetCheckedStamp)
+            return false;
 
-            if (itr.m_segment && itr.m_cmd)
-            {
-                bool lastCmd = itr.m_cmd->m_size == 0u;
-                while (!lastCmd)
-                {
-                    IGPUCommandPool::ICommand* currCmd = itr.m_cmd;
-                    IGPUCommandPool::CommandSegment* currSegment = itr.m_segment;
+        m_resetCheckedStamp = m_cmdpool->getResetCounter();
+        m_state = ES_INITIAL;
 
-                    itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + currCmd->m_size);
-                    currCmd->~ICommand();
-                    // No need to deallocate currCmd because it has been allocated from the LinearAddressAllocator where deallocate is a No-OP and the memory will
-                    // get reclaimed in ~LinearAddressAllocator
+        m_segmentListHeadItr.m_cmd = nullptr;
+        m_segmentListHeadItr.m_segment = nullptr;
+        m_segmentListTail = nullptr;
 
-                    if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment)) > IGPUCommandPool::CommandSegment::STORAGE_SIZE)
-                    {
-                        IGPUCommandPool::CommandSegment* nextSegment = currSegment->params.m_next;
-                        if (!nextSegment)
-                            break;
+        return true;
+    }
 
-                        currSegment->~CommandSegment();
-                        m_cmdpool->m_commandSegmentPool.deallocate(currSegment, IGPUCommandPool::COMMAND_SEGMENT_SIZE);
+    inline void releaseResourcesBackToPool()
+    {
+        m_cmdpool->deleteCommandSegmentList(m_segmentListHeadItr, m_segmentListTail);
+        releaseResourcesBackToPool_impl();
+    }
 
-                        itr.m_segment = nextSegment;
-                        itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
-                    }
-
-                    lastCmd = itr.m_cmd->m_size == 0u;
-                    if (lastCmd)
-                    {
-                        currSegment->~CommandSegment();
-                        m_cmdpool->m_commandSegmentPool.deallocate(currSegment, IGPUCommandPool::COMMAND_SEGMENT_SIZE);
-                    }
-                }
-
-                m_segmentListHeadItr.m_cmd = nullptr;
-                m_segmentListHeadItr.m_segment = nullptr;
-                m_segmentListTail = nullptr;
-            }
-        }
-
+    uint32_t m_resetCheckedStamp = 0;
 };
 
 }
