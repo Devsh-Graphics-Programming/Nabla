@@ -70,6 +70,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t major : 5;
             uint32_t minor : 5;
             uint32_t patch : 22;
+
+            inline auto operator <=> (uint32_t vkApiVersion) { return vkApiVersion - VK_MAKE_API_VERSION(0, major, minor, patch); }
         };
 
         using SLimits = SPhysicalDeviceLimits;
@@ -573,18 +575,18 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         // TODO: shouldn't this be in SFeatures?
         virtual bool isSwapchainSupported() const = 0;
 
-        core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
+        core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
         {
             if (!validateLogicalDeviceCreation(params))
                 return nullptr;
 
-            return createLogicalDevice_impl(params);
+            return createLogicalDevice_impl(std::move(params));
         }
 
     protected:
         IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
 
-        virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) = 0;
+        virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) = 0;
 
         bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
 

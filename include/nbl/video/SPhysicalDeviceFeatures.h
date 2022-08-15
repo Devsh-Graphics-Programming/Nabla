@@ -106,11 +106,11 @@ struct SPhysicalDeviceFeatures
     bool occlusionQueryPrecise = false;
     bool pipelineStatisticsQuery = false;
 
-    // [TODO] Always enable ones below, report as limit
-    bool vertexPipelineStoresAndAtomics = false;
-    bool fragmentStoresAndAtomics = false;
-    bool shaderTessellationAndGeometryPointSize = false;
-    bool shaderImageGatherExtended = false;
+    // Enabled by Default, Moved to Limits
+    //bool vertexPipelineStoresAndAtomics = false;
+    //bool fragmentStoresAndAtomics = false;
+    //bool shaderTessellationAndGeometryPointSize = false;
+    //bool shaderImageGatherExtended = false;
 
     bool shaderStorageImageExtendedFormats = false;
     bool shaderStorageImageMultisample = false;
@@ -123,10 +123,10 @@ struct SPhysicalDeviceFeatures
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
     bool vertexAttributeDouble = false; // shaderFloat64
-
-    // [TODO] Always enable ones below, report as limit
-    bool shaderInt64 = false;
-    bool shaderInt16 = false;
+    
+    // Enabled by Default, Moved to Limits
+    //bool shaderInt64 = false;
+    //bool shaderInt16 = false;
 
     bool shaderResourceResidency = false;
     bool shaderResourceMinLod = false;
@@ -147,22 +147,26 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.1 Core */
 
-    // [TODO] Always enable ones below, report as limit
-    bool storageBuffer16BitAccess = false;
-    bool uniformAndStorageBuffer16BitAccess = false;
-    bool storagePushConstant16 = false;
-    bool storageInputOutput16 = false;
+    // Enabled by Default, Moved to Limits
+    /* VK_KHR_16bit_storage */
+    //bool storageBuffer16BitAccess = false;
+    //bool uniformAndStorageBuffer16BitAccess = false;
+    //bool storagePushConstant16 = false;
+    //bool storageInputOutput16 = false;
     
     // [TODO LATER] do not expose multiview yet
+    /* VK_KHR_multiview */
     //bool           multiview;
     //bool           multiviewGeometryShader;
     //bool           multiviewTessellationShader;
     
+    /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
     //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
  
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion;
-    bool shaderDrawParameters = false;
+
+    bool shaderDrawParameters = false;  /* ALIAS: VK_KHR_shader_draw_parameters */
 
 
 
@@ -172,19 +176,21 @@ struct SPhysicalDeviceFeatures
     bool samplerMirrorClampToEdge = false;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
     bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
-    // [TODO] Always enable VK_KHR_8bit_storage, VK_KHR_shader_atomic_int64 & VK_KHR_shader_float16_int8; report as limit
+    // Enabled by Default, Moved to Limits
     // or VK_KHR_8bit_storage:
-    bool storageBuffer8BitAccess = false;
-    bool uniformAndStorageBuffer8BitAccess = false;
-    bool storagePushConstant8 = false;
-    
+    //bool storageBuffer8BitAccess = false;
+    //bool uniformAndStorageBuffer8BitAccess = false;
+    //bool storagePushConstant8 = false;
+ 
+    // Enabled by Default, Moved to Limits
     // or VK_KHR_shader_atomic_int64:
-    bool shaderBufferInt64Atomics = false;
-    bool shaderSharedInt64Atomics = false;
-   
+    //bool shaderBufferInt64Atomics = false;
+    //bool shaderSharedInt64Atomics = false;
+
+    // Enabled by Default, Moved to Limits
     // or VK_KHR_shader_float16_int8:
-    bool shaderFloat16 = false;
-    bool shaderInt8 = false;
+    //bool shaderFloat16 = false;
+    //bool shaderInt8 = false;
     
     // or VK_EXT_descriptor_indexing
     bool descriptorIndexing = false;
@@ -445,6 +451,7 @@ struct SPhysicalDeviceFeatures
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
     bool shaderDeviceClock = false;
+    //bool shaderSubgroupClock; // Enabled by Default, Moved to Limits 
 
     /* VK_KHR_shader_draw_parameters *//* MOVED TO Vulkan 1.1 Core */
     /* VK_KHR_shader_float16_int8 *//* MOVED TO Vulkan 1.2 Core */
@@ -692,10 +699,6 @@ struct SPhysicalDeviceFeatures
     //bool           shaderIntegerFunctions2 = false;
 
     // Enabled by Default, Moved to Limits 
-    /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    //bool           shaderSubgroupClock;
-
-    // Enabled by Default, Moved to Limits 
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
     //bool           imageFootprint;
 
@@ -792,7 +795,7 @@ struct SPhysicalDeviceFeatures
     /* Dependant on `IAPIConnection::Features::swapchainMode` enabled on apiConnection Creation */
     core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
 
-    // [TODO] Always enable, expose as limit
+    // Enabled when possible, exposed as limit in as spirvVersion
     /* VK_KHR_spirv_1_4 */
 
     // [TODO] handle with a single num
@@ -1072,10 +1075,6 @@ struct SPhysicalDeviceFeatures
         if (samplerAnisotropy && !_rhs.samplerAnisotropy) return false;
         if (occlusionQueryPrecise && !_rhs.occlusionQueryPrecise) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
-        if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
-        if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
-        if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
-        if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
         if (shaderStorageImageExtendedFormats && !_rhs.shaderStorageImageExtendedFormats) return false;
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
@@ -1087,26 +1086,13 @@ struct SPhysicalDeviceFeatures
         if (shaderClipDistance && !_rhs.shaderClipDistance) return false;
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
         if (vertexAttributeDouble && !_rhs.vertexAttributeDouble) return false;
-        if (shaderInt64 && !_rhs.shaderInt64) return false;
-        if (shaderInt16 && !_rhs.shaderInt16) return false;
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
         if (inheritedQueries && !_rhs.inheritedQueries) return false;
-        if (storageBuffer16BitAccess && !_rhs.storageBuffer16BitAccess) return false;
-        if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
-        if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
-        if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
         if (shaderDrawParameters && !_rhs.shaderDrawParameters) return false;
         if (samplerMirrorClampToEdge && !_rhs.samplerMirrorClampToEdge) return false;
         if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
-        if (storageBuffer8BitAccess && !_rhs.storageBuffer8BitAccess) return false;
-        if (uniformAndStorageBuffer8BitAccess && !_rhs.uniformAndStorageBuffer8BitAccess) return false;
-        if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;
-        if (shaderBufferInt64Atomics && !_rhs.shaderBufferInt64Atomics) return false;
-        if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
-        if (shaderFloat16 && !_rhs.shaderFloat16) return false;
-        if (shaderInt8 && !_rhs.shaderInt8) return false;
         if (descriptorIndexing && !_rhs.descriptorIndexing) return false;
         if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
         if (shaderUniformTexelBufferArrayDynamicIndexing && !_rhs.shaderUniformTexelBufferArrayDynamicIndexing) return false;

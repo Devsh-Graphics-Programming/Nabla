@@ -321,7 +321,23 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS",m_properties.limits.maxOptimallyResidentWorkgroupInvocations);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RESIDENT_INVOCATIONS",m_properties.limits.maxResidentInvocations);
     addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SPIRV_VERSION",(uint32_t)m_properties.limits.spirvVersion);
-
+    if (m_properties.limits.vertexPipelineStoresAndAtomics) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_VERTEX_PIPELINE_STORES_AND_ATOMICS");
+    if (m_properties.limits.fragmentStoresAndAtomics) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_FRAGMENT_STORES_AND_ATOMICS");
+    if (m_properties.limits.shaderTessellationAndGeometryPointSize) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE");
+    if (m_properties.limits.shaderImageGatherExtended) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_IMAGE_GATHER_EXTENDED");
+    if (m_properties.limits.shaderInt64) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT64");
+    if (m_properties.limits.shaderInt16) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT16");
+    if (m_properties.limits.storageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_BUFFER_16BIT_ACCESS");
+    if (m_properties.limits.uniformAndStorageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
+    if (m_properties.limits.storagePushConstant16) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_16");
+    if (m_properties.limits.storageInputOutput16) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_INPUT_OUTPUT_16");
+    if (m_properties.limits.storageBuffer8BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_BUFFER_8BIT_ACCESS");
+    if (m_properties.limits.uniformAndStorageBuffer8BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_8BIT_ACCESS");
+    if (m_properties.limits.storagePushConstant8) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_8");
+    if (m_properties.limits.shaderBufferInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_BUFFER_INT64_ATOMICS");
+    if (m_properties.limits.shaderSharedInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_SHARED_INT64_ATOMICS");
+    if (m_properties.limits.shaderFloat16) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_FLOAT16");
+    if (m_properties.limits.shaderInt8) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT8");
 
     // SPhysicalDeviceFeatures
     if (m_features.robustBufferAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ROBUST_BUFFER_ACCESS");
@@ -346,10 +362,6 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.samplerAnisotropy) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_ANISOTROPY");
     if (m_features.occlusionQueryPrecise) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_OCCLUSION_QUERY_PRECISE");
     // if (m_features.pipelineStatisticsQuery) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_STATISTICS_QUERY"); // shader doesn't need to know about
-    if (m_features.vertexPipelineStoresAndAtomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_VERTEX_PIPELINE_STORES_AND_ATOMICS");
-    if (m_features.fragmentStoresAndAtomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_STORES_AND_ATOMICS");
-    if (m_features.shaderTessellationAndGeometryPointSize) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE");
-    if (m_features.shaderImageGatherExtended) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_IMAGE_GATHER_EXTENDED");
     if (m_features.shaderStorageImageExtendedFormats) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_EXTENDED_FORMATS");
     if (m_features.shaderStorageImageMultisample) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE");
     if (m_features.shaderStorageImageReadWithoutFormat) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT");
@@ -361,26 +373,13 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.shaderClipDistance) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CLIP_DISTANCE");
     if (m_features.shaderCullDistance) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CULL_DISTANCE");
     if (m_features.vertexAttributeDouble) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_VERTEX_ATTRIBUTE_DOUBLE");
-    if (m_features.shaderInt64) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INT64");
-    if (m_features.shaderInt16) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INT16");
     if (m_features.shaderResourceResidency) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_RESIDENCY");
     if (m_features.shaderResourceMinLod) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_MIN_LOD");
     if (m_features.variableMultisampleRate) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_VARIABLE_MULTISAMPLE_RATE");
     // if (m_features.inheritedQueries) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_INHERITED_QUERIES"); // shader doesn't need to know about
-    if (m_features.storageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STORAGE_BUFFER_16BIT_ACCESS");
-    if (m_features.uniformAndStorageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
-    if (m_features.storagePushConstant16) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STORAGE_PUSH_CONSTANT_16");
-    if (m_features.storageInputOutput16) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STORAGE_INPUT_OUTPUT_16");
     if (m_features.shaderDrawParameters) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_DRAW_PARAMETERS");
     if (m_features.samplerMirrorClampToEdge) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_MIRROR_CLAMP_TO_EDGE");
     if (m_features.drawIndirectCount) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DRAW_INDIRECT_COUNT");
-    if (m_features.storageBuffer8BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STORAGE_BUFFER_8BIT_ACCESS");
-    if (m_features.uniformAndStorageBuffer8BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_UNIFORM_AND_STORAGE_BUFFER_8BIT_ACCESS");
-    if (m_features.storagePushConstant8) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_STORAGE_PUSH_CONSTANT_8");
-    if (m_features.shaderBufferInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_BUFFER_INT64_ATOMICS");
-    if (m_features.shaderSharedInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_SHARED_INT64_ATOMICS");
-    if (m_features.shaderFloat16) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_FLOAT16");
-    if (m_features.shaderInt8) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INT8");
     if (m_features.descriptorIndexing) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_INDEXING");
     if (m_features.shaderInputAttachmentArrayDynamicIndexing) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
     if (m_features.shaderUniformTexelBufferArrayDynamicIndexing) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_UNIFORM_TEXEL_BUFFER_ARRAY_DYNAMIC_INDEXING");

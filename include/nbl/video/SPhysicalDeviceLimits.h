@@ -543,6 +543,33 @@ struct SPhysicalDeviceLimits
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
 
     /*  Always enabled, reported as limits */
+
+    // Core 1.0 Features
+    bool vertexPipelineStoresAndAtomics = false;
+    bool fragmentStoresAndAtomics = false;
+    bool shaderTessellationAndGeometryPointSize = false;
+    bool shaderImageGatherExtended = false;
+    bool shaderInt64 = false;
+    bool shaderInt16 = false;
+
+    // Core 1.1 Features or VK_KHR_16bit_storage */
+    bool storageBuffer16BitAccess = false;
+    bool uniformAndStorageBuffer16BitAccess = false;
+    bool storagePushConstant16 = false;
+    bool storageInputOutput16 = false;
+
+    // Vulkan 1.2 Core or VK_KHR_8bit_storage:
+    bool storageBuffer8BitAccess = false;
+    bool uniformAndStorageBuffer8BitAccess = false;
+    bool storagePushConstant8 = false;
+    // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
+    bool shaderBufferInt64Atomics = false;
+    bool shaderSharedInt64Atomics = false;
+    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
+    bool shaderFloat16 = false;
+    bool shaderInt8 = false;
+
+    // Vulkan 1.2 Struct Or
     bool shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
     bool shaderOutputLayer = false;             // ALIAS: VK_EXT_shader_viewport_index_layer
 
@@ -557,8 +584,6 @@ struct SPhysicalDeviceLimits
 
     /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
     bool texelBufferAlignment = false;
-
-    // [TODO] implement the enable by default and expose behaviour for ones below once API changes
 
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
     bool shaderSMBuiltins = false;
@@ -881,6 +906,23 @@ struct SPhysicalDeviceLimits
         if (maxOptimallyResidentWorkgroupInvocations > _rhs.maxOptimallyResidentWorkgroupInvocations) return false;
         if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
         if (spirvVersion > _rhs.spirvVersion) return false;
+        if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
+        if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
+        if (storageBuffer8BitAccess && !_rhs.storageBuffer8BitAccess) return false;
+        if (uniformAndStorageBuffer8BitAccess && !_rhs.uniformAndStorageBuffer8BitAccess) return false;
+        if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;
+        if (shaderBufferInt64Atomics && !_rhs.shaderBufferInt64Atomics) return false;
+        if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
+        if (shaderFloat16 && !_rhs.shaderFloat16) return false;
+        if (shaderInt8 && !_rhs.shaderInt8) return false;
+        if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
+        if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
+        if (shaderInt64 && !_rhs.shaderInt64) return false;
+        if (shaderInt16 && !_rhs.shaderInt16) return false;
+        if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
+        if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
+        if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
+        if (storageBuffer16BitAccess && !_rhs.storageBuffer16BitAccess) return false;
         
         return true;
     }
