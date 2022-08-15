@@ -300,7 +300,6 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.shaderSubgroupPartitioned) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_PARTITIONED");
     if (m_properties.limits.gcnShader) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_GCN_SHADER");
     if (m_properties.limits.gpuShaderHalfFloat) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_GPU_SHADER_HALF_FLOAT");
-    if (m_properties.limits.gpuShaderInt16) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_GPU_SHADER_INT16");
     if (m_properties.limits.shaderBallot) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_BALLOT");
     if (m_properties.limits.shaderImageLoadStoreLod) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_IMAGE_LOAD_STORE_LOD");
     if (m_properties.limits.shaderTrinaryMinmax) addGLSLDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_TRINARY_MINMAX");

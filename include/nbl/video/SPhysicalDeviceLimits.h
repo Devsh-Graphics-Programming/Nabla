@@ -591,7 +591,6 @@ struct SPhysicalDeviceLimits
     bool shaderSubgroupPartitioned = false; /* VK_NV_shader_subgroup_partitioned */
     bool gcnShader = false; /* VK_AMD_gcn_shader */
     bool gpuShaderHalfFloat = false; /* VK_AMD_gpu_shader_half_float */
-    bool gpuShaderInt16 = false; /* VK_AMD_gpu_shader_int16 */
     bool shaderBallot = false; /* VK_AMD_shader_ballot */
     bool shaderImageLoadStoreLod = false; /* VK_AMD_shader_image_load_store_lod */
     bool shaderTrinaryMinmax = false; /* VK_AMD_shader_trinary_minmax  */
@@ -886,7 +885,6 @@ struct SPhysicalDeviceLimits
         if (shaderSubgroupPartitioned && !_rhs.shaderSubgroupPartitioned) return false;
         if (gcnShader && !_rhs.gcnShader) return false;
         if (gpuShaderHalfFloat && !_rhs.gpuShaderHalfFloat) return false;
-        if (gpuShaderInt16 && !_rhs.gpuShaderInt16) return false;
         if (shaderBallot && !_rhs.shaderBallot) return false;
         if (shaderImageLoadStoreLod && !_rhs.shaderImageLoadStoreLod) return false;
         if (shaderTrinaryMinmax && !_rhs.shaderTrinaryMinmax) return false;

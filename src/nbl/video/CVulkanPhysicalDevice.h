@@ -1471,7 +1471,6 @@ protected:
                 insertExtensionIfAvailable(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME); // No Extension Requirements
                 insertExtensionIfAvailable(VK_AMD_GCN_SHADER_EXTENSION_NAME); // No Extension Requirements
                 insertExtensionIfAvailable(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME); // No Extension Requirements
-                insertExtensionIfAvailable(VK_AMD_GPU_SHADER_INT16_EXTENSION_NAME); 
                 insertExtensionIfAvailable(VK_AMD_SHADER_BALLOT_EXTENSION_NAME);
                 insertExtensionIfAvailable(VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME);
                 insertExtensionIfAvailable(VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME);
