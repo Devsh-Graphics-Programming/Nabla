@@ -35,6 +35,8 @@ private:
     static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
 
 public:
+    class CCommandSegment;
+
     class alignas(COMMAND_ALIGNMENT) ICommand
     {
     public:
@@ -54,9 +56,15 @@ public:
         static void operator delete  (void* ptr, std::size_t sz, std::align_val_t al) = delete;
         static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
 
-        uint32_t m_size;
+        inline uint32_t getSize() const { return m_size; }
+
     protected:
         ICommand(uint32_t size) : m_size(size) {}
+
+    private:
+        friend CCommandSegment;
+
+        const uint32_t m_size;
     };
 
     template <class CRTP>
@@ -73,28 +81,28 @@ public:
         IFixedSizeCommand() : ICommand(calc_size()) {}
     };
 
-    class alignas(COMMAND_SEGMENT_ALIGNMENT) CommandSegment
+    class alignas(COMMAND_SEGMENT_ALIGNMENT) CCommandSegment
     {
+    private:
+        struct header_t
+        {
+            core::LinearAddressAllocator<uint32_t> m_commandAllocator;
+            CCommandSegment* m_next;
+        } header;
+
     public:
+        static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
+
         struct Iterator
         {
-            CommandSegment* m_segment = nullptr;
+            CCommandSegment* m_segment = nullptr;
             ICommand* m_cmd = nullptr;
         };
 
-        struct params_t
+        CCommandSegment()
         {
-            core::LinearAddressAllocator<uint32_t> m_commandAllocator;
-            CommandSegment* m_next;
-        } params;
-
-        static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - sizeof(params_t);
-        alignas(ICommand) uint8_t m_data[STORAGE_SIZE];
-
-        CommandSegment()
-        {
-            params.m_commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, COMMAND_SEGMENT_ALIGNMENT, COMMAND_SEGMENT_SIZE);
-            params.m_next = nullptr;
+            header.m_commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, COMMAND_SEGMENT_ALIGNMENT, COMMAND_SEGMENT_SIZE);
+            header.m_next = nullptr;
 
             wipeNextCommandSize();
         }
@@ -104,8 +112,8 @@ public:
         Cmd* allocate(Args&&... args)
         {
             const uint32_t cmdSize = Cmd::calc_size(args...);
-            const auto address = params.m_commandAllocator.alloc_addr(cmdSize, alignof(Cmd));
-            if (address == decltype(params.m_commandAllocator)::invalid_address)
+            const auto address = header.m_commandAllocator.alloc_addr(cmdSize, alignof(Cmd));
+            if (address == decltype(header.m_commandAllocator)::invalid_address)
                 return nullptr;
 
             wipeNextCommandSize();
@@ -114,15 +122,22 @@ public:
             return new (cmdMem) Cmd(args...);
         }
 
+        inline void setNext(CCommandSegment* segment) { header.m_next = segment; }
+        inline CCommandSegment* getNext() const { return header.m_next; }
+        inline ICommand* getFirstCommand() { return reinterpret_cast<ICommand*>(m_data); }
+
     private:
+        alignas(ICommand) uint8_t m_data[STORAGE_SIZE];
+
         void wipeNextCommandSize()
         {
-            const auto cursor = params.m_commandAllocator.get_allocated_size();
+            const auto cursor = header.m_commandAllocator.get_allocated_size();
             const uint32_t wipeSize = offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
-            if (cursor + wipeSize < params.m_commandAllocator.get_total_size())
+            if (cursor + wipeSize < header.m_commandAllocator.get_total_size())
                 memset(m_data + cursor, 0, wipeSize);
         }
     };
+    static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
 
     class CBindIndexBufferCmd;
 
@@ -146,15 +161,15 @@ public:
     virtual const void* getNativeHandle() const = 0;
 
     template <typename Cmd, typename... Args>
-    Cmd* emplace(CommandSegment::Iterator& segmentListHeadItr, CommandSegment*& segmentListTail, Args&&... args)
+    Cmd* emplace(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail, Args&&... args)
     {
         if (segmentListTail == nullptr)
         {
-            void* cmdSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CommandSegment));
+            void* cmdSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CCommandSegment));
             if (!cmdSegmentMem)
                 return nullptr;
 
-            segmentListTail = new (cmdSegmentMem) CommandSegment;
+            segmentListTail = new (cmdSegmentMem) CCommandSegment;
             segmentListHeadItr.m_segment = segmentListTail;
         }
 
@@ -162,19 +177,19 @@ public:
         Cmd* cmd = segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
         if (!cmd)
         {
-            void* nextSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CommandSegment));
+            void* nextSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CCommandSegment));
             if (nextSegmentMem == nullptr)
                 return nullptr;
 
-            CommandSegment* nextSegment = new (nextSegmentMem) CommandSegment;
+            CCommandSegment* nextSegment = new (nextSegmentMem) CCommandSegment;
 
             // cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
             cmd = segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
             if (!cmd)
                 return nullptr;
 
-            segmentListTail->params.m_next = nextSegment;
-            segmentListTail = segmentListTail->params.m_next;
+            segmentListTail->setNext(nextSegment);
+            segmentListTail = segmentListTail->getNext();
         }
 
         if (segmentListHeadItr.m_cmd == nullptr)
@@ -183,40 +198,40 @@ public:
         return cmd;
     }
 
-    void deleteCommandSegmentList(CommandSegment::Iterator& segmentListHeadItr, CommandSegment*& segmentListTail)
+    void deleteCommandSegmentList(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail)
     {
         auto& itr = segmentListHeadItr;
 
         if (itr.m_segment && itr.m_cmd)
         {
-            bool lastCmd = itr.m_cmd->m_size == 0u;
+            bool lastCmd = itr.m_cmd->getSize() == 0u;
             while (!lastCmd)
             {
                 ICommand* currCmd = itr.m_cmd;
-                CommandSegment* currSegment = itr.m_segment;
+                CCommandSegment* currSegment = itr.m_segment;
 
-                itr.m_cmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + currCmd->m_size);
+                itr.m_cmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + currCmd->getSize());
                 currCmd->~ICommand();
                 // No need to deallocate currCmd because it has been allocated from the LinearAddressAllocator where deallocate is a No-OP and the memory will
                 // get reclaimed in ~LinearAddressAllocator
 
-                if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment)) > CommandSegment::STORAGE_SIZE)
+                if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment)) > CCommandSegment::STORAGE_SIZE)
                 {
-                    CommandSegment* nextSegment = currSegment->params.m_next;
+                    CCommandSegment* nextSegment = currSegment->getNext();
                     if (!nextSegment)
                         break;
 
-                    currSegment->~CommandSegment();
+                    currSegment->~CCommandSegment();
                     m_commandSegmentPool.deallocate(currSegment, COMMAND_SEGMENT_SIZE);
 
                     itr.m_segment = nextSegment;
-                    itr.m_cmd = reinterpret_cast<ICommand*>(itr.m_segment->m_data);
+                    itr.m_cmd = itr.m_segment->getFirstCommand();
                 }
 
-                lastCmd = itr.m_cmd->m_size == 0u;
+                lastCmd = itr.m_cmd->getSize() == 0u;
                 if (lastCmd)
                 {
-                    currSegment->~CommandSegment();
+                    currSegment->~CCommandSegment();
                     m_commandSegmentPool.deallocate(currSegment, COMMAND_SEGMENT_SIZE);
                 }
             }

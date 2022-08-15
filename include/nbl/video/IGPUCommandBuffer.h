@@ -307,8 +307,8 @@ protected:
     virtual bool bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
 
     // TODO(achal): private
-    IGPUCommandPool::CommandSegment::Iterator m_segmentListHeadItr = {};
-    IGPUCommandPool::CommandSegment* m_segmentListTail = nullptr;
+    IGPUCommandPool::CCommandSegment::Iterator m_segmentListHeadItr = {};
+    IGPUCommandPool::CCommandSegment* m_segmentListTail = nullptr;
 
 private:
     // Be wary of making it protected/calling it in the derived classes because it sets state which will overwrite the state set in base class methods.

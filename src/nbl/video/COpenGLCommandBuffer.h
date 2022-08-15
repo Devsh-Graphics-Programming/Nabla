@@ -506,7 +506,7 @@ protected:
 
 public:
     static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
-    static bool beginRenderpass_clearAttachments2(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
+    static bool beginRenderpass_clearAttachments2(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
 
     static inline GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
     {
@@ -1339,8 +1339,8 @@ public:
 
 private:
     SOpenGLContextLocalCache m_stateCache;
-    IGPUCommandPool::CommandSegment::Iterator m_GLSegmentListHeadItr = {};
-    IGPUCommandPool::CommandSegment* m_GLSegmentListTail = nullptr;
+    IGPUCommandPool::CCommandSegment::Iterator m_GLSegmentListHeadItr = {};
+    IGPUCommandPool::CCommandSegment* m_GLSegmentListTail = nullptr;
 };
 
 }

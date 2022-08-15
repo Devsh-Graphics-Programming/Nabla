@@ -421,7 +421,7 @@ void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTabl
     }
 }
 
-bool COpenGLCommandBuffer::beginRenderpass_clearAttachments2(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+bool COpenGLCommandBuffer::beginRenderpass_clearAttachments2(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
 {
     auto& rp = info.framebuffer->getCreationParameters().renderpass;
     auto& sub = rp->getSubpasses().begin()[0];
@@ -588,7 +588,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextL
 {
 // #define NEW_WAY
 #ifdef NEW_WAY
-    IGPUCommandPool::CommandSegment::Iterator itr = m_segmentListHeadItr;
+    IGPUCommandPool::CCommandSegment::Iterator itr = m_segmentListHeadItr;
 
     if (itr.m_segment && itr.m_cmd)
     {
@@ -598,9 +598,9 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextL
             glcmd->operator()(gl, ctxlocal, ctxid, m_logger.getOptRawPtr(), this);
 
             itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->m_size);
-            if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->m_data) > IGPUCommandPool::CommandSegment::STORAGE_SIZE)
+            if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->m_data) > IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
             {
-                IGPUCommandPool::CommandSegment* nextSegment = itr.m_segment->params.m_next;
+                IGPUCommandPool::CCommandSegment* nextSegment = itr.m_segment->params.m_next;
                 if (!nextSegment)
                     break;
 
