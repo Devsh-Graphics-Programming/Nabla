@@ -1288,26 +1288,45 @@ protected:
             return nullptr;
         }
         
-        VkBaseInStructure * firstFeatureInChain = nullptr;
-        // Vulkan has problems with having features in the feature chain that have values set to false.
+        core::unordered_set<core::string> extensionToEnableNames;
+
+        // We might alter it to account for dependancies.
+        SFeatures& enabledFeatures = params.featuresToEnable;
+
+        VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
+
+        VkBaseInStructure * lastFeatureInChain = reinterpret_cast<VkBaseInStructure*>(&vulkan11Features);
+        VkBaseInStructure * firstFeatureInChain = lastFeatureInChain;
+        // Vulkan has problems with having features in the feature chain that have all values set to false.
         // For example having an empty "RayTracingPipelineFeaturesKHR" in the chain will lead to validation errors for RayQueryONLY applications.
-        auto addFeatureToChain = [&firstFeatureInChain](void* feature) -> void
+        auto addFeatureToChain = [&firstFeatureInChain,&lastFeatureInChain](void* feature) -> void
         {
             VkBaseInStructure* toAdd = reinterpret_cast<VkBaseInStructure*>(feature);
-            toAdd->pNext = firstFeatureInChain;
-            firstFeatureInChain = toAdd;
+            
+            // For protecting against duplication of feature structures that may be requested to add to chain twice due to extension requirements
+            const bool alreadyAdded = (toAdd->pNext != nullptr || toAdd == lastFeatureInChain);
+            // More robust version, traverse chain:
+            //const bool alreadyAdded = [&toAdd]() -> bool 
+            //{
+            //    VkBaseInStructure* current = firstFeatureInChain;
+            //    while(current != nullptr)
+            //    {
+            //        if(current->sType == toAdd->sType)
+            //            return false;
+            //        current = current->pNext;
+            //    }
+            //    return true;
+            //}();
+
+            if(!alreadyAdded)
+            {
+                toAdd->pNext = firstFeatureInChain;
+                firstFeatureInChain = toAdd;
+            }
         };
 
         {
-            core::unordered_set<core::string> extensionToEnableNames;
-
-            // We might alter it to account for dependancies.
-            SFeatures& enabledFeatures = params.featuresToEnable;
-
-            // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Features`
             VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
-            VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
-
             const bool useVk12Struct = m_properties.apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0);
             if(useVk12Struct)
             {
@@ -1489,6 +1508,48 @@ protected:
             }
 
             // B. FeaturesToEnable: add names to strings and structs to feature chain
+            
+            /* Vulkan 1.0 Core  */
+            vk_deviceFeatures2.features.robustBufferAccess = enabledFeatures.robustBufferAccess;
+            vk_deviceFeatures2.features.fullDrawIndexUint32 = enabledFeatures.fullDrawIndexUint32;
+            vk_deviceFeatures2.features.imageCubeArray = enabledFeatures.imageCubeArray;
+            vk_deviceFeatures2.features.independentBlend = enabledFeatures.independentBlend;
+            vk_deviceFeatures2.features.geometryShader = enabledFeatures.geometryShader;
+            vk_deviceFeatures2.features.tessellationShader = enabledFeatures.tessellationShader;
+            vk_deviceFeatures2.features.sampleRateShading = enabledFeatures.sampleRateShading;
+            vk_deviceFeatures2.features.dualSrcBlend = enabledFeatures.dualSrcBlend;
+            vk_deviceFeatures2.features.logicOp = enabledFeatures.logicOp;
+            vk_deviceFeatures2.features.multiDrawIndirect = enabledFeatures.multiDrawIndirect;
+            vk_deviceFeatures2.features.drawIndirectFirstInstance = enabledFeatures.drawIndirectFirstInstance;
+            vk_deviceFeatures2.features.depthClamp = enabledFeatures.depthClamp;
+            vk_deviceFeatures2.features.depthBiasClamp = enabledFeatures.depthBiasClamp;
+            vk_deviceFeatures2.features.fillModeNonSolid = enabledFeatures.fillModeNonSolid;
+            vk_deviceFeatures2.features.depthBounds = enabledFeatures.depthBounds;
+            vk_deviceFeatures2.features.wideLines = enabledFeatures.wideLines;
+            vk_deviceFeatures2.features.largePoints = enabledFeatures.largePoints;
+            vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
+            vk_deviceFeatures2.features.multiViewport = enabledFeatures.multiViewport;
+            vk_deviceFeatures2.features.samplerAnisotropy = enabledFeatures.samplerAnisotropy;
+            vk_deviceFeatures2.features.occlusionQueryPrecise = enabledFeatures.occlusionQueryPrecise;
+            vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
+            vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = enabledFeatures.shaderStorageImageExtendedFormats;
+            vk_deviceFeatures2.features.shaderStorageImageMultisample = enabledFeatures.shaderStorageImageMultisample;
+            vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = enabledFeatures.shaderStorageImageReadWithoutFormat;
+            vk_deviceFeatures2.features.shaderStorageImageWriteWithoutFormat = enabledFeatures.shaderStorageImageWriteWithoutFormat;
+            vk_deviceFeatures2.features.shaderUniformBufferArrayDynamicIndexing = enabledFeatures.shaderUniformBufferArrayDynamicIndexing;
+            vk_deviceFeatures2.features.shaderSampledImageArrayDynamicIndexing = enabledFeatures.shaderSampledImageArrayDynamicIndexing;
+            vk_deviceFeatures2.features.shaderStorageBufferArrayDynamicIndexing = enabledFeatures.shaderStorageBufferArrayDynamicIndexing;
+            vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = enabledFeatures.shaderStorageImageArrayDynamicIndexing;
+            vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
+            vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
+            vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.vertexAttributeDouble;
+            vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
+            vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
+            vk_deviceFeatures2.features.variableMultisampleRate = enabledFeatures.variableMultisampleRate;
+            vk_deviceFeatures2.features.inheritedQueries = enabledFeatures.inheritedQueries;
+
+            /* Vulkan 1.1 Core */
+            vulkan11Features.shaderDrawParameters = enabledFeatures.shaderDrawParameters;
 
             vk_deviceFeatures2.pNext = firstFeatureInChain;
         }
