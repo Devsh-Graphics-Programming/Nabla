@@ -587,11 +587,8 @@ public:
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, &rayTracingMotionBlurFeatures };
         VkPhysicalDeviceShaderFloat16Int8Features                       shaderFloat16Int8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, &subgroupSizeControlFeatures };
         VkPhysicalDeviceDescriptorIndexingFeaturesEXT                   descriptorIndexingFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, &shaderFloat16Int8Features };
-        VkPhysicalDeviceScalarBlockLayoutFeaturesEXT                    scalarBlockLayoutFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT, &descriptorIndexingFeaturesEXT };
-        VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR          uniformBufferStandardLayoutFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR, &scalarBlockLayoutFeaturesEXT };
-        VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR          shaderSubgroupExtendedTypesFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, &uniformBufferStandardLayoutFeaturesKHR };
-        VkPhysicalDeviceSeparateDepthStencilLayoutsFeaturesKHR          separateDepthStencilLayoutsFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES_KHR, &shaderSubgroupExtendedTypesFeaturesKHR };
-        VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT       shaderDemoteToHelperInvocationFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, &separateDepthStencilLayoutsFeaturesKHR };
+        VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR          shaderSubgroupExtendedTypesFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, &descriptorIndexingFeaturesEXT };
+        VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT       shaderDemoteToHelperInvocationFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, &shaderSubgroupExtendedTypesFeaturesKHR };
         VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR            shaderTerminateInvocationFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR, &shaderDemoteToHelperInvocationFeaturesEXT };
         VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR              shaderIntegerDotProductFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR, &shaderTerminateInvocationFeaturesKHR };
         VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, &shaderIntegerDotProductFeaturesKHR };
@@ -728,7 +725,6 @@ public:
             if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             {
                 m_features.accelerationStructure = accelerationFeatures.accelerationStructure;
-                m_features.accelerationStructureCaptureReplay = accelerationFeatures.accelerationStructureCaptureReplay;
                 m_features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
                 m_features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
                 m_features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
@@ -912,7 +908,7 @@ public:
 
             if (isExtensionSupported(VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME) || isExtensionSupported(VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME))
             {
-                m_features.representativeFragmentTest = true;
+                m_features.mixedAttachmentSamples = true;
             }
 
             if (isExtensionSupported(VK_EXT_HDR_METADATA_EXTENSION_NAME))
@@ -1278,10 +1274,12 @@ public:
 
         return m_bufferUsages[format];
     }
-            
+ 
 protected:
+
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override
     {
+        params.featuresToEnable.resolveDependencies();
         if(m_features < params.featuresToEnable)
         {
             assert(false); // Requested features are not all supported by physical device
@@ -1327,6 +1325,7 @@ protected:
 
         {
             VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
+            // [FUTURE TODO]: Remove this madness when we bump minimum requirement to Vulkan 1.2
             const bool useVk12Struct = m_properties.apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0);
             if(useVk12Struct)
             {
@@ -1379,10 +1378,7 @@ protected:
             VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, nullptr };
             VkPhysicalDeviceShaderFloat16Int8Features                       shaderFloat16Int8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, nullptr };
             VkPhysicalDeviceDescriptorIndexingFeaturesEXT                   descriptorIndexingFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, nullptr };
-            VkPhysicalDeviceScalarBlockLayoutFeaturesEXT                    scalarBlockLayoutFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT, nullptr };
-            VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR          uniformBufferStandardLayoutFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR, nullptr };
             VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR          shaderSubgroupExtendedTypesFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, nullptr };
-            VkPhysicalDeviceSeparateDepthStencilLayoutsFeaturesKHR          separateDepthStencilLayoutsFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES_KHR, nullptr };
             VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT       shaderDemoteToHelperInvocationFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, nullptr };
             VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR            shaderTerminateInvocationFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR, nullptr };
             VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR              shaderIntegerDotProductFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR, nullptr };
@@ -1550,6 +1546,168 @@ protected:
 
             /* Vulkan 1.1 Core */
             vulkan11Features.shaderDrawParameters = enabledFeatures.shaderDrawParameters;
+            
+            /* Vulkan 1.2 Core */
+
+#define CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(VAR_NAME, EXT_NAME, FEATURE_STRUCT)             \
+            if(enabledFeatures.VAR_NAME)                                                        \
+            {                                                                                   \
+                if(useVk12Struct)                                                               \
+                    vulkan12Features.VAR_NAME = enabledFeatures.VAR_NAME;                       \
+                else                                                                            \
+                {                                                                               \
+                    insertExtensionIfAvailable(EXT_NAME);                                       \
+                    FEATURE_STRUCT.VAR_NAME = enabledFeatures.VAR_NAME;                         \
+                    addFeatureToChain(&FEATURE_STRUCT);                                         \
+                }                                                                               \
+            }
+                
+#define CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(VAR_NAME, EXT_NAME)                              \
+            if(enabledFeatures.VAR_NAME)                                                        \
+            {                                                                                   \
+                insertExtensionIfAvailable(EXT_NAME);                                           \
+                if(useVk12Struct)                                                               \
+                    vulkan12Features.VAR_NAME = true;                                           \
+            }
+
+            CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(samplerMirrorClampToEdge, VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
+            CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(drawIndirectCount, VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+
+            if (enabledFeatures.descriptorIndexing ||
+                enabledFeatures.shaderInputAttachmentArrayDynamicIndexing ||
+                enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing ||
+                enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing ||
+                enabledFeatures.shaderUniformBufferArrayNonUniformIndexing ||
+                enabledFeatures.shaderSampledImageArrayNonUniformIndexing ||
+                enabledFeatures.shaderStorageBufferArrayNonUniformIndexing ||
+                enabledFeatures.shaderStorageImageArrayNonUniformIndexing ||
+                enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing ||
+                enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing ||
+                enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing ||
+                enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind ||
+                enabledFeatures.descriptorBindingSampledImageUpdateAfterBind ||
+                enabledFeatures.descriptorBindingStorageImageUpdateAfterBind ||
+                enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind ||
+                enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind ||
+                enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind ||
+                enabledFeatures.descriptorBindingUpdateUnusedWhilePending ||
+                enabledFeatures.descriptorBindingPartiallyBound ||
+                enabledFeatures.descriptorBindingVariableDescriptorCount ||
+                enabledFeatures.runtimeDescriptorArray)
+            {
+
+                enabledFeatures.descriptorIndexing = true; // IMPLICIT ENABLE Because: descriptorIndexing indicates whether the implementation supports the minimum set of descriptor indexing features
+                if(useVk12Struct)
+                {
+                    vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
+                    vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
+                    vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
+                    vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing;
+                    vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformBufferArrayNonUniformIndexing;
+                    vulkan12Features.shaderSampledImageArrayNonUniformIndexing = enabledFeatures.shaderSampledImageArrayNonUniformIndexing;
+                    vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageBufferArrayNonUniformIndexing;
+                    vulkan12Features.shaderStorageImageArrayNonUniformIndexing = enabledFeatures.shaderStorageImageArrayNonUniformIndexing;
+                    vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing;
+                    vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing;
+                    vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing;
+                    vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind;
+                    vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = enabledFeatures.descriptorBindingSampledImageUpdateAfterBind;
+                    vulkan12Features.descriptorBindingStorageImageUpdateAfterBind = enabledFeatures.descriptorBindingStorageImageUpdateAfterBind;
+                    vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind;
+                    vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind;
+                    vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind;
+                    vulkan12Features.descriptorBindingUpdateUnusedWhilePending = enabledFeatures.descriptorBindingUpdateUnusedWhilePending;
+                    vulkan12Features.descriptorBindingPartiallyBound = enabledFeatures.descriptorBindingPartiallyBound;
+                    vulkan12Features.descriptorBindingVariableDescriptorCount = enabledFeatures.descriptorBindingVariableDescriptorCount;
+                    vulkan12Features.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
+                }
+                else
+                {
+                    // All Requirements Promoted to Vulkan 1.1
+                    insertExtensionIfAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+                    descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
+                    descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
+                    descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayDynamicIndexing = enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing;
+                    descriptorIndexingFeaturesEXT.shaderUniformBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformBufferArrayNonUniformIndexing;
+                    descriptorIndexingFeaturesEXT.shaderSampledImageArrayNonUniformIndexing = enabledFeatures.shaderSampledImageArrayNonUniformIndexing;
+                    descriptorIndexingFeaturesEXT.shaderStorageBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageBufferArrayNonUniformIndexing;
+                    descriptorIndexingFeaturesEXT.shaderStorageImageArrayNonUniformIndexing = enabledFeatures.shaderStorageImageArrayNonUniformIndexing;
+                    descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayNonUniformIndexing = enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing;
+                    descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing;
+                    descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing;
+                    descriptorIndexingFeaturesEXT.descriptorBindingUniformBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind;
+                    descriptorIndexingFeaturesEXT.descriptorBindingSampledImageUpdateAfterBind = enabledFeatures.descriptorBindingSampledImageUpdateAfterBind;
+                    descriptorIndexingFeaturesEXT.descriptorBindingStorageImageUpdateAfterBind = enabledFeatures.descriptorBindingStorageImageUpdateAfterBind;
+                    descriptorIndexingFeaturesEXT.descriptorBindingStorageBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind;
+                    descriptorIndexingFeaturesEXT.descriptorBindingUniformTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind;
+                    descriptorIndexingFeaturesEXT.descriptorBindingStorageTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind;
+                    descriptorIndexingFeaturesEXT.descriptorBindingUpdateUnusedWhilePending = enabledFeatures.descriptorBindingUpdateUnusedWhilePending;
+                    descriptorIndexingFeaturesEXT.descriptorBindingPartiallyBound = enabledFeatures.descriptorBindingPartiallyBound;
+                    descriptorIndexingFeaturesEXT.descriptorBindingVariableDescriptorCount = enabledFeatures.descriptorBindingVariableDescriptorCount;
+                    descriptorIndexingFeaturesEXT.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
+                    addFeatureToChain(&descriptorIndexingFeaturesEXT);
+                }
+            }
+    
+            CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(samplerFilterMinmax, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
+            CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(scalarBlockLayout, VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME, scalarBlockLayoutFeatures);
+            CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(uniformBufferStandardLayout, VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME, uniformBufferStandardLayoutFeatures);
+            CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(shaderSubgroupExtendedTypes, VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME, shaderSubgroupExtendedTypesFeaturesKHR);
+            CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(separateDepthStencilLayouts, VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME, separateDepthStencilLayoutsFeatures);
+            CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(separateDepthStencilLayouts, VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME, separateDepthStencilLayoutsFeatures);
+
+            if (enabledFeatures.bufferDeviceAddress || enabledFeatures.bufferDeviceAddressMultiDevice)
+            {
+                enabledFeatures.bufferDeviceAddress = true; // IMPLICIT ENABLE
+                if(useVk12Struct)
+                {
+                    vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
+                    vulkan12Features.bufferDeviceAddressCaptureReplay = false;
+                    vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
+                }
+                else
+                {
+                    // All Requirements Promoted to Vulkan 1.1
+                    insertExtensionIfAvailable(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+                    bufferDeviceAddressFeatures.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
+                    bufferDeviceAddressFeatures.bufferDeviceAddressCaptureReplay = false;
+                    bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
+                    addFeatureToChain(&bufferDeviceAddressFeatures);
+                }
+            }
+    
+            if (enabledFeatures.vulkanMemoryModel ||
+                enabledFeatures.vulkanMemoryModelDeviceScope ||
+                enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains)
+            {
+                enabledFeatures.vulkanMemoryModel = true; // IMPLICIT ENABLE
+                if(useVk12Struct)
+                {
+                    vulkan12Features.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
+                    vulkan12Features.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
+                    vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
+                }
+                else
+                {
+                    // All Requirements Promoted to Vulkan 1.1
+                    insertExtensionIfAvailable(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME);
+                    vulkanMemoryModelFeatures.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
+                    vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
+                    vulkanMemoryModelFeatures.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
+                    addFeatureToChain(&vulkanMemoryModelFeatures);
+                }
+            }
+            
+            if(useVk12Struct)
+                vulkan12Features.subgroupBroadcastDynamicId = enabledFeatures.subgroupBroadcastDynamicId;
+            
+#define CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(VAR_NAME, EXT_NAME, FEATURE_STRUCT)           \
+            if(enabledFeatures.VAR_NAME)                                                    \
+            {                                                                               \
+                insertExtensionIfAvailable(EXT_NAME);                                       \
+                FEATURE_STRUCT.VAR_NAME = enabledFeatures.VAR_NAME;                         \
+                addFeatureToChain(&FEATURE_STRUCT);                                         \
+            }
 
             vk_deviceFeatures2.pNext = firstFeatureInChain;
         }
@@ -1615,7 +1773,6 @@ protected:
         if (selectedFeatureSet.find(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) != selectedFeatureSet.end())
         {
             accelerationStructureFeatures.accelerationStructure = m_features.accelerationStructure;
-            accelerationStructureFeatures.accelerationStructureCaptureReplay = m_features.accelerationStructureCaptureReplay;
             accelerationStructureFeatures.accelerationStructureIndirectBuild = m_features.accelerationStructureIndirectBuild;
             accelerationStructureFeatures.accelerationStructureHostCommands = m_features.accelerationStructureHostCommands;
             accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = m_features.descriptorBindingAccelerationStructureUpdateAfterBind;

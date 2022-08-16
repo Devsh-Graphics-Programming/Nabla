@@ -450,7 +450,6 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.shaderImageInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_IMAGE_INT64_ATOMICS");
     if (m_features.sparseImageInt64Atomics) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SPARSE_IMAGE_INT64_ATOMICS");
     if (m_features.accelerationStructure) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE");
-    // if (m_features.accelerationStructureCaptureReplay) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_CAPTURE_REPLAY"); // [DO NOT EXPOSE] for capture tools 
     if (m_features.accelerationStructureIndirectBuild) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_INDIRECT_BUILD");
     if (m_features.accelerationStructureHostCommands) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ACCELERATION_STRUCTURE_HOST_COMMANDS");
     // if (m_features.descriptorBindingAccelerationStructureUpdateAfterBind) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_ACCELERATION_STRUCTURE_UPDATE_AFTER_BIND"); // shader doesn't need to know about
