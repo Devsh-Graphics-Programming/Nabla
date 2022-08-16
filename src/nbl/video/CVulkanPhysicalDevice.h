@@ -1706,10 +1706,22 @@ protected:
                 FEATURE_STRUCT.VAR_NAME = enabledFeatures.VAR_NAME;                         \
                 addFeatureToChain(&FEATURE_STRUCT);                                         \
             }
+
             
             /* Vulkan 1.3 Core */
             CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(shaderDemoteToHelperInvocation, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME, shaderDemoteToHelperInvocationFeaturesEXT);
             CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(shaderTerminateInvocation, VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME, shaderTerminateInvocationFeatures);
+            
+            if (enabledFeatures.subgroupSizeControl ||
+                enabledFeatures.computeFullSubgroups)
+            {
+                // All Requirements Promoted to Vulkan 1.1
+                insertExtensionIfAvailable(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME);
+                subgroupSizeControlFeatures.subgroupSizeControl = enabledFeatures.subgroupSizeControl;
+                subgroupSizeControlFeatures.computeFullSubgroups = enabledFeatures.computeFullSubgroups;
+                addFeatureToChain(&subgroupSizeControlFeatures);
+            }
+            
             CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(shaderIntegerDotProduct, VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME, shaderIntegerDotProductFeatures);
             
     bool  = false;               // or 
