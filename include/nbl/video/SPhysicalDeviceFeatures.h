@@ -412,7 +412,6 @@ struct SPhysicalDeviceFeatures
 
     /* AccelerationStructureFeaturesKHR *//* VK_KHR_acceleration_structure */
     bool accelerationStructure = false;
-    bool accelerationStructureCaptureReplay = false;
     bool accelerationStructureIndirectBuild = false;
     bool accelerationStructureHostCommands = false;
     bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
@@ -575,6 +574,15 @@ struct SPhysicalDeviceFeatures
     bool memoryPriority = false;
 
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
+    /*
+        This extension adds stricter requirements for how out of bounds reads and writes are handled.
+        Most accesses must be tightly bounds-checked, out of bounds writes must be discarded, out of bound reads must return zero.
+        Rather than allowing multiple possible (0,0,0,x) vectors, the out of bounds values are treated as zero, and then missing components are inserted based on the format.
+        These additional requirements may be expensive on some implementations, and should only be enabled when truly necessary.
+
+        ! nullDescriptor: you can use `nullptr` for writing descriptors to sets and Accesses to null descriptors have well-defined behavior.
+        [TODO] Handle `nullDescriptor` feature in the engine.
+    */
     bool robustBufferAccess2 = false;
     bool robustImageAccess2 = false;
     bool nullDescriptor = false;
@@ -586,6 +594,8 @@ struct SPhysicalDeviceFeatures
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
     bool pipelineExecutableInfo = false;
 
+    // [TODO] why did we ever expose it like this?!
+    // Use multiple booleans that represent what `VK_KHR_maintenance4` adds support for, see description in https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_maintenance4.html
     /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
     bool maintenance4 = false;
 
@@ -1164,7 +1174,6 @@ struct SPhysicalDeviceFeatures
         if (shaderImageInt64Atomics && !_rhs.shaderImageInt64Atomics) return false;
         if (sparseImageInt64Atomics && !_rhs.sparseImageInt64Atomics) return false;
         if (accelerationStructure && !_rhs.accelerationStructure) return false;
-        if (accelerationStructureCaptureReplay && !_rhs.accelerationStructureCaptureReplay) return false;
         if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
         if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
         if (descriptorBindingAccelerationStructureUpdateAfterBind && !_rhs.descriptorBindingAccelerationStructureUpdateAfterBind) return false;
@@ -1252,6 +1261,75 @@ struct SPhysicalDeviceFeatures
 
         return true;
     }
+    
+    //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
+    //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.
+    void resolveDependencies()
+    {
+        // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`: this dependancy needs the extension to be enabled not individual features, so this will be handled later on when enabling features before vkCreateDevice
+        
+        if (rayTracingMotionBlur ||
+            rayTracingMotionBlurPipelineTraceRaysIndirect)
+        {
+            rayTracingPipeline = true;
+        }
+
+        if (rayTracingPipeline ||
+            rayTracingPipelineTraceRaysIndirect ||
+            rayTracingPipelineTraceRaysIndirect)
+        {
+            accelerationStructure = true;
+            // Also requires to enable VK_KHR_spirv_1_4, make sure spirv version is equal or higher than this, if not enable this extension
+            // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
+        }
+
+        if (rayQuery)
+        {
+            accelerationStructure = true;
+            // Also requires to enable VK_KHR_spirv_1_4, make sure spirv version is equal or higher than this, if not enable this extensio
+            // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
+        }
+
+        if (accelerationStructure ||
+            accelerationStructureIndirectBuild ||
+            accelerationStructureHostCommands ||
+            descriptorBindingAccelerationStructureUpdateAfterBind)
+        {
+            descriptorIndexing = true;
+            bufferDeviceAddress = true;
+            // Also requires VK_KHR_deferred_host_operations, this will be handled later on when enabling features before vkCreateDevice
+        }
+
+        // VK_NV_coverage_reduction_mode requires VK_NV_framebuffer_mixed_samples
+        if (coverageReductionMode)
+            mixedAttachmentSamples = true;
+
+        if (deviceGeneratedCommands)
+            bufferDeviceAddress = true;
+        
+        // VK_EXT_hdr_metadata Requires VK_KHR_swapchain to be enabled
+        if (hdrMetadata)
+        {
+            swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
+            // And VK_KHR_swapchain requires VK_KHR_surface instance extension
+        }
+        
+        // VK_GOOGLE_display_timing Requires VK_KHR_swapchain to be enabled
+        if (displayTiming)
+        {
+            swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
+            // And VK_KHR_swapchain requires VK_KHR_surface instance extension
+        }
+
+        // `VK_EXT_fragment_density_map2` Requires `FragmentDensityMapFeaturesEXT`
+        if (fragmentDensityMapDeferred)
+        {
+            fragmentDensityMap = true;
+        }
+        
+        // Handle later: E_SWAPCHAIN_MODE::ESM_SURFACE: VK_KHR_swapchain requires VK_KHR_surface instance extension
+    }
+
 };
 
 } // nbl::video
