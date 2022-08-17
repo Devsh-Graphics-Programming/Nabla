@@ -11,7 +11,8 @@ switch (_fclass)
     case EFC_192_BIT: [[fallthrough]];
     case EFC_256_BIT:
         return core::vector3du32_SIMD(1u, 1u, 1u);
-    case EFC_BC1: [[fallthrough]];
+    case EFC_BC1_RGB: [[fallthrough]];
+    case EFC_BC1_RGBA: [[fallthrough]];
     case EFC_BC2: [[fallthrough]];
     case EFC_BC3: [[fallthrough]];
     case EFC_BC4: [[fallthrough]];

@@ -134,10 +134,11 @@ switch (_fmt)
     case EF_R64G64B64A64_SFLOAT:
         return EFC_256_BIT;
     case EF_BC1_RGB_UNORM_BLOCK: [[fallthrough]];
-    case EF_BC1_RGB_SRGB_BLOCK: [[fallthrough]];
+    case EF_BC1_RGB_SRGB_BLOCK:
+        return EFC_BC1_RGB;
     case EF_BC1_RGBA_UNORM_BLOCK: [[fallthrough]];
     case EF_BC1_RGBA_SRGB_BLOCK:
-        return EFC_BC1;
+        return EFC_BC1_RGBA;
     case EF_BC2_UNORM_BLOCK: [[fallthrough]];
     case EF_BC2_SRGB_BLOCK:
         return EFC_BC2;

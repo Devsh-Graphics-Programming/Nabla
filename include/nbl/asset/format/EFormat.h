@@ -242,7 +242,8 @@ enum E_FORMAT_CLASS : uint8_t
     EFC_192_BIT,
     EFC_256_BIT,
 
-    EFC_BC1,
+    EFC_BC1_RGB,
+    EFC_BC1_RGBA,
     EFC_BC2,
     EFC_BC3,
     EFC_BC4,

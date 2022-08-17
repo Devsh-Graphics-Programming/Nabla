@@ -7,7 +7,8 @@ switch (_fclass)
         return _fclass+1u;
     case EFC_48_BIT:
         return 6u;
-    case EFC_BC1: [[fallthrough]];
+    case EFC_BC1_RGB: [[fallthrough]];
+    case EFC_BC1_RGBA: [[fallthrough]];
     case EFC_BC4: [[fallthrough]];
     case EFC_64_BIT:
         return 8u;
