@@ -96,7 +96,7 @@ private:
 class COpenGLCommandPool::CBindFramebufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindFramebufferCmd>
 {
 public:
-    CBindFramebufferCmd(const COpenGLFramebuffer::hash_t& fboHash, const core::smart_refctd_ptr<const COpenGLFramebuffer>& fbo) : m_fboHash(fboHash), m_fbo(fbo) {}
+    CBindFramebufferCmd(const COpenGLFramebuffer::hash_t& fboHash, core::smart_refctd_ptr<const COpenGLFramebuffer>&& fbo) : m_fboHash(fboHash), m_fbo(std::move(fbo)) {}
 
     void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
 

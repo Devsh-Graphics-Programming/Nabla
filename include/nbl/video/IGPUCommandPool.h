@@ -95,8 +95,17 @@ public:
 
         struct Iterator
         {
-            CCommandSegment* m_segment = nullptr;
             ICommand* m_cmd = nullptr;
+            // uint32_t m_size = 0;
+            CCommandSegment* m_segment = nullptr;
+
+            inline bool operator!=(const Iterator& other) const { return m_cmd != other.m_cmd; }
+            // TODO(achal): Return Iterator&?
+            // inline void operator++()
+            // {
+            //     m_cmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(m_cmd) + m_size);
+            //     m_size = ;
+            // }
         };
 
         CCommandSegment()
@@ -108,8 +117,7 @@ public:
         }
 
         template <typename Cmd, typename... Args>
-        // Cmd* allocate(const Args&... args)
-        Cmd* allocate(Args&&... args)
+        void* allocate(const Args&... args)
         {
             const uint32_t cmdSize = Cmd::calc_size(args...);
             const auto address = header.m_commandAllocator.alloc_addr(cmdSize, alignof(Cmd));
@@ -119,12 +127,25 @@ public:
             wipeNextCommandSize();
 
             void* cmdMem = m_data + address;
-            return new (cmdMem) Cmd(args...);
+            return cmdMem;
         }
 
         inline void setNext(CCommandSegment* segment) { header.m_next = segment; }
         inline CCommandSegment* getNext() const { return header.m_next; }
-        inline ICommand* getFirstCommand() { return reinterpret_cast<ICommand*>(m_data); }
+        inline ICommand* getFirstCommand() { return reinterpret_cast<ICommand*>(m_data); } // TODO(achal): Probably remove?
+
+        inline CCommandSegment::Iterator begin()
+        {
+            ICommand* cmd = reinterpret_cast<ICommand*>(m_data);
+            // This assumes that cmd will always be a valid ICommand.
+            // return { cmd, cmd->getSize() };
+            return { cmd };
+        }
+
+        inline CCommandSegment::Iterator end()
+        {
+            return { reinterpret_cast<ICommand*>(m_data + header.m_commandAllocator.get_allocated_size()) };
+        }
 
     private:
         alignas(ICommand) uint8_t m_data[STORAGE_SIZE];
@@ -132,6 +153,7 @@ public:
         void wipeNextCommandSize()
         {
             const auto cursor = header.m_commandAllocator.get_allocated_size();
+            // This also wipes the vtable ptr.
             const uint32_t wipeSize = offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
             if (cursor + wipeSize < header.m_commandAllocator.get_total_size())
                 memset(m_data + cursor, 0, wipeSize);
@@ -173,9 +195,8 @@ public:
             segmentListHeadItr.m_segment = segmentListTail;
         }
 
-        // Cmd* cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
-        Cmd* cmd = segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
-        if (!cmd)
+        void* cmdMem = segmentListTail->allocate<Cmd>(args...);
+        if (!cmdMem)
         {
             void* nextSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CCommandSegment));
             if (nextSegmentMem == nullptr)
@@ -183,14 +204,14 @@ public:
 
             CCommandSegment* nextSegment = new (nextSegmentMem) CCommandSegment;
 
-            // cmd = m_segmentListTail->allocate<Cmd, Args...>(args...);
-            cmd = segmentListTail->allocate<Cmd>(std::forward<Args>(args)...);
-            if (!cmd)
+            cmdMem = segmentListTail->allocate<Cmd>(args...);
+            if (!cmdMem)
                 return nullptr;
 
             segmentListTail->setNext(nextSegment);
             segmentListTail = segmentListTail->getNext();
         }
+        Cmd* cmd = new (cmdMem) Cmd(std::forward<Args>(args)...);
 
         if (segmentListHeadItr.m_cmd == nullptr)
             segmentListHeadItr.m_cmd = cmd;
@@ -200,6 +221,18 @@ public:
 
     void deleteCommandSegmentList(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail)
     {
+#if 1
+
+#if 0
+        for (auto segment = segmentListHeadItr.m_segment; segment;)
+        {
+            for (auto cmdIt = segment->begin(); cmdIt != segment->end(); ++cmdIt)
+                cmdIt.m_cmd->~ICommand();
+
+            segment = segment->getNext();
+        }
+#endif
+
         auto& itr = segmentListHeadItr;
 
         if (itr.m_segment && itr.m_cmd)
@@ -240,6 +273,7 @@ public:
             segmentListHeadItr.m_segment = nullptr;
             segmentListTail = nullptr;
         }
+#endif
     }
 
     bool reset()
@@ -261,13 +295,13 @@ protected:
 
 private:
     std::atomic_uint32_t m_resetCount = 0;
-    core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> m_commandSegmentPool;
+    core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> m_commandSegmentPool;
 };
 
 class IGPUCommandPool::CBindIndexBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CBindIndexBufferCmd>
 {
 public:
-    CBindIndexBufferCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& indexBuffer) : m_indexBuffer(indexBuffer) {}
+    CBindIndexBufferCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& indexBuffer) : m_indexBuffer(std::move(indexBuffer)) {}
 
 protected:
     core::smart_refctd_ptr<const video::IGPUBuffer> m_indexBuffer;
@@ -276,7 +310,7 @@ protected:
 class IGPUCommandPool::CDrawIndirectCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndirectCmd>
 {
 public:
-    CDrawIndirectCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer) : m_buffer(buffer) {}
+    CDrawIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
 protected:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
@@ -285,7 +319,7 @@ protected:
 class IGPUCommandPool::CDrawIndexedIndirectCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndexedIndirectCmd>
 {
 public:
-    CDrawIndexedIndirectCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer) : m_buffer(buffer) {}
+    CDrawIndexedIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
 protected:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
@@ -294,8 +328,8 @@ protected:
 class IGPUCommandPool::CDrawIndirectCountCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndirectCountCmd>
 {
 public:
-    CDrawIndirectCountCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer)
-        : m_buffer(buffer) , m_countBuffer(countBuffer)
+    CDrawIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
+        : m_buffer(std::move(buffer)) , m_countBuffer(std::move(countBuffer))
     {}
 
 protected:
@@ -306,8 +340,8 @@ protected:
 class IGPUCommandPool::CDrawIndexedIndirectCountCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndexedIndirectCountCmd>
 {
 public:
-    CDrawIndexedIndirectCountCmd(const core::smart_refctd_ptr<const video::IGPUBuffer>& buffer, const core::smart_refctd_ptr<const video::IGPUBuffer>& countBuffer)
-        : m_buffer(buffer), m_countBuffer(countBuffer)
+    CDrawIndexedIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
+        : m_buffer(std::move(buffer)), m_countBuffer(std::move(countBuffer))
     {}
 
 protected:
@@ -318,8 +352,8 @@ protected:
 class IGPUCommandPool::CBeginRenderPassCmd : public IGPUCommandPool::IFixedSizeCommand<CBeginRenderPassCmd>
 {
 public:
-    CBeginRenderPassCmd(const core::smart_refctd_ptr<const video::IGPURenderpass>& renderpass, const core::smart_refctd_ptr<const video::IGPUFramebuffer>& framebuffer)
-        : m_renderpass(renderpass), m_framebuffer(framebuffer)
+    CBeginRenderPassCmd(core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass, core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
+        : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer))
     {}
 
 protected:
