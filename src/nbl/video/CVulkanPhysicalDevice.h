@@ -8,7 +8,7 @@
 
 namespace nbl::video
 {
-        
+
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
@@ -1707,11 +1707,17 @@ protected:
                 addFeatureToChain(&FEATURE_STRUCT);                                         \
             }
 
-            
             /* Vulkan 1.3 Core */
             CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(shaderDemoteToHelperInvocation, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME, shaderDemoteToHelperInvocationFeaturesEXT);
             CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(shaderTerminateInvocation, VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME, shaderTerminateInvocationFeatures);
             
+            // Instead of checking and enabling individual features like below, I can do awesome things like this:
+            /*
+                CHECK_VULKAN_EXTENTION(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME, subgroupSizeControlFeatures,
+                        subgroupSizeControl,
+                        computeFullSubgroups);
+            */
+            // But I would need to enable /Zc:preprocessor in compiler So I could use __VA_OPT__ :D
             if (enabledFeatures.subgroupSizeControl ||
                 enabledFeatures.computeFullSubgroups)
             {
@@ -1724,7 +1730,35 @@ protected:
             
             CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(shaderIntegerDotProduct, VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME, shaderIntegerDotProductFeatures);
             
-    bool  = false;               // or 
+            if (enabledFeatures.shaderBufferFloat32Atomics ||
+                enabledFeatures.shaderBufferFloat32AtomicAdd ||
+                enabledFeatures.shaderBufferFloat64Atomics ||
+                enabledFeatures.shaderBufferFloat64AtomicAdd ||
+                enabledFeatures.shaderSharedFloat32Atomics ||
+                enabledFeatures.shaderSharedFloat32AtomicAdd ||
+                enabledFeatures.shaderSharedFloat64Atomics ||
+                enabledFeatures.shaderSharedFloat64AtomicAdd ||
+                enabledFeatures.shaderImageFloat32Atomics ||
+                enabledFeatures.shaderImageFloat32AtomicAdd ||
+                enabledFeatures.sparseImageFloat32Atomics ||
+                enabledFeatures.sparseImageFloat32AtomicAdd)
+            {
+                insertExtensionIfAvailable(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
+                shaderAtomicFloatFeatures.shaderBufferFloat32Atomics   = shaderAtomicFloatFeatures.shaderBufferFloat32Atomics;
+                shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd;
+                shaderAtomicFloatFeatures.shaderBufferFloat64Atomics   = shaderAtomicFloatFeatures.shaderBufferFloat64Atomics;
+                shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd;
+                shaderAtomicFloatFeatures.shaderSharedFloat32Atomics   = shaderAtomicFloatFeatures.shaderSharedFloat32Atomics;
+                shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd;
+                shaderAtomicFloatFeatures.shaderSharedFloat64Atomics   = shaderAtomicFloatFeatures.shaderSharedFloat64Atomics;
+                shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd;
+                shaderAtomicFloatFeatures.shaderImageFloat32Atomics    = shaderAtomicFloatFeatures.shaderImageFloat32Atomics;
+                shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd  = shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd;
+                shaderAtomicFloatFeatures.sparseImageFloat32Atomics    = shaderAtomicFloatFeatures.sparseImageFloat32Atomics;
+                shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd  = shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd;
+                addFeatureToChain(&shaderAtomicFloatFeatures);
+            }
+
 
             vk_deviceFeatures2.pNext = firstFeatureInChain;
         }
