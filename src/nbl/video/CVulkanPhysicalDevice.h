@@ -1416,7 +1416,7 @@ protected:
 
                 if (insertExtensionIfAvailable(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
                 {
-                    // All Requirements Promoted to Vulkan 1.1 
+                    // All Requirements Exist in Vulkan 1.1 
                     _8BitStorageFeaturesKHR.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
                     _8BitStorageFeaturesKHR.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
                     _8BitStorageFeaturesKHR.storagePushConstant8                = m_properties.limits.storagePushConstant8;
@@ -1425,7 +1425,7 @@ protected:
             
                 if (insertExtensionIfAvailable(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
                 {
-                    // All Requirements Promoted to Vulkan 1.1 
+                    // All Requirements Exist in Vulkan 1.1 
                     shaderAtomicInt64FeaturesKHR.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
                     shaderAtomicInt64FeaturesKHR.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
                     addFeatureToChain(&shaderAtomicInt64FeaturesKHR);
@@ -1433,7 +1433,7 @@ protected:
 
                 if (insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
                 {
-                    // All Requirements Promoted to Vulkan 1.1 
+                    // All Requirements Exist in Vulkan 1.1 
                     shaderFloat16Int8Features.shaderFloat16 = m_properties.limits.shaderFloat16;
                     shaderFloat16Int8Features.shaderInt8 = m_properties.limits.shaderInt8;
                     addFeatureToChain(&shaderFloat16Int8Features);
@@ -1448,28 +1448,28 @@ protected:
             
                 if (insertExtensionIfAvailable(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
                 {
-                    // All Requirements Promoted to Vulkan 1.1
+                    // All Requirements Exist in Vulkan 1.1
                     intelShaderIntegerFunctions2.shaderIntegerFunctions2 = m_properties.limits.shaderIntegerFunctions2;
                     addFeatureToChain(&intelShaderIntegerFunctions2);
                 }
 
                 if (insertExtensionIfAvailable(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
                 {
-                    // All Requirements Promoted to Vulkan 1.1
+                    // All Requirements Exist in Vulkan 1.1
                     shaderClockFeatures.shaderSubgroupClock = m_properties.limits.shaderSubgroupClock;
                     addFeatureToChain(&shaderClockFeatures);
                 }
             
                 if (insertExtensionIfAvailable(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
                 {
-                    // All Requirements Promoted to Vulkan 1.1
+                    // All Requirements Exist in Vulkan 1.1
                     shaderImageFootprintFeatures.imageFootprint = m_properties.limits.imageFootprint;
                     addFeatureToChain(&shaderImageFootprintFeatures);
                 }
 
                 if(insertExtensionIfAvailable(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
                 {
-                    // All Requirements Promoted to Vulkan 1.1
+                    // All Requirements Exist in Vulkan 1.1
                     texelBufferAlignmentFeatures.texelBufferAlignment = m_properties.limits.texelBufferAlignment;
                     addFeatureToChain(&texelBufferAlignmentFeatures);
                 }
@@ -1491,9 +1491,9 @@ protected:
                 insertExtensionIfAvailable(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME); // No Extension Requirements
                 insertExtensionIfAvailable(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME); // No Extension Requirements
 
-                insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME); // All Requirements Promoted to Vulkan 1.1 (including instance extensions)
-                insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME); // All Requirements Promoted to Vulkan 1.1 (including instance extensions)
-                insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME); // All Requirements Promoted to Vulkan 1.1 (including instance extensions)
+                insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+                insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+                insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
 
                 insertExtensionIfAvailable(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME); // No Extension Requirements
                 insertExtensionIfAvailable(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME); // No Extension Requirements
@@ -1621,7 +1621,7 @@ protected:
                 }
                 else
                 {
-                    // All Requirements Promoted to Vulkan 1.1
+                    // All Requirements Exist in Vulkan 1.1
                     insertExtensionIfAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
                     descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
                     descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
@@ -1665,7 +1665,7 @@ protected:
                 }
                 else
                 {
-                    // All Requirements Promoted to Vulkan 1.1
+                    // All Requirements Exist in Vulkan 1.1
                     insertExtensionIfAvailable(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
                     bufferDeviceAddressFeatures.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
                     bufferDeviceAddressFeatures.bufferDeviceAddressCaptureReplay = false;
@@ -1687,7 +1687,7 @@ protected:
                 }
                 else
                 {
-                    // All Requirements Promoted to Vulkan 1.1
+                    // All Requirements Exist in Vulkan 1.1
                     insertExtensionIfAvailable(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME);
                     vulkanMemoryModelFeatures.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
                     vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
@@ -1721,7 +1721,7 @@ protected:
             if (enabledFeatures.subgroupSizeControl ||
                 enabledFeatures.computeFullSubgroups)
             {
-                // All Requirements Promoted to Vulkan 1.1
+                // All Requirements Exist in Vulkan 1.1
                 insertExtensionIfAvailable(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME);
                 subgroupSizeControlFeatures.subgroupSizeControl = enabledFeatures.subgroupSizeControl;
                 subgroupSizeControlFeatures.computeFullSubgroups = enabledFeatures.computeFullSubgroups;
@@ -1730,6 +1730,32 @@ protected:
             
             CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(shaderIntegerDotProduct, VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME, shaderIntegerDotProductFeatures);
             
+            if (enabledFeatures.rasterizationOrderColorAttachmentAccess ||
+                enabledFeatures.rasterizationOrderDepthAttachmentAccess ||
+                enabledFeatures.rasterizationOrderStencilAttachmentAccess)
+            {
+                // All Requirements Exist in Vulkan 1.1
+                insertExtensionIfAvailable(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME);
+                rasterizationOrderAttachmentAccessFeatures.rasterizationOrderColorAttachmentAccess = enabledFeatures.rasterizationOrderColorAttachmentAccess;
+                rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess = enabledFeatures.rasterizationOrderDepthAttachmentAccess;
+                rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess = enabledFeatures.rasterizationOrderStencilAttachmentAccess;
+                addFeatureToChain(&rasterizationOrderAttachmentAccessFeatures);
+            }
+
+            if (enabledFeatures.fragmentShaderSampleInterlock ||
+                enabledFeatures.fragmentShaderPixelInterlock ||
+                enabledFeatures.fragmentShaderShadingRateInterlock)
+            {
+                // All Requirements Exist in Vulkan 1.1
+                insertExtensionIfAvailable(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
+                fragmentShaderInterlockFeatures.fragmentShaderSampleInterlock = enabledFeatures.fragmentShaderSampleInterlock;
+                fragmentShaderInterlockFeatures.fragmentShaderPixelInterlock = enabledFeatures.fragmentShaderPixelInterlock;
+                fragmentShaderInterlockFeatures.fragmentShaderShadingRateInterlock = enabledFeatures.fragmentShaderShadingRateInterlock;
+                addFeatureToChain(&fragmentShaderInterlockFeatures);
+            }
+            
+            CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR(indexTypeUint8, VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME, indexTypeUint8Features);
+
             if (enabledFeatures.shaderBufferFloat32Atomics ||
                 enabledFeatures.shaderBufferFloat32AtomicAdd ||
                 enabledFeatures.shaderBufferFloat64Atomics ||
@@ -1744,22 +1770,60 @@ protected:
                 enabledFeatures.sparseImageFloat32AtomicAdd)
             {
                 insertExtensionIfAvailable(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
-                shaderAtomicFloatFeatures.shaderBufferFloat32Atomics   = shaderAtomicFloatFeatures.shaderBufferFloat32Atomics;
-                shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd;
-                shaderAtomicFloatFeatures.shaderBufferFloat64Atomics   = shaderAtomicFloatFeatures.shaderBufferFloat64Atomics;
-                shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd;
-                shaderAtomicFloatFeatures.shaderSharedFloat32Atomics   = shaderAtomicFloatFeatures.shaderSharedFloat32Atomics;
-                shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd;
-                shaderAtomicFloatFeatures.shaderSharedFloat64Atomics   = shaderAtomicFloatFeatures.shaderSharedFloat64Atomics;
-                shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd;
-                shaderAtomicFloatFeatures.shaderImageFloat32Atomics    = shaderAtomicFloatFeatures.shaderImageFloat32Atomics;
-                shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd  = shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd;
-                shaderAtomicFloatFeatures.sparseImageFloat32Atomics    = shaderAtomicFloatFeatures.sparseImageFloat32Atomics;
-                shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd  = shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd;
+                shaderAtomicFloatFeatures.shaderBufferFloat32Atomics   = enabledFeatures.shaderBufferFloat32Atomics;
+                shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd = enabledFeatures.shaderBufferFloat32AtomicAdd;
+                shaderAtomicFloatFeatures.shaderBufferFloat64Atomics   = enabledFeatures.shaderBufferFloat64Atomics;
+                shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd = enabledFeatures.shaderBufferFloat64AtomicAdd;
+                shaderAtomicFloatFeatures.shaderSharedFloat32Atomics   = enabledFeatures.shaderSharedFloat32Atomics;
+                shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd = enabledFeatures.shaderSharedFloat32AtomicAdd;
+                shaderAtomicFloatFeatures.shaderSharedFloat64Atomics   = enabledFeatures.shaderSharedFloat64Atomics;
+                shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd = enabledFeatures.shaderSharedFloat64AtomicAdd;
+                shaderAtomicFloatFeatures.shaderImageFloat32Atomics    = enabledFeatures.shaderImageFloat32Atomics;
+                shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd  = enabledFeatures.shaderImageFloat32AtomicAdd;
+                shaderAtomicFloatFeatures.sparseImageFloat32Atomics    = enabledFeatures.sparseImageFloat32Atomics;
+                shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd  = enabledFeatures.sparseImageFloat32AtomicAdd;
                 addFeatureToChain(&shaderAtomicFloatFeatures);
             }
-
-
+            
+            if (enabledFeatures.shaderBufferFloat16Atomics ||
+                enabledFeatures.shaderBufferFloat16AtomicAdd ||
+                enabledFeatures.shaderBufferFloat16AtomicMinMax ||
+                enabledFeatures.shaderBufferFloat32AtomicMinMax ||
+                enabledFeatures.shaderBufferFloat64AtomicMinMax ||
+                enabledFeatures.shaderSharedFloat16Atomics ||
+                enabledFeatures.shaderSharedFloat16AtomicAdd ||
+                enabledFeatures.shaderSharedFloat16AtomicMinMax ||
+                enabledFeatures.shaderSharedFloat32AtomicMinMax ||
+                enabledFeatures.shaderSharedFloat64AtomicMinMax ||
+                enabledFeatures.shaderImageFloat32AtomicMinMax ||
+                enabledFeatures.sparseImageFloat32AtomicMinMax)
+            {
+                insertExtensionIfAvailable(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME); // Requirement
+                insertExtensionIfAvailable(VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME);
+                shaderAtomicFloat2Features.shaderBufferFloat16Atomics       = enabledFeatures.shaderBufferFloat16Atomics;
+                shaderAtomicFloat2Features.shaderBufferFloat16AtomicAdd     = enabledFeatures.shaderBufferFloat16AtomicAdd;
+                shaderAtomicFloat2Features.shaderBufferFloat16AtomicMinMax  = enabledFeatures.shaderBufferFloat16AtomicMinMax;
+                shaderAtomicFloat2Features.shaderBufferFloat32AtomicMinMax  = enabledFeatures.shaderBufferFloat32AtomicMinMax;
+                shaderAtomicFloat2Features.shaderBufferFloat64AtomicMinMax  = enabledFeatures.shaderBufferFloat64AtomicMinMax;
+                shaderAtomicFloat2Features.shaderSharedFloat16Atomics       = enabledFeatures.shaderSharedFloat16Atomics;
+                shaderAtomicFloat2Features.shaderSharedFloat16AtomicAdd     = enabledFeatures.shaderSharedFloat16AtomicAdd;
+                shaderAtomicFloat2Features.shaderSharedFloat16AtomicMinMax  = enabledFeatures.shaderSharedFloat16AtomicMinMax;
+                shaderAtomicFloat2Features.shaderSharedFloat32AtomicMinMax  = enabledFeatures.shaderSharedFloat32AtomicMinMax;
+                shaderAtomicFloat2Features.shaderSharedFloat64AtomicMinMax  = enabledFeatures.shaderSharedFloat64AtomicMinMax;
+                shaderAtomicFloat2Features.shaderImageFloat32AtomicMinMax   = enabledFeatures.shaderImageFloat32AtomicMinMax;
+                shaderAtomicFloat2Features.sparseImageFloat32AtomicMinMax   = enabledFeatures.sparseImageFloat32AtomicMinMax;
+                addFeatureToChain(&shaderAtomicFloat2Features);
+            }
+            
+            if (enabledFeatures.shaderImageInt64Atomics ||
+                enabledFeatures.sparseImageInt64Atomics)
+            {
+                // All Requirements Exist in Vulkan 1.1
+                insertExtensionIfAvailable(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME);
+                shaderImageAtomicInt64Features.shaderImageInt64Atomics = enabledFeatures.shaderImageInt64Atomics;
+                shaderImageAtomicInt64Features.sparseImageInt64Atomics = enabledFeatures.sparseImageInt64Atomics;
+                addFeatureToChain(&shaderImageAtomicInt64Features);
+            }
             vk_deviceFeatures2.pNext = firstFeatureInChain;
         }
 
