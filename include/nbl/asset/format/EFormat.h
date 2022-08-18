@@ -240,8 +240,39 @@ enum E_FORMAT_CLASS : uint8_t
     EFC_96_BIT,
     EFC_128_BIT,
     EFC_192_BIT,
-    EFC_256_BIT
-    // TODO: and many more for block compression and planar formats... but dont want to waste time on it now
+    EFC_256_BIT,
+
+    EFC_BC1_RGB,
+    EFC_BC1_RGBA,
+    EFC_BC2,
+    EFC_BC3,
+    EFC_BC4,
+    EFC_BC5,
+    EFC_BC6,
+    EFC_BC7,
+
+    EFC_ETC2_RGB,
+    EFC_ETC2_RGBA,
+    EFC_ETC2_EAC_RGBA,
+    EFC_ETC2_EAC_R,
+    EFC_ETC2_EAC_RG,
+
+    EFC_ASTC_4X4,
+    EFC_ASTC_5X4,
+    EFC_ASTC_5X5,
+    EFC_ASTC_6X5,
+    EFC_ASTC_6X6,
+    EFC_ASTC_8X5,
+    EFC_ASTC_8X6,
+    EFC_ASTC_8X8,
+    EFC_ASTC_10X5,
+    EFC_ASTC_10X6,
+    EFC_ASTC_10X8,
+    EFC_ASTC_10X10,
+    EFC_ASTC_12X10,
+    EFC_ASTC_12X12,
+
+    // [TODO] there are still more format classes; https://registry.khronos.org/vulkan/specs/1.2-extensions/html/chap43.html#formats-compatibility-classes
 };
 
 enum E_FORMAT_FEATURE : uint32_t
