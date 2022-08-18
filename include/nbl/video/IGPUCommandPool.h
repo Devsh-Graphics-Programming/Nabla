@@ -133,6 +133,7 @@ public:
         inline void setNext(CCommandSegment* segment) { header.m_next = segment; }
         inline CCommandSegment* getNext() const { return header.m_next; }
         inline ICommand* getFirstCommand() { return reinterpret_cast<ICommand*>(m_data); } // TODO(achal): Probably remove?
+        inline uint8_t* getData() { return m_data; }
 
         inline CCommandSegment::Iterator begin()
         {

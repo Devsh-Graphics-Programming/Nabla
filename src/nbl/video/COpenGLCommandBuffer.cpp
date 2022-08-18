@@ -586,26 +586,26 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
 
 void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
 {
-// #define NEW_WAY
+#define NEW_WAY
 #ifdef NEW_WAY
-    IGPUCommandPool::CCommandSegment::Iterator itr = m_segmentListHeadItr;
+    IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
     if (itr.m_segment && itr.m_cmd)
     {
-        while (itr.m_cmd->m_size != 0u)
+        while (itr.m_cmd->getSize() != 0u)
         {
-            COpenGLCommandPool::ICommand* glcmd = dynamic_cast<COpenGLCommandPool::ICommand*>(itr.m_cmd);
-            glcmd->operator()(gl, ctxlocal, ctxid, m_logger.getOptRawPtr(), this);
+            auto* glcmd = static_cast<COpenGLCommandPool::IOpenGLCommand*>(itr.m_cmd);
+            glcmd->operator()(gl, fboCache, m_logger.getOptRawPtr());
 
-            itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->m_size);
-            if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->m_data) > IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
+            itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->getSize());
+            if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) > IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
             {
-                IGPUCommandPool::CCommandSegment* nextSegment = itr.m_segment->params.m_next;
+                IGPUCommandPool::CCommandSegment* nextSegment = itr.m_segment->getNext();
                 if (!nextSegment)
                     break;
 
                 itr.m_segment = nextSegment;
-                itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
+                itr.m_cmd = itr.m_segment->getFirstCommand(); // reinterpret_cast<IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
             }
         }
     }

@@ -146,10 +146,73 @@ public:
         if (!buffer || (buffer->getAPIType() != getAPIType()))
             return false;
 
+        if (!this->isCompatibleDevicewise(buffer))
+            return false;
+
         if (!m_cmdpool->emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
             return false;
 
-        return bindIndexBuffer_impl(buffer, offset, indexType);
+        bindIndexBuffer_impl(buffer, offset, indexType);
+
+        return true;
+    }
+
+    bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override final
+    {
+        if (!buffer || (buffer->getAPIType() != getAPIType()))
+            return false;
+
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+            return false;
+
+        drawIndirect_impl(buffer, offset, drawCount, stride);
+
+        return true;
+    }
+
+    bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override final
+    {
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer)))
+            return false;
+
+        drawIndexedIndirect_impl(buffer, offset, drawCount, stride);
+
+        return true;
+    }
+
+    bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override final
+    {
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+            return false;
+
+        drawIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+
+        return true;
+    }
+
+    bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override final
+    {
+        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+            return false;
+
+        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+            return false;
+
+        drawIndexedIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+
+        return true;
     }
 
     bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content)
@@ -304,11 +367,11 @@ protected:
 
     virtual void releaseResourcesBackToPool_impl() {}
 
-    virtual bool bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
-
-    // TODO(achal): private
-    IGPUCommandPool::CCommandSegment::Iterator m_segmentListHeadItr = {};
-    IGPUCommandPool::CCommandSegment* m_segmentListTail = nullptr;
+    virtual void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
+    virtual void drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
+    virtual void drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
+    virtual void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
+    virtual void drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
 
 private:
     // Be wary of making it protected/calling it in the derived classes because it sets state which will overwrite the state set in base class methods.
@@ -334,6 +397,9 @@ private:
     }
 
     uint32_t m_resetCheckedStamp = 0;
+    
+    IGPUCommandPool::CCommandSegment::Iterator m_segmentListHeadItr = {};
+    IGPUCommandPool::CCommandSegment* m_segmentListTail = nullptr;
 };
 
 }

@@ -556,18 +556,13 @@ public:
 
     void releaseResourcesBackToPool_impl() override final;
 
-    bool bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
-        if(buffer)
-            if (!this->isCompatibleDevicewise(buffer))
-                return false;
-
         SCmd<impl::ECT_BIND_INDEX_BUFFER> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.indexType = indexType;
         cmd.offset = offset;
         pushCommand<impl::ECT_BIND_INDEX_BUFFER>(std::move(cmd));
-        return true;
     }
 
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
@@ -591,7 +586,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    void drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
@@ -601,9 +596,8 @@ public:
         cmd.maxDrawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
-        return true;
     }
-    bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    void drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
@@ -613,9 +607,8 @@ public:
         cmd.maxDrawCount = drawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
-        return true;
     }
-    bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
@@ -625,9 +618,8 @@ public:
         cmd.maxDrawCount = maxDrawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
-        return true;
     }
-    bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    void drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
@@ -637,7 +629,6 @@ public:
         cmd.maxDrawCount = maxDrawCount;
         cmd.stride = stride;
         pushCommand(std::move(cmd));
-        return true;
     }
 
     inline bool drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer) override

@@ -104,7 +104,7 @@ public:
         freeSpaceInCmdPool();
     }
 
-    bool bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
         assert(indexType < asset::EIT_UNKNOWN);
 
@@ -115,8 +115,6 @@ public:
             IBackendObject::compatibility_cast<const CVulkanBuffer*>(buffer, this)->getInternalObject(),
             static_cast<VkDeviceSize>(offset),
             static_cast<VkIndexType>(indexType));
-
-        return true;
     }
 
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
@@ -133,19 +131,13 @@ public:
         return true;
     }
 
-    bool drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    void drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
-        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
-            return false;
-
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
             core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
 
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
+        // TODO(achal): Remove.
+        saveReferencesToResources(tmp, tmp + 1);
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndirect(
@@ -154,23 +146,15 @@ public:
             static_cast<VkDeviceSize>(offset),
             drawCount,
             stride);
-
-        return true;
     }
 
-    bool drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    void drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
-        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer)))
-            return false;
-
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
             core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
 
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
+        // TODO(achal): Remove.
+        saveReferencesToResources(tmp, tmp + 1);
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndexedIndirect(
@@ -179,27 +163,16 @@ public:
             static_cast<VkDeviceSize>(offset),
             drawCount,
             stride);
-
-        return true;
     }
 
-    bool drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
-        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
-            return false;
-
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
             core::smart_refctd_ptr<const IGPUBuffer>(buffer),
             core::smart_refctd_ptr<const IGPUBuffer>(countBuffer) };
 
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
+        // TODO(achal): Remove.
+        saveReferencesToResources(tmp, tmp + 2);
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndirectCount(
@@ -210,27 +183,16 @@ public:
             static_cast<VkDeviceSize>(countBufferOffset),
             maxDrawCount,
             stride);
-
-        return true;
     }
 
-    bool drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    void drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
-        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
-            return false;
-
         const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
             core::smart_refctd_ptr<const IGPUBuffer>(buffer),
             core::smart_refctd_ptr<const IGPUBuffer>(countBuffer) };
 
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
+        // TODO(achal): Remove.
+        saveReferencesToResources(tmp, tmp + 2);
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndexedIndirectCount(
@@ -241,8 +203,6 @@ public:
             static_cast<VkDeviceSize>(countBufferOffset),
             maxDrawCount,
             stride);
-        
-        return true;
     }
 
     bool drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer) override
