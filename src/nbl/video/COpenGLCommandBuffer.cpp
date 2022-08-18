@@ -902,7 +902,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
             {
                 auto& c = cmd.get<impl::ECT_BIND_GRAPHICS_PIPELINE>();
 
-                ctxlocal->updateNextState_pipelineAndRaster(c.pipeline.get(), ctxid);
+                ctxlocal->updateNextState_pipelineAndRaster(gl, c.pipeline.get(), ctxid);
 
                 auto* rpindependent = c.pipeline->getRenderpassIndependentPipeline();
                 auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
@@ -989,7 +989,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_COPY_QUERY_POOL_RESULTS>();
 
                 const IPhysicalDevice* physdev = getOriginDevice()->getPhysicalDevice();
-                if(!physdev->getFeatures().allowCommandBufferQueryCopies)
+                if(!physdev->getLimits().allowCommandBufferQueryCopies)
                 {
                     assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
                     break;

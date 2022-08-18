@@ -385,7 +385,7 @@ public:
         return true;
     }
 
-    bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
+    bool copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
         if (!srcImage || srcImage->getAPIType() != EAT_VULKAN)
             return false;
@@ -436,7 +436,7 @@ public:
         return true;
     }
 
-    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstImage->getAPIType() != EAT_VULKAN))
             return false;
@@ -476,7 +476,7 @@ public:
         return true;
     }
 
-    bool copyImageToBuffer(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         if (!srcImage || (srcImage->getAPIType() != EAT_VULKAN))
             return false;
@@ -525,7 +525,7 @@ public:
         return true;
     }
 
-    bool blitImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
+    bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
         if (srcImage->getAPIType() != EAT_VULKAN || (dstImage->getAPIType() != EAT_VULKAN))
             return false;
@@ -573,7 +573,7 @@ public:
         return true;
     }
 
-    bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
+    bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
         if (!srcImage || srcImage->getAPIType() != EAT_VULKAN)
             return false;
@@ -1070,20 +1070,38 @@ public:
         if (layout->getAPIType() != EAT_VULKAN)
             return false;
 
-        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 100u;
+        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 4u;
+        assert(descriptorSetCount <= MAX_DESCRIPTOR_SET_COUNT);
 
         VkPipelineLayout vk_pipelineLayout = IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject();
 
-        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT];
+        uint32_t dynamicOffsetCountPerSet[MAX_DESCRIPTOR_SET_COUNT] = {};
+
+        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT] = {};
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
         {
             if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
+            {
                 vk_descriptorSets[i] = IBackendObject::compatibility_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i], this)->getInternalObject();
+
+                if (dynamicOffsets) // count dynamic offsets per set, if there are any
+                {
+                    auto bindings = pDescriptorSets[i]->getLayout()->getBindings();
+                    for (const auto& binding : bindings)
+                    {
+                        if ((binding.type == asset::EDT_STORAGE_BUFFER_DYNAMIC) || (binding.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC))
+                            dynamicOffsetCountPerSet[i] += binding.count;
+                    }
+                }
+            }
         }
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
 
+        // We allow null descriptor sets in our bind function to skip a certain set number we don't use
         // Will bind [first, last) with one call
+        uint32_t dynamicOffsetsBindOffset = 0u;
+        uint32_t bindCallsCount = 0u;
         uint32_t first = ~0u;
         uint32_t last = ~0u;
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
@@ -1099,21 +1117,42 @@ public:
                     ++last;
 
                 // Do a look ahead
-                if ((i + 1 > descriptorSetCount - 1) || !pDescriptorSets[i + 1])
+                if ((i + 1 >= descriptorSetCount) || !pDescriptorSets[i + 1])
                 {
-                    vk->vk.vkCmdBindDescriptorSets(
-                        m_cmdbuf,
-                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-                        vk_pipelineLayout,
-                        firstSet+first, last - first, vk_descriptorSets+first, dynamicOffsetCount, dynamicOffsets);
+                    if (dynamicOffsets)
+                    {
+                        uint32_t dynamicOffsetCount = 0u;
+                        for (uint32_t setIndex = first; setIndex < last; ++setIndex)
+                            dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
+
+                        vk->vk.vkCmdBindDescriptorSets(
+                            m_cmdbuf,
+                            static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                            vk_pipelineLayout,
+                            // firstSet + first, last - first, vk_descriptorSets + first, vk_dynamicOffsetCount, vk_dynamicOffsets);
+                            firstSet + first, last - first, vk_descriptorSets + first,
+                            dynamicOffsetCount, dynamicOffsets + dynamicOffsetsBindOffset);
+
+                        dynamicOffsetsBindOffset += dynamicOffsetCount;
+                    }
+                    else
+                    {
+                        vk->vk.vkCmdBindDescriptorSets(
+                            m_cmdbuf,
+                            static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                            vk_pipelineLayout,
+                            firstSet+first, last - first, vk_descriptorSets+first, 0u, nullptr);
+                    }
+
                     first = ~0u;
                     last = ~0u;
+                    ++bindCallsCount;
                 }
             }
         }
 
-        // vk->vk.vkCmdBindDescriptorSets(m_cmdbuf, static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-        //     vk_pipelineLayout, firstSet, descriptorSetCount, vk_descriptorSets, dynamicOffsetCount, dynamicOffsets);
+        // with K slots you need at most (K+1)/2 calls
+        assert(bindCallsCount <= (MAX_DESCRIPTOR_SET_COUNT + 1) / 2);
 
         return true;
     }
@@ -1138,7 +1177,7 @@ public:
         return true;
     }
 
-    bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
         if (!image || image->getAPIType() != EAT_VULKAN)
             return false;
@@ -1176,7 +1215,7 @@ public:
         return true;
     }
 
-    bool clearDepthStencilImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
         if (!image || image->getAPIType() != EAT_VULKAN)
             return false;
@@ -1359,6 +1398,8 @@ private:
 
         CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
         vulkanCommandPool->emplace_n(m_argListTail, begin, end);
+        // TODO: verify this
+        if (!m_argListHead) m_argListHead = m_argListTail;
 
         return true;
     }

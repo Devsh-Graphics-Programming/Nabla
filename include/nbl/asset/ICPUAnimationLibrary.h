@@ -99,7 +99,7 @@ class NBL_API ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>,
 			SBufferBinding<ICPUBuffer> _keyframeStorageBinding = {m_keyframeStorageBinding.offset,_depth>0u ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_keyframeStorageBinding.buffer->clone(_depth-1u)):m_keyframeStorageBinding.buffer};
 			SBufferBinding<ICPUBuffer> _timestampStorageBinding = {m_timestampStorageBinding.offset,_depth>0u ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_timestampStorageBinding.buffer->clone(_depth-1u)):m_timestampStorageBinding.buffer};
 
-			SBufferRange<ICPUBuffer> _animationStorageRange = {m_animationStorageRange.offset,m_animationStorageRange.size,_depth>0u&&m_animationStorageRange.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_animationStorageRange.buffer->clone(_depth-1u)):m_animationStorageRange.buffer};
+			SBufferRange<ICPUBuffer> _animationStorageRange = {m_animationStorageRange.offset,m_animationStorageRange.size,_depth>0u&&m_animationStorageRange.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_animationStorageRange.buffer->clone(_depth-1u)):core::smart_refctd_ptr(m_animationStorageRange.buffer)};
 
  			auto cp = core::make_smart_refctd_ptr<ICPUAnimationLibrary>(std::move(_keyframeStorageBinding),std::move(_timestampStorageBinding),m_keyframeCount,std::move(_animationStorageRange));
 			clone_common(cp.get());

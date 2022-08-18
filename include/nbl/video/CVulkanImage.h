@@ -18,11 +18,14 @@ class ILogicalDevice;
 class CVulkanImage : public IGPUImage
 {
 	public:
-		CVulkanImage(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
-			IGPUImage::SCreationParams&& _params, VkImage _vkimg,
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
-			: IGPUImage(std::move(_vkdev), reqs, std::move(_params)), m_vkImage(_vkimg)
-		{}
+		CVulkanImage(
+			core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev,
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
+			IGPUImage::SCreationParams&& _params, VkImage _vkimg
+		) : IGPUImage(std::move(_vkdev),reqs,std::move(_params)), m_vkImage(_vkimg)
+		{
+			assert(m_vkImage != VK_NULL_HANDLE);
+		}
 		
 		inline const void* getNativeHandle() const override {return &m_vkImage;}
 		inline VkImage getInternalObject() const { return m_vkImage; }

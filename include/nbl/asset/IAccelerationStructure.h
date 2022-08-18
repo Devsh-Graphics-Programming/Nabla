@@ -11,6 +11,7 @@
 #include "nbl/asset/format/EFormat.h"
 #include "aabbox3d.h"
 #define uint uint32_t
+#include <compare>
 #include "nbl/builtin/glsl/utils/acceleration_structures.glsl"
 #undef uint
 

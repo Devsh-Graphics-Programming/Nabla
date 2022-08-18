@@ -82,4 +82,49 @@ uint nbl_glsl_encodeRGB10A2_SNORM(in vec4 col)
 	return quantized.r|quantized.g|quantized.b|quantized.a;
 }
 
+// TODO: break it down into uint nbl_glsl_encode_ufloat_exponent(in float _f32) and nbl_glsl_encode_ufloat_mantissa(in float _f32, in uint mantissaBits, in bool leadingOne)
+uint nbl_glsl_encode_ufloat(in float _f32, in uint mantissaBits, in uint expBits)
+{
+	uint minSinglePrecisionVal = floatBitsToUint(nbl_glsl_ieee754_min(expBits, mantissaBits));
+	uint maxSinglePrecisionVal = floatBitsToUint(nbl_glsl_ieee754_max(expBits, mantissaBits));
+
+	if (_f32 < uintBitsToFloat(maxSinglePrecisionVal))
+	{
+		if (_f32 < uintBitsToFloat(minSinglePrecisionVal))
+			return 0;
+
+		const int exp = nbl_glsl_ieee754_extract_exponent(_f32);
+		const uint mantissa = nbl_glsl_ieee754_extract_mantissa(_f32);
+
+		const uint encodedValue = nbl_glsl_ieee754_encode_ufloat_impl(exp, expBits, mantissa, mantissaBits);
+
+		return encodedValue;
+	}
+
+	const uint expMask = nbl_glsl_ieee754_compute_exponent_mask(expBits, mantissaBits);
+	const uint mantissaMask = nbl_glsl_ieee754_compute_mantissa_mask(mantissaBits);
+
+	return expMask | (isnan(_f32) ? mantissaMask : 0u);
+}
+
+uint to11bitFloat(in float _f32)
+{
+	const uint mantissaBits = 6;
+	return nbl_glsl_encode_ufloat(_f32, mantissaBits, 11-mantissaBits);
+}
+
+uint to10bitFloat(in float _f32)
+{
+	const uint mantissaBits = 5;
+	return nbl_glsl_encode_ufloat(_f32, mantissaBits, 10-mantissaBits);
+}
+
+uint nbl_glsl_encodeR11G11B10(in vec4 col)
+{
+	const uint r = to11bitFloat(col.r);
+	const uint g = to11bitFloat(col.g) << 11;
+	const uint b = to10bitFloat(col.b) << 22;
+	const uint encoded = b | g | r;
+	return encoded;
+}
 #endif

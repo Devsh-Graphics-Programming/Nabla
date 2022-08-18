@@ -20,8 +20,8 @@ class CSingleBufferSubAllocator : public IBufferAllocator
   public:
         using AddressAllocator = AddrAllocator;
         using ReservedAllocator = ReservAllocator;
-        using size_type = AddressAllocator::size_type;
-        using value_type = AddressAllocator::size_type;
+        using size_type = typename AddressAllocator::size_type;
+        using value_type = typename AddressAllocator::size_type;
         static constexpr value_type invalid_value = AddressAllocator::invalid_address;
 
         // constructors

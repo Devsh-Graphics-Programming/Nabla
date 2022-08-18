@@ -12,6 +12,8 @@
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 
+#include <compare>
+
 //#include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 
 //#include "nbl/asset/asset_utils.h"

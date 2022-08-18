@@ -168,7 +168,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(
 	m_uniformsList = uniformList;
 }
 
-auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipControlWorkaround, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv, const system::logger_opt_ptr logger) const -> std::pair<GLuint, SProgramBinary>
 {
 	spirv_cross::ParsedIR parsed;
 	if (_parsedSpirv)
@@ -184,11 +184,6 @@ auto COpenGLSpecializedShader::compile(IOpenGL_FunctionTable* gl, bool needClipC
 	comp.set_entry_point(m_specInfo.entryPoint, asset::ESS2spvExecModel(getStage()));
 	auto options = m_options;
 	options.es = gl->isGLES();
-	if (needClipControlWorkaround)
-	{
-		options.vertex.fixup_clipspace = true;
-		options.vertex.flip_vert_y = true;
-	}
 	comp.set_common_options(options);
 
 	impl::specialize(comp, m_specInfo);

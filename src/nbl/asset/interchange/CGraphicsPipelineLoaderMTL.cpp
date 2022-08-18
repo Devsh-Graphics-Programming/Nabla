@@ -710,7 +710,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
         auto desc = ds->getDescriptors(i).begin();
 
         desc->desc = _views[i] ? std::move(_views[i]) : dummy2d;
-        desc->image.imageLayout = EIL_UNDEFINED;
+        desc->image.imageLayout = IImage::EL_UNDEFINED;
         desc->image.sampler = nullptr; //not needed, immutable (in DS layout) samplers are used
     }
 
