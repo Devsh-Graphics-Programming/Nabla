@@ -45,17 +45,19 @@ public:
 
 	TextRenderer(core::smart_refctd_ptr<ILogicalDevice> device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
 
-	using glyph_geometry_pool_t = video::SubAllocatedDataBufferST<>;
+	using pool_size_t = uint32_t;
+
+	using glyph_geometry_pool_t = video::SubAllocatedDataBufferST<pool_size_t>;
 	// Data stored as SoA in property pool:
 	// - Glyph offset
 	// - String bounding box
-	using string_pool_t = video::CPropertyPool<core::allocator, glyph_geometry_pool_t::size_type, StringBoundingBox>;
+	using string_pool_t = video::CPropertyPool<core::allocator, pool_size_t, StringBoundingBox>;
 
 	struct string_handle_t
 	{
-		string_pool_t::size_type stringAddr = string_pool_t::invalid_address;
-		glyph_geometry_pool_t::size_type glyphDataAddr = glyph_geometry_pool_t::invalid_address;
-		glyph_geometry_pool_t::size_type glyphCount = 0u;
+		pool_size_t stringAddr = core::address_type_traits<pool_size_t>::invalid_address;
+		pool_size_t glyphDataAddr = core::address_type_traits<pool_size_t>::invalid_address;
+		pool_size_t glyphCount = 0u;
 	};
 
 	template<class Clock = typename std::chrono::steady_clock>

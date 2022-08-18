@@ -12,6 +12,7 @@
 
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
 #include "nbl/video/IGPUFence.h"
+#include "nbl/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 
 namespace nbl::video
 {
