@@ -1271,22 +1271,24 @@ struct SPhysicalDeviceFeatures
         if (rayTracingMotionBlur ||
             rayTracingMotionBlurPipelineTraceRaysIndirect)
         {
+            rayTracingMotionBlur = true;
             rayTracingPipeline = true;
         }
 
         if (rayTracingPipeline ||
             rayTracingPipelineTraceRaysIndirect ||
-            rayTracingPipelineTraceRaysIndirect)
+            rayTraversalPrimitiveCulling)
         {
+            rayTracingPipeline = true;
             accelerationStructure = true;
-            // Also requires to enable VK_KHR_spirv_1_4, make sure spirv version is equal or higher than this, if not enable this extension
+            // Also requires to enable VK_KHR_spirv_1_4
             // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
         }
 
         if (rayQuery)
         {
             accelerationStructure = true;
-            // Also requires to enable VK_KHR_spirv_1_4, make sure spirv version is equal or higher than this, if not enable this extensio
+            // Also requires to enable VK_KHR_spirv_1_4
             // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
         }
 
@@ -1295,6 +1297,7 @@ struct SPhysicalDeviceFeatures
             accelerationStructureHostCommands ||
             descriptorBindingAccelerationStructureUpdateAfterBind)
         {
+            accelerationStructure = true;
             descriptorIndexing = true;
             bufferDeviceAddress = true;
             // Also requires VK_KHR_deferred_host_operations, this will be handled later on when enabling features before vkCreateDevice

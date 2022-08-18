@@ -1386,7 +1386,7 @@ protected:
             VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV, nullptr };
             VkPhysicalDeviceCooperativeMatrixFeaturesNV                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV, nullptr };
             VkPhysicalDeviceRayTracingPipelineFeaturesKHR                   rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr };
-            VkPhysicalDeviceAccelerationStructureFeaturesKHR                accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, nullptr };
+            VkPhysicalDeviceAccelerationStructureFeaturesKHR                accelerationStructureFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, nullptr };
             VkPhysicalDeviceRayQueryFeaturesKHR                             rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr };
             VkPhysicalDeviceBufferDeviceAddressFeaturesKHR                  bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR, nullptr };
             VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT              fragmentShaderInterlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT, nullptr };
@@ -1824,6 +1824,63 @@ protected:
                 shaderImageAtomicInt64Features.sparseImageInt64Atomics = enabledFeatures.sparseImageInt64Atomics;
                 addFeatureToChain(&shaderImageAtomicInt64Features);
             }
+            
+            if (enabledFeatures.accelerationStructure ||
+                enabledFeatures.accelerationStructureIndirectBuild ||
+                enabledFeatures.accelerationStructureHostCommands ||
+                enabledFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
+            {
+                // IMPLICIT ENABLE: descriptorIndexing -> Already handled because of featuresToEnable.resolveDependencies();
+                // IMPLICIT ENABLE: bufferDeviceAddress -> Already handled because of featuresToEnable.resolveDependencies();
+
+                // IMPLICIT ENABLE: VK_KHR_DEFERRED_HOST_OPERATIONS
+                //enabledFeatures.deferredHostOperations = true; // not exposed [yet]
+                insertExtensionIfAvailable(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+
+                insertExtensionIfAvailable(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+                accelerationStructureFeatures.accelerationStructure = enabledFeatures.accelerationStructure;
+                accelerationStructureFeatures.accelerationStructureIndirectBuild = enabledFeatures.accelerationStructureIndirectBuild;
+                accelerationStructureFeatures.accelerationStructureHostCommands = enabledFeatures.accelerationStructureHostCommands;
+                accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = enabledFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
+                addFeatureToChain(&accelerationStructureFeatures);
+            }
+            
+            if (enabledFeatures.rayQuery)
+            {
+                // IMPLICIT ENABLE: accelerationStructure -> Already handled because of featuresToEnable.resolveDependencies();
+                insertExtensionIfAvailable(VK_KHR_SPIRV_1_4_EXTENSION_NAME); // Requires VK_KHR_spirv_1_4
+                insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME); // VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
+
+                insertExtensionIfAvailable(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+                rayQueryFeatures.rayQuery = enabledFeatures.rayQuery;
+                addFeatureToChain(&rayQueryFeatures);
+            }
+            
+            if (enabledFeatures.rayTracingPipeline ||
+                enabledFeatures.rayTracingPipelineTraceRaysIndirect ||
+                enabledFeatures.rayTraversalPrimitiveCulling)
+            {
+                // IMPLICIT ENABLE: accelerationStructure -> Already handled because of featuresToEnable.resolveDependencies();
+                insertExtensionIfAvailable(VK_KHR_SPIRV_1_4_EXTENSION_NAME); // Requires VK_KHR_spirv_1_4
+                insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME); // VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
+                
+                insertExtensionIfAvailable(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+                rayTracingPipelineFeatures.rayTracingPipeline = enabledFeatures.rayTracingPipeline;
+                rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect = enabledFeatures.rayTracingPipelineTraceRaysIndirect;
+                rayTracingPipelineFeatures.rayTraversalPrimitiveCulling = enabledFeatures.rayTraversalPrimitiveCulling;
+                addFeatureToChain(&rayTracingPipelineFeatures);
+            }
+
+            if (enabledFeatures.rayTracingMotionBlur ||
+                enabledFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect)
+            {
+                // IMPLICIT ENABLE: rayTracingPipeline -> Already handled because of featuresToEnable.resolveDependencies();
+                insertExtensionIfAvailable(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME);
+                rayTracingMotionBlurFeatures.rayTracingMotionBlur = enabledFeatures.rayTracingMotionBlur;
+                rayTracingMotionBlurFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect = enabledFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect;
+                addFeatureToChain(&rayTracingMotionBlurFeatures);
+            }
+
             vk_deviceFeatures2.pNext = firstFeatureInChain;
         }
 
