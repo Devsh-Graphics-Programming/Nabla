@@ -48,8 +48,7 @@ class NBL_API CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public C
 			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
 				return false;
 
-			// TODO: Extend E_FORMAT_CLASS
-			// return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
+			return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
 			return true;
 		}
 

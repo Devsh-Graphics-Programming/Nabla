@@ -41,7 +41,7 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
     {
         core::smart_refctd_ptr<IGPUImage> gpuImage;
         {
-            IGPUImage::SCreationParams cpuImageParams;
+            IGPUImage::SCreationParams cpuImageParams = {};
             cpuImageParams = _cpuimg->getCreationParameters();
             cpuImageParams.initialLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
 
