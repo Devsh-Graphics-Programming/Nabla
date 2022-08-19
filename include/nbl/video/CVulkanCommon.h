@@ -761,6 +761,33 @@ static inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> ge
     return ret;
 }
 
+static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
+{
+    if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;
+    if (in == VK_DRIVER_ID_AMD_OPEN_SOURCE) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
+    if (in == VK_DRIVER_ID_MESA_RADV) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_RADV;
+    if (in == VK_DRIVER_ID_NVIDIA_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY;
+    if (in == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) return IPhysicalDevice::E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS;
+    if (in == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA) return IPhysicalDevice::E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA;
+    if (in == VK_DRIVER_ID_IMAGINATION_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_IMAGINATION_PROPRIETARY;
+    if (in == VK_DRIVER_ID_QUALCOMM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_QUALCOMM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_ARM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_ARM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_GOOGLE_SWIFTSHADER) return IPhysicalDevice::E_DRIVER_ID::EDI_GOOGLE_SWIFTSHADER;
+    if (in == VK_DRIVER_ID_GGP_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_GGP_PROPRIETARY;
+    if (in == VK_DRIVER_ID_BROADCOM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_BROADCOM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_LLVMPIPE) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_LLVMPIPE;
+    if (in == VK_DRIVER_ID_MOLTENVK) return IPhysicalDevice::E_DRIVER_ID::EDI_MOLTENVK;                  
+    if (in == VK_DRIVER_ID_COREAVI_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_COREAVI_PROPRIETARY;
+    if (in == VK_DRIVER_ID_JUICE_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_JUICE_PROPRIETARY;         
+    if (in == VK_DRIVER_ID_VERISILICON_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_VERISILICON_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_TURNIP) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_TURNIP;
+    if (in == VK_DRIVER_ID_MESA_V3DV) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_V3DV;
+    if (in == VK_DRIVER_ID_MESA_PANVK) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_PANVK;                
+    if (in == VK_DRIVER_ID_SAMSUNG_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_SAMSUNG_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_VENUS) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_VENUS; 
+    return IPhysicalDevice::E_DRIVER_ID::EDI_UNKNOWN;
+}
+
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__

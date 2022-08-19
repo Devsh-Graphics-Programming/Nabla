@@ -98,7 +98,23 @@ public:
             m_properties.driverVersion = deviceProperties.properties.driverVersion;
             m_properties.vendorID = deviceProperties.properties.vendorID;
             m_properties.deviceID = deviceProperties.properties.deviceID;
-            m_properties.deviceType = static_cast<E_TYPE>(deviceProperties.properties.deviceType);
+            switch(deviceProperties.properties.deviceType)
+            {
+            case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+                m_properties.deviceType = E_TYPE::ET_INTEGRATED_GPU;
+                break;
+            case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+                m_properties.deviceType = E_TYPE::ET_DISCRETE_GPU;
+                break;
+            case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+                m_properties.deviceType = E_TYPE::ET_VIRTUAL_GPU;
+                break;
+            case VK_PHYSICAL_DEVICE_TYPE_CPU:
+                m_properties.deviceType = E_TYPE::ET_CPU;
+                break;
+            default:
+                m_properties.deviceType = E_TYPE::ET_UNKNOWN;
+            }
             memcpy(m_properties.deviceName, deviceProperties.properties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
             memcpy(m_properties.pipelineCacheUUID, deviceProperties.properties.pipelineCacheUUID, VK_UUID_SIZE);
             
@@ -236,7 +252,7 @@ public:
             m_properties.limits.pointClippingBehavior = static_cast<SLimits::E_POINT_CLIPPING_BEHAVIOR>(vulkan11Properties.pointClippingBehavior);
 
             /* Vulkan 1.2 Core  */
-            m_properties.driverID = static_cast<E_DRIVER_ID>(driverProperties.driverID);
+            m_properties.driverID = getDriverIdFromVkDriverId(driverProperties.driverID);
             memcpy(m_properties.driverName, driverProperties.driverName, VK_MAX_DRIVER_NAME_SIZE);
             memcpy(m_properties.driverInfo, driverProperties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
             m_properties.conformanceVersion = driverProperties.conformanceVersion;
