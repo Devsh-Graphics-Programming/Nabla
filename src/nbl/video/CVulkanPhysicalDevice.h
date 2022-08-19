@@ -1209,12 +1209,6 @@ public:
 
     IDebugCallback* getDebugCallback() override { return m_api->getDebugCallback(); }
 
-    bool isSwapchainSupported() const override
-    {
-        // TODO: Later remove this function and let the user figure it out from the swapchainMode
-        return m_features.swapchainMode.hasFlags(ESM_SURFACE);
-    }
-
     const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
     {
         if (m_linearTilingUsages[format].isInitialized)

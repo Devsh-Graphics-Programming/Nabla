@@ -572,9 +572,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         virtual IDebugCallback* getDebugCallback() = 0;
 
-        // TODO: shouldn't this be in SFeatures?
-        virtual bool isSwapchainSupported() const = 0;
-
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
         {
             params.featuresToEnable.resolveDependenciesForLogicalDeviceCreation();

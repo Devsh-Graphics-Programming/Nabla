@@ -1384,8 +1384,6 @@ public:
 		return static_cast<IDebugCallback*>(&m_dbgCb);
 	}
 
-	bool isSwapchainSupported() const override { return true; }
-
 protected:
 	IAPIConnection* m_api; // dumb pointer to avoid circ ref
 	renderdoc_api_t* m_rdoc_api;
