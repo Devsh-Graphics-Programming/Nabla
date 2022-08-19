@@ -553,6 +553,13 @@ struct SPhysicalDeviceFeatures
     //bool           image2DViewOf3D;
     //bool           sampler2DViewOf3D;
 
+    /*
+        This feature adds stricter requirements for how out of bounds reads from images are handled. 
+        Rather than returning undefined values,
+        most out of bounds reads return R, G, and B values of zero and alpha values of either zero or one.
+        Components not present in the image format may be set to zero 
+        or to values based on the format as described in Conversion to RGBA in vulkan specification.
+    */
     bool robustImageAccess = false;                 //  or VK_EXT_image_robustness
 
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
@@ -574,17 +581,13 @@ struct SPhysicalDeviceFeatures
     bool memoryPriority = false;
 
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
+    // [TODO] Better descriptive name for the Vulkan robustBufferAccess2, robustImageAccess2 features
+    bool robustBufferAccess2 = false;
+    bool robustImageAccess2 = false;
     /*
-        This extension adds stricter requirements for how out of bounds reads and writes are handled.
-        Most accesses must be tightly bounds-checked, out of bounds writes must be discarded, out of bound reads must return zero.
-        Rather than allowing multiple possible (0,0,0,x) vectors, the out of bounds values are treated as zero, and then missing components are inserted based on the format.
-        These additional requirements may be expensive on some implementations, and should only be enabled when truly necessary.
-
         ! nullDescriptor: you can use `nullptr` for writing descriptors to sets and Accesses to null descriptors have well-defined behavior.
         [TODO] Handle `nullDescriptor` feature in the engine.
     */
-    bool robustBufferAccess2 = false;
-    bool robustImageAccess2 = false;
     bool nullDescriptor = false;
 
     /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
@@ -603,6 +606,7 @@ struct SPhysicalDeviceFeatures
     bool deviceCoherentMemory = false;
 
     /* VK_AMD_buffer_marker */
+    // [TODO] Do we need the AMD suffix?
     bool bufferMarkerAMD = false;
 
     // [TODO]
@@ -1264,10 +1268,18 @@ struct SPhysicalDeviceFeatures
     
     //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
     //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.
-    void resolveDependencies()
+    void resolveDependenciesForLogicalDeviceCreation()
     {
         // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`: this dependancy needs the extension to be enabled not individual features, so this will be handled later on when enabling features before vkCreateDevice
         
+        if (vulkanMemoryModel ||
+            vulkanMemoryModelDeviceScope ||
+            vulkanMemoryModelAvailabilityVisibilityChains)
+        {
+            // make sure features have their main bool enabled!
+            vulkanMemoryModel = true;
+        }
+
         if (rayTracingMotionBlur ||
             rayTracingMotionBlurPipelineTraceRaysIndirect)
         {
@@ -1310,6 +1322,35 @@ struct SPhysicalDeviceFeatures
         if (deviceGeneratedCommands)
             bufferDeviceAddress = true;
         
+        if (bufferDeviceAddress || bufferDeviceAddressMultiDevice)
+            bufferDeviceAddress = true; // make sure features have their main bool enabled
+
+        if (descriptorIndexing ||
+            shaderInputAttachmentArrayDynamicIndexing ||
+            shaderUniformTexelBufferArrayDynamicIndexing ||
+            shaderStorageTexelBufferArrayDynamicIndexing ||
+            shaderUniformBufferArrayNonUniformIndexing ||
+            shaderSampledImageArrayNonUniformIndexing ||
+            shaderStorageBufferArrayNonUniformIndexing ||
+            shaderStorageImageArrayNonUniformIndexing ||
+            shaderInputAttachmentArrayNonUniformIndexing ||
+            shaderUniformTexelBufferArrayNonUniformIndexing ||
+            shaderStorageTexelBufferArrayNonUniformIndexing ||
+            descriptorBindingUniformBufferUpdateAfterBind ||
+            descriptorBindingSampledImageUpdateAfterBind ||
+            descriptorBindingStorageImageUpdateAfterBind ||
+            descriptorBindingStorageBufferUpdateAfterBind ||
+            descriptorBindingUniformTexelBufferUpdateAfterBind ||
+            descriptorBindingStorageTexelBufferUpdateAfterBind ||
+            descriptorBindingUpdateUnusedWhilePending ||
+            descriptorBindingPartiallyBound ||
+            descriptorBindingVariableDescriptorCount ||
+            runtimeDescriptorArray)
+        {
+            // make sure features have their main bool enabled
+            descriptorIndexing = true; // IMPLICIT ENABLE Because: descriptorIndexing indicates whether the implementation supports the minimum set of descriptor indexing features
+        }
+
         // VK_EXT_hdr_metadata Requires VK_KHR_swapchain to be enabled
         if (hdrMetadata)
         {
@@ -1329,7 +1370,45 @@ struct SPhysicalDeviceFeatures
         {
             fragmentDensityMap = true;
         }
+
+        if (workgroupMemoryExplicitLayout ||
+            workgroupMemoryExplicitLayoutScalarBlockLayout ||
+            workgroupMemoryExplicitLayout8BitAccess ||
+            workgroupMemoryExplicitLayout16BitAccess)
+        {
+            // make sure features have their main bool enabled!
+            workgroupMemoryExplicitLayout = true;
+        }
         
+        if (cooperativeMatrix ||
+            cooperativeMatrixRobustBufferAccess)
+        {
+            // make sure features have their main bool enabled!
+            cooperativeMatrix = true;
+        }
+        
+        if (conditionalRendering ||
+            inheritedConditionalRendering)
+        {
+            // make sure features have their main bool enabled!
+            conditionalRendering = true;
+        }
+        
+        if (fragmentDensityMap ||
+            fragmentDensityMapDynamic ||
+            fragmentDensityMapNonSubsampledImages)
+        {
+            // make sure features have their main bool enabled!
+            fragmentDensityMap = true;
+        }
+        
+        if (inlineUniformBlock ||
+            descriptorBindingInlineUniformBlockUpdateAfterBind)
+        {
+            // make sure features have their main bool enabled!
+            inlineUniformBlock = true;
+        }
+
         // Handle later: E_SWAPCHAIN_MODE::ESM_SURFACE: VK_KHR_swapchain requires VK_KHR_surface instance extension
     }
 

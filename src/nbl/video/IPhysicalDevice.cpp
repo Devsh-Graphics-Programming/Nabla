@@ -541,6 +541,9 @@ bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreat
                 return false;
         }
     }
+    
+    if(m_features < params.featuresToEnable)
+        return false; // Requested features are not all supported by physical device
 
     return true;
 }

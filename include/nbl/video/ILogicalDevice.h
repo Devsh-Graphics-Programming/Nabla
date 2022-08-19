@@ -39,21 +39,6 @@ class IPhysicalDevice;
 class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
-        enum E_FEATURE
-        {
-            EF_SWAPCHAIN = 0,
-            EF_DEFERRED_HOST_OPERATIONS,
-            EF_BUFFER_DEVICE_ADDRESS,
-            EF_DESCRIPTOR_INDEXING,
-            EF_ACCELERATION_STRUCTURE,
-            EF_SHADER_FLOAT_CONTROLS,
-            EF_SPIRV_1_4,
-            EF_RAY_TRACING_PIPELINE,
-            EF_RAY_QUERY,
-            EF_FRAGMENT_SHADER_INTERLOCK,
-            EF_COUNT
-        };
-
         struct SQueueCreationParams
         {
             IGPUQueue::E_CREATE_FLAGS flags;
@@ -66,12 +51,6 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             uint32_t queueParamsCount;
             const SQueueCreationParams* queueParams;
             SPhysicalDeviceFeatures featuresToEnable;
-
-            // TODO: Remove these
-            uint32_t requiredFeatureCount;
-            E_FEATURE* requiredFeatures;
-            uint32_t optionalFeatureCount;
-            E_FEATURE* optionalFeatures;
         };
 
         struct SDescriptorSetCreationParams
