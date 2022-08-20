@@ -90,3 +90,6 @@
 [submodule "examples_tests"]
 	path = examples_tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
+[submodule "3rdparty/msdfgen"]
+	path = 3rdparty/msdfgen
+	url = https://github.com/Chlumsky/msdfgen

@@ -9,6 +9,10 @@
 
 #include "nbl/video/alloc/SubAllocatedDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPool.h"
+#include <msdfgen/msdfgen.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_OUTLINE_H
 
 using namespace nbl;
 using namespace nbl::core;
@@ -43,7 +47,7 @@ class NBL_API TextRenderer
 public:
 	typedef typename uint32_t size_type;
 
-	TextRenderer(core::smart_refctd_ptr<ILogicalDevice> device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
+	TextRenderer(core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
 
 	using pool_size_t = uint32_t;
 
@@ -121,6 +125,73 @@ public:
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
 		core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawArgs
 	);
+
+	// TODO should be internal TextRendering.cpp thing
+	struct FtFallbackContext {
+		msdfgen::Point2 position;
+		msdfgen::Shape* shape;
+		msdfgen::Contour* contour;
+	};
+
+	static double f26dot6ToDouble(float x)
+	{
+		return (1 / 64. * double(x));
+	}
+
+	static msdfgen::Point2 ftPoint2(const FT_Vector& vector) {
+		return msdfgen::Point2(f26dot6ToDouble(vector.x), f26dot6ToDouble(vector.y));
+	}
+
+	static int ftMoveTo(const FT_Vector* to, void* user) {
+		FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+		if (!(context->contour && context->contour->edges.empty()))
+			context->contour = &context->shape->addContour();
+		context->position = ftPoint2(*to);
+		return 0;
+	}
+
+	static int ftLineTo(const FT_Vector* to, void* user) {
+		FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+		msdfgen::Point2 endpoint = ftPoint2(*to);
+		if (endpoint != context->position) {
+			context->contour->addEdge(new msdfgen::LinearSegment(context->position, endpoint));
+			context->position = endpoint;
+		}
+		return 0;
+	}
+
+	static int ftConicTo(const FT_Vector* control, const FT_Vector* to, void* user) {
+		FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+		context->contour->addEdge(new msdfgen::QuadraticSegment(context->position, ftPoint2(*control), ftPoint2(*to)));
+		context->position = ftPoint2(*to);
+		return 0;
+	}
+
+	static int ftCubicTo(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* user) {
+		FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+		context->contour->addEdge(new msdfgen::CubicSegment(context->position, ftPoint2(*control1), ftPoint2(*control2), ftPoint2(*to)));
+		context->position = ftPoint2(*to);
+		return 0;
+	}
+
+	static bool getGlyphShape(msdfgen::Shape& shape, FT_Library library, FT_Face face)
+	{
+		FtFallbackContext context = { };
+		context.shape = &shape;
+		FT_Outline_Funcs ftFunctions;
+		ftFunctions.move_to = &ftMoveTo;
+		ftFunctions.line_to = &ftLineTo;
+		ftFunctions.conic_to = &ftConicTo;
+		ftFunctions.cubic_to = &ftCubicTo;
+		ftFunctions.shift = 0;
+		ftFunctions.delta = 0;
+		FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &context);
+		if (error)
+			return false;
+		if (!shape.contours.empty() && shape.contours.back().edges.empty())
+			shape.contours.pop_back();
+		return true;
+	}
 
 private:
 

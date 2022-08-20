@@ -23,6 +23,7 @@ if(NBL_UPDATE_GIT_SUBMODULE)
 	update_git_submodule(./libjpeg-turbo)
 	update_git_submodule(./parallel-hashmap)
 	update_git_submodule(./gli)
+	update_git_submodule(./msdfgen)
 	# exceptions that get automatically cloned
 	update_git_submodule(./glm)
 	update_git_submodule(./freetype2)
@@ -45,6 +46,13 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
+# msdfgen
+set(FREETYPE_LIBRARY ./freetype2)
+add_subdirectory(freetype2 freetype2 EXCLUDE_FROM_ALL)
+set(MSDFGEN_CORE_ONLY ON)
+set(MSDFGEN_INSTALL ON)
+set(MSDFGEN_BUILD_STANDALONE OFF)
+add_subdirectory(msdfgen msdfgen EXCLUDE_FROM_ALL)
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
@@ -344,6 +352,7 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
+				msdfgen-core
 				glslang
 				OGLCompiler 
 				OSDependent
