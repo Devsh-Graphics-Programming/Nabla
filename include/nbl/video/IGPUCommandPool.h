@@ -383,33 +383,21 @@ private:
     core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const core::IReferenceCounted>> m_barrierResources;
 };
 
-class IGPUCommandPool::CBindDescriptorSetsCmd : public IGPUCommandPool::ICommand
+class IGPUCommandPool::CBindDescriptorSetsCmd : public IGPUCommandPool::IFixedSizeCommand<CBindDescriptorSetsCmd>
 {
 public:
     CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const core::smart_refctd_ptr<const IGPUDescriptorSet>* sets)
-        : ICommand(calc_size(core::smart_refctd_ptr(pipelineLayout), setCount, sets)), m_layout(std::move(pipelineLayout)), m_setCount(setCount)
+        : m_layout(std::move(pipelineLayout))
     {
-        m_sets = new (this + sizeof(CBindDescriptorSetsCmd)) core::smart_refctd_ptr<const IGPUDescriptorSet>[m_setCount];
+        m_sets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array< core::smart_refctd_ptr<const IGPUDescriptorSet>>>(setCount);
 
         for (auto i = 0; i < setCount; ++i)
-            m_sets[i] = sets[i];
-    }
-
-    ~CBindDescriptorSetsCmd()
-    {
-        for (auto i = 0; i < m_setCount; ++i)
-            m_sets[i].~smart_refctd_ptr();
-    }
-
-    static uint32_t calc_size(const core::smart_refctd_ptr<const IGPUPipelineLayout>& pipelineLayout, const uint32_t setCount, const core::smart_refctd_ptr<const IGPUDescriptorSet>* sets)
-    {
-        return core::alignUp(sizeof(CBindDescriptorSetsCmd) + setCount * sizeof(void*), alignof(ICommand));
+            m_sets->begin()[i] = sets[i];
     }
 
 private:
     core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
-    const uint32_t m_setCount;
-    core::smart_refctd_ptr<const IGPUDescriptorSet>* m_sets;
+    core::smart_refctd_dynamic_array< core::smart_refctd_ptr<const IGPUDescriptorSet>> m_sets;
 };
 
 class IGPUCommandPool::CBindComputePipelineCmd : public IGPUCommandPool::IFixedSizeCommand<CBindComputePipelineCmd>
