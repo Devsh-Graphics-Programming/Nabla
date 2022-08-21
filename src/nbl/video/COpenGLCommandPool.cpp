@@ -192,4 +192,9 @@ void COpenGLCommandPool::CColorMaskICmd::operator()(IOpenGL_FunctionTable* gl, S
     gl->extGlColorMaski(m_buf, m_red, m_green, m_blue, m_alpha);
 }
 
+void COpenGLCommandPool::CMemoryBarrierCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger)
+{
+    gl->glSync.pglMemoryBarrier(m_barrierBits);
+}
+
 }

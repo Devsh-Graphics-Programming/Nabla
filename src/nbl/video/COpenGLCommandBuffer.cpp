@@ -605,7 +605,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextL
                     break;
 
                 itr.m_segment = nextSegment;
-                itr.m_cmd = itr.m_segment->getFirstCommand(); // reinterpret_cast<IGPUCommandPool::ICommand*>(itr.m_segment->m_data);
+                itr.m_cmd = itr.m_segment->getFirstCommand();
             }
         }
     }

@@ -87,6 +87,7 @@ public:
     class CDisableICmd;
     class CBlendFuncSeparateICmd;
     class CColorMaskICmd;
+    class CMemoryBarrierCmd;
 
 private:
     std::mutex mutex;
@@ -390,6 +391,17 @@ private:
     const GLboolean m_green;
     const GLboolean m_blue;
     const GLboolean m_alpha;
+};
+
+class COpenGLCommandPool::CMemoryBarrierCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMemoryBarrierCmd>
+{
+public:
+    CMemoryBarrierCmd(const GLbitfield barrierBits) : m_barrierBits(barrierBits) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLbitfield m_barrierBits;
 };
 
 }

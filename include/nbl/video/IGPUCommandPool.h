@@ -163,13 +163,14 @@ public:
     static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
 
     class CBindIndexBufferCmd;
-
     class CDrawIndirectCmd;
     class CDrawIndexedIndirectCmd;
     class CDrawIndirectCountCmd;
     class CDrawIndexedIndirectCountCmd;
-
     class CBeginRenderPassCmd;
+    class CPipelineBarrierCmd;
+    class CBindDescriptorSetsCmd;
+    class CBindComputePipelineCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -304,7 +305,7 @@ class IGPUCommandPool::CBindIndexBufferCmd : public IGPUCommandPool::IFixedSizeC
 public:
     CBindIndexBufferCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& indexBuffer) : m_indexBuffer(std::move(indexBuffer)) {}
 
-protected:
+private:
     core::smart_refctd_ptr<const video::IGPUBuffer> m_indexBuffer;
 };
 
@@ -313,7 +314,7 @@ class IGPUCommandPool::CDrawIndirectCmd : public IGPUCommandPool::IFixedSizeComm
 public:
     CDrawIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
-protected:
+private:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
@@ -322,7 +323,7 @@ class IGPUCommandPool::CDrawIndexedIndirectCmd : public IGPUCommandPool::IFixedS
 public:
     CDrawIndexedIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
-protected:
+private:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
@@ -333,7 +334,7 @@ public:
         : m_buffer(std::move(buffer)) , m_countBuffer(std::move(countBuffer))
     {}
 
-protected:
+private:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
     core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
 };
@@ -345,7 +346,7 @@ public:
         : m_buffer(std::move(buffer)), m_countBuffer(std::move(countBuffer))
     {}
 
-protected:
+private:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
     core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
 };
@@ -357,9 +358,67 @@ public:
         : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer))
     {}
 
-protected:
+private:
     core::smart_refctd_ptr<const video::IGPURenderpass> m_renderpass;
     core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
+};
+
+class IGPUCommandPool::CPipelineBarrierCmd : public IGPUCommandPool::IFixedSizeCommand<CPipelineBarrierCmd>
+{
+public:
+    CPipelineBarrierCmd(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
+    {
+        m_barrierResources = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const core::IReferenceCounted>>>(imageCount + bufferCount);
+
+        uint32_t k = 0;
+
+        for (auto i = 0; i < bufferCount; ++i)
+            m_barrierResources->begin()[k++] = buffers[i];
+
+        for (auto i = 0; i < imageCount; ++i)
+            m_barrierResources->begin()[k++] = images[i];
+    }
+
+private:
+    core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const core::IReferenceCounted>> m_barrierResources;
+};
+
+class IGPUCommandPool::CBindDescriptorSetsCmd : public IGPUCommandPool::ICommand
+{
+public:
+    CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const core::smart_refctd_ptr<const IGPUDescriptorSet>* sets)
+        : ICommand(calc_size(core::smart_refctd_ptr(pipelineLayout), setCount, sets)), m_layout(std::move(pipelineLayout)), m_setCount(setCount)
+    {
+        m_sets = new (this + sizeof(CBindDescriptorSetsCmd)) core::smart_refctd_ptr<const IGPUDescriptorSet>[m_setCount];
+
+        for (auto i = 0; i < setCount; ++i)
+            m_sets[i] = sets[i];
+    }
+
+    ~CBindDescriptorSetsCmd()
+    {
+        for (auto i = 0; i < m_setCount; ++i)
+            m_sets[i].~smart_refctd_ptr();
+    }
+
+    static uint32_t calc_size(const core::smart_refctd_ptr<const IGPUPipelineLayout>& pipelineLayout, const uint32_t setCount, const core::smart_refctd_ptr<const IGPUDescriptorSet>* sets)
+    {
+        return core::alignUp(sizeof(CBindDescriptorSetsCmd) + setCount * sizeof(void*), alignof(ICommand));
+    }
+
+private:
+    core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
+    const uint32_t m_setCount;
+    core::smart_refctd_ptr<const IGPUDescriptorSet>* m_sets;
+};
+
+class IGPUCommandPool::CBindComputePipelineCmd : public IGPUCommandPool::IFixedSizeCommand<CBindComputePipelineCmd>
+{
+public:
+    CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
 };
 
 }

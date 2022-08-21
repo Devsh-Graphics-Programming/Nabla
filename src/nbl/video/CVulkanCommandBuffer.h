@@ -823,16 +823,13 @@ public:
         return true;
     }
 
-    bool pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
+    bool pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
         core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override
     {
-        if ((memoryBarrierCount == 0u) && (bufferMemoryBarrierCount == 0u) && (imageMemoryBarrierCount == 0u))
-            return false;
-
         constexpr uint32_t MAX_BARRIER_COUNT = 100u;
 
         assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
@@ -848,8 +845,8 @@ public:
         for (; totalResourceCount < imageMemoryBarrierCount; ++totalResourceCount)
             tmp[totalResourceCount] = pImageMemoryBarriers[totalResourceCount].image;
 
-        if (!saveReferencesToResources(tmp, tmp + totalResourceCount))
-            return false;
+        // TODO(achal): Remove.
+        saveReferencesToResources(tmp, tmp + totalResourceCount);
 
         VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
@@ -972,20 +969,11 @@ public:
         return true;
     }
 
-    bool bindComputePipeline(const compute_pipeline_t* pipeline) override
+    void bindComputePipeline_impl(const compute_pipeline_t* pipeline) override
     {
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const compute_pipeline_t>(pipeline) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-
-        if (pipeline->getAPIType() != EAT_VULKAN)
-            return false;
-
         VkPipeline vk_pipeline = IBackendObject::compatibility_cast<const CVulkanComputePipeline*>(pipeline, this)->getInternalObject();
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
-
-        return true;
     }
 
     
@@ -998,25 +986,16 @@ public:
     // Acceleration Structure Properties (Only available on Vulkan)
     bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) override;
 
-
-    // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
-    bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
+    bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
         const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
         const descriptor_set_t* const* const pDescriptorSets, 
-        const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr
-    ) override
+        const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr) override
     {
-        if (layout->getAPIType() != EAT_VULKAN)
-            return false;
-
-        constexpr uint32_t MAX_DESCRIPTOR_SET_COUNT = 4u;
-        assert(descriptorSetCount <= MAX_DESCRIPTOR_SET_COUNT);
-
         VkPipelineLayout vk_pipelineLayout = IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject();
 
-        uint32_t dynamicOffsetCountPerSet[MAX_DESCRIPTOR_SET_COUNT] = {};
+        uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
 
-        VkDescriptorSet vk_descriptorSets[MAX_DESCRIPTOR_SET_COUNT] = {};
+        VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
         for (uint32_t i = 0u; i < descriptorSetCount; ++i)
         {
             if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
@@ -1091,7 +1070,7 @@ public:
         }
 
         // with K slots you need at most (K+1)/2 calls
-        assert(bindCallsCount <= (MAX_DESCRIPTOR_SET_COUNT + 1) / 2);
+        assert(bindCallsCount <= (IGPUPipelineLayout::DESCRIPTOR_SET_COUNT + 1) / 2);
 
         return true;
     }
