@@ -938,11 +938,18 @@ public:
 
     bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
+        if (!m_stateCache.flushStateCompute2(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+            return false;
+
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, groupCountX, groupCountY, groupCountZ))
+            return false;
+
         SCmd<impl::ECT_DISPATCH> cmd;
         cmd.groupCountX = groupCountX;
         cmd.groupCountY = groupCountY;
         cmd.groupCountZ = groupCountZ;
         pushCommand(std::move(cmd));
+
         return true;
     }
     bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
@@ -1086,6 +1093,10 @@ public:
     }
     void bindComputePipeline_impl(const compute_pipeline_t* pipeline) override
     {
+        const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(pipeline);
+        // ctxlocal->nextState.pipeline.compute.usedShader = glppln ? glppln->getShaderGLnameForCtx(0u, ctxid) : 0u;
+        m_stateCache.nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
+
         SCmd<impl::ECT_BIND_COMPUTE_PIPELINE> cmd;
         cmd.pipeline = core::smart_refctd_ptr<const compute_pipeline_t>(pipeline);
         pushCommand(std::move(cmd));
@@ -1160,9 +1171,6 @@ public:
     bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout_, uint32_t firstSet_, uint32_t descriptorSetCount_,
         const descriptor_set_t*const *const descriptorSets_, const uint32_t dynamicOffsetCount_=0u, const uint32_t* dynamicOffsets_=nullptr) override
     {
-        if (!this->isCompatibleDevicewise(layout_))
-            return false;
-
         for (uint32_t i = 0u; i < descriptorSetCount_; ++i)
         {
             if (descriptorSets_[i])

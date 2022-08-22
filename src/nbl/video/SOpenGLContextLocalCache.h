@@ -12,7 +12,7 @@ namespace impl
     // GCC is special
     template<asset::E_PIPELINE_BIND_POINT>
     struct pipeline_for_bindpoint;
-    template<> struct pipeline_for_bindpoint<asset::EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
+    template<> struct pipeline_for_bindpoint<asset::EPBP_COMPUTE>  { using type = COpenGLComputePipeline; };
     template<> struct pipeline_for_bindpoint<asset::EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
 
     template<asset::E_PIPELINE_BIND_POINT PBP>
@@ -260,6 +260,8 @@ struct SOpenGLContextLocalCache
     // TODO(achal): Temporary, just to make the old code still work.
     bool flushStateGraphics2(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
     void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
+    // TODO(achal): Temporary, just to make the old code still work.
+    bool flushStateCompute2(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail);
 
     inline SBeforeClearStateBackup backupAndFlushStateClear(IOpenGL_FunctionTable* gl, uint32_t ctxid, bool color, bool depth, bool stencil)
     {

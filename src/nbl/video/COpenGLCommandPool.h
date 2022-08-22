@@ -48,7 +48,7 @@ public:
     public:
         IOpenGLCommand(const uint32_t size) : ICommand(size) {}
 
-        virtual void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) = 0;
+        virtual void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) = 0;
     };
 
     template<typename CRTP>
@@ -88,6 +88,9 @@ public:
     class CBlendFuncSeparateICmd;
     class CColorMaskICmd;
     class CMemoryBarrierCmd;
+    class CUseProgramComputeCmd;
+    class CDispatchComputeCmd;
+    template<size_t STAGE_COUNT> class CProgramUniformCmd;
 
 private:
     std::mutex mutex;
@@ -99,7 +102,7 @@ class COpenGLCommandPool::CBindFramebufferCmd : public COpenGLCommandPool::IOpen
 public:
     CBindFramebufferCmd(const COpenGLFramebuffer::hash_t& fboHash, core::smart_refctd_ptr<const COpenGLFramebuffer>&& fbo) : m_fboHash(fboHash), m_fbo(std::move(fbo)) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     COpenGLFramebuffer::hash_t m_fboHash;
@@ -113,7 +116,7 @@ public:
         : m_fboHash(fboHash), m_format(format), m_bufferType(bufferType), m_clearValue(clearValue), m_drawBufferIndex(drawBufferIndex)
     {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const COpenGLFramebuffer::hash_t m_fboHash;
@@ -132,7 +135,7 @@ public:
         memcpy(m_params, params, (m_count-m_first)*sizeof(GLfloat)*4ull);
     }
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLuint m_first;
@@ -149,7 +152,7 @@ public:
         memcpy(m_params, params, (m_count - m_first) * sizeof(GLdouble) * 2ull);
     }
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLuint m_first;
@@ -162,7 +165,7 @@ class COpenGLCommandPool::CPolygonModeCmd : public COpenGLCommandPool::IOpenGLFi
 public:
     CPolygonModeCmd(const GLenum mode) : m_mode(mode) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_mode;
@@ -173,7 +176,7 @@ class COpenGLCommandPool::CEnableCmd : public COpenGLCommandPool::IOpenGLFixedSi
 public:
     CEnableCmd(const GLenum cap) : m_cap(cap) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_cap;
@@ -184,7 +187,7 @@ class COpenGLCommandPool::CDisableCmd : public COpenGLCommandPool::IOpenGLFixedS
 public:
     CDisableCmd(const GLenum cap) : m_cap(cap) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_cap;
@@ -195,7 +198,7 @@ class COpenGLCommandPool::CCullFaceCmd : public COpenGLCommandPool::IOpenGLFixed
 public:
     CCullFaceCmd(const GLenum mode) : m_mode(mode) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_mode;
@@ -208,7 +211,7 @@ public:
         : m_face(face), m_sfail(sfail), m_dpfail(dpfail), m_dppass(dppass)
     {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_face;
@@ -224,7 +227,7 @@ public:
         m_face(face), m_func(func), m_ref(ref), m_mask(mask)
     {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_face;
@@ -238,7 +241,7 @@ class COpenGLCommandPool::CStencilMaskSeparateCmd : public COpenGLCommandPool::I
 public:
     CStencilMaskSeparateCmd(const GLenum face, const GLuint mask) : m_face(face), m_mask(mask) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_face;
@@ -250,7 +253,7 @@ class COpenGLCommandPool::CDepthFuncCmd : public COpenGLCommandPool::IOpenGLFixe
 public:
     CDepthFuncCmd(const GLenum func) : m_func(func) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_func;
@@ -261,7 +264,7 @@ class COpenGLCommandPool::CFrontFaceCmd : public COpenGLCommandPool::IOpenGLFixe
 public:
     CFrontFaceCmd(const GLenum mode) : m_mode(mode) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_mode;
@@ -272,7 +275,7 @@ class COpenGLCommandPool::CPolygonOffsetCmd : public COpenGLCommandPool::IOpenGL
 public:
     CPolygonOffsetCmd(const GLfloat factor, const GLfloat units) : m_factor(factor), m_units(units) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLfloat m_factor;
@@ -284,7 +287,7 @@ class COpenGLCommandPool::CLineWidthCmd : public COpenGLCommandPool::IOpenGLFixe
 public:
     CLineWidthCmd(const GLfloat width) : m_width(width) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLfloat m_width;
@@ -295,7 +298,7 @@ class COpenGLCommandPool::CMinSampleShadingCmd : public COpenGLCommandPool::IOpe
 public:
     CMinSampleShadingCmd(const GLfloat value) : m_value(value) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLfloat m_value;
@@ -306,7 +309,7 @@ class COpenGLCommandPool::CSampleMaskICmd : public COpenGLCommandPool::IOpenGLFi
 public:
     CSampleMaskICmd(const GLuint maskNumber, const GLbitfield mask) : m_maskNumber(maskNumber), m_mask(mask) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLuint m_maskNumber;
@@ -318,7 +321,7 @@ class COpenGLCommandPool::CDepthMaskCmd : public COpenGLCommandPool::IOpenGLFixe
 public:
     CDepthMaskCmd(const GLboolean flag) : m_flag(flag) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLboolean m_flag;
@@ -329,7 +332,7 @@ class COpenGLCommandPool::CLogicOpCmd : public COpenGLCommandPool::IOpenGLFixedS
 public:
     CLogicOpCmd(const GLenum opcode) : m_opcode(opcode) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_opcode;
@@ -340,7 +343,7 @@ class COpenGLCommandPool::CEnableICmd : public COpenGLCommandPool::IOpenGLFixedS
 public:
     CEnableICmd(const GLenum cap, const GLuint index) : m_cap(cap), m_index(index) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_cap;
@@ -352,7 +355,7 @@ class COpenGLCommandPool::CDisableICmd : public COpenGLCommandPool::IOpenGLFixed
 public:
     CDisableICmd(const GLenum cap, const GLuint index) : m_cap(cap), m_index(index) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLenum m_cap;
@@ -366,7 +369,7 @@ public:
         : m_buf(buf), m_srcRGB(srcRGB), m_dstRGB(dstRGB), m_srcAlpha(srcAlpha), m_dstAlpha(dstAlpha)
     {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLuint m_buf;
@@ -383,7 +386,7 @@ public:
         : m_buf(buf), m_red(red), m_green(green), m_blue(blue), m_alpha(alpha)
     {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLuint m_buf;
@@ -398,12 +401,145 @@ class COpenGLCommandPool::CMemoryBarrierCmd : public COpenGLCommandPool::IOpenGL
 public:
     CMemoryBarrierCmd(const GLbitfield barrierBits) : m_barrierBits(barrierBits) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const system::logger_opt_ptr logger) override;
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     const GLbitfield m_barrierBits;
 };
 
+class COpenGLCommandPool::CUseProgramComputeCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CUseProgramComputeCmd>
+{
+public:
+    CUseProgramComputeCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
+};
+
+class COpenGLCommandPool::CDispatchComputeCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CDispatchComputeCmd>
+{
+public:
+    CDispatchComputeCmd(const GLuint numGroupsX, const GLuint numGroupsY, const GLuint numGroupsZ) : m_numGroupsX(numGroupsX), m_numGroupsY(numGroupsY), m_numGroupsZ(numGroupsZ) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_numGroupsX;
+    const GLuint m_numGroupsY;
+    const GLuint m_numGroupsZ;
+};
+
+template<size_t STAGE_COUNT>
+class COpenGLCommandPool::CProgramUniformCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CProgramUniformCmd<STAGE_COUNT>>
+{
+    using UniformMemberType = asset::impl::SShaderMemoryBlock::SMember;
+    using GLPipelineType = IOpenGLPipeline<STAGE_COUNT>;
+
+    static inline constexpr uint32_t MaxDwordSize = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint32_t);
+
+public:
+    CProgramUniformCmd(core::smart_refctd_ptr<const GLPipelineType>&& pipeline, const uint32_t stageIx, const UniformMemberType& uniformMember,
+        const uint8_t* baseOffset, const GLint location, const std::array<uint32_t, MaxDwordSize>& packedData)
+        : m_pipeline(std::move(pipeline)), m_stageIx(stageIx), m_uniformMember(uniformMember), m_baseOffset(baseOffset), m_location(location), m_packedData(packedData)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override
+    {
+        const auto* glppln = static_cast<const GLPipelineType*>(m_pipeline.get());
+
+        GLuint GLname = glppln->getShaderGLnameForCtx(m_stageIx, ctxid);
+        uint8_t* state = glppln->getPushConstantsStateForStage(m_stageIx, ctxid);
+
+        const auto& m = m_uniformMember;
+        auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt >= 1u && m.mtxColCnt == 1u); };
+        auto is_mtx = [&m] { return (m.mtxRowCnt > 1u && m.mtxColCnt > 1u); };
+
+        uint8_t* valueptr = state + m.offset;
+        NBL_ASSUME_ALIGNED(valueptr, sizeof(float));
+
+        uint32_t arrayStride = m.arrayStride;
+        // in case of non-array types, m.arrayStride is irrelevant
+        // we should compute it though, so that we dont have to branch in the loop 
+        if (!m.isArray())
+        {
+            // 1N for scalar types, 2N for gvec2, 4N for gvec3 and gvec4
+            // N==sizeof(float)
+            // WARNING / TODO : need some touch in case when we want to support `double` push constants
+            if (is_scalar_or_vec())
+                arrayStride = (m.mtxRowCnt == 1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt) * sizeof(float);
+            // same as size in case of matrices
+            else if (is_mtx())
+                arrayStride = m.size;
+        }
+        assert(m.mtxStride == 0u || arrayStride % m.mtxStride == 0u);
+        //NBL_ASSUME_ALIGNED(valueptr, arrayStride); // should get the std140/std430 alignment of the type instead
+
+        auto* baseOffset = m_baseOffset;
+        const uint32_t count = std::min<uint32_t>(m.count, MaxDwordSize / (m.mtxRowCnt * m.mtxColCnt));
+
+        if (!std::equal(baseOffset, baseOffset + arrayStride * count, valueptr) || !glppln->haveUniformsBeenEverSet(m_stageIx, ctxid))
+        {
+            // TODO pointers to GL func (those arrays)
+            if (is_mtx() && m.type == asset::EGVT_F32)
+            {
+                PFNGLPROGRAMUNIFORMMATRIX4FVPROC glProgramUniformMatrixNxMfv_fptr[3][3]
+                { //N - num of columns, M - num of rows because of weird OpenGL naming convention
+                    {&gl->glShader.pglProgramUniformMatrix2fv, &gl->glShader.pglProgramUniformMatrix2x3fv, &gl->glShader.pglProgramUniformMatrix2x4fv},//2xM
+                    {&gl->glShader.pglProgramUniformMatrix3x2fv, &gl->glShader.pglProgramUniformMatrix3fv, &gl->glShader.pglProgramUniformMatrix3x4fv},//3xM
+                    {&gl->glShader.pglProgramUniformMatrix4x2fv, &gl->glShader.pglProgramUniformMatrix4x3fv, &gl->glShader.pglProgramUniformMatrix4fv} //4xM
+                };
+
+                glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt - 2u][m.mtxRowCnt - 2u](GLname, m_location, count, m.rowMajor ? GL_TRUE : GL_FALSE, reinterpret_cast<const GLfloat*>(m_packedData.data()));
+            }
+            else if (is_scalar_or_vec())
+            {
+                switch (m.type)
+                {
+                case asset::EGVT_F32:
+                {
+                    PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]
+                    {
+                        &gl->glShader.pglProgramUniform1fv, &gl->glShader.pglProgramUniform2fv, &gl->glShader.pglProgramUniform3fv, &gl->glShader.pglProgramUniform4fv
+                    };
+                    glProgramUniformNfv_fptr[m.mtxRowCnt - 1u](GLname, m_location, count, reinterpret_cast<const GLfloat*>(m_packedData.data()));
+                    break;
+                }
+                case asset::EGVT_I32:
+                {
+                    PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]
+                    {
+                        &gl->glShader.pglProgramUniform1iv, &gl->glShader.pglProgramUniform2iv, &gl->glShader.pglProgramUniform3iv, &gl->glShader.pglProgramUniform4iv
+                    };
+                    glProgramUniformNiv_fptr[m.mtxRowCnt - 1u](GLname, m_location, count, reinterpret_cast<const GLint*>(m_packedData.data()));
+                    break;
+                }
+                case asset::EGVT_U32:
+                {
+                    PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]
+                    {
+                        &gl->glShader.pglProgramUniform1uiv, &gl->glShader.pglProgramUniform2uiv, &gl->glShader.pglProgramUniform3uiv, &gl->glShader.pglProgramUniform4uiv
+                    };
+                    glProgramUniformNuiv_fptr[m.mtxRowCnt - 1u](GLname, m_location, count, reinterpret_cast<const GLuint*>(m_packedData.data()));
+                    break;
+                }
+                }
+            }
+            std::copy(baseOffset, baseOffset + arrayStride * count, valueptr);
+        }
+    }
+
+private:
+    core::smart_refctd_ptr<const GLPipelineType> m_pipeline;
+    const uint32_t m_stageIx;
+    UniformMemberType m_uniformMember;
+    const uint8_t* m_baseOffset;
+    const GLint m_location;
+    std::array<uint32_t, MaxDwordSize> m_packedData;
+};
+
 }
+
 
 #endif

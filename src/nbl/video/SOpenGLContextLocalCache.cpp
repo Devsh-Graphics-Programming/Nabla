@@ -1175,6 +1175,28 @@ void SOpenGLContextLocalCache::flushStateCompute(IOpenGL_FunctionTable* gl, uint
     }
 }
 
+bool SOpenGLContextLocalCache::flushStateCompute2(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+{
+    if (stateBits & GSB_PIPELINE)
+    {
+        if (nextState.pipeline.compute.pipeline != currentState.pipeline.compute.pipeline)
+        {
+            currentState.pipeline.compute.pipeline = nextState.pipeline.compute.pipeline;
+            if (cmdpool->emplace<COpenGLCommandPool::CUseProgramComputeCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr(currentState.pipeline.compute.pipeline)))
+                return false;
+        }
+    }
+
+    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
+    {
+        assert(currentState.pipeline.compute.pipeline->containsShader());
+        if (!currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(pushConstantsStateCompute, cmdpool, segmentListHeadItr, segmentListTail))
+            return false;
+    }
+
+    return true;
+}
+
 GLuint SOpenGLContextLocalCache::createGraphicsPipeline(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& _hash)
 {
     constexpr size_t STAGE_CNT = COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT;

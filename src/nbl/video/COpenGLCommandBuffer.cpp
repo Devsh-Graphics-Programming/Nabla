@@ -586,7 +586,7 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
 
 void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
 {
-#define NEW_WAY
+// #define NEW_WAY
 #ifdef NEW_WAY
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
@@ -595,7 +595,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextL
         while (itr.m_cmd->getSize() != 0u)
         {
             auto* glcmd = static_cast<COpenGLCommandPool::IOpenGLCommand*>(itr.m_cmd);
-            glcmd->operator()(gl, fboCache, m_logger.getOptRawPtr());
+            glcmd->operator()(gl, fboCache, ctxid, m_logger.getOptRawPtr());
 
             itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->getSize());
             if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) > IGPUCommandPool::CCommandSegment::STORAGE_SIZE)

@@ -13,6 +13,8 @@
 namespace nbl::video
 {
 
+struct COpenGLCommandPool;
+
 class IOpenGLPipelineBase
 {
     public:
@@ -33,7 +35,7 @@ class IOpenGLPipelineBase
 class IOpenGL_LogicalDevice;
 
 template<size_t _STAGE_COUNT>
-class IOpenGLPipeline : IOpenGLPipelineBase
+class IOpenGLPipeline : public virtual core::IReferenceCounted, IOpenGLPipelineBase
 {
     protected:
         // needed for spirv-cross-based workaround of GL's behaviour of gl_InstanceID
@@ -119,6 +121,19 @@ class IOpenGLPipeline : IOpenGLPipelineBase
 
         uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + uniformsCacheByteoffsetForCtxAndStage(_ctxID, _stageIx)); }
         base_instance_cache_t* getBaseInstanceState(uint32_t _ctxID) const { return const_cast<base_instance_cache_t*>(reinterpret_cast<const base_instance_cache_t*>(m_uniformValues + baseInstanceCacheByteoffsetForCtx(_ctxID))); }
+
+        GLuint getShaderGLnameForCtx(uint32_t _stageIx, uint32_t _ctxID) const
+        {
+            const uint32_t name_ix = _ctxID * _STAGE_COUNT + _stageIx;
+
+            return (*m_GLprograms)[name_ix].GLname;
+        }
+
+        bool haveUniformsBeenEverSet(uint32_t _stageIx, uint32_t _ctxID) const
+        {
+            const uint32_t ix = _ctxID * _STAGE_COUNT + _stageIx;
+            return !(*m_GLprograms)[ix].uniformsSetForTheVeryFirstTime;
+        }
 
     protected:
         void setUniformsImitatingPushConstants(IOpenGL_FunctionTable* glft, uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations) const
@@ -234,11 +249,72 @@ class IOpenGLPipeline : IOpenGLPipelineBase
             afterUniformsSet(_stageIx, _ctxID);
         }
 
-        GLuint getShaderGLnameForCtx(uint32_t _stageIx, uint32_t _ctxID) const
+        bool setUniformsImitatingPushConstants(uint32_t _stageIx, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail) const
         {
-            const uint32_t name_ix = _ctxID*_STAGE_COUNT + _stageIx;
+            assert(_uniforms.size() == _locations.size());
 
-            return (*m_GLprograms)[name_ix].GLname;
+            // wtf??? alignas doesnt work??? (see COpenGLRenderpassIndependentPipeline and COpenGLComputePipeline)
+            // TODO
+            //NBL_ASSUME_ALIGNED(_pcData, 128);
+
+            uint32_t loc_i = 0u;
+            for (auto u_it = _uniforms.begin(); u_it != _uniforms.end(); ++u_it, ++loc_i)
+            {
+                if (_locations.begin()[loc_i] < 0)
+                    continue;
+
+                const auto& u = *u_it;
+
+                const auto& m = u.m;
+                auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt >= 1u && m.mtxColCnt == 1u); };
+                auto is_mtx = [&m] { return (m.mtxRowCnt > 1u && m.mtxColCnt > 1u); };
+
+                uint32_t arrayStride = m.arrayStride;
+                // in case of non-array types, m.arrayStride is irrelevant
+                // we should compute it though, so that we dont have to branch in the loop 
+                if (!m.isArray())
+                {
+                    // 1N for scalar types, 2N for gvec2, 4N for gvec3 and gvec4
+                    // N==sizeof(float)
+                    // WARNING / TODO : need some touch in case when we want to support `double` push constants
+                    if (is_scalar_or_vec())
+                        arrayStride = (m.mtxRowCnt == 1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt) * sizeof(float);
+                    // same as size in case of matrices
+                    else if (is_mtx())
+                        arrayStride = m.size;
+                }
+                assert(m.mtxStride == 0u || arrayStride % m.mtxStride == 0u);
+
+                auto* baseOffset = _pcData + m.offset;
+                NBL_ASSUME_ALIGNED(baseOffset, sizeof(float));
+                //NBL_ASSUME_ALIGNED(baseOffset, arrayStride); // should get the std140/std430 alignment of the type instead
+
+                constexpr uint32_t MAX_DWORD_SIZE = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint32_t);
+                alignas(128u) std::array<uint32_t, MAX_DWORD_SIZE> packed_data;
+
+                const uint32_t count = std::min<uint32_t>(m.count, MAX_DWORD_SIZE / (m.mtxRowCnt * m.mtxColCnt));
+
+                // pack the constant data as OpenGL uniform update functions expect packed arrays
+                {
+                    const uint32_t rowOrColCnt = m.rowMajor ? m.mtxRowCnt : m.mtxColCnt;
+                    const uint32_t len = m.rowMajor ? m.mtxColCnt : m.mtxRowCnt;
+                    for (uint32_t i = 0u; i < count; ++i)
+                        for (uint32_t c = 0u; c < rowOrColCnt; ++c)
+                        {
+                            auto in = reinterpret_cast<const uint32_t*>(baseOffset + i * arrayStride + c * m.mtxStride);
+                            auto out = packed_data.data() + (i * m.mtxRowCnt * m.mtxColCnt) + (c * len);
+                            std::copy(in, in + len, out);
+                        }
+                }
+
+                if (!cmdpool->emplace<COpenGLCommandPool::CProgramUniformCmd<_STAGE_COUNT>>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<const IOpenGLPipeline<_STAGE_COUNT>>(this), _stageIx, m, baseOffset, _locations.begin()[loc_i], packed_data))
+                    return false;
+            }
+
+            // This needs to probably be its own separate Cmd.
+            // afterUniformsSet(_stageIx, _ctxID); --deferred
+
+            return true;
         }
 
         IOpenGL_LogicalDevice* m_device;
@@ -247,11 +323,6 @@ class IOpenGLPipeline : IOpenGLPipelineBase
         uint8_t* m_uniformValues;
 
     private:
-        bool haveUniformsBeenEverSet(uint32_t _stageIx, uint32_t _ctxID) const
-        {
-            const uint32_t ix = _ctxID * _STAGE_COUNT + _stageIx;
-            return !(*m_GLprograms)[ix].uniformsSetForTheVeryFirstTime;
-        }
         void afterUniformsSet(uint32_t _stageIx, uint32_t _ctxID) const
         {
             const uint32_t ix = _ctxID * _STAGE_COUNT + _stageIx;

@@ -653,7 +653,6 @@ public:
         return true;
     }
 
-    // Doesn't really require the return value here
     bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
@@ -976,7 +975,6 @@ public:
         vk->vk.vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
     }
 
-    
     bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
     bool beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS>) override;
     bool endQuery(IQueryPool* queryPool, uint32_t query) override;

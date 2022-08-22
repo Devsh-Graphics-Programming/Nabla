@@ -27,7 +27,6 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
             IOpenGLPipeline(device.get(), _gl, _ctxCount, _ctxID, &_GLname, &_binary),
             m_lastUpdateStamp(0u)
         {
-
         }
 
         bool containsShader() const { return static_cast<bool>(m_shader); }
@@ -65,6 +64,25 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
                     IOpenGLPipeline<1>::setUniformsImitatingPushConstants(gl, 0u, _ctxID, _pcState.data, uniforms, locations);
                 m_lastUpdateStamp = stampValue;
             }
+        }
+        inline bool setUniformsImitatingPushConstants(const PushConstantsState& _pcState, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail) const
+        {
+            uint32_t stampValue = _pcState.getStamp(IGPUShader::ESS_COMPUTE);
+            if (stampValue > m_lastUpdateStamp)
+            {
+                auto uniforms = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shader.get(), this)->getUniforms();
+                auto locations = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shader.get(), this)->getLocations();
+                if (uniforms.size())
+                {
+                    if (!IOpenGLPipeline<1>::setUniformsImitatingPushConstants(0u, _pcState.data, uniforms, locations, cmdpool, segmentListHeadItr, segmentListTail))
+                        return false;
+                }
+                m_lastUpdateStamp = stampValue;
+
+                return true;
+            }
+
+            return false;
         }
 
     protected:

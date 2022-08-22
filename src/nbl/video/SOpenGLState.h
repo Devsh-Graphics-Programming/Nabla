@@ -68,7 +68,7 @@ struct SOpenGLState
         } graphics;
         struct {
             core::smart_refctd_ptr<const COpenGLComputePipeline> pipeline;
-            GLuint usedShader = 0u;
+            GLuint usedShader = 0u; // TODO(achal): We most likely don't need this anymore.
         } compute;
     } pipeline;
 
