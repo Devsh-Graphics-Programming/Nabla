@@ -91,6 +91,11 @@ public:
     class CUseProgramComputeCmd;
     class CDispatchComputeCmd;
     template<size_t STAGE_COUNT> class CProgramUniformCmd;
+    class CBindBufferCmd;
+    class CBindImageTexturesCmd;
+    class CBindTexturesCmd;
+    class CBindSamplersCmd;
+    class CBindBuffersRangeCmd;
 
 private:
     std::mutex mutex;
@@ -538,6 +543,100 @@ private:
     const GLint m_location;
     std::array<uint32_t, MaxDwordSize> m_packedData;
 };
+
+class COpenGLCommandPool::CBindBufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindBufferCmd>
+{
+public:
+    CBindBufferCmd(const GLenum target, const GLuint bufferGLName) : m_target(target), m_bufferGLName(bufferGLName) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_target;
+    const GLuint m_bufferGLName;
+};
+
+class COpenGLCommandPool::CBindImageTexturesCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindImageTexturesCmd>
+{
+public:
+    CBindImageTexturesCmd(const GLuint first, const GLsizei count, const GLuint* textures, const GLenum* formats)
+        : m_first(first), m_count(count), m_textures(textures), m_formats(formats)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_first;
+    const GLsizei m_count;
+
+    // Pointers to memory owned by COpenGLDescriptorSet.
+    const GLuint* m_textures;
+    const GLenum* m_formats;
+};
+
+class COpenGLCommandPool::CBindTexturesCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindTexturesCmd>
+{
+public:
+    CBindTexturesCmd(const GLuint first, const GLsizei count, const GLuint* textures, const GLenum* targets)
+        : m_first(first), m_count(count), m_textures(textures), m_targets(targets)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_first;
+    const GLsizei m_count;
+
+    // Pointers to memory owned by COpenGLDescriptorSet.
+    const GLuint* m_textures;
+    const GLenum* m_targets;
+};
+
+class COpenGLCommandPool::CBindSamplersCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindSamplersCmd>
+{
+public:
+    CBindSamplersCmd(const GLuint first, const GLsizei count, const GLuint* samplers) : m_first(first), m_count(count), m_samplers(samplers) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_first;
+    const GLsizei m_count;
+
+    // Pointer to memory owned by COpenGLDescriptorSet.
+    const GLuint* m_samplers;
+};
+
+class COpenGLCommandPool::CBindBuffersRangeCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindBuffersRangeCmd>
+{
+    //not entirely sure those MAXes are right
+    static inline constexpr size_t MaxUboCount = 96ull;
+    static inline constexpr size_t MaxSsboCount = 91ull;
+    static inline constexpr size_t MaxOffsets = std::max(MaxUboCount, MaxSsboCount);
+
+public:
+    CBindBuffersRangeCmd(const GLenum target, const GLuint first, const GLsizei count, const GLuint* buffers, const GLintptr* offsets, const GLintptr* sizes)
+        : m_target(target), m_first(first), m_count(count), m_buffers(buffers)
+    {
+        memcpy(m_offsets, offsets, m_count*sizeof(GLintptr));
+        memcpy(m_sizes, sizes, m_count*sizeof(GLintptr));
+    }
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_target;
+    const GLuint m_first;
+    const GLsizei m_count;
+
+    // Pointer to memory owned by COpenGLDescriptorSet.
+    const GLuint* m_buffers;
+
+    GLintptr m_offsets[MaxOffsets];
+    GLintptr m_sizes[MaxOffsets];
+};
+
+
 
 }
 

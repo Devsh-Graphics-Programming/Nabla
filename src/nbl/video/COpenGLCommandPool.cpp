@@ -209,4 +209,29 @@ void COpenGLCommandPool::CDispatchComputeCmd::operator()(IOpenGL_FunctionTable* 
     gl->glCompute.pglDispatchCompute(m_numGroupsX, m_numGroupsY, m_numGroupsZ);
 }
 
+void COpenGLCommandPool::CBindBufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->glBuffer.pglBindBuffer(m_target, m_bufferGLName);
+}
+
+void COpenGLCommandPool::CBindImageTexturesCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlBindImageTextures(m_first, m_count, m_textures, m_formats);
+}
+
+void COpenGLCommandPool::CBindTexturesCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlBindTextures(m_first, m_count, m_textures, m_targets);
+}
+
+void COpenGLCommandPool::CBindSamplersCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlBindSamplers(m_first, m_count, m_samplers);
+}
+
+void COpenGLCommandPool::CBindBuffersRangeCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlBindBuffersRange(m_target, m_first, m_count, m_buffers, m_offsets, m_sizes);
+}
+
 }

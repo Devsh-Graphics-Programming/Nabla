@@ -256,12 +256,10 @@ struct SOpenGLContextLocalCache
     }
 
     // state flushing 
-    void flushStateGraphics(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
-    // TODO(achal): Temporary, just to make the old code still work.
-    bool flushStateGraphics2(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
-    void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid);
-    // TODO(achal): Temporary, just to make the old code still work.
-    bool flushStateCompute2(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail);
+    void flushStateGraphics(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid); // TODO(achal): Temporary, just to make the old code still work.
+    bool flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
+    void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid); // TODO(achal): Temporary, just to make the old code still work.
+    bool flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
 
     inline SBeforeClearStateBackup backupAndFlushStateClear(IOpenGL_FunctionTable* gl, uint32_t ctxid, bool color, bool depth, bool stencil)
     {
@@ -308,7 +306,7 @@ struct SOpenGLContextLocalCache
             nextState.rasterParams.stencilFunc_front.mask = ~0u;
         }
 
-        flushStateGraphics2(GSB_RASTER_PARAMETERS, cmdpool, segmentListHeadItr, segmentListTail, apiType, features);
+        flushStateGraphics(GSB_RASTER_PARAMETERS, cmdpool, segmentListHeadItr, segmentListTail, apiType, features);
 
         return backup;
     }
@@ -323,7 +321,8 @@ struct SOpenGLContextLocalCache
 private:
     uint64_t m_timestampCounter = 0u;
 
-    void flushState_descriptors(IOpenGL_FunctionTable* gl, asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout);
+    void flushState_descriptors(IOpenGL_FunctionTable* gl, asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout); // TODO(achal): Temporary.
+    bool flushState_descriptors(asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
     GLuint createGraphicsPipeline(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& _hash);
 
     static inline GLenum getGLpolygonMode(asset::E_POLYGON_MODE pm)

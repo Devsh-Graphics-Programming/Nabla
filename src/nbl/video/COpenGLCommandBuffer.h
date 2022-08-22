@@ -938,7 +938,7 @@ public:
 
     bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
     {
-        if (!m_stateCache.flushStateCompute2(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+        if (!m_stateCache.flushStateCompute(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, m_features))
             return false;
 
         if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, groupCountX, groupCountY, groupCountZ))
@@ -1034,7 +1034,7 @@ public:
     {
         m_stateCache.nextState.framebuffer.hash = static_cast<const COpenGLFramebuffer*>(pRenderPassBegin->framebuffer.get())->getHashValue();
         m_stateCache.nextState.framebuffer.fbo = core::smart_refctd_ptr_static_cast<const COpenGLFramebuffer>(pRenderPassBegin->framebuffer);
-        if (!m_stateCache.flushStateGraphics2(SOpenGLContextLocalCache::GSB_FRAMEBUFFER, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_FRAMEBUFFER, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
 
         if (!beginRenderpass_clearAttachments2(&m_stateCache, *pRenderPassBegin, m_logger.getOptRawPtr(), m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))

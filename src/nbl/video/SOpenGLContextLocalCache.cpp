@@ -156,7 +156,11 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             {
                 assert(multibind_params.textureImages.textures);
                 //formats must be provided since we dont have ARB_multi_bind on ES
-                gl->extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, multibind_params.textureImages.formats);
+                gl->extGlBindImageTextures(
+                    first_count.textureImages.first,
+                    localStorageImageCount,
+                    multibind_params.textureImages.textures,
+                    multibind_params.textureImages.formats);
             }
 
             const GLsizei localTextureCount = newTexCount - first_count.textures.first;
@@ -246,6 +250,174 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
         currentState.descriptorsParams[_pbp].descSets[i] = nextState.descriptorsParams[_pbp].descSets[i];
         effectivelyBoundDescriptors.descSets[i] = nextState.descriptorsParams[_pbp].descSets[i];
     }
+}
+
+bool SOpenGLContextLocalCache::flushState_descriptors(asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features)
+{
+    const COpenGLPipelineLayout* prevLayout = effectivelyBoundDescriptors.layout.get();
+    //bind new descriptor sets
+    int32_t compatibilityLimit = 0u;
+    if (prevLayout && _currentLayout)
+        compatibilityLimit = prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _currentLayout) + 1u;
+    if (!prevLayout && !_currentLayout)
+        compatibilityLimit = static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
+
+    int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
+    if (_currentLayout)
+    {
+        for (uint32_t i = 0u; i < static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT); ++i)
+        {
+            const auto& first_count = _currentLayout->getMultibindParamsForDescSet(i);
+
+            {
+                GLsizei count{};
+
+#define CLAMP_COUNT(resname,limit,printstr) \
+count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_count.resname.first + first_count.resname.count)-static_cast<int32_t>(limit)))
+
+                CLAMP_COUNT(ubos, features->maxUBOBindings, UBO);
+                newUboCount = first_count.ubos.first + count;
+                CLAMP_COUNT(ssbos, features->maxSSBOBindings, SSBO);
+                newSsboCount = first_count.ssbos.first + count;
+                CLAMP_COUNT(textures, features->maxTextureBindings, texture); //TODO should use maxTextureBindingsCompute for compute
+                newTexCount = first_count.textures.first + count;
+                CLAMP_COUNT(textureImages, features->maxImageBindings, image);
+                newImgCount = first_count.textureImages.first + count;
+#undef CLAMP_COUNT
+            }
+
+            const auto* nextSet = nextState.descriptorsParams[_pbp].descSets[i].set.get();
+            const auto dynamicOffsetCount = nextSet ? nextSet->getDynamicOffsetCount() : 0u;
+            const auto nextStateDynamicOffsets = nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets;
+            //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
+            if (
+                (i < compatibilityLimit) && (effectivelyBoundDescriptors.descSets[i].set.get() == nextSet) &&
+                std::equal(nextStateDynamicOffsets, nextStateDynamicOffsets + dynamicOffsetCount, effectivelyBoundDescriptors.descSets[i].dynamicOffsets) &&
+                (effectivelyBoundDescriptors.descSets[i].revision == nextState.descriptorsParams[_pbp].descSets[i].revision)
+                )
+            {
+                continue;
+            }
+
+            const auto multibind_params = nextSet ? nextSet->getMultibindParams() : COpenGLDescriptorSet::SMultibindParams{}; // all nullptr if null set
+
+            const GLsizei localStorageImageCount = newImgCount - first_count.textureImages.first;
+            if (localStorageImageCount)
+            {
+                assert(multibind_params.textureImages.textures);
+                //formats must be provided since we dont have ARB_multi_bind on ES
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindImageTexturesCmd>(segmentListHeadItr, segmentListTail, first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, multibind_params.textureImages.formats))
+                    return false;
+            }
+
+            const GLsizei localTextureCount = newTexCount - first_count.textures.first;
+            if (localTextureCount)
+            {
+                assert(multibind_params.textures.textures && multibind_params.textures.samplers);
+                //targets must be provided since we dont have ARB_multi_bind on ES
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindTexturesCmd>(segmentListHeadItr, segmentListTail, first_count.textures.first, localTextureCount, multibind_params.textures.textures, multibind_params.textures.targets))
+                    return false;
+
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindSamplersCmd>(segmentListHeadItr, segmentListTail, first_count.textures.first, localTextureCount, multibind_params.textures.samplers))
+                    return false;
+            }
+
+            //not entirely sure those MAXes are right
+            constexpr size_t MAX_UBO_COUNT = 96ull;
+            constexpr size_t MAX_SSBO_COUNT = 91ull;
+            constexpr size_t MAX_OFFSETS = MAX_UBO_COUNT > MAX_SSBO_COUNT ? MAX_UBO_COUNT : MAX_SSBO_COUNT;
+            GLintptr offsetsArray[MAX_OFFSETS]{};
+            GLintptr sizesArray[MAX_OFFSETS]{};
+
+            const GLsizei localSsboCount = newSsboCount - first_count.ssbos.first;//"local" as in this DS
+            if (localSsboCount)
+            {
+                if (nextSet)
+                    for (GLsizei s = 0u; s < localSsboCount; ++s)
+                    {
+                        offsetsArray[s] = multibind_params.ssbos.offsets[s];
+                        sizesArray[s] = multibind_params.ssbos.sizes[s];
+                        //if it crashes below, it means that there are dynamic Buffer Objects in the DS, but the DS was bound with no (or not enough) dynamic offsets
+                        //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+                        if (multibind_params.ssbos.dynOffsetIxs[s] < dynamicOffsetCount)
+                            offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets[multibind_params.ssbos.dynOffsetIxs[s]];
+                        if (sizesArray[s] == IGPUBufferView::whole_buffer)
+                            sizesArray[s] = nextSet->getSSBO(s)->getSize() - offsetsArray[s];
+                    }
+                assert(multibind_params.ssbos.buffers);
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr))
+                    return false;
+            }
+
+            const GLsizei localUboCount = (newUboCount - first_count.ubos.first);//"local" as in this DS
+            if (localUboCount)
+            {
+                if (nextSet)
+                    for (GLsizei s = 0u; s < localUboCount; ++s)
+                    {
+                        offsetsArray[s] = multibind_params.ubos.offsets[s];
+                        sizesArray[s] = multibind_params.ubos.sizes[s];
+                        //if it crashes below, it means that there are dynamic Buffer Objects in the DS, but the DS was bound with no (or not enough) dynamic offsets
+                        //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+                        if (multibind_params.ubos.dynOffsetIxs[s] < dynamicOffsetCount)
+                            offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets[multibind_params.ubos.dynOffsetIxs[s]];
+                        if (sizesArray[s] == IGPUBufferView::whole_buffer)
+                            sizesArray[s] = nextSet->getUBO(s)->getSize() - offsetsArray[s];
+                    }
+                assert(multibind_params.ubos.buffers);
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr))
+                    return false;
+            }
+
+        }
+    }
+
+    //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
+    if (prevLayout)//if previous pipeline was nullptr, then no descriptors were bound
+    {
+        int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
+        const auto& first_count = prevLayout->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u);
+
+        prevUboCount = first_count.ubos.first + first_count.ubos.count;
+        prevSsboCount = first_count.ssbos.first + first_count.ssbos.count;
+        prevTexCount = first_count.textures.first + first_count.textures.count;
+        prevImgCount = first_count.textureImages.first + first_count.textureImages.count;
+
+        int64_t diff = 0LL;
+        if ((diff = prevUboCount - newUboCount) > 0LL)
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_UNIFORM_BUFFER, newUboCount, diff, nullptr, nullptr, nullptr))
+                return false;
+        }
+        if ((diff = prevSsboCount - newSsboCount) > 0LL)
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_SHADER_STORAGE_BUFFER, newSsboCount, diff, nullptr, nullptr, nullptr))
+                return false;
+        }
+        if ((diff = prevTexCount - newTexCount) > 0LL)
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindTexturesCmd>(segmentListHeadItr, segmentListTail, newTexCount, diff, nullptr, nullptr))
+                return false;
+
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindSamplersCmd>(segmentListHeadItr, segmentListTail, newTexCount, diff, nullptr))
+                return false;
+        }
+        if ((diff = prevImgCount - newImgCount) > 0LL)
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindImageTexturesCmd>(segmentListHeadItr, segmentListTail, newImgCount, diff, nullptr, nullptr))
+                return false;
+        }
+    }
+
+    //update state in state tracker
+    effectivelyBoundDescriptors.layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(_currentLayout);
+    for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        currentState.descriptorsParams[_pbp].descSets[i] = nextState.descriptorsParams[_pbp].descSets[i];
+        effectivelyBoundDescriptors.descSets[i] = nextState.descriptorsParams[_pbp].descSets[i];
+    }
+
+    return true;
 }
 
 void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid)
@@ -766,7 +938,7 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
     }
 }
 
-bool SOpenGLContextLocalCache::flushStateGraphics2(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+bool SOpenGLContextLocalCache::flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
 {
     if (stateBits & GSB_FRAMEBUFFER)
     {
@@ -1175,7 +1347,7 @@ void SOpenGLContextLocalCache::flushStateCompute(IOpenGL_FunctionTable* gl, uint
     }
 }
 
-bool SOpenGLContextLocalCache::flushStateCompute2(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+bool SOpenGLContextLocalCache::flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features)
 {
     if (stateBits & GSB_PIPELINE)
     {
@@ -1191,6 +1363,21 @@ bool SOpenGLContextLocalCache::flushStateCompute2(uint32_t stateBits, IGPUComman
     {
         assert(currentState.pipeline.compute.pipeline->containsShader());
         if (!currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(pushConstantsStateCompute, cmdpool, segmentListHeadItr, segmentListTail))
+            return false;
+    }
+
+    if (stateBits & GSB_DISPATCH_INDIRECT)
+    {
+        const GLuint GLname = nextState.dispatchIndirect.buffer ? nextState.dispatchIndirect.buffer->getOpenGLName() : 0u;
+        if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_DISPATCH_INDIRECT_BUFFER, GLname))
+            return false;
+        currentState.dispatchIndirect.buffer = nextState.dispatchIndirect.buffer;
+    }
+
+    if (stateBits & GSB_DESCRIPTOR_SETS)
+    {
+        const COpenGLPipelineLayout* currLayout = currentState.pipeline.compute.pipeline ? static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout()) : nullptr;
+        if (!flushState_descriptors(asset::EPBP_COMPUTE, currLayout, cmdpool, segmentListHeadItr, segmentListTail, features))
             return false;
     }
 
