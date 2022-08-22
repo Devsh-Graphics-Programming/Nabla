@@ -26,9 +26,23 @@ namespace ext
 namespace TextRendering
 {
 
+constexpr uint32_t asciiAtlasCharacterCount = int('~') - int(' ');
+
 struct SPixelCoord
 {
 	uint16_t x, y;
+};
+
+class NBL_API FontAtlas
+{
+public:
+	FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow);
+private:
+	FT_Library library;
+	FT_Face face;
+
+	std::array<SPixelCoord, asciiAtlasCharacterCount> characterAtlasPosition;
+	core::smart_refctd_ptr<video::IGPUImage> atlasImage;
 };
 
 struct SGlyphData 
