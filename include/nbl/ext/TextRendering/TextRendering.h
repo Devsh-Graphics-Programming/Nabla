@@ -26,7 +26,7 @@ namespace ext
 namespace TextRendering
 {
 
-constexpr uint32_t asciiAtlasCharacterCount = int('~') - int(' ');
+constexpr uint32_t asciiAtlasCharacterCount = (int('~') - int(' ')) + 1;
 
 struct SPixelCoord
 {

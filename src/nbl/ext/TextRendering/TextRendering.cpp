@@ -14,6 +14,11 @@ namespace ext
 namespace TextRendering
 {
 
+uint32_t getCharacterAtlasPositionIx(char character)
+{
+	return int(character) - int(' ');
+}
+
 // Generates atlas of MSDF textures for each ASCII character
 FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t msdfWidth, uint32_t msdfHeight, uint32_t charsPerRow)
 {
@@ -27,8 +32,6 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 	auto commandPool = device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
 	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
-
-	commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
 	std::vector<nbl::core::smart_refctd_ptr<video::IGPUBuffer>> dataBuffers;
 	std::vector<asset::IImage::SBufferCopy> bufferCopies;
@@ -63,6 +66,8 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 
 			video::IGPUBuffer::SCreationParams bufParams;
 			bufParams.size = rowLength * msdfHeight;
+			bufParams.usage = asset::IBuffer::EUF_TRANSFER_SRC_BIT;
+
 			auto data = device->createBuffer(std::move(bufParams));
 			auto bufreqs = data->getMemoryReqs();
 			bufreqs.memoryTypeBits &= device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
@@ -84,9 +89,8 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 				}
 			}
 
-			dataBuffers.push_back(data);
-
 			asset::IImage::SBufferCopy region;
+			region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			region.imageSubresource.mipLevel = 0u;
 			region.imageSubresource.baseArrayLayer = 0u;
 			region.imageSubresource.layerCount = 1u;
@@ -96,7 +100,8 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 			region.imageOffset = { atlasGlyphX * msdfWidth, atlasRow * msdfHeight, 0u };
 			region.imageExtent = { msdfWidth, msdfHeight, 1 };
 
-			characterAtlasPosition[int(k)] = { uint16_t(atlasGlyphX * msdfWidth), uint16_t(atlasRow * msdfHeight) };
+			characterAtlasPosition[getCharacterAtlasPositionIx(k)] = { uint16_t(atlasGlyphX * msdfWidth), uint16_t(atlasRow * msdfHeight) };
+			printf("k = %c | int(k) = %i | getCharacterAtlasPositionIx(k) = %i | Coords: %i, %i\n", k, int(k), getCharacterAtlasPositionIx(k), atlasGlyphX * msdfWidth, atlasRow * msdfHeight);
 
 			dataBuffers.push_back(data);
 			bufferCopies.push_back(region);
@@ -110,7 +115,6 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 		}
 	}
 
-	commandBuffer->end();
 
 	{
 		uint32_t atlasRows = (characterCount + (charsPerRow - 1)) / charsPerRow;
@@ -124,16 +128,62 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 		imgParams.extent.depth = 1;
 		imgParams.mipLevels = 1;
 		imgParams.arrayLayers = 1;
+		imgParams.usage = core::bitflag<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_TRANSFER_DST_BIT) | asset::IImage::EUF_SAMPLED_BIT;
 
 		atlasImage = device->createImage(std::move(imgParams));
+
+		auto imgreqs = atlasImage->getMemoryReqs();
+		imgreqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+		device->allocate(imgreqs, atlasImage.get());
 	}
+
+	commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+
+	video::IGPUCommandBuffer::SImageMemoryBarrier layoutTransBarrier;
+	layoutTransBarrier.srcQueueFamilyIndex = ~0u;
+	layoutTransBarrier.dstQueueFamilyIndex = ~0u;
+	layoutTransBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+	layoutTransBarrier.subresourceRange.baseMipLevel = 0u;
+	layoutTransBarrier.subresourceRange.levelCount = 1u;
+	layoutTransBarrier.subresourceRange.baseArrayLayer = 0u;
+	layoutTransBarrier.subresourceRange.layerCount = 1u;
+
+	layoutTransBarrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+	layoutTransBarrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+	layoutTransBarrier.oldLayout = asset::IImage::EL_UNDEFINED;
+	layoutTransBarrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
+	layoutTransBarrier.image = atlasImage;
+
+	commandBuffer->pipelineBarrier(
+		asset::EPSF_TOP_OF_PIPE_BIT,
+		asset::EPSF_TRANSFER_BIT,
+		static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+		0u, nullptr,
+		0u, nullptr,
+		1u, &layoutTransBarrier);
 
 	for (uint32_t i = 0; i < characterCount; i++)
 	{
 		auto data = dataBuffers[i];
 		auto region = bufferCopies[i];
-		commandBuffer->copyBufferToImage(data.get(), atlasImage.get(), asset::IImage::EL_GENERAL, 1, &region);
+		commandBuffer->copyBufferToImage(data.get(), atlasImage.get(), asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1, &region);
 	}
+
+	layoutTransBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
+	layoutTransBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+	layoutTransBarrier.oldLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
+	layoutTransBarrier.newLayout = asset::IImage::EL_GENERAL;
+	layoutTransBarrier.image = atlasImage;
+
+	commandBuffer->pipelineBarrier(
+		asset::EPSF_TRANSFER_BIT,
+		asset::EPSF_BOTTOM_OF_PIPE_BIT,
+		static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
+		0u, nullptr,
+		0u, nullptr,
+		1u, &layoutTransBarrier);
+
+	commandBuffer->end();
 
 	nbl::video::IGPUQueue::SSubmitInfo submit;
 	{
