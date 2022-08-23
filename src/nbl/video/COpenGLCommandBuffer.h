@@ -1094,7 +1094,6 @@ public:
     void bindComputePipeline_impl(const compute_pipeline_t* pipeline) override
     {
         const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(pipeline);
-        // ctxlocal->nextState.pipeline.compute.usedShader = glppln ? glppln->getShaderGLnameForCtx(0u, ctxid) : 0u;
         m_stateCache.nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
 
         SCmd<impl::ECT_BIND_COMPUTE_PIPELINE> cmd;
@@ -1318,6 +1317,18 @@ public:
 
     bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
+        if (pushConstants_validate(layout, stageFlags.value, offset, size, pValues))
+        {
+            asset::SPushConstantRange updtRng;
+            updtRng.offset = offset;
+            updtRng.size = size;
+
+            if (stageFlags.value & asset::IShader::ESS_ALL_GRAPHICS)
+                m_stateCache.pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(layout), stageFlags.value, offset, size, pValues);
+            if (stageFlags.value & asset::IShader::ESS_COMPUTE)
+                m_stateCache.pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(layout), stageFlags.value, offset, size, pValues);
+        }
+
         SCmd<impl::ECT_PUSH_CONSTANTS> cmd;
         cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
         cmd.stageFlags = stageFlags.value;

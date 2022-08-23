@@ -78,11 +78,9 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
                         return false;
                 }
                 m_lastUpdateStamp = stampValue;
-
-                return true;
             }
 
-            return false;
+            return true;
         }
 
     protected:

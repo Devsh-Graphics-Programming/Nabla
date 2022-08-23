@@ -1354,7 +1354,7 @@ bool SOpenGLContextLocalCache::flushStateCompute(uint32_t stateBits, IGPUCommand
         if (nextState.pipeline.compute.pipeline != currentState.pipeline.compute.pipeline)
         {
             currentState.pipeline.compute.pipeline = nextState.pipeline.compute.pipeline;
-            if (cmdpool->emplace<COpenGLCommandPool::CUseProgramComputeCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr(currentState.pipeline.compute.pipeline)))
+            if (!cmdpool->emplace<COpenGLCommandPool::CUseProgramComputeCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr(currentState.pipeline.compute.pipeline)))
                 return false;
         }
     }
