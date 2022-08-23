@@ -110,7 +110,7 @@ public:
 
         CCommandSegment()
         {
-            header.m_commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, COMMAND_SEGMENT_ALIGNMENT, COMMAND_SEGMENT_SIZE);
+            header.m_commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, COMMAND_SEGMENT_ALIGNMENT, STORAGE_SIZE);
             header.m_next = nullptr;
 
             wipeNextCommandSize();
@@ -223,18 +223,6 @@ public:
 
     void deleteCommandSegmentList(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail)
     {
-#if 1
-
-#if 0
-        for (auto segment = segmentListHeadItr.m_segment; segment;)
-        {
-            for (auto cmdIt = segment->begin(); cmdIt != segment->end(); ++cmdIt)
-                cmdIt.m_cmd->~ICommand();
-
-            segment = segment->getNext();
-        }
-#endif
-
         auto& itr = segmentListHeadItr;
 
         if (itr.m_segment && itr.m_cmd)
@@ -250,7 +238,7 @@ public:
                 // No need to deallocate currCmd because it has been allocated from the LinearAddressAllocator where deallocate is a No-OP and the memory will
                 // get reclaimed in ~LinearAddressAllocator
 
-                if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment)) > CCommandSegment::STORAGE_SIZE)
+                if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment->getFirstCommand())) > CCommandSegment::STORAGE_SIZE)
                 {
                     CCommandSegment* nextSegment = currSegment->getNext();
                     if (!nextSegment)
@@ -275,7 +263,6 @@ public:
             segmentListHeadItr.m_segment = nullptr;
             segmentListTail = nullptr;
         }
-#endif
     }
 
     bool reset()
