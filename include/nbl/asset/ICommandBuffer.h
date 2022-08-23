@@ -285,7 +285,7 @@ public:
     virtual bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) = 0;
     virtual bool bindComputePipeline(const compute_pipeline_t* pipeline) = 0;
 
-    virtual bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) {return false;}
+    virtual bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) {return false;} // TODO(achal): Do we really need a default implementation here?
     virtual bool beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags = video::IQueryPool::E_QUERY_CONTROL_FLAGS::EQCF_NONE) {return false;}
     virtual bool endQuery(video::IQueryPool* queryPool, uint32_t query) {return false;}
     virtual bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) {return false;}

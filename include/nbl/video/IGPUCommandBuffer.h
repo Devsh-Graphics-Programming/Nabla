@@ -84,6 +84,8 @@ public:
     bool bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
         const descriptor_set_t* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* dynamicOffsets = nullptr) override final;
     bool bindComputePipeline(const compute_pipeline_t* pipeline) final override;
+    bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override final;
+    bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override final;
 
     inline uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
@@ -239,7 +241,8 @@ protected:
     virtual bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
         const descriptor_set_t* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* dynamicOffsets = nullptr) = 0;
     virtual void bindComputePipeline_impl(const compute_pipeline_t* pipeline) = 0;
-
+    virtual bool updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) = 0;
+    virtual bool resetQueryPool_impl(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;
 
 private:
     // Be wary of making it protected/calling it in the derived classes because it sets state which will overwrite the state set in base class methods.

@@ -257,17 +257,12 @@ namespace nbl::video
         return ret;
     }
     
-    bool CVulkanCommandBuffer::resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
+    bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
     {
         bool ret = false;
         if(queryPool != nullptr)
         {
             const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-
-            // Add Ref to CmdPool
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
 
             auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
             vk->vk.vkCmdResetQueryPool(m_cmdbuf, vk_queryPool, firstQuery, queryCount);

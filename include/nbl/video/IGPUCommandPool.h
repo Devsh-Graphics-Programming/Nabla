@@ -171,6 +171,8 @@ public:
     class CPipelineBarrierCmd;
     class CBindDescriptorSetsCmd;
     class CBindComputePipelineCmd;
+    class CUpdateBufferCmd;
+    class CResetQueryPoolCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -394,6 +396,24 @@ public:
 
 private:
     core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
+};
+
+class IGPUCommandPool::CUpdateBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CUpdateBufferCmd>
+{
+public:
+    CUpdateBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+};
+
+class IGPUCommandPool::CResetQueryPoolCmd : public IGPUCommandPool::IFixedSizeCommand<CResetQueryPoolCmd>
+{
+public:
+    CResetQueryPoolCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
+
+private:
+    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
 };
 
 }

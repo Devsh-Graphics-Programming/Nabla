@@ -975,7 +975,7 @@ public:
         vk->vk.vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
     }
 
-    bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
+    bool resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
     bool beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS>) override;
     bool endQuery(IQueryPool* queryPool, uint32_t query) override;
     bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override;
@@ -1230,15 +1230,8 @@ public:
         return true;
     }
 
-    bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
+    bool updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
     {
-        if (!dstBuffer || dstBuffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(dstBuffer) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdUpdateBuffer(
             m_cmdbuf,

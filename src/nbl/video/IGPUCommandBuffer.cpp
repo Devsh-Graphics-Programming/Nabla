@@ -252,4 +252,26 @@ bool IGPUCommandBuffer::bindComputePipeline(const compute_pipeline_t* pipeline)
     return true;
 }
 
+bool IGPUCommandBuffer::updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
+{
+    if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!validate_updateBuffer(dstBuffer, dstOffset, dataSize, pData))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CUpdateBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return updateBuffer_impl(dstBuffer, dstOffset, dataSize, pData);
+}
+
+bool IGPUCommandBuffer::resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
+{
+    if (!m_cmdpool->emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return resetQueryPool_impl(queryPool, firstQuery, queryCount);
+}
+
 }

@@ -1101,7 +1101,7 @@ public:
         pushCommand(std::move(cmd));
     }
         
-    bool resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override
+    bool resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override
     {
         if (!this->isCompatibleDevicewise(queryPool))
             return false;
@@ -1409,9 +1409,11 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
+    bool updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
     {
-        if (!IGPUCommandBuffer::validate_updateBuffer(dstBuffer,dstOffset,dataSize,pData))
+        GLuint buf = static_cast<const COpenGLBuffer*>(dstBuffer)->getOpenGLName();
+
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, buf, dstOffset, dataSize, pData))
             return false;
 
         SCmd<impl::ECT_UPDATE_BUFFER> cmd;

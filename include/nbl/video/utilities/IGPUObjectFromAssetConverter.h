@@ -1599,13 +1599,23 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         bool formatSupported = false;
         if (imageCreationParams.tiling == asset::IImage::ET_OPTIMAL)
         {
-            const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
-            formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
+            // TODO(achal): Remove this API check once OpenGL does its format usage reporting correctly.
+            if (_params.device->getAPIType() == EAT_VULKAN)
+            {
+                const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
+                formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
+            }
+            formatSupported = true;
         }
         else
         {
-            const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesLinear(format);
-            formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
+            // TODO(achal): Remove this API check once OpenGL does its format usage reporting correctly.
+            if (_params.device->getAPIType() == EAT_VULKAN)
+            {
+                const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesLinear(format);
+                formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
+            }
+            formatSupported = false;
         }
 
         if (!formatSupported)

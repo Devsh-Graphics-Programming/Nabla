@@ -96,6 +96,7 @@ public:
     class CBindTexturesCmd;
     class CBindSamplersCmd;
     class CBindBuffersRangeCmd;
+    class CNamedBufferSubDataCmd;
 
 private:
     std::mutex mutex;
@@ -634,6 +635,25 @@ private:
 
     GLintptr m_offsets[MaxOffsets];
     GLintptr m_sizes[MaxOffsets];
+};
+
+class COpenGLCommandPool::CNamedBufferSubDataCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CNamedBufferSubDataCmd>
+{
+public:
+    CNamedBufferSubDataCmd(const GLuint bufferGLName, const GLintptr offset, const GLsizeiptr size, const void* data)
+        : m_bufferGLName(bufferGLName), m_offset(offset), m_size(size)
+    {
+        m_data.resize(size);
+        memcpy(m_data.data(), data, m_size);
+    }
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_bufferGLName;
+    const GLintptr m_offset;
+    const GLsizeiptr m_size;
+    core::vector<uint8_t> m_data;
 };
 
 

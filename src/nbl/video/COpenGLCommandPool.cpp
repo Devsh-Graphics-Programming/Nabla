@@ -234,4 +234,9 @@ void COpenGLCommandPool::CBindBuffersRangeCmd::operator()(IOpenGL_FunctionTable*
     gl->extGlBindBuffersRange(m_target, m_first, m_count, m_buffers, m_offsets, m_sizes);
 }
 
+void COpenGLCommandPool::CNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlNamedBufferSubData(m_bufferGLName, m_offset, m_size, m_data.data());
+}
+
 }
