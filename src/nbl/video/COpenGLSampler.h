@@ -76,7 +76,7 @@ class COpenGLSampler : public IGPUSampler
 
 			if (m_params.AnisotropicFilter && gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_filter_anisotropic))
 			{
-				uint32_t maxSamplerAnisotropy = 1u<<uint32_t(dev->getPhysicalDevice()->getLimits().maxSamplerAnisotropyLog2);
+				uint32_t maxSamplerAnisotropy = 1u<<uint32_t(getOriginDevice()->getPhysicalDevice()->getLimits().maxSamplerAnisotropyLog2);
 				gl->glTexture.pglSamplerParameteri(m_GLname, gl->TEXTURE_MAX_ANISOTROPY, std::min(1u<<m_params.AnisotropicFilter, maxSamplerAnisotropy));
 			}
 
