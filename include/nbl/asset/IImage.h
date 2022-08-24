@@ -247,6 +247,8 @@ class IImage : public IDescriptor
 				default:
 					break;
 			}
+			// const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
+			// return 1u + core::findLSB(round);
 			return 1u + uint32_t(floorf(log2(float(maxSideLen))));
 		}
 

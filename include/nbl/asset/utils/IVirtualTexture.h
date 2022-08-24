@@ -163,19 +163,76 @@ public:
 
     struct NBL_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
     {
-        friend class this_type;
-    private:
-        SMasterTextureData() = default;
+            friend class this_type;
+        private:
+            SMasterTextureData() = default;
     };
     static_assert(sizeof(SMasterTextureData)==sizeof(uint64_t), "SMasterTextureData is not 64bit!");
 
     struct NBL_FORCE_EBO SViewAliasTextureData : STextureData<SViewAliasTextureData>
     {
-        friend class this_type;
-    private:
-        SViewAliasTextureData() = default;
+            friend class this_type;
+        private:
+            SViewAliasTextureData() = default;
     };
     static_assert(sizeof(SViewAliasTextureData)==sizeof(uint64_t), "SViewAliasTextureData is not 64bit!");
+    
+    // any 2D dimension of allocated texture needs to be >= this value
+    inline uint32_t getMinAllocatableTextureSize() const
+    {
+        // half a page size, otherwise we get issues with mip-tails (texture needs to be upscaled before a commit)
+        assert((m_pgSzxy&0x1u) == 0u);
+        return m_pgSzxy>>1u;
+    }
+    // all 2D dimensions of allocated texture need to be <= this value
+    inline uint32_t getMaxAllocatableTextureSize() const
+    {
+        return (1u<<m_pgtabSzxy_log2)*m_pgSzxy;
+    }
+    //! can we allocate a texture subresource with such a base level extent?
+    bool isAllocatable(const VkExtent3D& _extent)
+    {
+        const auto minSize = getMinAllocatableTextureSize();
+        const auto maxSize = getMaxAllocatableTextureSize();
+        const auto tooSmall = _extent.width<getMinAllocatableTextureSize() && _extent.height<getMinAllocatableTextureSize();
+        const auto tooLarge = _extent.width>getMaxAllocatableTextureSize() || _extent.height>getMaxAllocatableTextureSize();
+        return !(tooSmall||tooLarge);
+    }
+
+    //! Special function to compute image subresource's adjusted dimensions for allocation to succeed
+    inline VkExtent3D computeAdjustedSubresourceExtent(const VkExtent3D& origMip0Extent, const uint8_t baseMipLevel) const
+    {
+        VkExtent3D retval = {origMip0Extent.width>>baseMipLevel,origMip0Extent.height>>baseMipLevel,1u};
+        float scale_factor = 1.f;
+
+        // not large enough to fill a single half-page (mip tail)
+        const auto minSize = getMinAllocatableTextureSize();
+        if (retval.width<minSize && retval.height<minSize)
+        {
+            // cannot resize due to both reasons
+            assert(scale_factor==1.f);
+            // resize so largest extent matches minimum requirement
+            scale_factor = static_cast<float>(minSize)/core::max<float>(retval.width,retval.height);
+            assert(scale_factor>1.f);
+        }
+
+        const auto maxSize = getMaxAllocatableTextureSize();
+        if (retval.width>maxSize || retval.height>maxSize)
+        {
+            // cannot resize due to both reasons
+            assert(scale_factor==1.f);
+            // resize so largest extent matches maximum requirement
+            scale_factor = static_cast<float>(maxSize)/core::max<float>(retval.width,retval.height);
+            assert(scale_factor<1.f);
+        }
+
+        // min because ceil can bump us one past `maxSize`
+        retval.width = core::min<uint32_t>(core::ceil<float>(retval.width*scale_factor),maxSize);
+        retval.height = core::min<uint32_t>(core::ceil<float>(retval.height*scale_factor),maxSize);
+
+        assert((retval.width>=minSize||retval.height>=minSize) && retval.width<=maxSize && retval.height<=maxSize);
+        return retval;
+    }
 
 protected:
     static SMasterTextureData createMasterTextureData() { return SMasterTextureData(); }
@@ -317,15 +374,6 @@ protected:
         if (found == end)
             return INVALID_LAYER_INDEX;
         return found-m_precomputed.layer_to_sampler_ix;
-    }
-
-    core::vector2du32_SIMD getMaxAllocatableTextureSize() const
-    {
-        return (core::vector2du32_SIMD(1u<<m_pgtabSzxy_log2)*m_pgSzxy) & core::vector2du32_SIMD(~0u,~0u,0u,0u);
-    }
-    bool isAllocatable(const VkExtent3D& _extent)
-    {
-        return (core::vector2du32_SIMD(&_extent.width)<=getMaxAllocatableTextureSize()).xyxy().all();
     }
 
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u) const

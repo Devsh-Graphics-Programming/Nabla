@@ -286,37 +286,15 @@ class ITraversalGenerator
 		instr_stream::VTID packTexture(const IR::INode::STextureSource& tex)
 		{
 			// cache, obviously
-			if (auto found = m_ctx->VTallocMap.find({ tex.image.get(),tex.sampler.get() }); found != m_ctx->VTallocMap.end())
+			const SContext::VTallocKey cacheKey = {tex.image.get(),tex.sampler.get()};
+			if (auto found = m_ctx->VTallocMap.find(cacheKey); found != m_ctx->VTallocMap.end())
 				return found->second;
 
-			auto img = tex.image->getCreationParameters().image;
-			img = m_ctx->vt.vt->createUpscaledImage(img.get());
-			auto* sampler = tex.sampler.get();
-
-			const auto& extent = img->getCreationParameters().extent;
-			const auto uwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapU);
-			const auto vwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapV);
-			const auto border = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(sampler->getParams().BorderColor);
-
-			asset::IImage::SSubresourceRange subres;
-			subres.baseArrayLayer = 0u;
-			subres.layerCount = 1u;
-			subres.baseMipLevel = 0u;
-			const uint32_t mx = std::max(extent.width, extent.height);
-			const uint32_t round = core::roundUpToPoT<uint32_t>(mx);
-			const int32_t lsb = core::findLSB(round);
-			subres.levelCount = static_cast<uint32_t>(lsb + 1);
-
-			SContext::VT::alloc_t alloc;
-			alloc.format = img->getCreationParameters().format;
-			alloc.extent = img->getCreationParameters().extent;
-			alloc.subresource = subres;
-			alloc.uwrap = uwrap;
-			alloc.vwrap = vwrap;
-			auto addr = m_ctx->vt.alloc(alloc, std::move(img), border);
-
-			std::pair<SContext::VTallocKey, instr_stream::VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
-			m_ctx->VTallocMap.insert(item);
+			auto addr = m_ctx->vt.alloc(cacheKey.first->getCreationParameters().image.get(),cacheKey.second);
+			{
+				std::pair<SContext::VTallocKey,instr_stream::VTID> item{cacheKey,addr};
+				m_ctx->VTallocMap.insert(item);
+			}
 
 			return addr;
 		}

@@ -8,6 +8,7 @@
 
 #include <nbl/core/core.h>
 
+#include <cstdio>
 #include <ostream>
 
 #include <nbl/asset/utils/ICPUVirtualTexture.h>
@@ -607,56 +608,95 @@ public:
 		core::unordered_map<VTallocKey, instr_stream::VTID, VTallocKeyHash> VTallocMap;
 
 	public:
-		struct VT
+		class VT
 		{
-			using addr_t = asset::ICPUVirtualTexture::SMasterTextureData;
-			struct alloc_t
-			{
-				asset::E_FORMAT format;
-				asset::VkExtent3D extent;
-				asset::ICPUImage::SSubresourceRange subresource;
-				asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
-				asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
-			};
-			struct commit_t
-			{
-				addr_t addr;
-				core::smart_refctd_ptr<asset::ICPUImage> image;
-				asset::ICPUImage::SSubresourceRange subresource;
-				asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
-				asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
-				asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
-			};
+			public:
+				VT() = default;
+				VT(core::smart_refctd_ptr<asset::ICPUVirtualTexture>&& _vt) : vt(std::move(_vt))
+				{
+				}
 
-			addr_t alloc(const alloc_t a, core::smart_refctd_ptr<asset::ICPUImage>&& texture, asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border)
-			{
-				addr_t addr = vt->alloc(a.format, a.extent, a.subresource, a.uwrap, a.vwrap);
+				auto* getCPUVirtualTexture() { return vt.get(); }
+				const auto* getCPUVirtualTexture() const { return vt.get(); }
 
-				commit_t cm{ addr, std::move(texture), a.subresource, a.uwrap, a.vwrap, border };
-				pendingCommits.push_back(std::move(cm));
+				using addr_t = asset::ICPUVirtualTexture::SMasterTextureData;
+				addr_t alloc(const ICPUImage* image, const asset::ICPUSampler* sampler, std::string&& texNameHint="UNKNOWN UNTIL MATERIAL COMPILER V2")
+				{
+					constexpr uint8_t baseMipLevel = 0u;
+					const auto& origCreationParams = image->getCreationParameters();
 
-				return addr;
-			}
+					commit_t cm = {};
+					cm.texNameHint = std::move(texNameHint);
+					const auto extent = vt->computeAdjustedSubresourceExtent(origCreationParams.extent, baseMipLevel);
+					cm.image = vt->createResizedImage(image,extent,baseMipLevel);
+					if (cm.image.get()!=image)
+					{
+						// TODO: remvoe when using Nabla's ILogger from `master` branch
+						printf(
+							"Material Compiler GLSL: Texture \"%s\" either sub-mip-tail sized or too large, rescaled from [%d,%d] to [%d,%d] !",
+							cm.texNameHint.c_str(),origCreationParams.extent.width,origCreationParams.extent.height,extent.width,extent.height
+						);
+						os::Printer::log("",ELL_WARNING);
+					}
+					cm.subresource = {};
+					cm.subresource.baseMipLevel = 0u;
+					cm.subresource.levelCount = IImage::calculateMaxMipLevel(extent,origCreationParams.type);
+					cm.subresource.baseArrayLayer = 0u;
+					cm.subresource.layerCount = 1u;
 
-			bool commit(const commit_t& cm)
-			{
-				auto texture = vt->createPoTPaddedSquareImageWithMipLevels(cm.image.get(), cm.uwrap, cm.vwrap, cm.border).first;
-				return vt->commit(cm.addr, texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
-			}
-			//! @returns if all commits succeeded
-			bool commitAll()
-			{
-				vt->shrink();
+					cm.uwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapU);
+					cm.vwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sampler->getParams().TextureWrapV);
+					cm.border = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(sampler->getParams().BorderColor);
 
-				bool success = true;
-				for (commit_t& cm : pendingCommits)
-					success &= commit(cm);
-				pendingCommits.clear();
-				return success;
-			}
+					const auto addr = cm.addr = vt->alloc(origCreationParams.format,extent,cm.subresource,cm.uwrap,cm.vwrap);
+					if (addr_t::is_invalid(addr))
+					{
+						// TODO: remvoe when using Nabla's ILogger from `master` branch
+						printf("Material Compiler GLSL: Failed to allocate Virtual Texture Pages for texture \"%s\"!",cm.texNameHint.c_str());
+						os::Printer::log("",ELL_ERROR);
+					}
+					else
+						pendingCommits.push_back(std::move(cm));
 
-			core::vector<commit_t> pendingCommits;
-			core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
+					return addr;
+				}
+
+				//! @returns if all commits succeeded
+				bool commitAll()
+				{
+					vt->shrink();
+
+					bool success = true;
+					for (commit_t& cm : pendingCommits)
+					{
+						auto texture = vt->createPoTPaddedSquareImageWithMipLevels(cm.image.get(),cm.uwrap,cm.vwrap,cm.border).first;
+						if (texture.get())
+							success = vt->commit(cm.addr,texture.get(),cm.subresource,cm.uwrap,cm.vwrap,cm.border) && success;
+						else
+						{
+							success = false;
+							// TODO: remvoe when using Nabla's ILogger from `master` branch
+							printf("Material Compiler GLSL: Failed to commit Texture \"%s\" to Virtual Texture address {%d,%d,%d}!",cm.texNameHint.c_str(),cm.addr.pgTab_x,cm.addr.pgTab_y,cm.addr.pgTab_layer);
+							os::Printer::log("",ELL_ERROR);
+						}
+					}
+					pendingCommits.clear();
+					return success;
+				}
+
+			protected:
+				core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt; // TODO: encapsulate
+				struct commit_t
+				{
+					std::string texNameHint;
+					addr_t addr;
+					core::smart_refctd_ptr<asset::ICPUImage> image;
+					asset::ICPUImage::SSubresourceRange subresource;
+					asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
+					asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
+					asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
+				};
+				core::vector<commit_t> pendingCommits;
 		} vt;
 	};
 

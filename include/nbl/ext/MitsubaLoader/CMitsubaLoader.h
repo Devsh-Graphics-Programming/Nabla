@@ -67,7 +67,7 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
 
-		static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt);
+		static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createPipelineLayout(asset::IAssetManager* _manager, const asset::ICPUVirtualTexture* _vt);
 
 		//
 		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);

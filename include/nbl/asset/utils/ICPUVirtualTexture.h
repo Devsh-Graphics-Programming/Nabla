@@ -86,74 +86,81 @@ public:
         }
     };
 
-    //! If there's a need, creates an image upscaled to half page size
-    //! Otherwise returns `_img`
-    //! Always call this before alloc()
-    core::smart_refctd_ptr<asset::ICPUImage> createUpscaledImage(const ICPUImage* _img)
+    //! If there's a need, creates an subresource image rescaled to requested dimensions, otherwise returns `_img`
+    //! Always call this before alloc() if you want to make sure it doesn't fail due to `isAllocatable` 
+    core::smart_refctd_ptr<asset::ICPUImage> createResizedImage(const ICPUImage* _img, const VkExtent3D& newSubresourceExtent, const uint8_t baseMipLevel, const uint16_t baseArrayLayer=0u, const uint16_t depthOffset=0u) const
     {
-        if (!_img)
+        if (!_img || newSubresourceExtent.width==0u || newSubresourceExtent.height==0u || newSubresourceExtent.depth!=1u)
             return nullptr;
 
         const auto& params = _img->getCreationParameters();
-        const uint32_t halfPage = m_pgSzxy / 2u;
+        if (params.samples!=ICPUImage::ESCF_1_BIT)
+            return nullptr;
 
-        if (params.extent.width >= halfPage || params.extent.height >= halfPage)
+        const auto _allocationExtent = _img->getMipSize(baseMipLevel);
+        const VkExtent3D allocationExtent = {_allocationExtent.x,_allocationExtent.y,1u};
+        if (allocationExtent==newSubresourceExtent)
         {
             asset::ICPUImage* img = const_cast<asset::ICPUImage*>(_img);
             return core::smart_refctd_ptr<asset::ICPUImage>(img);
         }
 
-        const uint32_t min_extent = std::min(params.extent.width, params.extent.height);
-        const float upscale_factor = static_cast<float>(halfPage) / static_cast<float>(min_extent);
+        core::smart_refctd_ptr<asset::ICPUImage> scaled_img;
+        // create image
+        {
+            asset::ICPUImage::SCreationParams new_params = params;
+            new_params.extent = newSubresourceExtent;
+            new_params.mipLevels = 1u; // TODO: blit the mip-levels as well if present (but right now no point cause we never get input textures with any part of the pyramid anyway)
+            new_params.arrayLayers = 1u;
+            scaled_img = asset::ICPUImage::create(std::move(new_params));
+        }
+        // back its pixels with storage
+        {
+            auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+            auto region = regions->begin();
+            region->bufferOffset = 0u;
+            region->bufferRowLength = newSubresourceExtent.width;
+            region->bufferImageHeight = 0u;
+            region->imageOffset = {0,0,0};
+            region->imageExtent = newSubresourceExtent;
+            region->imageSubresource.baseArrayLayer = 0u;
+            region->imageSubresource.layerCount = 1u;
+            region->imageSubresource.mipLevel = 0u;
+            region->imageSubresource.aspectMask = _img->getRegions().begin()->imageSubresource.aspectMask;
 
-        asset::VkExtent3D extent_upscaled;
-        extent_upscaled.depth = 1u;
-        extent_upscaled.width = static_cast<uint32_t>(params.extent.width * upscale_factor + 0.5f);
-        extent_upscaled.height = static_cast<uint32_t>(params.extent.height * upscale_factor + 0.5f);
+            const size_t bufsz = scaled_img->getImageDataSizeInBytes(); // TODO: probably need a `IImage::SBufferCopy::getByteSize()` instead here
+            auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufsz);
+            scaled_img->setBufferAndRegions(std::move(buf),std::move(regions));
+        }
+        // run blit
+        {
+            using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false,asset::CMitchellImageFilterKernel<>>;
+            blit_filter_t::state_type blit = {};
+            blit.inOffset = {0u,0u,0u};
+            blit.inBaseLayer = baseArrayLayer;
+            blit.inExtent = params.extent;
+            blit.inExtent.depth = 1u;
+            blit.inLayerCount = 1u;
+            blit.outOffsetBaseLayer = core::vectorSIMDu32(0u,0u,0u, 0u);
+            blit.outExtent = newSubresourceExtent;
+            blit.outLayerCount = 1u;
+            blit.inMipLevel = baseMipLevel;
+            blit.outMipLevel = 0u;
+            blit.inImage = const_cast<asset::ICPUImage*>(_img);
+            blit.outImage = scaled_img.get();
+            blit.scratchMemoryByteSize = blit_filter_t::getRequiredScratchByteSize(&blit);
 
-        asset::ICPUImage::SCreationParams new_params = params;
-        new_params.extent = extent_upscaled;
-        new_params.mipLevels = 1u;
+            auto scratch = std::make_unique<uint8_t[]>(blit.scratchMemoryByteSize);
+            blit.scratchMemory = scratch.get();
+            if (!blit_filter_t::execute(&blit))
+                return nullptr;
+        }
 
-        auto upscaled_img = asset::ICPUImage::create(std::move(new_params));
-        const size_t bufsz = upscaled_img->getImageDataSizeInBytes();
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufsz);
-        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1u);
-        auto& region = regions->operator[](0u);
-        region.bufferOffset = 0u;
-        region.bufferRowLength = extent_upscaled.width;
-        region.bufferImageHeight = 0u;
-        region.imageOffset = { 0,0,0 };
-        region.imageExtent = extent_upscaled;
-        region.imageSubresource.baseArrayLayer = 0u;
-        region.imageSubresource.layerCount = 1u;
-        region.imageSubresource.mipLevel = 0u;
-        region.imageSubresource.aspectMask = _img->getRegion(0u, core::vectorSIMDu32(0u, 0u, 0u, 0u))->imageSubresource.aspectMask;
-
-        upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
-
-        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false,asset::CMitchellImageFilterKernel<>>;
-        blit_filter_t::state_type blit;
-        blit.inOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
-        blit.inExtent = params.extent;
-        blit.inLayerCount = 1u;
-        blit.outOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
-        blit.outExtent = extent_upscaled;
-        blit.outLayerCount = 1u;
-        blit.inImage = const_cast<asset::ICPUImage*>(_img);
-        blit.outImage = upscaled_img.get();
-        blit.scratchMemoryByteSize = blit_filter_t::getRequiredScratchByteSize(&blit);
-        blit.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blit.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
-
-        const bool blit_succeeded = blit_filter_t::execute(&blit);
-        _NBL_ALIGNED_FREE(blit.scratchMemory);
-        if (!blit_succeeded)
-            return nullptr;
-
-        return upscaled_img;
+        return scaled_img;
     }
 
     //! Always call this before commit()
+    //! Future TODO: @Erfan/@Achal remove this utility and just make the `commit` handle this padding and mip-chain generation "in-place" (create temporary images with regions "alised" to allocated pages :D )
     static std::pair<core::smart_refctd_ptr<asset::ICPUImage>, asset::VkExtent3D> createPoTPaddedSquareImageWithMipLevels(const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
         if (!_img)
@@ -249,8 +256,9 @@ public:
         uint32_t _tilePadding = 9u,
         uint32_t _maxAllocatableTexSz_log2 = 14u
     ) : IVirtualTexture(
-        std::move(_callback), _maxAllocatableTexSz_log2-_pgSzxy_log2, _pgTabLayers, _pgSzxy_log2, _tilePadding
-    ) {
+            std::move(_callback), _maxAllocatableTexSz_log2-_pgSzxy_log2, _pgTabLayers, _pgSzxy_log2, _tilePadding
+        )
+    {
         m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
@@ -261,9 +269,9 @@ public:
         uint32_t _tilePadding = 9u,
         uint32_t _maxAllocatableTexSz_log2 = 14u
     ) : IVirtualTexture(
-        std::move(_callback), _maxAllocatableTexSz_log2-_pgSzxy_log2, MAX_PAGE_TABLE_LAYERS, _pgSzxy_log2, _tilePadding
-    ) {
-
+            std::move(_callback), _maxAllocatableTexSz_log2-_pgSzxy_log2, MAX_PAGE_TABLE_LAYERS, _pgSzxy_log2, _tilePadding
+        )
+    {
     }
 
     // TODO: thread safe commits?

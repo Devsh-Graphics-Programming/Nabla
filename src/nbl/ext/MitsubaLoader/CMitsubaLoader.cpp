@@ -363,7 +363,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const a
 	return outImg;
 }
 
-core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
+core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, const asset::ICPUVirtualTexture* _vt)
 {
 	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
 	{
@@ -542,8 +542,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		// TODO: put IR and stuff in metadata so that we can recompile the materials after load
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get(), decltype(ctx.backend)::EGST_PRESENT_WITH_AOV_EXTRACTION);
 		ctx.backend_ctx.vt.commitAll();
-		auto pipelineLayout = createPipelineLayout(m_assetMgr, ctx.backend_ctx.vt.vt.get());
-		auto fragShader = createFragmentShader(compResult, ctx.backend_ctx.vt.vt->getFloatViews().size());
+		auto pipelineLayout = createPipelineLayout(m_assetMgr, ctx.backend_ctx.vt.getCPUVirtualTexture());
+		auto fragShader = createFragmentShader(compResult, ctx.backend_ctx.vt.getCPUVirtualTexture()->getFloatViews().size());
 		auto ds0 = createDS0(ctx, pipelineLayout.get(), compResult, meshes.begin(), meshes.end());
 		auto basePipeline = createPipeline(
 			std::move(pipelineLayout),
@@ -1210,12 +1210,12 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
 	{
-		auto count = _ctx.backend_ctx.vt.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
+		auto count = _ctx.backend_ctx.vt.getCPUVirtualTexture()->getDescriptorSetWrites(nullptr, nullptr, nullptr);
 
 		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SWriteDescriptorSet>>(count.first);
 		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SDescriptorInfo>>(count.second);
 
-		_ctx.backend_ctx.vt.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
+		_ctx.backend_ctx.vt.getCPUVirtualTexture()->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
 
 		for (const auto& w : (*writes))
 		{
@@ -1227,7 +1227,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
 		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
-		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt.vt->getPrecomputedData(), precompDataBuf->getSize());
+		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt.getCPUVirtualTexture()->getPrecomputedData(), precompDataBuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = precompDataBuf->getSize();
@@ -1354,13 +1354,13 @@ SContext::SContext(
 	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this),
 	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
 {
-	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
+	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
 		[](asset::E_FORMAT_CLASS) -> uint32_t { return VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2; }, // 16x16 tiles per layer for all dynamically created storages
 		VT_PAGE_SZ_LOG2, 
 		VT_PAGE_PADDING, 
 		VT_MAX_ALLOCATABLE_TEX_SZ_LOG2
 	);
-	meta->m_global.m_VT = backend_ctx.vt.vt;
+	meta->m_global.m_VT = core::smart_refctd_ptr<ICPUVirtualTexture>(backend_ctx.vt.getCPUVirtualTexture());
 }
 
 }
