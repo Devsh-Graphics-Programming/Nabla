@@ -586,7 +586,7 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
 
 void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
 {
-// #define NEW_WAY
+#define NEW_WAY
 #ifdef NEW_WAY
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
@@ -1434,5 +1434,32 @@ void COpenGLCommandBuffer::blit(IOpenGL_FunctionTable* gl, GLuint src, GLuint ds
     GLint dx1 = dstOffsets[1].x;
     GLint dy1 = dstOffsets[1].y;
     gl->extGlBlitNamedFramebuffer(src, dst, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GL_COLOR_BUFFER_BIT, filter==asset::ISampler::ETF_NEAREST?GL_NEAREST:GL_LINEAR);
+}
+
+bool COpenGLCommandBuffer::resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
+{
+    auto* gl_queryPool = static_cast<COpenGLQueryPool*>(queryPool);
+    gl_queryPool->resetQueries(firstQuery, queryCount, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail);
+
+    SCmd<impl::ECT_RESET_QUERY_POOL> cmd;
+    cmd.queryPool = core::smart_refctd_ptr<IQueryPool>(queryPool);
+    cmd.query = firstQuery;
+    cmd.queryCount = queryCount;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
+{
+    auto* gl_queryPool = static_cast<COpenGLQueryPool*>(queryPool);
+    if (!gl_queryPool->writeTimestamp(query, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+        return false;
+
+    SCmd<impl::ECT_WRITE_TIMESTAMP> cmd;
+    cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+    cmd.pipelineStage = pipelineStage;
+    cmd.query = query;
+    pushCommand(std::move(cmd));
+    return true;
 }
 }

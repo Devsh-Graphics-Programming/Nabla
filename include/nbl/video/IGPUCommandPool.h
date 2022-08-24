@@ -173,6 +173,7 @@ public:
     class CBindComputePipelineCmd;
     class CUpdateBufferCmd;
     class CResetQueryPoolCmd;
+    class CWriteTimestampCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -411,6 +412,15 @@ class IGPUCommandPool::CResetQueryPoolCmd : public IGPUCommandPool::IFixedSizeCo
 {
 public:
     CResetQueryPoolCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
+
+private:
+    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+};
+
+class IGPUCommandPool::CWriteTimestampCmd : public IGPUCommandPool::IFixedSizeCommand<CWriteTimestampCmd>
+{
+public:
+    CWriteTimestampCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
 
 private:
     core::smart_refctd_ptr<const IQueryPool> m_queryPool;

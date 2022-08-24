@@ -9,6 +9,7 @@
 namespace nbl::video
 {
 class COpenGLCommandBuffer;
+class COpenGLQueryPool;
 
 class COpenGLCommandPool final : public IGPUCommandPool
 {
@@ -90,13 +91,22 @@ public:
     class CMemoryBarrierCmd;
     class CUseProgramComputeCmd;
     class CDispatchComputeCmd;
+
     template<size_t STAGE_COUNT> class CProgramUniformCmd;
+    // This does not correspond to but to preserve the order of execution in setUniformsImitatingPushConstants I have to defer this as well.
+    // Perhaps, we should combine this with CProgramUniformCmd and make a CSetUniformsImitatingPushConstantsCmd and call setUniformsImitatingPushConstants
+    // on the worker thread instead.
+    template <size_t STAGE_COUNT> class CAfterUniformsSetCmd;
+
     class CBindBufferCmd;
     class CBindImageTexturesCmd;
     class CBindTexturesCmd;
     class CBindSamplersCmd;
     class CBindBuffersRangeCmd;
     class CNamedBufferSubDataCmd;
+    class CResetQueryCmd; // Does not correspond to a GL call, but some operation that needs to happen in a deferred way on COpenGLQueryPool.
+    class CQueryCounterCmd;
+
 
 private:
     std::mutex mutex;
@@ -453,7 +463,7 @@ public:
 
     void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override
     {
-        const auto* glppln = static_cast<const GLPipelineType*>(m_pipeline.get());
+        const auto* glppln = m_pipeline.get();
 
         GLuint GLname = glppln->getShaderGLnameForCtx(m_stageIx, ctxid);
         uint8_t* state = glppln->getPushConstantsStateForStage(m_stageIx, ctxid);
@@ -543,6 +553,25 @@ private:
     const uint8_t* m_baseOffset;
     const GLint m_location;
     std::array<uint32_t, MaxDwordSize> m_packedData;
+};
+
+template <size_t STAGE_COUNT>
+class COpenGLCommandPool::CAfterUniformsSetCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CAfterUniformsSetCmd<STAGE_COUNT>>
+{
+    using GLPipelineType = IOpenGLPipeline<STAGE_COUNT>;
+
+public:
+    CAfterUniformsSetCmd(core::smart_refctd_ptr<const GLPipelineType>&& pipeline, const uint32_t stageIx) : m_pipeline(std::move(pipeline)), m_stageIx(stageIx) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override
+    {
+        const auto* glppln = m_pipeline.get();
+        glppln->afterUniformsSet(m_stageIx, ctxid);
+    }
+
+private:
+    core::smart_refctd_ptr<const GLPipelineType> m_pipeline;
+    const uint32_t m_stageIx;
 };
 
 class COpenGLCommandPool::CBindBufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindBufferCmd>
@@ -654,6 +683,31 @@ private:
     const GLintptr m_offset;
     const GLsizeiptr m_size;
     core::vector<uint8_t> m_data;
+};
+
+class COpenGLCommandPool::CResetQueryCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CResetQueryCmd>
+{
+public:
+    CResetQueryCmd(core::smart_refctd_ptr<COpenGLQueryPool>&& queryPool, const uint32_t query) : m_queryPool(std::move(queryPool)), m_query(query) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    core::smart_refctd_ptr<COpenGLQueryPool> m_queryPool;
+    const uint32_t m_query;
+};
+
+class COpenGLCommandPool::CQueryCounterCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CQueryCounterCmd>
+{
+public:
+    CQueryCounterCmd(const uint32_t query, const GLenum target, core::smart_refctd_ptr<COpenGLQueryPool>&& queryPool) : m_query(query), m_target(target), m_queryPool(std::move(queryPool)) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const uint32_t m_query;
+    GLenum m_target;
+    core::smart_refctd_ptr<COpenGLQueryPool> m_queryPool;
 };
 
 

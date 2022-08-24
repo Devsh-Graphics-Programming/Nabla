@@ -259,16 +259,11 @@ namespace nbl::video
     
     bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
     {
-        bool ret = false;
-        if(queryPool != nullptr)
-        {
-            const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+        vk->vk.vkCmdResetQueryPool(m_cmdbuf, vk_queryPool, firstQuery, queryCount);
 
-            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            vk->vk.vkCmdResetQueryPool(m_cmdbuf, vk_queryPool, firstQuery, queryCount);
-            ret = true;
-        }
-        return ret;
+        return true;
     }
 
     bool CVulkanCommandBuffer::beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
@@ -335,26 +330,15 @@ namespace nbl::video
         return ret;
     }
 
-    bool CVulkanCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
+    bool CVulkanCommandBuffer::writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
     {
-        bool ret = false;
-        if(queryPool != nullptr)
-        {
-            const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+        auto vk_pipelineStageFlagBit = static_cast<VkPipelineStageFlagBits>(getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage));
 
-            // Add Ref to CmdPool
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
+        vk->vk.vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStageFlagBit, vk_queryPool, query);
 
-            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
-            auto vk_pipelineStageFlagBit = static_cast<VkPipelineStageFlagBits>(getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage));
-
-            vk->vk.vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStageFlagBit, vk_queryPool, query);
-            ret = true;
-        }
-        return ret;
+        return true;
     }
 
     // Acceleration Structure Properties (Only available on Vulkan)

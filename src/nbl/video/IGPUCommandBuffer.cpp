@@ -268,10 +268,26 @@ bool IGPUCommandBuffer::updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size
 
 bool IGPUCommandBuffer::resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
 {
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
     if (!m_cmdpool->emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
     return resetQueryPool_impl(queryPool, firstQuery, queryCount);
+}
+
+bool IGPUCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query)
+{
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
+    assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CWriteTimestampCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return writeTimestamp_impl(pipelineStage, queryPool, query);
 }
 
 }

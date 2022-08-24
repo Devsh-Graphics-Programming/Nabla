@@ -135,6 +135,12 @@ class IOpenGLPipeline : public virtual core::IReferenceCounted, IOpenGLPipelineB
             return !(*m_GLprograms)[ix].uniformsSetForTheVeryFirstTime;
         }
 
+        void afterUniformsSet(uint32_t _stageIx, uint32_t _ctxID) const
+        {
+            const uint32_t ix = _ctxID * _STAGE_COUNT + _stageIx;
+            (*m_GLprograms)[ix].uniformsSetForTheVeryFirstTime = false;
+        }
+
     protected:
         void setUniformsImitatingPushConstants(IOpenGL_FunctionTable* glft, uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations) const
         {
@@ -311,8 +317,8 @@ class IOpenGLPipeline : public virtual core::IReferenceCounted, IOpenGLPipelineB
                     return false;
             }
 
-            // This needs to probably be its own separate Cmd.
-            // afterUniformsSet(_stageIx, _ctxID); --deferred
+            if (!cmdpool->emplace<COpenGLCommandPool::CAfterUniformsSetCmd<_STAGE_COUNT>>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<const IOpenGLPipeline<_STAGE_COUNT>>(this), _stageIx))
+                return false;
 
             return true;
         }
@@ -321,13 +327,6 @@ class IOpenGLPipeline : public virtual core::IReferenceCounted, IOpenGLPipelineB
         //mutable for deferred GL objects creation
         mutable core::smart_refctd_dynamic_array<SShaderProgram> m_GLprograms;
         uint8_t* m_uniformValues;
-
-    private:
-        void afterUniformsSet(uint32_t _stageIx, uint32_t _ctxID) const
-        {
-            const uint32_t ix = _ctxID * _STAGE_COUNT + _stageIx;
-            (*m_GLprograms)[ix].uniformsSetForTheVeryFirstTime = false;
-        }
 };
 
 }

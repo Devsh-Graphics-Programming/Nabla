@@ -1566,7 +1566,8 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
     core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuDeps);
 
-#if 1
+#define HACKY_FORMAT_PROMOTION
+#ifdef HACKY_FORMAT_PROMOTION
     core::vector<core::smart_refctd_ptr<asset::ICPUImage>> promotedImages(cpuDeps.size(), nullptr); // not tightly packed, this is temp storage, these really need to stay alive until their GPU counterparts are created
     for (size_t i = 0ull; i < cpuDeps.size(); ++i)
     {
@@ -1605,7 +1606,10 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
                 const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
                 formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
             }
-            formatSupported = true;
+            else
+            {
+                formatSupported = true;
+            }
         }
         else
         {
@@ -1615,7 +1619,10 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
                 const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesLinear(format);
                 formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
             }
-            formatSupported = false;
+            else
+            {
+                formatSupported = false;
+            }
         }
 
         if (!formatSupported)

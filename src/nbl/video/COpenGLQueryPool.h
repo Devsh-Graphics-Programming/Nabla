@@ -11,6 +11,7 @@
 #include "nbl/video/COpenGLCommon.h"
 #include "nbl/video/IOpenGL_FunctionTable.h"
 #include "nbl/video/IOpenGL_PhysicalDeviceBase.h"
+#include "nbl/video/COpenGLCommandPool.h"
 
 namespace nbl::video
 {
@@ -79,6 +80,12 @@ class COpenGLQueryPool final : public IQueryPool
 			return lastQueueToUseArray[query].load();
 		}
 
+		inline void setLastQueueToUseForQuery(uint32_t query, uint32_t value)
+		{
+			assert(query < params.queryCount);
+			lastQueueToUseArray[query] = value;
+		}
+
 		inline GLuint getLatestQueryAt(uint32_t query) const
 		{
 			const uint32_t queueToUse = getLastQueueToUseForQuery(query);
@@ -137,6 +144,7 @@ class COpenGLQueryPool final : public IQueryPool
 			}
 		}
 
+		// TODO(achal): Temporary overload.
 		inline void writeTimestamp(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex) const
 		{
 			if(gl != nullptr)
@@ -154,6 +162,26 @@ class COpenGLQueryPool final : public IQueryPool
 			}
 		}
 
+		inline bool writeTimestamp(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+		{
+			if (params.queryType == EQT_TIMESTAMP)
+			{
+				if (!cmdpool->emplace<COpenGLCommandPool::CQueryCounterCmd>(segmentListHeadItr, segmentListTail, queryIndex, GL_TIMESTAMP, core::smart_refctd_ptr<COpenGLQueryPool>(this)))
+					return false;
+
+				if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), queryIndex))
+					return false;
+			}
+			else
+			{
+				assert(!"Cannot use writeTimestamp for non-timestamp query pools.");
+				return false;
+			}
+
+			return true;
+		}
+
+		// TODO(achal): Temporary overload.
 		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t query, uint32_t queryCount)
 		{
 			// NOTE: There is no Reset Queries on OpenGL
@@ -163,6 +191,27 @@ class COpenGLQueryPool final : public IQueryPool
 			{
 				for(uint32_t i = 0; i < queryCount; ++i)
 					lastQueueToUseArray[query + i] = ctxid;
+				return true;
+			}
+			else
+			{
+				assert(false);
+				return false;
+			}
+		}
+
+		inline bool resetQueries(uint32_t query, uint32_t queryCount, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+		{
+			// NOTE: There is no Reset Queries on OpenGL
+			// NOOP, ONLY set last queue used.
+			// TODO: validations about reseting queries and unavailable/available state
+			if (query + queryCount <= params.queryCount)
+			{
+				for (uint32_t i = 0; i < queryCount; ++i)
+				{
+					if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), query+i))
+						return false;
+				}
 				return true;
 			}
 			else

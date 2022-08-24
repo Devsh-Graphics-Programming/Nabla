@@ -239,4 +239,15 @@ void COpenGLCommandPool::CNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTabl
     gl->extGlNamedBufferSubData(m_bufferGLName, m_offset, m_size, m_data.data());
 }
 
+void COpenGLCommandPool::CResetQueryCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    m_queryPool->setLastQueueToUseForQuery(m_query, ctxid);
+}
+
+void COpenGLCommandPool::CQueryCounterCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    GLuint query = m_queryPool->getQueryAt(ctxid, m_query);
+    gl->glQuery.pglQueryCounter(query, m_target);
+}
+
 }

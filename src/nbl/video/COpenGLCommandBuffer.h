@@ -1101,17 +1101,7 @@ public:
         pushCommand(std::move(cmd));
     }
         
-    bool resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override
-    {
-        if (!this->isCompatibleDevicewise(queryPool))
-            return false;
-        SCmd<impl::ECT_RESET_QUERY_POOL> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<IQueryPool>(queryPool);
-        cmd.query = firstQuery;
-        cmd.queryCount = queryCount;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
     bool beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags) override
     {
         if (!this->isCompatibleDevicewise(queryPool))
@@ -1150,17 +1140,8 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override
-    {
-        if (!this->isCompatibleDevicewise(queryPool))
-            return false;
-        SCmd<impl::ECT_WRITE_TIMESTAMP> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
-        cmd.pipelineStage = pipelineStage;
-        cmd.query = query;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    
+    bool writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override;
 
     bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery)
     {
