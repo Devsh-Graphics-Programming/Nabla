@@ -174,6 +174,9 @@ public:
     class CUpdateBufferCmd;
     class CResetQueryPoolCmd;
     class CWriteTimestampCmd;
+    class CBeginQueryCmd;
+    class CEndQueryCmd;
+    class CCopyQueryPoolResultsCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -424,6 +427,36 @@ public:
 
 private:
     core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+};
+
+class IGPUCommandPool::CBeginQueryCmd : public IGPUCommandPool::IFixedSizeCommand<CBeginQueryCmd>
+{
+public:
+    CBeginQueryCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
+
+private:
+    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+};
+
+class IGPUCommandPool::CEndQueryCmd : public IGPUCommandPool::IFixedSizeCommand<CEndQueryCmd>
+{
+public:
+    CEndQueryCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
+
+private:
+    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+};
+
+class IGPUCommandPool::CCopyQueryPoolResultsCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyQueryPoolResultsCmd>
+{
+public:
+    CCopyQueryPoolResultsCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
+        : m_queryPool(std::move(queryPool)), m_dstBuffer(std::move(dstBuffer))
+    {}
+
+private:
+    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+    core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
 }

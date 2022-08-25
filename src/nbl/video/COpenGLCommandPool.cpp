@@ -250,4 +250,26 @@ void COpenGLCommandPool::CQueryCounterCmd::operator()(IOpenGL_FunctionTable* gl,
     gl->glQuery.pglQueryCounter(query, m_target);
 }
 
+void COpenGLCommandPool::CBeginQueryCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    GLuint query = m_queryPool->getQueryAt(ctxid, m_query);
+    gl->glQuery.pglBeginQuery(m_target, query);
+}
+
+void COpenGLCommandPool::CEndQueryCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->glQuery.pglEndQuery(m_target);
+}
+
+void COpenGLCommandPool::CGetQueryBufferObjectUICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    if (ctxid == m_queueIdx)
+    {
+        if (m_use64Version)
+            gl->extGlGetQueryBufferObjectui64v(m_queryId, m_buffer, m_pname, m_offset);
+        else
+            gl->extGlGetQueryBufferObjectuiv(m_queryId, m_buffer, m_pname, m_offset);
+    }
+}
+
 }

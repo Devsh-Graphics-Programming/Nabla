@@ -103,6 +103,7 @@ class COpenGLQueryPool final : public IQueryPool
 
 		inline uint32_t getGLQueriesPerQuery() const { return m_glQueriesPerQuery; }
 
+		// TODO(achal): Temporary overload.
 		inline void beginQuery(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags) const
 		{
 			if(gl != nullptr)
@@ -122,7 +123,29 @@ class COpenGLQueryPool final : public IQueryPool
 				}
 			}
 		}
+
+		inline bool beginQuery(uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail) const
+		{
+			if (params.queryType == EQT_OCCLUSION)
+			{
+				if (!cmdpool->emplace<COpenGLCommandPool::CBeginQueryCmd>(segmentListHeadItr, segmentListTail, queryIndex, GL_SAMPLES_PASSED, core::smart_refctd_ptr<const COpenGLQueryPool>(this)))
+					return false;
+			}
+			else if (params.queryType == EQT_TIMESTAMP)
+			{
+				assert(!"TIMESTAMP QueryPool doesn't work with begin/end functions.");
+				return false;
+			}
+			else
+			{
+				assert(!"QueryType is not supported.");
+				return false;
+			}
+
+			return true;
+		}
 		
+		// TODO(achal): Temporary overload.
 		inline void endQuery(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex) const
 		{
 			// End Function doesn't use queryIndex
@@ -142,6 +165,31 @@ class COpenGLQueryPool final : public IQueryPool
 					assert(false && "QueryType is not supported.");
 				}
 			}
+		}
+
+		inline bool endQuery(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+		{
+			if (params.queryType == EQT_OCCLUSION)
+			{
+				// End Function doesn't use queryIndex
+				if (!cmdpool->emplace<COpenGLCommandPool::CEndQueryCmd>(segmentListHeadItr, segmentListTail, GL_SAMPLES_PASSED))
+					return false;
+
+				if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), queryIndex))
+					return false;
+			}
+			else if (params.queryType == EQT_TIMESTAMP)
+			{
+				assert(!"TIMESTAMP QueryPool doesn't work with begin/end functions.");
+				return false;
+			}
+			else
+			{
+				assert(!"QueryType is not supported.");
+				return false;
+			}
+
+			return true;
 		}
 
 		// TODO(achal): Temporary overload.

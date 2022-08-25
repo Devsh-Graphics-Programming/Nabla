@@ -266,68 +266,34 @@ namespace nbl::video
         return true;
     }
 
-    bool CVulkanCommandBuffer::beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
+    bool CVulkanCommandBuffer::beginQuery_impl(IQueryPool* queryPool, uint32_t query, core::bitflag<IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
     {
-        bool ret = false;
-        if(queryPool != nullptr)
-        {
-            const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+        auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
+        vk->vk.vkCmdBeginQuery(m_cmdbuf, vk_queryPool, query, vk_flags);
 
-            // Add Ref to CmdPool
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
-
-            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
-            vk->vk.vkCmdBeginQuery(m_cmdbuf, vk_queryPool, query, vk_flags);
-            ret = true;
-        }
-        return ret;
+        return true;
     }
 
-    bool CVulkanCommandBuffer::endQuery(IQueryPool* queryPool, uint32_t query)
+    bool CVulkanCommandBuffer::endQuery_impl(IQueryPool* queryPool, uint32_t query)
     {
-        bool ret = false;
-        if(queryPool != nullptr)
-        {
-            const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+        vk->vk.vkCmdEndQuery(m_cmdbuf, vk_queryPool, query);
 
-            // Add Ref to CmdPool
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[1] = { core::smart_refctd_ptr<const IQueryPool>(queryPool) };
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 1);
-
-            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            vk->vk.vkCmdEndQuery(m_cmdbuf, vk_queryPool, query);
-            ret = true;
-        }
-        return ret;
+        return true;
     }
 
-    bool CVulkanCommandBuffer::copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
+    bool CVulkanCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
     {
-        bool ret = false;
-        if(queryPool != nullptr && dstBuffer != nullptr)
-        {
-            const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-
-            // Add Ref to CmdPool
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[2] = 
-            { 
-                core::smart_refctd_ptr<const IQueryPool>(queryPool),
-                core::smart_refctd_ptr<const buffer_t>(dstBuffer),
-            };
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
-
-            auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-            auto vk_dstBuffer = IBackendObject::compatibility_cast<CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
-            auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value); 
-            vk->vk.vkCmdCopyQueryPoolResults(m_cmdbuf, vk_queryPool, firstQuery, queryCount, vk_dstBuffer, dstOffset, static_cast<VkDeviceSize>(stride), vk_queryResultsFlags);
-            ret = true;
-        }
-        return ret;
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+        auto vk_dstBuffer = IBackendObject::compatibility_cast<CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
+        auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value); 
+        vk->vk.vkCmdCopyQueryPoolResults(m_cmdbuf, vk_queryPool, firstQuery, queryCount, vk_dstBuffer, dstOffset, static_cast<VkDeviceSize>(stride), vk_queryResultsFlags);
+        
+        return true;
     }
 
     bool CVulkanCommandBuffer::writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
@@ -335,7 +301,6 @@ namespace nbl::video
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
         auto vk_pipelineStageFlagBit = static_cast<VkPipelineStageFlagBits>(getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage));
-
         vk->vk.vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStageFlagBit, vk_queryPool, query);
 
         return true;

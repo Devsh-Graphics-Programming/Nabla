@@ -106,7 +106,9 @@ public:
     class CNamedBufferSubDataCmd;
     class CResetQueryCmd; // Does not correspond to a GL call, but some operation that needs to happen in a deferred way on COpenGLQueryPool.
     class CQueryCounterCmd;
-
+    class CBeginQueryCmd;
+    class CEndQueryCmd;
+    class CGetQueryBufferObjectUICmd;
 
 private:
     std::mutex mutex;
@@ -706,11 +708,54 @@ public:
 
 private:
     const uint32_t m_query;
-    GLenum m_target;
+    const GLenum m_target;
     core::smart_refctd_ptr<COpenGLQueryPool> m_queryPool;
 };
 
+class COpenGLCommandPool::CBeginQueryCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBeginQueryCmd>
+{
+public:
+    CBeginQueryCmd(const uint32_t query, const GLenum target, core::smart_refctd_ptr<const COpenGLQueryPool>&& queryPool)
+        : m_query(query), m_target(target), m_queryPool(std::move(queryPool))
+    {}
 
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const uint32_t m_query;
+    const GLenum m_target;
+    core::smart_refctd_ptr<const COpenGLQueryPool> m_queryPool;
+};
+
+class COpenGLCommandPool::CEndQueryCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CEndQueryCmd>
+{
+public:
+    CEndQueryCmd(const GLenum target) : m_target(target) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_target;
+};
+
+class COpenGLCommandPool::CGetQueryBufferObjectUICmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CGetQueryBufferObjectUICmd>
+{
+public:
+    CGetQueryBufferObjectUICmd(const uint32_t queueIdx, const bool use64Version, const GLuint queryId, const GLuint buffer, const GLenum pname, const GLintptr offset)
+        : m_queueIdx(queueIdx), m_use64Version(use64Version), m_queryId(queryId), m_buffer(buffer), m_pname(pname), m_offset(offset)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const uint32_t m_queueIdx;
+    const bool m_use64Version;
+
+    const GLuint m_queryId;
+    const GLuint m_buffer;
+    const GLenum m_pname;
+    const GLintptr m_offset;
+};
 
 }
 

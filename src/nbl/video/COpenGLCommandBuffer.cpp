@@ -1449,6 +1449,34 @@ bool COpenGLCommandBuffer::resetQueryPool_impl(IQueryPool* queryPool, uint32_t f
     return true;
 }
 
+bool COpenGLCommandBuffer::beginQuery_impl(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
+{
+    const COpenGLQueryPool* qp = static_cast<const COpenGLQueryPool*>(queryPool);
+    auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
+    if (!queriesActive.hasFlags(currentQuery))
+    {
+        if (!qp->beginQuery(query, flags.value, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+            return false;
+
+        queriesActive |= currentQuery;
+
+        uint32_t queryTypeIndex = std::log2<uint32_t>(currentQuery.value);
+        currentlyRecordingQueries[queryTypeIndex] = std::make_tuple(qp, query, currentlyRecordingRenderPass, 0u);
+    }
+    else
+    {
+        assert(false); // There is an active query with the same query type.
+        return false;
+    }
+
+    SCmd<impl::ECT_BEGIN_QUERY> cmd;
+    cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+    cmd.query = query;
+    cmd.flags = flags;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
 bool COpenGLCommandBuffer::writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
 {
     auto* gl_queryPool = static_cast<COpenGLQueryPool*>(queryPool);
@@ -1462,4 +1490,177 @@ bool COpenGLCommandBuffer::writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pip
     pushCommand(std::move(cmd));
     return true;
 }
+
+bool COpenGLCommandBuffer::endQuery_impl(IQueryPool* queryPool, uint32_t query)
+{
+    COpenGLQueryPool* qp = static_cast<COpenGLQueryPool*>(queryPool);
+    auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
+    if (queriesActive.hasFlags(currentQuery))
+    {
+        uint32_t queryTypeIndex = std::log2<uint32_t>(currentQuery.value);
+        IQueryPool const* currentQueryPool = std::get<0>(currentlyRecordingQueries[queryTypeIndex]);
+        uint32_t currentQueryIndex = std::get<1>(currentlyRecordingQueries[queryTypeIndex]);
+        renderpass_t const* currentQueryRenderpass = std::get<2>(currentlyRecordingQueries[queryTypeIndex]);
+        uint32_t currentQuerySubpassIndex = std::get<3>(currentlyRecordingQueries[queryTypeIndex]);
+
+        if (currentQueryPool != queryPool || currentQueryIndex != query)
+        {
+            assert(false); // You must end the same query you began for every query type.
+            return false;
+        }
+        if (currentQueryRenderpass != currentlyRecordingRenderPass)
+        {
+            assert(false); // Query either starts and ends in the same subpass or starts and ends entirely outside a renderpass
+            return false;
+        }
+
+        // currentlyRecordingQuery assert tuple -> same query index and query pool -> same renderpass
+        if (!qp->endQuery(query, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+            return false;
+
+        queriesActive &= ~currentQuery;
+    }
+    else
+    {
+        assert(false); // QueryType was not active to end.
+        return false;
+    }
+
+    SCmd<impl::ECT_END_QUERY> cmd;
+    cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+    cmd.query = query;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
+{
+    const IPhysicalDevice* physdev = getOriginDevice()->getPhysicalDevice();
+    if (!physdev->getFeatures().allowCommandBufferQueryCopies)
+    {
+        assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
+        return false;
+    }
+
+    const COpenGLBuffer* buffer = static_cast<const COpenGLBuffer*>(dstBuffer);
+    const COpenGLQueryPool* qp = IBackendObject::compatibility_cast<const COpenGLQueryPool*>(queryPool, this);
+    auto queryPoolQueriesCount = qp->getCreationParameters().queryCount;
+
+    const GLuint bufferId = buffer->getOpenGLName();
+
+    IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
+    const bool use64Version = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
+    const bool availabilityFlag = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
+    const bool waitForAllResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
+    const bool partialResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
+
+    assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
+
+    if (firstQuery + queryCount > queryPoolQueriesCount)
+    {
+        m_logger.log("The sum of firstQuery and queryCount must be less than or equal to the number of queries in queryPool", system::ILogger::ELL_ERROR);
+        return false;
+    }
+    if (partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP)
+    {
+        m_logger.log("QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.", system::ILogger::ELL_ERROR);
+        return false;
+    }
+
+    size_t currentDataPtrOffset = dstOffset;
+    const uint32_t glQueriesPerQuery = qp->getGLQueriesPerQuery();
+    const size_t queryElementDataSize = (use64Version) ? sizeof(GLuint64) : sizeof(GLuint); // each query might write to multiple values/elements
+    const size_t eachQueryDataSize = queryElementDataSize * glQueriesPerQuery;
+    const size_t eachQueryWithAvailabilityDataSize = (availabilityFlag) ? queryElementDataSize + eachQueryDataSize : eachQueryDataSize;
+
+    const size_t bufferDataSize = buffer->getSize();
+
+    assert(core::is_aligned_to(dstOffset, queryElementDataSize));
+    assert(stride >= eachQueryWithAvailabilityDataSize);
+    assert(stride && core::is_aligned_to(stride, eachQueryWithAvailabilityDataSize)); // stride must be aligned to each query data size considering the specified flags
+    assert((bufferDataSize - currentDataPtrOffset) >= (queryCount * stride)); // bufferDataSize is not enough for "queryCount" queries and specified stride
+    assert((bufferDataSize - currentDataPtrOffset) >= (queryCount * eachQueryWithAvailabilityDataSize)); // bufferDataSize is not enough for "queryCount" queries with considering the specified flags
+
+    // iterate on each query
+    for (uint32_t i = 0; i < queryCount; ++i)
+    {
+        if (currentDataPtrOffset >= bufferDataSize)
+        {
+            assert(false);
+            break;
+        }
+
+        const size_t queryDataOffset = currentDataPtrOffset;
+        const size_t availabilityDataOffset = queryDataOffset + eachQueryDataSize; // Write Availability to this offset if flag specified
+
+        // iterate on each gl query (we may have multiple gl queries per query like pipelinestatistics query type)
+        const uint32_t queryIndex = i + firstQuery;
+        const uint32_t glQueryBegin = queryIndex * glQueriesPerQuery;
+        bool allGlQueriesAvailable = true;
+
+        for (uint32_t q = 0; q < glQueriesPerQuery; ++q)
+        {
+            const size_t subQueryDataOffset = queryDataOffset + q * queryElementDataSize;
+            const uint32_t queryIdx = glQueryBegin + q;
+            const uint32_t lastQueueToUse = qp->getLastQueueToUseForQuery(queryIdx);
+            GLuint query = qp->getQueryAt(lastQueueToUse, queryIdx);
+
+            if (query == GL_NONE)
+                continue;
+
+            GLenum pname;
+            if (waitForAllResults)
+            {
+                // Has WAIT_BIT -> Get Result with Wait (GL_QUERY_RESULT) + don't getQueryAvailability (if availability flag is set it will report true)
+                pname = GL_QUERY_RESULT;
+            }
+            else if (partialResults)
+            {
+                // Has PARTIAL_BIT but no WAIT_BIT -> (read vk spec) -> result value between zero and the final result value
+                // No PARTIAL queries for GL -> GL_QUERY_RESULT_NO_WAIT best match
+                pname = GL_QUERY_RESULT_NO_WAIT;
+            }
+            else if (availabilityFlag)
+            {
+                // Only Availablity -> Get Results with NoWait + get Query Availability
+                pname = GL_QUERY_RESULT_NO_WAIT;
+            }
+            else
+            {
+                // No Flags -> GL_QUERY_RESULT_NO_WAIT
+                pname = GL_QUERY_RESULT_NO_WAIT;
+            }
+
+            if (availabilityFlag && !waitForAllResults && (q == glQueriesPerQuery - 1))
+            {
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, lastQueueToUse, use64Version, query, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
+                    return false;
+            }
+
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, lastQueueToUse, use64Version, query, bufferId, pname, subQueryDataOffset))
+                return false;
+
+            if (availabilityFlag && waitForAllResults && (q == glQueriesPerQuery - 1))
+            {
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, lastQueueToUse, use64Version, query, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
+                    return false;
+            }
+        }
+
+        currentDataPtrOffset += stride;
+    }
+
+
+    SCmd<impl::ECT_COPY_QUERY_POOL_RESULTS> cmd;
+    cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
+    cmd.firstQuery = firstQuery;
+    cmd.queryCount = queryCount;
+    cmd.dstBuffer = core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer);
+    cmd.dstOffset = dstOffset;
+    cmd.stride = stride;
+    cmd.flags = flags;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
 }

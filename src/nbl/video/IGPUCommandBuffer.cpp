@@ -290,4 +290,40 @@ bool IGPUCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineSta
     return writeTimestamp_impl(pipelineStage, queryPool, query);
 }
 
+bool IGPUCommandBuffer::beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
+{
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CBeginQueryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return beginQuery_impl(queryPool, query, flags);
+}
+
+bool IGPUCommandBuffer::endQuery(video::IQueryPool* queryPool, uint32_t query)
+{
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CEndQueryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return endQuery_impl(queryPool, query);
+}
+
+bool IGPUCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
+{
+    if (!queryPool  || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
+    if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyQueryPoolResultsCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
+}
+
 }

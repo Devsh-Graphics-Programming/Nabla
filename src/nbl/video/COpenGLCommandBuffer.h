@@ -1102,45 +1102,9 @@ public:
     }
         
     bool resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override;
-    bool beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags) override
-    {
-        if (!this->isCompatibleDevicewise(queryPool))
-            return false;
-        SCmd<impl::ECT_BEGIN_QUERY> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
-        cmd.query = query;
-        cmd.flags = flags;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool endQuery(IQueryPool* queryPool, uint32_t query) override
-    {
-        if (!this->isCompatibleDevicewise(queryPool))
-            return false;
-        SCmd<impl::ECT_END_QUERY> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
-        cmd.query = query;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override
-    {
-        if (!this->isCompatibleDevicewise(queryPool))
-            return false;
-        if (!this->isCompatibleDevicewise(dstBuffer))
-            return false;
-        SCmd<impl::ECT_COPY_QUERY_POOL_RESULTS> cmd;
-        cmd.queryPool = core::smart_refctd_ptr<const IQueryPool>(queryPool);
-        cmd.firstQuery = firstQuery;
-        cmd.queryCount = queryCount;
-        cmd.dstBuffer = core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer);
-        cmd.dstOffset = dstOffset;
-        cmd.stride = stride;
-        cmd.flags = flags;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    
+    bool beginQuery_impl(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags) override;
+    bool endQuery_impl(IQueryPool* queryPool, uint32_t query) override;
+    bool copyQueryPoolResults_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override;
     bool writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override;
 
     bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery)
