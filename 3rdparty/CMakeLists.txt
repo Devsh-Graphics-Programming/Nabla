@@ -4,35 +4,6 @@
 
 include(../cmake/common.cmake)
 
-# mandatory
-option(NBL_UPDATE_GIT_SUBMODULE "" ON)
-
-if(NBL_UPDATE_GIT_SUBMODULE)
-	update_git_submodule(./volk)
-	update_git_submodule(./SPIRV-Headers)
-	update_git_submodule(./SPIRV-Tools)
-	update_git_submodule(./glslang)
-	update_git_submodule(./shaderc)
-	update_git_submodule(./bzip2)
-	update_git_submodule(./lz4)
-	update_git_submodule(./nbl_spirv_cross)
-	update_git_submodule(./zlib)
-	update_git_submodule(./openexr)
-	update_git_submodule(./libpng)
-	update_git_submodule(./openssl)
-	update_git_submodule(./libjpeg-turbo)
-	update_git_submodule(./parallel-hashmap)
-	update_git_submodule(./gli)
-	# exceptions that get automatically cloned
-	update_git_submodule(./glm)
-	update_git_submodule(./freetype2)
-	update_git_submodule(./portable-file-dialogs)
-	update_git_submodule(./simdjson)
-	update_git_submodule(./glTFSampleModels)
-	update_git_submodule(./pstl/oneTBB)
-	update_git_submodule(./pstl/oneDPL/oneDPL)
-endif()
-
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
