@@ -71,7 +71,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t minor : 5;
             uint32_t patch : 22;
 
-            inline auto operator <=> (uint32_t vkApiVersion) { return vkApiVersion - VK_MAKE_API_VERSION(0, major, minor, patch); }
+            inline auto operator <=> (uint32_t vkApiVersion) const { return vkApiVersion - VK_MAKE_API_VERSION(0, major, minor, patch); }
+            inline auto operator <=> (const APIVersion& other) const 
+            {
+                if(major != other.major) return other.major - major;
+                if(minor != other.minor) return other.minor - minor;
+                if(patch != other.patch) return other.patch - patch;
+                return 0u;
+            }
         };
 
         using SLimits = SPhysicalDeviceLimits;
