@@ -33,10 +33,15 @@ update_git_submodule(./portable-file-dialogs)
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # volk
-if (Vulkan_FOUND)
-	set(VOLK_PULL_IN_VULKAN ON)
-	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
-endif(Vulkan_FOUND)
+set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples
+	
+if (WIN32)
+	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
+endif()
+add_subdirectory(volk volk EXCLUDE_FROM_ALL)
+	
+target_include_directories(volk PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
+target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
