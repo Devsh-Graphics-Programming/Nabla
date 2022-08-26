@@ -110,11 +110,12 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 nbl_glsl_MC_bxdf_spectrum_t nbl_glsl_MC_runEvalStream(in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t stream, in vec3 L)
 {
 	nbl_glsl_MC_setCurrInteraction(precomp);
-	nbl_glsl_LightSample s = nbl_glsl_createLightSample(L, currInteraction.inner);
+	nbl_glsl_LightSample s = nbl_glsl_createLightSample(L,currInteraction.inner);
 	nbl_glsl_MC_microfacet_t microfacet;
 	microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, s);
 	nbl_glsl_MC_finalizeMicrofacet(microfacet);
-	for (uint i = 0u; i < stream.count; ++i)
+
+	for (uint i=0u; i<stream.count; ++i)
 	{
 		nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
 
@@ -134,10 +135,11 @@ nbl_glsl_MC_bxdf_spectrum_t nbl_glsl_MC_runEvalStream(in nbl_glsl_MC_precomputed
 		#endif
 		) {
 			nbl_glsl_MC_updateLightSampleAfterNormalChange(s);
-			nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(s, microfacet);
+			nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(s,microfacet);
 		}
 		#endif
 	}
+
 	//result is always in regs 0,1,2
 	nbl_glsl_MC_bxdf_spectrum_t retval;
 	nbl_glsl_MC_readReg(0u,retval);

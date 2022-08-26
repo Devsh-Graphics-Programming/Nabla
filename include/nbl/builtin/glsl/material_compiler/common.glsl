@@ -217,6 +217,7 @@ bool nbl_glsl_MC_op_isDelta(in uint op)
 
 // current interaction is a global (for now I guess)
 nbl_glsl_MC_interaction_t currInteraction;
+
 // methods to update the global
 void nbl_glsl_MC_setCurrInteraction(in vec3 N, in vec3 V)
 {
@@ -728,6 +729,7 @@ nbl_glsl_MC_CookTorranceFactors nbl_glsl_MC_instr_microfacet_common(
 nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 	in nbl_glsl_MC_instr_t instr,
 	in uint op, in bool is_not_brdf,
+	in nbl_glsl_MC_precomputed_t precomp,
 	in nbl_glsl_MC_params_t params,
 	in mat2x3 ior, in mat2x3 ior2,
 	in float absOrMaxNdotV,
@@ -788,7 +790,7 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 	#endif
 	#endif
 
-	if (run)
+	if (run && (is_not_brdf||dot(s.L,precomp.N)>nbl_glsl_FLT_MIN))
 	{
 		#if !defined(GEN_CHOICE_STREAM) || GEN_CHOICE_STREAM<GEN_CHOICE_WITH_AOV_EXTRACTION
 		//speculative execution
@@ -957,7 +959,8 @@ void nbl_glsl_MC_instr_eval_and_pdf_execute(
 			if (nbl_glsl_MC_op_isBXDF(op))
 			{
 				result = nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
-					instr,op,is_not_brdf,params,ior,ior2,
+					instr,op,is_not_brdf,precomp,
+					params,ior,ior2,
 					NdotV,NdotL,
 					s,microfacet,run
 				);
@@ -1249,7 +1252,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 					// This is because the diffuse coatee needs a special fresnel factor which can only be computed while `L` is known.
 					// We can allow for this because the coating must have a diffuse coatee AND a diffuse BRDF has a pretty wide PDF,
 					// so numerical stability is not affected.
-					if (no_coat_parent)
+					if (no_coat_parent && (is_bsdf||dot(s.L,precomp.N)>nbl_glsl_FLT_MIN))
 					{
 						const vec3 albedo = nbl_glsl_MC_params_getReflectance(params);
 
@@ -1336,26 +1339,32 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 						}
 					}
 					nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
-					const float NdotL = nbl_glsl_conditionalAbsOrMax(is_bsdf,s.NdotL,0.f);
 
-					//
-					const nbl_glsl_MC_CookTorranceFactors ctFactors = nbl_glsl_MC_instr_microfacet_common(
-						ndf,
-						#ifdef ALL_ISOTROPIC_BXDFS
-						ax2,
-						#else
-						ax,
-						ax2,
-						ay,
-						ay2,
-						#endif
-						orientedEta,refraction, // only matters for dielectrics
-						NdotV,NdotL,s,out_microfacet
-					);
+					if (is_bsdf || dot(s.L,precomp.N)>nbl_glsl_FLT_MIN)
+					{
+						const float NdotL = nbl_glsl_conditionalAbsOrMax(is_bsdf,s.NdotL,0.f);
 
-					out_values.quotient *= ctFactors.G2_over_G1;
-					// note: at this point the pdf is already multiplied by transmission/reflection choice probability if applicable
-					out_values.pdf *= ctFactors.vndf;
+						//
+						const nbl_glsl_MC_CookTorranceFactors ctFactors = nbl_glsl_MC_instr_microfacet_common(
+							ndf,
+							#ifdef ALL_ISOTROPIC_BXDFS
+							ax2,
+							#else
+							ax,
+							ax2,
+							ay,
+							ay2,
+							#endif
+							orientedEta,refraction, // only matters for dielectrics
+							NdotV,NdotL,s,out_microfacet
+						);
+
+						out_values.quotient *= ctFactors.G2_over_G1;
+						// note: at this point the pdf is already multiplied by transmission/reflection choice probability if applicable
+						out_values.pdf *= ctFactors.vndf;
+					}
+					else
+						out_values.pdf = 0.f;
 				} else
 				#endif
 				{} //empty braces for `else`
