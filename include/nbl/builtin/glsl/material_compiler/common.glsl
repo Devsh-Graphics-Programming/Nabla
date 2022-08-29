@@ -730,9 +730,12 @@ bool nbl_glsl_MC_isLightSampleGeometricallyValid(in bool is_bsdf, in nbl_glsl_MC
 {
 	if (is_bsdf)
 		return true;
-
+		
+#if 0 // need better impl
 	float c = dot(precomp.N,L);
 	return (precomp.frontface ? c:(-c))>nbl_glsl_FLT_MIN;
+#endif
+	return true;
 }
 
 //
