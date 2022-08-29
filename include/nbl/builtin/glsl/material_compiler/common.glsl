@@ -227,12 +227,12 @@ void nbl_glsl_MC_setCurrInteraction(in vec3 N, in vec3 V)
 }
 void nbl_glsl_MC_setCurrInteraction(in nbl_glsl_MC_precomputed_t precomp)
 {
-	nbl_glsl_MC_setCurrInteraction(precomp.frontface ? precomp.N : -precomp.N, precomp.V);
+	nbl_glsl_MC_setCurrInteraction(precomp.frontface ? precomp.N:(-precomp.N), precomp.V);
 }
 void nbl_glsl_MC_updateCurrInteraction(in nbl_glsl_MC_precomputed_t precomp, in vec3 N)
 {
 	// precomputed normals already have correct orientation
-	nbl_glsl_MC_setCurrInteraction(N, precomp.V);
+	nbl_glsl_MC_setCurrInteraction(N,precomp.V);
 }
 
 
@@ -725,6 +725,16 @@ nbl_glsl_MC_CookTorranceFactors nbl_glsl_MC_instr_microfacet_common(
 	return retval;
 }
 
+// TODO: won't be needed after Schussler et. al
+bool nbl_glsl_MC_isLightSampleGeometricallyValid(in bool is_bsdf, in nbl_glsl_MC_precomputed_t precomp, in vec3 L)
+{
+	if (is_bsdf)
+		return true;
+
+	float c = dot(precomp.N,L);
+	return (precomp.frontface ? c:(-c))>nbl_glsl_FLT_MIN;
+}
+
 //
 nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 	in nbl_glsl_MC_instr_t instr,
@@ -790,7 +800,7 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
 	#endif
 	#endif
 
-	if (run && (is_not_brdf||dot(s.L,precomp.N)>nbl_glsl_FLT_MIN))
+	if (run && nbl_glsl_MC_isLightSampleGeometricallyValid(is_not_brdf,precomp,s.L))
 	{
 		#if !defined(GEN_CHOICE_STREAM) || GEN_CHOICE_STREAM<GEN_CHOICE_WITH_AOV_EXTRACTION
 		//speculative execution
@@ -1215,160 +1225,158 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 			nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
 		} else
 		#endif
+		if (NdotV>nbl_glsl_FLT_MIN)
 		{
-			if (NdotV>nbl_glsl_FLT_MIN)
+			const nbl_glsl_MC_params_t params = nbl_glsl_MC_instr_getParameters(instr,bsdf_data);
+
+			const float ax = nbl_glsl_MC_params_getAlpha(params);
+			const float ax2 = ax*ax;
+
+			// TODO: refactor
+			const vec3 localV = nbl_glsl_getTangentSpaceV(currInteraction.inner);
+			const mat3 tangentFrame = nbl_glsl_getTangentFrame(currInteraction.inner);
+			#if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
+			if (nbl_glsl_MC_op_isDiffuse(op))
 			{
-				const nbl_glsl_MC_params_t params = nbl_glsl_MC_instr_getParameters(instr,bsdf_data);
-
-				const float ax = nbl_glsl_MC_params_getAlpha(params);
-				const float ax2 = ax*ax;
-
-				// TODO: refactor
-				const vec3 localV = nbl_glsl_getTangentSpaceV(currInteraction.inner);
-				const mat3 tangentFrame = nbl_glsl_getTangentFrame(currInteraction.inner);
-				#if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
-				if (nbl_glsl_MC_op_isDiffuse(op))
+				vec3 localL = nbl_glsl_projected_hemisphere_generate(u.xy);
+				#ifndef NO_BSDF
+				if (is_bsdf)
 				{
-					vec3 localL = nbl_glsl_projected_hemisphere_generate(u.xy);
-					#ifndef NO_BSDF
-					if (is_bsdf)
-					{
-						float dummy; // we dont bother using this value because its constant
-						bool flip = nbl_glsl_partitionRandVariable(0.5,u.z,dummy);
-						localL = flip ? -localL : localL;
-						out_values.pdf = 0.5f;
-					}
-					else
-					#endif
-						out_values.pdf = 1.f;
-
-					s = nbl_glsl_createLightSampleTangentSpace(localV,localL,tangentFrame);
-
-					// TODO: factor it out!
-					out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner,s);
-					nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
-
-					// NOTE: If the chosen generator is coated diffuse, we let the evaluation function compute the full weighted sum.
-					// This is because the diffuse coatee needs a special fresnel factor which can only be computed while `L` is known.
-					// We can allow for this because the coating must have a diffuse coatee AND a diffuse BRDF has a pretty wide PDF,
-					// so numerical stability is not affected.
-					if (no_coat_parent)// && (is_bsdf||dot(s.L,precomp.N)>nbl_glsl_FLT_MIN))
-					{
-						const vec3 albedo = nbl_glsl_MC_params_getReflectance(params);
-
-						float pdf;
-						const float NdotL = nbl_glsl_conditionalAbsOrMax(is_bsdf,s.NdotL,0.f);
-						out_values.quotient = albedo*nbl_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,ax2,s.VdotL,NdotL,NdotV);
-						out_values.pdf *= pdf;
-					}
-					else
-					{
-						out_gen_rnpOffset = 0xffffffffu;
-						out_values.pdf = 0.f;
-					}
+					float dummy; // we dont bother using this value because its constant
+					bool flip = nbl_glsl_partitionRandVariable(0.5,u.z,dummy);
+					localL = flip ? -localL : localL;
+					out_values.pdf = 0.5f;
 				}
 				else
 				#endif
-				#if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
-				if (nbl_glsl_MC_op_hasSpecular(op))
+					out_values.pdf = 1.f;
+
+				s = nbl_glsl_createLightSampleTangentSpace(localV,localL,tangentFrame);
+
+				// TODO: factor it out!
+				out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner,s);
+				nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
+
+				// NOTE: If the chosen generator is coated diffuse, we let the evaluation function compute the full weighted sum.
+				// This is because the diffuse coatee needs a special fresnel factor which can only be computed while `L` is known.
+				// We can allow for this because the coating must have a diffuse coatee AND a diffuse BRDF has a pretty wide PDF,
+				// so numerical stability is not affected.
+				if (no_coat_parent && nbl_glsl_MC_isLightSampleGeometricallyValid(is_bsdf,precomp,s.L))
 				{
-					const uint ndf = nbl_glsl_MC_instr_getNDF(instr);
-					#ifdef ALL_ISOTROPIC_BXDFS
-					const float ay = ax;
-					#else
-					const float ay = nbl_glsl_MC_params_getAlphaV(params);
-					const float ay2 = ay*ay;
-					#endif
-					const float orientedEta = nbl_glsl_MC_colorToScalar(ior[0]);
-					
-					bool refraction = false;
-					float VdotH;
-					{
-						// scope localH out
-						vec3 localH;
+					const vec3 albedo = nbl_glsl_MC_params_getReflectance(params);
 
-						// generate the microfacet vector
-						{
-							const vec3 upperHemisphereLocalV = currInteraction.inner.isotropic.NdotV<0.f ? -localV:localV;
-							#ifdef NDF_GGX
-							if (ndf==NDF_GGX) 
-							{
-								// NOTE: why is it called without "wo_clamps" and beckmann sampling is?
-								// Cause GGX sampling needs no clamping of `localV` to upper hemisphere to not generate garbage
-								localH = nbl_glsl_ggx_cos_generate(upperHemisphereLocalV,u.xy,ax,ay);
-							} else
-							#endif //NDF_GGX
-								localH = nbl_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV,u.xy,ax,ay);
-							VdotH = dot(localV,localH);
-						}
-
-						//
-						{
-							#ifdef OP_CONDUCTOR
-							if (op==OP_CONDUCTOR)
-							{
-								//assert(VdotH>=0.f) because we use VNDF sampling
-								out_values.quotient = nbl_glsl_fresnel_conductor(ior[0],ior[1],VdotH);
-
-								out_values.pdf = 1.f;
-							}
-							else
-							#endif
-							{
-								// TODO: it would be nice to make dielectrics not monochrome somehow
-								out_values.quotient = vec3(1.0);
-
-								float rcpChoiceProb;
-								{
-									const float absVdotH = abs(VdotH);
-									const float reflectionProb = nbl_glsl_fresnel_dielectric_common(orientedEta*orientedEta,absVdotH);
-									refraction = nbl_glsl_partitionRandVariable(reflectionProb,u.z,rcpChoiceProb);
-								}
-								out_values.pdf = 1.f/rcpChoiceProb;
-							}
-
-							// TODO: factor the microfacet update stuff out!
-							{
-								// scope localL out
-								vec3 localL;
-								// TODO: move computation into the refractive case?
-								const float rcpOrientedEta = 1.0/orientedEta;
-								out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(refraction,localV,localH,localL,rcpOrientedEta,rcpOrientedEta*rcpOrientedEta);
-								s = nbl_glsl_createLightSampleTangentSpace(localV,localL,tangentFrame);
-							}
-						}
-					}
-					nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
-
-					if (true)//(is_bsdf)// || dot(s.L,precomp.N)>nbl_glsl_FLT_MIN)
-					{
-						const float NdotL = nbl_glsl_conditionalAbsOrMax(is_bsdf,s.NdotL,0.f);
-
-						//
-						const nbl_glsl_MC_CookTorranceFactors ctFactors = nbl_glsl_MC_instr_microfacet_common(
-							ndf,
-							#ifdef ALL_ISOTROPIC_BXDFS
-							ax2,
-							#else
-							ax,
-							ax2,
-							ay,
-							ay2,
-							#endif
-							orientedEta,refraction, // only matters for dielectrics
-							NdotV,NdotL,s,out_microfacet
-						);
-
-						out_values.quotient *= ctFactors.G2_over_G1;
-						// note: at this point the pdf is already multiplied by transmission/reflection choice probability if applicable
-						out_values.pdf *= ctFactors.vndf;
-					}
-					else
-						out_values.pdf = 0.f;
-				} else
-				#endif
-				{} //empty braces for `else`
+					float pdf;
+					const float NdotL = nbl_glsl_conditionalAbsOrMax(is_bsdf,s.NdotL,0.f);
+					out_values.quotient = albedo*nbl_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,ax2,s.VdotL,NdotL,NdotV);
+					out_values.pdf *= pdf;
+				}
+				else
+				{
+					out_gen_rnpOffset = 0xffffffffu;
+					out_values.pdf = 0.f;
+				}
 			}
+			else
+			#endif
+			#if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
+			if (nbl_glsl_MC_op_hasSpecular(op))
+			{
+				const uint ndf = nbl_glsl_MC_instr_getNDF(instr);
+				#ifdef ALL_ISOTROPIC_BXDFS
+				const float ay = ax;
+				#else
+				const float ay = nbl_glsl_MC_params_getAlphaV(params);
+				const float ay2 = ay*ay;
+				#endif
+				const float orientedEta = nbl_glsl_MC_colorToScalar(ior[0]);
+					
+				bool refraction = false;
+				float VdotH;
+				{
+					// scope localH out
+					vec3 localH;
+
+					// generate the microfacet vector
+					{
+						const vec3 upperHemisphereLocalV = currInteraction.inner.isotropic.NdotV<0.f ? -localV:localV;
+						#ifdef NDF_GGX
+						if (ndf==NDF_GGX) 
+						{
+							// NOTE: why is it called without "wo_clamps" and beckmann sampling is?
+							// Cause GGX sampling needs no clamping of `localV` to upper hemisphere to not generate garbage
+							localH = nbl_glsl_ggx_cos_generate(upperHemisphereLocalV,u.xy,ax,ay);
+						} else
+						#endif //NDF_GGX
+							localH = nbl_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV,u.xy,ax,ay);
+						VdotH = dot(localV,localH);
+					}
+
+					//
+					{
+						#ifdef OP_CONDUCTOR
+						if (op==OP_CONDUCTOR)
+						{
+							//assert(VdotH>=0.f) because we use VNDF sampling
+							out_values.quotient = nbl_glsl_fresnel_conductor(ior[0],ior[1],VdotH);
+
+							out_values.pdf = 1.f;
+						}
+						else
+						#endif
+						{
+							// TODO: it would be nice to make dielectrics not monochrome somehow
+							out_values.quotient = vec3(1.0);
+
+							float rcpChoiceProb;
+							{
+								const float absVdotH = abs(VdotH);
+								const float reflectionProb = nbl_glsl_fresnel_dielectric_common(orientedEta*orientedEta,absVdotH);
+								refraction = nbl_glsl_partitionRandVariable(reflectionProb,u.z,rcpChoiceProb);
+							}
+							out_values.pdf = 1.f/rcpChoiceProb;
+						}
+
+						// TODO: factor the microfacet update stuff out!
+						{
+							// scope localL out
+							vec3 localL;
+							// TODO: move computation into the refractive case?
+							const float rcpOrientedEta = 1.0/orientedEta;
+							out_microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(refraction,localV,localH,localL,rcpOrientedEta,rcpOrientedEta*rcpOrientedEta);
+							s = nbl_glsl_createLightSampleTangentSpace(localV,localL,tangentFrame);
+						}
+					}
+				}
+				nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
+
+				if (nbl_glsl_MC_isLightSampleGeometricallyValid(is_bsdf,precomp,s.L))
+				{
+					const float NdotL = nbl_glsl_conditionalAbsOrMax(is_bsdf,s.NdotL,0.f);
+
+					//
+					const nbl_glsl_MC_CookTorranceFactors ctFactors = nbl_glsl_MC_instr_microfacet_common(
+						ndf,
+						#ifdef ALL_ISOTROPIC_BXDFS
+						ax2,
+						#else
+						ax,
+						ax2,
+						ay,
+						ay2,
+						#endif
+						orientedEta,refraction, // only matters for dielectrics
+						NdotV,NdotL,s,out_microfacet
+					);
+
+					out_values.quotient *= ctFactors.G2_over_G1;
+					// note: at this point the pdf is already multiplied by transmission/reflection choice probability if applicable
+					out_values.pdf *= ctFactors.vndf;
+				}
+				else
+					out_values.pdf = 0.f;
+			} else
+			#endif
+			{} //empty braces for `else`
 		}
 	}
 
