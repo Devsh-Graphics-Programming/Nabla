@@ -1252,7 +1252,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 					// This is because the diffuse coatee needs a special fresnel factor which can only be computed while `L` is known.
 					// We can allow for this because the coating must have a diffuse coatee AND a diffuse BRDF has a pretty wide PDF,
 					// so numerical stability is not affected.
-					if (no_coat_parent && (is_bsdf||dot(s.L,precomp.N)>nbl_glsl_FLT_MIN))
+					if (no_coat_parent)// && (is_bsdf||dot(s.L,precomp.N)>nbl_glsl_FLT_MIN))
 					{
 						const vec3 albedo = nbl_glsl_MC_params_getReflectance(params);
 
@@ -1340,7 +1340,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 					}
 					nbl_glsl_MC_finalizeMicrofacet(out_microfacet);
 
-					if (is_bsdf || dot(s.L,precomp.N)>nbl_glsl_FLT_MIN)
+					if (true)//(is_bsdf)// || dot(s.L,precomp.N)>nbl_glsl_FLT_MIN)
 					{
 						const float NdotL = nbl_glsl_conditionalAbsOrMax(is_bsdf,s.NdotL,0.f);
 
