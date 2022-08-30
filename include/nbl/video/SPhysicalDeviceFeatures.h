@@ -597,8 +597,7 @@ struct SPhysicalDeviceFeatures
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
     bool pipelineExecutableInfo = false;
 
-    // [TODO] why did we ever expose it like this?!
-    // Use multiple booleans that represent what `VK_KHR_maintenance4` adds support for, see description in https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_maintenance4.html
+    // [TODO] Always Enable, Report as limit: Use multiple booleans that represent what `VK_KHR_maintenance4` adds support for, instead of single bool; see description in https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_maintenance4.html
     /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
     bool maintenance4 = false;
 
@@ -1225,6 +1224,7 @@ struct SPhysicalDeviceFeatures
         if (smoothLines && !_rhs.smoothLines) return false;
         if (stippledRectangularLines && !_rhs.stippledRectangularLines) return false;
         if (stippledBresenhamLines && !_rhs.stippledBresenhamLines) return false;
+        if (stippledSmoothLines && !_rhs.stippledSmoothLines) return false;
         if (stippledSmoothLines && !_rhs.stippledSmoothLines) return false;
         if (memoryPriority && !_rhs.memoryPriority) return false;
         if (robustBufferAccess2 && !_rhs.robustBufferAccess2) return false;
