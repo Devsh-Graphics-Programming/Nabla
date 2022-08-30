@@ -584,22 +584,31 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
     return true;
 }
 
-void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache::fbo_cache_t& fboCache, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
+void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocal, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
 {
-#define NEW_WAY
+// #define NEW_WAY
 #ifdef NEW_WAY
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
+
+    uint64_t cmdIdx = 0ull;
+    uint64_t segmentIdx = 0ull;
 
     if (itr.m_segment && itr.m_cmd)
     {
         while (itr.m_cmd->getSize() != 0u)
         {
+            ++cmdIdx;
+
             auto* glcmd = static_cast<COpenGLCommandPool::IOpenGLCommand*>(itr.m_cmd);
-            glcmd->operator()(gl, fboCache, ctxid, m_logger.getOptRawPtr());
+            // std::cout << "Doing command (" << segmentIdx << ", " << cmdIdx << ")" << std::endl;
+            glcmd->operator()(gl, queueLocal, ctxid, m_logger.getOptRawPtr());
 
             itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->getSize());
             if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) > IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
             {
+                cmdIdx = 0ull;
+                ++segmentIdx;
+
                 IGPUCommandPool::CCommandSegment* nextSegment = itr.m_segment->getNext();
                 if (!nextSegment)
                     break;
@@ -1407,7 +1416,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextL
                 // For a secondary command buffer to be executed while a query is active, it must set the occlusionQueryEnable, queryFlags, and/or pipelineStatistics members of InheritanceInfo to conservative values
                 assert(inheritanceInfo.occlusionQueryEnable);
             }
-            static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, fboCache, ctxlocal, ctxid);
+            static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, queueLocal, ctxlocal, ctxid);
         }
         break;
         case impl::ECT_REGENERATE_MIPMAPS:
@@ -1434,6 +1443,30 @@ void COpenGLCommandBuffer::blit(IOpenGL_FunctionTable* gl, GLuint src, GLuint ds
     GLint dx1 = dstOffsets[1].x;
     GLint dy1 = dstOffsets[1].y;
     gl->extGlBlitNamedFramebuffer(src, dst, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GL_COLOR_BUFFER_BIT, filter==asset::ISampler::ETF_NEAREST?GL_NEAREST:GL_LINEAR);
+}
+
+bool COpenGLCommandBuffer::bindGraphicsPipeline_impl(const graphics_pipeline_t* pipeline)
+{
+    m_stateCache.updateNextState_pipelineAndRaster(pipeline, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail);
+
+    auto* rpindependent = pipeline->getRenderpassIndependentPipeline();
+    auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
+    m_stateCache.nextState.vertexInputParams.vaokey = glppln->getVAOHash();
+
+    SCmd<impl::ECT_BIND_GRAPHICS_PIPELINE> cmd;
+    cmd.pipeline = core::smart_refctd_ptr<const graphics_pipeline_t>(pipeline);
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+void COpenGLCommandBuffer::bindComputePipeline_impl(const compute_pipeline_t* pipeline)
+{
+    const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(pipeline);
+    m_stateCache.nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
+
+    SCmd<impl::ECT_BIND_COMPUTE_PIPELINE> cmd;
+    cmd.pipeline = core::smart_refctd_ptr<const compute_pipeline_t>(pipeline);
+    pushCommand(std::move(cmd));
 }
 
 bool COpenGLCommandBuffer::resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
@@ -1661,6 +1694,198 @@ bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint
     cmd.flags = flags;
     pushCommand(std::move(cmd));
     return true;
+}
+
+bool COpenGLCommandBuffer::bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout_, uint32_t firstSet_, uint32_t descriptorSetCount_,
+    const descriptor_set_t* const* const descriptorSets_, const uint32_t dynamicOffsetCount_, const uint32_t* dynamicOffsets_)
+{
+    for (uint32_t i = 0u; i < descriptorSetCount_; ++i)
+    {
+        if (descriptorSets_[i])
+        {
+            if (!this->isCompatibleDevicewise(descriptorSets_[i]))
+            {
+                m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] was not created by the same ILogicalDevice as the commandbuffer!", system::ILogger::ELL_ERROR, i);
+                return false;
+            }
+            if (!descriptorSets_[i]->getLayout()->isIdenticallyDefined(layout_->getDescriptorSetLayout(firstSet_ + i)))
+            {
+                m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] not identically defined as layout's %dth descriptor layout!", system::ILogger::ELL_ERROR, i, firstSet_ + i);
+                return false;
+            }
+        }
+    }
+
+    uint32_t firstSet = firstSet_;
+    uint32_t dsCount = 0u;
+    core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+
+    constexpr uint32_t MaxDynamicOffsets = SOpenGLState::MaxDynamicOffsets * IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+    uint32_t dynamicOffsets[MaxDynamicOffsets];
+    uint32_t dynamicOffsetCount = 0u;
+
+    auto dynamicOffsetsIt = dynamicOffsets_;
+
+    asset::E_PIPELINE_BIND_POINT pbp = pipelineBindPoint;
+
+    // Will bind non-null [firstSet, dsCount) ranges with one call
+    auto bind = [this, &descriptorSets, pbp, layout_, dynamicOffsets, dynamicOffsetCount](const uint32_t first, const uint32_t count)
+    {
+        const IGPUPipelineLayout* layouts[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
+        for (uint32_t j = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
+            layouts[j] = m_stateCache.nextState.descriptorsParams[pbp].descSets[j].pplnLayout.get();
+
+        const IGPUDescriptorSet* descriptorSets_raw[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
+        for (uint32_t j = 0u; j < count; ++j)
+            descriptorSets_raw[j] = descriptorSets[j].get();
+
+        bindDescriptorSets_generic(layout_, first, count, descriptorSets_raw, layouts);
+
+        for (uint32_t j = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
+        {
+            if (!layouts[j])
+                m_stateCache.nextState.descriptorsParams[pbp].descSets[j] = { nullptr, nullptr, {}, 0u }; // TODO: have a default constructor that makes sense and prevents us from screwing up
+        }
+
+        uint32_t offsetOfDynamicOffsets = 0u;
+        for (uint32_t i = 0u; i < count; i++)
+        {
+            auto glDS = static_cast<const COpenGLDescriptorSet*>(descriptorSets_raw[i]);
+            if (glDS)
+            {
+                const auto dynamicOffsetCount = glDS->getDynamicOffsetCount();
+
+                auto& stateDS = m_stateCache.nextState.descriptorsParams[pbp].descSets[first + i];
+                stateDS.pplnLayout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(layout_));
+                stateDS.set = core::smart_refctd_ptr<const COpenGLDescriptorSet>(glDS);
+                std::copy_n(dynamicOffsets + offsetOfDynamicOffsets, dynamicOffsetCount, stateDS.dynamicOffsets);
+                stateDS.revision = glDS->getRevision();
+
+                offsetOfDynamicOffsets += dynamicOffsetCount;
+            }
+        }
+        assert(offsetOfDynamicOffsets == dynamicOffsetCount);
+    };
+
+    for (auto i = 0; i < descriptorSetCount_; ++i)
+    {
+        if (descriptorSets_[i])
+        {
+            descriptorSets[dsCount++] = core::smart_refctd_ptr<const IGPUDescriptorSet>(descriptorSets_[i]);
+            const auto count = IBackendObject::compatibility_cast<const COpenGLDescriptorSet*>(descriptorSets_[i], this)->getDynamicOffsetCount();
+            std::copy_n(dynamicOffsetsIt, count, dynamicOffsets + dynamicOffsetCount);
+            dynamicOffsetCount += count;
+            dynamicOffsetsIt += count;
+            continue;
+        }
+
+        if (dsCount)
+            bind(firstSet, dsCount);
+
+        {
+            firstSet = firstSet_ + 1u + i;
+            dsCount = 0u;
+            dynamicOffsetCount = 0u;
+        }
+    }
+
+    // TODO(achal): This shouldn't come after we change the m_stateCache, should it?
+    if ((dynamicOffsetsIt - dynamicOffsets_) != dynamicOffsetCount_)
+    {
+        m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, `dynamicOffsetCount` does not match the number of dynamic offsets required by the descriptor set layouts!", system::ILogger::ELL_ERROR);
+        return false;
+    }
+
+    bind(firstSet, dsCount);
+
+    // Will bind non-null [firstSet, dsCount) ranges with one call
+    SCmd<impl::ECT_BIND_DESCRIPTOR_SETS> cmd;
+
+    auto resetRange = [&cmd, pipelineBindPoint, layout_](uint32_t newFirst) -> void
+    {
+        cmd.pipelineBindPoint = pipelineBindPoint;
+        cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout_);
+        cmd.firstSet = newFirst;
+        cmd.dsCount = 0u;
+        cmd.dynamicOffsetCount = 0u;
+    };
+
+    resetRange(firstSet);
+
+    // auto dynamicOffsetsIt = dynamicOffsets_;
+    for (auto i = 0u; i < descriptorSetCount_; ++i)
+    {
+        if (descriptorSets_[i])
+        {
+            cmd.descriptorSets[cmd.dsCount++] = core::smart_refctd_ptr<const IGPUDescriptorSet>(descriptorSets_[i]);
+            const auto count = IBackendObject::compatibility_cast<const COpenGLDescriptorSet*>(descriptorSets_[i], this)->getDynamicOffsetCount();
+            std::copy_n(dynamicOffsetsIt, count, cmd.dynamicOffsets + cmd.dynamicOffsetCount);
+            cmd.dynamicOffsetCount += count;
+            dynamicOffsetsIt += count;
+            continue;
+        }
+        // submit range if had anything
+        if (cmd.dsCount)
+            pushCommand(std::move(cmd)); // You can potentially do multiple `pushCommand`s with this.
+        resetRange(firstSet + 1u + i);
+    }
+
+    // light error detection
+    if (dynamicOffsetsIt - dynamicOffsets_ != dynamicOffsetCount_)
+    {
+        m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, `dynamicOffsetCount` does not match the number of dynamic offsets required by the descriptor set layouts!", system::ILogger::ELL_ERROR);
+        return false;
+    }
+
+    // submit last range
+    if (cmd.dsCount)
+        pushCommand(std::move(cmd));
+
+    return true;
+}
+
+void COpenGLCommandBuffer::pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues)
+{
+    if (pushConstants_validate(layout, stageFlags.value, offset, size, pValues))
+    {
+        asset::SPushConstantRange updtRng;
+        updtRng.offset = offset;
+        updtRng.size = size;
+
+        if (stageFlags.value & asset::IShader::ESS_ALL_GRAPHICS)
+            m_stateCache.pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(layout), stageFlags.value, offset, size, pValues);
+        if (stageFlags.value & asset::IShader::ESS_COMPUTE)
+            m_stateCache.pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(layout), stageFlags.value, offset, size, pValues);
+    }
+
+    SCmd<impl::ECT_PUSH_CONSTANTS> cmd;
+    cmd.layout = core::smart_refctd_ptr<const pipeline_layout_t>(layout);
+    cmd.stageFlags = stageFlags.value;
+    cmd.offset = offset;
+    cmd.size = size;
+    memcpy(cmd.values, pValues, size);
+    pushCommand(std::move(cmd));
+}
+
+void COpenGLCommandBuffer::bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
+{
+    for (uint32_t i = 0u; i < bindingCount; ++i)
+    {
+        auto& binding = m_stateCache.nextState.vertexInputParams.vaoval.vtxBindings[firstBinding + i];
+        binding.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(pBuffers[i]));
+        binding.offset = pOffsets[i];
+    }
+
+    SCmd<impl::ECT_BIND_VERTEX_BUFFERS> cmd;
+    cmd.first = firstBinding;
+    cmd.count = bindingCount;
+    for (uint32_t i = 0u; i < cmd.count; ++i)
+    {
+        const buffer_t* b = pBuffers[i];
+        cmd.buffers[i] = core::smart_refctd_ptr<const buffer_t>(b);
+        cmd.offsets[i] = pOffsets[i];
+    }
+    pushCommand(std::move(cmd));
 }
 
 }

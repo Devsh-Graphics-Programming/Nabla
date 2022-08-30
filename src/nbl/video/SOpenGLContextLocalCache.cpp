@@ -8,6 +8,7 @@
 namespace nbl::video
 {
 
+// TODO(achal): Temporary overload.
 void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(IOpenGL_FunctionTable* gl, const IGPUGraphicsPipeline* _pipeline, uint32_t ctxid)
 {
     nextState.pipeline.graphics.pipeline = core::smart_refctd_ptr<const IGPUGraphicsPipeline>(
@@ -83,6 +84,93 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(IOpenGL_Functio
     raster_dst.logicOp = getGLlogicOp(static_cast<asset::E_LOGIC_OP>(blend_src.logicOp));
 
     for (size_t i = 0ull; i < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i) {
+        const auto& attach_src = blend_src.blendParams[i];
+        auto& attach_dst = raster_dst.drawbufferBlend[i];
+
+        attach_dst.blendEnable = attach_src.blendEnable;
+        attach_dst.blendFunc.srcRGB = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.srcColorFactor));
+        attach_dst.blendFunc.dstRGB = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.dstColorFactor));
+        attach_dst.blendFunc.srcAlpha = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.srcAlphaFactor));
+        attach_dst.blendFunc.dstAlpha = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.dstAlphaFactor));
+
+        attach_dst.blendEquation.modeRGB = getGLblendEq(static_cast<asset::E_BLEND_OP>(attach_src.colorBlendOp));
+        assert(attach_dst.blendEquation.modeRGB != GL_INVALID_ENUM);
+        attach_dst.blendEquation.modeAlpha = getGLblendEq(static_cast<asset::E_BLEND_OP>(attach_src.alphaBlendOp));
+        assert(attach_dst.blendEquation.modeAlpha != GL_INVALID_ENUM);
+
+        for (uint32_t j = 0u; j < 4u; ++j)
+            attach_dst.colorMask.colorWritemask[j] = (attach_src.colorWriteMask >> j) & 1u;
+    }
+}
+
+void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* pipeline, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+{
+    nextState.pipeline.graphics.pipeline = core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline);
+
+    const auto* ppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(nextState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
+    const auto& raster_src = ppln->getRasterizationParams();
+    auto& raster_dst = nextState.rasterParams;
+
+    raster_dst.polygonMode = getGLpolygonMode(raster_src.polygonMode);
+
+    if (raster_src.faceCullingMode == asset::EFCM_NONE)
+    {
+        raster_dst.faceCullingEnable = 0;
+    }
+    else
+    {
+        raster_dst.faceCullingEnable = 1;
+        raster_dst.cullFace = getGLcullFace(raster_src.faceCullingMode);
+    }
+
+    const asset::SStencilOpParams* stencil_src[2]{ &raster_src.frontStencilOps, &raster_src.backStencilOps };
+    decltype(raster_dst.stencilOp_front)* stencilo_dst[2]{ &raster_dst.stencilOp_front, &raster_dst.stencilOp_back };
+    for (uint32_t i = 0u; i < 2u; ++i)
+    {
+        stencilo_dst[i]->sfail = getGLstencilOp(stencil_src[i]->failOp);
+        stencilo_dst[i]->dpfail = getGLstencilOp(stencil_src[i]->depthFailOp);
+        stencilo_dst[i]->dppass = getGLstencilOp(stencil_src[i]->passOp);
+    }
+
+    decltype(raster_dst.stencilFunc_front)* stencilf_dst[2]{ &raster_dst.stencilFunc_front, &raster_dst.stencilFunc_back };
+    for (uint32_t i = 0u; i < 2u; ++i)
+    {
+        stencilf_dst[i]->func = getGLcmpFunc(stencil_src[i]->compareOp);
+        stencilf_dst[i]->ref = stencil_src[i]->reference;
+        stencilf_dst[i]->mask = stencil_src[i]->writeMask;
+    }
+
+    raster_dst.depthFunc = getGLcmpFunc(raster_src.depthCompareOp);
+    raster_dst.frontFace = raster_src.frontFaceIsCCW ? GL_CCW : GL_CW;
+    raster_dst.depthClampEnable = raster_src.depthClampEnable;
+    raster_dst.rasterizerDiscardEnable = raster_src.rasterizerDiscard;
+
+    raster_dst.polygonOffsetEnable = raster_src.depthBiasEnable;
+    raster_dst.polygonOffset.factor = raster_src.depthBiasSlopeFactor;
+    raster_dst.polygonOffset.units = raster_src.depthBiasConstantFactor;
+
+    raster_dst.sampleShadingEnable = raster_src.sampleShadingEnable;
+    raster_dst.minSampleShading = raster_src.minSampleShading;
+
+    //raster_dst.sampleMaskEnable = ???
+    raster_dst.sampleMask[0] = raster_src.sampleMask[0];
+    raster_dst.sampleMask[1] = raster_src.sampleMask[1];
+
+    raster_dst.sampleAlphaToCoverageEnable = raster_src.alphaToCoverageEnable;
+    raster_dst.sampleAlphaToOneEnable = raster_src.alphaToOneEnable;
+
+    raster_dst.depthTestEnable = raster_src.depthTestEnable;
+    raster_dst.depthWriteEnable = raster_src.depthWriteEnable;
+    raster_dst.stencilTestEnable = raster_src.stencilTestEnable;
+
+    raster_dst.multisampleEnable = (raster_src.rasterizationSamplesHint > asset::IImage::ESCF_1_BIT);
+
+    const auto& blend_src = ppln->getBlendParams();
+    raster_dst.logicOpEnable = blend_src.logicOpEnable;
+    raster_dst.logicOp = getGLlogicOp(static_cast<asset::E_LOGIC_OP>(blend_src.logicOp));
+
+    for (size_t i = 0ull; i < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+    {
         const auto& attach_src = blend_src.blendParams[i];
         auto& attach_dst = raster_dst.drawbufferBlend[i];
 
@@ -461,7 +549,6 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
         }
     }
     
-
     // this needs to be here to make sure interleaving the same compute pipeline with the same gfx pipeline works
     if (currentState.pipeline.graphics.usedPipeline && currentState.pipeline.compute.usedShader)
     {
@@ -940,6 +1027,18 @@ void SOpenGLContextLocalCache::flushStateGraphics(IOpenGL_FunctionTable* gl, uin
 
 bool SOpenGLContextLocalCache::flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
 {
+    if (stateBits & GSB_PIPELINE)
+    {
+        if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
+        {
+            const auto* ppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(nextState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindPipelineGraphicsCmd>(segmentListHeadItr, segmentListTail, ppln))
+                return false;
+
+            currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
+        }
+    }
+
     if (stateBits & GSB_FRAMEBUFFER)
     {
         if (STATE_NEQ(framebuffer.hash))
@@ -1306,6 +1405,165 @@ bool SOpenGLContextLocalCache::flushStateGraphics(const uint32_t stateBits, IGPU
 #undef DISABLE_ENABLE
     }
 
+    if (stateBits & GSB_DESCRIPTOR_SETS)
+    {
+        const COpenGLPipelineLayout* currLayout = currentState.pipeline.graphics.pipeline ? static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getLayout()) : nullptr;
+        if (!flushState_descriptors(asset::EPBP_GRAPHICS, currLayout, cmdpool, segmentListHeadItr, segmentListTail, features))
+            return false;
+    }
+
+    if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
+    {
+        if (STATE_NEQ(vertexInputParams.vaokey))
+        {
+            auto hashVal = nextState.vertexInputParams.vaokey;
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindVertexArrayCmd>(segmentListHeadItr, segmentListTail, hashVal))
+                return false;
+
+            currentState.vertexInputParams.vaokey = hashVal;
+
+            // vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
+        }
+
+        UPDATE_STATE(vertexInputParams.vaoval.idxType);
+
+        // changing buffer binding in vao is practically free, so we're always doing that and not caching this part of vao state
+        {
+            const auto& hash = currentState.vertexInputParams.vaokey;
+
+            for (uint32_t i = 0u; i < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++i)
+            {
+                if (hash.attribFormatAndComponentCount[i] == asset::EF_UNKNOWN)
+                    continue;
+
+                const uint32_t bnd = hash.getBindingForAttrib(i);
+                assert(nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer);//something went wrong
+                uint32_t stride = hash.getStrideForBinding(bnd);
+                assert(stride != 0u);
+                if (!cmdpool->emplace<COpenGLCommandPool::CVertexArrayVertexBufferCmd>(segmentListHeadItr, segmentListTail, hash, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, stride))
+                    return false;
+                UPDATE_STATE(vertexInputParams.vaoval.vtxBindings[bnd]);
+            }
+
+            GLuint GLidxbuf = nextState.vertexInputParams.vaoval.idxBinding.buffer ? nextState.vertexInputParams.vaoval.idxBinding.buffer->getOpenGLName() : 0u;
+            if (!cmdpool->emplace<COpenGLCommandPool::CVertexArrayElementBufferCmd>(segmentListHeadItr, segmentListTail, hash, GLidxbuf))
+                return false;
+            UPDATE_STATE(vertexInputParams.vaoval.idxBinding);
+        }
+
+        if (STATE_NEQ(vertexInputParams.indirectDrawBuf))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_DRAW_INDIRECT_BUFFER, nextState.vertexInputParams.indirectDrawBuf ? nextState.vertexInputParams.indirectDrawBuf->getOpenGLName() : 0u))
+                return false;
+            UPDATE_STATE(vertexInputParams.indirectDrawBuf);
+        }
+
+        if (STATE_NEQ(vertexInputParams.parameterBuf))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_PARAMETER_BUFFER, nextState.vertexInputParams.parameterBuf ? nextState.vertexInputParams.parameterBuf->getOpenGLName() : 0u))
+                return false;
+            UPDATE_STATE(vertexInputParams.parameterBuf);
+        }
+    }
+
+    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
+    {
+        const auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
+        if (!glppln->setUniformsImitatingPushConstants(pushConstantsStateGraphics, cmdpool, segmentListHeadItr, segmentListTail))
+            return false;
+    }
+
+    if (stateBits & GSB_PIXEL_PACK_UNPACK)
+    {
+        //PACK
+        if (STATE_NEQ(pixelPack.buffer))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_PIXEL_PACK_BUFFER, nextState.pixelPack.buffer ? nextState.pixelPack.buffer->getOpenGLName() : 0u))
+                return false;
+            UPDATE_STATE(pixelPack.buffer);
+        }
+        if (STATE_NEQ(pixelPack.alignment))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_ALIGNMENT, nextState.pixelPack.alignment))
+                return false;
+            UPDATE_STATE(pixelPack.alignment);
+        }
+        if (STATE_NEQ(pixelPack.rowLength))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_ROW_LENGTH, nextState.pixelPack.rowLength))
+                return false;
+            UPDATE_STATE(pixelPack.rowLength);
+        }
+        if (STATE_NEQ(pixelPack.imgHeight))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_IMAGE_HEIGHT, nextState.pixelPack.imgHeight))
+                return false;
+            UPDATE_STATE(pixelPack.imgHeight);
+        }
+        if (STATE_NEQ(pixelPack.BCwidth))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelPack.BCwidth))
+                return false;
+            UPDATE_STATE(pixelPack.BCwidth);
+        }
+        if (STATE_NEQ(pixelPack.BCheight))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelPack.BCheight))
+                return false;
+            UPDATE_STATE(pixelPack.BCheight);
+        }
+        if (STATE_NEQ(pixelPack.BCdepth))
+        {
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelPack.BCdepth))
+                return false;
+            UPDATE_STATE(pixelPack.BCdepth);
+        }
+    }
+
+    //UNPACK
+    if (STATE_NEQ(pixelUnpack.buffer))
+    {
+        if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_PIXEL_UNPACK_BUFFER, nextState.pixelUnpack.buffer ? nextState.pixelUnpack.buffer->getOpenGLName() : 0u))
+            return false;
+        UPDATE_STATE(pixelUnpack.buffer);
+    }
+    if (STATE_NEQ(pixelUnpack.alignment))
+    {
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_ALIGNMENT, nextState.pixelUnpack.alignment))
+            return false;
+        UPDATE_STATE(pixelUnpack.alignment);
+    }
+    if (STATE_NEQ(pixelUnpack.rowLength))
+    {
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_ROW_LENGTH, nextState.pixelUnpack.rowLength))
+            return false;
+        UPDATE_STATE(pixelUnpack.rowLength);
+    }
+    if (STATE_NEQ(pixelUnpack.imgHeight))
+    {
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_IMAGE_HEIGHT, nextState.pixelUnpack.imgHeight))
+            return false;
+        UPDATE_STATE(pixelUnpack.imgHeight);
+    }
+    if (STATE_NEQ(pixelUnpack.BCwidth))
+    {
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelUnpack.BCwidth))
+            return false;
+        UPDATE_STATE(pixelUnpack.BCwidth);
+    }
+    if (STATE_NEQ(pixelUnpack.BCheight))
+    {
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelUnpack.BCheight))
+            return false;
+        UPDATE_STATE(pixelUnpack.BCheight);
+    }
+    if (STATE_NEQ(pixelUnpack.BCdepth))
+    {
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelUnpack.BCdepth))
+            return false;
+        UPDATE_STATE(pixelUnpack.BCdepth);
+    }
+
     return true;
 }
 #undef STATE_NEQ
@@ -1353,9 +1611,10 @@ bool SOpenGLContextLocalCache::flushStateCompute(uint32_t stateBits, IGPUCommand
     {
         if (nextState.pipeline.compute.pipeline != currentState.pipeline.compute.pipeline)
         {
-            currentState.pipeline.compute.pipeline = nextState.pipeline.compute.pipeline;
-            if (!cmdpool->emplace<COpenGLCommandPool::CUseProgramComputeCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr(currentState.pipeline.compute.pipeline)))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindPipelineComputeCmd>(segmentListHeadItr, segmentListTail, nextState.pipeline.compute.pipeline.get()))
                 return false;
+
+            currentState.pipeline.compute.pipeline = nextState.pipeline.compute.pipeline;
         }
     }
 

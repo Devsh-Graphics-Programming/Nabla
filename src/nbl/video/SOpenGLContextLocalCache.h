@@ -53,7 +53,7 @@ struct SOpenGLContextLocalCache
     };
 
     using vao_cache_t = core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash>;
-    using pipeline_cache_t = core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc>;
+    using pipeline_cache_t = core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc>; // TODO(achal): Remove.
     using fbo_cache_t = core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc>;
 
     static inline constexpr size_t maxVAOCacheSize = 0x1ull << 10; //make this cache configurable
@@ -229,6 +229,7 @@ struct SOpenGLContextLocalCache
     }
 
     void updateNextState_pipelineAndRaster(IOpenGL_FunctionTable* gl, const IGPUGraphicsPipeline* _pipeline, uint32_t ctxid);
+    void updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* pipeline, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail);
 
     template<asset::E_PIPELINE_BIND_POINT PBP>
     inline void pushConstants(const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
@@ -367,6 +368,20 @@ private:
             return GL_INVALID_ENUM;
         return glbo[bo];
     }
+};
+
+// TODO(achal): This is temporary. I can most likely refactor SOpenGLConextLocalCache above into two parts: a queue local cache and all the "static" stuff (which can done on the main thread).
+// SOpenGLContextDependentCache and SOpenGLContextIndependentCache?
+struct SQueueLocalCache
+{
+    SQueueLocalCache(IOpenGL_FunctionTable* _gl)
+        : fboCache(SOpenGLContextLocalCache::maxFBOCacheSize, SOpenGLContextLocalCache::fbo_cache_t::disposal_func_t(SOpenGLContextLocalCache::FBODisposalFunc(_gl))),
+        vaoCache(SOpenGLContextLocalCache::maxVAOCacheSize, SOpenGLContextLocalCache::vao_cache_t::disposal_func_t(SOpenGLContextLocalCache::VAODisposalFunc(nullptr)))
+    {}
+
+    SOpenGLContextLocalCache::fbo_cache_t fboCache;
+    core::unordered_map<const COpenGLRenderpassIndependentPipeline*, GLuint> graphicsPipelineCache;
+    SOpenGLContextLocalCache::vao_cache_t vaoCache;
 };
 
 }

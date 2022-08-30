@@ -326,4 +326,95 @@ bool IGPUCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint3
     return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
 }
 
+bool IGPUCommandBuffer::bindGraphicsPipeline(const graphics_pipeline_t* pipeline)
+{
+    if (!pipeline || pipeline->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(pipeline))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
+        return false;
+
+    return bindGraphicsPipeline_impl(pipeline);
+}
+
+bool IGPUCommandBuffer::pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues)
+{
+    if (layout->getAPIType() != getAPIType())
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CPushConstantsCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
+        return false;
+
+    pushConstants_impl(layout, stageFlags, offset, size, pValues);
+
+    return true;
+}
+
+bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
+{
+    for (uint32_t i = 0u; i < bindingCount; ++i)
+    {
+        if (pBuffers[i] && !this->isCompatibleDevicewise(pBuffers[i]))
+            return false;
+    }
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_segmentListHeadItr, m_segmentListTail, firstBinding, bindingCount, pBuffers))
+        return false;
+
+    bindVertexBuffers_impl(firstBinding, bindingCount, pBuffers, pOffsets);
+
+    return true;
+}
+
+bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
+{
+    if (meshBuffer && !meshBuffer->getInstanceCount())
+        return false;
+
+    const auto* pipeline = meshBuffer->getPipeline();
+    const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
+    auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
+    auto indexBufferBinding = meshBuffer->getIndexBufferBinding();
+    const auto indexType = meshBuffer->getIndexType();
+
+    const nbl::video::IGPUBuffer* gpuBufferBindings[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+    {
+        for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            gpuBufferBindings[i] = vertexBufferBindings[i].buffer.get();
+    }
+
+    size_t bufferBindingsOffsets[nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+    {
+        for (size_t i = 0; i < nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            bufferBindingsOffsets[i] = vertexBufferBindings[i].offset;
+    }
+
+    bindVertexBuffers(0, nbl::asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
+    bindIndexBuffer(indexBufferBinding.buffer.get(), indexBufferBinding.offset, indexType);
+
+    const bool isIndexed = indexType != nbl::asset::EIT_UNKNOWN;
+
+    const size_t instanceCount = meshBuffer->getInstanceCount();
+    const size_t firstInstance = meshBuffer->getBaseInstance();
+    const size_t firstVertex = meshBuffer->getBaseVertex();
+
+    if (isIndexed)
+    {
+        const size_t& indexCount = meshBuffer->getIndexCount();
+        const size_t firstIndex = 0; // I don't think we have utility telling us this one
+        const size_t& vertexOffset = firstVertex;
+
+        return drawIndexed(indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
+    else
+    {
+        const size_t& vertexCount = meshBuffer->getIndexCount();
+
+        return draw(vertexCount, instanceCount, firstVertex, firstInstance);
+    }
+}
+
 }

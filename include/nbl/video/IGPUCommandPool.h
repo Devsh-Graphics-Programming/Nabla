@@ -30,8 +30,8 @@ private:
 
     static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
 
-    static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 3u;// 16u;
-    static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 2u; // 256u;
+    static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 16u;
+    static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 256u;
     static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
 
 public:
@@ -177,6 +177,9 @@ public:
     class CBeginQueryCmd;
     class CEndQueryCmd;
     class CCopyQueryPoolResultsCmd;
+    class CBindGraphicsPipelineCmd;
+    class CPushConstantsCmd;
+    class CBindVertexBuffersCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -212,7 +215,7 @@ public:
 
             CCommandSegment* nextSegment = new (nextSegmentMem) CCommandSegment;
 
-            cmdMem = segmentListTail->allocate<Cmd>(args...);
+            cmdMem = nextSegment->allocate<Cmd>(args...);
             if (!cmdMem)
                 return nullptr;
 
@@ -457,6 +460,42 @@ public:
 private:
     core::smart_refctd_ptr<const IQueryPool> m_queryPool;
     core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
+};
+
+class IGPUCommandPool::CBindGraphicsPipelineCmd : public IGPUCommandPool::IFixedSizeCommand<CBindGraphicsPipelineCmd>
+{
+public:
+    CBindGraphicsPipelineCmd(core::smart_refctd_ptr<const IGPUGraphicsPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUGraphicsPipeline> m_pipeline;
+};
+
+class IGPUCommandPool::CPushConstantsCmd : public IGPUCommandPool::IFixedSizeCommand<CPushConstantsCmd>
+{
+public:
+    CPushConstantsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& layout) : m_layout(std::move(layout)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
+};
+
+class IGPUCommandPool::CBindVertexBuffersCmd : public IGPUCommandPool::IFixedSizeCommand<CBindVertexBuffersCmd>
+{
+    static inline constexpr auto MaxBufferCount = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
+
+public:
+    CBindVertexBuffersCmd(const uint32_t first, const uint32_t count, const IGPUBuffer *const *const buffers)
+    {
+        for (auto i = first; i < count; ++i)
+        {
+            assert(i < MaxBufferCount);
+            m_buffers[i] = core::smart_refctd_ptr<const IGPUBuffer>(buffers[i]);
+        }
+    }
+
+private:
+    core::smart_refctd_ptr<const IGPUBuffer> m_buffers[MaxBufferCount];
 };
 
 }

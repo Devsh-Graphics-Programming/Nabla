@@ -62,12 +62,12 @@ struct SOpenGLState
 
     struct {
         struct {
-            core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline;
-            SGraphicsPipelineHash usedShadersHash = { 0u, 0u, 0u, 0u, 0u };
-			GLuint usedPipeline = 0u;
+            core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline; // TODO(achal): No need to be refctd anymore.
+            SGraphicsPipelineHash usedShadersHash = { 0u, 0u, 0u, 0u, 0u }; // TODO(achal): Remove.
+			GLuint usedPipeline = 0u; // TODO(achal): Remove.
         } graphics;
         struct {
-            core::smart_refctd_ptr<const COpenGLComputePipeline> pipeline;
+            core::smart_refctd_ptr<const COpenGLComputePipeline> pipeline; // TODO(achal): No need to be refctd anymore.
             GLuint usedShader = 0u; // TODO(achal): We most likely don't need this anymore.
         } compute;
     } pipeline;

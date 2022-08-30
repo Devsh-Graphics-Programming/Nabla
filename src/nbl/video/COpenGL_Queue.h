@@ -44,13 +44,12 @@ class COpenGL_Queue final : public IGPUQueue
         struct ThreadInternalStateType
         {
             ThreadInternalStateType(const egl::CEGL* egl, const FeaturesType* features, system::logger_opt_smart_ptr&& logger)
-                : gl(egl,features,std::move(logger)), ctxlocal(&gl),
-                fboCache(SOpenGLContextLocalCache::maxFBOCacheSize, SOpenGLContextLocalCache::fbo_cache_t::disposal_func_t(SOpenGLContextLocalCache::FBODisposalFunc(&gl))) {}
+                : gl(egl,features,std::move(logger)), ctxlocal(&gl), queueLocalCache(&gl)
+            {}
 
             FunctionTableType gl;
             SOpenGLContextLocalCache ctxlocal;
-
-            SOpenGLContextLocalCache::fbo_cache_t fboCache;
+            SQueueLocalCache queueLocalCache;
         };
 
         enum E_REQUEST_TYPE
@@ -258,7 +257,7 @@ class COpenGL_Queue final : public IGPUQueue
                         ctxlocal.flushStateGraphics(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
                         ctxlocal.flushStateCompute(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
                         auto* cmdbuf = IBackendObject::device_compatibility_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get(), m_device);
-                        cmdbuf->executeAll(&gl, _state.fboCache, &_state.ctxlocal, m_ctxid);
+                        cmdbuf->executeAll(&gl, _state.queueLocalCache, &_state.ctxlocal, m_ctxid);
                     }
 
                     if (submit.syncToInit)
