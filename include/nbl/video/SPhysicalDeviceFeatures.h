@@ -964,8 +964,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to VK1.3 core, migrate to it when/if we need it
     /* VK_KHR_copy_commands2 */
 
-    // [DO NOT EXPOSE] required for acceleration_structure and only that extension, do not expose until another comes that actually makes use of it
     /* VK_KHR_deferred_host_operations */
+    bool deferredHostOperations = false;
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_device_group */
@@ -1237,9 +1237,11 @@ struct SPhysicalDeviceFeatures
         if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
         if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
         if ((swapchainMode.value & _rhs.swapchainMode.value) != swapchainMode.value) return false;
+        if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
         return true;
     }
 
+    // TODO: Is this API specific? should stay here? should be moved to SVulkanPhysDev?
     bool isValid() const
     {
         // If the shadingRateImage feature is enabled, the pipelineFragmentShadingRate feature must not be enabled

@@ -1069,6 +1069,8 @@ public:
             if(isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
                 m_features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
 
+            m_features.deferredHostOperations = isExtensionSupported(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+
             /*
                 !! Enabled by Default, Exposed as Limits:
             */
@@ -1150,7 +1152,6 @@ public:
             m_properties.limits.shaderStencilExport = isExtensionSupported(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
             m_properties.limits.decorateString = isExtensionSupported(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME);
 
-            // TODO: ask why we merged fd and win32 which are for POSIX and WIN32 respectively, they have their own functions although similar, we also have "VK_KHR_external_fence_EXTENSION_NAME/memory/semaphore" which is in Core 1.1
             m_properties.limits.externalFence = isExtensionSupported(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
             m_properties.limits.externalMemory = isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
             m_properties.limits.externalSemaphore = isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
@@ -1333,7 +1334,7 @@ protected:
             features.accelerationStructure = true;
             features.descriptorIndexing = true;
             features.bufferDeviceAddress = true;
-            // Also requires VK_KHR_deferred_host_operations, this will be handled later on when enabling features before vkCreateDevice
+            features.deferredHostOperations = true;
         }
 
         // VK_NV_coverage_reduction_mode requires VK_NV_framebuffer_mixed_samples
@@ -1990,10 +1991,7 @@ protected:
         {
             // IMPLICIT ENABLE: descriptorIndexing -> Already handled because of resolveFeatureDependencies(featuresToEnable);
             // IMPLICIT ENABLE: bufferDeviceAddress -> Already handled because of resolveFeatureDependencies(featuresToEnable);
-
-            // IMPLICIT ENABLE: VK_KHR_DEFERRED_HOST_OPERATIONS
-            //enabledFeatures.deferredHostOperations = true; // not exposed [yet]
-            insertExtensionIfAvailable(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+            // IMPLICIT ENABLE: VK_KHR_DEFERRED_HOST_OPERATIONS -> Already handled because of resolveFeatureDependencies(featuresToEnable);
 
             insertExtensionIfAvailable(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
             accelerationStructureFeatures.accelerationStructure = enabledFeatures.accelerationStructure;
@@ -2231,6 +2229,9 @@ protected:
             // TODO: Other extensions to enable?
             insertExtensionIfAvailable(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         }
+        
+        if (enabledFeatures.deferredHostOperations)
+            insertExtensionIfAvailable(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 
         vk_deviceFeatures2.pNext = firstFeatureInChain;
         
