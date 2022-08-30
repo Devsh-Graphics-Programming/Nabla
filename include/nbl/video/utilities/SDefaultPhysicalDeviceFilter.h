@@ -53,13 +53,13 @@ namespace nbl::video
             
             auto conformanceVersionValid = [&]() -> bool
             {
-                if(properties.conformanceVersion.major != minConformanceVersion.major)
+                if (properties.conformanceVersion.major != minConformanceVersion.major)
                     return properties.conformanceVersion.major > minConformanceVersion.major;
-                else if(properties.conformanceVersion.minor != minConformanceVersion.minor)
+                else if (properties.conformanceVersion.minor != minConformanceVersion.minor)
                     return properties.conformanceVersion.minor > minConformanceVersion.minor;
-                else if(properties.conformanceVersion.subminor != minConformanceVersion.subminor)
-                    return properties.conformanceVersion.subminor > minConformanceVersion.subminor
-                else if(properties.conformanceVersion.patch != minConformanceVersion.patch)
+                else if (properties.conformanceVersion.subminor != minConformanceVersion.subminor)
+                    return properties.conformanceVersion.subminor > minConformanceVersion.subminor;
+                else if (properties.conformanceVersion.patch != minConformanceVersion.patch)
                     return properties.conformanceVersion.patch > minConformanceVersion.patch;
                 return true;
             }();
