@@ -869,7 +869,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg) -> void
     {
         IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
-        toTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+        toTransferDst.barrier.srcAccessMask = asset::EAF_NONE;
         toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
         toTransferDst.oldLayout = asset::IImage::EL_UNDEFINED;
         toTransferDst.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;

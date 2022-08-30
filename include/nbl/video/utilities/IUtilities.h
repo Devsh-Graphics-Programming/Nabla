@@ -210,7 +210,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
 
             IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
-            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.srcAccessMask = asset::EAF_NONE;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
             barrier.oldLayout = asset::IImage::EL_UNDEFINED;
             barrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
@@ -330,7 +330,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
 
             IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
-            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.srcAccessMask = asset::EAF_NONE;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
             barrier.oldLayout = asset::IImage::EL_UNDEFINED;
             barrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;

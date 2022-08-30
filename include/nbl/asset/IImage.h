@@ -62,6 +62,7 @@ class NBL_API IImage : public IDescriptor
 	public:
 		enum E_ASPECT_FLAGS : uint16_t
 		{
+			EAF_NONE				= 0u,
 			EAF_COLOR_BIT			= 0x1u << 0u,
 			EAF_DEPTH_BIT			= 0x1u << 1u,
 			EAF_STENCIL_BIT			= 0x1u << 2u,
@@ -136,7 +137,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceRange
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u);
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		baseMipLevel = 0u;
 			uint32_t		levelCount = 0u;
 			uint32_t		baseArrayLayer = 0u;
@@ -144,7 +145,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceLayers
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u);
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		mipLevel = 0u;
 			uint32_t		baseArrayLayer = 0u;
 			uint32_t		layerCount = 0u;
