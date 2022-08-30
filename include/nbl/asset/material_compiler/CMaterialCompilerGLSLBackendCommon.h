@@ -640,7 +640,7 @@ public:
 					}
 					cm.subresource = {};
 					cm.subresource.baseMipLevel = 0u;
-					cm.subresource.levelCount = IImage::calculateMaxMipLevel(extent,origCreationParams.type);
+					cm.subresource.levelCount = IImage::calculateFullMipPyramidLevelCount(extent,origCreationParams.type);
 					cm.subresource.baseArrayLayer = 0u;
 					cm.subresource.layerCount = 1u;
 

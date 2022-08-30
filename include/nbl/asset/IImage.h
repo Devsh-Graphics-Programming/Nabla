@@ -247,9 +247,12 @@ class IImage : public IDescriptor
 				default:
 					break;
 			}
-			// const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
-			// return 1u + core::findLSB(round);
-			return 1u + uint32_t(floorf(log2(float(maxSideLen))));
+			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
+			return core::findLSB(round);
+		}
+		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
+		{
+			return calculateMaxMipLevel(extent,type)+1u;
 		}
 
 		//!
@@ -350,7 +353,7 @@ class IImage : public IDescriptor
 					return false;
 			}
 
-			if (_params.mipLevels > calculateMaxMipLevel(_params.extent, _params.type))
+			if (_params.mipLevels > calculateFullMipPyramidLevelCount(_params.extent, _params.type))
 				return false;
 
 			// TODO: initialLayout must be VK_IMAGE_LAYOUT_UNDEFINED or VK_IMAGE_LAYOUT_PREINITIALIZED.
