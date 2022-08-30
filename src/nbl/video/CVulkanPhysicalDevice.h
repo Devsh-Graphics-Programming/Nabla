@@ -1445,33 +1445,21 @@ protected:
 
         VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
 
-        VkBaseInStructure * lastFeatureInChain = reinterpret_cast<VkBaseInStructure*>(&vulkan11Features);
-        VkBaseInStructure * firstFeatureInChain = lastFeatureInChain;
+        VkBaseInStructure * featuresTail = reinterpret_cast<VkBaseInStructure*>(&vulkan11Features);
+        VkBaseInStructure * const featuresHead = featuresTail;
         // Vulkan has problems with having features in the feature chain that have all values set to false.
         // For example having an empty "RayTracingPipelineFeaturesKHR" in the chain will lead to validation errors for RayQueryONLY applications.
-        auto addFeatureToChain = [&firstFeatureInChain,&lastFeatureInChain](void* feature) -> void
+        auto addFeatureToChain = [&featuresHead,&featuresTail](void* feature) -> void
         {
             VkBaseInStructure* toAdd = reinterpret_cast<VkBaseInStructure*>(feature);
             
             // For protecting against duplication of feature structures that may be requested to add to chain twice due to extension requirements
-            const bool alreadyAdded = (toAdd->pNext != nullptr || toAdd == lastFeatureInChain);
-            // More robust version, traverse chain:
-            //const bool alreadyAdded = [&toAdd]() -> bool 
-            //{
-            //    VkBaseInStructure* current = firstFeatureInChain;
-            //    while(current != nullptr)
-            //    {
-            //        if(current->sType == toAdd->sType)
-            //            return false;
-            //        current = current->pNext;
-            //    }
-            //    return true;
-            //}();
+            const bool alreadyAdded = (toAdd->pNext != nullptr || toAdd == featuresTail);
 
             if(!alreadyAdded)
             {
-                toAdd->pNext = firstFeatureInChain;
-                firstFeatureInChain = toAdd;
+                featuresTail->pNext = toAdd;
+                featuresTail = toAdd;
             }
         };
 
@@ -2237,7 +2225,7 @@ protected:
 #undef CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS
 #undef CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE
 
-        vk_deviceFeatures2.pNext = firstFeatureInChain;
+        vk_deviceFeatures2.pNext = featuresHead;
         
         core::vector<const char*> extensionStrings(extensionsToEnable.size());
         {
