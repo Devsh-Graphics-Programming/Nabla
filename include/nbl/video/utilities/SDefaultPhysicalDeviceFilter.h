@@ -38,8 +38,43 @@ namespace nbl::video
 
         bool meetsRequirements(const IPhysicalDevice * const physicalDevice) const
         {
-            if(physicalDevice->getProperties().apiVersion < minApiVersion)
+            const auto& properties = physicalDevice->getProperties();
+            const auto& physDevLimits = physicalDevice->getProperties().limits;
+            const auto& physDevFeatures = physicalDevice->getFeatures();
+            const auto& memoryProps = physicalDevice->getMemoryProperties();
+            const auto& queueProps = physicalDevice->getQueueFamilyProperties();
+
+            if (properties.apiVersion < minApiVersion)
                 return false;
+            if (!deviceTypeMask.hasFlags(properties.deviceType))
+                return false;
+            if (!driverIDMask.hasFlags(properties.driverID))
+                return false;
+            
+            auto conformanceVersionValid = [&]() -> bool
+            {
+                if(properties.conformanceVersion.major != minConformanceVersion.major)
+                    return properties.conformanceVersion.major > minConformanceVersion.major;
+                else if(properties.conformanceVersion.minor != minConformanceVersion.minor)
+                    return properties.conformanceVersion.minor > minConformanceVersion.minor;
+                else if(properties.conformanceVersion.subminor != minConformanceVersion.subminor)
+                    return properties.conformanceVersion.subminor > minConformanceVersion.subminor
+                else if(properties.conformanceVersion.patch != minConformanceVersion.patch)
+                    return properties.conformanceVersion.patch > minConformanceVersion.patch;
+                return true;
+            }();
+            
+            if (!conformanceVersionValid)
+                return false;
+
+            // trust me, this is the correct way to do it, don't even think about using `limits < minimumLimits` to detect failure, TODO: figure out a more intuitive way to do this. maybe `operator <` is a bit misleading...
+            if (!(minimumLimits < physDevLimits))
+                return false;
+
+            // again, based on how the operator is implemented, makes more sense to check failure like below, but it doesn't mean >= like normal arithmetic:
+            if (!(requiredFeatures < physDevFeatures))
+                return false;
+
             return true;
         }
     };

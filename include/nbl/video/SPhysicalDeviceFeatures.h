@@ -1236,7 +1236,7 @@ struct SPhysicalDeviceFeatures
         if (maintenance4 && !_rhs.maintenance4) return false;
         if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
         if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
-        if ((swapchainMode.value & _rhs.swapchainMode.value) != swapchainMode.value) return false;
+        if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
         if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
         return true;
     }
