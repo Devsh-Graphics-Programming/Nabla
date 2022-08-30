@@ -70,6 +70,7 @@ bool nbl_glsl_workgroupBallotBitExtract_noEndBarriers(in uint index)
 }
 bool nbl_glsl_workgroupBallotBitExtract(in uint index)
 {
+	barrier();
 	const bool retval = nbl_glsl_workgroupBallotBitExtract_noEndBarriers(index);
 	barrier();
 	return retval;
@@ -101,6 +102,7 @@ uint nbl_glsl_workgroupBallotBitCount_noEndBarriers()
 }
 uint nbl_glsl_workgroupBallotBitCount()
 {
+	barrier();
 	const uint retval = nbl_glsl_workgroupBallotBitCount_noEndBarriers();
 	barrier();
 	return retval;

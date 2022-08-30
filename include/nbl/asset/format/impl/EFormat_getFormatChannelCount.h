@@ -1,5 +1,16 @@
 switch (_fmt)
 {
+    case EF_D16_UNORM:
+    case EF_X8_D24_UNORM_PACK32:
+    case EF_D32_SFLOAT:
+    case EF_S8_UINT:
+        return 1u;
+
+    case EF_D16_UNORM_S8_UINT:
+    case EF_D24_UNORM_S8_UINT:
+    case EF_D32_SFLOAT_S8_UINT:
+        return 2u;
+
     case EF_R8_UNORM:
     case EF_R8_SNORM:
     case EF_R8_USCALED:

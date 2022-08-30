@@ -43,7 +43,7 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				return nullptr;
 
 			const auto& limits = device->getPhysicalDevice()->getLimits();
-			core::vector<uint8_t> tmp(limits.SSBOAlignment);
+			core::vector<uint8_t> tmp(limits.minSSBOAlignment);
 			*reinterpret_cast<ISkinInstanceCache::recomputed_stamp_t*>(tmp.data()) = ISkinInstanceCache::initial_recomputed_timestamp;
 			
 			video::IGPUBuffer::SCreationParams initTimestampValueBufferCreationParams = {};

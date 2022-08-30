@@ -135,8 +135,8 @@ public:
 
             barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
-            barrier.oldLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
-            barrier.newLayout = asset::EIL_TRANSFER_SRC_OPTIMAL;
+            barrier.oldLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
+            barrier.newLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
             barrier.subresourceRange.baseMipLevel = dstLoD;
 
             if (srcLoD > lastReadyMip)
@@ -153,7 +153,7 @@ public:
             blitRegion.dstSubresource.mipLevel = dstLoD;
             blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
 
-            if (!blitImage(img, asset::EIL_TRANSFER_SRC_OPTIMAL, img, asset::EIL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR))
+            if (!blitImage(img, asset::IImage::EL_TRANSFER_SRC_OPTIMAL, img, asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR))
                 return false;
 
             if (mipWidth > 1u) mipWidth /= 2u;
@@ -200,7 +200,7 @@ protected:
             return false;
         if (dataSize > 65536ull)
             return false;
-        return dstBuffer->getCachedCreationParams().canUpdateSubRange;
+        return dstBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF);
     }
 
     static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)

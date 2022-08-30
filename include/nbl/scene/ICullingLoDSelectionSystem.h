@@ -47,7 +47,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			setWorkgroups(contents.instanceRefCountingSortScatter);
 			setWorkgroups(contents.drawCompact);
 
-			video::IGPUBuffer::SCreationParams params;
+			video::IGPUBuffer::SCreationParams params = {};
 			params.size = sizeof(contents);
 			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
 			return utils->createFilledDeviceLocalBufferOnDedMem(queue,std::move(params),&contents);
@@ -68,7 +68,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			ScratchBufferRanges retval;
 			{
 				const auto& limits = logicalDevice->getPhysicalDevice()->getLimits();
-				const auto ssboAlignment = limits.SSBOAlignment;
+				const auto ssboAlignment = limits.minSSBOAlignment;
 
 				retval.pvsInstances.offset = 0u;
 				retval.lodDrawCallCounts.offset = retval.pvsInstances.size = core::alignUp(maxTotalInstances*2u*sizeof(uint32_t),ssboAlignment);
@@ -83,10 +83,10 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				}
 			}
 			{
-				video::IGPUBuffer::SCreationParams params;
+				video::IGPUBuffer::SCreationParams params = {};
 				params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 				params.size = retval.prefixSumScratch.offset+retval.prefixSumScratch.size;
-				auto gpubuffer = logicalDevice->createBuffer(params);
+				auto gpubuffer = logicalDevice->createBuffer(std::move(params));
 				retval.pvsInstances.buffer =
 				retval.lodDrawCallCounts.buffer =
 				retval.pvsInstanceDraws.buffer =
@@ -122,10 +122,10 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		}
 		static core::smart_refctd_ptr<video::IGPUBuffer> createPerViewPerInstanceDataBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalInstances, const uint32_t perViewPerInstanceDataSize)
 		{
-			video::IGPUBuffer::SCreationParams params;
+			video::IGPUBuffer::SCreationParams params = {};
 			params.size = perViewPerInstanceDataSize*maxTotalInstances;
 			params.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-			auto buffer = logicalDevice->createBuffer(params);
+			auto buffer = logicalDevice->createBuffer(std::move(params));
 			auto mreqs = buffer->getMemoryReqs();
 			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
@@ -135,10 +135,10 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		// Instance Redirect buffer holds a `uvec2` of `{instanceGUID,perViewPerInstanceDataID}` for each instace of a drawcall
 		static core::smart_refctd_ptr<video::IGPUBuffer> createInstanceRedirectBuffer(video::ILogicalDevice* logicalDevice, const uint32_t maxTotalVisibleDrawcallInstances)
 		{
-			video::IGPUBuffer::SCreationParams params;
+			video::IGPUBuffer::SCreationParams params = {};
 			params.size = sizeof(uint32_t)*2u*maxTotalVisibleDrawcallInstances;
 			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-			auto buffer = logicalDevice->createBuffer(params);
+			auto buffer = logicalDevice->createBuffer(std::move(params));
 			auto mreqs = buffer->getMemoryReqs();
 			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());

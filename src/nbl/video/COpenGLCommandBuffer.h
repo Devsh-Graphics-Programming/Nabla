@@ -169,9 +169,9 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_COPY_IMAGE)
     {
         core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::E_IMAGE_LAYOUT srcImageLayout;
+        asset::IImage::E_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::E_IMAGE_LAYOUT dstImageLayout;
+        asset::IImage::E_LAYOUT dstImageLayout;
         uint32_t regionCount;
         const asset::IImage::SImageCopy* regions;
     };
@@ -179,14 +179,14 @@ namespace impl
     {
         core::smart_refctd_ptr<const IGPUBuffer> srcBuffer;
         core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::E_IMAGE_LAYOUT dstImageLayout;
+        asset::IImage::E_LAYOUT dstImageLayout;
         uint32_t regionCount;
         const asset::IImage::SBufferCopy* regions;
     };
     _NBL_DEFINE_SCMD_SPEC(ECT_COPY_IMAGE_TO_BUFFER)
     {
         core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::E_IMAGE_LAYOUT srcImageLayout;
+        asset::IImage::E_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUBuffer> dstBuffer;
         uint32_t regionCount;
         const asset::IImage::SBufferCopy* regions;
@@ -194,9 +194,9 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_BLIT_IMAGE)
     {
         core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::E_IMAGE_LAYOUT srcImageLayout;
+        asset::IImage::E_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::E_IMAGE_LAYOUT dstImageLayout;
+        asset::IImage::E_LAYOUT dstImageLayout;
         uint32_t regionCount;
         const asset::SImageBlit* regions;
         asset::ISampler::E_TEXTURE_FILTER filter;
@@ -204,9 +204,9 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_RESOLVE_IMAGE)
     {
         core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::E_IMAGE_LAYOUT srcImageLayout;
+        asset::IImage::E_LAYOUT srcImageLayout;
         core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::E_IMAGE_LAYOUT dstImageLayout;
+        asset::IImage::E_LAYOUT dstImageLayout;
         uint32_t regionCount;
         const asset::SImageResolve* regions;
     };
@@ -374,7 +374,7 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_CLEAR_COLOR_IMAGE)
     {
         core::smart_refctd_ptr<IGPUImage> image;
-        asset::E_IMAGE_LAYOUT imageLayout;
+        asset::IImage::E_LAYOUT imageLayout;
         asset::SClearColorValue color;
         uint32_t rangeCount;
         const asset::IImage::SSubresourceRange* ranges;
@@ -382,7 +382,7 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_CLEAR_DEPTH_STENCIL_IMAGE)
     {
         core::smart_refctd_ptr<IGPUImage> image;
-        asset::E_IMAGE_LAYOUT imageLayout;
+        asset::IImage::E_LAYOUT imageLayout;
         asset::SClearDepthStencilValue depthStencil;
         uint32_t rangeCount;
         const asset::IImage::SSubresourceRange* ranges;
@@ -757,7 +757,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
+    bool copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
@@ -778,7 +778,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcBuffer))
             return false;
@@ -798,7 +798,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyImageToBuffer(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
@@ -818,7 +818,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool blitImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
+    bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
@@ -840,7 +840,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool resolveImage(const image_t* srcImage, asset::E_IMAGE_LAYOUT srcImageLayout, image_t* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
+    bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
@@ -1076,7 +1076,7 @@ public:
 
     void pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override;
 
-    bool clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
         if (!this->isCompatibleDevicewise(image))
             return false;
@@ -1094,7 +1094,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool clearDepthStencilImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
         if (!this->isCompatibleDevicewise(image))
             return false;

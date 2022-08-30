@@ -33,26 +33,25 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
-        ICPUBuffer(size_t sizeInBytes, void* dat) : size(dat ? sizeInBytes : 0), data(dat), usage(EUF_TRANSFER_DST_BIT)
-        {}
+        ICPUBuffer(size_t sizeInBytes, void* dat) : asset::IBuffer({dat ? sizeInBytes:0,EUF_TRANSFER_DST_BIT}), data(dat) {}
     public:
-		//! Constructor.
+		//! Constructor. TODO: remove, alloc can fail, should be a static create method instead!
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
 		*/
-        ICPUBuffer(size_t sizeInBytes) : size(0), usage(EUF_TRANSFER_DST_BIT)
+        ICPUBuffer(size_t sizeInBytes) : asset::IBuffer({0,EUF_TRANSFER_DST_BIT})
         {
 			data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
             if (!data)
                 return;
 
-            size = sizeInBytes;
+            m_creationParams.size = sizeInBytes;
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
         {
-            auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(size);
+            auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(m_creationParams.size);
             clone_common(cp.get());
-            memcpy(cp->getPointer(), data, size);
+            memcpy(cp->getPointer(), data, m_creationParams.size);
 
             return cp;
         }
@@ -66,7 +65,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (data)
                 _NBL_ALIGNED_FREE(data);
             data = nullptr;
-            size = 0ull;
+            m_creationParams.size = 0ull;
             isDummyObjectForCacheAliasing = true;
         }
 
@@ -74,9 +73,6 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         inline E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
-
-        //! Returns size in bytes.
-        virtual uint64_t getSize() const override {return size;}
 
 		//! Returns pointer to data.
         virtual const void* getPointer() const {return data;}
@@ -89,34 +85,25 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         bool canBeRestoredFrom(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUBuffer*>(_other);
-            if (size != other->size)
+            if (m_creationParams.size != other->m_creationParams.size)
                 return false;
-
             return true;
         }
         
 		inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
 		{
-			return usage;
+			return m_creationParams.usage;
 		}
 		inline bool setUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
 		{
 			assert(!isImmutable_debug());
-			usage = _usage;
+            m_creationParams.usage = _usage;
 			return true;
 		}
 		inline bool addUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
 		{
 			assert(!isImmutable_debug());
-			usage |= _usage;
-			return true;
-		}
-        
-		inline bool getCanUpdateSubRange() const {return canUpdateSubRange;}
-		inline bool setCanUpdateSubRange(const bool _canUpdateSubRange)
-		{
-			assert(!isImmutable_debug());
-            canUpdateSubRange = _canUpdateSubRange;
+            m_creationParams.usage |= _usage;
 			return true;
 		}
 
@@ -129,13 +116,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
                 std::swap(data, other->data);
         }
         
-        uint64_t size;
         void* data;
-        // this is a bit weird, but makes sense because the usages are for the IGPUBuffer that will be created from the data stored here
-        core::bitflag<E_USAGE_FLAGS> usage = EUF_TRANSFER_DST_BIT;
-        // whether `IGPUCommandBuffer::updateBuffer` can be used
-        // TODO: in the new CPU2GPU converter make sure to ||= this value for all buffers
-        bool canUpdateSubRange = false;
 };
 
 template<
@@ -197,9 +178,10 @@ class NBL_API CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAlloca
 	public:
 		using Base::Base;
 
+        // TODO: remove, alloc can fail, should be a static create method instead!
 		CCustomAllocatorCPUBuffer(size_t sizeInBytes, const void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
 		{
-			memcpy(Base::data, dat, sizeInBytes);
+			memcpy(Base::data,dat,sizeInBytes);
 		}
 };
 

@@ -41,13 +41,14 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
     {
         core::smart_refctd_ptr<IGPUImage> gpuImage;
         {
-            auto cpuImageParams = _cpuimg->getCreationParameters();
-            cpuImageParams.initialLayout = asset::EIL_TRANSFER_DST_OPTIMAL;
+            IGPUImage::SCreationParams cpuImageParams;
+            cpuImageParams = _cpuimg->getCreationParameters();
+            cpuImageParams.initialLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
 
             // TODO: Look at issue #167 on Nabla repo, at some point
             IGPUBuffer::SCreationParams bufferCreationParams = {};
             bufferCreationParams.size = _cpuimg->getBuffer()->getSize();
-            auto gpuTexelBuffer = logicalDevice->createBuffer(bufferCreationParams);	
+            auto gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));	
             auto mreqs = gpuTexelBuffer->getMemoryReqs();
             mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto gpubufMem = logicalDevice->allocate(mreqs, gpuTexelBuffer.get());

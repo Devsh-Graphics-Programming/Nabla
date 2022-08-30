@@ -6,7 +6,7 @@ namespace nbl::video
 
 void IUtilities::updateImageViaStagingBuffer(
     IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
-    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
     uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore)
 {
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
@@ -643,7 +643,7 @@ void IUtilities::updateImageViaStagingBuffer(
 
 void IUtilities::updateImageViaStagingBuffer(
     IGPUFence* fence, IGPUQueue* queue,
-    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
     uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
     const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
 )
@@ -669,7 +669,7 @@ void IUtilities::updateImageViaStagingBuffer(
 
 void IUtilities::updateImageViaStagingBuffer(
     IGPUQueue* queue,
-    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::E_IMAGE_LAYOUT dstImageLayout,
+    asset::ICPUBuffer const* srcBuffer, const core::SRange<const asset::IImage::SBufferCopy>& regions, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout,
     uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
     const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
 )

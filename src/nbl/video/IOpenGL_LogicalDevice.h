@@ -143,7 +143,7 @@ class IOpenGL_LogicalDeviceBase
         {
             static inline constexpr E_REQUEST_TYPE type = ERT_BUFFER_CREATE;
             using retval_t = core::smart_refctd_ptr<IGPUBuffer>;
-            IGPUBuffer::SCachedCreationParams creationParams;
+            IGPUBuffer::SCreationParams creationParams;
         };
         struct SRequestBufferViewCreate
         {
@@ -311,7 +311,7 @@ class IOpenGL_LogicalDeviceBase
 // Implementation of both GL and GLES is the same code (see COpenGL_LogicalDevice) thanks to IOpenGL_FunctionTable abstraction layer
 class IOpenGL_LogicalDevice : public ILogicalDevice, protected impl::IOpenGL_LogicalDeviceBase
 {
-protected:
+public:
     static EGLContext createGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
     {
         egl->call.peglBindAPI(apiType);
@@ -319,17 +319,17 @@ protected:
         const EGLint ctx_attributes[] = {
             EGL_CONTEXT_MAJOR_VERSION, major,
             EGL_CONTEXT_MINOR_VERSION, minor,
-// ANGLE validation is bugged and produces false positives, this flag turns off validation (glGetError wont ever return non-zero value then)
-#ifdef _NBL_PLATFORM_ANDROID_
-            EGL_CONTEXT_OPENGL_NO_ERROR_KHR, EGL_TRUE,
-#endif
-// ANGLE does not support debug contexts
-#if defined(_NBL_DEBUG) && !defined(_NBL_PLATFORM_ANDROID_)
-            EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
-#endif
-            //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
+            // ANGLE validation is bugged and produces false positives, this flag turns off validation (glGetError wont ever return non-zero value then)
+            #ifdef _NBL_PLATFORM_ANDROID_
+                        EGL_CONTEXT_OPENGL_NO_ERROR_KHR, EGL_TRUE,
+            #endif
+                        // ANGLE does not support debug contexts
+                        #if defined(_NBL_DEBUG) && !defined(_NBL_PLATFORM_ANDROID_)
+                                    EGL_CONTEXT_OPENGL_DEBUG, EGL_TRUE,
+                        #endif
+                                    //EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT, // core profile is default setting
 
-            EGL_NONE
+                                    EGL_NONE
         };
 
         EGLContext ctx = egl->call.peglCreateContext(egl->display, config, master, ctx_attributes);
@@ -337,6 +337,8 @@ protected:
 
         return ctx;
     }
+
+protected:
     static auto createWindowlessGLContext(EGLenum apiType, const egl::CEGL* egl, EGLint major, EGLint minor, EGLConfig config, EGLContext master = EGL_NO_CONTEXT)
     {
         egl::CEGL::Context retval;
@@ -559,7 +561,7 @@ protected:
                 gl.extGlCreateBuffers(1,&bufferName);
                 if (bufferName!=0)
                 {
-                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.creationParams, bufferName);
+                    pretval[0] = core::make_smart_refctd_ptr<COpenGLBuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device),std::move(p.creationParams),bufferName);
                 }
                 else
                 {
@@ -606,7 +608,7 @@ protected:
                         assert(false);
                         break;
                 }
-                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device), p.deviceLocalMemoryTypeBits, std::move(p.creationParams), internalFormat, target, name);
+                pretval[0] = core::make_smart_refctd_ptr<COpenGLImage>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(device),p.deviceLocalMemoryTypeBits,std::move(p.creationParams),internalFormat,target,name);
             }
                 break;
             case ERT_IMAGE_VIEW_CREATE:
@@ -1002,16 +1004,21 @@ public:
         : ILogicalDevice(std::move(api),physicalDevice,params), m_masterContextCallsInvoked(0u), m_masterContextCallsReturned(0u), m_masterContextSync(nullptr), m_egl(_egl) {}
 
     template <typename FunctionTableType>
-    inline uint64_t waitOnMasterContext(FunctionTableType& _gl, const uint64_t waitedCallsSoFar)
+    inline uint64_t waitOnMasterContext(FunctionTableType* _gl, const uint64_t waitedCallsSoFar)
     {
         const uint64_t invokedSoFar = m_masterContextCallsInvoked.load();
-        assert(invokedSoFar>=waitedCallsSoFar); // something went very wrong with causality
-        if (invokedSoFar==waitedCallsSoFar)
+        assert(invokedSoFar >= waitedCallsSoFar); // something went very wrong with causality
+        if (invokedSoFar == waitedCallsSoFar)
             return waitedCallsSoFar;
         uint64_t returnedSoFar;
-        while ((returnedSoFar=m_masterContextCallsReturned.load())<invokedSoFar) {} // waiting on address deadlocks
-        _gl.glSync.pglWaitSync(m_masterContextSync.load(),0,GL_TIMEOUT_IGNORED);
+        while ((returnedSoFar = m_masterContextCallsReturned.load()) < invokedSoFar) {} // waiting on address deadlocks
+        _gl->glSync.pglWaitSync(m_masterContextSync.load(), 0, GL_TIMEOUT_IGNORED);
         return returnedSoFar;
+    }
+
+    inline const egl::CEGL* getEgl()
+    {
+        return m_egl;
     }
 
     virtual void destroyFramebuffer(COpenGLFramebuffer::hash_t fbohash) = 0;
@@ -1023,6 +1030,13 @@ public:
     virtual void destroySync(GLsync sync) = 0;
     virtual void setObjectDebugName(GLenum id, GLuint object, GLsizei len, const GLchar* label) = 0;
     virtual void destroyQueryPool(COpenGLQueryPool* qp) = 0;
+    virtual int getEGLAPI() = 0;
+    virtual EGLConfig getEglConfig() = 0;
+    virtual EGLContext getEglContext() = 0;
+    virtual const COpenGLFeatureMap* getGlFeatures() = 0;
+    virtual std::pair<EGLint, EGLint> getGlVersion() = 0;
+    virtual void bindMasterContext() = 0;
+    virtual void unbindMasterContext() = 0;
 };
 
 }

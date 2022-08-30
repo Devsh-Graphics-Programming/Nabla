@@ -586,7 +586,7 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
 
 void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocal, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
 {
-// #define NEW_WAY
+#define NEW_WAY
 #ifdef NEW_WAY
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
@@ -1105,11 +1105,11 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
             auto& c = cmd.get<impl::ECT_COPY_QUERY_POOL_RESULTS>();
 
             const IPhysicalDevice* physdev = getOriginDevice()->getPhysicalDevice();
-            if(!physdev->getFeatures().allowCommandBufferQueryCopies)
-            {
-                assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
-                break;
-            }
+            // if(!physdev->getFeatures().allowCommandBufferQueryCopies)
+            // {
+            //     assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
+            //     break;
+            // }
 
             const COpenGLBuffer* buffer = static_cast<const COpenGLBuffer*>(c.dstBuffer.get());
             const COpenGLQueryPool* qp = IBackendObject::compatibility_cast<const COpenGLQueryPool*>(c.queryPool.get(), this);
@@ -1133,7 +1133,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
                     break;
                 }
                 if(partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP) {
-                    assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.");
+                    assert(false && "QUERY_RESULT_PARTIAL_BIT must not be used if the poolï¿½s queryType is QUERY_TYPE_TIMESTAMP.");
                     break;
                 }
 
@@ -1569,11 +1569,11 @@ bool COpenGLCommandBuffer::endQuery_impl(IQueryPool* queryPool, uint32_t query)
 bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
 {
     const IPhysicalDevice* physdev = getOriginDevice()->getPhysicalDevice();
-    if (!physdev->getFeatures().allowCommandBufferQueryCopies)
-    {
-        assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
-        return false;
-    }
+    // if (!physdev->getFeatures().allowCommandBufferQueryCopies)
+    // {
+    //     assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
+    //     return false;
+    // }
 
     const COpenGLBuffer* buffer = static_cast<const COpenGLBuffer*>(dstBuffer);
     const COpenGLQueryPool* qp = IBackendObject::compatibility_cast<const COpenGLQueryPool*>(queryPool, this);
@@ -1596,7 +1596,7 @@ bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint
     }
     if (partialResults && queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP)
     {
-        m_logger.log("QUERY_RESULT_PARTIAL_BIT must not be used if the pool’s queryType is QUERY_TYPE_TIMESTAMP.", system::ILogger::ELL_ERROR);
+        m_logger.log("QUERY_RESULT_PARTIAL_BIT must not be used if the poolï¿½s queryType is QUERY_TYPE_TIMESTAMP.", system::ILogger::ELL_ERROR);
         return false;
     }
 
