@@ -114,6 +114,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
   ##"nbl/builtin/glsl/subgroup/fft.glsl"
+  # Reweighting Firefly Samples for Improved Finite-Sample Monte Carlo Estimates - 2018 Zirr et al.
+  "nbl/builtin/glsl/re_weighted_monte_carlo/splatting.glsl"
+  "nbl/builtin/glsl/re_weighted_monte_carlo/reweighting.glsl"
   # utilities
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
