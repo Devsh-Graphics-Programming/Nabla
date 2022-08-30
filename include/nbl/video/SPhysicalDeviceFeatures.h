@@ -606,7 +606,6 @@ struct SPhysicalDeviceFeatures
     bool deviceCoherentMemory = false;
 
     /* VK_AMD_buffer_marker */
-    // [TODO] Do we need the AMD suffix?
     bool bufferMarkerAMD = false;
 
     // [TODO]
