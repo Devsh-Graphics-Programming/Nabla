@@ -1063,7 +1063,7 @@ struct SPhysicalDeviceFeatures
     /* Nabla */
     // No Nabla Specific Features for now
 				
-    inline bool operator<(const SPhysicalDeviceFeatures& _rhs) const
+    inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
         if (fullDrawIndexUint32 && !_rhs.fullDrawIndexUint32) return false;

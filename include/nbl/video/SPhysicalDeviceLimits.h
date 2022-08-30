@@ -625,7 +625,7 @@ struct SPhysicalDeviceLimits
         return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
     }
 
-    inline bool operator<(const SPhysicalDeviceLimits& _rhs) const
+    inline bool isSubsetOf(const SPhysicalDeviceLimits& _rhs) const
     {
         if (maxImageDimension1D > _rhs.maxImageDimension1D) return false;
         if (maxImageDimension2D > _rhs.maxImageDimension2D) return false;

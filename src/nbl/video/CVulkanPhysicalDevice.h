@@ -1210,7 +1210,7 @@ public:
 
     IDebugCallback* getDebugCallback() override { return m_api->getDebugCallback(); }
 
-    const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
+    const SFormatImageUsages::SUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
     {
         if (m_linearTilingUsages[format].isInitialized)
             return m_linearTilingUsages[format];
@@ -1237,7 +1237,7 @@ public:
         return m_linearTilingUsages[format];
     }
 
-    const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
+    const SFormatImageUsages::SUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
     {
         if (m_optimalTilingUsages[format].isInitialized)
             return m_optimalTilingUsages[format];
@@ -1264,7 +1264,7 @@ public:
         return m_optimalTilingUsages[format];
     }
 
-    const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
+    const SFormatBufferUsages::SUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
     {
         if (m_bufferUsages[format].isInitialized)
             return m_bufferUsages[format];

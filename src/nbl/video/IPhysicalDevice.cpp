@@ -7,9 +7,9 @@ IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, co
     m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
 {
     memset(&m_memoryProperties, 0, sizeof(SMemoryProperties));
-    memset(&m_linearTilingUsages, 0, sizeof(SFormatImageUsage));
-    memset(&m_optimalTilingUsages, 0, sizeof(SFormatImageUsage));
-    memset(&m_bufferUsages, 0, sizeof(SFormatBufferUsage));
+    memset(&m_linearTilingUsages, 0, sizeof(SFormatImageUsages::SUsage));
+    memset(&m_optimalTilingUsages, 0, sizeof(SFormatImageUsages::SUsage));
+    memset(&m_bufferUsages, 0, sizeof(SFormatBufferUsages::SUsage));
 }
 
 void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderdoc)
@@ -542,7 +542,7 @@ bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreat
         }
     }
     
-    if(m_features < params.featuresToEnable)
+    if(!params.featuresToEnable.isSubsetOf(m_features))
         return false; // Requested features are not all supported by physical device
 
     return true;
@@ -959,7 +959,7 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
             default:
                 assert(false); // Invalid tiling
         }
-        return SFormatImageUsage{}; // compiler please shut up
+        return SFormatImageUsages::SUsage{}; // compiler please shut up
     };
 
     if (req.usages < getImageFormatUsagesTiling(req.originalFormat))

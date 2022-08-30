@@ -225,8 +225,9 @@ enum E_FORMAT : uint8_t
     EF_G8_B8R8_2PLANE_422_UNORM,
     EF_G8_B8_R8_3PLANE_444_UNORM,
 
-	//! Unknown color format:
-	EF_UNKNOWN
+    //! Unknown color format:
+    EF_UNKNOWN,
+    EF_COUNT = EF_UNKNOWN
 };
 
 enum E_FORMAT_CLASS : uint8_t
@@ -593,10 +594,10 @@ struct NBL_API TexelBlockInfo
             @see convertTexelsToBlocks
         */
 
-		inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
-		{
-			return (coord+maxCoord)/dimension;
-		}
+        inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+        {
+            return (coord+maxCoord)/dimension;
+        }
 
         //! It converts input texels strides to compute multiples of block sizes
         /*
@@ -653,8 +654,8 @@ struct NBL_API TexelBlockInfo
 
 inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
 {
-	auto dims = getBlockDimensions(_fmt);
-	return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
+    auto dims = getBlockDimensions(_fmt);
+    return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
 }
 
 

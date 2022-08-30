@@ -34,7 +34,7 @@ public:
 
 	E_API_TYPE getAPIType() const override { return EAT_OPENGL; }
 
-	const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
+	const SFormatImageUsages::SUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
 	{
 		// Todo: Correct Format Reporting
 		if (m_linearTilingUsages[format].isInitialized)
@@ -55,7 +55,7 @@ public:
 		return m_linearTilingUsages[format];
 	}
 
-	const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
+	const SFormatImageUsages::SUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
 	{
 		// Todo: Correct Format Reporting
 		if (m_optimalTilingUsages[format].isInitialized)
@@ -76,7 +76,7 @@ public:
 		return m_optimalTilingUsages[format];
 	}
 
-	const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
+	const SFormatBufferUsages::SUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
 	{
 		// Todo: Correct Format Reporting
 		if (m_bufferUsages[format].isInitialized)

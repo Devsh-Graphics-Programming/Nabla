@@ -67,12 +67,10 @@ namespace nbl::video
             if (!conformanceVersionValid)
                 return false;
 
-            // trust me, this is the correct way to do it, don't even think about using `limits < minimumLimits` to detect failure, TODO: figure out a more intuitive way to do this. maybe `operator <` is a bit misleading...
-            if (!(minimumLimits < physDevLimits))
+            if (!minimumLimits.isSubsetOf(physDevLimits))
                 return false;
 
-            // again, based on how the operator is implemented, makes more sense to check failure like below, but it doesn't mean >= like normal arithmetic:
-            if (!(requiredFeatures < physDevFeatures))
+            if (!requiredFeatures.isSubsetOf(physDevFeatures))
                 return false;
 
             return true;
