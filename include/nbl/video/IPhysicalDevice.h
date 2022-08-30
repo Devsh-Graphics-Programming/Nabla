@@ -581,7 +581,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
         {
-            params.featuresToEnable.resolveDependenciesForLogicalDeviceCreation();
             if (!validateLogicalDeviceCreation(params))
                 return nullptr;
             return createLogicalDevice_impl(std::move(params));

@@ -1286,9 +1286,157 @@ public:
     }
  
 protected:
+    
+    //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
+    //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.
+    inline void resolveFeatureDependencies(SFeatures& features)
+    {
+        // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`: this dependancy needs the extension to be enabled not individual features, so this will be handled later on when enabling features before vkCreateDevice
+        
+        if (features.vulkanMemoryModel ||
+            features.vulkanMemoryModelDeviceScope ||
+            features.vulkanMemoryModelAvailabilityVisibilityChains)
+        {
+            // make sure features have their main bool enabled!
+            features.vulkanMemoryModel = true;
+        }
+
+        if (features.rayTracingMotionBlur ||
+            features.rayTracingMotionBlurPipelineTraceRaysIndirect)
+        {
+            features.rayTracingMotionBlur = true;
+            features.rayTracingPipeline = true;
+        }
+
+        if (features.rayTracingPipeline ||
+            features.rayTracingPipelineTraceRaysIndirect ||
+            features.rayTraversalPrimitiveCulling)
+        {
+            features.rayTracingPipeline = true;
+            features.accelerationStructure = true;
+            // Also requires to enable VK_KHR_spirv_1_4
+            // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
+        }
+
+        if (features.rayQuery)
+        {
+            features.accelerationStructure = true;
+            // Also requires to enable VK_KHR_spirv_1_4
+            // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
+        }
+
+        if (features.accelerationStructure ||
+            features.accelerationStructureIndirectBuild ||
+            features.accelerationStructureHostCommands ||
+            features.descriptorBindingAccelerationStructureUpdateAfterBind)
+        {
+            features.accelerationStructure = true;
+            features.descriptorIndexing = true;
+            features.bufferDeviceAddress = true;
+            // Also requires VK_KHR_deferred_host_operations, this will be handled later on when enabling features before vkCreateDevice
+        }
+
+        // VK_NV_coverage_reduction_mode requires VK_NV_framebuffer_mixed_samples
+        if (features.coverageReductionMode)
+            features.mixedAttachmentSamples = true;
+
+        if (features.deviceGeneratedCommands)
+            features.bufferDeviceAddress = true;
+        
+        if (features.bufferDeviceAddress || features.bufferDeviceAddressMultiDevice)
+            features.bufferDeviceAddress = true; // make sure features have their main bool enabled
+
+        if (features.descriptorIndexing ||
+            features.shaderInputAttachmentArrayDynamicIndexing ||
+            features.shaderUniformTexelBufferArrayDynamicIndexing ||
+            features.shaderStorageTexelBufferArrayDynamicIndexing ||
+            features.shaderUniformBufferArrayNonUniformIndexing ||
+            features.shaderSampledImageArrayNonUniformIndexing ||
+            features.shaderStorageBufferArrayNonUniformIndexing ||
+            features.shaderStorageImageArrayNonUniformIndexing ||
+            features.shaderInputAttachmentArrayNonUniformIndexing ||
+            features.shaderUniformTexelBufferArrayNonUniformIndexing ||
+            features.shaderStorageTexelBufferArrayNonUniformIndexing ||
+            features.descriptorBindingUniformBufferUpdateAfterBind ||
+            features.descriptorBindingSampledImageUpdateAfterBind ||
+            features.descriptorBindingStorageImageUpdateAfterBind ||
+            features.descriptorBindingStorageBufferUpdateAfterBind ||
+            features.descriptorBindingUniformTexelBufferUpdateAfterBind ||
+            features.descriptorBindingStorageTexelBufferUpdateAfterBind ||
+            features.descriptorBindingUpdateUnusedWhilePending ||
+            features.descriptorBindingPartiallyBound ||
+            features.descriptorBindingVariableDescriptorCount ||
+            features.runtimeDescriptorArray)
+        {
+            // make sure features have their main bool enabled
+            features.descriptorIndexing = true; // IMPLICIT ENABLE Because: descriptorIndexing indicates whether the implementation supports the minimum set of descriptor indexing features
+        }
+
+        // VK_EXT_hdr_metadata Requires VK_KHR_swapchain to be enabled
+        if (features.hdrMetadata)
+        {
+            features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
+            // And VK_KHR_swapchain requires VK_KHR_surface instance extension
+        }
+        
+        // VK_GOOGLE_display_timing Requires VK_KHR_swapchain to be enabled
+        if (features.displayTiming)
+        {
+            features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
+            // And VK_KHR_swapchain requires VK_KHR_surface instance extension
+        }
+
+        // `VK_EXT_fragment_density_map2` Requires `FragmentDensityMapFeaturesEXT`
+        if (features.fragmentDensityMapDeferred)
+        {
+            features.fragmentDensityMap = true;
+        }
+
+        if (features.workgroupMemoryExplicitLayout ||
+            features.workgroupMemoryExplicitLayoutScalarBlockLayout ||
+            features.workgroupMemoryExplicitLayout8BitAccess ||
+            features.workgroupMemoryExplicitLayout16BitAccess)
+        {
+            // make sure features have their main bool enabled!
+            features.workgroupMemoryExplicitLayout = true;
+        }
+        
+        if (features.cooperativeMatrix ||
+            features.cooperativeMatrixRobustBufferAccess)
+        {
+            // make sure features have their main bool enabled!
+            features.cooperativeMatrix = true;
+        }
+        
+        if (features.conditionalRendering ||
+            features.inheritedConditionalRendering)
+        {
+            // make sure features have their main bool enabled!
+            features.conditionalRendering = true;
+        }
+        
+        if (features.fragmentDensityMap ||
+            features.fragmentDensityMapDynamic ||
+            features.fragmentDensityMapNonSubsampledImages)
+        {
+            // make sure features have their main bool enabled!
+            features.fragmentDensityMap = true;
+        }
+        
+        if (features.inlineUniformBlock ||
+            features.descriptorBindingInlineUniformBlockUpdateAfterBind)
+        {
+            // make sure features have their main bool enabled!
+            features.inlineUniformBlock = true;
+        }
+
+        // Handle later: E_SWAPCHAIN_MODE::ESM_SURFACE: VK_KHR_swapchain requires VK_KHR_surface instance extension
+    }
 
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override
     {
+        resolveFeatureDependencies(params.featuresToEnable);
+
         core::unordered_set<core::string> extensionsToEnable;
 
         // We might alter it to account for dependancies.
@@ -1840,8 +1988,8 @@ protected:
             enabledFeatures.accelerationStructureHostCommands ||
             enabledFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
         {
-            // IMPLICIT ENABLE: descriptorIndexing -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation();
-            // IMPLICIT ENABLE: bufferDeviceAddress -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation();
+            // IMPLICIT ENABLE: descriptorIndexing -> Already handled because of resolveFeatureDependencies(featuresToEnable);
+            // IMPLICIT ENABLE: bufferDeviceAddress -> Already handled because of resolveFeatureDependencies(featuresToEnable);
 
             // IMPLICIT ENABLE: VK_KHR_DEFERRED_HOST_OPERATIONS
             //enabledFeatures.deferredHostOperations = true; // not exposed [yet]
@@ -1857,7 +2005,7 @@ protected:
             
         if (enabledFeatures.rayQuery)
         {
-            // IMPLICIT ENABLE: accelerationStructure -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation();
+            // IMPLICIT ENABLE: accelerationStructure -> Already handled because of resolveFeatureDependencies(featuresToEnable);
             insertExtensionIfAvailable(VK_KHR_SPIRV_1_4_EXTENSION_NAME); // Requires VK_KHR_spirv_1_4
             insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME); // VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
 
@@ -1870,7 +2018,7 @@ protected:
             enabledFeatures.rayTracingPipelineTraceRaysIndirect ||
             enabledFeatures.rayTraversalPrimitiveCulling)
         {
-            // IMPLICIT ENABLE: accelerationStructure -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation();
+            // IMPLICIT ENABLE: accelerationStructure -> Already handled because of resolveFeatureDependencies(featuresToEnable);
             insertExtensionIfAvailable(VK_KHR_SPIRV_1_4_EXTENSION_NAME); // Requires VK_KHR_spirv_1_4
             insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME); // VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
                 
@@ -1884,7 +2032,7 @@ protected:
         if (enabledFeatures.rayTracingMotionBlur ||
             enabledFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect)
         {
-            // IMPLICIT ENABLE: rayTracingPipeline -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation();
+            // IMPLICIT ENABLE: rayTracingPipeline -> Already handled because of resolveFeatureDependencies(featuresToEnable);
             insertExtensionIfAvailable(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME);
             rayTracingMotionBlurFeatures.rayTracingMotionBlur = enabledFeatures.rayTracingMotionBlur;
             rayTracingMotionBlurFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect = enabledFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect;
@@ -1936,7 +2084,7 @@ protected:
             
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(coverageReductionMode, VK_NV_COVERAGE_REDUCTION_MODE_EXTENSION_NAME, coverageReductionModeFeatures);
             
-        // IMPLICIT ENABLE: deviceGeneratedCommands requires bufferDeviceAddress -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation(); 
+        // IMPLICIT ENABLE: deviceGeneratedCommands requires bufferDeviceAddress -> Already handled because of resolveFeatureDependencies(featuresToEnable); 
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(deviceGeneratedCommands, VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME, deviceGeneratedCommandsFeatures);
             
         if (enabledFeatures.taskShader ||
@@ -1958,13 +2106,13 @@ protected:
 
         if (enabledFeatures.hdrMetadata)
         {
-            // IMPLICIT ENABLE: VK_KHR_swapchain -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation(); 
+            // IMPLICIT ENABLE: VK_KHR_swapchain -> Already handled because of resolveFeatureDependencies(featuresToEnable); 
             insertExtensionIfAvailable(VK_EXT_HDR_METADATA_EXTENSION_NAME);
         }
             
         if (enabledFeatures.displayTiming)
         {
-            // IMPLICIT ENABLE: VK_KHR_swapchain -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation(); 
+            // IMPLICIT ENABLE: VK_KHR_swapchain -> Already handled because of resolveFeatureDependencies(featuresToEnable); 
             insertExtensionIfAvailable(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
         }
             
@@ -2010,7 +2158,7 @@ protected:
 
         if (enabledFeatures.fragmentDensityMapDeferred)
         {
-            // IMPLICIT ENABLE: fragmentDensityMap -> Already handled because of featuresToEnable.resolveDependenciesForLogicalDeviceCreation();
+            // IMPLICIT ENABLE: fragmentDensityMap -> Already handled because of resolveFeatureDependencies(featuresToEnable);
             insertExtensionIfAvailable(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME);
             fragmentDensityMap2Features.fragmentDensityMapDeferred = enabledFeatures.fragmentDensityMapDeferred;
             addFeatureToChain(&fragmentDensityMap2Features);
