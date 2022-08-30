@@ -2233,6 +2233,10 @@ protected:
         if (enabledFeatures.deferredHostOperations)
             insertExtensionIfAvailable(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 
+#undef CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR
+#undef CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS
+#undef CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE
+
         vk_deviceFeatures2.pNext = firstFeatureInChain;
         
         core::vector<const char*> extensionStrings(extensionsToEnable.size());
