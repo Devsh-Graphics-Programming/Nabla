@@ -1186,6 +1186,7 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 
 	
 	nbl_glsl_LightSample s;
+	s.NdotL = 0.f; // prevent NaNs in coating material evaluation
 	#ifdef OP_DELTATRANS
 	if (op == OP_DELTATRANS)
 	{
