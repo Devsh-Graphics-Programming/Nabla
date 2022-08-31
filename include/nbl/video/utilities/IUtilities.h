@@ -189,7 +189,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             // Todo: Remove this API check once OpenGL(ES) does its format usage reporting correctly
             if (srcBuffer->getAPIType() == EAT_VULKAN)
             {
-                const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(params.format);
+                const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[params.format];
                 if (!formatUsages.transferDst)
                     return nullptr;
             }
@@ -298,9 +298,9 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 const auto validateFormatFeature = [&params, physicalDevice](const auto format, const auto reqFormatUsages) -> bool
                 {
                     if (params.tiling == IGPUImage::ET_OPTIMAL)
-                        return (physicalDevice->getImageFormatUsagesOptimal(params.format) & reqFormatUsages) == reqFormatUsages;
+                        return (physicalDevice->getImageFormatUsagesOptimalTiling()[params.format] & reqFormatUsages) == reqFormatUsages;
                     else
-                        return (physicalDevice->getImageFormatUsagesLinear(params.format) & reqFormatUsages) == reqFormatUsages;
+                        return (physicalDevice->getImageFormatUsagesLinearTiling()[params.format] & reqFormatUsages) == reqFormatUsages;
                 };
 
                 IPhysicalDevice::SFormatImageUsages::SUsage requiredFormatUsage = {};

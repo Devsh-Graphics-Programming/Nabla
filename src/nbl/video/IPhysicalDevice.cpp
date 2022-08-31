@@ -5,12 +5,7 @@ namespace nbl::video
 
 IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
     m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
-{
-    memset(&m_memoryProperties, 0, sizeof(SMemoryProperties));
-    memset(&m_linearTilingUsages, 0, sizeof(SFormatImageUsages::SUsage));
-    memset(&m_optimalTilingUsages, 0, sizeof(SFormatImageUsages::SUsage));
-    memset(&m_bufferUsages, 0, sizeof(SFormatBufferUsages::SUsage));
-}
+{}
 
 void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderdoc)
 {
@@ -897,7 +892,7 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
     if (cached != buf_cache.end())
         return cached->second;
 
-    if (req.usages < getBufferFormatUsages(req.originalFormat))
+    if (req.usages < getBufferFormatUsages()[req.originalFormat])
     {
         buf_cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -928,7 +923,7 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getBufferFormatUsages(f))
+        if (req.usages < getBufferFormatUsages()[f])
         {
             validFormats.insert(f);
         }
@@ -953,9 +948,9 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
         switch (tiling)
         {
             case IGPUImage::E_TILING::ET_LINEAR:
-                return getImageFormatUsagesLinear(f);
+                return getImageFormatUsagesLinearTiling()[f];
             case IGPUImage::E_TILING::ET_OPTIMAL:
-                return getImageFormatUsagesOptimal(f);
+                return getImageFormatUsagesOptimalTiling()[f];
             default:
                 assert(false); // Invalid tiling
         }

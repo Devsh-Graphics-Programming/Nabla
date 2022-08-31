@@ -13,9 +13,9 @@ namespace nbl::video
         VkConformanceVersion                            minConformanceVersion = {0u, 0u, 0u, 0u};
         IPhysicalDevice::SLimits                        minimumLimits = {}; // minimum required limits to be satisfied
         IPhysicalDevice::SFeatures                      requiredFeatures = {};
-        // TODO: BufferFormatUsages
-        // TODO: OptimalImageFormatUsages
-        // TODO: LinearImageFormatUsages
+        IPhysicalDevice::SFormatBufferUsages            requiredFormatBufferUsages = {};
+        IPhysicalDevice::SFormatImageUsages             requiredOptimalFormatImageUsages = {};
+        IPhysicalDevice::SFormatImageUsages             requiredLinearFormatImageUsages = {};
         // TODO: ISurface* obligatoryCompatibleSurfaces
         
         // TODO: memory requirements

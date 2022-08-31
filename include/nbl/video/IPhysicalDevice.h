@@ -117,14 +117,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct MemoryType
         {
-            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> propertyFlags;
-            uint32_t heapIndex;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> propertyFlags = IDeviceMemoryAllocation::EMPF_NONE;
+            uint32_t heapIndex = ~0u;
         };
 
         struct MemoryHeap
         {
-            size_t size;
-            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS> flags;
+            size_t size = 0u;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS> flags = IDeviceMemoryAllocation::EMHF_NONE;
         };
 
         // Decision: do not expose as of this moment
@@ -140,9 +140,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         struct SMemoryProperties
         {
             uint32_t        memoryTypeCount = 0u;
-            MemoryType      memoryTypes[VK_MAX_MEMORY_TYPES];
+            MemoryType      memoryTypes[VK_MAX_MEMORY_TYPES] = {};
             uint32_t        memoryHeapCount = 0u;
-            MemoryHeap      memoryHeaps[VK_MAX_MEMORY_HEAPS];
+            MemoryHeap      memoryHeaps[VK_MAX_MEMORY_HEAPS] = {};
         };
         const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
         
@@ -270,8 +270,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         {
             struct SUsage
             {
-                uint8_t isInitialized : 1u;
-
                 uint8_t vertexAttribute : 1u; // vertexAtrtibute binding
                 uint8_t bufferView : 1u; // samplerBuffer
                 uint8_t storageBufferView : 1u; // imageBuffer
@@ -279,22 +277,20 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 uint8_t accelerationStructureVertex : 1u;
 
                 SUsage()
-                    : isInitialized(0)
-                    , vertexAttribute(0)
+                    : vertexAttribute(0)
                     , bufferView(0)
                     , storageBufferView(0)
                     , storageBufferViewAtomic(0)
                     , accelerationStructureVertex(0)
                 {}
 
-                SUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages)
-                    : isInitialized(1),
-                    vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT)),
-                    bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT)),
-                    storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)),
-                    accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)),
+                SUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages) 
+                    : vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT))
+                    , bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT))
+                    , storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT))
+                    , accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT))
                     // Deduced as false. User may patch it up later
-                    storageBufferViewAtomic(0)
+                    , storageBufferViewAtomic(0)
                 {}
 
                 inline SUsage operator & (const SUsage& other) const
@@ -351,6 +347,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 }
             };
             
+            inline SUsage& operator[](const asset::E_FORMAT idx)
+            {
+                return m_usages[idx];
+            }
+
+            inline const SUsage& operator[](const asset::E_FORMAT idx) const
+            {
+                return m_usages[idx];
+            }
+
             inline bool isSubsetOf(const SFormatBufferUsages& other) const
             {
                 for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
@@ -361,7 +367,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SUsage m_usages[asset::EF_COUNT] = {};
         };
-        virtual const SFormatBufferUsages::SUsage& getBufferFormatUsages(const asset::E_FORMAT format) = 0;
+        const SFormatBufferUsages& getBufferFormatUsages() { return m_bufferUsages; };
 
         //
 
@@ -369,8 +375,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         {
             struct SUsage
             {
-                uint8_t isInitialized : 1u; // TODO: get rid of this
-
                 uint16_t sampledImage : 1u; // samplerND
                 uint16_t storageImage : 1u; // imageND
                 uint16_t storageImageAtomic : 1u;
@@ -383,8 +387,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
 
                 SUsage()
-                    : isInitialized(0)
-                    , sampledImage(0)
+                    : sampledImage(0)
                     , storageImage(0)
                     , storageImageAtomic(0)
                     , attachment(0)
@@ -396,8 +399,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     , log2MaxSamples(0)
                 {}
 
-                SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages)
-                    : isInitialized(1), 
+                SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages):
                     log2MaxSamples(0),
                     sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
                     storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
@@ -490,6 +492,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 }
             };
             
+            inline SUsage& operator[](const asset::E_FORMAT idx)
+            {
+                return m_usages[idx];
+            }
+
+            inline const SUsage& operator[](const asset::E_FORMAT idx) const
+            {
+                return m_usages[idx];
+            }
+
             inline bool isSubsetOf(const SFormatImageUsages& other) const
             {
                 for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
@@ -501,8 +513,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SUsage m_usages[asset::EF_COUNT] = {};
         };
 
-        virtual const SFormatImageUsages::SUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) = 0;
-        virtual const SFormatImageUsages::SUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) = 0;
+        const SFormatImageUsages& getImageFormatUsagesLinearTiling() { return m_linearTilingUsages; }
+        const SFormatImageUsages& getImageFormatUsagesOptimalTiling() { return m_optimalTilingUsages; }
 
         //
         enum E_QUEUE_FLAGS : uint32_t
@@ -713,15 +725,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         core::smart_refctd_ptr<system::ISystem> m_system;
         core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
-        SProperties m_properties;
-        SFeatures m_features;
-        SMemoryProperties m_memoryProperties;
+        SProperties m_properties = {};
+        SFeatures m_features = {};
+        SMemoryProperties m_memoryProperties = {};
+
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
 
-        SFormatImageUsages::SUsage m_linearTilingUsages[asset::EF_UNKNOWN] = {};
-        SFormatImageUsages::SUsage m_optimalTilingUsages[asset::EF_UNKNOWN] = {};
-        SFormatBufferUsages::SUsage m_bufferUsages[asset::EF_UNKNOWN] = {};
+        SFormatImageUsages m_linearTilingUsages = {};
+        SFormatImageUsages m_optimalTilingUsages = {};
+        SFormatBufferUsages m_bufferUsages = {};
 
         core::vector<char> m_GLSLDefineStringPool;
         core::vector<const char*> m_extraGLSLDefines;

@@ -1198,6 +1198,49 @@ public:
             qf.minImageTransferGranularity = { vkqf.minImageTransferGranularity.width, vkqf.minImageTransferGranularity.height, vkqf.minImageTransferGranularity.depth };
         }
 
+        // Set Format Usages
+        for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
+        {
+            const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(i);
+
+            VkFormatProperties vk_formatProps;
+            vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format), &vk_formatProps);
+
+            const VkFormatFeatureFlags linearTilingFeatures = vk_formatProps.linearTilingFeatures;
+            const VkFormatFeatureFlags optimalTilingFeatures = vk_formatProps.optimalTilingFeatures;
+            const VkFormatFeatureFlags bufferFeatures = vk_formatProps.bufferFeatures;
+
+            m_linearTilingUsages[format] = {};
+            m_linearTilingUsages[format].sampledImage = (linearTilingFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) ? 1 : 0;
+            m_linearTilingUsages[format].storageImage = (linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? 1 : 0;
+            m_linearTilingUsages[format].storageImageAtomic = (linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? 1 : 0;
+            m_linearTilingUsages[format].attachment = (linearTilingFeatures & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) ? 1 : 0;
+            m_linearTilingUsages[format].attachmentBlend = (linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? 1 : 0;
+            m_linearTilingUsages[format].blitSrc = (linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? 1 : 0;
+            m_linearTilingUsages[format].blitDst = (linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? 1 : 0;
+            m_linearTilingUsages[format].transferSrc = (linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) ? 1 : 0;
+            m_linearTilingUsages[format].transferDst = (linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) ? 1 : 0;
+            // m_linearTilingUsages[format].log2MaxSmples = ; // Todo(achal)
+            
+            m_optimalTilingUsages[format] = {};
+            m_optimalTilingUsages[format].sampledImage = optimalTilingFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? 1 : 0;
+            m_optimalTilingUsages[format].storageImage = optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT ? 1 : 0;
+            m_optimalTilingUsages[format].storageImageAtomic = optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT ? 1 : 0;
+            m_optimalTilingUsages[format].attachment = optimalTilingFeatures & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? 1 : 0;
+            m_optimalTilingUsages[format].attachmentBlend = optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT ? 1 : 0;
+            m_optimalTilingUsages[format].blitSrc = optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT ? 1 : 0;
+            m_optimalTilingUsages[format].blitDst = optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT ? 1 : 0;
+            m_optimalTilingUsages[format].transferSrc = optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT ? 1 : 0;
+            m_optimalTilingUsages[format].transferDst = optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT ? 1 : 0;
+            // m_optimalTilingUsages[format].log2MaxSmples = ; // Todo(achal)
+            
+            m_bufferUsages[format] = {};
+            m_bufferUsages[format].vertexAttribute = (bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) ? 1 : 0;
+            m_bufferUsages[format].bufferView = (bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT) ? 1 : 0;
+            m_bufferUsages[format].storageBufferView = (bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT) ? 1 : 0;
+            m_bufferUsages[format].storageBufferViewAtomic = (bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT) ? 1 : 0;
+            m_bufferUsages[format].accelerationStructureVertex = (bufferFeatures & VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR) ? 1 : 0;
+        }
         std::ostringstream pool;
         bool runningRDoc = (m_rdoc_api != nullptr);
         addCommonGLSLDefines(pool,runningRDoc);
@@ -1210,82 +1253,6 @@ public:
 
     IDebugCallback* getDebugCallback() override { return m_api->getDebugCallback(); }
 
-    const SFormatImageUsages::SUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
-    {
-        if (m_linearTilingUsages[format].isInitialized)
-            return m_linearTilingUsages[format];
-
-        VkFormatProperties vk_formatProps;
-        vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format),
-            &vk_formatProps);
-
-        const VkFormatFeatureFlags vk_formatFeatures = vk_formatProps.linearTilingFeatures;
-
-        m_linearTilingUsages[format].sampledImage = (vk_formatFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) ? 1 : 0;
-        m_linearTilingUsages[format].storageImage = (vk_formatFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? 1 : 0;
-        m_linearTilingUsages[format].storageImageAtomic = (vk_formatFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? 1 : 0;
-        m_linearTilingUsages[format].attachment = (vk_formatFeatures & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) ? 1 : 0;
-        m_linearTilingUsages[format].attachmentBlend = (vk_formatFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? 1 : 0;
-        m_linearTilingUsages[format].blitSrc = (vk_formatFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? 1 : 0;
-        m_linearTilingUsages[format].blitDst = (vk_formatFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? 1 : 0;
-        m_linearTilingUsages[format].transferSrc = (vk_formatFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) ? 1 : 0;
-        m_linearTilingUsages[format].transferDst = (vk_formatFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) ? 1 : 0;
-        // m_linearTilingUsages[format].log2MaxSmples = ; // Todo(achal)
-
-        m_linearTilingUsages[format].isInitialized = 1;
-
-        return m_linearTilingUsages[format];
-    }
-
-    const SFormatImageUsages::SUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
-    {
-        if (m_optimalTilingUsages[format].isInitialized)
-            return m_optimalTilingUsages[format];
-
-        VkFormatProperties vk_formatProps;
-        vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format),
-            &vk_formatProps);
-
-        const VkFormatFeatureFlags vk_formatFeatures = vk_formatProps.optimalTilingFeatures;
-
-        m_optimalTilingUsages[format].sampledImage = vk_formatFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? 1 : 0;
-        m_optimalTilingUsages[format].storageImage = vk_formatFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT ? 1 : 0;
-        m_optimalTilingUsages[format].storageImageAtomic = vk_formatFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT ? 1 : 0;
-        m_optimalTilingUsages[format].attachment = vk_formatFeatures & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? 1 : 0;
-        m_optimalTilingUsages[format].attachmentBlend = vk_formatFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT ? 1 : 0;
-        m_optimalTilingUsages[format].blitSrc = vk_formatFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT ? 1 : 0;
-        m_optimalTilingUsages[format].blitDst = vk_formatFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT ? 1 : 0;
-        m_optimalTilingUsages[format].transferSrc = vk_formatFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT ? 1 : 0;
-        m_optimalTilingUsages[format].transferDst = vk_formatFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT ? 1 : 0;
-        // m_optimalTilingUsages[format].log2MaxSmples = ; // Todo(achal)
-
-        m_optimalTilingUsages[format].isInitialized = 1;
-
-        return m_optimalTilingUsages[format];
-    }
-
-    const SFormatBufferUsages::SUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
-    {
-        if (m_bufferUsages[format].isInitialized)
-            return m_bufferUsages[format];
-
-        VkFormatProperties vk_formatProps;
-        vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format),
-            &vk_formatProps);
-
-        const VkFormatFeatureFlags vk_formatFeatures = vk_formatProps.bufferFeatures;
-
-        m_bufferUsages[format].vertexAttribute = (vk_formatProps.bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) ? 1 : 0;
-        m_bufferUsages[format].bufferView = (vk_formatProps.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT) ? 1 : 0;
-        m_bufferUsages[format].storageBufferView = (vk_formatProps.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT) ? 1 : 0;
-        m_bufferUsages[format].storageBufferViewAtomic = (vk_formatProps.bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT) ? 1 : 0;
-        m_bufferUsages[format].accelerationStructureVertex = (vk_formatProps.bufferFeatures & VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR) ? 1 : 0;
-
-        m_bufferUsages[format].isInitialized = 1;
-
-        return m_bufferUsages[format];
-    }
- 
 protected:
     
     //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
