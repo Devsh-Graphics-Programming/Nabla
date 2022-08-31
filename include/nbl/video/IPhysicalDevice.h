@@ -268,6 +268,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct SFormatBufferUsages
         {
+            // TODO: should memset everything to 0 on default constructor?
+
             struct SUsage
             {
                 uint8_t vertexAttribute : 1u; // vertexAtrtibute binding
@@ -373,6 +375,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SFormatImageUsages
         {
+            // TODO: should memset everything to 0 on default constructor?
+
             struct SUsage
             {
                 uint16_t sampledImage : 1u; // samplerND

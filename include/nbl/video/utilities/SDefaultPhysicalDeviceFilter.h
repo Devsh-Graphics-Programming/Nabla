@@ -13,9 +13,9 @@ namespace nbl::video
         VkConformanceVersion                            minConformanceVersion = {0u, 0u, 0u, 0u};
         IPhysicalDevice::SLimits                        minimumLimits = {}; // minimum required limits to be satisfied
         IPhysicalDevice::SFeatures                      requiredFeatures = {};
-        IPhysicalDevice::SFormatBufferUsages            requiredFormatBufferUsages = {};
-        IPhysicalDevice::SFormatImageUsages             requiredOptimalFormatImageUsages = {};
-        IPhysicalDevice::SFormatImageUsages             requiredLinearFormatImageUsages = {};
+        IPhysicalDevice::SFormatBufferUsages            requiredBufferFormatUsages = {};
+        IPhysicalDevice::SFormatImageUsages             requiredImageFormatUsagesLinearTiling = {};
+        IPhysicalDevice::SFormatImageUsages             requiredImageFormatUsagesOptimalTiling = {};
         // TODO: ISurface* obligatoryCompatibleSurfaces
         
         // TODO: memory requirements
@@ -71,6 +71,13 @@ namespace nbl::video
                 return false;
 
             if (!requiredFeatures.isSubsetOf(physDevFeatures))
+                return false;
+
+            if (!requiredBufferFormatUsages.isSubsetOf(physicalDevice->getBufferFormatUsages()))
+                return false;
+            if (!requiredImageFormatUsagesLinearTiling.isSubsetOf(physicalDevice->getImageFormatUsagesLinearTiling()))
+                return false;
+            if (!requiredImageFormatUsagesOptimalTiling.isSubsetOf(physicalDevice->getImageFormatUsagesOptimalTiling()))
                 return false;
 
             return true;
