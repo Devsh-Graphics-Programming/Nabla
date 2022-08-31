@@ -369,7 +369,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SUsage m_usages[asset::EF_COUNT] = {};
         };
-        const SFormatBufferUsages& getBufferFormatUsages() { return m_bufferUsages; };
+        const SFormatBufferUsages& getBufferFormatUsages() const { return m_bufferUsages; };
 
         //
 
@@ -517,8 +517,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SUsage m_usages[asset::EF_COUNT] = {};
         };
 
-        const SFormatImageUsages& getImageFormatUsagesLinearTiling() { return m_linearTilingUsages; }
-        const SFormatImageUsages& getImageFormatUsagesOptimalTiling() { return m_optimalTilingUsages; }
+        const SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_linearTilingUsages; }
+        const SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_optimalTilingUsages; }
 
         //
         enum E_QUEUE_FLAGS : uint32_t
