@@ -718,6 +718,7 @@ public:
 private:
     const uint32_t m_query;
     const GLenum m_target;
+    // TODO(achal): Raw pointer.
     core::smart_refctd_ptr<COpenGLQueryPool> m_queryPool;
 };
 
@@ -733,6 +734,7 @@ public:
 private:
     const uint32_t m_query;
     const GLenum m_target;
+    // TODO(achal): Raw pointer.
     core::smart_refctd_ptr<const COpenGLQueryPool> m_queryPool;
 };
 
@@ -750,17 +752,16 @@ private:
 class COpenGLCommandPool::CGetQueryBufferObjectUICmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CGetQueryBufferObjectUICmd>
 {
 public:
-    CGetQueryBufferObjectUICmd(const uint32_t queueIdx, const bool use64Version, const GLuint queryId, const GLuint buffer, const GLenum pname, const GLintptr offset)
-        : m_queueIdx(queueIdx), m_use64Version(use64Version), m_queryId(queryId), m_buffer(buffer), m_pname(pname), m_offset(offset)
+    CGetQueryBufferObjectUICmd(const COpenGLQueryPool* queryPool, const uint32_t queryIdx, const bool use64Version, const GLuint buffer, const GLenum pname, const GLintptr offset)
+        : m_queryPool(queryPool), m_queryIdx(queryIdx), m_use64Version(use64Version), m_buffer(buffer), m_pname(pname), m_offset(offset)
     {}
 
     void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
-    const uint32_t m_queueIdx;
+    const COpenGLQueryPool* m_queryPool;
+    const uint32_t m_queryIdx;
     const bool m_use64Version;
-
-    const GLuint m_queryId;
     const GLuint m_buffer;
     const GLenum m_pname;
     const GLintptr m_offset;

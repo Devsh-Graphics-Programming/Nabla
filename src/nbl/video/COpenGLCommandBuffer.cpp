@@ -586,7 +586,7 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
 
 void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocal, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
 {
-#define NEW_WAY
+// #define NEW_WAY
 #ifdef NEW_WAY
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
@@ -604,7 +604,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
             glcmd->operator()(gl, queueLocal, ctxid, m_logger.getOptRawPtr());
 
             itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->getSize());
-            if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) > IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
+            if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) >= IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
             {
                 cmdIdx = 0ull;
                 ++segmentIdx;
@@ -1582,12 +1582,12 @@ bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint
     const GLuint bufferId = buffer->getOpenGLName();
 
     IQueryPool::E_QUERY_TYPE queryType = qp->getCreationParameters().queryType;
+    assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
+
     const bool use64Version = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT);
     const bool availabilityFlag = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WITH_AVAILABILITY_BIT);
     const bool waitForAllResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_WAIT_BIT);
     const bool partialResults = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_PARTIAL_BIT);
-
-    assert(queryType == IQueryPool::E_QUERY_TYPE::EQT_OCCLUSION || queryType == IQueryPool::E_QUERY_TYPE::EQT_TIMESTAMP);
 
     if (firstQuery + queryCount > queryPoolQueriesCount)
     {
@@ -1635,11 +1635,13 @@ bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint
         {
             const size_t subQueryDataOffset = queryDataOffset + q * queryElementDataSize;
             const uint32_t queryIdx = glQueryBegin + q;
-            const uint32_t lastQueueToUse = qp->getLastQueueToUseForQuery(queryIdx);
-            GLuint query = qp->getQueryAt(lastQueueToUse, queryIdx);
 
-            if (query == GL_NONE)
-                continue;
+            // This lastQueueToUse should've been set before you can use it and it is being set in the worker thread so I cannot use it on the main thread AT RECORD TIME.
+            // const uint32_t lastQueueToUse = qp->getLastQueueToUseForQuery(queryIdx);
+            // GLuint query = qp->getQueryAt(lastQueueToUse, queryIdx);
+
+            // if (query == GL_NONE)
+            //     continue;
 
             GLenum pname;
             if (waitForAllResults)
@@ -1666,16 +1668,16 @@ bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint
 
             if (availabilityFlag && !waitForAllResults && (q == glQueriesPerQuery - 1))
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, lastQueueToUse, use64Version, query, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
                     return false;
             }
 
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, lastQueueToUse, use64Version, query, bufferId, pname, subQueryDataOffset))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, pname, subQueryDataOffset))
                 return false;
 
             if (availabilityFlag && waitForAllResults && (q == glQueriesPerQuery - 1))
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, lastQueueToUse, use64Version, query, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
                     return false;
             }
         }

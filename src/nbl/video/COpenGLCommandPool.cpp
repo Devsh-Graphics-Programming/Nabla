@@ -262,13 +262,22 @@ void COpenGLCommandPool::CEndQueryCmd::operator()(IOpenGL_FunctionTable* gl, SQu
 
 void COpenGLCommandPool::CGetQueryBufferObjectUICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
-    if (ctxid == m_queueIdx)
-    {
-        if (m_use64Version)
-            gl->extGlGetQueryBufferObjectui64v(m_queryId, m_buffer, m_pname, m_offset);
-        else
-            gl->extGlGetQueryBufferObjectuiv(m_queryId, m_buffer, m_pname, m_offset);
-    }
+    // COpenGLQueryPool::lastQueueToUseArray is set on the worker thread so it is important to retrieve its value on the worker thread as well, we cannot
+    // do it on the main thread at command record time.
+    const uint32_t lastQueueToUse = m_queryPool->getLastQueueToUseForQuery(m_queryIdx);
+
+    if (ctxid != lastQueueToUse)
+        return;
+
+    GLuint query = m_queryPool->getQueryAt(lastQueueToUse, m_queryIdx);
+
+    if (query == GL_NONE)
+        return;
+
+    if (m_use64Version)
+        gl->extGlGetQueryBufferObjectui64v(query, m_buffer, m_pname, m_offset);
+    else
+        gl->extGlGetQueryBufferObjectuiv(query, m_buffer, m_pname, m_offset);
 }
 
 void COpenGLCommandPool::CBindPipelineGraphicsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
