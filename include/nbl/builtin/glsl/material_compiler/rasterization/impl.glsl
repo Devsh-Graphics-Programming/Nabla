@@ -66,10 +66,8 @@ void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC
 			if (nbl_glsl_MC_op_isBXDF(op))
 			{
 				result = nbl_glsl_MC_instr_bxdf_eval_and_pdf_common(
-					instr,op,is_not_brdf,params,ior,ior2,
-					#if GEN_CHOICE_STREAM>=GEN_CHOICE_WITH_AOV_EXTRACTION
-					precomp.N,
-					#endif
+					instr,op,is_not_brdf,
+					precomp,params,ior,ior2,
 					NdotV,NdotL,
 					s,microfacet,run
 				).value;
