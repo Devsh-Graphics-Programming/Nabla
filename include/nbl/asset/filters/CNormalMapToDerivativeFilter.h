@@ -22,6 +22,9 @@ namespace nbl::asset
 */
 struct NormalMapToDerivativeMapSwizzle
 {
+	// since most normalmaps are supplied in RG8_UNORM
+	double zeroEpsilon = 1.0/255.0;
+
 	template<typename InT, typename OutT>
 	void operator()(const InT* in, OutT* out) const
 	{
@@ -29,10 +32,12 @@ struct NormalMapToDerivativeMapSwizzle
 		auto* _out = reinterpret_cast<std::conditional_t<std::is_void_v<OutT>,uint64_t,OutT>*>(out);
 		const auto xDecode = _in[0]*2.f-1.f;
 		const auto yDecode = _in[1]*2.f-1.f;
+		// TODO: a template parameter to decide if Z is in [0,1] or [-1,1]
 		const auto zDecode = _in[2]*2.f-1.f;
-		_out[0] = -xDecode/zDecode;
+		// because normalmaps are supplied in UNORM formats, there's no true zero
+		_out[0] = core::abs(xDecode)>zeroEpsilon ? (-xDecode/zDecode):0.f;
 		// scanlines go from top down, so Y component is in reverse
-		_out[1] = yDecode/zDecode;
+		_out[1] = core::abs(yDecode)>zeroEpsilon ? (yDecode/zDecode):0.f;
 	}
 };
 
