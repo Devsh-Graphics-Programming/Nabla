@@ -1197,8 +1197,8 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 		s.VdotL = -1.f;
 		s.TdotL = -currInteraction.inner.TdotV;
 		s.BdotL = -currInteraction.inner.BdotV;
-		s.NdotL = -currInteraction.inner.NdotV;
-		s.NdotL2 = currInteraction.inner.NdotV_squared;
+		s.NdotL = -currInteraction.inner.isotropic.NdotV;
+		s.NdotL2 = currInteraction.inner.isotropic.NdotV_squared;
 		// not computing microfacet cache since it's always transmission and it will be recomputed anyway
 		out_values.quotient = vec3(1.f);
 		out_values.pdf = nbl_glsl_FLT_INF;
