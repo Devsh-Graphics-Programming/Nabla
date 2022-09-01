@@ -92,11 +92,9 @@ public:
     class CBindPipelineComputeCmd;
     class CDispatchComputeCmd;
 
-    template<size_t STAGE_COUNT> class CProgramUniformCmd;
-    // This does not correspond to but to preserve the order of execution in setUniformsImitatingPushConstants I have to defer this as well.
-    // Perhaps, we should combine this with CProgramUniformCmd and make a CSetUniformsImitatingPushConstantsCmd and call setUniformsImitatingPushConstants
-    // on the worker thread instead.
-    template <size_t STAGE_COUNT> class CAfterUniformsSetCmd;
+    // These does not correspond to a GL call
+    class CSetUniformsImitatingPushConstantsComputeCmd; 
+    class CSetUniformsImitatingPushConstantsGraphicsCmd;
 
     class CBindBufferCmd;
     class CBindImageTexturesCmd;
@@ -118,6 +116,11 @@ public:
     class CPixelStoreICmd;
     class CDrawArraysInstancedBaseInstanceCmd;
     class CDrawElementsInstancedBaseVertexBaseInstanceCmd;
+
+    template <asset::E_PIPELINE_BIND_POINT PBP>
+    class CPushConstantsCmd; // Does not correspond to a GL call, but it is required that it runs in on the worker/queue thread because the push constant state is in the queue local cache
+
+    class CCopyNamedBufferSubDataCmd;
 
 private:
     std::mutex mutex;
@@ -458,131 +461,26 @@ private:
     const GLuint m_numGroupsZ;
 };
 
-template<size_t STAGE_COUNT>
-class COpenGLCommandPool::CProgramUniformCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CProgramUniformCmd<STAGE_COUNT>>
+class COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CSetUniformsImitatingPushConstantsComputeCmd>
 {
-    using UniformMemberType = asset::impl::SShaderMemoryBlock::SMember;
-    using GLPipelineType = IOpenGLPipeline<STAGE_COUNT>;
-
-    static inline constexpr uint32_t MaxDwordSize = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint32_t);
-
 public:
-    CProgramUniformCmd(core::smart_refctd_ptr<const GLPipelineType>&& pipeline, const uint32_t stageIx, const UniformMemberType& uniformMember,
-        const uint8_t* baseOffset, const GLint location, const std::array<uint32_t, MaxDwordSize>& packedData)
-        : m_pipeline(std::move(pipeline)), m_stageIx(stageIx), m_uniformMember(uniformMember), m_baseOffset(baseOffset), m_location(location), m_packedData(packedData)
-    {}
+    CSetUniformsImitatingPushConstantsComputeCmd(const COpenGLComputePipeline* pipeline) : m_pipeline(pipeline) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override
-    {
-        const auto* glppln = m_pipeline.get();
-
-        GLuint GLname = glppln->getShaderGLnameForCtx(m_stageIx, ctxid);
-        uint8_t* state = glppln->getPushConstantsStateForStage(m_stageIx, ctxid);
-
-        const auto& m = m_uniformMember;
-        auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt >= 1u && m.mtxColCnt == 1u); };
-        auto is_mtx = [&m] { return (m.mtxRowCnt > 1u && m.mtxColCnt > 1u); };
-
-        uint8_t* valueptr = state + m.offset;
-        NBL_ASSUME_ALIGNED(valueptr, sizeof(float));
-
-        uint32_t arrayStride = m.arrayStride;
-        // in case of non-array types, m.arrayStride is irrelevant
-        // we should compute it though, so that we dont have to branch in the loop 
-        if (!m.isArray())
-        {
-            // 1N for scalar types, 2N for gvec2, 4N for gvec3 and gvec4
-            // N==sizeof(float)
-            // WARNING / TODO : need some touch in case when we want to support `double` push constants
-            if (is_scalar_or_vec())
-                arrayStride = (m.mtxRowCnt == 1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt) * sizeof(float);
-            // same as size in case of matrices
-            else if (is_mtx())
-                arrayStride = m.size;
-        }
-        assert(m.mtxStride == 0u || arrayStride % m.mtxStride == 0u);
-        //NBL_ASSUME_ALIGNED(valueptr, arrayStride); // should get the std140/std430 alignment of the type instead
-
-        auto* baseOffset = m_baseOffset;
-        const uint32_t count = std::min<uint32_t>(m.count, MaxDwordSize / (m.mtxRowCnt * m.mtxColCnt));
-
-        if (!std::equal(baseOffset, baseOffset + arrayStride * count, valueptr) || !glppln->haveUniformsBeenEverSet(m_stageIx, ctxid))
-        {
-            // TODO pointers to GL func (those arrays)
-            if (is_mtx() && m.type == asset::EGVT_F32)
-            {
-                PFNGLPROGRAMUNIFORMMATRIX4FVPROC glProgramUniformMatrixNxMfv_fptr[3][3]
-                { //N - num of columns, M - num of rows because of weird OpenGL naming convention
-                    {&gl->glShader.pglProgramUniformMatrix2fv, &gl->glShader.pglProgramUniformMatrix2x3fv, &gl->glShader.pglProgramUniformMatrix2x4fv},//2xM
-                    {&gl->glShader.pglProgramUniformMatrix3x2fv, &gl->glShader.pglProgramUniformMatrix3fv, &gl->glShader.pglProgramUniformMatrix3x4fv},//3xM
-                    {&gl->glShader.pglProgramUniformMatrix4x2fv, &gl->glShader.pglProgramUniformMatrix4x3fv, &gl->glShader.pglProgramUniformMatrix4fv} //4xM
-                };
-
-                glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt - 2u][m.mtxRowCnt - 2u](GLname, m_location, count, m.rowMajor ? GL_TRUE : GL_FALSE, reinterpret_cast<const GLfloat*>(m_packedData.data()));
-            }
-            else if (is_scalar_or_vec())
-            {
-                switch (m.type)
-                {
-                case asset::EGVT_F32:
-                {
-                    PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]
-                    {
-                        &gl->glShader.pglProgramUniform1fv, &gl->glShader.pglProgramUniform2fv, &gl->glShader.pglProgramUniform3fv, &gl->glShader.pglProgramUniform4fv
-                    };
-                    glProgramUniformNfv_fptr[m.mtxRowCnt - 1u](GLname, m_location, count, reinterpret_cast<const GLfloat*>(m_packedData.data()));
-                    break;
-                }
-                case asset::EGVT_I32:
-                {
-                    PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]
-                    {
-                        &gl->glShader.pglProgramUniform1iv, &gl->glShader.pglProgramUniform2iv, &gl->glShader.pglProgramUniform3iv, &gl->glShader.pglProgramUniform4iv
-                    };
-                    glProgramUniformNiv_fptr[m.mtxRowCnt - 1u](GLname, m_location, count, reinterpret_cast<const GLint*>(m_packedData.data()));
-                    break;
-                }
-                case asset::EGVT_U32:
-                {
-                    PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]
-                    {
-                        &gl->glShader.pglProgramUniform1uiv, &gl->glShader.pglProgramUniform2uiv, &gl->glShader.pglProgramUniform3uiv, &gl->glShader.pglProgramUniform4uiv
-                    };
-                    glProgramUniformNuiv_fptr[m.mtxRowCnt - 1u](GLname, m_location, count, reinterpret_cast<const GLuint*>(m_packedData.data()));
-                    break;
-                }
-                }
-            }
-            std::copy(baseOffset, baseOffset + arrayStride * count, valueptr);
-        }
-    }
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
-    core::smart_refctd_ptr<const GLPipelineType> m_pipeline;
-    const uint32_t m_stageIx;
-    UniformMemberType m_uniformMember;
-    const uint8_t* m_baseOffset;
-    const GLint m_location;
-    std::array<uint32_t, MaxDwordSize> m_packedData;
+    const COpenGLComputePipeline* m_pipeline;
 };
 
-template <size_t STAGE_COUNT>
-class COpenGLCommandPool::CAfterUniformsSetCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CAfterUniformsSetCmd<STAGE_COUNT>>
+class COpenGLCommandPool::CSetUniformsImitatingPushConstantsGraphicsCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CSetUniformsImitatingPushConstantsGraphicsCmd>
 {
-    using GLPipelineType = IOpenGLPipeline<STAGE_COUNT>;
-
 public:
-    CAfterUniformsSetCmd(core::smart_refctd_ptr<const GLPipelineType>&& pipeline, const uint32_t stageIx) : m_pipeline(std::move(pipeline)), m_stageIx(stageIx) {}
+    CSetUniformsImitatingPushConstantsGraphicsCmd(const COpenGLRenderpassIndependentPipeline* pipeline) : m_pipeline(pipeline) {}
 
-    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override
-    {
-        const auto* glppln = m_pipeline.get();
-        glppln->afterUniformsSet(m_stageIx, ctxid);
-    }
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
-    core::smart_refctd_ptr<const GLPipelineType> m_pipeline;
-    const uint32_t m_stageIx;
+    const COpenGLRenderpassIndependentPipeline* m_pipeline;
 };
 
 class COpenGLCommandPool::CBindBufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindBufferCmd>
@@ -871,6 +769,65 @@ private:
     const GLsizei m_instancecount;
     const GLint m_basevertex;
     const GLuint m_baseinstance;
+};
+
+template <asset::E_PIPELINE_BIND_POINT PBP>
+class COpenGLCommandPool::CPushConstantsCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CPushConstantsCmd<PBP>>
+{
+public:
+    CPushConstantsCmd(const COpenGLPipelineLayout* layout, const core::bitflag<asset::IShader::E_SHADER_STAGE> stages, const uint32_t offset, const uint32_t size, const void* values)
+        : m_layout(layout), m_stages(stages), m_offset(offset), m_size(size)
+    {
+        memcpy(m_values, values, m_size);
+    }
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override
+    {
+        //validation is done in pushConstants_validate() of command buffer GL impl (COpenGLCommandBuffer/COpenGLPrimaryCommandBuffer)
+        //if arguments were invalid (dont comply Valid Usage section of vkCmdPushConstants docs), execution should not even get to this point
+
+        if (queueCache.pushConstantsState<PBP>()->layout && !queueCache.pushConstantsState<PBP>()->layout->isCompatibleForPushConstants(m_layout))
+        {
+            //#ifdef _NBL_DEBUG
+            constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
+            constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
+            constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
+            std::fill(reinterpret_cast<uint64_t*>(queueCache.pushConstantsState<PBP>()->data), reinterpret_cast<uint64_t*>(queueCache.pushConstantsState<PBP>()->data) + toFill, pattern);
+            if constexpr (bytesLeft > 0ull)
+                memcpy(reinterpret_cast<uint64_t*>(queueCache.pushConstantsState<PBP>()->data) + toFill, &pattern, bytesLeft);
+            //#endif
+
+            m_stages |= IGPUShader::ESS_ALL;
+        }
+        queueCache.pushConstantsState<PBP>()->incrementStamps(m_stages.value);
+
+        queueCache.pushConstantsState<PBP>()->layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(m_layout);
+        memcpy(queueCache.pushConstantsState<PBP>()->data + m_offset, m_values, m_size);
+    }
+
+private:
+    const COpenGLPipelineLayout* m_layout;
+    core::bitflag<asset::IShader::E_SHADER_STAGE> m_stages;
+    const uint32_t m_offset;
+    const uint32_t m_size;
+    uint8_t m_values[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+};
+
+class COpenGLCommandPool::CCopyNamedBufferSubDataCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CCopyNamedBufferSubDataCmd>
+{
+public:
+    CCopyNamedBufferSubDataCmd(const GLuint readBufferGLName, const GLuint writeBufferGLName, const GLintptr readOffset, const GLintptr writeOffset, const GLsizeiptr size)
+        : m_readBufferGLName(readBufferGLName), m_writeBufferGLName(writeBufferGLName), m_readOffset(readOffset), m_writeOffset(writeOffset), m_size(size)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_readBufferGLName;
+    const GLuint m_writeBufferGLName;
+    const GLintptr m_readOffset;
+    const GLintptr m_writeOffset;
+    const GLsizeiptr m_size;
 };
 
 }

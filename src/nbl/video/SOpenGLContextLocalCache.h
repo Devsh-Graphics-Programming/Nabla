@@ -149,9 +149,11 @@ struct SOpenGLContextLocalCache
         core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
     } effectivelyBoundDescriptors;
 
+    // TODO(achal): Remove.
     impl::pipeline_for_bindpoint_t<asset::EPBP_COMPUTE>::PushConstantsState pushConstantsStateCompute;
     impl::pipeline_for_bindpoint_t<asset::EPBP_GRAPHICS>::PushConstantsState pushConstantsStateGraphics;
 
+    // TODO(achal): Remove.
     //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)
     template<asset::E_PIPELINE_BIND_POINT PBP>
     typename impl::pipeline_for_bindpoint_t<PBP>::PushConstantsState* pushConstantsState()
@@ -382,6 +384,21 @@ struct SQueueLocalCache
     SOpenGLContextLocalCache::fbo_cache_t fboCache;
     core::unordered_map<const COpenGLRenderpassIndependentPipeline*, GLuint> graphicsPipelineCache;
     SOpenGLContextLocalCache::vao_cache_t vaoCache;
+
+    impl::pipeline_for_bindpoint_t<asset::EPBP_COMPUTE>::PushConstantsState pushConstantsStateCompute;
+    impl::pipeline_for_bindpoint_t<asset::EPBP_GRAPHICS>::PushConstantsState pushConstantsStateGraphics;
+
+    //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)
+    template<asset::E_PIPELINE_BIND_POINT PBP>
+    typename impl::pipeline_for_bindpoint_t<PBP>::PushConstantsState* pushConstantsState()
+    {
+        if constexpr (PBP == asset::EPBP_COMPUTE)
+            return &pushConstantsStateCompute;
+        else if (PBP == asset::EPBP_GRAPHICS)
+            return &pushConstantsStateGraphics;
+        else
+            return nullptr;
+    }
 };
 
 }

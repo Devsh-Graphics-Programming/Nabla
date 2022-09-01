@@ -122,7 +122,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
                         ++stageUpdateStamps[i];
 	        }
         };
-        // TODO(achal): Temporary overload.
+        
         inline void setUniformsImitatingPushConstants(IOpenGL_FunctionTable* gl, uint32_t _ctxID, const PushConstantsState& _pcState) const
         {
             for (uint32_t i=0u; i<SHADER_STAGE_COUNT; ++i)
@@ -141,32 +141,6 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
                     m_lastUpdateStamp[i] = stampValue;
                 }
             }
-        }
-
-        inline bool setUniformsImitatingPushConstants(const PushConstantsState& _pcState, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail) const
-        {
-            for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
-            {
-                auto stage = static_cast<IGPUShader::E_SHADER_STAGE>(1u << i);
-                if ((m_stagePresenceMask & stage) == 0u)
-                    continue;
-
-                uint32_t stampValue = _pcState.getStamp(stage);
-                if (stampValue > m_lastUpdateStamp[i])
-                {
-                    auto uniforms = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shaders[i].get(), this)->getUniforms();
-                    auto locations = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shaders[i].get(), this)->getLocations();
-
-                    if (uniforms.size())
-                    {
-                        if (!IOpenGLPipeline<SHADER_STAGE_COUNT>::setUniformsImitatingPushConstants(i, _pcState.data, uniforms, locations, cmdpool, segmentListHeadItr, segmentListTail))
-                            return false;
-                    }
-                    m_lastUpdateStamp[i] = stampValue;
-                }
-            }
-
-            return true;
         }
 
         using SPipelineHash = std::array<GLuint, SHADER_STAGE_COUNT>;

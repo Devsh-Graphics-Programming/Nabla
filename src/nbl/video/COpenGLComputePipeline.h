@@ -65,23 +65,6 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
                 m_lastUpdateStamp = stampValue;
             }
         }
-        inline bool setUniformsImitatingPushConstants(const PushConstantsState& _pcState, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail) const
-        {
-            uint32_t stampValue = _pcState.getStamp(IGPUShader::ESS_COMPUTE);
-            if (stampValue > m_lastUpdateStamp)
-            {
-                auto uniforms = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shader.get(), this)->getUniforms();
-                auto locations = IBackendObject::compatibility_cast<COpenGLSpecializedShader*>(m_shader.get(), this)->getLocations();
-                if (uniforms.size())
-                {
-                    if (!IOpenGLPipeline<1>::setUniformsImitatingPushConstants(0u, _pcState.data, uniforms, locations, cmdpool, segmentListHeadItr, segmentListTail))
-                        return false;
-                }
-                m_lastUpdateStamp = stampValue;
-            }
-
-            return true;
-        }
 
     protected:
         virtual ~COpenGLComputePipeline();

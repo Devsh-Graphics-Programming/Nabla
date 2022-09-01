@@ -94,6 +94,7 @@ public:
     bool pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override final;
     bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets) override final;
     bool drawMeshBuffer(const meshbuffer_t* meshBuffer) override final;
+    bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override final;
 
     inline uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
@@ -256,8 +257,9 @@ protected:
     virtual bool endQuery_impl(video::IQueryPool* queryPool, uint32_t query) = 0;
     virtual bool copyQueryPoolResults_impl(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
     virtual bool bindGraphicsPipeline_impl(const graphics_pipeline_t* pipeline) = 0;
-    virtual void pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
+    virtual bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
     virtual void bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets) = 0;
+    virtual bool copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) = 0;
 
 private:
     // Be wary of making it protected/calling it in the derived classes because it sets state which will overwrite the state set in base class methods.

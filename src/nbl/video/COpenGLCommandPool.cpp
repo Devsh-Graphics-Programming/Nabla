@@ -208,6 +208,20 @@ void COpenGLCommandPool::CDispatchComputeCmd::operator()(IOpenGL_FunctionTable* 
     gl->glCompute.pglDispatchCompute(m_numGroupsX, m_numGroupsY, m_numGroupsZ);
 }
 
+void COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    const auto* pcState = queueLocalCache.pushConstantsState<asset::EPBP_COMPUTE>();
+    assert(pcState);
+    m_pipeline->setUniformsImitatingPushConstants(gl, ctxid, *pcState);
+}
+
+void COpenGLCommandPool::CSetUniformsImitatingPushConstantsGraphicsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    const auto* pcState = queueLocalCache.pushConstantsState<asset::EPBP_GRAPHICS>();
+    assert(pcState);
+    m_pipeline->setUniformsImitatingPushConstants(gl, ctxid, *pcState);
+}
+
 void COpenGLCommandPool::CBindBufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glBuffer.pglBindBuffer(m_target, m_bufferGLName);
@@ -415,6 +429,11 @@ void COpenGLCommandPool::CDrawArraysInstancedBaseInstanceCmd::operator()(IOpenGL
 void COpenGLCommandPool::CDrawElementsInstancedBaseVertexBaseInstanceCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlDrawElementsInstancedBaseVertexBaseInstance(m_mode, m_count, m_type, reinterpret_cast<void*>(m_idxBufOffset), m_instancecount, m_basevertex, m_baseinstance);
+}
+
+void COpenGLCommandPool::CCopyNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlCopyNamedBufferSubData(m_readBufferGLName, m_writeBufferGLName, m_readOffset, m_writeOffset, m_size);
 }
 
 }

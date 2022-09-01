@@ -180,6 +180,7 @@ public:
     class CBindGraphicsPipelineCmd;
     class CPushConstantsCmd;
     class CBindVertexBuffersCmd;
+    class CCopyBufferCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -200,7 +201,10 @@ public:
         {
             void* cmdSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CCommandSegment));
             if (!cmdSegmentMem)
+            {
+                assert(false);
                 return nullptr;
+            }
 
             segmentListTail = new (cmdSegmentMem) CCommandSegment;
             segmentListHeadItr.m_segment = segmentListTail;
@@ -211,13 +215,19 @@ public:
         {
             void* nextSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CCommandSegment));
             if (nextSegmentMem == nullptr)
+            {
+                assert(false);
                 return nullptr;
+            }
 
             CCommandSegment* nextSegment = new (nextSegmentMem) CCommandSegment;
 
             cmdMem = nextSegment->allocate<Cmd>(args...);
             if (!cmdMem)
+            {
+                assert(false);
                 return nullptr;
+            }
 
             segmentListTail->setNext(nextSegment);
             segmentListTail = segmentListTail->getNext();
@@ -496,6 +506,18 @@ public:
 
 private:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffers[MaxBufferCount];
+};
+
+class IGPUCommandPool::CCopyBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyBufferCmd>
+{
+public:
+    CCopyBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& srcBuffer, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
+        : m_srcBuffer(std::move(srcBuffer)), m_dstBuffer(std::move(dstBuffer))
+    {}
+
+private:
+    core::smart_refctd_ptr<const IGPUBuffer> m_srcBuffer;
+    core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
 }

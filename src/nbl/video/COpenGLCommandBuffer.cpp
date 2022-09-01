@@ -11,6 +11,10 @@ namespace nbl::video
 COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features)
     : IGPUCommandBuffer(std::move(dev), lvl, std::move(_cmdpool), std::move(logger)), m_features(_features)
 {
+    // default values tracked by engine
+    m_stateCache.nextState.rasterParams.multisampleEnable = 0;
+    m_stateCache.nextState.rasterParams.depthFunc = GL_GEQUAL;
+    m_stateCache.nextState.rasterParams.frontFace = GL_CCW;
 }
 
 COpenGLCommandBuffer::~COpenGLCommandBuffer()
@@ -135,6 +139,8 @@ void COpenGLCommandBuffer::releaseResourcesBackToPool_impl()
 
 void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
 {
+    TODO_CMD;
+
     IGPUImage* dstImage = c.dstImage.get();
     const IGPUBuffer* srcBuffer = c.srcBuffer.get();
     if (!dstImage->validateCopies(c.regions, c.regions + c.regionCount, srcBuffer))
@@ -234,6 +240,8 @@ void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO
 
 void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
 {
+    TODO_CMD;
+
     const auto* srcImage = c.srcImage.get();
     auto* dstBuffer = c.dstBuffer.get();
     if (!srcImage->validateCopies(c.regions, c.regions + c.regionCount, dstBuffer))
@@ -334,6 +342,7 @@ void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_
         gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
 }
 
+// TODO(achal): Temporary overload.
 void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger)
 {
     auto& rp = info.framebuffer->getCreationParameters().renderpass;
@@ -421,7 +430,7 @@ void COpenGLCommandBuffer::beginRenderpass_clearAttachments(IOpenGL_FunctionTabl
     }
 }
 
-bool COpenGLCommandBuffer::beginRenderpass_clearAttachments2(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+bool COpenGLCommandBuffer::beginRenderpass_clearAttachments(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
 {
     auto& rp = info.framebuffer->getCreationParameters().renderpass;
     auto& sub = rp->getSubpasses().begin()[0];
@@ -490,7 +499,7 @@ bool COpenGLCommandBuffer::beginRenderpass_clearAttachments2(SOpenGLContextLocal
     return true;
 }
 
-
+// TODO(achal): Remove.
 void COpenGLCommandBuffer::clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments)
 {
     auto& framebuffer = ctxlocal->currentState.framebuffer.fbo;
@@ -586,7 +595,6 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
 
 void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocal, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const
 {
-// #define NEW_WAY
 #ifdef NEW_WAY
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
@@ -1434,6 +1442,8 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
 
 void COpenGLCommandBuffer::blit(IOpenGL_FunctionTable* gl, GLuint src, GLuint dst, const asset::VkOffset3D srcOffsets[2], const asset::VkOffset3D dstOffsets[2], asset::ISampler::E_TEXTURE_FILTER filter)
 {
+    TODO_CMD;
+
     GLint sx0 = srcOffsets[0].x;
     GLint sy0 = srcOffsets[0].y;
     GLint sx1 = srcOffsets[1].x;
@@ -1846,18 +1856,23 @@ bool COpenGLCommandBuffer::bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT 
     return true;
 }
 
-void COpenGLCommandBuffer::pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues)
+bool COpenGLCommandBuffer::pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues)
 {
     if (pushConstants_validate(layout, stageFlags.value, offset, size, pValues))
     {
-        asset::SPushConstantRange updtRng;
-        updtRng.offset = offset;
-        updtRng.size = size;
+        const auto* gl_pipelineLayout = static_cast<const COpenGLPipelineLayout*>(layout);
 
         if (stageFlags.value & asset::IShader::ESS_ALL_GRAPHICS)
-            m_stateCache.pushConstants<asset::EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(layout), stageFlags.value, offset, size, pValues);
+        {
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CPushConstantsCmd<asset::EPBP_GRAPHICS>>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_pipelineLayout, stageFlags, offset, size, pValues))
+                return false;
+        }
+
         if (stageFlags.value & asset::IShader::ESS_COMPUTE)
-            m_stateCache.pushConstants<asset::EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(layout), stageFlags.value, offset, size, pValues);
+        {
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CPushConstantsCmd<asset::EPBP_COMPUTE>>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_pipelineLayout, stageFlags, offset, size, pValues))
+                return false;
+        }
     }
 
     SCmd<impl::ECT_PUSH_CONSTANTS> cmd;
@@ -1867,6 +1882,8 @@ void COpenGLCommandBuffer::pushConstants_impl(const pipeline_layout_t* layout, c
     cmd.size = size;
     memcpy(cmd.values, pValues, size);
     pushCommand(std::move(cmd));
+
+    return true;
 }
 
 void COpenGLCommandBuffer::bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
@@ -1888,6 +1905,31 @@ void COpenGLCommandBuffer::bindVertexBuffers_impl(uint32_t firstBinding, uint32_
         cmd.offsets[i] = pOffsets[i];
     }
     pushCommand(std::move(cmd));
+}
+
+bool COpenGLCommandBuffer::copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions)
+{
+    GLuint readb = static_cast<const COpenGLBuffer*>(srcBuffer)->getOpenGLName();
+    GLuint writeb = static_cast<const COpenGLBuffer*>(dstBuffer)->getOpenGLName();
+    for (uint32_t i = 0u; i < regionCount; ++i)
+    {
+        const asset::SBufferCopy& cp = pRegions[i];
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CCopyNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, readb, writeb, cp.srcOffset, cp.dstOffset, cp.size))
+            return false;
+    }
+
+    SCmd<impl::ECT_COPY_BUFFER> cmd;
+    cmd.srcBuffer = core::smart_refctd_ptr<const buffer_t>(srcBuffer);
+    cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
+    cmd.regionCount = regionCount;
+    auto* regions = getGLCommandPool()->emplace_n<asset::SBufferCopy>(regionCount, pRegions[0]);
+    if (!regions)
+        return false;
+    for (uint32_t i = 0u; i < regionCount; ++i)
+        regions[i] = pRegions[i];
+    cmd.regions = regions;
+    pushCommand(std::move(cmd));
+    return true;
 }
 
 }

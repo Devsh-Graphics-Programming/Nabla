@@ -111,7 +111,7 @@ bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint
 
 bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
 {
-    if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+    if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
     if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer)))
@@ -124,10 +124,10 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offse
 
 bool IGPUCommandBuffer::drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
 {
-    if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+    if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
-    if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+    if (!countBuffer || countBuffer->getAPIType() != getAPIType())
         return false;
 
     if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
@@ -140,10 +140,10 @@ bool IGPUCommandBuffer::drawIndirectCount(const buffer_t* buffer, size_t offset,
 
 bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
 {
-    if (!buffer || buffer->getAPIType() != EAT_VULKAN)
+    if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
-    if (!countBuffer || countBuffer->getAPIType() != EAT_VULKAN)
+    if (!countBuffer || countBuffer->getAPIType() != getAPIType())
         return false;
 
     if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
@@ -314,7 +314,7 @@ bool IGPUCommandBuffer::endQuery(video::IQueryPool* queryPool, uint32_t query)
 
 bool IGPUCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
 {
-    if (!queryPool  || !this->isCompatibleDevicewise(queryPool))
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
     if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
@@ -415,6 +415,29 @@ bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
 
         return draw(vertexCount, instanceCount, firstVertex, firstInstance);
     }
+}
+
+bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions)
+{
+    if (!srcBuffer || srcBuffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(srcBuffer))
+        return false;
+
+    if (!this->isCompatibleDevicewise(dstBuffer))
+        return false;
+
+    if (regionCount == 0u)
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
 }

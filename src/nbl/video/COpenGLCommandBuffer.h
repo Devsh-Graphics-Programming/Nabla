@@ -13,6 +13,14 @@
 #include "nbl/video/IQueryPool.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
+// #define NEW_WAY
+
+#ifdef NEW_WAY
+#define TODO_CMD __debugbreak()
+#else
+#define TODO_CMD
+#endif
+
 namespace nbl::video
 {
 
@@ -506,7 +514,7 @@ protected:
 
 public:
     static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
-    static bool beginRenderpass_clearAttachments2(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
+    static bool beginRenderpass_clearAttachments(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
 
     static inline GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
     {
@@ -572,7 +580,10 @@ public:
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
     {
         if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        {
+            assert(false);
             return false;
+        }
 
         const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
         GLenum glpt = getGLprimitiveType(primType);
@@ -591,7 +602,10 @@ public:
     bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
     {
         if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        {
+            assert(false);
             return false;
+        }
 
         const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
         GLenum glpt = getGLprimitiveType(primType);
@@ -628,6 +642,8 @@ public:
     }
     void drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
@@ -639,6 +655,8 @@ public:
     }
     void drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
@@ -650,6 +668,8 @@ public:
     }
     void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_DRAW_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
@@ -661,6 +681,8 @@ public:
     }
     void drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
         cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
         cmd.offset = offset;
@@ -713,6 +735,8 @@ public:
 
     bool setLineWidth(float lineWidth) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_SET_LINE_WIDTH> cmd;
         cmd.lineWidth = lineWidth;
         pushCommand(std::move(cmd));
@@ -720,6 +744,8 @@ public:
     }
     bool setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_SET_DEPTH_BIAS> cmd;
         cmd.depthBiasConstantFactor;
         cmd.depthBiasClamp = depthBiasClamp;
@@ -736,29 +762,12 @@ public:
         return true;
     }
 
-    bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
-    {
-        if (!this->isCompatibleDevicewise(srcBuffer))
-            return false;
-        if (!this->isCompatibleDevicewise(dstBuffer))
-            return false;
-        if (regionCount == 0u)
-            return false;
-        SCmd<impl::ECT_COPY_BUFFER> cmd;
-        cmd.srcBuffer = core::smart_refctd_ptr<const buffer_t>(srcBuffer);
-        cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
-        cmd.regionCount = regionCount;
-        auto* regions = getGLCommandPool()->emplace_n<asset::SBufferCopy>(regionCount, pRegions[0]);
-        if (!regions)
-            return false;
-        for (uint32_t i = 0u; i < regionCount; ++i)
-            regions[i] = pRegions[i];
-        cmd.regions = regions;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override;
+    
     bool copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         if (!this->isCompatibleDevicewise(dstImage))
@@ -780,6 +789,8 @@ public:
     }
     bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(srcBuffer))
             return false;
         if (!this->isCompatibleDevicewise(dstImage))
@@ -800,6 +811,8 @@ public:
     }
     bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         if (!this->isCompatibleDevicewise(dstBuffer))
@@ -820,6 +833,8 @@ public:
     }
     bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         if (!IGPUCommandBuffer::blitImage(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter))
@@ -842,6 +857,8 @@ public:
     }
     bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(srcImage))
             return false;
         SCmd<impl::ECT_RESOLVE_IMAGE> cmd;
@@ -888,6 +905,8 @@ public:
     }
     bool setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_SET_STENCIL_COMPARE_MASK> cmd;
         cmd.faceMask = faceMask;
         cmd.cmpMask = compareMask;
@@ -896,6 +915,8 @@ public:
     }
     bool setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_SET_STENCIL_WRITE_MASK> cmd;
         cmd.faceMask = faceMask;
         cmd.writeMask = writeMask;
@@ -904,6 +925,8 @@ public:
     }
     bool setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_SET_STENCIL_REFERENCE> cmd;
         cmd.faceMask = faceMask;
         cmd.reference = reference;
@@ -929,6 +952,8 @@ public:
     }
     bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(buffer))
             return false;
         SCmd<impl::ECT_DISPATCH_INDIRECT> cmd;
@@ -973,6 +998,8 @@ public:
 
     bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) override
     {
+        TODO_CMD;
+
         if (eventCount == 0u)
             return false;
         for (uint32_t i = 0u; i < eventCount; ++i)
@@ -1010,10 +1037,16 @@ public:
         m_stateCache.nextState.framebuffer.hash = static_cast<const COpenGLFramebuffer*>(pRenderPassBegin->framebuffer.get())->getHashValue();
         m_stateCache.nextState.framebuffer.fbo = core::smart_refctd_ptr_static_cast<const COpenGLFramebuffer>(pRenderPassBegin->framebuffer);
         if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_FRAMEBUFFER, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        {
+            assert(false);
             return false;
+        }
 
-        if (!beginRenderpass_clearAttachments2(&m_stateCache, *pRenderPassBegin, m_logger.getOptRawPtr(), m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        if (!beginRenderpass_clearAttachments(&m_stateCache, *pRenderPassBegin, m_logger.getOptRawPtr(), m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        {
+            assert(false);
             return false;
+        }
 
         // This is most likely only required to do some checks for the query pool which can be safely done on the main thread at command record time.
         currentlyRecordingRenderPass = pRenderPassBegin->renderpass.get();
@@ -1074,10 +1107,12 @@ public:
     bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout_, uint32_t firstSet_, uint32_t descriptorSetCount_,
         const descriptor_set_t* const* const descriptorSets_, const uint32_t dynamicOffsetCount_ = 0u, const uint32_t* dynamicOffsets_ = nullptr) override;
 
-    void pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override;
+    bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override;
 
     bool clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(image))
             return false;
         SCmd<impl::ECT_CLEAR_COLOR_IMAGE> cmd;
@@ -1096,6 +1131,8 @@ public:
     }
     bool clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(image))
             return false;
         SCmd<impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE> cmd;
@@ -1114,6 +1151,8 @@ public:
     }
     bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override
     {
+        TODO_CMD;
+
         if (attachmentCount==0u || rectCount==0u)
             return false;
         SCmd<impl::ECT_CLEAR_ATTACHMENTS> cmd;
@@ -1136,6 +1175,8 @@ public:
     }
     bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
     {
+        TODO_CMD;
+
         if (!this->isCompatibleDevicewise(dstBuffer))
             return false;
         SCmd<impl::ECT_FILL_BUFFER> cmd;
@@ -1167,6 +1208,8 @@ public:
     }
     bool executeCommands(uint32_t count, IGPUCommandBuffer*const *const cmdbufs) override
     {
+        TODO_CMD;
+
         if (!IGPUCommandBuffer::executeCommands(count, cmdbufs))
             return false;
         for (uint32_t i = 0u; i < count; ++i)
@@ -1184,6 +1227,8 @@ public:
     }
     bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
     {
+        TODO_CMD;
+
         SCmd<impl::ECT_REGENERATE_MIPMAPS> cmd;
         cmd.imgview = core::smart_refctd_ptr<image_t>(imgview);
 

@@ -163,7 +163,7 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(const IGPUGraph
     raster_dst.depthWriteEnable = raster_src.depthWriteEnable;
     raster_dst.stencilTestEnable = raster_src.stencilTestEnable;
 
-    // raster_dst.multisampleEnable = (raster_src.rasterizationSamplesHint > asset::IImage::ESCF_1_BIT);
+    raster_dst.multisampleEnable = (nextState.pipeline.graphics.pipeline->getCreationParameters().rasterizationSamples > asset::IImage::ESCF_1_BIT);
 
     const auto& blend_src = ppln->getBlendParams();
     raster_dst.logicOpEnable = blend_src.logicOpEnable;
@@ -1469,7 +1469,8 @@ bool SOpenGLContextLocalCache::flushStateGraphics(const uint32_t stateBits, IGPU
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
     {
         const auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
-        if (!glppln->setUniformsImitatingPushConstants(pushConstantsStateGraphics, cmdpool, segmentListHeadItr, segmentListTail))
+
+        if (!cmdpool->emplace<COpenGLCommandPool::CSetUniformsImitatingPushConstantsGraphicsCmd>(segmentListHeadItr, segmentListTail, glppln))
             return false;
     }
 
@@ -1621,7 +1622,7 @@ bool SOpenGLContextLocalCache::flushStateCompute(uint32_t stateBits, IGPUCommand
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
     {
         assert(currentState.pipeline.compute.pipeline->containsShader());
-        if (!currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(pushConstantsStateCompute, cmdpool, segmentListHeadItr, segmentListTail))
+        if (!cmdpool->emplace<COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd>(segmentListHeadItr, segmentListTail, currentState.pipeline.compute.pipeline.get()))
             return false;
     }
 

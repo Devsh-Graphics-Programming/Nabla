@@ -241,21 +241,8 @@ public:
         return true;
     }
 
-    bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
+    bool copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override
     {
-        if (!srcBuffer || srcBuffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!dstBuffer || dstBuffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),
-            core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer) };
-
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
-
         VkBuffer vk_srcBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(srcBuffer, this)->getInternalObject();
         VkBuffer vk_dstBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
 
@@ -1001,7 +988,7 @@ public:
         return true;
     }
 
-    void pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
+    bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdPushConstants(m_cmdbuf,
@@ -1010,6 +997,7 @@ public:
             offset,
             size,
             pValues);
+        return true;
     }
 
     bool clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
