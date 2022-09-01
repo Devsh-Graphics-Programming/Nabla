@@ -1,5 +1,5 @@
-#ifndef _NBL_BUILTIN_GLSL_RE_WEIGHTED_MONTE_CARLO_SPLATTING_INCLUDED_
-#define _NBL_BUILTIN_GLSL_RE_WEIGHTED_MONTE_CARLO_SPLATTING_INCLUDED_
+#ifndef _NBL_BUILTIN_GLSL_RE_WEIGHTED_MONTE_CARLO_REWEIGHTING_INCLUDED_
+#define _NBL_BUILTIN_GLSL_RE_WEIGHTED_MONTE_CARLO_REWEIGHTING_INCLUDED_
 
 
 struct nbl_glsl_RWMC_ReweightingParameters
@@ -24,7 +24,7 @@ nbl_glsl_RWMC_ReweightingParameters nbl_glsl_RWMC_computeReweightingParameters(u
 	retval.one_over_kappa = 1.f/kappa;
 	// if not interested in exact expected value estimation (kappa!=1.f), can usually accept a bit more variance relative to the image brightness we already have
 	// allow up to ~<cascadeBase> more energy in one sample to lessen bias in some cases
-	retval.colorReliabilityFactor = mix(base,1.f,retval.one_over_kappa);
+	retval.colorReliabilityFactor = base+(1.f-base)*retval.one_over_kappa;
 	retval.N_over_kappa = N*retval.one_over_kappa;
 	return retval;
 }
@@ -36,7 +36,7 @@ float nbl_glsl_RWMC_luma(in vec3 val);
 //#error
 #endif
 
-vec3 nbl_glsl_RWMC_sampleCascadeTexel(in ivec2 coord, in ivec2 offset, in uint cascadeIndex);
+vec3 nbl_glsl_RWMC_sampleCascadeTexel(ivec2 coord, in ivec2 offset, in uint cascadeIndex);
 #ifndef NBL_GLSL_RWMC_SAMPLE_CASCADE_TEXEL_DEFINED
 //#error
 #endif

@@ -1,7 +1,9 @@
 #ifndef _NBL_BUILTIN_GLSL_RE_WEIGHTED_MONTE_CARLO_SPLATTING_INCLUDED_
 #define _NBL_BUILTIN_GLSL_RE_WEIGHTED_MONTE_CARLO_SPLATTING_INCLUDED_
 
-#include <nbl/builtin/glsl/limits/numeric.glsl>
+#ifdef __cplusplus
+#define log2 std::log2f
+#endif
 
 struct nbl_glsl_RWMC_CascadeParameters
 {
@@ -27,13 +29,19 @@ nbl_glsl_RWMC_CascadeParameters nbl_glsl_RWMC_computeCascadeParameters(uint casc
     return retval;
 }
 
-#ifndef __cplusplus
+
+#ifdef __cplusplus
+
+#undef log2
+
+#else
 struct nbl_glsl_RWMC_SplattingParameters
 {
     vec2 cascadeWeights;
     uint lowerCascade;
 };
 
+#include <nbl/builtin/glsl/limits/numeric.glsl>
 nbl_glsl_RWMC_SplattingParameters nbl_glsl_RWMC_getCascade(in nbl_glsl_RWMC_CascadeParameters params, in float luminance)
 {
     //assert(!isnan(luminance));
