@@ -1185,12 +1185,20 @@ nbl_glsl_LightSample nbl_bsdf_cos_generate(
 	out_values.pdf = 0.f;
 
 	
+	// initialize to prevent NaNs in coating material evaluation
 	nbl_glsl_LightSample s;
-	s.NdotL = 0.f; // prevent NaNs in coating material evaluation
+	s.L = vec3(0.f);
+	s.NdotL = 0.f;
+
 	#ifdef OP_DELTATRANS
 	if (op == OP_DELTATRANS)
 	{
-		s = nbl_glsl_createLightSample(-precomp.V,-1.f,currInteraction.inner.T,currInteraction.inner.B,currInteraction.inner.isotropic.N);
+		s.L = -precomp.V;
+		s.VdotL = -1.f;
+		s.TdotL = -currInteraction.inner.TdotV;
+		s.BdotL = -currInteraction.inner.BdotV;
+		s.NdotL = -currInteraction.inner.NdotV;
+		s.NdotL2 = currInteraction.inner.NdotV_squared;
 		// not computing microfacet cache since it's always transmission and it will be recomputed anyway
 		out_values.quotient = vec3(1.f);
 		out_values.pdf = nbl_glsl_FLT_INF;
