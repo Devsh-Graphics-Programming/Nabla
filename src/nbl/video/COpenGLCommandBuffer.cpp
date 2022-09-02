@@ -139,8 +139,6 @@ void COpenGLCommandBuffer::releaseResourcesBackToPool_impl()
 
 void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
 {
-    TODO_CMD;
-
     IGPUImage* dstImage = c.dstImage.get();
     const IGPUBuffer* srcBuffer = c.srcBuffer.get();
     if (!dstImage->validateCopies(c.regions, c.regions + c.regionCount, srcBuffer))
@@ -153,7 +151,7 @@ void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO
     auto dstImageGL = static_cast<COpenGLImage*>(dstImage);
     GLuint dst = dstImageGL->getOpenGLName();
     GLenum glfmt, gltype;
-    getOpenGLFormatAndParametersFromColorFormat(gl, format, glfmt, gltype);
+    getOpenGLFormatAndParametersFromColorFormat(m_features, format, glfmt, gltype);
 
     const auto bpp = asset::getBytesPerPixel(format);
     const auto blockDims = asset::getBlockDimensions(format);
@@ -254,7 +252,7 @@ void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_
     const bool compressed = asset::isBlockCompressionFormat(format);
     GLuint src = static_cast<const COpenGLImage*>(srcImage)->getOpenGLName();
     GLenum glfmt, gltype;
-    getOpenGLFormatAndParametersFromColorFormat(gl, format, glfmt, gltype);
+    getOpenGLFormatAndParametersFromColorFormat(m_features, format, glfmt, gltype);
         
     const auto texelBlockInfo = asset::TexelBlockInfo(format);
     const auto bpp = asset::getBytesPerPixel(format);
@@ -1923,6 +1921,201 @@ bool COpenGLCommandBuffer::copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* 
     cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
     cmd.regionCount = regionCount;
     auto* regions = getGLCommandPool()->emplace_n<asset::SBufferCopy>(regionCount, pRegions[0]);
+    if (!regions)
+        return false;
+    for (uint32_t i = 0u; i < regionCount; ++i)
+        regions[i] = pRegions[i];
+    cmd.regions = regions;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+{
+    if (!dstImage->validateCopies(pRegions, pRegions + regionCount, srcBuffer))
+        return false;
+
+    const auto params = dstImage->getCreationParameters();
+    const auto type = params.type;
+    const auto format = params.format;
+    const bool compressed = asset::isBlockCompressionFormat(format);
+    auto dstImageGL = static_cast<COpenGLImage*>(dstImage);
+    GLuint dst = dstImageGL->getOpenGLName();
+    GLenum glfmt, gltype;
+    getOpenGLFormatAndParametersFromColorFormat(m_features, format, glfmt, gltype);
+
+    const auto bpp = asset::getBytesPerPixel(format);
+    const auto blockDims = asset::getBlockDimensions(format);
+    const auto blockByteSize = asset::getTexelOrBlockBytesize(format);
+
+    // TODO(achal): I don't think this needs to be refctd anymore?
+    m_stateCache.nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
+
+    for (auto it = pRegions; it != pRegions + regionCount; it++)
+    {
+        if (it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+        {
+            assert(!"bufferOffset should be aligned to block/texel byte size.");
+            continue;
+        }
+
+        uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength : it->imageExtent.width) * bpp).getIntegerApprox();
+        int32_t alignment = 0x1 << core::min(core::min<uint32_t>(core::findLSB(it->bufferOffset), core::findLSB(pitch)), 3u);
+
+        m_stateCache.nextState.pixelUnpack.alignment = alignment;
+        m_stateCache.nextState.pixelUnpack.rowLength = it->bufferRowLength;
+        m_stateCache.nextState.pixelUnpack.imgHeight = it->bufferImageHeight;
+
+        bool success;
+        if (compressed)
+        {
+            m_stateCache.nextState.pixelUnpack.BCwidth = blockDims[0];
+            m_stateCache.nextState.pixelUnpack.BCheight = blockDims[1];
+            m_stateCache.nextState.pixelUnpack.BCdepth = blockDims[2];
+
+            if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+                return false;
+
+            uint32_t imageSize = pitch;
+            switch (type)
+            {
+            case IGPUImage::ET_1D:
+            {
+                imageSize *= it->imageSubresource.layerCount;
+
+                success = m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    dst,
+                    GL_TEXTURE_1D_ARRAY,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    it->imageSubresource.baseArrayLayer,
+                    it->imageExtent.width,
+                    it->imageSubresource.layerCount,
+                    dstImageGL->getOpenGLSizedFormat(),
+                    imageSize,
+                    reinterpret_cast<const void*>(it->bufferOffset));
+            } break;
+
+            case IGPUImage::ET_2D:
+            {
+                imageSize *= (it->bufferImageHeight ? it->bufferImageHeight : it->imageExtent.height);
+                imageSize *= it->imageSubresource.layerCount;
+
+                success = m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    dst,
+                    GL_TEXTURE_2D_ARRAY,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    it->imageOffset.y,
+                    it->imageSubresource.baseArrayLayer,
+                    it->imageExtent.width,
+                    it->imageExtent.height,
+                    it->imageSubresource.layerCount,
+                    dstImageGL->getOpenGLSizedFormat(),
+                    imageSize,
+                    reinterpret_cast<const void*>(it->bufferOffset));
+            } break;
+
+            case IGPUImage::ET_3D:
+            {
+                imageSize *= (it->bufferImageHeight ? it->bufferImageHeight : it->imageExtent.height);
+                imageSize *= it->imageExtent.depth;
+
+                success = m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    dst,
+                    GL_TEXTURE_3D,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    it->imageOffset.y,
+                    it->imageOffset.z,
+                    it->imageExtent.width,
+                    it->imageExtent.height,
+                    it->imageExtent.depth,
+                    dstImageGL->getOpenGLSizedFormat(),
+                    imageSize,
+                    reinterpret_cast<const void*>(it->bufferOffset));
+            } break;
+
+            default:
+            {
+                assert(!"Invalid code path");
+                success = false;
+            } break;
+            }
+        }
+        else
+        {
+            if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+                return false;
+
+            switch (type)
+            {
+            case IGPUImage::ET_1D:
+            {
+                success = m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    dst,
+                    GL_TEXTURE_1D_ARRAY,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    it->imageSubresource.baseArrayLayer,
+                    it->imageExtent.width,
+                    it->imageSubresource.layerCount,
+                    glfmt,
+                    gltype,
+                    reinterpret_cast<const void*>(it->bufferOffset));
+            } break;
+
+            case IGPUImage::ET_2D:
+            {
+                success = m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    dst,
+                    GL_TEXTURE_2D_ARRAY,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    it->imageOffset.y,
+                    it->imageSubresource.baseArrayLayer,
+                    it->imageExtent.width,
+                    it->imageExtent.height,
+                    it->imageSubresource.layerCount,
+                    glfmt,
+                    gltype,
+                    reinterpret_cast<const void*>(it->bufferOffset));
+            } break;
+
+            case IGPUImage::ET_3D:
+            {
+                success = m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    dst,
+                    GL_TEXTURE_3D,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    it->imageOffset.y,
+                    it->imageOffset.z,
+                    it->imageExtent.width,
+                    it->imageExtent.height,
+                    it->imageExtent.depth,
+                    glfmt,
+                    gltype,
+                    reinterpret_cast<const void*>(it->bufferOffset));
+            } break;
+
+            default:
+            {
+                assert(!"Invalid code path");
+                success = false;
+            }
+            }
+        }
+
+        return success;
+    }
+
+    SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE> cmd;
+    cmd.srcBuffer = core::smart_refctd_ptr<const buffer_t>(srcBuffer);
+    cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
+    cmd.dstImageLayout = dstImageLayout;
+    cmd.regionCount = regionCount;
+    auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SBufferCopy>(regionCount, pRegions[0]);
     if (!regions)
         return false;
     for (uint32_t i = 0u; i < regionCount; ++i)

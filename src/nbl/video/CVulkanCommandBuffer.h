@@ -312,20 +312,8 @@ public:
         return true;
     }
 
-    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
+    bool copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
-        if ((srcBuffer->getAPIType() != EAT_VULKAN) || (dstImage->getAPIType() != EAT_VULKAN))
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] =
-        {
-            core::smart_refctd_ptr<const video::IGPUBuffer>(srcBuffer),
-            core::smart_refctd_ptr<const video::IGPUImage>(dstImage)
-        };
-
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
-
         constexpr uint32_t MAX_REGION_COUNT = (1ull << 12) / sizeof(VkBufferImageCopy);
         assert(regionCount <= MAX_REGION_COUNT);
 

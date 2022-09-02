@@ -181,6 +181,7 @@ public:
     class CPushConstantsCmd;
     class CBindVertexBuffersCmd;
     class CCopyBufferCmd;
+    class CCopyBufferToImageCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -518,6 +519,18 @@ public:
 private:
     core::smart_refctd_ptr<const IGPUBuffer> m_srcBuffer;
     core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
+};
+
+class IGPUCommandPool::CCopyBufferToImageCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyBufferToImageCmd>
+{
+public:
+    CCopyBufferToImageCmd(core::smart_refctd_ptr<const IGPUBuffer>&& srcBuffer, core::smart_refctd_ptr<const IGPUImage>&& dstImage)
+        : m_srcBuffer(std::move(srcBuffer)), m_dstImage(std::move(dstImage))
+    {}
+
+private:
+    core::smart_refctd_ptr<const IGPUBuffer> m_srcBuffer;
+    core::smart_refctd_ptr<const IGPUImage> m_dstImage;
 };
 
 }

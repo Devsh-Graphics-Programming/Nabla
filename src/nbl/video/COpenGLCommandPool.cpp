@@ -436,4 +436,24 @@ void COpenGLCommandPool::CCopyNamedBufferSubDataCmd::operator()(IOpenGL_Function
     gl->extGlCopyNamedBufferSubData(m_readBufferGLName, m_writeBufferGLName, m_readOffset, m_writeOffset, m_size);
 }
 
+void COpenGLCommandPool::CCompressedTextureSubImage2DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlCompressedTextureSubImage2D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_width, m_height, m_format, m_imageSize, m_data);
+}
+
+void COpenGLCommandPool::CCompressedTextureSubImage3DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlCompressedTextureSubImage3D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_format, m_imageSize, m_data);
+}
+
+void COpenGLCommandPool::CTextureSubImage2DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlTextureSubImage2D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_width, m_height, m_format, m_type, m_pixels);
+}
+
+void COpenGLCommandPool::CTextureSubImage3DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlTextureSubImage3D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_format, m_type, m_pixels);
+}
+
 }

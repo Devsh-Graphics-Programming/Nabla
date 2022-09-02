@@ -13,7 +13,7 @@
 #include "nbl/video/IQueryPool.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
-// #define NEW_WAY
+#define NEW_WAY
 
 #ifdef NEW_WAY
 #define TODO_CMD __debugbreak()
@@ -459,9 +459,11 @@ protected:
 #undef _NBL_SCMD_TYPE_FOR_ECT
 #undef _NBL_COMMAND_TYPES_LIST
 
-    static void copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
+    // TODO(achal): Remove.
+    void copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
 
-    static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
+    // TODO(achal): Remove.
+    void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
 
 
     static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
@@ -787,28 +789,8 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
-    {
-        TODO_CMD;
+    bool copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override;
 
-        if (!this->isCompatibleDevicewise(srcBuffer))
-            return false;
-        if (!this->isCompatibleDevicewise(dstImage))
-            return false;
-        SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE> cmd;
-        cmd.srcBuffer = core::smart_refctd_ptr<const buffer_t>(srcBuffer);
-        cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
-        cmd.dstImageLayout = dstImageLayout;
-        cmd.regionCount = regionCount;
-        auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SBufferCopy>(regionCount, pRegions[0]);
-        if (!regions)
-            return false;
-        for (uint32_t i = 0u; i < regionCount; ++i)
-            regions[i] = pRegions[i];
-        cmd.regions = regions;
-        pushCommand(std::move(cmd));
-        return true;
-    }
     bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
     {
         TODO_CMD;

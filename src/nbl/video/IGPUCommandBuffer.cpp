@@ -440,4 +440,24 @@ bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffe
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+{
+    if (!srcBuffer || srcBuffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!dstImage || dstImage->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(srcBuffer))
+        return false;
+
+    if (!this->isCompatibleDevicewise(dstImage))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+        return false;
+
+    return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
+}
+
 }

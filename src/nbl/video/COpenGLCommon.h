@@ -1015,7 +1015,7 @@ static GLenum formatEnumToGLenum(IOpenGL_FunctionTable* gl, asset::E_FORMAT fmt)
 
 
 //! Get opengl values for the GPU texture storage
-inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* gl, asset::E_FORMAT format, GLenum& colorformat, GLenum& type, const system::logger_opt_ptr logger = nullptr)
+inline void getOpenGLFormatAndParametersFromColorFormat(const COpenGLFeatureMap* features, asset::E_FORMAT format, GLenum& colorformat, GLenum& type, const system::logger_opt_ptr logger = nullptr)
 {
 	using namespace asset;
 	// default
@@ -1078,7 +1078,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 		break;
 		case asset::EF_R8_SRGB:
 		{
-			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
+			if (!features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_R8))
 				break;
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
@@ -1110,7 +1110,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 		break;
 		case asset::EF_R8G8_SRGB:
 		{
-			if (!gl->getFeatures()->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
+			if (!features->isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_texture_sRGB_RG8))
 				break;
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;
