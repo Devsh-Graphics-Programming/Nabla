@@ -10,7 +10,7 @@ namespace nbl::video
 {
     core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        core::smart_refctd_ptr<system::ILogger>&& logger, const Features& featuresToEnable)
+        core::smart_refctd_ptr<system::ILogger>&& logger, const SFeatures& featuresToEnable)
     {
         if (volkInitialize() != VK_SUCCESS)
         {
@@ -125,7 +125,7 @@ namespace nbl::video
                 allRequestedFeaturesSupported = false;
             }
         };
-        auto patchDependencies = [](FeatureSetType& selectedFeatureSet, Features& actualFeaturesToEnable) -> void
+        auto patchDependencies = [](FeatureSetType& selectedFeatureSet, SFeatures& actualFeaturesToEnable) -> void
         {
             // Vulkan Spec:
             // If an extension is supported (as queried by vkEnumerateInstanceExtensionProperties or
@@ -149,7 +149,7 @@ namespace nbl::video
             insertToFeatureSetIfAvailable(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
 #endif
         }
-        Features enabledFeatures = featuresToEnable;
+        SFeatures enabledFeatures = featuresToEnable;
         patchDependencies(selectedFeatureSet, enabledFeatures);
 
         const size_t totalFeatureCount = selectedFeatureSet.size();
@@ -158,10 +158,8 @@ namespace nbl::video
         for (const auto& feature : selectedFeatureSet)
             extensionStringsToEnable[k++] = feature.c_str();
 
-        // TODO: Figure out whether to have hard requirements for featuresToEnable and fail of not available or someway to report the available instance features/layer to user in the Features structure?!
-        // Or maybe have soft requirements and just log some warning that requested feature instance is not available? figure out the pros and cons of these choices
-        // if(!allRequestedFeaturesSupported)
-        //     return nullptr;
+        if(!allRequestedFeaturesSupported)
+            return nullptr;
 
         std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
         VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
@@ -259,7 +257,7 @@ namespace nbl::video
 
     CVulkanConnection::CVulkanConnection(
         VkInstance instance,
-        const Features& enabledFeatures,
+        const SFeatures& enabledFeatures,
         std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger)
         : IAPIConnection(enabledFeatures)

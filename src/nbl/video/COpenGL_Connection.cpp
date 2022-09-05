@@ -25,7 +25,7 @@ core::smart_refctd_ptr<COpenGL_Connection<API_TYPE>> COpenGL_Connection<API_TYPE
         return nullptr;
     std::filesystem::current_path(cwdBackup);
     
-    Features enabledFeatures = {};
+    SFeatures enabledFeatures = {};
     enabledFeatures.swapchainMode = E_SWAPCHAIN_MODE::ESM_SURFACE;
     auto retval = new COpenGL_Connection<API_TYPE>(enabledFeatures);
     std::unique_ptr<IPhysicalDevice> physicalDevice;

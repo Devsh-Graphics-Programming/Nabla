@@ -15,7 +15,7 @@ core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
         reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data()) + m_physicalDevices.size());
 }
 
-IAPIConnection::IAPIConnection(const Features& enabledFeatures) : m_physicalDevices(), m_rdoc_api(nullptr), m_enabledFeatures(enabledFeatures)
+IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures) : m_physicalDevices(), m_rdoc_api(nullptr), m_enabledFeatures(enabledFeatures)
 {
 #ifdef _NBL_PLATFORM_WINDOWS_
     if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))

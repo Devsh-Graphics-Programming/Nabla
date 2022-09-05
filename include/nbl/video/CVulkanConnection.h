@@ -17,7 +17,7 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        core::smart_refctd_ptr<system::ILogger>&& logger, const Features& featuresToEnable);
+        core::smart_refctd_ptr<system::ILogger>&& logger, const SFeatures& featuresToEnable);
 
     VkInstance getInternalObject() const { return m_vkInstance; }
 
@@ -28,7 +28,7 @@ public:
 protected:
     explicit CVulkanConnection(
         VkInstance instance,
-        const Features& enabledFeatures,
+        const SFeatures& enabledFeatures,
         std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger);
 

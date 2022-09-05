@@ -20,7 +20,7 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         // Equivalent to Instance Extensions and Layers
         // Any device feature that has an api connection feature dependency that is not enabled is considered to be unsupported,
         //  for example you need to enable E_SWAPCHAIN_MODE::ESM_SURFACE in order for the physical device to report support in SPhysicalDeviceFeatures::swapchainMode
-        struct Features
+        struct SFeatures
         {
             // VK_KHR_surface, VK_KHR_win32_surface, VK_KHR_display(TODO)
             core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
@@ -42,14 +42,14 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
         
-        const Features& getEnabledFeatures() const { return m_enabledFeatures; };
+        const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; };
 
     protected:
-        IAPIConnection(const Features& enabledFeatures);
+        IAPIConnection(const SFeatures& enabledFeatures);
 
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
         renderdoc_api_t* m_rdoc_api;
-        Features m_enabledFeatures = {};
+        SFeatures m_enabledFeatures = {};
 };
 
 }

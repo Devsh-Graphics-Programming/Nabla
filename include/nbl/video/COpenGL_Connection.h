@@ -27,7 +27,7 @@ class NBL_API2 COpenGL_Connection final : public IAPIConnection
         const egl::CEGL& getInternalObject() const;
 
     private:
-        inline COpenGL_Connection(const Features& enabledFeatures) : IAPIConnection(enabledFeatures)
+        inline COpenGL_Connection(const SFeatures& enabledFeatures) : IAPIConnection(enabledFeatures)
         {}
 };
 

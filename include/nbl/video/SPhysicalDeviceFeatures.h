@@ -804,7 +804,7 @@ struct SPhysicalDeviceFeatures
     /* Extensions Exposed as Features: */
 
     /* VK_KHR_swapchain */
-    /* Dependant on `IAPIConnection::Features::swapchainMode` enabled on apiConnection Creation */
+    /* Dependant on `IAPIConnection::SFeatures::swapchainMode` enabled on apiConnection Creation */
     core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
 
     // Enabled when possible, exposed as limit in as spirvVersion
