@@ -79,7 +79,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
                 m_device->mapMemory(memoryRange, access);
 
-                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
+                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
@@ -102,7 +102,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
                 m_device->mapMemory(memoryRange, access);
 
-                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
+                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile

@@ -14,7 +14,10 @@ void IUtilities::updateImageViaStagingBuffer(
 
     auto* cmdpool = cmdbuf->getPool();
     
-    if(cmdbuf == nullptr || fence == nullptr || queue == nullptr || regions.size() == 0 || dstImage == nullptr || (srcBuffer == nullptr || srcBuffer->getPointer() == nullptr))
+    if(regions.size() == 0)
+        return;
+    
+    if(cmdbuf == nullptr || fence == nullptr || queue == nullptr || dstImage == nullptr || (srcBuffer == nullptr || srcBuffer->getPointer() == nullptr))
     {
         assert(false);
         return;
@@ -25,7 +28,8 @@ void IUtilities::updateImageViaStagingBuffer(
     assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
     if(dstImage->getCreationParameters().samples != asset::IImage::ESCF_1_BIT)
     {
-        _NBL_TODO("Erfan hasn't figured out yet how to copy to multisampled images");
+        _NBL_TODO(); // "Erfan hasn't figured out yet how to copy to multisampled images"
+        return;
     }
 
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
