@@ -4,12 +4,12 @@
 
 namespace nbl::video
 {
-	bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
+	bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t _queueFamIx) const
 	{
-		if (dev->getAPIType() != EAT_VULKAN)
+		if (physicalDevice->getAPIType() != EAT_VULKAN)
 			return false;
 
-		VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
+		VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(physicalDevice)->getInternalObject();
 
 		VkBool32 supported;
 		if (vkGetPhysicalDeviceSurfaceSupportKHR(vk_physicalDevice, _queueFamIx, m_vkSurfaceKHR, &supported) == VK_SUCCESS)

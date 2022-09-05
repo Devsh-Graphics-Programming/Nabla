@@ -523,6 +523,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         enum E_QUEUE_FLAGS : uint32_t
         {
+            EQF_NONE = 0,
             EQF_GRAPHICS_BIT = 0x01,
             EQF_COMPUTE_BIT = 0x02,
             EQF_TRANSFER_BIT = 0x04,

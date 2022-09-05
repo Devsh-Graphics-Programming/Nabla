@@ -16,8 +16,7 @@ namespace nbl::video
         IPhysicalDevice::SFormatBufferUsages            requiredBufferFormatUsages = {};
         IPhysicalDevice::SFormatImageUsages             requiredImageFormatUsagesLinearTiling = {};
         IPhysicalDevice::SFormatImageUsages             requiredImageFormatUsagesOptimalTiling = {};
-        // TODO: ISurface* obligatoryCompatibleSurfaces
-        
+
         // TODO: memory requirements
         /*
         using RequiredMemoryType = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>;
@@ -35,6 +34,17 @@ namespace nbl::video
             asset::VkExtent3D maxImageTransferGranularity = {0x80000000u,0x80000000u,0x80000000u};
         };
         */
+        
+        // To determine whether a queue family of a physical device supports presentation to a given surface
+        //  See vkGetPhysicalDeviceSurfaceSupportKHR
+        struct SurfaceCompatibility
+        {
+            ISurface* surface = nullptr;
+            // Setting this to `EQF_NONE` means it sufffices to find any queue family that can present to this surface, regardless of flags it might have
+            core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> presentationQueueFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
+        };
+        SurfaceCompatibility * requiredSurfaceCompatibilities = nullptr;
+        uint32_t requiredSurfaceCompatibilitiesCount = 0u;
 
         bool meetsRequirements(const IPhysicalDevice * const physicalDevice) const
         {
@@ -79,6 +89,30 @@ namespace nbl::video
                 return false;
             if (!requiredImageFormatUsagesOptimalTiling.isSubsetOf(physicalDevice->getImageFormatUsagesOptimalTiling()))
                 return false;
+
+            if (requiredSurfaceCompatibilities != nullptr)
+            {
+                for (uint32_t i = 0u; i < requiredSurfaceCompatibilitiesCount; ++i)
+                {
+                    const auto& requiredSurfaceCompatibility = requiredSurfaceCompatibilities[i];
+                    if (requiredSurfaceCompatibility.surface == nullptr)
+                        continue; // we don't care about compatibility with a nullptr surface :)
+                    
+                    const auto& queueFamilyProperties = physicalDevice->getQueueFamilyProperties();
+
+                    bool physicalDeviceSupportsSurfaceWithQueueFlags = false;
+                    for (uint32_t qfam = 0u; qfam < queueFamilyProperties.size(); ++qfam)
+                    {
+                        const auto& familyProperty = queueFamilyProperties[qfam];
+                        if(familyProperty.queueFlags.hasFlags(requiredSurfaceCompatibility.presentationQueueFlags))
+                            if(requiredSurfaceCompatibility.surface->isSupportedForPhysicalDevice(physicalDevice, qfam))
+                                physicalDeviceSupportsSurfaceWithQueueFlags = true;
+                    }
+
+                    if(!physicalDeviceSupportsSurfaceWithQueueFlags)
+                        return false;
+                }
+            }
 
             return true;
         }
