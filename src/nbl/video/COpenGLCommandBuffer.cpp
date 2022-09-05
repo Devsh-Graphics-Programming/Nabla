@@ -598,17 +598,11 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
 #ifdef NEW_WAY
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
-    uint64_t cmdIdx = 0ull;
-    uint64_t segmentIdx = 0ull;
-
     if (itr.m_segment && itr.m_cmd)
     {
         while (itr.m_cmd->getSize() != 0u)
         {
-            ++cmdIdx;
-
             auto* glcmd = static_cast<COpenGLCommandPool::IOpenGLCommand*>(itr.m_cmd);
-            // std::cout << "Doing command (" << segmentIdx << ", " << cmdIdx << ")" << std::endl;
             glcmd->operator()(gl, queueLocal, ctxid, m_logger.getOptRawPtr());
 
             itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->getSize());
@@ -623,9 +617,6 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
                 (itr.m_cmd->getSize() == 0);
             if (potentiallyContinueToNextSegment)
             {
-                cmdIdx = 0ull;
-                ++segmentIdx;
-
                 IGPUCommandPool::CCommandSegment* nextSegment = itr.m_segment->getNext();
                 if (!nextSegment)
                     break;

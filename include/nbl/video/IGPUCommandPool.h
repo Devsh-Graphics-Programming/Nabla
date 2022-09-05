@@ -205,7 +205,6 @@ public:
             if (!cmdSegmentMem)
             {
                 assert(false);
-                std::cout << "No more space left in the Command Segment List!!!" << std::endl;
                 return nullptr;
             }
 
@@ -220,7 +219,6 @@ public:
             if (nextSegmentMem == nullptr)
             {
                 assert(false);
-                std::cout << "No more space left in the Command Segment List!!!" << std::endl;
                 return nullptr;
             }
 
@@ -230,7 +228,6 @@ public:
             if (!cmdMem)
             {
                 assert(false);
-                std::cout << "No more space left in the Command Segment List!!!" << std::endl;
                 return nullptr;
             }
 
