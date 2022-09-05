@@ -239,17 +239,7 @@ public:
     virtual bool copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) = 0;
     virtual bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
     virtual bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
-    virtual bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
-    {
-        for (uint32_t i = 0u; i < regionCount; ++i)
-        {
-            if (pRegions[i].dstSubresource.aspectMask != pRegions[i].srcSubresource.aspectMask)
-                return false;
-            if (pRegions[i].dstSubresource.layerCount != pRegions[i].srcSubresource.layerCount)
-                return false;
-        }
-        return true;
-    }
+    virtual bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) = 0;
     virtual bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
     virtual bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t*const *const pBuffers, const size_t* pOffsets) = 0;

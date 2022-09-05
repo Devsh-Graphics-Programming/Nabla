@@ -460,4 +460,32 @@ bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* ds
     return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
+{
+    if (!srcImage || (srcImage->getAPIType() != getAPIType()))
+        return false;
+
+    if (!dstImage || (dstImage->getAPIType() != getAPIType()))
+        return false;
+
+    if (!this->isCompatibleDevicewise(srcImage))
+        return false;
+
+    if (!this->isCompatibleDevicewise(dstImage))
+        return false;
+
+    for (uint32_t i = 0u; i < regionCount; ++i)
+    {
+        if (pRegions[i].dstSubresource.aspectMask != pRegions[i].srcSubresource.aspectMask)
+            return false;
+        if (pRegions[i].dstSubresource.layerCount != pRegions[i].srcSubresource.layerCount)
+            return false;
+    }
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CBlitImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+        return false;
+
+    return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
+}
+
 }

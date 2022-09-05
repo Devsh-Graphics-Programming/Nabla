@@ -28,6 +28,47 @@ void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* 
     gl->glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, GLname);
 }
 
+void COpenGLCommandPool::CBlitNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    auto getFBOGLName = [&queueCache, gl](const COpenGLImage* image, const uint32_t level, const uint32_t layer) -> GLuint
+    {
+        auto hash = COpenGLFramebuffer::getHashColorImage(image, level, layer);
+
+        GLuint GLName;
+        auto found = queueCache.fboCache.get(hash);
+        if (found)
+        {
+            GLName = *found;
+        }
+        else
+        {
+            GLName = COpenGLFramebuffer::getNameColorImage(gl, image, level, layer);
+            if (GLName)
+                queueCache.fboCache.insert(hash, GLName);
+        }
+
+        return GLName;
+    };
+
+    GLuint srcfbo = getFBOGLName(m_srcImage, m_srcLevel, m_srcLayer);
+    if (!srcfbo)
+        return; // TODO(achal): Log warning?
+
+    GLuint dstfbo = getFBOGLName(m_dstImage, m_dstLevel, m_dstLayer);
+    if (!dstfbo)
+        return; // TODO(achal): Log warning?
+
+    GLint sx0 = m_srcOffsets[0].x;
+    GLint sy0 = m_srcOffsets[0].y;
+    GLint sx1 = m_srcOffsets[1].x;
+    GLint sy1 = m_srcOffsets[1].y;
+    GLint dx0 = m_dstOffsets[0].x;
+    GLint dy0 = m_dstOffsets[0].y;
+    GLint dx1 = m_dstOffsets[1].x;
+    GLint dy1 = m_dstOffsets[1].y;
+    gl->extGlBlitNamedFramebuffer(srcfbo, dstfbo, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GL_COLOR_BUFFER_BIT, m_filter == asset::ISampler::ETF_NEAREST ? GL_NEAREST : GL_LINEAR);
+}
+
 void COpenGLCommandPool::CClearNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint fbo = 0u;

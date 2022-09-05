@@ -460,10 +460,10 @@ protected:
 #undef _NBL_COMMAND_TYPES_LIST
 
     // TODO(achal): Remove.
-    void copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
+    static void copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
 
     // TODO(achal): Remove.
-    void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
+    static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
 
 
     static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
@@ -813,30 +813,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
-    {
-        TODO_CMD;
-
-        if (!this->isCompatibleDevicewise(srcImage))
-            return false;
-        if (!IGPUCommandBuffer::blitImage(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter))
-            return false;
-
-        SCmd<impl::ECT_BLIT_IMAGE> cmd;
-        cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
-        cmd.srcImageLayout = srcImageLayout;
-        cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
-        cmd.regionCount = regionCount;
-        auto* regions = getGLCommandPool()->emplace_n<asset::SImageBlit>(regionCount, pRegions[0]);
-        if (!regions)
-            return false;
-        for (uint32_t i = 0u; i < regionCount; ++i)
-            regions[i] = pRegions[i];
-        cmd.regions = regions;
-        cmd.filter = filter;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override;
     bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
         TODO_CMD;

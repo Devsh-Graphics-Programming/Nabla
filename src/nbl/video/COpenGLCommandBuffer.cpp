@@ -151,7 +151,7 @@ void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO
     auto dstImageGL = static_cast<COpenGLImage*>(dstImage);
     GLuint dst = dstImageGL->getOpenGLName();
     GLenum glfmt, gltype;
-    getOpenGLFormatAndParametersFromColorFormat(m_features, format, glfmt, gltype);
+    getOpenGLFormatAndParametersFromColorFormat(gl->getFeatures(), format, glfmt, gltype);
 
     const auto bpp = asset::getBytesPerPixel(format);
     const auto blockDims = asset::getBlockDimensions(format);
@@ -252,7 +252,7 @@ void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_
     const bool compressed = asset::isBlockCompressionFormat(format);
     GLuint src = static_cast<const COpenGLImage*>(srcImage)->getOpenGLName();
     GLenum glfmt, gltype;
-    getOpenGLFormatAndParametersFromColorFormat(m_features, format, glfmt, gltype);
+    getOpenGLFormatAndParametersFromColorFormat(gl->getFeatures(), format, glfmt, gltype);
         
     const auto texelBlockInfo = asset::TexelBlockInfo(format);
     const auto bpp = asset::getBytesPerPixel(format);
@@ -1438,10 +1438,9 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
 #endif
 }
 
+// TODO(achal): Remove.
 void COpenGLCommandBuffer::blit(IOpenGL_FunctionTable* gl, GLuint src, GLuint dst, const asset::VkOffset3D srcOffsets[2], const asset::VkOffset3D dstOffsets[2], asset::ISampler::E_TEXTURE_FILTER filter)
 {
-    TODO_CMD;
-
     GLint sx0 = srcOffsets[0].x;
     GLint sy0 = srcOffsets[0].y;
     GLint sx1 = srcOffsets[1].x;
@@ -1951,6 +1950,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
     // TODO(achal): I don't think this needs to be refctd anymore?
     m_stateCache.nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
 
+    bool anyFailed = false;
     for (auto it = pRegions; it != pRegions + regionCount; it++)
     {
         if (it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
@@ -2107,7 +2107,8 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
             }
         }
 
-        return success;
+        if (!success)
+            anyFailed = true;
     }
 
     SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE> cmd;
@@ -2121,6 +2122,39 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
     for (uint32_t i = 0u; i < regionCount; ++i)
         regions[i] = pRegions[i];
     cmd.regions = regions;
+    pushCommand(std::move(cmd));
+    return !anyFailed;
+}
+
+bool COpenGLCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
+{
+    const auto* gl_srcImage = static_cast<const COpenGLImage*>(srcImage);
+    const auto* gl_dstImage = static_cast<const COpenGLImage*>(dstImage);
+    for (uint32_t i = 0u; i < regionCount; ++i)
+    {
+        auto& info = pRegions[i];
+
+        assert(info.dstSubresource.layerCount == info.srcSubresource.layerCount);
+
+        for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
+        {
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_srcImage, gl_dstImage, info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer+l, info.dstSubresource.baseArrayLayer+l, info.srcOffsets, info.dstOffsets, filter))
+                return false;
+        }
+    }
+
+    SCmd<impl::ECT_BLIT_IMAGE> cmd;
+    cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
+    cmd.srcImageLayout = srcImageLayout;
+    cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
+    cmd.regionCount = regionCount;
+    auto* regions = getGLCommandPool()->emplace_n<asset::SImageBlit>(regionCount, pRegions[0]);
+    if (!regions)
+        return false;
+    for (uint32_t i = 0u; i < regionCount; ++i)
+        regions[i] = pRegions[i];
+    cmd.regions = regions;
+    cmd.filter = filter;
     pushCommand(std::move(cmd));
     return true;
 }

@@ -66,6 +66,7 @@ public:
     };
 
     class CBindFramebufferCmd;
+    class CBlitNamedFramebufferCmd;
     class CClearNamedFramebufferCmd;
     class CViewportArrayVCmd;
     class CDepthRangeArrayVCmd;
@@ -141,6 +142,31 @@ public:
 private:
     COpenGLFramebuffer::hash_t m_fboHash;
     core::smart_refctd_ptr<const COpenGLFramebuffer> m_fbo;
+};
+
+class COpenGLCommandPool::CBlitNamedFramebufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBlitNamedFramebufferCmd>
+{
+public:
+    CBlitNamedFramebufferCmd(const COpenGLImage* srcImage, const COpenGLImage* dstImage, const uint32_t srcLevel, const uint32_t dstLevel,
+        const uint32_t srcLayer, const uint32_t dstLayer, const asset::VkOffset3D* srcOffsets, const asset::VkOffset3D* dstOffsets, const asset::ISampler::E_TEXTURE_FILTER filter)
+        : m_srcImage(srcImage), m_dstImage(dstImage), m_srcLevel(srcLevel), m_dstLevel(dstLevel), m_srcLayer(srcLayer), m_dstLayer(dstLayer), m_filter(filter)
+    {
+        memcpy(m_srcOffsets, srcOffsets, 2 * sizeof(asset::VkOffset3D));
+        memcpy(m_dstOffsets, dstOffsets, 2 * sizeof(asset::VkOffset3D));
+    }
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const COpenGLImage* m_srcImage;
+    const COpenGLImage* m_dstImage;
+    const uint32_t m_srcLevel;
+    const uint32_t m_dstLevel;
+    const uint32_t m_srcLayer;
+    const uint32_t m_dstLayer;
+    asset::VkOffset3D m_srcOffsets[2];
+    asset::VkOffset3D m_dstOffsets[2];
+    asset::ISampler::E_TEXTURE_FILTER m_filter;
 };
 
 class COpenGLCommandPool::CClearNamedFramebufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CClearNamedFramebufferCmd>

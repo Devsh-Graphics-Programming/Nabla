@@ -389,18 +389,8 @@ public:
         return true;
     }
 
-    bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
+    bool blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {
-        if (srcImage->getAPIType() != EAT_VULKAN || (dstImage->getAPIType() != EAT_VULKAN))
-            return false;
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUImage>(srcImage),
-            core::smart_refctd_ptr<const IGPUImage>(dstImage) };
-
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
-
         VkImage vk_srcImage = IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject();
         VkImage vk_dstImage = IBackendObject::compatibility_cast<const CVulkanImage*>(dstImage, this)->getInternalObject();
 
