@@ -205,6 +205,7 @@ public:
             if (!cmdSegmentMem)
             {
                 assert(false);
+                std::cout << "No more space left in the Command Segment List!!!" << std::endl;
                 return nullptr;
             }
 
@@ -219,6 +220,7 @@ public:
             if (nextSegmentMem == nullptr)
             {
                 assert(false);
+                std::cout << "No more space left in the Command Segment List!!!" << std::endl;
                 return nullptr;
             }
 
@@ -228,6 +230,7 @@ public:
             if (!cmdMem)
             {
                 assert(false);
+                std::cout << "No more space left in the Command Segment List!!!" << std::endl;
                 return nullptr;
             }
 
@@ -259,7 +262,16 @@ public:
                 // No need to deallocate currCmd because it has been allocated from the LinearAddressAllocator where deallocate is a No-OP and the memory will
                 // get reclaimed in ~LinearAddressAllocator
 
-                if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - reinterpret_cast<uint8_t*>(itr.m_segment->getFirstCommand())) > CCommandSegment::STORAGE_SIZE)
+                // We potentially continue to the next command segment under any one of the two conditions:
+                const bool potentiallyContinueToNextSegment =
+                    // 1. If the we run past the storage of the current segment.
+                    ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) >= IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
+                    ||
+                    // 2. If we encounter a 0-sized command (terminating command) before running out of the current segment. This case will arise when the current
+                    // segment doesn't have enough storage to hold the next command.
+                    (itr.m_cmd->getSize() == 0);
+
+                if (potentiallyContinueToNextSegment)
                 {
                     CCommandSegment* nextSegment = currSegment->getNext();
                     if (!nextSegment)

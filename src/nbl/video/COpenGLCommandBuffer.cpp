@@ -135,6 +135,8 @@ void COpenGLCommandBuffer::releaseResourcesBackToPool_impl()
     // This will get replaced by the code deleting the new backend-specific segmented command list.
     freeSpaceInCmdPool();
     m_commands.clear();
+
+    m_cmdpool->deleteCommandSegmentList(m_GLSegmentListHeadItr, m_GLSegmentListTail);
 }
 
 void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
@@ -618,7 +620,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
                 ||
                 // 2. If we encounter a 0-sized command (terminating command) before running out of the current segment. This case will arise when the current
                 // segment doesn't have enough storage to hold the next command.
-                (itr.m_cmd->getSize() == 0 && itr.m_segment->getNext());
+                (itr.m_cmd->getSize() == 0);
             if (potentiallyContinueToNextSegment)
             {
                 cmdIdx = 0ull;
