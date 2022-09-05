@@ -610,7 +610,16 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCach
             glcmd->operator()(gl, queueLocal, ctxid, m_logger.getOptRawPtr());
 
             itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->getSize());
-            if ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) >= IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
+
+            // We potentially continue to the next command segment under any one of the two conditions:
+            const bool potentiallyContinueToNextSegment =
+                // 1. If the we run past the storage of the current segment.
+                ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) >= IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
+                ||
+                // 2. If we encounter a 0-sized command (terminating command) before running out of the current segment. This case will arise when the current
+                // segment doesn't have enough storage to hold the next command.
+                (itr.m_cmd->getSize() == 0 && itr.m_segment->getNext());
+            if (potentiallyContinueToNextSegment)
             {
                 cmdIdx = 0ull;
                 ++segmentIdx;
