@@ -488,4 +488,24 @@ bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYO
     return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
 }
 
+bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+{
+    if (!srcImage || (srcImage->getAPIType() != getAPIType()))
+        return false;
+
+    if (!dstBuffer || (dstBuffer->getAPIType() != getAPIType()))
+        return false;
+
+    if (!this->isCompatibleDevicewise(srcImage))
+        return false;
+
+    if (!this->isCompatibleDevicewise(dstBuffer))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
+}
+
 }

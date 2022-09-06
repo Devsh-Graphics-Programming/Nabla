@@ -126,6 +126,9 @@ public:
     class CCompressedTextureSubImage3DCmd;
     class CTextureSubImage2DCmd;
     class CTextureSubImage3DCmd;
+    class CGetCompressedTextureSubImageCmd;
+    class CGetTextureSubImageCmd;
+    class CReadPixelsCmd;
 
 private:
     std::mutex mutex;
@@ -135,13 +138,13 @@ private:
 class COpenGLCommandPool::CBindFramebufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBindFramebufferCmd>
 {
 public:
-    CBindFramebufferCmd(const COpenGLFramebuffer::hash_t& fboHash, core::smart_refctd_ptr<const COpenGLFramebuffer>&& fbo) : m_fboHash(fboHash), m_fbo(std::move(fbo)) {}
+    CBindFramebufferCmd(const COpenGLFramebuffer::hash_t& fboHash, const COpenGLFramebuffer* fbo) : m_fboHash(fboHash), m_fbo(fbo) {}
 
     void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
 
 private:
     COpenGLFramebuffer::hash_t m_fboHash;
-    core::smart_refctd_ptr<const COpenGLFramebuffer> m_fbo;
+    const COpenGLFramebuffer* m_fbo;
 };
 
 class COpenGLCommandPool::CBlitNamedFramebufferCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CBlitNamedFramebufferCmd>
@@ -957,6 +960,81 @@ private:
     const GLenum m_format;
     const GLenum m_type;
     const void* m_pixels;
+};
+
+class COpenGLCommandPool::CGetCompressedTextureSubImageCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CGetCompressedTextureSubImageCmd>
+{
+public:
+    CGetCompressedTextureSubImageCmd(const GLuint texture, const GLint level, const GLint xoffset, const GLint yoffset, const GLint zoffset,
+        const GLsizei width, const GLsizei height, const GLsizei depth, GLsizei bufSize, const size_t bufferOffset)
+        : m_texture(texture), m_level(level), m_xoffset(xoffset), m_yoffset(yoffset), m_zoffset(zoffset), m_width(width), m_height(height), m_depth(depth),
+        m_bufSize(bufSize), m_bufferOffset(bufferOffset)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_texture;
+    const GLint m_level;
+    const GLint m_xoffset;
+    const GLint m_yoffset;
+    const GLint m_zoffset;
+    const GLsizei m_width;
+    const GLsizei m_height;
+    const GLsizei m_depth;
+    const GLsizei m_bufSize;
+    const size_t m_bufferOffset;
+};
+
+class COpenGLCommandPool::CGetTextureSubImageCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CGetTextureSubImageCmd>
+{
+public:
+    CGetTextureSubImageCmd(const GLuint texture, const GLint level, const GLint xoffset, const GLint yoffset, const GLint zoffset,
+        const GLsizei width, const GLsizei height, const GLsizei depth, const GLenum format, const GLenum type, const GLsizei bufSize, const size_t bufferOffset)
+        : m_texture(texture), m_level(level), m_xoffset(xoffset), m_yoffset(yoffset), m_zoffset(zoffset), m_width(width), m_height(height), m_depth(depth), m_format(format),
+        m_type(type), m_bufSize(bufSize), m_bufferOffset(bufferOffset)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_texture;
+    const GLint m_level;
+    const GLint m_xoffset;
+    const GLint m_yoffset;
+    const GLint m_zoffset;
+    const GLsizei m_width;
+    const GLsizei m_height;
+    const GLsizei m_depth;
+    const GLenum m_format;
+    const GLenum m_type;
+    const GLsizei m_bufSize;
+    const size_t m_bufferOffset;
+};
+
+class COpenGLCommandPool::CReadPixelsCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CReadPixelsCmd>
+{
+public:
+    CReadPixelsCmd(const COpenGLImage* image, const uint32_t level, const uint32_t layer, const GLint x, const GLint y, const GLsizei width, const GLsizei height,
+        const GLenum format, const GLenum type, const size_t bufOffset)
+        : m_image(image), m_level(level), m_layer(layer), m_x(x), m_y(y), m_width(width), m_height(height), m_format(format), m_type(type), m_bufOffset(bufOffset)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const COpenGLImage* m_image;
+    const uint32_t m_level;
+    const uint32_t m_layer;
+
+    const GLint m_x;
+    const GLint m_y;
+    const GLsizei m_width;
+    const GLsizei m_height;
+    const GLenum m_format;
+    const GLenum m_type;
+    const size_t m_bufOffset;
+
 };
 
 }

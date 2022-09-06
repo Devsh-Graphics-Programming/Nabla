@@ -1049,7 +1049,7 @@ bool SOpenGLContextLocalCache::flushStateGraphics(const uint32_t stateBits, IGPU
             UPDATE_STATE(framebuffer.hash);
             UPDATE_STATE(framebuffer.fbo);
 
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindFramebufferCmd>(segmentListHeadItr, segmentListTail, currentState.framebuffer.hash, core::smart_refctd_ptr<const COpenGLFramebuffer>(currentState.framebuffer.fbo)))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindFramebufferCmd>(segmentListHeadItr, segmentListTail, currentState.framebuffer.hash, currentState.framebuffer.fbo.get()))
                 return false;
         }
     }

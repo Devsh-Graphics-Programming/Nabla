@@ -790,30 +790,9 @@ public:
         return true;
     }
     bool copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override;
-
-    bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
-    {
-        TODO_CMD;
-
-        if (!this->isCompatibleDevicewise(srcImage))
-            return false;
-        if (!this->isCompatibleDevicewise(dstBuffer))
-            return false;
-        SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER> cmd;
-        cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
-        cmd.srcImageLayout = srcImageLayout;
-        cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
-        cmd.regionCount = regionCount;
-        auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SBufferCopy>(regionCount, pRegions[0]);
-        if (!regions)
-            return false;
-        for (uint32_t i = 0u; i < regionCount; ++i)
-            regions[i] = pRegions[i];
-        cmd.regions = regions;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override;
     bool blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override;
+
     bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
         TODO_CMD;

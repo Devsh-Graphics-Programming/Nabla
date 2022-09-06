@@ -340,54 +340,7 @@ public:
         return true;
     }
 
-    bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override
-    {
-        if (!srcImage || (srcImage->getAPIType() != EAT_VULKAN))
-            return false;
-
-        if (!dstBuffer || (dstBuffer->getAPIType() != EAT_VULKAN))
-            return false;
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] =
-        {
-            core::smart_refctd_ptr<const image_t>(srcImage),
-            core::smart_refctd_ptr<const buffer_t>(dstBuffer)
-        };
-
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
-
-        VkImage vk_srcImage = IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject();
-        VkBuffer vk_dstBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
-
-        constexpr uint32_t MAX_REGION_COUNT = (1u << 12)/sizeof(VkBufferImageCopy);
-        VkBufferImageCopy vk_copyRegions[MAX_REGION_COUNT];
-        assert(regionCount <= MAX_REGION_COUNT);
-
-        for (uint32_t i = 0u; i < regionCount; ++i)
-        {
-            vk_copyRegions[i].bufferOffset = static_cast<VkDeviceSize>(pRegions[i].bufferOffset);
-            vk_copyRegions[i].bufferRowLength = pRegions[i].bufferRowLength;
-            vk_copyRegions[i].bufferImageHeight = pRegions[i].bufferImageHeight;
-            vk_copyRegions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].imageSubresource.aspectMask);
-            vk_copyRegions[i].imageSubresource.baseArrayLayer = pRegions[i].imageSubresource.baseArrayLayer;
-            vk_copyRegions[i].imageSubresource.layerCount = pRegions[i].imageSubresource.layerCount;
-            vk_copyRegions[i].imageSubresource.mipLevel = pRegions[i].imageSubresource.mipLevel;
-            vk_copyRegions[i].imageOffset = { static_cast<int32_t>(pRegions[i].imageOffset.x), static_cast<int32_t>(pRegions[i].imageOffset.y), static_cast<int32_t>(pRegions[i].imageOffset.z) };
-            vk_copyRegions[i].imageExtent = { pRegions[i].imageExtent.width, pRegions[i].imageExtent.height, pRegions[i].imageExtent.depth };
-        }
-        
-        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        vk->vk.vkCmdCopyImageToBuffer(
-            m_cmdbuf,
-            vk_srcImage,
-            static_cast<VkImageLayout>(srcImageLayout),
-            vk_dstBuffer,
-            regionCount,
-            vk_copyRegions);
-
-        return true;
-    }
+    bool copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override;
 
     bool blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override
     {

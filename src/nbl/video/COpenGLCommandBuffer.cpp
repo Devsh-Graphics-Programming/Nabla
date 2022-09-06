@@ -240,8 +240,6 @@ void COpenGLCommandBuffer::copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO
 
 void COpenGLCommandBuffer::copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger)
 {
-    TODO_CMD;
-
     const auto* srcImage = c.srcImage.get();
     auto* dstBuffer = c.dstBuffer.get();
     if (!srcImage->validateCopies(c.regions, c.regions + c.regionCount, dstBuffer))
@@ -1968,7 +1966,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
         m_stateCache.nextState.pixelUnpack.rowLength = it->bufferRowLength;
         m_stateCache.nextState.pixelUnpack.imgHeight = it->bufferImageHeight;
 
-        bool success;
+        bool success = true;
         if (compressed)
         {
             m_stateCache.nextState.pixelUnpack.BCwidth = blockDims[0];
@@ -1976,7 +1974,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
             m_stateCache.nextState.pixelUnpack.BCdepth = blockDims[2];
 
             if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
-                return false;
+                success = false;
 
             uint32_t imageSize = pitch;
             switch (type)
@@ -1985,7 +1983,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
             {
                 imageSize *= it->imageSubresource.layerCount;
 
-                success = m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_1D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -1995,7 +1993,8 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                     it->imageSubresource.layerCount,
                     dstImageGL->getOpenGLSizedFormat(),
                     imageSize,
-                    reinterpret_cast<const void*>(it->bufferOffset));
+                    reinterpret_cast<const void*>(it->bufferOffset)))
+                    success = false;
             } break;
 
             case IGPUImage::ET_2D:
@@ -2003,7 +2002,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                 imageSize *= (it->bufferImageHeight ? it->bufferImageHeight : it->imageExtent.height);
                 imageSize *= it->imageSubresource.layerCount;
 
-                success = m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_2D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -2015,7 +2014,8 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                     it->imageSubresource.layerCount,
                     dstImageGL->getOpenGLSizedFormat(),
                     imageSize,
-                    reinterpret_cast<const void*>(it->bufferOffset));
+                    reinterpret_cast<const void*>(it->bufferOffset)))
+                    success = false;
             } break;
 
             case IGPUImage::ET_3D:
@@ -2023,7 +2023,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                 imageSize *= (it->bufferImageHeight ? it->bufferImageHeight : it->imageExtent.height);
                 imageSize *= it->imageExtent.depth;
 
-                success = m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_3D,
                     it->imageSubresource.mipLevel,
@@ -2035,7 +2035,8 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                     it->imageExtent.depth,
                     dstImageGL->getOpenGLSizedFormat(),
                     imageSize,
-                    reinterpret_cast<const void*>(it->bufferOffset));
+                    reinterpret_cast<const void*>(it->bufferOffset)))
+                    success = false;
             } break;
 
             default:
@@ -2048,13 +2049,13 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
         else
         {
             if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
-                return false;
+                success = false;
 
             switch (type)
             {
             case IGPUImage::ET_1D:
             {
-                success = m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_1D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -2064,12 +2065,13 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                     it->imageSubresource.layerCount,
                     glfmt,
                     gltype,
-                    reinterpret_cast<const void*>(it->bufferOffset));
+                    reinterpret_cast<const void*>(it->bufferOffset)))
+                    success = false;
             } break;
 
             case IGPUImage::ET_2D:
             {
-                success = m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_2D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -2081,12 +2083,13 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                     it->imageSubresource.layerCount,
                     glfmt,
                     gltype,
-                    reinterpret_cast<const void*>(it->bufferOffset));
+                    reinterpret_cast<const void*>(it->bufferOffset)))
+                    success = false;
             } break;
 
             case IGPUImage::ET_3D:
             {
-                success = m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_3D,
                     it->imageSubresource.mipLevel,
@@ -2098,14 +2101,15 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                     it->imageExtent.depth,
                     glfmt,
                     gltype,
-                    reinterpret_cast<const void*>(it->bufferOffset));
+                    reinterpret_cast<const void*>(it->bufferOffset)))
+                    success = false;
             } break;
 
             default:
             {
                 assert(!"Invalid code path");
                 success = false;
-            }
+            } break;
             }
         }
 
@@ -2159,6 +2163,147 @@ bool COpenGLCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage
     cmd.filter = filter;
     pushCommand(std::move(cmd));
     return true;
+}
+
+bool COpenGLCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+{
+    if (!srcImage->validateCopies(pRegions, pRegions + regionCount, dstBuffer))
+        return false;
+
+    const auto params = srcImage->getCreationParameters();
+    const auto type = params.type;
+    const auto format = params.format;
+    const uint32_t fmtBytesize = nbl::asset::getTexelOrBlockBytesize(format);
+    const bool compressed = asset::isBlockCompressionFormat(format);
+    const auto* glimg = static_cast<const COpenGLImage*>(srcImage);
+    GLuint src = glimg->getOpenGLName();
+    GLenum glfmt, gltype;
+    getOpenGLFormatAndParametersFromColorFormat(m_features, format, glfmt, gltype);
+
+    const auto texelBlockInfo = asset::TexelBlockInfo(format);
+    const auto bpp = asset::getBytesPerPixel(format);
+    const auto blockDims = texelBlockInfo.getDimension();
+    const auto blockByteSize = texelBlockInfo.getBlockByteSize();
+
+    const bool usingGetTexSubImage = (m_features->Version >= 450 || m_features->FeatureAvailable[m_features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image]);
+
+    // TODO(achal): Don't need no refctd
+    m_stateCache.nextState.pixelPack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<COpenGLBuffer*>(dstBuffer));
+
+    bool anyFailed = false;
+    for (auto it = pRegions; it != pRegions + regionCount; it++)
+    {
+        if (it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+        {
+            m_logger.log("bufferOffset should be aligned to block/texel byte size.", system::ILogger::ELL_ERROR);
+            assert(false);
+            continue;
+        }
+
+        const auto imageExtent = core::vector3du32_SIMD(it->imageExtent.width, it->imageExtent.height, it->imageExtent.depth);
+        const auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
+        const auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
+        const uint32_t eachLayerNeededMemory = imageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
+
+        uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength : it->imageExtent.width) * bpp).getIntegerApprox();
+        int32_t alignment = 0x1 << core::min(core::max(core::findLSB(it->bufferOffset), core::findLSB(pitch)), 3u);
+
+        m_stateCache.nextState.pixelPack.alignment = alignment;
+        m_stateCache.nextState.pixelPack.rowLength = it->bufferRowLength;
+        m_stateCache.nextState.pixelPack.imgHeight = it->bufferImageHeight;
+
+        auto yStart = type == IGPUImage::ET_1D ? it->imageSubresource.baseArrayLayer : it->imageOffset.y;
+        auto yRange = type == IGPUImage::ET_1D ? it->imageSubresource.layerCount : it->imageExtent.height;
+        auto zStart = type == IGPUImage::ET_2D ? it->imageSubresource.baseArrayLayer : it->imageOffset.z;
+        auto zRange = type == IGPUImage::ET_2D ? it->imageSubresource.layerCount : it->imageExtent.depth;
+
+        bool success = true;
+        if (usingGetTexSubImage)
+        {
+            if (compressed)
+            {
+                m_stateCache.nextState.pixelPack.BCwidth = blockDims[0];
+                m_stateCache.nextState.pixelPack.BCheight = blockDims[1];
+                m_stateCache.nextState.pixelPack.BCdepth = blockDims[2];
+            }
+
+            if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+                success = false;
+
+            if (compressed)
+            {
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetCompressedTextureSubImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    src,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    yStart,
+                    zStart,
+                    it->imageExtent.width,
+                    yRange,
+                    zRange,
+                    dstBuffer->getSize() - it->bufferOffset,
+                    it->bufferOffset))
+                    success = false;
+            }
+            else
+            {
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetTextureSubImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    src,
+                    it->imageSubresource.mipLevel,
+                    it->imageOffset.x,
+                    yStart,
+                    zStart,
+                    it->imageExtent.width,
+                    yRange,
+                    zRange,
+                    glfmt,
+                    gltype,
+                    dstBuffer->getSize() - it->bufferOffset,
+                    it->bufferOffset))
+                    success = false;
+            }
+        }
+        else
+        {
+            success = m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features);
+
+            const size_t bytesPerLayer = eachLayerNeededMemory;
+            for (uint32_t z = 0u; z < zRange; ++z)
+            {
+                size_t bufOffset = it->bufferOffset + z * bytesPerLayer;
+                bufOffset = core::alignUp(bufOffset, alignment); // ??? am i doing it right?
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CReadPixelsCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                    glimg,
+                    it->imageSubresource.mipLevel,
+                    it->imageSubresource.baseArrayLayer + z,
+                    it->imageOffset.x,
+                    yStart,
+                    it->imageExtent.width,
+                    yRange,
+                    glfmt,
+                    gltype,
+                    bufOffset))
+                    success = false;
+            }
+        }
+
+        if (!success)
+            anyFailed = true;
+    }
+
+    SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER> cmd;
+    cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
+    cmd.srcImageLayout = srcImageLayout;
+    cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
+    cmd.regionCount = regionCount;
+    auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SBufferCopy>(regionCount, pRegions[0]);
+    if (!regions)
+        return false;
+    for (uint32_t i = 0u; i < regionCount; ++i)
+        regions[i] = pRegions[i];
+    cmd.regions = regions;
+    pushCommand(std::move(cmd));
+    return !anyFailed;
 }
 
 }

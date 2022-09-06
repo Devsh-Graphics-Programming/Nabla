@@ -5,6 +5,26 @@
 namespace nbl::video
 {
 
+static GLuint getFBOGLName(const COpenGLImage* image, const uint32_t level, const uint32_t layer, SQueueLocalCache& queueCache, IOpenGL_FunctionTable* gl)
+{
+    auto hash = COpenGLFramebuffer::getHashColorImage(image, level, layer);
+
+    GLuint GLName;
+    auto found = queueCache.fboCache.get(hash);
+    if (found)
+    {
+        GLName = *found;
+    }
+    else
+    {
+        GLName = COpenGLFramebuffer::getNameColorImage(gl, image, level, layer);
+        if (GLName)
+            queueCache.fboCache.insert(hash, GLName);
+    }
+
+    return GLName;
+};
+
 void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint GLname = 0u;
@@ -30,31 +50,11 @@ void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* 
 
 void COpenGLCommandPool::CBlitNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
-    auto getFBOGLName = [&queueCache, gl](const COpenGLImage* image, const uint32_t level, const uint32_t layer) -> GLuint
-    {
-        auto hash = COpenGLFramebuffer::getHashColorImage(image, level, layer);
-
-        GLuint GLName;
-        auto found = queueCache.fboCache.get(hash);
-        if (found)
-        {
-            GLName = *found;
-        }
-        else
-        {
-            GLName = COpenGLFramebuffer::getNameColorImage(gl, image, level, layer);
-            if (GLName)
-                queueCache.fboCache.insert(hash, GLName);
-        }
-
-        return GLName;
-    };
-
-    GLuint srcfbo = getFBOGLName(m_srcImage, m_srcLevel, m_srcLayer);
+    GLuint srcfbo = getFBOGLName(m_srcImage, m_srcLevel, m_srcLayer, queueCache, gl);
     if (!srcfbo)
         return; // TODO(achal): Log warning?
 
-    GLuint dstfbo = getFBOGLName(m_dstImage, m_dstLevel, m_dstLayer);
+    GLuint dstfbo = getFBOGLName(m_dstImage, m_dstLevel, m_dstLayer, queueCache, gl);
     if (!dstfbo)
         return; // TODO(achal): Log warning?
 
@@ -495,6 +495,35 @@ void COpenGLCommandPool::CTextureSubImage2DCmd::operator()(IOpenGL_FunctionTable
 void COpenGLCommandPool::CTextureSubImage3DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlTextureSubImage3D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_format, m_type, m_pixels);
+}
+
+void COpenGLCommandPool::CGetCompressedTextureSubImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->glTexture.pglGetCompressedTextureSubImage(m_texture, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_bufSize, reinterpret_cast<void*>(m_bufferOffset));
+}
+
+void COpenGLCommandPool::CGetTextureSubImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->glTexture.pglGetTextureSubImage(m_texture, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_format, m_type, m_bufSize, reinterpret_cast<void*>(m_bufferOffset));
+}
+
+void COpenGLCommandPool::CReadPixelsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl);
+
+    if (!fbo)
+    {
+        logger.log("Couldn't retrieve attachment to download image to.", system::ILogger::ELL_ERROR);
+        return;
+    }
+
+    GLint prevReadFB = 0;
+    gl->glGeneral.pglGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prevReadFB);
+    {
+        gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+        gl->glTexture.pglReadPixels(m_x, m_y, m_width, m_height, m_format, m_type, reinterpret_cast<void*>(m_bufOffset));
+    }
+    gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
 }
 
 }
