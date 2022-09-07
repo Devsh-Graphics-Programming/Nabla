@@ -29,9 +29,10 @@ struct SPhysicalDeviceLimits
     uint32_t maxPushConstantsSize = 0u;
     uint32_t maxMemoryAllocationCount = 0u;
     uint32_t maxSamplerAllocationCount = 0u;
-    size_t bufferImageGranularity = 0ull;
-    //size_t          sparseAddressSpaceSize;         // [TODO LATER] when we support sparse
-    //uint32_t              maxBoundDescriptorSets;         // [DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently
+    //! granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation
+    size_t bufferImageGranularity = 0x1ull << 63u;
+    //size_t            sparseAddressSpaceSize;         // [TODO LATER] when we support sparse
+    //uint32_t          maxBoundDescriptorSets;         // [DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently
 
     uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxPerStageDescriptorUBOs = 0u;
@@ -82,12 +83,12 @@ struct SPhysicalDeviceLimits
     uint8_t  maxSamplerAnisotropyLog2 = 0u;
     uint32_t maxViewports = 0u;
     uint32_t maxViewportDims[2] = {};
-    float    viewportBoundsRange[2]; // [min, max]
+    float    viewportBoundsRange[2] = { 0.0f, 0.0f};
     uint32_t viewportSubPixelBits = 0u;
-    size_t   minMemoryMapAlignment = 0ull;
-    uint32_t bufferViewAlignment = 0u;
-    uint32_t minUBOAlignment = 0u;
-    uint32_t minSSBOAlignment = 0u;
+    size_t   minMemoryMapAlignment = 0x1ull << 63u;
+    uint32_t bufferViewAlignment = 0x1u << 31u;
+    uint32_t minUBOAlignment = 0x1u << 31u;
+    uint32_t minSSBOAlignment = 0x1u << 31u;
     int32_t  minTexelOffset = 0;
     uint32_t maxTexelOffset = 0u;
     int32_t  minTexelGatherOffset = 0;
@@ -115,14 +116,14 @@ struct SPhysicalDeviceLimits
     uint32_t maxCullDistances = 0u;
     uint32_t maxCombinedClipAndCullDistances = 0u;
     uint32_t discreteQueuePriorities = 0u;
-    float pointSizeRange[2];
-    float lineWidthRange[2];
-    float pointSizeGranularity = 0.f;
-    float lineWidthGranularity = 0.f;
+    float pointSizeRange[2] = { std::numeric_limits<float>::max(), 0.0f};
+    float lineWidthRange[2] = { std::numeric_limits<float>::max(), 0.0f};
+    float pointSizeGranularity = 1.f;
+    float lineWidthGranularity = 1.f;
     bool strictLines = false;
     bool standardSampleLocations = false;
-    uint64_t optimalBufferCopyOffsetAlignment = 0ull;
-    uint64_t optimalBufferCopyRowPitchAlignment = 0ull;
+    uint64_t optimalBufferCopyOffsetAlignment = 0x1ull << 63u;
+    uint64_t optimalBufferCopyRowPitchAlignment = 0x1ull << 63u;
     uint64_t nonCoherentAtomSize = 0ull;
 
     /* VkPhysicalDeviceSparseProperties */ 
@@ -218,7 +219,7 @@ struct SPhysicalDeviceLimits
     /* Vulkan 1.3 Core  */
     
     //      or VK_EXT_subgroup_size_control:
-    uint32_t                                        minSubgroupSize = 0u;
+    uint32_t                                        minSubgroupSize = ~0u;
     uint32_t                                        maxSubgroupSize = 0u;
     uint32_t                                        maxComputeWorkgroupSubgroups = 0u;
     core::bitflag<asset::IShader::E_SHADER_STAGE>   requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(0u);
@@ -227,9 +228,9 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxInlineUniformTotalSize;
     
     // or VK_EXT_texel_buffer_alignment:
-    size_t storageTexelBufferOffsetAlignmentBytes = 0ull;
+    size_t storageTexelBufferOffsetAlignmentBytes = 0x1ull << 63u;
     //bool              storageTexelBufferOffsetSingleTexelAlignment;
-    size_t uniformTexelBufferOffsetAlignmentBytes = 0ull;
+    size_t uniformTexelBufferOffsetAlignmentBytes = 0x1ull << 63u;
     //bool              uniformTexelBufferOffsetSingleTexelAlignment;
     
     size_t maxBufferSize = 0ull; // or VK_KHR_maintenance4
@@ -242,7 +243,7 @@ struct SPhysicalDeviceLimits
     /* ConservativeRasterizationPropertiesEXT *//* provided by VK_EXT_conservative_rasterization */
     float   primitiveOverestimationSize = 0.0f;
     float   maxExtraPrimitiveOverestimationSize = 0.0f;
-    float   extraPrimitiveOverestimationSizeGranularity = 0.0f;
+    float   extraPrimitiveOverestimationSizeGranularity = 1.0f;
     bool    primitiveUnderestimation = false;
     bool    conservativePointAndLineRasterization = false;
     bool    degenerateTrianglesRasterized = false;
@@ -304,28 +305,28 @@ struct SPhysicalDeviceLimits
     uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures = 0u;
     uint32_t           maxDescriptorSetAccelerationStructures = 0u;
     uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures = 0u;
-    uint32_t           minAccelerationStructureScratchOffsetAlignment = 0u;
+    uint32_t           minAccelerationStructureScratchOffsetAlignment = 0x1u << 31u;
 
     /* SampleLocationsPropertiesEXT *//* provided by VK_EXT_sample_locations */
-    bool variableSampleLocations = false;
+    bool            variableSampleLocations = false;
     uint32_t        sampleLocationSubPixelBits = 0;
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     VkExtent2D      maxSampleLocationGridSize = { 0u, 0u };
-    float           sampleLocationCoordinateRange[2];
+    float           sampleLocationCoordinateRange[2] = {1.f, 0.f};
 
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
     size_t minImportedHostPointerAlignment = 0x1ull << 63u;
     
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
-    VkExtent2D         minFragmentDensityTexelSize = {0u, 0u};
-    VkExtent2D         maxFragmentDensityTexelSize = {0u, 0u};
-    bool           fragmentDensityInvocations = false;
+    VkExtent2D          minFragmentDensityTexelSize = {~0u, ~0u};
+    VkExtent2D          maxFragmentDensityTexelSize = {0u, 0u};
+    bool                fragmentDensityInvocations = false;
     
     /* FragmentDensityMap2PropertiesEXT *//* provided by VK_EXT_fragment_density_map2 */
-    bool           subsampledLoads = false;
-    bool           subsampledCoarseReconstructionEarlyAccess = false;
-    uint32_t           maxSubsampledArrayLayers = 0u;
-    uint32_t           maxDescriptorSetSubsampledSamplers = 0u;
+    bool                subsampledLoads = false;
+    bool                subsampledCoarseReconstructionEarlyAccess = false;
+    uint32_t            maxSubsampledArrayLayers = 0u;
+    uint32_t            maxDescriptorSetSubsampledSamplers = 0u;
 
     /* PCIBusInfoPropertiesEXT *//* provided by VK_EXT_pci_bus_info */
     uint32_t  pciDomain = ~0u;
@@ -337,10 +338,9 @@ struct SPhysicalDeviceLimits
     uint32_t           shaderGroupHandleSize = 0u;
     uint32_t           maxRayRecursionDepth = 0u;
     uint32_t           maxShaderGroupStride = 0u;
-    uint32_t           shaderGroupBaseAlignment = 0u;
-    uint32_t           shaderGroupHandleCaptureReplaySize = 0u;
+    uint32_t           shaderGroupBaseAlignment = 0x1u << 31u;
     uint32_t           maxRayDispatchInvocationCount = 0u;
-    uint32_t           shaderGroupHandleAlignment = 0u;
+    uint32_t           shaderGroupHandleAlignment = 0x1u << 31u;
     uint32_t           maxRayHitAttributeSize = 0u;
 
     /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
@@ -687,19 +687,15 @@ struct SPhysicalDeviceLimits
         if (maxViewports > _rhs.maxViewports) return false;
         if (maxViewportDims[0] > _rhs.maxViewportDims[0]) return false;
         if (maxViewportDims[1] > _rhs.maxViewportDims[1]) return false;
-        if (viewportBoundsRange[0] > _rhs.viewportBoundsRange[0]) return false;
-        if (viewportBoundsRange[1] > _rhs.viewportBoundsRange[1]) return false;
+        if (viewportBoundsRange[0] < _rhs.viewportBoundsRange[0] || viewportBoundsRange[1] > _rhs.viewportBoundsRange[1]) return false;
         if (viewportSubPixelBits > _rhs.viewportSubPixelBits) return false;
         if (minMemoryMapAlignment < _rhs.minMemoryMapAlignment) return false;
         if (bufferViewAlignment < _rhs.bufferViewAlignment) return false;
         if (minUBOAlignment < _rhs.minUBOAlignment) return false;
         if (minSSBOAlignment < _rhs.minSSBOAlignment) return false;
-        if (minTexelOffset < _rhs.minTexelOffset) return false;
-        if (maxTexelOffset > _rhs.maxTexelOffset) return false;
-        if (minTexelGatherOffset < _rhs.minTexelGatherOffset) return false;
-        if (maxTexelGatherOffset > _rhs.maxTexelGatherOffset) return false;
-        if (minInterpolationOffset < _rhs.minInterpolationOffset) return false;
-        if (maxInterpolationOffset > _rhs.maxInterpolationOffset) return false;
+        if (minTexelOffset < _rhs.minTexelOffset || maxTexelOffset > _rhs.maxTexelOffset) return false;
+        if (minTexelGatherOffset < _rhs.minTexelGatherOffset || maxTexelGatherOffset > _rhs.maxTexelGatherOffset) return false;
+        if (minInterpolationOffset < _rhs.minInterpolationOffset || maxInterpolationOffset > _rhs.maxInterpolationOffset) return false;
         if (maxFramebufferWidth > _rhs.maxFramebufferWidth) return false;
         if (maxFramebufferHeight > _rhs.maxFramebufferHeight) return false;
         if (maxFramebufferLayers > _rhs.maxFramebufferLayers) return false;
@@ -783,9 +779,7 @@ struct SPhysicalDeviceLimits
         if (filterMinmaxSingleComponentFormats && !_rhs.filterMinmaxSingleComponentFormats) return false;
         if (filterMinmaxImageComponentMapping && !_rhs.filterMinmaxImageComponentMapping) return false;
         
-        // TODO revise how to implement < for min/maxSubgroupSize
-        if (minSubgroupSize < _rhs.minSubgroupSize) return false;
-        if (maxSubgroupSize > _rhs.maxSubgroupSize) return false;
+        if (minSubgroupSize < _rhs.minSubgroupSize || maxSubgroupSize > _rhs.maxSubgroupSize) return false;
 
         if (maxComputeWorkgroupSubgroups > _rhs.maxComputeWorkgroupSubgroups) return false;
         if (!_rhs.requiredSubgroupSizeStages.hasFlags(requiredSubgroupSizeStages)) return false;
@@ -870,7 +864,6 @@ struct SPhysicalDeviceLimits
         if (maxRayRecursionDepth > _rhs.maxRayRecursionDepth) return false;
         if (maxShaderGroupStride > _rhs.maxShaderGroupStride) return false;
         if (shaderGroupBaseAlignment < _rhs.shaderGroupBaseAlignment) return false;
-        if (shaderGroupHandleCaptureReplaySize > _rhs.shaderGroupHandleCaptureReplaySize) return false;
         if (maxRayDispatchInvocationCount > _rhs.maxRayDispatchInvocationCount) return false;
         if (shaderGroupHandleAlignment < _rhs.shaderGroupHandleAlignment) return false;
         if (maxRayHitAttributeSize > _rhs.maxRayHitAttributeSize) return false;
