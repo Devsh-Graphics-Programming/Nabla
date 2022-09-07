@@ -272,11 +272,12 @@ public:
                 if (potentiallyContinueToNextSegment)
                 {
                     CCommandSegment* nextSegment = currSegment->getNext();
-                    if (!nextSegment)
-                        break;
 
                     currSegment->~CCommandSegment();
                     m_commandSegmentPool.deallocate(currSegment, COMMAND_SEGMENT_SIZE);
+
+                    if (!nextSegment)
+                        break;
 
                     itr.m_segment = nextSegment;
                     itr.m_cmd = itr.m_segment->getFirstCommand();

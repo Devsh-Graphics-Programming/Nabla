@@ -13,7 +13,7 @@
 #include "nbl/video/IQueryPool.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
-#define NEW_WAY
+// #define NEW_WAY
 
 #ifdef NEW_WAY
 #define TODO_CMD __debugbreak()
