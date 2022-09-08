@@ -1042,7 +1042,7 @@ public:
         return false;
     }
 
-    bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout_, uint32_t firstSet_, uint32_t descriptorSetCount_,
+    bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout_, uint32_t firstSet_, const uint32_t descriptorSetCount_,
         const descriptor_set_t* const* const descriptorSets_, const uint32_t dynamicOffsetCount_ = 0u, const uint32_t* dynamicOffsets_ = nullptr) override;
 
     bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override;
