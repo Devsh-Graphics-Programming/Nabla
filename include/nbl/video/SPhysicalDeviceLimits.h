@@ -30,7 +30,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxMemoryAllocationCount = 0u;
     uint32_t maxSamplerAllocationCount = 0u;
     //! granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation
-    size_t bufferImageGranularity = 0x1ull << 63u;
+    size_t bufferImageGranularity = std::numeric_limits<size_t>::max();
     //size_t            sparseAddressSpaceSize;         // [TODO LATER] when we support sparse
     //uint32_t          maxBoundDescriptorSets;         // [DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently
 
@@ -85,7 +85,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxViewportDims[2] = {};
     float    viewportBoundsRange[2] = { 0.0f, 0.0f};
     uint32_t viewportSubPixelBits = 0u;
-    size_t   minMemoryMapAlignment = 0x1ull << 63u;
+    size_t   minMemoryMapAlignment = std::numeric_limits<size_t>::max();
     uint32_t bufferViewAlignment = 0x1u << 31u;
     uint32_t minUBOAlignment = 0x1u << 31u;
     uint32_t minSSBOAlignment = 0x1u << 31u;
@@ -122,8 +122,8 @@ struct SPhysicalDeviceLimits
     float lineWidthGranularity = 1.f;
     bool strictLines = false;
     bool standardSampleLocations = false;
-    uint64_t optimalBufferCopyOffsetAlignment = 0x1ull << 63u;
-    uint64_t optimalBufferCopyRowPitchAlignment = 0x1ull << 63u;
+    uint64_t optimalBufferCopyOffsetAlignment = std::numeric_limits<size_t>::max();
+    uint64_t optimalBufferCopyRowPitchAlignment = std::numeric_limits<size_t>::max();
     uint64_t nonCoherentAtomSize = 0ull;
 
     /* VkPhysicalDeviceSparseProperties */ 
@@ -228,9 +228,9 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxInlineUniformTotalSize;
     
     // or VK_EXT_texel_buffer_alignment:
-    size_t storageTexelBufferOffsetAlignmentBytes = 0x1ull << 63u;
+    size_t storageTexelBufferOffsetAlignmentBytes = std::numeric_limits<size_t>::max();
     //bool              storageTexelBufferOffsetSingleTexelAlignment;
-    size_t uniformTexelBufferOffsetAlignmentBytes = 0x1ull << 63u;
+    size_t uniformTexelBufferOffsetAlignmentBytes = std::numeric_limits<size_t>::max();
     //bool              uniformTexelBufferOffsetSingleTexelAlignment;
     
     size_t maxBufferSize = 0ull; // or VK_KHR_maintenance4
@@ -315,7 +315,7 @@ struct SPhysicalDeviceLimits
     float           sampleLocationCoordinateRange[2] = {1.f, 0.f};
 
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
-    size_t minImportedHostPointerAlignment = 0x1ull << 63u;
+    size_t minImportedHostPointerAlignment = std::numeric_limits<size_t>::max();
     
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
     VkExtent2D          minFragmentDensityTexelSize = {~0u, ~0u};
@@ -551,6 +551,7 @@ struct SPhysicalDeviceLimits
     bool shaderImageGatherExtended = false;
     bool shaderInt64 = false;
     bool shaderInt16 = false;
+    bool samplerAnisotropy = false;
 
     // Core 1.1 Features or VK_KHR_16bit_storage */
     bool storageBuffer16BitAccess = false;
@@ -910,6 +911,7 @@ struct SPhysicalDeviceLimits
         if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
         if (shaderInt64 && !_rhs.shaderInt64) return false;
         if (shaderInt16 && !_rhs.shaderInt16) return false;
+        if (samplerAnisotropy && !_rhs.samplerAnisotropy) return false;
         if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;

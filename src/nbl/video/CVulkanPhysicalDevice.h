@@ -650,7 +650,6 @@ public:
             m_features.largePoints = features.largePoints;
             m_features.alphaToOne = features.alphaToOne;
             m_features.multiViewport = features.multiViewport;
-            m_features.samplerAnisotropy = features.samplerAnisotropy;
             m_features.occlusionQueryPrecise = features.occlusionQueryPrecise;
             m_features.pipelineStatisticsQuery = features.pipelineStatisticsQuery;
             m_features.shaderStorageImageExtendedFormats = features.shaderStorageImageExtendedFormats;
@@ -1080,6 +1079,7 @@ public:
             m_properties.limits.shaderImageGatherExtended = features.shaderImageGatherExtended;
             m_properties.limits.shaderInt64 = features.shaderInt64;
             m_properties.limits.shaderInt16 = features.shaderInt16;
+            m_properties.limits.samplerAnisotropy = features.samplerAnisotropy;
             
             m_properties.limits.storageBuffer16BitAccess = vulkan11Features.storageBuffer16BitAccess;
             m_properties.limits.uniformAndStorageBuffer16BitAccess = vulkan11Features.uniformAndStorageBuffer16BitAccess;
@@ -1529,8 +1529,15 @@ protected:
             vk_deviceFeatures2.features.shaderImageGatherExtended = m_properties.limits.shaderImageGatherExtended;
             vk_deviceFeatures2.features.shaderInt64 = m_properties.limits.shaderInt64;
             vk_deviceFeatures2.features.shaderInt16 = m_properties.limits.shaderInt16;
+            vk_deviceFeatures2.features.samplerAnisotropy = m_properties.limits.samplerAnisotropy;
 
-            if (insertExtensionIfAvailable(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
+            if(useVk12Struct)
+            {
+                vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
+                vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
+                vulkan12Features.storagePushConstant8                = m_properties.limits.storagePushConstant8;
+            }
+            else if (insertExtensionIfAvailable(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
             {
                 // All Requirements Exist in Vulkan 1.1 
                 _8BitStorageFeaturesKHR.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
@@ -1539,15 +1546,25 @@ protected:
                 addFeatureToChain(&_8BitStorageFeaturesKHR);
             }
             
-            if (insertExtensionIfAvailable(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
+            if(useVk12Struct)
+            {
+                vulkan12Features.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
+                vulkan12Features.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
+            }
+            else if (insertExtensionIfAvailable(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
             {
                 // All Requirements Exist in Vulkan 1.1 
                 shaderAtomicInt64FeaturesKHR.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
                 shaderAtomicInt64FeaturesKHR.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
                 addFeatureToChain(&shaderAtomicInt64FeaturesKHR);
             }
-
-            if (insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
+            
+            if(useVk12Struct)
+            {
+                vulkan12Features.shaderFloat16 = m_properties.limits.shaderFloat16;
+                vulkan12Features.shaderInt8 = m_properties.limits.shaderInt8;
+            }
+            else if (insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
             {
                 // All Requirements Exist in Vulkan 1.1 
                 shaderFloat16Int8Features.shaderFloat16 = m_properties.limits.shaderFloat16;
@@ -1639,7 +1656,6 @@ protected:
         vk_deviceFeatures2.features.largePoints = enabledFeatures.largePoints;
         vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
         vk_deviceFeatures2.features.multiViewport = enabledFeatures.multiViewport;
-        vk_deviceFeatures2.features.samplerAnisotropy = enabledFeatures.samplerAnisotropy;
         vk_deviceFeatures2.features.occlusionQueryPrecise = enabledFeatures.occlusionQueryPrecise;
         vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
         vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = enabledFeatures.shaderStorageImageExtendedFormats;

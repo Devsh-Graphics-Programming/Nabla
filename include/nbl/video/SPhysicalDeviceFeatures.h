@@ -96,7 +96,6 @@ struct SPhysicalDeviceFeatures
     bool largePoints = false;
     bool alphaToOne = false;
     bool multiViewport = false;
-    bool samplerAnisotropy = false;
 
     // [DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool    textureCompressionETC2;
@@ -1084,7 +1083,6 @@ struct SPhysicalDeviceFeatures
         if (largePoints && !_rhs.largePoints) return false;
         if (alphaToOne && !_rhs.alphaToOne) return false;
         if (multiViewport && !_rhs.multiViewport) return false;
-        if (samplerAnisotropy && !_rhs.samplerAnisotropy) return false;
         if (occlusionQueryPrecise && !_rhs.occlusionQueryPrecise) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
         if (shaderStorageImageExtendedFormats && !_rhs.shaderStorageImageExtendedFormats) return false;

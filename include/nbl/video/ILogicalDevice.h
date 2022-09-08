@@ -84,6 +84,8 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
         inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
+        inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
+
         E_API_TYPE getAPIType() const;
 
         //

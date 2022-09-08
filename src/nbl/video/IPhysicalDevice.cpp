@@ -321,6 +321,7 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_properties.limits.shaderImageGatherExtended) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_IMAGE_GATHER_EXTENDED");
     if (m_properties.limits.shaderInt64) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT64");
     if (m_properties.limits.shaderInt16) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT16");
+    if (m_properties.limits.samplerAnisotropy) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_SAMPLER_ANISOTROPY");
     if (m_properties.limits.storageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_BUFFER_16BIT_ACCESS");
     if (m_properties.limits.uniformAndStorageBuffer16BitAccess) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
     if (m_properties.limits.storagePushConstant16) addGLSLDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_16");
@@ -353,7 +354,6 @@ void IPhysicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool 
     if (m_features.largePoints) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_LARGE_POINTS");
     if (m_features.alphaToOne) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_ALPHA_TO_ONE");
     if (m_features.multiViewport) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_MULTI_VIEWPORT");
-    if (m_features.samplerAnisotropy) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_ANISOTROPY");
     if (m_features.occlusionQueryPrecise) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_OCCLUSION_QUERY_PRECISE");
     // if (m_features.pipelineStatisticsQuery) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_STATISTICS_QUERY"); // shader doesn't need to know about
     if (m_features.shaderStorageImageExtendedFormats) addGLSLDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_EXTENDED_FORMATS");

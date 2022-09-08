@@ -622,7 +622,7 @@ public:
 				GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
 				if(maxAnisotropy)
 				{
-					m_features.samplerAnisotropy = true;
+					m_properties.limits.samplerAnisotropy = true;
 					m_properties.limits.maxSamplerAnisotropyLog2 = core::findMSB(static_cast<uint32_t>(maxAnisotropy));
 				}
 			}
