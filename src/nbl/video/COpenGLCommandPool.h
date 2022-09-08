@@ -129,6 +129,11 @@ public:
     class CGetCompressedTextureSubImageCmd;
     class CGetTextureSubImageCmd;
     class CReadPixelsCmd;
+    class CMultiDrawElementsIndirectCmd;
+    class CMultiDrawElementsIndirectCountCmd;
+
+    // This doesn't directly correspond to a GL call
+    class CExecuteCommandsCmd;
 
 private:
     std::mutex mutex;
@@ -1035,6 +1040,52 @@ private:
     const GLenum m_type;
     const size_t m_bufOffset;
 
+};
+
+class COpenGLCommandPool::CMultiDrawElementsIndirectCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMultiDrawElementsIndirectCmd>
+{
+public:
+    CMultiDrawElementsIndirectCmd(const GLenum mode, const GLenum type, const GLuint64 indirect, const GLsizei drawcount, const GLsizei stride)
+        : m_mode(mode), m_type(type), m_indirect(indirect), m_drawcount(drawcount), m_stride(stride)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_mode;
+    const GLenum m_type;
+    const GLuint64 m_indirect;
+    const GLsizei m_drawcount;
+    const GLsizei m_stride;
+};
+
+class COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMultiDrawElementsIndirectCountCmd>
+{
+public:
+    CMultiDrawElementsIndirectCountCmd(const GLenum mode, const GLenum type, const GLuint64 indirect, const GLintptr drawcount, const GLsizei stride)
+        : m_mode(mode), m_type(type), m_indirect(indirect), m_drawcount(drawcount), m_stride(stride)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_mode;
+    const GLenum m_type;
+    const GLuint64 m_indirect;
+    const GLintptr m_drawcount;
+    const GLsizei m_stride;
+};
+
+class COpenGLCommandPool::CExecuteCommandsCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CExecuteCommandsCmd>
+{
+public:
+    CExecuteCommandsCmd(const uint32_t count, IGPUCommandBuffer* const* const commandBuffers) : m_count(count), m_commandBuffers(commandBuffers) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const uint32_t m_count;
+    IGPUCommandBuffer* const* const m_commandBuffers;
 };
 
 }

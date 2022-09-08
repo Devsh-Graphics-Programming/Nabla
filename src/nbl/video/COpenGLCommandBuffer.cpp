@@ -2291,4 +2291,71 @@ bool COpenGLCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
     return !anyFailed;
 }
 
+bool COpenGLCommandBuffer::drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
+{
+    {
+        if (drawCount == 0u)
+            return false;
+
+        m_stateCache.nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(buffer));
+        m_stateCache.nextState.vertexInputParams.parameterBuf = nullptr;
+
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+            return false;
+
+        GLenum idxType = GL_INVALID_ENUM;
+        switch (m_stateCache.currentState.vertexInputParams.vaoval.idxType)
+        {
+        case asset::EIT_16BIT:
+            idxType = GL_UNSIGNED_SHORT;
+            break;
+        case asset::EIT_32BIT:
+            idxType = GL_UNSIGNED_INT;
+            break;
+        default:
+            assert(!"Invalid code path.");
+            break;
+        }
+
+        const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
+        GLenum glpt = getGLprimitiveType(primType);
+
+        if (m_stateCache.currentState.vertexInputParams.parameterBuf)
+        {
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, idxType, (GLuint64)offset, drawCount, stride))
+                return false;
+        }
+        else
+        {
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawElementsIndirectCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, idxType, (GLuint64)offset, drawCount, stride))
+                return false;
+        }
+    }
+
+    SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
+    cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
+    cmd.offset = offset;
+    cmd.countBuffer = nullptr;
+    cmd.countBufferOffset = 0xdeadbeefBADC0FFEull;
+    cmd.maxDrawCount = drawCount;
+    cmd.stride = stride;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::executeCommands_impl(uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
+{
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CExecuteCommandsCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, count, cmdbufs))
+        return false;
+
+    for (uint32_t i = 0u; i < count; ++i)
+    {
+        SCmd<impl::ECT_EXECUTE_COMMANDS> cmd;
+        cmd.cmdbuf = core::smart_refctd_ptr<IGPUCommandBuffer>(cmdbufs[i]);
+
+        pushCommand(std::move(cmd));
+    }
+    return true;
+}
+
 }

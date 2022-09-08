@@ -11,6 +11,7 @@
 
 namespace nbl::video
 {
+class IGPUCommandBuffer;
 
 class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
@@ -184,6 +185,7 @@ public:
     class CCopyBufferToImageCmd;
     class CBlitImageCmd;
     class CCopyImageToBufferCmd;
+    class CExecuteCommandsCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -569,6 +571,14 @@ private:
     core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
+class IGPUCommandPool::CExecuteCommandsCmd : public IGPUCommandPool::IFixedSizeCommand<CExecuteCommandsCmd>
+{
+public:
+    CExecuteCommandsCmd(core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const IGPUCommandBuffer>>&& commandBuffers) : m_commandBuffers(std::move(commandBuffers)) {}
+
+private:
+    core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const IGPUCommandBuffer>> m_commandBuffers;
+};
 }
 
 

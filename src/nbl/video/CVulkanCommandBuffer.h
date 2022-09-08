@@ -48,7 +48,7 @@ public:
         VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
         if (inheritanceInfo)
         {
-            // TODO(achal): Remove
+            // TODO(achal): We don't have a command structure to insert into the backend agnostic tape, which will hold the references to these resources.
             core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = { inheritanceInfo->renderpass, inheritanceInfo->framebuffer };
 
             vk_inheritanceInfo.pNext = nullptr;
@@ -142,14 +142,8 @@ public:
             stride);
     }
 
-    void drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    bool drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[1] = {
-            core::smart_refctd_ptr<const IGPUBuffer>(buffer) };
-
-        // TODO(achal): Remove.
-        saveReferencesToResources(tmp, tmp + 1);
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndexedIndirect(
             m_cmdbuf,
@@ -157,17 +151,11 @@ public:
             static_cast<VkDeviceSize>(offset),
             drawCount,
             stride);
+        return true;
     }
 
     void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUBuffer>(buffer),
-            core::smart_refctd_ptr<const IGPUBuffer>(countBuffer) };
-
-        // TODO(achal): Remove.
-        saveReferencesToResources(tmp, tmp + 2);
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndirectCount(
             m_cmdbuf,
@@ -181,13 +169,6 @@ public:
 
     void drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUBuffer>(buffer),
-            core::smart_refctd_ptr<const IGPUBuffer>(countBuffer) };
-
-        // TODO(achal): Remove.
-        saveReferencesToResources(tmp, tmp + 2);
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndexedIndirectCount(
             m_cmdbuf,
@@ -1081,26 +1062,15 @@ public:
         return true;
     }
 
-    bool executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs) override
+    bool executeCommands_impl(uint32_t count, cmdbuf_t* const* const cmdbufs) override
     {
         constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = (1ull << 12)/sizeof(void*);
         assert(count <= MAX_COMMAND_BUFFER_COUNT);
 
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[MAX_COMMAND_BUFFER_COUNT] = {};
         VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
 
         for (uint32_t i = 0u; i < count; ++i)
-        {
-            if (!cmdbufs[i] || cmdbufs[i]->getAPIType() != EAT_VULKAN || cmdbufs[i]->getLevel() != EL_SECONDARY)
-                return false;
-
-            tmp[i] = core::smart_refctd_ptr<const IGPUCommandBuffer>(cmdbufs[i]);
-
             vk_commandBuffers[i] = IBackendObject::compatibility_cast<const CVulkanCommandBuffer*>(cmdbufs[i], this)->getInternalObject();
-        }
-
-        if (!saveReferencesToResources(tmp, tmp + count))
-            return false;
 
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdExecuteCommands(m_cmdbuf, count, vk_commandBuffers);

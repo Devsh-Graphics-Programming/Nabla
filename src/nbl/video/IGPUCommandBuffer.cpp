@@ -508,4 +508,25 @@ bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage
     return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs)
+{
+    for (uint32_t i = 0u; i < count; ++i)
+    {
+        if (!cmdbufs[i] || (cmdbufs[i]->getLevel() != EL_SECONDARY))
+            return false;
+
+        if (!this->isCompatibleDevicewise(cmdbufs[i]))
+            return false;
+    }
+
+    auto commandBuffers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const IGPUCommandBuffer>>>(count);
+    for (auto i = 0; i < commandBuffers->size(); ++i)
+        commandBuffers->begin()[i] = core::smart_refctd_ptr<const IGPUCommandBuffer>(cmdbufs[i]);
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_segmentListHeadItr, m_segmentListTail, std::move(commandBuffers)))
+        return false;
+
+    return executeCommands_impl(count, cmdbufs);
+}
+
 }

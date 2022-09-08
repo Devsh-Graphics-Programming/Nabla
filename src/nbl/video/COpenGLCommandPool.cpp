@@ -526,4 +526,22 @@ void COpenGLCommandPool::CReadPixelsCmd::operator()(IOpenGL_FunctionTable* gl, S
     gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
 }
 
+void COpenGLCommandPool::CMultiDrawElementsIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
+    gl->extGlMultiDrawElementsIndirect(m_mode, m_type, reinterpret_cast<void*>(m_indirect), m_drawcount, m_stride);
+}
+
+void COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
+    gl->extGlMultiDrawElementsIndirectCount(m_mode, m_type, reinterpret_cast<void*>(m_indirect), 0xdeadbeefBADC0FFEull, m_drawcount, m_stride);
+}
+
+void COpenGLCommandPool::CExecuteCommandsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    for (auto i = 0; i < m_count; ++i)
+        static_cast<const COpenGLCommandBuffer*>(m_commandBuffers[i])->executeAll(gl, queueCache, nullptr, ctxid);
+}
+
 }

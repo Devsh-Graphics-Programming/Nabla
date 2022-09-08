@@ -307,15 +307,7 @@ public:
     virtual bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) { return false; }
     virtual bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) { return false; }
 
-    virtual bool executeCommands(uint32_t count, cmdbuf_t*const *const cmdbufs)
-    {
-        for (uint32_t i = 0u; i < count; ++i)
-        {
-            if (cmdbufs[i]->getLevel() != EL_SECONDARY)
-                return false;
-        }
-        return true;
-    }
+    virtual bool executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs) = 0;
 
     virtual bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) = 0;
 
