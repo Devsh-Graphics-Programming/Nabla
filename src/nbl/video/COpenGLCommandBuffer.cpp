@@ -1976,12 +1976,16 @@ bool COpenGLCommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, 
     return true;
 }
 
-bool COpenGLCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
+bool COpenGLCommandBuffer::dispatchIndirect_impl(const buffer_t* buffer, size_t offset)
 {
-    TODO_CMD;
+    m_stateCache.nextState.dispatchIndirect.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(buffer));
 
-    if (!this->isCompatibleDevicewise(buffer))
+    if (!m_stateCache.flushStateCompute(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, m_features))
         return false;
+
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeIndirectCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<GLintptr>(offset)))
+        return false;
+
     SCmd<impl::ECT_DISPATCH_INDIRECT> cmd;
     cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
     cmd.offset = offset;
@@ -2001,6 +2005,53 @@ bool COpenGLCommandBuffer::dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY
     cmd.groupCountX = groupCountX;
     cmd.groupCountY = groupCountY;
     cmd.groupCountZ = groupCountZ;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::setEvent(event_t* event, const SDependencyInfo& depInfo)
+{
+    //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
+    // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
+
+    if (!this->isCompatibleDevicewise(event))
+        return false;
+    SCmd<impl::ECT_SET_EVENT> cmd;
+    cmd.event = core::smart_refctd_ptr<event_t>(event);
+    cmd.barrierBits = barriersToMemBarrierBits(SOpenGLBarrierHelper(m_features), depInfo.memBarrierCount, depInfo.memBarriers, depInfo.bufBarrierCount, depInfo.bufBarriers, depInfo.imgBarrierCount, depInfo.imgBarriers);
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask)
+{
+    // currently no-op
+
+    if (!this->isCompatibleDevicewise(event))
+        return false;
+    SCmd<impl::ECT_RESET_EVENT> cmd;
+    cmd.event = core::smart_refctd_ptr<event_t>(event);
+    cmd.stageMask = stageMask;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos)
+{
+    TODO_CMD;
+
+    if (eventCount == 0u)
+        return false;
+    for (uint32_t i = 0u; i < eventCount; ++i)
+        if (!this->isCompatibleDevicewise(pEvents[i]))
+            return false;
+    SCmd<impl::ECT_WAIT_EVENTS> cmd;
+    cmd.barrier = 0;
+    for (uint32_t i = 0u; i < eventCount; ++i)
+    {
+        auto& dep = depInfos[i];
+        cmd.barrier |= barriersToMemBarrierBits(SOpenGLBarrierHelper(m_features), dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
+    }
     pushCommand(std::move(cmd));
     return true;
 }

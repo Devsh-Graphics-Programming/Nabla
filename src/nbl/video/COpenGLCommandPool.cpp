@@ -249,6 +249,11 @@ void COpenGLCommandPool::CDispatchComputeCmd::operator()(IOpenGL_FunctionTable* 
     gl->glCompute.pglDispatchCompute(m_numGroupsX, m_numGroupsY, m_numGroupsZ);
 }
 
+void COpenGLCommandPool::CDispatchComputeIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->glCompute.pglDispatchComputeIndirect(m_indirect);
+}
+
 void COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     const auto* pcState = queueLocalCache.pushConstantsState<asset::EPBP_COMPUTE>();

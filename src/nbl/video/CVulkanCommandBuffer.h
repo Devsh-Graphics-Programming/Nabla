@@ -498,11 +498,8 @@ public:
         return true;
     }
 
-    bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
+    bool dispatchIndirect_impl(const buffer_t* buffer, size_t offset) override
     {
-        if (!buffer || buffer->getAPIType() != EAT_VULKAN)
-            return false;
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDispatchIndirect(
             m_cmdbuf,

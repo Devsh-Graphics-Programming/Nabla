@@ -73,6 +73,7 @@ struct SOpenGLState
     } pipeline;
 
     struct {
+        // TODO(achal): Don't need no refctd no more
         core::smart_refctd_ptr<const COpenGLBuffer> buffer;
     } dispatchIndirect;
 

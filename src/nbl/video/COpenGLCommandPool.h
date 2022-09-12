@@ -92,6 +92,7 @@ public:
     class CMemoryBarrierCmd;
     class CBindPipelineComputeCmd;
     class CDispatchComputeCmd;
+    class CDispatchComputeIndirectCmd;
 
     // These does not correspond to a GL call
     class CSetUniformsImitatingPushConstantsComputeCmd; 
@@ -500,6 +501,17 @@ private:
     const GLuint m_numGroupsX;
     const GLuint m_numGroupsY;
     const GLuint m_numGroupsZ;
+};
+
+class COpenGLCommandPool::CDispatchComputeIndirectCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CDispatchComputeIndirectCmd>
+{
+public:
+    CDispatchComputeIndirectCmd(const GLintptr indirect) : m_indirect(indirect) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLintptr m_indirect;
 };
 
 class COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CSetUniformsImitatingPushConstantsComputeCmd>

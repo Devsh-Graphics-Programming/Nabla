@@ -374,6 +374,20 @@ bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindin
     return true;
 }
 
+bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
+{
+    if (!buffer || buffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(buffer))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CDispatchIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+        return false;
+
+    return dispatchIndirect_impl(buffer, offset);
+}
+
 bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
 {
     if (meshBuffer && !meshBuffer->getInstanceCount())

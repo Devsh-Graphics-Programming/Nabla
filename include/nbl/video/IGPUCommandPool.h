@@ -186,6 +186,7 @@ public:
     class CBlitImageCmd;
     class CCopyImageToBufferCmd;
     class CExecuteCommandsCmd;
+    class CDispatchIndirectCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -579,6 +580,16 @@ public:
 private:
     core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const IGPUCommandBuffer>> m_commandBuffers;
 };
+
+class IGPUCommandPool::CDispatchIndirectCmd : public IGPUCommandPool::IFixedSizeCommand<CDispatchIndirectCmd>
+{
+public:
+    CDispatchIndirectCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+};
+
 }
 
 
