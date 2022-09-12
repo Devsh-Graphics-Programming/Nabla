@@ -647,74 +647,10 @@ public:
     bool drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override;
     bool drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override;
 
-    bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
-    {
-        if (viewportCount == 0u)
-            return false;
-
-        if (firstViewport >= SOpenGLState::MAX_VIEWPORT_COUNT)
-            return false;
-
-        uint32_t count = std::min(viewportCount, SOpenGLState::MAX_VIEWPORT_COUNT);
-        if (firstViewport + count > SOpenGLState::MAX_VIEWPORT_COUNT)
-            count = SOpenGLState::MAX_VIEWPORT_COUNT - firstViewport;
-
-        uint32_t first = firstViewport;
-        for (uint32_t i = 0u; i < count; ++i)
-        {
-            auto& vp = m_stateCache.nextState.rasterParams.viewport[first + i];
-            auto& vpd = m_stateCache.nextState.rasterParams.viewport_depth[first + i];
-
-            vp.x = pViewports[i].x;
-            vp.y = pViewports[i].y;
-            vp.width = pViewports[i].width;
-            vp.height = pViewports[i].height;
-            vpd.minDepth = pViewports[i].minDepth;
-            vpd.maxDepth = pViewports[i].maxDepth;
-        }
-
-        SCmd<impl::ECT_SET_VIEWPORT> cmd;
-        cmd.firstViewport = firstViewport;
-        cmd.viewportCount = viewportCount;
-        auto* viewports = getGLCommandPool()->emplace_n<asset::SViewport>(cmd.viewportCount, pViewports[0]);
-        if (!viewports)
-            return false;
-        for (uint32_t i = 0u; i < viewportCount; ++i)
-            viewports[i] = pViewports[i];
-        cmd.viewports = viewports;
-        pushCommand(std::move(cmd));
-
-        return true;
-    }
-
-    bool setLineWidth(float lineWidth) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_SET_LINE_WIDTH> cmd;
-        cmd.lineWidth = lineWidth;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_SET_DEPTH_BIAS> cmd;
-        cmd.depthBiasConstantFactor;
-        cmd.depthBiasClamp = depthBiasClamp;
-        cmd.depthBiasSlopeFactor = depthBiasSlopeFactor;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-
-    bool setBlendConstants(const float blendConstants[4]) override
-    {
-        SCmd<impl::ECT_SET_BLEND_CONSTANTS> cmd;
-        memcpy(cmd.blendConstants, blendConstants, 4*sizeof(float));
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override;
+    bool setLineWidth(float lineWidth) override;
+    bool setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) override;
+    bool setBlendConstants(const float blendConstants[4]) override;
 
     bool copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override;
     
@@ -769,101 +705,15 @@ public:
 
     void bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets) override;
 
-    bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override
-    {
-        // TODO ?
+    bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override;
+    bool setDepthBounds(float minDepthBounds, float maxDepthBounds) override;
+    bool setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override;
+    bool setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override;
+    bool setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override;
 
-        SCmd<impl::ECT_SET_SCISSORS> cmd;
-        cmd.firstScissor = firstScissor;
-        cmd.scissorCount = scissorCount;
-        auto* scissors = getGLCommandPool()->emplace_n<VkRect2D>(scissorCount, pScissors[0]);
-        if (!scissors)
-            return false;
-        for (uint32_t i = 0u; i < scissorCount; ++i)
-            scissors[i] = pScissors[i];
-        cmd.scissors = scissors;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool setDepthBounds(float minDepthBounds, float maxDepthBounds) override
-    {
-        SCmd<impl::ECT_SET_DEPTH_BOUNDS> cmd;
-        cmd.minDepthBounds = minDepthBounds;
-        cmd.maxDepthBounds = maxDepthBounds;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_SET_STENCIL_COMPARE_MASK> cmd;
-        cmd.faceMask = faceMask;
-        cmd.cmpMask = compareMask;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_SET_STENCIL_WRITE_MASK> cmd;
-        cmd.faceMask = faceMask;
-        cmd.writeMask = writeMask;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_SET_STENCIL_REFERENCE> cmd;
-        cmd.faceMask = faceMask;
-        cmd.reference = reference;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-
-    bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
-    {
-        if (!m_stateCache.flushStateCompute(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, m_features))
-            return false;
-
-        if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, groupCountX, groupCountY, groupCountZ))
-            return false;
-
-        SCmd<impl::ECT_DISPATCH> cmd;
-        cmd.groupCountX = groupCountX;
-        cmd.groupCountY = groupCountY;
-        cmd.groupCountZ = groupCountZ;
-        pushCommand(std::move(cmd));
-
-        return true;
-    }
-    bool dispatchIndirect(const buffer_t* buffer, size_t offset) override
-    {
-        TODO_CMD;
-
-        if (!this->isCompatibleDevicewise(buffer))
-            return false;
-        SCmd<impl::ECT_DISPATCH_INDIRECT> cmd;
-        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
-        cmd.offset = offset;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override
-    {
-        SCmd<impl::ECT_DISPATCH_BASE> cmd;
-        cmd.baseGroupX = baseGroupX;
-        cmd.baseGroupY = baseGroupY;
-        cmd.baseGroupZ = baseGroupZ;
-        cmd.groupCountX = groupCountX;
-        cmd.groupCountY = groupCountY;
-        cmd.groupCountZ = groupCountZ;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override;
+    bool dispatchIndirect(const buffer_t* buffer, size_t offset) override;
+    bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override;
 
     bool setEvent(event_t* event, const SDependencyInfo& depInfo) override
     {

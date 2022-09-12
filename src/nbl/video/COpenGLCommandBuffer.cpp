@@ -1889,6 +1889,122 @@ void COpenGLCommandBuffer::bindVertexBuffers_impl(uint32_t firstBinding, uint32_
     pushCommand(std::move(cmd));
 }
 
+bool COpenGLCommandBuffer::setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors)
+{
+    // TODO ?
+
+    SCmd<impl::ECT_SET_SCISSORS> cmd;
+    cmd.firstScissor = firstScissor;
+    cmd.scissorCount = scissorCount;
+    auto* scissors = getGLCommandPool()->emplace_n<VkRect2D>(scissorCount, pScissors[0]);
+    if (!scissors)
+        return false;
+    for (uint32_t i = 0u; i < scissorCount; ++i)
+        scissors[i] = pScissors[i];
+    cmd.scissors = scissors;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::setDepthBounds(float minDepthBounds, float maxDepthBounds)
+{
+    // TODO ?
+
+    SCmd<impl::ECT_SET_DEPTH_BOUNDS> cmd;
+    cmd.minDepthBounds = minDepthBounds;
+    cmd.maxDepthBounds = maxDepthBounds;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask)
+{
+    if (faceMask & asset::ESFF_FRONT_BIT)
+        m_stateCache.nextState.rasterParams.stencilFunc_front.mask = compareMask;
+    if (faceMask & asset::ESFF_BACK_BIT)
+        m_stateCache.nextState.rasterParams.stencilFunc_back.mask = compareMask;
+
+    SCmd<impl::ECT_SET_STENCIL_COMPARE_MASK> cmd;
+    cmd.faceMask = faceMask;
+    cmd.cmpMask = compareMask;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask)
+{
+    if (faceMask & asset::ESFF_FRONT_BIT)
+        m_stateCache.nextState.rasterParams.stencilWriteMask_front = writeMask;
+    if (faceMask & asset::ESFF_BACK_BIT)
+        m_stateCache.nextState.rasterParams.stencilWriteMask_back = writeMask;
+
+    SCmd<impl::ECT_SET_STENCIL_WRITE_MASK> cmd;
+    cmd.faceMask = faceMask;
+    cmd.writeMask = writeMask;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference)
+{
+    if (faceMask & asset::ESFF_FRONT_BIT)
+        m_stateCache.nextState.rasterParams.stencilFunc_front.ref = reference;
+    if (faceMask & asset::ESFF_BACK_BIT)
+        m_stateCache.nextState.rasterParams.stencilFunc_back.ref = reference;
+
+    SCmd<impl::ECT_SET_STENCIL_REFERENCE> cmd;
+    cmd.faceMask = faceMask;
+    cmd.reference = reference;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
+{
+    if (!m_stateCache.flushStateCompute(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, m_features))
+        return false;
+
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, groupCountX, groupCountY, groupCountZ))
+        return false;
+
+    SCmd<impl::ECT_DISPATCH> cmd;
+    cmd.groupCountX = groupCountX;
+    cmd.groupCountY = groupCountY;
+    cmd.groupCountZ = groupCountZ;
+    pushCommand(std::move(cmd));
+
+    return true;
+}
+
+bool COpenGLCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
+{
+    TODO_CMD;
+
+    if (!this->isCompatibleDevicewise(buffer))
+        return false;
+    SCmd<impl::ECT_DISPATCH_INDIRECT> cmd;
+    cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
+    cmd.offset = offset;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
+{
+    // no such thing in opengl (easy to emulate tho)
+    // maybe spirv-cross emits some uniforms for this?
+
+    SCmd<impl::ECT_DISPATCH_BASE> cmd;
+    cmd.baseGroupX = baseGroupX;
+    cmd.baseGroupY = baseGroupY;
+    cmd.baseGroupZ = baseGroupZ;
+    cmd.groupCountX = groupCountX;
+    cmd.groupCountY = groupCountY;
+    cmd.groupCountZ = groupCountZ;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
 bool COpenGLCommandBuffer::copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions)
 {
     GLuint readb = static_cast<const COpenGLBuffer*>(srcBuffer)->getOpenGLName();
@@ -2422,6 +2538,80 @@ bool COpenGLCommandBuffer::drawIndexedIndirectCount_impl(const buffer_t* buffer,
     return true;
 }
 
+bool COpenGLCommandBuffer::setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports)
+{
+    if (viewportCount == 0u)
+        return false;
+
+    if (firstViewport >= SOpenGLState::MAX_VIEWPORT_COUNT)
+        return false;
+
+    uint32_t count = std::min(viewportCount, SOpenGLState::MAX_VIEWPORT_COUNT);
+    if (firstViewport + count > SOpenGLState::MAX_VIEWPORT_COUNT)
+        count = SOpenGLState::MAX_VIEWPORT_COUNT - firstViewport;
+
+    uint32_t first = firstViewport;
+    for (uint32_t i = 0u; i < count; ++i)
+    {
+        auto& vp = m_stateCache.nextState.rasterParams.viewport[first + i];
+        auto& vpd = m_stateCache.nextState.rasterParams.viewport_depth[first + i];
+
+        vp.x = pViewports[i].x;
+        vp.y = pViewports[i].y;
+        vp.width = pViewports[i].width;
+        vp.height = pViewports[i].height;
+        vpd.minDepth = pViewports[i].minDepth;
+        vpd.maxDepth = pViewports[i].maxDepth;
+    }
+
+    SCmd<impl::ECT_SET_VIEWPORT> cmd;
+    cmd.firstViewport = firstViewport;
+    cmd.viewportCount = viewportCount;
+    auto* viewports = getGLCommandPool()->emplace_n<asset::SViewport>(cmd.viewportCount, pViewports[0]);
+    if (!viewports)
+        return false;
+    for (uint32_t i = 0u; i < viewportCount; ++i)
+        viewports[i] = pViewports[i];
+    cmd.viewports = viewports;
+    pushCommand(std::move(cmd));
+
+    return true;
+}
+
+bool COpenGLCommandBuffer::setLineWidth(float lineWidth)
+{
+    m_stateCache.nextState.rasterParams.lineWidth = lineWidth;
+
+    SCmd<impl::ECT_SET_LINE_WIDTH> cmd;
+    cmd.lineWidth = lineWidth;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor)
+{
+    // TODO what about c.depthBiasClamp
+    m_stateCache.nextState.rasterParams.polygonOffset.factor = depthBiasSlopeFactor;
+    m_stateCache.nextState.rasterParams.polygonOffset.units = depthBiasConstantFactor;
+
+    SCmd<impl::ECT_SET_DEPTH_BIAS> cmd;
+    cmd.depthBiasConstantFactor;
+    cmd.depthBiasClamp = depthBiasClamp;
+    cmd.depthBiasSlopeFactor = depthBiasSlopeFactor;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::setBlendConstants(const float blendConstants[4])
+{
+    // TODO, cant see such thing in opengl
+
+    SCmd<impl::ECT_SET_BLEND_CONSTANTS> cmd;
+    memcpy(cmd.blendConstants, blendConstants, 4 * sizeof(float));
+    pushCommand(std::move(cmd));
+    return true;
+}
+
 bool COpenGLCommandBuffer::executeCommands_impl(uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
     if (!m_cmdpool->emplace<COpenGLCommandPool::CExecuteCommandsCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, count, cmdbufs))
@@ -2436,5 +2626,7 @@ bool COpenGLCommandBuffer::executeCommands_impl(uint32_t count, IGPUCommandBuffe
     }
     return true;
 }
+
+
 
 }
