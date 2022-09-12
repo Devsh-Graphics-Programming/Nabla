@@ -169,6 +169,7 @@ struct SOpenGLState
         SVAO vaoval;
 
         //putting it here because idk where else
+        // TODO(achal): Don't need no refctd no more
         core::smart_refctd_ptr<const COpenGLBuffer> indirectDrawBuf;
         core::smart_refctd_ptr<const COpenGLBuffer> parameterBuf;//GL>=4.6
     } vertexInputParams;
@@ -178,6 +179,7 @@ struct SOpenGLState
     } descriptorsParams[asset::E_PIPELINE_BIND_POINT::EPBP_COUNT];
 
     struct SPixelPackUnpack {
+        // TODO(achal): Don't need no refctd no more
         core::smart_refctd_ptr<const COpenGLBuffer> buffer;
         GLint alignment = 4;
         GLint rowLength = 0;

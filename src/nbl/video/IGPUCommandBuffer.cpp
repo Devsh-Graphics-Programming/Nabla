@@ -101,12 +101,13 @@ bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint
     if (!buffer || (buffer->getAPIType() != getAPIType()))
         return false;
 
+    if (drawCount == 0u)
+        return false;
+
     if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
         return false;
 
-    drawIndirect_impl(buffer, offset, drawCount, stride);
-
-    return true;
+    return drawIndirect_impl(buffer, offset, drawCount, stride);
 }
 
 bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)

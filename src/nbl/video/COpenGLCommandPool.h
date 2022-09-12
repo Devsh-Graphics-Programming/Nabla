@@ -135,6 +135,9 @@ public:
     // This doesn't directly correspond to a GL call
     class CExecuteCommandsCmd;
 
+    class CMultiDrawArraysIndirectCountCmd;
+    class CMultiDrawArraysIndirectCmd;
+
 private:
     std::mutex mutex;
     core::CMemoryPool<core::GeneralpurposeAddressAllocator<uint32_t>,core::default_aligned_allocator,false,uint32_t> mempool;
@@ -1086,6 +1089,38 @@ public:
 private:
     const uint32_t m_count;
     IGPUCommandBuffer* const* const m_commandBuffers;
+};
+
+class COpenGLCommandPool::CMultiDrawArraysIndirectCountCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMultiDrawArraysIndirectCountCmd>
+{
+public:
+    CMultiDrawArraysIndirectCountCmd(const GLenum mode, const GLuint64 indirect, const GLintptr drawcount, const GLsizei stride)
+        : m_mode(mode), m_indirect(indirect), m_drawcount(drawcount), m_stride(stride)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_mode;
+    const GLuint64 m_indirect;
+    const GLintptr m_drawcount;
+    const GLsizei m_stride;
+};
+
+class COpenGLCommandPool::CMultiDrawArraysIndirectCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMultiDrawArraysIndirectCmd>
+{
+public:
+    CMultiDrawArraysIndirectCmd(const GLenum mode, const GLuint64 indirect, const GLintptr drawcount, const GLsizei stride)
+        : m_mode(mode), m_indirect(indirect), m_drawcount(drawcount), m_stride(stride)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLenum m_mode;
+    const GLuint64 m_indirect;
+    const GLintptr m_drawcount;
+    const GLsizei m_stride;
 };
 
 }

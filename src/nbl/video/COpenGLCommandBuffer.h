@@ -642,20 +642,7 @@ public:
         pushCommand(std::move(cmd));
         return true;
     }
-    void drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_DRAW_INDIRECT> cmd;
-        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
-        cmd.offset = offset;
-        cmd.countBuffer = nullptr;
-        cmd.countBufferOffset = 0xdeadbeefBADC0FFEull;
-        cmd.maxDrawCount = drawCount;
-        cmd.stride = stride;
-        pushCommand(std::move(cmd));
-    }
-
+    bool drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override;
     bool drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override;
 
     void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override

@@ -131,7 +131,7 @@ public:
         return true;
     }
 
-    void drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
+    bool drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndirect(
@@ -140,6 +140,7 @@ public:
             static_cast<VkDeviceSize>(offset),
             drawCount,
             stride);
+        return true;
     }
 
     bool drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override
