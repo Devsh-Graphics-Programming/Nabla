@@ -5,7 +5,7 @@
 
 namespace nbl::video
 {
-    struct SDefaultPhysicalDeviceFilter
+    struct SPhysicalDeviceFilter
     {
         IPhysicalDevice::APIVersion                     minApiVersion = {0u, 0u, 0u};
         core::bitflag<IPhysicalDevice::E_TYPE>          deviceTypeMask = core::bitflag<IPhysicalDevice::E_TYPE>(0xffu);
@@ -19,8 +19,8 @@ namespace nbl::video
 
         struct MemoryRequirement
         {
-            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryFlags = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
             size_t size = 0ull;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryFlags = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
         };
         MemoryRequirement* memoryRequirements = nullptr;
         uint32_t memoryRequirementsCount = 0u;
@@ -116,6 +116,26 @@ namespace nbl::video
                 }
             }
 
+            // Memory Requirements Checking:
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> heapFlags[VK_MAX_MEMORY_HEAPS] = {};
+            for (uint32_t h = 0; h < memoryProps.memoryHeapCount; ++h)
+            {
+                heapFlags[h] = IDeviceMemoryAllocation::EMPF_NONE;
+                for (uint32_t p = 0; p < memoryProps.memoryTypeCount; ++p)
+                    if(memoryProps.memoryTypes[p].heapIndex == h)
+                        heapFlags[h] |= memoryProps.memoryTypes[p].propertyFlags;
+            }
+            // over-estimation, Not exact 
+            // TODO: Exact or Better Logic -> try find a feasible fitting of requirements into heaps.
+            for (uint32_t m = 0; m < memoryRequirementsCount; ++m)
+            {
+                size_t memSize = memoryRequirements[m].size;
+                for (uint32_t h = 0; h < memoryProps.memoryHeapCount; ++h)
+                    if(heapFlags[h].hasFlags(memoryRequirements[m].memoryFlags))
+                        memSize = (memoryProps.memoryHeaps[h].size > memSize) ? 0ull : memSize - memoryProps.memoryHeaps[h].size;
+                if (memSize > 0)
+                    return false;
+            }
             return true;
         }
     };
