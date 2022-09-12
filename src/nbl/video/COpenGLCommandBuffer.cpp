@@ -2036,20 +2036,23 @@ bool COpenGLCommandBuffer::resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FL
     return true;
 }
 
-bool COpenGLCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos)
+bool COpenGLCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo)
 {
-    TODO_CMD;
-
-    if (eventCount == 0u)
-        return false;
+    GLbitfield barrier = 0;
     for (uint32_t i = 0u; i < eventCount; ++i)
-        if (!this->isCompatibleDevicewise(pEvents[i]))
-            return false;
+    {
+        auto& dep = depInfo[i];
+        barrier |= barriersToMemBarrierBits(SOpenGLBarrierHelper(m_features), dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
+    }
+
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CMemoryBarrierCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, barrier))
+        return false;
+
     SCmd<impl::ECT_WAIT_EVENTS> cmd;
     cmd.barrier = 0;
     for (uint32_t i = 0u; i < eventCount; ++i)
     {
-        auto& dep = depInfos[i];
+        auto& dep = depInfo[i];
         cmd.barrier |= barriersToMemBarrierBits(SOpenGLBarrierHelper(m_features), dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
     }
     pushCommand(std::move(cmd));

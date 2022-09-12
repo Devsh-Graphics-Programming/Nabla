@@ -388,6 +388,36 @@ bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
     return dispatchIndirect_impl(buffer, offset);
 }
 
+bool IGPUCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo)
+{
+    if (eventCount == 0u)
+        return false;
+
+    for (uint32_t i = 0u; i < eventCount; ++i)
+    {
+        if (!pEvents[i] || !this->isCompatibleDevicewise(pEvents[i]))
+            return false;
+    }
+
+    constexpr uint32_t MaxBarrierCount = 100u;
+    assert(depInfo->memBarrierCount <= MaxBarrierCount);
+    assert(depInfo->bufBarrierCount <= MaxBarrierCount);
+    assert(depInfo->imgBarrierCount <= MaxBarrierCount);
+
+    const IGPUBuffer* buffers_raw[MaxBarrierCount];
+    for (auto i = 0; i < depInfo->bufBarrierCount; ++i)
+        buffers_raw[i] = depInfo->bufBarriers[i].buffer.get();
+
+    const IGPUImage* images_raw[MaxBarrierCount];
+    for (auto i = 0; i < depInfo->imgBarrierCount; ++i)
+        images_raw[i] = depInfo->imgBarriers[i].image.get();
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CWaitEventsCmd>(m_segmentListHeadItr, m_segmentListTail, depInfo->bufBarrierCount, buffers_raw, depInfo->imgBarrierCount, images_raw, eventCount, pEvents))
+        return false;
+
+    return waitEvents_impl(eventCount, pEvents, depInfo);
+}
+
 bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
 {
     if (meshBuffer && !meshBuffer->getInstanceCount())

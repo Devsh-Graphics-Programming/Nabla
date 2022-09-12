@@ -187,6 +187,7 @@ public:
     class CCopyImageToBufferCmd;
     class CExecuteCommandsCmd;
     class CDispatchIndirectCmd;
+    class CWaitEventsCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -588,6 +589,42 @@ public:
 
 private:
     core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+};
+
+class IGPUCommandPool::CWaitEventsCmd : public IGPUCommandPool::ICommand
+{
+public:
+    CWaitEventsCmd(const uint32_t bufferCount, const IGPUBuffer *const *const buffers, const uint32_t imageCount, const IGPUImage *const *const images, const uint32_t eventCount, IGPUEvent *const *const events)
+        : ICommand(calc_size(bufferCount, buffers, imageCount, images, eventCount, events)), m_resourceCount(bufferCount + imageCount + eventCount)
+    {
+        m_resources = new (this + sizeof(CWaitEventsCmd)) core::smart_refctd_ptr<const IReferenceCounted>[m_resourceCount];
+
+        uint32_t k = 0u;
+        for (auto i = 0; i < bufferCount; ++i)
+            m_resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(buffers[i]);
+
+        for (auto i = 0; i < imageCount; ++i)
+            m_resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(images[i]);
+
+        for (auto i = 0; i < eventCount; ++i)
+            m_resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(events[i]);
+    }
+
+    ~CWaitEventsCmd()
+    {
+        for (auto i = 0; i < m_resourceCount; ++i)
+            m_resources->~smart_refctd_ptr();
+    }
+
+    static uint32_t calc_size(const uint32_t bufferCount, const IGPUBuffer *const *const, const uint32_t imageCount, const IGPUImage *const *const, const uint32_t eventCount, IGPUEvent *const *const)
+    {
+        const uint32_t resourceCount = bufferCount + imageCount + eventCount;
+        return core::alignUp(sizeof(CWaitEventsCmd) + resourceCount * sizeof(void*), alignof(ICommand));
+    }
+
+private:
+    const uint32_t m_resourceCount;
+    core::smart_refctd_ptr<const IReferenceCounted>* m_resources;
 };
 
 }

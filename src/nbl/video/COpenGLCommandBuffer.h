@@ -715,7 +715,7 @@ public:
 
     bool setEvent(event_t* event, const SDependencyInfo& depInfo) override;
     bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override;
-    bool waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos);
+    bool waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos);
 
     bool pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
