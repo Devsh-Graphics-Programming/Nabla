@@ -115,6 +115,9 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offse
     if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
+    if (drawCount == 0u)
+        return false;
+
     if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer)))
         return false;
 
@@ -131,12 +134,13 @@ bool IGPUCommandBuffer::drawIndirectCount(const buffer_t* buffer, size_t offset,
     if (!countBuffer || countBuffer->getAPIType() != getAPIType())
         return false;
 
+    if (maxDrawCount == 0u)
+        return false;
+
     if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
         return false;
 
-    drawIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
-
-    return true;
+    return drawIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
 }
 
 bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
@@ -147,13 +151,13 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t 
     if (!countBuffer || countBuffer->getAPIType() != getAPIType())
         return false;
 
+    if (maxDrawCount == 0u)
+        return false;
+
     if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
         return false;
 
-    drawIndexedIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
-
-    return true;
-}
+    return drawIndexedIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);}
 
 bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content)
 {

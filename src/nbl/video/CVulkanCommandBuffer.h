@@ -155,7 +155,7 @@ public:
         return true;
     }
 
-    void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    bool drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndirectCount(
@@ -166,9 +166,10 @@ public:
             static_cast<VkDeviceSize>(countBufferOffset),
             maxDrawCount,
             stride);
+        return true;
     }
 
-    void drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
+    bool drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdDrawIndexedIndirectCount(
@@ -179,6 +180,7 @@ public:
             static_cast<VkDeviceSize>(countBufferOffset),
             maxDrawCount,
             stride);
+        return true;
     }
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override

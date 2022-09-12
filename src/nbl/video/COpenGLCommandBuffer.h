@@ -644,33 +644,8 @@ public:
     }
     bool drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override;
     bool drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override;
-
-    void drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_DRAW_INDIRECT> cmd;
-        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
-        cmd.offset = offset;
-        cmd.countBuffer = core::smart_refctd_ptr<const buffer_t>(countBuffer);
-        cmd.countBufferOffset = countBufferOffset;
-        cmd.maxDrawCount = maxDrawCount;
-        cmd.stride = stride;
-        pushCommand(std::move(cmd));
-    }
-    void drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override
-    {
-        TODO_CMD;
-
-        SCmd<impl::ECT_DRAW_INDEXED_INDIRECT> cmd;
-        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
-        cmd.offset = offset;
-        cmd.countBuffer = core::smart_refctd_ptr<const buffer_t>(countBuffer);
-        cmd.countBufferOffset = countBufferOffset;
-        cmd.maxDrawCount = maxDrawCount;
-        cmd.stride = stride;
-        pushCommand(std::move(cmd));
-    }
+    bool drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override;
+    bool drawIndexedIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override;
 
     bool setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports) override
     {

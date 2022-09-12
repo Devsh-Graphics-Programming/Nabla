@@ -535,7 +535,7 @@ void COpenGLCommandPool::CMultiDrawElementsIndirectCmd::operator()(IOpenGL_Funct
 void COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
-    gl->extGlMultiDrawElementsIndirectCount(m_mode, m_type, reinterpret_cast<void*>(m_indirect), 0xdeadbeefBADC0FFEull, m_drawcount, m_stride);
+    gl->extGlMultiDrawElementsIndirectCount(m_mode, m_type, reinterpret_cast<void*>(m_indirect), m_drawcount, m_maxdrawcount, m_stride);
 }
 
 void COpenGLCommandPool::CExecuteCommandsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
@@ -547,7 +547,7 @@ void COpenGLCommandPool::CExecuteCommandsCmd::operator()(IOpenGL_FunctionTable* 
 void COpenGLCommandPool::CMultiDrawArraysIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
-    gl->extGlMultiDrawArraysIndirectCount(m_mode, reinterpret_cast<void*>(m_indirect), 0xdeadbeefBADC0FFEull, m_drawcount, m_stride);
+    gl->extGlMultiDrawArraysIndirectCount(m_mode, reinterpret_cast<void*>(m_indirect), m_drawcount, m_maxdrawcount, m_stride);
 }
 
 void COpenGLCommandPool::CMultiDrawArraysIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)

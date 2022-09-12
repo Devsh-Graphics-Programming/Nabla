@@ -1065,17 +1065,18 @@ private:
 class COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMultiDrawElementsIndirectCountCmd>
 {
 public:
-    CMultiDrawElementsIndirectCountCmd(const GLenum mode, const GLenum type, const GLuint64 indirect, const GLintptr drawcount, const GLsizei stride)
-        : m_mode(mode), m_type(type), m_indirect(indirect), m_drawcount(drawcount), m_stride(stride)
+    CMultiDrawElementsIndirectCountCmd(const GLenum mode, const GLenum type, const GLuint64 indirect, const GLintptr drawcount, const GLsizei maxdrawcount, const GLsizei stride)
+        : m_mode(mode), m_type(type), m_indirect(indirect), m_drawcount(drawcount), m_maxdrawcount(maxdrawcount), m_stride(stride)
     {}
 
     void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
-
+    
 private:
     const GLenum m_mode;
     const GLenum m_type;
     const GLuint64 m_indirect;
     const GLintptr m_drawcount;
+    const GLsizei m_maxdrawcount;
     const GLsizei m_stride;
 };
 
@@ -1094,8 +1095,8 @@ private:
 class COpenGLCommandPool::CMultiDrawArraysIndirectCountCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CMultiDrawArraysIndirectCountCmd>
 {
 public:
-    CMultiDrawArraysIndirectCountCmd(const GLenum mode, const GLuint64 indirect, const GLintptr drawcount, const GLsizei stride)
-        : m_mode(mode), m_indirect(indirect), m_drawcount(drawcount), m_stride(stride)
+    CMultiDrawArraysIndirectCountCmd(const GLenum mode, const GLuint64 indirect, const GLintptr drawcount, const GLsizei maxdrawcount, const GLsizei stride)
+        : m_mode(mode), m_indirect(indirect), m_drawcount(drawcount), m_maxdrawcount(maxdrawcount), m_stride(stride)
     {}
 
     void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
@@ -1104,6 +1105,7 @@ private:
     const GLenum m_mode;
     const GLuint64 m_indirect;
     const GLintptr m_drawcount;
+    const GLsizei m_maxdrawcount;
     const GLsizei m_stride;
 };
 
