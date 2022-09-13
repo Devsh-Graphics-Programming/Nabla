@@ -1,5 +1,5 @@
-#ifndef __NBL_VIDEO_S_DEFAULT_PHYSICAL_DEVICE_FILTER_H_INCLUDED__
-#define __NBL_VIDEO_S_DEFAULT_PHYSICAL_DEVICE_FILTER_H_INCLUDED__
+#ifndef __NBL_VIDEO_S_PHYSICAL_DEVICE_FILTER_H_INCLUDED__
+#define __NBL_VIDEO_S_PHYSICAL_DEVICE_FILTER_H_INCLUDED__
 
 #include "nbl/video/IPhysicalDevice.h"
 
@@ -25,8 +25,7 @@ namespace nbl::video
         MemoryRequirement* memoryRequirements = nullptr;
         uint32_t memoryRequirementsCount = 0u;
         
-        /*
-        struct QueuesRequirement
+        struct QueueRequirement
         {
             core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> requiredFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
             core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> disallowedFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
@@ -34,7 +33,8 @@ namespace nbl::video
             // family's transfer granularity needs to be <=
             asset::VkExtent3D maxImageTransferGranularity = {0x80000000u,0x80000000u,0x80000000u};
         };
-        */
+        QueueRequirement* queueRequirements = nullptr;
+        uint32_t queueRequirementsCount = 0u;
 
         // To determine whether a queue family of a physical device supports presentation to a given surface
         //  See vkGetPhysicalDeviceSurfaceSupportKHR
@@ -122,7 +122,7 @@ namespace nbl::video
             {
                 heapFlags[h] = IDeviceMemoryAllocation::EMPF_NONE;
                 for (uint32_t p = 0; p < memoryProps.memoryTypeCount; ++p)
-                    if(memoryProps.memoryTypes[p].heapIndex == h)
+                    if (memoryProps.memoryTypes[p].heapIndex == h)
                         heapFlags[h] |= memoryProps.memoryTypes[p].propertyFlags;
             }
             // over-estimation, Not exact 
@@ -131,11 +131,45 @@ namespace nbl::video
             {
                 size_t memSize = memoryRequirements[m].size;
                 for (uint32_t h = 0; h < memoryProps.memoryHeapCount; ++h)
-                    if(heapFlags[h].hasFlags(memoryRequirements[m].memoryFlags))
+                    if (heapFlags[h].hasFlags(memoryRequirements[m].memoryFlags))
                         memSize = (memoryProps.memoryHeaps[h].size > memSize) ? 0ull : memSize - memoryProps.memoryHeaps[h].size;
                 if (memSize > 0)
                     return false;
             }
+            
+            // Queue Requirements Checking:
+            // over-estimation, Not exact 
+            // TODO: Exact or Better Logic -> try find a feasible fitting of requirements into queue families.
+            for (uint32_t q = 0; q < queueRequirementsCount; ++q)
+            {
+                const auto& queueReqs = queueRequirements[q];
+                uint32_t queueCount = queueReqs.queueCount;
+                
+                for (uint32_t qfam = 0; qfam < queueProps.size(); ++qfam)
+                {
+                    const auto& queueFamilyProps = queueProps[qfam];
+
+                    // has requiredFlags
+                    if (queueFamilyProps.queueFlags.hasFlags(queueReqs.requiredFlags))
+                    {
+                        // doesn't have disallowed flags
+                        if ((queueFamilyProps.queueFlags & queueReqs.disallowedFlags).value == 0)
+                        {
+                            // imageTransferGranularity
+                            if (queueReqs.maxImageTransferGranularity.width > queueFamilyProps.minImageTransferGranularity.width &&
+                                queueReqs.maxImageTransferGranularity.height > queueFamilyProps.minImageTransferGranularity.height &&
+                                queueReqs.maxImageTransferGranularity.depth > queueFamilyProps.minImageTransferGranularity.depth)
+                            {
+                                queueCount = (queueFamilyProps.queueCount > queueCount) ? 0ull : queueCount - queueFamilyProps.queueCount;
+                            }
+                        }
+                    }
+                }
+
+                if (queueCount > 0)
+                    return false;
+            }
+
             return true;
         }
     };
