@@ -245,21 +245,8 @@ public:
         return true;
     }
 
-    bool copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
+    bool copyImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) override
     {
-        if (!srcImage || srcImage->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!dstImage || dstImage->getAPIType() != EAT_VULKAN)
-            return false;
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUImage>(srcImage),
-            core::smart_refctd_ptr<const IGPUImage>(dstImage) };
-
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
-
         constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageCopy);
         assert(regionCount <= MAX_COUNT);
 

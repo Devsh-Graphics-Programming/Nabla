@@ -561,5 +561,9 @@ void COpenGLCommandPool::CMultiDrawArraysIndirectCmd::operator()(IOpenGL_Functio
     gl->extGlMultiDrawArraysIndirect(m_mode, reinterpret_cast<void*>(m_indirect), m_drawcount, m_stride);
 }
 
+void COpenGLCommandPool::CCopyImageSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlCopyImageSubData(m_srcName, m_srcTarget, m_srcLevel, m_srcX, m_srcY, m_srcZ, m_dstName, m_dstTarget, m_dstLevel, m_dstX, m_dstY, m_dstZ, m_srcWidth, m_srcHeight, m_srcDepth);
+}
 
 }

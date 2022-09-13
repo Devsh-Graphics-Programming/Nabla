@@ -2084,6 +2084,55 @@ bool COpenGLCommandBuffer::copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* 
     return true;
 }
 
+bool COpenGLCommandBuffer::copyImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
+{
+    auto src = static_cast<const COpenGLImage*>(srcImage);
+    auto dst = static_cast<COpenGLImage*>(dstImage);
+
+    IGPUImage::E_TYPE srcType = srcImage->getCreationParameters().type;
+    IGPUImage::E_TYPE dstType = dstImage->getCreationParameters().type;
+
+    constexpr GLenum type2Target[3u] = { GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_3D };
+
+    for (auto it = pRegions; it != pRegions + regionCount; it++)
+    {
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CCopyImageSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+            src->getOpenGLName(),
+            type2Target[srcType],
+            it->srcSubresource.mipLevel,
+            it->srcOffset.x,
+            srcType == IGPUImage::ET_1D ? it->srcSubresource.baseArrayLayer : it->srcOffset.y,
+            srcType == IGPUImage::ET_2D ? it->srcSubresource.baseArrayLayer : it->srcOffset.z,
+            dst->getOpenGLName(),
+            type2Target[dstType],
+            it->dstSubresource.mipLevel,
+            it->dstOffset.x,
+            dstType == IGPUImage::ET_1D ? it->dstSubresource.baseArrayLayer : it->dstOffset.y,
+            dstType == IGPUImage::ET_2D ? it->dstSubresource.baseArrayLayer : it->dstOffset.z,
+            it->extent.width,
+            dstType == IGPUImage::ET_1D ? it->dstSubresource.layerCount : it->extent.height,
+            dstType == IGPUImage::ET_2D ? it->dstSubresource.layerCount : it->extent.depth))
+        {
+            return false;
+        }
+    }
+
+    SCmd<impl::ECT_COPY_IMAGE> cmd;
+    cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
+    cmd.srcImageLayout = srcImageLayout;
+    cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
+    cmd.dstImageLayout = dstImageLayout;
+    cmd.regionCount = regionCount;
+    auto* regions = getGLCommandPool()->emplace_n<asset::IImage::SImageCopy>(regionCount, pRegions[0]);
+    if (!regions)
+        return false;
+    for (uint32_t i = 0u; i < regionCount; ++i)
+        regions[i] = pRegions[i];
+    cmd.regions = regions;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
 bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
     if (!dstImage->validateCopies(pRegions, pRegions + regionCount, srcBuffer))
@@ -2102,7 +2151,6 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
     const auto blockDims = asset::getBlockDimensions(format);
     const auto blockByteSize = asset::getTexelOrBlockBytesize(format);
 
-    // TODO(achal): I don't think this needs to be refctd anymore?
     m_stateCache.nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
 
     bool anyFailed = false;

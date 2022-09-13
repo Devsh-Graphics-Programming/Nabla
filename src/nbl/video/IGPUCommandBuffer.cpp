@@ -489,6 +489,29 @@ bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffe
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
+{
+    if (!srcImage || srcImage->getAPIType() != getAPIType())
+        return false;
+
+    if (!dstImage || dstImage->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(srcImage))
+        return false;
+
+    if (!this->isCompatibleDevicewise(dstImage))
+        return false;
+
+    if (!dstImage->validateCopies(pRegions, pRegions + regionCount, srcImage))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+        return false;
+
+    return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
+}
+
 bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
     if (!srcBuffer || srcBuffer->getAPIType() != getAPIType())

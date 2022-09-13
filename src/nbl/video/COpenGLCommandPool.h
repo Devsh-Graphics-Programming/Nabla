@@ -138,6 +138,7 @@ public:
 
     class CMultiDrawArraysIndirectCountCmd;
     class CMultiDrawArraysIndirectCmd;
+    class CCopyImageSubDataCmd;
 
 private:
     std::mutex mutex;
@@ -1135,6 +1136,36 @@ private:
     const GLuint64 m_indirect;
     const GLintptr m_drawcount;
     const GLsizei m_stride;
+};
+
+class COpenGLCommandPool::CCopyImageSubDataCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CCopyImageSubDataCmd>
+{
+public:
+    CCopyImageSubDataCmd(const GLuint srcName, const GLenum srcTarget, const GLint srcLevel, const GLint srcX, const GLint srcY, const GLint srcZ,
+        const GLuint dstName, const GLenum dstTarget, const GLint dstLevel, const GLint dstX, const GLint dstY, const GLint dstZ,
+        const GLsizei srcWidth, const GLsizei srcHeight, const GLsizei srcDepth)
+        : m_srcName(srcName), m_srcTarget(srcTarget), m_srcLevel(srcLevel), m_srcX(srcX), m_srcY(srcY), m_srcZ(srcZ), m_dstName(dstName), m_dstTarget(dstTarget), m_dstLevel(dstLevel),
+        m_dstX(dstX), m_dstY(dstY), m_dstZ(dstZ), m_srcWidth(srcWidth), m_srcHeight(srcHeight), m_srcDepth(srcDepth)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_srcName;
+    const GLenum m_srcTarget;
+    const GLint m_srcLevel;
+    const GLint m_srcX;
+    const GLint m_srcY;
+    const GLint m_srcZ;
+    const GLuint m_dstName;
+    const GLenum m_dstTarget;
+    const GLint m_dstLevel;
+    const GLint m_dstX;
+    const GLint m_dstY;
+    const GLint m_dstZ;
+    const GLsizei m_srcWidth;
+    const GLsizei m_srcHeight;
+    const GLsizei m_srcDepth;
 };
 
 }
