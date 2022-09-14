@@ -386,6 +386,20 @@ bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::E_
     return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
 }
 
+bool IGPUCommandBuffer::fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data)
+{
+    if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(dstBuffer))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CFillBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return fillBuffer_impl(dstBuffer, dstOffset, size, data);
+}
+
 bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
 {
     for (uint32_t i = 0u; i < bindingCount; ++i)

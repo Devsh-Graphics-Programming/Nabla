@@ -192,6 +192,7 @@ public:
     class CResolveImageCmd;
     class CClearColorImageCmd;
     class CClearDepthStencilImageCmd;
+    class CFillBufferCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -667,6 +668,15 @@ public:
 
 private:
     core::smart_refctd_ptr<const IGPUImage> m_image;
+};
+
+class IGPUCommandPool::CFillBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CFillBufferCmd>
+{
+public:
+    CFillBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer) : m_dstBuffer(std::move(dstBuffer)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
 }

@@ -957,15 +957,8 @@ public:
         return true;
     }
 
-    bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
+    bool fillBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
     {
-        if (!dstBuffer || dstBuffer->getAPIType() != EAT_VULKAN)
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(dstBuffer) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdFillBuffer(
             m_cmdbuf,

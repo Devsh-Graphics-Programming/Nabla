@@ -649,4 +649,9 @@ void COpenGLCommandPool::CClearDepthStencilImageCmd::operator()(IOpenGL_Function
     }
 }
 
+void COpenGLCommandPool::CClearNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlClearNamedBufferSubData(m_bufferGLName, m_internalformat, m_offset, m_size, m_format, m_type, &m_data);
+}
+
 }

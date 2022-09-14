@@ -762,39 +762,8 @@ public:
     bool clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override;
     bool clearDepthStencilImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override;
     bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override;
-    bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
-    {
-        TODO_CMD;
-
-        if (!this->isCompatibleDevicewise(dstBuffer))
-            return false;
-        SCmd<impl::ECT_FILL_BUFFER> cmd;
-        cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
-        cmd.dstOffset = dstOffset;
-        cmd.size = size;
-        cmd.data = data;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override
-    {
-        GLuint buf = static_cast<const COpenGLBuffer*>(dstBuffer)->getOpenGLName();
-
-        if (!m_cmdpool->emplace<COpenGLCommandPool::CNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, buf, dstOffset, dataSize, pData))
-            return false;
-
-        SCmd<impl::ECT_UPDATE_BUFFER> cmd;
-        uint8_t* data = getGLCommandPool()->emplace_n<uint8_t>(dataSize);
-        if (!data)
-            return false;
-        memcpy(data, pData, dataSize);
-        cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
-        cmd.dstOffset = dstOffset;
-        cmd.dataSize = dataSize;
-        cmd.data = data;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool fillBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override;
+    bool updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override;
     bool executeCommands_impl(uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;
     bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
     {

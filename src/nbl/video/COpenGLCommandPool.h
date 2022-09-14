@@ -141,6 +141,7 @@ public:
     class CCopyImageSubDataCmd;
     class CClearColorImageCmd; // Does not correspond to a GL call
     class CClearDepthStencilImageCmd; // Does not correspond to a GL call
+    class CClearNamedBufferSubDataCmd;
 
 private:
     std::mutex mutex;
@@ -1198,6 +1199,25 @@ private:
     const uint32_t m_level;
     const uint32_t m_layer;
     const asset::SClearDepthStencilValue m_depthStencilClearValue;
+};
+
+class COpenGLCommandPool::CClearNamedBufferSubDataCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CClearNamedBufferSubDataCmd>
+{
+public:
+    CClearNamedBufferSubDataCmd(const GLuint bufferGLName, const GLenum internalformat, const GLintptr offset, const GLsizeiptr size, const GLenum format, const GLenum type, const uint32_t data)
+        : m_bufferGLName(bufferGLName), m_internalformat(internalformat), m_offset(offset), m_size(size), m_format(format), m_type(type), m_data(data)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_bufferGLName;
+    const GLenum m_internalformat;
+    const GLintptr m_offset;
+    const GLsizeiptr m_size;
+    const GLenum m_format;
+    const GLenum m_type;
+    const uint32_t m_data;
 };
 
 }

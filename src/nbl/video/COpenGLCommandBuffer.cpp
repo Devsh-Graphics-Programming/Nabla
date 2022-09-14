@@ -2025,6 +2025,42 @@ bool COpenGLCommandBuffer::clearAttachments(uint32_t attachmentCount, const asse
     return true;
 }
 
+bool COpenGLCommandBuffer::fillBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data)
+{
+    GLuint buf = static_cast<const COpenGLBuffer*>(dstBuffer)->getOpenGLName();
+
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, buf, GL_R32UI, dstOffset, size, GL_RED, GL_UNSIGNED_INT, data))
+        return false;
+
+    SCmd<impl::ECT_FILL_BUFFER> cmd;
+    cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
+    cmd.dstOffset = dstOffset;
+    cmd.size = size;
+    cmd.data = data;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
+{
+    GLuint buf = static_cast<const COpenGLBuffer*>(dstBuffer)->getOpenGLName();
+
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, buf, dstOffset, dataSize, pData))
+        return false;
+
+    SCmd<impl::ECT_UPDATE_BUFFER> cmd;
+    uint8_t* data = getGLCommandPool()->emplace_n<uint8_t>(dataSize);
+    if (!data)
+        return false;
+    memcpy(data, pData, dataSize);
+    cmd.dstBuffer = core::smart_refctd_ptr<buffer_t>(dstBuffer);
+    cmd.dstOffset = dstOffset;
+    cmd.dataSize = dataSize;
+    cmd.data = data;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
 void COpenGLCommandBuffer::bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
 {
     for (uint32_t i = 0u; i < bindingCount; ++i)
