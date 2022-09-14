@@ -189,6 +189,9 @@ public:
     class CDispatchIndirectCmd;
     class CWaitEventsCmd;
     class CCopyImageCmd;
+    class CResolveImageCmd;
+    class CClearColorImageCmd;
+    class CClearDepthStencilImageCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -636,6 +639,34 @@ public:
 private:
     core::smart_refctd_ptr<const IGPUImage> m_srcImage;
     core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+};
+
+class IGPUCommandPool::CResolveImageCmd : public IGPUCommandPool::IFixedSizeCommand<CResolveImageCmd>
+{
+public:
+    CResolveImageCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUImage>&& dstImage) : m_srcImage(std::move(srcImage)), m_dstImage(std::move(dstImage)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUImage> m_srcImage;
+    core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+};
+
+class IGPUCommandPool::CClearColorImageCmd : public IGPUCommandPool::IFixedSizeCommand<CClearColorImageCmd>
+{
+public:
+    CClearColorImageCmd(core::smart_refctd_ptr<const IGPUImage>&& image) : m_image(std::move(image)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUImage> m_image;
+};
+
+class IGPUCommandPool::CClearDepthStencilImageCmd : public IGPUCommandPool::IFixedSizeCommand<CClearDepthStencilImageCmd>
+{
+public:
+    CClearDepthStencilImageCmd(core::smart_refctd_ptr<const IGPUImage>&& image) : m_image(std::move(image)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUImage> m_image;
 };
 
 }

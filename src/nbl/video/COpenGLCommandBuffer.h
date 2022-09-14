@@ -655,28 +655,7 @@ public:
     bool copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override;
     bool copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override;
     bool blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) override;
-
-    bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
-    {
-        TODO_CMD;
-
-        if (!this->isCompatibleDevicewise(srcImage))
-            return false;
-        SCmd<impl::ECT_RESOLVE_IMAGE> cmd;
-        cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
-        cmd.srcImageLayout = srcImageLayout;
-        cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
-        cmd.dstImageLayout = dstImageLayout;
-        cmd.regionCount = regionCount;
-        auto* regions = getGLCommandPool()->emplace_n<asset::SImageResolve>(regionCount, pRegions[0]);
-        if (!regions)
-            return false;
-        for (uint32_t i = 0u; i < regionCount; ++i)
-            regions[i] = pRegions[i];
-        cmd.regions = regions;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool resolveImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override;
 
     void bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets) override;
 
@@ -776,57 +755,12 @@ public:
     bool endQuery_impl(IQueryPool* queryPool, uint32_t query) override;
     bool copyQueryPoolResults_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override;
     bool writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override;
-
-    bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery)
-    {
-        return false;
-    }
-
+    bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) { return false; }
     bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout_, uint32_t firstSet_, const uint32_t descriptorSetCount_,
         const descriptor_set_t* const* const descriptorSets_, const uint32_t dynamicOffsetCount_ = 0u, const uint32_t* dynamicOffsets_ = nullptr) override;
-
     bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override;
-
-    bool clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
-    {
-        TODO_CMD;
-
-        if (!this->isCompatibleDevicewise(image))
-            return false;
-        SCmd<impl::ECT_CLEAR_COLOR_IMAGE> cmd;
-        cmd.image = core::smart_refctd_ptr<image_t>(image);
-        cmd.imageLayout = imageLayout;
-        cmd.color = pColor[0];
-        cmd.rangeCount = rangeCount;
-        auto* ranges = getGLCommandPool()->emplace_n<asset::IImage::SSubresourceRange>(rangeCount, pRanges[0]);
-        if (!ranges)
-            return false;
-        for (uint32_t i = 0u; i < rangeCount; ++i)
-            ranges[i] = pRanges[i];
-        cmd.ranges = ranges;
-        pushCommand(std::move(cmd));
-        return true;
-    }
-    bool clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
-    {
-        TODO_CMD;
-
-        if (!this->isCompatibleDevicewise(image))
-            return false;
-        SCmd<impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE> cmd;
-        cmd.image = core::smart_refctd_ptr<image_t>(image);
-        cmd.imageLayout = imageLayout;
-        cmd.depthStencil = pDepthStencil[0];
-        cmd.rangeCount = rangeCount;
-        auto* ranges = getGLCommandPool()->emplace_n<asset::IImage::SSubresourceRange>(rangeCount, pRanges[0]);
-        if (!ranges)
-            return false;
-        for (uint32_t i = 0u; i < rangeCount; ++i)
-            ranges[i] = pRanges[i];
-        cmd.ranges = ranges;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override;
+    bool clearDepthStencilImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override;
     bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override
     {
         TODO_CMD;

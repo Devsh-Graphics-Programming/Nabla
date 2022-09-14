@@ -358,6 +358,34 @@ bool IGPUCommandBuffer::pushConstants(const pipeline_layout_t* layout, core::bit
     return true;
 }
 
+bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+{
+    if (!image || image->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(image))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CClearColorImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(image)))
+        return false;
+
+    return clearColorImage_impl(image, imageLayout, pColor, rangeCount, pRanges);
+}
+
+bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+{
+    if (!image || image->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(image))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(image)))
+        return false;
+
+    return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
+}
+
 bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
 {
     for (uint32_t i = 0u; i < bindingCount; ++i)
@@ -578,6 +606,26 @@ bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage
         return false;
 
     return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
+}
+
+bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
+{
+    if (!srcImage || srcImage->getAPIType() != getAPIType())
+        return false;
+
+    if (!dstImage || dstImage->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(srcImage))
+        return false;
+
+    if (!this->isCompatibleDevicewise(dstImage))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CResolveImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+        return false;
+
+    return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
 bool IGPUCommandBuffer::executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs)

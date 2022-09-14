@@ -5,9 +5,13 @@
 namespace nbl::video
 {
 
-static GLuint getFBOGLName(const COpenGLImage* image, const uint32_t level, const uint32_t layer, SQueueLocalCache& queueCache, IOpenGL_FunctionTable* gl)
+static GLuint getFBOGLName(const COpenGLImage* image, const uint32_t level, const uint32_t layer, SQueueLocalCache& queueCache, IOpenGL_FunctionTable* gl, const bool isColorImage)
 {
-    auto hash = COpenGLFramebuffer::getHashColorImage(image, level, layer);
+    COpenGLFramebuffer::hash_t hash;
+    if (isColorImage)
+        hash = COpenGLFramebuffer::getHashColorImage(image, level, layer);
+    else
+        hash = COpenGLFramebuffer::getHashDepthStencilImage(image, level, layer);
 
     GLuint GLName;
     auto found = queueCache.fboCache.get(hash);
@@ -17,7 +21,11 @@ static GLuint getFBOGLName(const COpenGLImage* image, const uint32_t level, cons
     }
     else
     {
-        GLName = COpenGLFramebuffer::getNameColorImage(gl, image, level, layer);
+        if (isColorImage)
+            GLName = COpenGLFramebuffer::getNameColorImage(gl, image, level, layer);
+        else
+            GLName = COpenGLFramebuffer::getNameDepthStencilImage(gl, image, level, layer);
+
         if (GLName)
             queueCache.fboCache.insert(hash, GLName);
     }
@@ -50,11 +58,11 @@ void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* 
 
 void COpenGLCommandPool::CBlitNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
-    GLuint srcfbo = getFBOGLName(m_srcImage, m_srcLevel, m_srcLayer, queueCache, gl);
+    GLuint srcfbo = getFBOGLName(m_srcImage, m_srcLevel, m_srcLayer, queueCache, gl, true);
     if (!srcfbo)
         return; // TODO(achal): Log warning?
 
-    GLuint dstfbo = getFBOGLName(m_dstImage, m_dstLevel, m_dstLayer, queueCache, gl);
+    GLuint dstfbo = getFBOGLName(m_dstImage, m_dstLevel, m_dstLayer, queueCache, gl, true);
     if (!dstfbo)
         return; // TODO(achal): Log warning?
 
@@ -514,7 +522,7 @@ void COpenGLCommandPool::CGetTextureSubImageCmd::operator()(IOpenGL_FunctionTabl
 
 void COpenGLCommandPool::CReadPixelsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
-    GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl);
+    GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl, true);
 
     if (!fbo)
     {
@@ -564,6 +572,81 @@ void COpenGLCommandPool::CMultiDrawArraysIndirectCmd::operator()(IOpenGL_Functio
 void COpenGLCommandPool::CCopyImageSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlCopyImageSubData(m_srcName, m_srcTarget, m_srcLevel, m_srcX, m_srcY, m_srcZ, m_dstName, m_dstTarget, m_dstLevel, m_dstX, m_dstY, m_dstZ, m_srcWidth, m_srcHeight, m_srcDepth);
+}
+
+void COpenGLCommandPool::CClearColorImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl, true);
+
+    if (!fbo)
+    {
+        logger.log("Couldn't retrieve FBO to clear.", system::ILogger::ELL_ERROR);
+        return;
+    }
+
+    const auto format = m_image->getCreationParameters().format;
+
+    const bool is_fp = asset::isNormalizedFormat(format) || asset::isFloatingPointFormat(format);
+    bool is_int = false;
+    bool is_sint = false;
+    if (!is_fp && asset::isIntegerFormat(format))
+    {
+        is_int = true;
+        is_sint = asset::isSignedFormat(format);
+    }
+
+    if (is_fp)
+    {
+        gl->extGlClearNamedFramebufferfv(fbo, GL_COLOR, 0, m_clearColorValue.float32);
+    }
+    else if (is_int)
+    {
+        if (is_sint)
+        {
+            gl->extGlClearNamedFramebufferiv(fbo, GL_COLOR, 0, m_clearColorValue.int32);
+        }
+        else
+        {
+            gl->extGlClearNamedFramebufferuiv(fbo, GL_COLOR, 0, m_clearColorValue.uint32);
+        }
+    }
+}
+
+void COpenGLCommandPool::CClearDepthStencilImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl, false);
+
+    if (!fbo)
+    {
+        logger.log("Couldn't retrieve FBO to clear.", system::ILogger::ELL_ERROR);
+        return;
+    }
+
+    const auto fmt = m_image->getCreationParameters().format;
+
+    const bool is_depth = asset::isDepthOnlyFormat(fmt);
+    bool is_stencil = false;
+    bool is_depth_stencil = false;
+    if (!is_depth)
+    {
+        is_stencil = asset::isStencilOnlyFormat(fmt);
+        if (!is_stencil)
+            is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
+    }
+
+    if (is_depth)
+    {
+        gl->extGlClearNamedFramebufferfv(fbo, GL_DEPTH, 0, &m_depthStencilClearValue.depth);
+    }
+    else if (is_stencil)
+    {
+        static_assert(sizeof(GLint) == sizeof(m_depthStencilClearValue.stencil), "Bad reinterpret_cast!");
+        gl->extGlClearNamedFramebufferiv(fbo, GL_STENCIL, 0, reinterpret_cast<const GLint*>(&m_depthStencilClearValue.stencil));
+    }
+    else if (is_depth_stencil)
+    {
+        gl->extGlClearNamedFramebufferfi(fbo, GL_DEPTH_STENCIL, 0, m_depthStencilClearValue.depth, m_depthStencilClearValue.stencil);
+    }
 }
 
 }

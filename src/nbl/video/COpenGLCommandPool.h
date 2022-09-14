@@ -139,6 +139,8 @@ public:
     class CMultiDrawArraysIndirectCountCmd;
     class CMultiDrawArraysIndirectCmd;
     class CCopyImageSubDataCmd;
+    class CClearColorImageCmd; // Does not correspond to a GL call
+    class CClearDepthStencilImageCmd; // Does not correspond to a GL call
 
 private:
     std::mutex mutex;
@@ -1166,6 +1168,36 @@ private:
     const GLsizei m_srcWidth;
     const GLsizei m_srcHeight;
     const GLsizei m_srcDepth;
+};
+
+class COpenGLCommandPool::CClearColorImageCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CClearColorImageCmd>
+{
+public:
+    CClearColorImageCmd(const COpenGLImage* image, const uint32_t level, const uint32_t layer, const asset::SClearColorValue& clearColorValue) : m_image(image), m_level(level), m_layer(layer), m_clearColorValue(clearColorValue) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const COpenGLImage* m_image;
+    const uint32_t m_level;
+    const uint32_t m_layer;
+    const asset::SClearColorValue m_clearColorValue;
+};
+
+class COpenGLCommandPool::CClearDepthStencilImageCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CClearDepthStencilImageCmd>
+{
+public:
+    CClearDepthStencilImageCmd(const COpenGLImage* image, const uint32_t level, const uint32_t layer, const asset::SClearDepthStencilValue depthStencilClearValue)
+        : m_image(image), m_level(level), m_layer(layer), m_depthStencilClearValue(depthStencilClearValue)
+    {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const COpenGLImage* m_image;
+    const uint32_t m_level;
+    const uint32_t m_layer;
+    const asset::SClearDepthStencilValue m_depthStencilClearValue;
 };
 
 }

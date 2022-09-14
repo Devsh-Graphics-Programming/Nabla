@@ -480,7 +480,7 @@ bool COpenGLCommandBuffer::beginRenderpass_clearAttachments(SOpenGLContextLocalC
                         bufferType = GL_DEPTH_STENCIL;
                 }
 
-                const auto stateBackup = stateCache->backupAndFlushStateClear2(cmdpool, segmentListHeadItr, segmentListTail, false, (is_depth || is_depth_stencil), (is_stencil || is_depth_stencil), apiType, features);
+                const auto stateBackup = stateCache->backupAndFlushStateClear(cmdpool, segmentListHeadItr, segmentListTail, false, (is_depth || is_depth_stencil), (is_stencil || is_depth_stencil), apiType, features);
                 const bool cmdEmplaceFailed = !cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(segmentListHeadItr, segmentListTail, stateCache->currentState.framebuffer.hash, fmt, bufferType, info.clearValues[depthstencil->attachment], 0);
                 stateCache->restoreStateAfterClear(stateBackup);
 
@@ -1868,6 +1868,96 @@ bool COpenGLCommandBuffer::pushConstants_impl(const pipeline_layout_t* layout, c
     return true;
 }
 
+bool COpenGLCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+{
+    const auto state_backup = m_stateCache.backupAndFlushStateClear(m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, true, false, false, getAPIType(), m_features);
+
+    bool anyFailed = false;
+    for (uint32_t i = 0u; i < rangeCount; ++i)
+    {
+        auto& info = pRanges[i];
+
+        for (uint32_t m = 0u; m < info.levelCount; ++m)
+        {
+            for (uint32_t l = 0u; l < info.layerCount; ++l)
+            {
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CClearColorImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<const COpenGLImage*>(image), info.baseMipLevel + m, info.baseArrayLayer + l, *pColor))
+                    anyFailed = true;
+            }
+        }
+    }
+
+    m_stateCache.restoreStateAfterClear(state_backup);
+
+    if (anyFailed)
+        return false;
+
+    SCmd<impl::ECT_CLEAR_COLOR_IMAGE> cmd;
+    cmd.image = core::smart_refctd_ptr<image_t>(image);
+    cmd.imageLayout = imageLayout;
+    cmd.color = pColor[0];
+    cmd.rangeCount = rangeCount;
+    auto* ranges = getGLCommandPool()->emplace_n<asset::IImage::SSubresourceRange>(rangeCount, pRanges[0]);
+    if (!ranges)
+        return false;
+    for (uint32_t i = 0u; i < rangeCount; ++i)
+        ranges[i] = pRanges[i];
+    cmd.ranges = ranges;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+{
+    const auto fmt = image->getCreationParameters().format;
+
+    const bool is_depth = asset::isDepthOnlyFormat(fmt);
+    bool is_stencil = false;
+    bool is_depth_stencil = false;
+    if (!is_depth)
+    {
+        is_stencil = asset::isStencilOnlyFormat(fmt);
+        if (!is_stencil)
+            is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
+    }
+
+    const auto state_backup = m_stateCache.backupAndFlushStateClear(m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, false, (is_depth || is_depth_stencil), (is_stencil || is_depth_stencil), getAPIType(), m_features);
+
+    bool anyFailed = false;
+    for (uint32_t i = 0u; i < rangeCount; ++i)
+    {
+        const auto& info = pRanges[i];
+
+        for (uint32_t m = 0u; m < info.levelCount; ++m)
+        {
+            for (uint32_t l = 0u; l < info.layerCount; ++l)
+            {
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CClearDepthStencilImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<const COpenGLImage*>(image), info.baseMipLevel + m, info.baseArrayLayer + l, *pDepthStencil))
+                    anyFailed = true;
+            }
+        }
+    }
+
+    m_stateCache.restoreStateAfterClear(state_backup);
+
+    if (anyFailed)
+        return false;
+
+    SCmd<impl::ECT_CLEAR_DEPTH_STENCIL_IMAGE> cmd;
+    cmd.image = core::smart_refctd_ptr<image_t>(image);
+    cmd.imageLayout = imageLayout;
+    cmd.depthStencil = pDepthStencil[0];
+    cmd.rangeCount = rangeCount;
+    auto* ranges = getGLCommandPool()->emplace_n<asset::IImage::SSubresourceRange>(rangeCount, pRanges[0]);
+    if (!ranges)
+        return false;
+    for (uint32_t i = 0u; i < rangeCount; ++i)
+        ranges[i] = pRanges[i];
+    cmd.ranges = ranges;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
 void COpenGLCommandBuffer::bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
 {
     for (uint32_t i = 0u; i < bindingCount; ++i)
@@ -2335,39 +2425,6 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
     return !anyFailed;
 }
 
-bool COpenGLCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
-{
-    const auto* gl_srcImage = static_cast<const COpenGLImage*>(srcImage);
-    const auto* gl_dstImage = static_cast<const COpenGLImage*>(dstImage);
-    for (uint32_t i = 0u; i < regionCount; ++i)
-    {
-        auto& info = pRegions[i];
-
-        assert(info.dstSubresource.layerCount == info.srcSubresource.layerCount);
-
-        for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
-        {
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_srcImage, gl_dstImage, info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer+l, info.dstSubresource.baseArrayLayer+l, info.srcOffsets, info.dstOffsets, filter))
-                return false;
-        }
-    }
-
-    SCmd<impl::ECT_BLIT_IMAGE> cmd;
-    cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
-    cmd.srcImageLayout = srcImageLayout;
-    cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
-    cmd.regionCount = regionCount;
-    auto* regions = getGLCommandPool()->emplace_n<asset::SImageBlit>(regionCount, pRegions[0]);
-    if (!regions)
-        return false;
-    for (uint32_t i = 0u; i < regionCount; ++i)
-        regions[i] = pRegions[i];
-    cmd.regions = regions;
-    cmd.filter = filter;
-    pushCommand(std::move(cmd));
-    return true;
-}
-
 bool COpenGLCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
     if (!srcImage->validateCopies(pRegions, pRegions + regionCount, dstBuffer))
@@ -2506,6 +2563,79 @@ bool COpenGLCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
     cmd.regions = regions;
     pushCommand(std::move(cmd));
     return !anyFailed;
+}
+
+bool COpenGLCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
+{
+    const auto* gl_srcImage = static_cast<const COpenGLImage*>(srcImage);
+    const auto* gl_dstImage = static_cast<const COpenGLImage*>(dstImage);
+    for (uint32_t i = 0u; i < regionCount; ++i)
+    {
+        auto& info = pRegions[i];
+
+        assert(info.dstSubresource.layerCount == info.srcSubresource.layerCount);
+
+        for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
+        {
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_srcImage, gl_dstImage, info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer+l, info.dstSubresource.baseArrayLayer+l, info.srcOffsets, info.dstOffsets, filter))
+                return false;
+        }
+    }
+
+    SCmd<impl::ECT_BLIT_IMAGE> cmd;
+    cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
+    cmd.srcImageLayout = srcImageLayout;
+    cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
+    cmd.regionCount = regionCount;
+    auto* regions = getGLCommandPool()->emplace_n<asset::SImageBlit>(regionCount, pRegions[0]);
+    if (!regions)
+        return false;
+    for (uint32_t i = 0u; i < regionCount; ++i)
+        regions[i] = pRegions[i];
+    cmd.regions = regions;
+    cmd.filter = filter;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::resolveImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
+{
+    for (uint32_t i = 0u; i < regionCount; ++i)
+    {
+        auto& info = pRegions[i];
+
+        assert(info.dstSubresource.layerCount == info.srcSubresource.layerCount);
+
+        asset::VkOffset3D srcoffsets[2]{ info.srcOffset,info.srcOffset };
+        srcoffsets[1].x += info.extent.width;
+        srcoffsets[1].y += info.extent.height;
+        srcoffsets[1].z += info.extent.depth;
+        asset::VkOffset3D dstoffsets[2]{ info.dstOffset,info.dstOffset };
+        dstoffsets[1].x += info.extent.width;
+        dstoffsets[1].y += info.extent.height;
+        dstoffsets[1].z += info.extent.depth;
+
+        for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
+        {
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<const COpenGLImage*>(srcImage), static_cast<const COpenGLImage*>(dstImage), info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer + l, info.dstSubresource.baseArrayLayer + l, srcoffsets, dstoffsets, asset::ISampler::ETF_NEAREST))
+                return false;
+        }
+    }
+
+    SCmd<impl::ECT_RESOLVE_IMAGE> cmd;
+    cmd.srcImage = core::smart_refctd_ptr<const image_t>(srcImage);
+    cmd.srcImageLayout = srcImageLayout;
+    cmd.dstImage = core::smart_refctd_ptr<image_t>(dstImage);
+    cmd.dstImageLayout = dstImageLayout;
+    cmd.regionCount = regionCount;
+    auto* regions = getGLCommandPool()->emplace_n<asset::SImageResolve>(regionCount, pRegions[0]);
+    if (!regions)
+        return false;
+    for (uint32_t i = 0u; i < regionCount; ++i)
+        regions[i] = pRegions[i];
+    cmd.regions = regions;
+    pushCommand(std::move(cmd));
+    return true;
 }
 
 bool COpenGLCommandBuffer::drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)

@@ -351,21 +351,8 @@ public:
         return true;
     }
 
-    bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
+    bool resolveImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override
     {
-        if (!srcImage || srcImage->getAPIType() != EAT_VULKAN)
-            return false;
-
-        if (!dstImage || dstImage->getAPIType() != EAT_VULKAN)
-            return false;
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = {
-            core::smart_refctd_ptr<const IGPUImage>(srcImage),
-            core::smart_refctd_ptr<const IGPUImage>(dstImage) };
-
-        if (!saveReferencesToResources(tmp, tmp + 2))
-            return false;
-
         constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageResolve);
         assert(regionCount <= MAX_COUNT);
 
@@ -867,15 +854,8 @@ public:
         return true;
     }
 
-    bool clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
-        if (!image || image->getAPIType() != EAT_VULKAN)
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(image) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-
         VkClearColorValue vk_clearColorValue;
         for (uint32_t k = 0u; k < 4u; ++k)
             vk_clearColorValue.uint32[k] = pColor->uint32[k];
@@ -905,15 +885,8 @@ public:
         return true;
     }
 
-    bool clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
+    bool clearDepthStencilImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override
     {
-        if (!image || image->getAPIType() != EAT_VULKAN)
-            return false;
-
-        const core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(image) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-
         VkClearDepthStencilValue vk_clearDepthStencilValue = { pDepthStencil[0].depth, pDepthStencil[0].stencil };
 
         constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageSubresourceRange);

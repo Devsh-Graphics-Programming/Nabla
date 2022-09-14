@@ -264,6 +264,7 @@ struct SOpenGLContextLocalCache
     void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid); // TODO(achal): Temporary, just to make the old code still work.
     bool flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
 
+    // TODO(achal): Temporary overload.
     inline SBeforeClearStateBackup backupAndFlushStateClear(IOpenGL_FunctionTable* gl, uint32_t ctxid, bool color, bool depth, bool stencil)
     {
         SBeforeClearStateBackup backup;
@@ -288,8 +289,7 @@ struct SOpenGLContextLocalCache
 
         return backup;
     }
-    // TODO(achal): Temporary.
-    inline SBeforeClearStateBackup backupAndFlushStateClear2(IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const bool color, const bool depth, const bool stencil, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+    inline SBeforeClearStateBackup backupAndFlushStateClear(IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const bool color, const bool depth, const bool stencil, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
     {
         SBeforeClearStateBackup backup;
         memcpy(backup.colorWrite, currentState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4);
