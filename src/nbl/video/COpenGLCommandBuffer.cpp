@@ -2202,15 +2202,13 @@ bool COpenGLCommandBuffer::dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY
     return true;
 }
 
-bool COpenGLCommandBuffer::setEvent(event_t* event, const SDependencyInfo& depInfo)
+bool COpenGLCommandBuffer::setEvent_impl(event_t* _event, const SDependencyInfo& depInfo)
 {
     //https://www.khronos.org/registry/vulkan/specs/1.2-extensions/man/html/vkCmdSetEvent2KHR.html
     // A memory dependency is defined between the event signal operation and commands that occur earlier in submission order.
 
-    if (!this->isCompatibleDevicewise(event))
-        return false;
     SCmd<impl::ECT_SET_EVENT> cmd;
-    cmd.event = core::smart_refctd_ptr<event_t>(event);
+    cmd.event = core::smart_refctd_ptr<event_t>(_event);
     cmd.barrierBits = barriersToMemBarrierBits(SOpenGLBarrierHelper(m_features), depInfo.memBarrierCount, depInfo.memBarriers, depInfo.bufBarrierCount, depInfo.bufBarriers, depInfo.imgBarrierCount, depInfo.imgBarriers);
     pushCommand(std::move(cmd));
     return true;

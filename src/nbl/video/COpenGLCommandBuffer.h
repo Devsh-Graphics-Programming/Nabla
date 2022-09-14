@@ -669,7 +669,7 @@ public:
     bool dispatchIndirect_impl(const buffer_t* buffer, size_t offset) override;
     bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override;
 
-    bool setEvent(event_t* event, const SDependencyInfo& depInfo) override;
+    bool setEvent_impl(event_t* _event, const SDependencyInfo& depInfo) override;
     bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override;
     bool waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos);
 

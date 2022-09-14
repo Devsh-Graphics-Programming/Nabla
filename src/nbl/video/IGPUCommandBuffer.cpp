@@ -442,6 +442,20 @@ bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
     return dispatchIndirect_impl(buffer, offset);
 }
 
+bool IGPUCommandBuffer::setEvent(event_t* _event, const SDependencyInfo& depInfo)
+{
+    if (!_event || _event->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(_event))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CSetEventCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUEvent>(_event)))
+        return false;
+
+    return setEvent_impl(_event, depInfo);
+}
+
 bool IGPUCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo)
 {
     if (eventCount == 0u)

@@ -476,15 +476,8 @@ public:
         return true;
     }
 
-    bool setEvent(event_t* event, const SDependencyInfo& depInfo) override
+    bool setEvent_impl(event_t* event, const SDependencyInfo& depInfo) override
     {
-        if (!event || event->getAPIType() != EAT_VULKAN)
-            return false;
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(event) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-        
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdSetEvent(
             m_cmdbuf,
