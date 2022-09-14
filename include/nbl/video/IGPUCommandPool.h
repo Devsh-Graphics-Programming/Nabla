@@ -163,6 +163,7 @@ public:
     };
     static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
 
+    class CBeginCmd;
     class CBindIndexBufferCmd;
     class CDrawIndirectCmd;
     class CDrawIndexedIndirectCmd;
@@ -326,6 +327,16 @@ protected:
 private:
     std::atomic_uint32_t m_resetCount = 0;
     core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> m_commandSegmentPool;
+};
+
+class IGPUCommandPool::CBeginCmd : public IGPUCommandPool::IFixedSizeCommand<CBeginCmd>
+{
+public:
+    CBeginCmd(core::smart_refctd_ptr<const IGPURenderpass>&& renderpass, core::smart_refctd_ptr<const IGPUFramebuffer>&& framebuffer) : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPURenderpass> m_renderpass;
+    core::smart_refctd_ptr<const IGPUFramebuffer> m_framebuffer;
 };
 
 class IGPUCommandPool::CBindIndexBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CBindIndexBufferCmd>

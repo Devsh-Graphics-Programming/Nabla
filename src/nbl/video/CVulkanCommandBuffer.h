@@ -48,21 +48,6 @@ public:
         VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
         if (inheritanceInfo)
         {
-            // TODO(achal): We don't have a command structure to insert into the backend agnostic tape, which will hold the references to these resources.
-            core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2] = { inheritanceInfo->renderpass, inheritanceInfo->framebuffer };
-
-            vk_inheritanceInfo.pNext = nullptr;
-            if (!inheritanceInfo->renderpass || inheritanceInfo->renderpass->getAPIType() != EAT_VULKAN || !inheritanceInfo->renderpass->isCompatibleDevicewise(this))
-                return false;
-
-            // if (!inheritanceInfo->framebuffer || inheritanceInfo->framebuffer->getAPIType() != EAT_VULKAN || !inheritanceInfo->framebuffer->isCompatibleDevicewise(this))
-            //     return false;
-
-            // TODO(achal): Remove
-            // if (!saveReferencesToResources(tmp, tmp + 2))
-            if (!saveReferencesToResources(tmp, tmp + 1))
-                return false;
-
             vk_inheritanceInfo.renderPass = IBackendObject::compatibility_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass.get(), this)->getInternalObject();
             vk_inheritanceInfo.subpass = inheritanceInfo->subpass;
             // Todo(achal):
@@ -73,8 +58,9 @@ public:
             vk_inheritanceInfo.occlusionQueryEnable = inheritanceInfo->occlusionQueryEnable;
             vk_inheritanceInfo.queryFlags = static_cast<VkQueryControlFlags>(inheritanceInfo->queryFlags.value);
             vk_inheritanceInfo.pipelineStatistics = static_cast<VkQueryPipelineStatisticFlags>(0u); // must be 0
+
+            beginInfo.pInheritanceInfo = &vk_inheritanceInfo;
         }
-        beginInfo.pInheritanceInfo = inheritanceInfo ? &vk_inheritanceInfo : nullptr;
         
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         const VkResult retval = vk->vk.vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
