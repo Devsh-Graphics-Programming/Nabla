@@ -497,7 +497,6 @@ bool COpenGLCommandBuffer::beginRenderpass_clearAttachments(SOpenGLContextLocalC
     return true;
 }
 
-// TODO(achal): Remove.
 void COpenGLCommandBuffer::clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments)
 {
     auto& framebuffer = ctxlocal->currentState.framebuffer.fbo;
@@ -1954,6 +1953,74 @@ bool COpenGLCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::II
     for (uint32_t i = 0u; i < rangeCount; ++i)
         ranges[i] = pRanges[i];
     cmd.ranges = ranges;
+    pushCommand(std::move(cmd));
+    return true;
+}
+
+bool COpenGLCommandBuffer::clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects)
+{
+    if (attachmentCount == 0u || rectCount == 0u)
+        return false;
+
+    auto& framebuffer = m_stateCache.currentState.framebuffer.fbo;
+    if (!framebuffer)
+        return false;
+
+    auto& rp = framebuffer->getCreationParameters().renderpass;
+    auto& sub = rp->getSubpasses().begin()[0];
+    auto* color = sub.colorAttachments;
+    auto* depthstencil = sub.depthStencilAttachment;
+    auto* descriptions = rp->getAttachments().begin();
+
+    bool anyFailed = false;
+    for (uint32_t i = 0u; i < attachmentCount; ++i)
+    {
+        auto& attachment = pAttachments[i];
+        if (attachment.aspectMask & asset::IImage::EAF_COLOR_BIT)
+        {
+            uint32_t num = attachment.colorAttachment;
+            uint32_t a = color[num].attachment;
+            asset::E_FORMAT fmt = descriptions[a].format;
+
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, m_stateCache.currentState.framebuffer.hash, fmt, GL_COLOR, attachment.clearValue, num))
+                anyFailed = true;
+        }
+        else if (attachment.aspectMask & (asset::IImage::EAF_DEPTH_BIT | asset::IImage::EAF_STENCIL_BIT))
+        {
+            GLenum bufferType = 0;
+            {
+                auto aspectMask = (attachment.aspectMask & (asset::IImage::EAF_DEPTH_BIT | asset::IImage::EAF_STENCIL_BIT));
+                if (aspectMask == (asset::IImage::EAF_DEPTH_BIT | asset::IImage::EAF_STENCIL_BIT))
+                    bufferType = GL_DEPTH_STENCIL;
+                else if (aspectMask == asset::IImage::EAF_DEPTH_BIT)
+                    bufferType = GL_DEPTH;
+                else if (aspectMask == asset::IImage::EAF_STENCIL_BIT)
+                    bufferType = GL_STENCIL;
+            }
+
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, m_stateCache.currentState.framebuffer.hash, asset::EF_UNKNOWN, bufferType, attachment.clearValue, 0))
+                anyFailed = true;
+        }
+    }
+
+    if (anyFailed)
+        return false;
+
+    SCmd<impl::ECT_CLEAR_ATTACHMENTS> cmd;
+    cmd.attachmentCount = attachmentCount;
+    auto* attachments = getGLCommandPool()->emplace_n<asset::SClearAttachment>(attachmentCount, pAttachments[0]);
+    if (!attachments)
+        return false;
+    for (uint32_t i = 0u; i < attachmentCount; ++i)
+        attachments[i] = pAttachments[i];
+    cmd.attachments = attachments;
+    cmd.rectCount = rectCount;
+    auto* rects = getGLCommandPool()->emplace_n<asset::SClearRect>(rectCount, pRects[0]);
+    if (!rects)
+        return false;
+    for (uint32_t i = 0u; i < rectCount; ++i)
+        rects[i] = pRects[i];
+    cmd.rects = rects;
     pushCommand(std::move(cmd));
     return true;
 }

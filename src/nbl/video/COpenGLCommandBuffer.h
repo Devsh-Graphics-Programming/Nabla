@@ -465,7 +465,7 @@ protected:
     // TODO(achal): Remove.
     static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
 
-
+    // TODO(achal): Remove.
     static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
 
     static bool pushConstants_validate(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values);
@@ -761,30 +761,7 @@ public:
     bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override;
     bool clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override;
     bool clearDepthStencilImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override;
-    bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override
-    {
-        TODO_CMD;
-
-        if (attachmentCount==0u || rectCount==0u)
-            return false;
-        SCmd<impl::ECT_CLEAR_ATTACHMENTS> cmd;
-        cmd.attachmentCount = attachmentCount;
-        auto* attachments = getGLCommandPool()->emplace_n<asset::SClearAttachment>(attachmentCount, pAttachments[0]);
-        if (!attachments)
-            return false;
-        for (uint32_t i = 0u; i < attachmentCount; ++i)
-            attachments[i] = pAttachments[i];
-        cmd.attachments = attachments;
-        cmd.rectCount = rectCount;
-        auto* rects = getGLCommandPool()->emplace_n<asset::SClearRect>(rectCount, pRects[0]);
-        if (!rects)
-            return false;
-        for (uint32_t i = 0u; i < rectCount; ++i)
-            rects[i] = pRects[i];
-        cmd.rects = rects;
-        pushCommand(std::move(cmd));
-        return true;
-    }
+    bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override;
     bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override
     {
         TODO_CMD;
