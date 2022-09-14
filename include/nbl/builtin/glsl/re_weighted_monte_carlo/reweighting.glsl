@@ -81,7 +81,7 @@ vec3 nbl_glsl_RWMC_reweight(in nbl_glsl_RWMC_ReweightingParameters params, in iv
 	float Emin = params.initialEmin;
 
 	float prev_normalizedCenterLuma, prev_normalizedNeighbourhoodAverageLuma;
-	for (uint i=0; i<=params.lastCascadeIx; i++)
+	for (uint i=0u; i<=params.lastCascadeIx; i++)
 	{
 		const bool notFirstCascade = i!=0u;
 		const bool notLastCascade = i!=params.lastCascadeIx;
