@@ -663,4 +663,73 @@ bool IGPUCommandBuffer::executeCommands(uint32_t count, cmdbuf_t* const* const c
     return executeCommands_impl(count, cmdbufs);
 }
 
+bool IGPUCommandBuffer::regenerateMipmaps(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect)
+{
+    const auto apiType = getAPIType();
+    if ((apiType == EAT_OPENGL) || (apiType == EAT_OPENGL_ES))
+        return regenerateMipmaps_impl(img, lastReadyMip, aspect);
+
+    const uint32_t qfam = getQueueFamilyIndex();
+
+    IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
+    barrier.srcQueueFamilyIndex = qfam;
+    barrier.dstQueueFamilyIndex = qfam;
+    barrier.image = core::smart_refctd_ptr<video::IGPUImage>(img);
+    barrier.subresourceRange.aspectMask = aspect;
+    barrier.subresourceRange.levelCount = 1u;
+    barrier.subresourceRange.baseArrayLayer = 0u;
+    barrier.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
+
+    asset::SImageBlit blitRegion = {};
+    blitRegion.srcSubresource.aspectMask = barrier.subresourceRange.aspectMask;
+    blitRegion.srcSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
+    blitRegion.srcSubresource.layerCount = barrier.subresourceRange.layerCount;
+    blitRegion.srcOffsets[0] = { 0, 0, 0 };
+
+    blitRegion.dstSubresource.aspectMask = barrier.subresourceRange.aspectMask;
+    blitRegion.dstSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
+    blitRegion.dstSubresource.layerCount = barrier.subresourceRange.layerCount;
+    blitRegion.dstOffsets[0] = { 0, 0, 0 };
+
+    auto mipsize = img->getMipSize(lastReadyMip);
+
+    uint32_t mipWidth = mipsize.x;
+    uint32_t mipHeight = mipsize.y;
+    uint32_t mipDepth = mipsize.z;
+    for (uint32_t i = lastReadyMip + 1u; i < img->getCreationParameters().mipLevels; ++i)
+    {
+        const uint32_t srcLoD = i - 1u;
+        const uint32_t dstLoD = i;
+
+        barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+        barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
+        barrier.oldLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
+        barrier.subresourceRange.baseMipLevel = dstLoD;
+
+        if (srcLoD > lastReadyMip)
+        {
+            if (!pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier))
+                return false;
+        }
+
+        const auto srcMipSz = img->getMipSize(srcLoD);
+
+        blitRegion.srcSubresource.mipLevel = srcLoD;
+        blitRegion.srcOffsets[1] = { srcMipSz.x, srcMipSz.y, srcMipSz.z };
+
+        blitRegion.dstSubresource.mipLevel = dstLoD;
+        blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
+
+        if (!blitImage(img, asset::IImage::EL_TRANSFER_SRC_OPTIMAL, img, asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR))
+            return false;
+
+        if (mipWidth > 1u) mipWidth /= 2u;
+        if (mipHeight > 1u) mipHeight /= 2u;
+        if (mipDepth > 1u) mipDepth /= 2u;
+    }
+
+    return true;
+}
+
 }

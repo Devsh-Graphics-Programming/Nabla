@@ -2962,6 +2962,18 @@ bool COpenGLCommandBuffer::executeCommands_impl(uint32_t count, IGPUCommandBuffe
     return true;
 }
 
+bool COpenGLCommandBuffer::regenerateMipmaps_impl(image_t* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect)
+{
+    auto* glimg = static_cast<COpenGLImage*>(img);
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CGenerateTextureMipmapCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glimg->getOpenGLName(), glimg->getOpenGLTarget()))
+        return false;
 
+    SCmd<impl::ECT_REGENERATE_MIPMAPS> cmd;
+    cmd.imgview = core::smart_refctd_ptr<image_t>(img);
+
+    pushCommand(std::move(cmd));
+
+    return true;
+}
 
 }

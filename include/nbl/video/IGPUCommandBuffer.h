@@ -106,80 +106,11 @@ public:
     bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) override final;
     bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) override final;
     bool executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs) override final;
+    bool regenerateMipmaps(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override final;
 
     inline uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
-
     inline IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
-
-    bool regenerateMipmaps(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
-    {
-        const uint32_t qfam = getQueueFamilyIndex();
-
-        IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
-        barrier.srcQueueFamilyIndex = qfam;
-        barrier.dstQueueFamilyIndex = qfam;
-        barrier.image = core::smart_refctd_ptr<video::IGPUImage>(img);
-        barrier.subresourceRange.aspectMask = aspect;
-        barrier.subresourceRange.levelCount = 1u;
-        barrier.subresourceRange.baseArrayLayer = 0u;
-        barrier.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
-
-        asset::SImageBlit blitRegion = {};
-        blitRegion.srcSubresource.aspectMask = barrier.subresourceRange.aspectMask;
-        blitRegion.srcSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
-        blitRegion.srcSubresource.layerCount = barrier.subresourceRange.layerCount;
-        blitRegion.srcOffsets[0] = { 0, 0, 0 };
-
-        blitRegion.dstSubresource.aspectMask = barrier.subresourceRange.aspectMask;
-        blitRegion.dstSubresource.baseArrayLayer = barrier.subresourceRange.baseArrayLayer;
-        blitRegion.dstSubresource.layerCount = barrier.subresourceRange.layerCount;
-        blitRegion.dstOffsets[0] = { 0, 0, 0 };
-
-        auto mipsize = img->getMipSize(lastReadyMip);
-
-        uint32_t mipWidth = mipsize.x;
-        uint32_t mipHeight = mipsize.y;
-        uint32_t mipDepth = mipsize.z;
-        for (uint32_t i = lastReadyMip + 1u; i < img->getCreationParameters().mipLevels; ++i)
-        {
-            const uint32_t srcLoD = i - 1u;
-            const uint32_t dstLoD = i;
-
-            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
-            barrier.oldLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
-            barrier.newLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
-            barrier.subresourceRange.baseMipLevel = dstLoD;
-
-            if (srcLoD > lastReadyMip)
-            {
-                if (!pipelineBarrier(asset::EPSF_TRANSFER_BIT, asset::EPSF_TRANSFER_BIT, static_cast<asset::E_DEPENDENCY_FLAGS>(0u), 0u, nullptr, 0u, nullptr, 1u, &barrier))
-                    return false;
-            }
-
-            const auto srcMipSz = img->getMipSize(srcLoD);
-
-            blitRegion.srcSubresource.mipLevel = srcLoD;
-            blitRegion.srcOffsets[1] = { srcMipSz.x, srcMipSz.y, srcMipSz.z };
-
-            blitRegion.dstSubresource.mipLevel = dstLoD;
-            blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
-
-            if (!blitImage(img, asset::IImage::EL_TRANSFER_SRC_OPTIMAL, img, asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR))
-                return false;
-
-            if (mipWidth > 1u) mipWidth /= 2u;
-            if (mipHeight > 1u) mipHeight /= 2u;
-            if (mipDepth > 1u) mipDepth /= 2u;
-        }
-
-        return true;
-    }
-
-    SInheritanceInfo getCachedInheritanceInfo() const
-    {
-        return m_cachedInheritanceInfo;
-    }
+    inline SInheritanceInfo getCachedInheritanceInfo() const { return m_cachedInheritanceInfo; }
 
     // OpenGL: nullptr, because commandbuffer doesn't exist in GL (we might expose the linked list command storage in the future)
     // Vulkan: const VkCommandBuffer*
@@ -283,6 +214,7 @@ protected:
     virtual bool copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
     virtual bool resolveImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) = 0;
     virtual bool executeCommands_impl(uint32_t count, cmdbuf_t* const* const cmdbufs) = 0;
+    virtual bool regenerateMipmaps_impl(IGPUImage* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) { assert(!"Invalid code path.");  return false; };
 
 private:
     // Be wary of making it protected/calling it in the derived classes because it sets state which will overwrite the state set in base class methods.

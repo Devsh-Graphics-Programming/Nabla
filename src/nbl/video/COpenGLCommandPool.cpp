@@ -654,4 +654,9 @@ void COpenGLCommandPool::CClearNamedBufferSubDataCmd::operator()(IOpenGL_Functio
     gl->extGlClearNamedBufferSubData(m_bufferGLName, m_internalformat, m_offset, m_size, m_format, m_type, &m_data);
 }
 
+void COpenGLCommandPool::CGenerateTextureMipmapCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+{
+    gl->extGlGenerateTextureMipmap(m_texture, m_target);
+}
+
 }

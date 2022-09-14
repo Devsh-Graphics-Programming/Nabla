@@ -142,6 +142,7 @@ public:
     class CClearColorImageCmd; // Does not correspond to a GL call
     class CClearDepthStencilImageCmd; // Does not correspond to a GL call
     class CClearNamedBufferSubDataCmd;
+    class CGenerateTextureMipmapCmd;
 
 private:
     std::mutex mutex;
@@ -1218,6 +1219,18 @@ private:
     const GLenum m_format;
     const GLenum m_type;
     const uint32_t m_data;
+};
+
+class COpenGLCommandPool::CGenerateTextureMipmapCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CGenerateTextureMipmapCmd>
+{
+public:
+    CGenerateTextureMipmapCmd(const GLuint texture, const GLenum target) : m_texture(texture), m_target(target) {}
+
+    void operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+private:
+    const GLuint m_texture;
+    const GLenum m_target;
 };
 
 }
