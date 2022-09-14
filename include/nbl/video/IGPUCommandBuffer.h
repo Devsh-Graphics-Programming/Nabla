@@ -97,7 +97,8 @@ public:
     bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override final;
     bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets) override final;
     bool dispatchIndirect(const buffer_t* buffer, size_t offset) override final;
-    bool setEvent(event_t* event, const SDependencyInfo& depInfo) override final;
+    bool setEvent(event_t* _event, const SDependencyInfo& depInfo) override final;
+    bool resetEvent(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override final;
     bool waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos) override final;
     bool drawMeshBuffer(const meshbuffer_t* meshBuffer) override final;
     bool copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) override final;
@@ -207,7 +208,8 @@ protected:
     virtual bool fillBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) = 0;
     virtual void bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets) = 0;
     virtual bool dispatchIndirect_impl(const buffer_t* buffer, size_t offset) = 0;
-    virtual bool setEvent_impl(event_t* event, const SDependencyInfo& depInfo) = 0;
+    virtual bool setEvent_impl(event_t* _event, const SDependencyInfo& depInfo) = 0;
+    virtual bool resetEvent_impl(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
     virtual bool waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos) = 0;
     virtual bool copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions) = 0;
     virtual bool copyImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) = 0;

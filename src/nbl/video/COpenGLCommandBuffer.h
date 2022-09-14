@@ -670,7 +670,7 @@ public:
     bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override;
 
     bool setEvent_impl(event_t* _event, const SDependencyInfo& depInfo) override;
-    bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override;
+    bool resetEvent_impl(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override;
     bool waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfos);
 
     bool pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,

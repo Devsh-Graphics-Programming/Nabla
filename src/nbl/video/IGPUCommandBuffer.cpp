@@ -456,6 +456,20 @@ bool IGPUCommandBuffer::setEvent(event_t* _event, const SDependencyInfo& depInfo
     return setEvent_impl(_event, depInfo);
 }
 
+bool IGPUCommandBuffer::resetEvent(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask)
+{
+    if (!_event || _event->getAPIType() != getAPIType())
+        return false;
+
+    if (!this->isCompatibleDevicewise(_event))
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CResetEventCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUEvent>(_event)))
+        return false;
+
+    return resetEvent_impl(_event, stageMask);
+}
+
 bool IGPUCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo)
 {
     if (eventCount == 0u)

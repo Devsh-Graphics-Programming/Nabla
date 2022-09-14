@@ -476,30 +476,23 @@ public:
         return true;
     }
 
-    bool setEvent_impl(event_t* event, const SDependencyInfo& depInfo) override
+    bool setEvent_impl(event_t* _event, const SDependencyInfo& depInfo) override
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdSetEvent(
             m_cmdbuf,
-            IBackendObject::compatibility_cast<const CVulkanEvent*>(event, this)->getInternalObject(),
+            IBackendObject::compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject(),
             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT); // No way to get this! SDependencyInfo is unused
 
         return true;
     }
 
-    bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
+    bool resetEvent_impl(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override
     {
-        if (!event || event->getAPIType() != EAT_VULKAN)
-            return false;
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[] = { core::smart_refctd_ptr<const core::IReferenceCounted>(event) };
-        if (!saveReferencesToResources(tmp, tmp + 1))
-            return false;
-
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdResetEvent(
             m_cmdbuf,
-            IBackendObject::compatibility_cast<const CVulkanEvent*>(event, this)->getInternalObject(),
+            IBackendObject::compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject(),
             getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
 
         return true;

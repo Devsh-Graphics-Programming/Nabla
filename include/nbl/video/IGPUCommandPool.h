@@ -195,6 +195,7 @@ public:
     class CClearDepthStencilImageCmd;
     class CFillBufferCmd;
     class CSetEventCmd;
+    class CResetEventCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -695,6 +696,15 @@ class IGPUCommandPool::CSetEventCmd : public IGPUCommandPool::IFixedSizeCommand<
 {
 public:
     CSetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
+
+private:
+    core::smart_refctd_ptr<const IGPUEvent> m_event;
+};
+
+class IGPUCommandPool::CResetEventCmd : public IGPUCommandPool::IFixedSizeCommand<CResetEventCmd>
+{
+public:
+    CResetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
 
 private:
     core::smart_refctd_ptr<const IGPUEvent> m_event;

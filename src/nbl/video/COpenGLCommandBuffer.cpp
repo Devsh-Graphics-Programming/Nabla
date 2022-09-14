@@ -2214,14 +2214,12 @@ bool COpenGLCommandBuffer::setEvent_impl(event_t* _event, const SDependencyInfo&
     return true;
 }
 
-bool COpenGLCommandBuffer::resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask)
+bool COpenGLCommandBuffer::resetEvent_impl(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask)
 {
     // currently no-op
 
-    if (!this->isCompatibleDevicewise(event))
-        return false;
     SCmd<impl::ECT_RESET_EVENT> cmd;
-    cmd.event = core::smart_refctd_ptr<event_t>(event);
+    cmd.event = core::smart_refctd_ptr<event_t>(_event);
     cmd.stageMask = stageMask;
     pushCommand(std::move(cmd));
     return true;
