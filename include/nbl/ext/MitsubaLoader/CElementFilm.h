@@ -137,6 +137,9 @@ class CElementFilm : public IElement
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxPathLen = 256;
 		char outputFilePath[MaxPathLen+1] = {0};
 		char denoiserBloomFilePath[MaxPathLen+1] = {0};
+		int32_t cascadeCount = 1;
+		float cascadeLuminanceBase = 8.0f;
+		float cascadeLuminanceStart = core::nan<float>();
 		float denoiserBloomScale = 0.0f;
 		float denoiserBloomIntensity = 0.0f;
 		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxTonemapperArgsLen = 128;

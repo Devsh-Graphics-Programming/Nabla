@@ -267,37 +267,44 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 		denoiserTonemapperArgs[len] = 0;
 	};
 
-	auto setBloomScale			= SET_PROPERTY(denoiserBloomScale,SNamedPropertyElement::Type::FLOAT);
-	auto setBloomIntensity		= SET_PROPERTY(denoiserBloomIntensity,SNamedPropertyElement::Type::FLOAT);
+	auto setCascadeCount			= SET_PROPERTY(cascadeCount,SNamedPropertyElement::Type::INTEGER);
+	auto setCascadeLuminanceBase	= SET_PROPERTY(cascadeLuminanceBase,SNamedPropertyElement::Type::FLOAT);
+	auto setCascadeLuminanceStart	= SET_PROPERTY(cascadeLuminanceStart,SNamedPropertyElement::Type::FLOAT);
+
+	auto setBloomScale				= SET_PROPERTY(denoiserBloomScale,SNamedPropertyElement::Type::FLOAT);
+	auto setBloomIntensity			= SET_PROPERTY(denoiserBloomIntensity,SNamedPropertyElement::Type::FLOAT);
 
 	auto setEnvmapRegularizationFactor = SET_PROPERTY(envmapRegularizationFactor,SNamedPropertyElement::Type::FLOAT);
 
 	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
-		{"width",				setWidth},
-		{"height",				setHeight},
-		{"cropOffsetX",			setCropOffsetX},
-		{"cropOffsetY",			setCropOffsetY},
-		{"cropWidth",			setCropWidth},
-		{"cropHeight",			setCropHeight},
-		{"fileFormat",			setFileFormat},
-		{"pixelFormat",			setPixelFormat},
-		{"componentFormat",		setComponentFormat},
-		{"banner",				setBanner},
-		{"highQualityEdges",	setHighQualityEdges},
-		{"attachLog",			setAttachLog},
-		{"tonemapMethod",		setTonemapMethod},
-		{"gamma",				setGamma},
-		{"exposure",			setExposure},
-		{"key",					setKey},
-		{"burn",				setBurn},
-		{"digits",				setDigits},
-		{"variable",			setVariable},
-		{"outputFilePath",		setOutputFilePath},
-		{"bloomFilePath",		setBloomFilePath},
-		{"bloomScale",			setBloomScale},
-		{"bloomIntensity",		setBloomIntensity},
-		{"tonemapper",			setTonemapperArgs},
+		{"width",					setWidth},
+		{"height",					setHeight},
+		{"cropOffsetX",				setCropOffsetX},
+		{"cropOffsetY",				setCropOffsetY},
+		{"cropWidth",				setCropWidth},
+		{"cropHeight",				setCropHeight},
+		{"fileFormat",				setFileFormat},
+		{"pixelFormat",				setPixelFormat},
+		{"componentFormat",			setComponentFormat},
+		{"banner",					setBanner},
+		{"highQualityEdges",		setHighQualityEdges},
+		{"attachLog",				setAttachLog},
+		{"tonemapMethod",			setTonemapMethod},
+		{"gamma",					setGamma},
+		{"exposure",				setExposure},
+		{"key",						setKey},
+		{"burn",					setBurn},
+		{"digits",					setDigits},
+		{"variable",				setVariable},
+		{"outputFilePath",			setOutputFilePath},
+		{"bloomFilePath",			setBloomFilePath},
+		{"cascadeCount",			setCascadeCount},
+		{"cascadeLuminanceBase",	setCascadeLuminanceBase},
+		{"cascadeLuminanceStart",	setCascadeLuminanceStart},
+		{"bloomScale",				setBloomScale},
+		{"bloomIntensity",			setBloomIntensity},
+		{"tonemapper",				setTonemapperArgs},
 		{"envmapRegularizationFactor", setEnvmapRegularizationFactor}
 	};
 

@@ -98,6 +98,16 @@ bool CElementRFilter::addProperty(SNamedPropertyElement&& _property)
 			mitchell.C = _property.fvalue;
 			return true;
 		}
+		else if (core::strcmpi(_property.name,std::string("kappa"))==0)
+		{
+			kappa = _property.fvalue;
+			return true;
+		}
+		else if (core::strcmpi(_property.name,std::string("EminRelative"))==0)
+		{
+			EminRelative = _property.fvalue;
+			return true;
+		}
 		else
 			ParserLog::invalidXMLFileStructure("unsupported rfilter property called: "+_property.name);
 	}

@@ -64,6 +64,8 @@ class CElementRFilter : public IElement
 			MitchellNetravali	catmullrom;
 			LanczosSinc			lanczos;
 		};
+		float kappa = 0.f;
+		float EminRelative = 0.05f;
 };
 
 
