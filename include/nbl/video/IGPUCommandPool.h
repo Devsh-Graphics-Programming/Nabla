@@ -196,6 +196,7 @@ public:
     class CFillBufferCmd;
     class CSetEventCmd;
     class CResetEventCmd;
+    class CWriteAccelerationStructurePropertiesCmd;
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -708,6 +709,38 @@ public:
 
 private:
     core::smart_refctd_ptr<const IGPUEvent> m_event;
+};
+
+class IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd : public IGPUCommandPool::ICommand
+{
+public:
+    // If we take queryPool as rvalue ref here (core::smart_refctd_ptr<const IQueryPool>&&), in calc_size it will become const core::smart_refctd_ptr<const IQueryPool>
+    // because calc_size takes its arguments by const ref (https://github.com/Devsh-Graphics-Programming/Nabla/blob/04fcae3029772cbc739ccf6ba80f72e6e12f54e8/include/nbl/video/IGPUCommandPool.h#L76)
+    // , that means we will not be able to pass a core::smart_refctd_ptr<const IQueryPool> when emplacing the command. So instead, we take a raw pointer and create refctd pointers here.
+    CWriteAccelerationStructurePropertiesCmd(const IQueryPool* queryPool, const uint32_t accelerationStructureCount, IGPUAccelerationStructure const *const *const accelerationStructures)
+        : ICommand(calc_size(queryPool, accelerationStructureCount, accelerationStructures)), m_queryPool(core::smart_refctd_ptr<const IQueryPool>(queryPool)), m_accelerationStructureCount(accelerationStructureCount)
+    {
+        m_accelerationStructures = new (this + sizeof(CWriteAccelerationStructurePropertiesCmd)) core::smart_refctd_ptr<const IGPUAccelerationStructure>[m_accelerationStructureCount];
+
+        for (auto i = 0; i < m_accelerationStructureCount; ++i)
+            m_accelerationStructures[i] = core::smart_refctd_ptr<const IGPUAccelerationStructure>(accelerationStructures[i]);
+    }
+
+    ~CWriteAccelerationStructurePropertiesCmd()
+    {
+        for (auto i = 0; i < m_accelerationStructureCount; ++i)
+            m_accelerationStructures->~smart_refctd_ptr();
+    }
+
+    static uint32_t calc_size(const IQueryPool* queryPool, const uint32_t accelerationStructureCount, IGPUAccelerationStructure const *const *const accelerationStructures)
+    {
+        return core::alignUp(sizeof(CWriteAccelerationStructurePropertiesCmd) + (accelerationStructureCount + 1)* sizeof(void*), alignof(ICommand));
+    }
+
+private:
+    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+    const uint32_t m_accelerationStructureCount;
+    core::smart_refctd_ptr<const IGPUAccelerationStructure>* m_accelerationStructures;
 };
 
 }

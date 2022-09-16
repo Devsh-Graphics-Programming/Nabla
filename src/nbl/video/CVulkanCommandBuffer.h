@@ -498,7 +498,7 @@ public:
         return true;
     }
 
-    bool waitEvents_impl(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfo) override
+    bool waitEvents_impl(uint32_t eventCount, event_t *const *const pEvents, const SDependencyInfo* depInfo) override
     {
         constexpr uint32_t MAX_EVENT_COUNT = (1u << 12) / sizeof(VkEvent);
         assert(eventCount <= MAX_EVENT_COUNT);
@@ -583,18 +583,6 @@ public:
         assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
         assert(bufferMemoryBarrierCount <= MAX_BARRIER_COUNT);
         assert(imageMemoryBarrierCount <= MAX_BARRIER_COUNT);
-
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmp[2*MAX_BARRIER_COUNT];
-
-        uint32_t totalResourceCount = 0u;
-        for (; totalResourceCount < bufferMemoryBarrierCount; ++totalResourceCount)
-            tmp[totalResourceCount] = pBufferMemoryBarriers[totalResourceCount].buffer;
-
-        for (; totalResourceCount < imageMemoryBarrierCount; ++totalResourceCount)
-            tmp[totalResourceCount] = pImageMemoryBarriers[totalResourceCount].image;
-
-        // TODO(achal): Remove.
-        saveReferencesToResources(tmp, tmp + totalResourceCount);
 
         VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
         for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
@@ -723,7 +711,7 @@ public:
     bool writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override;
 
     // Acceleration Structure Properties (Only available on Vulkan)
-    bool writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) override;
+    bool writeAccelerationStructureProperties_impl(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) override;
 
     bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
         const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,

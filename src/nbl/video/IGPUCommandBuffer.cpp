@@ -307,6 +307,30 @@ bool IGPUCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineSta
     return writeTimestamp_impl(pipelineStage, queryPool, query);
 }
 
+bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery)
+{
+    if (!queryPool || pAccelerationStructures.empty())
+        return false;
+
+    // Emplace a cmd which will hold the refctd pointers to IGPUAccelerationStructure(s) and the IQueryPool. It will hold 1 IQueryPool and a multiple number of IGPUAccelerationStructures
+    // that means it will be variable length command.
+    // auto as = &pAccelerationStructures.begin()[0];
+
+    const uint32_t asCount = static_cast<uint32_t>(pAccelerationStructures.size());
+    // TODO: Use Better Containers
+    static constexpr size_t MaxAccelerationStructureCount = 128;
+    assert(asCount <= MaxAccelerationStructureCount);
+
+    const IGPUAccelerationStructure* accelerationStructures[MaxAccelerationStructureCount] = { nullptr };
+    for (auto i = 0; i < asCount; ++i)
+        accelerationStructures[i] = &pAccelerationStructures.begin()[i];
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd>(m_segmentListHeadItr, m_segmentListTail, queryPool, asCount, accelerationStructures))
+        return false;
+
+    return writeAccelerationStructureProperties_impl(pAccelerationStructures, queryType, queryPool, firstQuery);
+}
+
 bool IGPUCommandBuffer::beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
 {
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
