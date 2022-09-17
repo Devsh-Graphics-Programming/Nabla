@@ -42,7 +42,7 @@ bool CVulkanCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
 }
 
 static std::vector<core::smart_refctd_ptr<const core::IReferenceCounted>> getBuildGeometryInfoReferences(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& info)
-{
+{   
     // TODO: Use Better Container than Vector
     std::vector<core::smart_refctd_ptr<const core::IReferenceCounted>> ret;
         
@@ -63,7 +63,7 @@ static std::vector<core::smart_refctd_ptr<const core::IReferenceCounted>> getBui
             auto const & geometry = geoms[g];
             if(IGPUAccelerationStructure::E_GEOM_TYPE::EGT_TRIANGLES == geometry.type)
             {
-                const auto & triangles = geometry.data.triangles;
+                auto const & triangles = geometry.data.triangles;
                 if (triangles.vertexData.isValid())
                     ret.push_back(triangles.vertexData.buffer);
                 if (triangles.indexData.isValid())
@@ -88,53 +88,37 @@ static std::vector<core::smart_refctd_ptr<const core::IReferenceCounted>> getBui
     return ret;
 }
 
-bool CVulkanCommandBuffer::buildAccelerationStructures(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+bool CVulkanCommandBuffer::buildAccelerationStructures_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
 {
-    bool ret = false;
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() == EAT_VULKAN)
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    VkDevice vk_device = vulkanDevice->getInternalObject();
+    auto* vk = vulkanDevice->getFunctionTable();
+
+    static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
+    static constexpr size_t MaxBuildInfoCount = 128;
+    size_t infoCount = pInfos.size();
+    assert(infoCount <= MaxBuildInfoCount);
+
+    // TODO: Use better container when ready for these stack allocated memories.
+    VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfos[MaxBuildInfoCount] = {};
+
+    uint32_t geometryArrayOffset = 0u;
+    VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
+
+    IGPUAccelerationStructure::DeviceBuildGeometryInfo* infos = pInfos.begin();
+
+    for(uint32_t i = 0; i < infoCount; ++i)
     {
-        if(!pInfos.empty())
-        {
-            const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(originDevice);
-            VkDevice vk_device = vulkanDevice->getInternalObject();
-            auto* vk = vulkanDevice->getFunctionTable();
-
-            static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
-            static constexpr size_t MaxBuildInfoCount = 128;
-            size_t infoCount = pInfos.size();
-            assert(infoCount <= MaxBuildInfoCount);
-                
-            // TODO: Use better container when ready for these stack allocated memories.
-            VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfos[MaxBuildInfoCount] = {};
-
-            uint32_t geometryArrayOffset = 0u;
-            VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
-
-            IGPUAccelerationStructure::DeviceBuildGeometryInfo* infos = pInfos.begin();
-            for(uint32_t i = 0; i < infoCount; ++i)
-            {
-                uint32_t geomCount = infos[i].geometries.size();
-
-                assert(geomCount > 0);
-                assert(geomCount <= MaxGeometryPerBuildInfoCount);
-
-                vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(vk_device, vk, infos[i], &vk_geometries[geometryArrayOffset]);
-                geometryArrayOffset += geomCount; 
-                    
-                // Add Refs of BuildInfo to CmdPool
-                auto tmp = getBuildGeometryInfoReferences(infos[i]);
-                CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-                vulkanCommandPool->emplace_n(m_argListTail, tmp.data(), tmp.data() + tmp.size());
-            }
-                
-            static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
-            auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
-            vk->vk.vkCmdBuildAccelerationStructuresKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, buildRangeInfos);
-            ret = true;
-        }
+        uint32_t geomCount = infos[i].geometries.size();
+        vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(vk_device, vk, infos[i], &vk_geometries[geometryArrayOffset]);
+        geometryArrayOffset += geomCount;
     }
-    return ret;
+
+    static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
+    auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
+    vk->vk.vkCmdBuildAccelerationStructuresKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, buildRangeInfos);
+    
+    return true;
 }
     
 bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect(
