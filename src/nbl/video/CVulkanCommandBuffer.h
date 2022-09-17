@@ -959,15 +959,10 @@ public:
         return true;
     }
 
-    bool buildAccelerationStructures_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;
-    
-    // TODO(achal): Still, for all of these commands make ICommandBuffer methods pure virtual and add a default impl in IGPUCommandBuffer
-    bool buildAccelerationStructuresIndirect(
-        const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, 
-        const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
-        const uint32_t* pIndirectStrides,
-        const uint32_t* const* ppMaxPrimitiveCounts) override;
+    bool buildAccelerationStructures_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;    
+    bool buildAccelerationStructuresIndirect_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts) override;
 
+    // TODO(achal): Still, for all of these commands make ICommandBuffer methods pure virtual and add a default impl in IGPUCommandBuffer
     bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
     
     bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;

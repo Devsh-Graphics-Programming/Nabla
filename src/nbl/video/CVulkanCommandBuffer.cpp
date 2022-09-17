@@ -121,62 +121,45 @@ bool CVulkanCommandBuffer::buildAccelerationStructures_impl(const core::SRange<I
     return true;
 }
     
-bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect(
+bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect_impl(
     const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, 
     const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
     const uint32_t* pIndirectStrides,
     const uint32_t* const* ppMaxPrimitiveCounts)
 {
-    bool ret = false;
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() == EAT_VULKAN)
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    VkDevice vk_device = vulkanDevice->getInternalObject();
+    auto* vk = vulkanDevice->getFunctionTable();
+
+    static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
+    static constexpr size_t MaxBuildInfoCount = 128;
+    size_t infoCount = pInfos.size();
+    size_t indirectDeviceAddressesCount = pIndirectDeviceAddresses.size();
+    assert(infoCount <= MaxBuildInfoCount);
+    assert(infoCount == indirectDeviceAddressesCount);
+                
+    // TODO: Use better container when ready for these stack allocated memories.
+    VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfos[MaxBuildInfoCount] = {};
+    VkDeviceSize vk_indirectDeviceAddresses[MaxBuildInfoCount] = {};
+
+    uint32_t geometryArrayOffset = 0u;
+    VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
+
+    IGPUAccelerationStructure::DeviceBuildGeometryInfo* infos = pInfos.begin();
+    IGPUAccelerationStructure::DeviceAddressType* indirectDeviceAddresses = pIndirectDeviceAddresses.begin();
+    for(uint32_t i = 0; i < infoCount; ++i)
     {
-        if(!pInfos.empty())
-        {
-            const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(originDevice);
-            VkDevice vk_device = vulkanDevice->getInternalObject();
-            auto* vk = vulkanDevice->getFunctionTable();
+        uint32_t geomCount = infos[i].geometries.size();
 
-            static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
-            static constexpr size_t MaxBuildInfoCount = 128;
-            size_t infoCount = pInfos.size();
-            size_t indirectDeviceAddressesCount = pIndirectDeviceAddresses.size();
-            assert(infoCount <= MaxBuildInfoCount);
-            assert(infoCount == indirectDeviceAddressesCount);
-                
-            // TODO: Use better container when ready for these stack allocated memories.
-            VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfos[MaxBuildInfoCount] = {};
-            VkDeviceSize vk_indirectDeviceAddresses[MaxBuildInfoCount] = {};
+        vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(vk_device, vk, infos[i], &vk_geometries[geometryArrayOffset]);
+        geometryArrayOffset += geomCount;
 
-            uint32_t geometryArrayOffset = 0u;
-            VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
-
-            IGPUAccelerationStructure::DeviceBuildGeometryInfo* infos = pInfos.begin();
-            IGPUAccelerationStructure::DeviceAddressType* indirectDeviceAddresses = pIndirectDeviceAddresses.begin();
-            for(uint32_t i = 0; i < infoCount; ++i)
-            {
-                uint32_t geomCount = infos[i].geometries.size();
-
-                assert(geomCount > 0);
-                assert(geomCount <= MaxGeometryPerBuildInfoCount);
-
-                vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(vk_device, vk, infos[i], &vk_geometries[geometryArrayOffset]);
-                geometryArrayOffset += geomCount;
-
-                auto addr = CVulkanAccelerationStructure::getVkDeviceOrHostAddress<IGPUAccelerationStructure::DeviceAddressType>(vk_device, vk, indirectDeviceAddresses[i]);
-                vk_indirectDeviceAddresses[i] = addr.deviceAddress;
-                    
-                // Add Refs of BuildInfo to CmdPool
-                auto tmp = getBuildGeometryInfoReferences(infos[i]);
-                CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-                vulkanCommandPool->emplace_n(m_argListTail, tmp.data(), tmp.data() + tmp.size());
-            }
-                
-            vk->vk.vkCmdBuildAccelerationStructuresIndirectKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, vk_indirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
-            ret = true;
-        }
+        auto addr = CVulkanAccelerationStructure::getVkDeviceOrHostAddress<IGPUAccelerationStructure::DeviceAddressType>(vk_device, vk, indirectDeviceAddresses[i]);
+        vk_indirectDeviceAddresses[i] = addr.deviceAddress;
     }
-    return ret;
+                
+    vk->vk.vkCmdBuildAccelerationStructuresIndirectKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, vk_indirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
+    return true;
 }
 
 bool CVulkanCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
