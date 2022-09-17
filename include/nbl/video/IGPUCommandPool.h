@@ -198,6 +198,8 @@ public:
     class CResetEventCmd;
     class CWriteAccelerationStructurePropertiesCmd;
     class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
+    class CCopyAccelerationStructureCmd;
+    class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
 
     IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
         : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
@@ -775,6 +777,30 @@ public:
 private:
     const uint32_t m_resourceCount;
     core::smart_refctd_ptr<const IReferenceCounted>* m_resources;
+};
+
+class IGPUCommandPool::CCopyAccelerationStructureCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyAccelerationStructureCmd>
+{
+public:
+    CCopyAccelerationStructureCmd(core::smart_refctd_ptr<const IGPUAccelerationStructure>&& src, core::smart_refctd_ptr<const IGPUAccelerationStructure>&& dst)
+        : m_src(std::move(src)), m_dst(std::move(dst))
+    {}
+
+private:
+    core::smart_refctd_ptr<const IGPUAccelerationStructure> m_src;
+    core::smart_refctd_ptr<const IGPUAccelerationStructure> m_dst;
+};
+
+class IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyAccelerationStructureToOrFromMemoryCmd>
+{
+public:
+    CCopyAccelerationStructureToOrFromMemoryCmd(core::smart_refctd_ptr<const IGPUAccelerationStructure>&& accelStructure, core::smart_refctd_ptr<const IGPUBuffer>&& buffer)
+        : m_accelStructure(std::move(accelStructure)), m_buffer(std::move(buffer))
+    {}
+
+private:
+    core::smart_refctd_ptr<const IGPUAccelerationStructure> m_accelStructure;
+    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
 }

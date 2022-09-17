@@ -961,13 +961,9 @@ public:
 
     bool buildAccelerationStructures_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;    
     bool buildAccelerationStructuresIndirect_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts) override;
-
-    // TODO(achal): Still, for all of these commands make ICommandBuffer methods pure virtual and add a default impl in IGPUCommandBuffer
-    bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
-    
-    bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
-
-    bool copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override;
+    bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
+    bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
+    bool copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override;
     
 	inline const void* getNativeHandle() const override {return &m_cmdbuf;}
     VkCommandBuffer getInternalObject() const {return m_cmdbuf;}

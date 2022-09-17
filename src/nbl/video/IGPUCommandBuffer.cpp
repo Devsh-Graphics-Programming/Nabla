@@ -371,6 +371,48 @@ bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<v
     return buildAccelerationStructuresIndirect_impl(pInfos, pIndirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
 }
 
+bool IGPUCommandBuffer::copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo)
+{
+    if (!copyInfo.src || copyInfo.src->getAPIType() != getAPIType())
+        return false;
+
+    if (!copyInfo.dst || copyInfo.dst->getAPIType() != getAPIType())
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyAccelerationStructureCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst)))
+        return false;
+
+    return copyAccelerationStructure_impl(copyInfo);
+}
+
+bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
+{
+    if (!copyInfo.src || copyInfo.src->getAPIType() != getAPIType())
+        return false;
+
+    if (!copyInfo.dst.buffer || copyInfo.dst.buffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
+        return false;
+
+    return copyAccelerationStructureToMemory_impl(copyInfo);
+}
+
+bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
+{
+    if (!copyInfo.src.buffer || copyInfo.src.buffer->getAPIType() != getAPIType())
+        return false;
+
+    if (!copyInfo.dst || copyInfo.dst->getAPIType() != getAPIType())
+        return false;
+
+    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.src.buffer)))
+        return false;
+
+    return copyAccelerationStructureFromMemory_impl(copyInfo);
+}
+
 bool IGPUCommandBuffer::resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
 {
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
@@ -399,10 +441,6 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<
 {
     if (!queryPool || pAccelerationStructures.empty())
         return false;
-
-    // Emplace a cmd which will hold the refctd pointers to IGPUAccelerationStructure(s) and the IQueryPool. It will hold 1 IQueryPool and a multiple number of IGPUAccelerationStructures
-    // that means it will be variable length command.
-    // auto as = &pAccelerationStructures.begin()[0];
 
     const uint32_t asCount = static_cast<uint32_t>(pAccelerationStructures.size());
     // TODO: Use Better Containers

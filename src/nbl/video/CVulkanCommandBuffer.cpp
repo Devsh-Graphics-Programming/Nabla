@@ -162,101 +162,37 @@ bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect_impl(
     return true;
 }
 
-bool CVulkanCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
-    bool ret = false;
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(originDevice);
-        VkDevice vk_device = vulkanDevice->getInternalObject();
-        auto* vk = vulkanDevice->getFunctionTable();
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    VkDevice vk_device = vulkanDevice->getInternalObject();
+    auto* vk = vulkanDevice->getFunctionTable();
 
-        if(copyInfo.dst == nullptr || copyInfo.src == nullptr) 
-        {
-            assert(false && "invalid src or dst");
-            return false;
-        }
-            
-        // Add Ref to CmdPool
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[2] = 
-        {
-            core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src),
-            core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst),
-        };
-        CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-        vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
-
-
-        VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(vk_device, vk, copyInfo);
-        vk->vk.vkCmdCopyAccelerationStructureKHR(m_cmdbuf, &info);
-        ret = true;
-    }
-    return ret;
+    VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(vk_device, vk, copyInfo);
+    vk->vk.vkCmdCopyAccelerationStructureKHR(m_cmdbuf, &info);
+    return true;
 }
     
-bool CVulkanCommandBuffer::copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
 {
-    bool ret = false;
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(originDevice);
-        VkDevice vk_device = vulkanDevice->getInternalObject();
-        auto* vk = vulkanDevice->getFunctionTable();
-
-        if(copyInfo.dst.isValid() == false || copyInfo.src == nullptr) 
-        {
-            assert(false && "invalid src or dst");
-            return false;
-        }
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    VkDevice vk_device = vulkanDevice->getInternalObject();
+    auto* vk = vulkanDevice->getFunctionTable();
             
-        // Add Ref to CmdPool
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[2] = 
-        {
-            copyInfo.dst.buffer,
-            core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src),
-        };
-        CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-        vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
-            
-        VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(vk_device, vk, copyInfo);
-        vk->vk.vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf, &info);
-        ret = true;
-    }
-    return ret;
+    VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(vk_device, vk, copyInfo);
+    vk->vk.vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf, &info);
+    return true;
 }
 
-bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
+bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
 {
-    bool ret = false;
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() == EAT_VULKAN)
-    {
-        const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(originDevice);
-        VkDevice vk_device = vulkanDevice->getInternalObject();
-        auto* vk = vulkanDevice->getFunctionTable();
-
-        if(copyInfo.dst == nullptr || copyInfo.src.isValid() == false) 
-        {
-            assert(false && "invalid src or dst");
-            return false;
-        }
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    VkDevice vk_device = vulkanDevice->getInternalObject();
+    auto* vk = vulkanDevice->getFunctionTable();
             
-        // Add Ref to CmdPool
-        core::smart_refctd_ptr<const core::IReferenceCounted> tmpRefCntd[2] = 
-        {
-            copyInfo.src.buffer,
-            core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst),
-        };
-        CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-        vulkanCommandPool->emplace_n(m_argListTail, tmpRefCntd, tmpRefCntd + 2);
-            
-        VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(vk_device, vk, copyInfo);
-        vk->vk.vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf, &info);
-        ret = true;
-    }
-    return ret;
+    VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(vk_device, vk, copyInfo);
+    vk->vk.vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf, &info);
+    return true;
 }
     
 bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)

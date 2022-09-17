@@ -88,6 +88,9 @@ public:
 
     bool buildAccelerationStructures(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override final;
     bool buildAccelerationStructuresIndirect(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts) override final;
+    bool copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) override final;
+    bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override final;
+    bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override final;
 
     bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override final;
     bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) override final;
@@ -205,6 +208,9 @@ protected:
 
     virtual bool buildAccelerationStructures_impl(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) { assert(!"Invalid code path."); return false; }
     virtual bool buildAccelerationStructuresIndirect_impl(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts) { assert(!"Invalid code path."); return false; }
+    virtual bool copyAccelerationStructure_impl(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) { assert(!"Invalid code path."); return false; }
+    virtual bool copyAccelerationStructureToMemory_impl(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) { assert(!"Invalid code path."); return false; }
+    virtual bool copyAccelerationStructureFromMemory_impl(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) { assert(!"Invaild code path."); return false; }
 
     virtual bool resetQueryPool_impl(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;
     virtual bool writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) = 0;

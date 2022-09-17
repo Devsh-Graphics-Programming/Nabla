@@ -302,9 +302,9 @@ public:
         const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
         const uint32_t* pIndirectStrides,
         const uint32_t* const* ppMaxPrimitiveCounts) = 0;
-    virtual bool copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) { return false; }
-    virtual bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) { return false; }
-    virtual bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) { return false; }
+    virtual bool copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
+    virtual bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) = 0;
+    virtual bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) = 0;
     virtual bool executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs) = 0;
     virtual bool regenerateMipmaps(image_t* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) = 0;
 
