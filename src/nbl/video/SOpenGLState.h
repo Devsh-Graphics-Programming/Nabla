@@ -55,25 +55,22 @@ struct SOpenGLState
     };
 
     struct {
+        // TODO(achal): Don't know if we should still keep this around? We can always call COpenGLFramebuffer::getHashValue to get it. Keeping this member here
+        // and forgetting to update it might cause the values to get ouf of sync and create bugs.
         SFBOHash hash = NULL_FBO_HASH;
-        GLuint GLname = 0u;
-        core::smart_refctd_ptr<const COpenGLFramebuffer> fbo = nullptr;
+        const COpenGLFramebuffer* fbo = nullptr;
     } framebuffer;
 
     struct {
         struct {
-            core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline; // TODO(achal): No need to be refctd anymore.
-            SGraphicsPipelineHash usedShadersHash = { 0u, 0u, 0u, 0u, 0u }; // TODO(achal): Remove.
-			GLuint usedPipeline = 0u; // TODO(achal): Remove.
+            const IGPUGraphicsPipeline* pipeline;
         } graphics;
         struct {
-            core::smart_refctd_ptr<const COpenGLComputePipeline> pipeline; // TODO(achal): No need to be refctd anymore.
-            GLuint usedShader = 0u; // TODO(achal): We most likely don't need this anymore.
+            const COpenGLComputePipeline* pipeline;
         } compute;
     } pipeline;
 
     struct {
-        // TODO(achal): Don't need no refctd no more
         core::smart_refctd_ptr<const COpenGLBuffer> buffer;
     } dispatchIndirect;
 
@@ -170,9 +167,8 @@ struct SOpenGLState
         SVAO vaoval;
 
         //putting it here because idk where else
-        // TODO(achal): Don't need no refctd no more
-        core::smart_refctd_ptr<const COpenGLBuffer> indirectDrawBuf;
-        core::smart_refctd_ptr<const COpenGLBuffer> parameterBuf;//GL>=4.6
+        const COpenGLBuffer* indirectDrawBuf;
+        const COpenGLBuffer* parameterBuf;//GL>=4.6
     } vertexInputParams;
 
     struct {
@@ -180,7 +176,6 @@ struct SOpenGLState
     } descriptorsParams[asset::E_PIPELINE_BIND_POINT::EPBP_COUNT];
 
     struct SPixelPackUnpack {
-        // TODO(achal): Don't need no refctd no more
         core::smart_refctd_ptr<const COpenGLBuffer> buffer;
         GLint alignment = 4;
         GLint rowLength = 0;

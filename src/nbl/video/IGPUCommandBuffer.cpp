@@ -493,6 +493,12 @@ bool IGPUCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint3
     return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
 }
 
+bool IGPUCommandBuffer::setDeviceMask(uint32_t deviceMask)
+{
+    m_deviceMask = deviceMask;
+    return setDeviceMask_impl(deviceMask);
+}
+
 bool IGPUCommandBuffer::bindGraphicsPipeline(const graphics_pipeline_t* pipeline)
 {
     if (!pipeline || pipeline->getAPIType() != getAPIType())

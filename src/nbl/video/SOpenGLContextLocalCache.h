@@ -7,19 +7,7 @@
 namespace nbl::video
 {
 
-namespace impl
-{
-    // GCC is special
-    template<asset::E_PIPELINE_BIND_POINT>
-    struct pipeline_for_bindpoint;
-    template<> struct pipeline_for_bindpoint<asset::EPBP_COMPUTE>  { using type = COpenGLComputePipeline; };
-    template<> struct pipeline_for_bindpoint<asset::EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
-
-    template<asset::E_PIPELINE_BIND_POINT PBP>
-    using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
-}
-
-struct SOpenGLContextLocalCache
+struct SOpenGLContextIndependentCache
 {
     enum GL_STATE_BITS : uint32_t
     {
@@ -39,11 +27,6 @@ struct SOpenGLContextLocalCache
         GSB_ALL = ~0x0u
     };
 
-    struct SPipelineCacheVal
-    {
-        GLuint GLname;
-    };
-
     struct SBeforeClearStateBackup
     {
         GLuint stencilWrite_front;
@@ -52,97 +35,9 @@ struct SOpenGLContextLocalCache
         GLboolean colorWrite[4];
     };
 
-    using vao_cache_t = core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash>;
-    using pipeline_cache_t = core::LRUCache<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal, SOpenGLState::SGraphicsPipelineHashFunc>; // TODO(achal): Remove.
-    using fbo_cache_t = core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc>;
-
-    static inline constexpr size_t maxVAOCacheSize = 0x1ull << 10; //make this cache configurable
-    static inline constexpr size_t maxPipelineCacheSize = 0x1ull << 13;//8k
-    static inline constexpr size_t maxFBOCacheSize = 0x1ull << 8; // 256
-
-    struct VAODisposalFunc
-    {
-        VAODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
-#ifdef _NBL_DEBUG
-            , tid(std::this_thread::get_id())
-#endif
-        {}
-
-        IOpenGL_FunctionTable* gl;
-#ifdef _NBL_DEBUG
-        const std::thread::id tid;
-#endif
-
-        void operator()(vao_cache_t::assoc_t& x) const
-        {
-#ifdef _NBL_DEBUG
-            assert(std::this_thread::get_id() == tid);
-            if (std::this_thread::get_id() == tid)
-#endif
-                gl->glVertex.pglDeleteVertexArrays(1, &x.second);
-        }
-    };
-    // TODO(achal): Remove.
-    struct PipelineDisposalFunc
-    {
-        PipelineDisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
-#ifdef _NBL_DEBUG
-            , tid(std::this_thread::get_id())
-#endif
-        {}
-
-        IOpenGL_FunctionTable* gl;
-#ifdef _NBL_DEBUG
-        const std::thread::id tid;
-#endif
-
-        void operator()(pipeline_cache_t::assoc_t& x) const
-        {
-#ifdef _NBL_DEBUG
-            assert(std::this_thread::get_id() == tid);
-            if (std::this_thread::get_id() == tid)
-#endif
-                gl->glShader.pglDeleteProgramPipelines(1, &x.second.GLname);
-        }
-    };
-    struct FBODisposalFunc
-    {
-        FBODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
-#ifdef _NBL_DEBUG
-            , tid(std::this_thread::get_id())
-#endif
-        {}
-
-        IOpenGL_FunctionTable* gl;
-#ifdef _NBL_DEBUG
-        const std::thread::id tid;
-#endif
-
-        void operator()(fbo_cache_t::assoc_t& x) const
-        {
-#ifdef _NBL_DEBUG
-            assert(std::this_thread::get_id() == tid);
-            if (std::this_thread::get_id() == tid)
-#endif
-                gl->glFramebuffer.pglDeleteFramebuffers(1, &x.second);
-        }
-    };
-
-    SOpenGLContextLocalCache()
-        : VAOMap(maxVAOCacheSize, vao_cache_t::disposal_func_t(VAODisposalFunc(nullptr))),
-        GraphicsPipelineMap(maxPipelineCacheSize, pipeline_cache_t::disposal_func_t(PipelineDisposalFunc(nullptr))),
-        FBOCache(maxFBOCacheSize, fbo_cache_t::disposal_func_t(FBODisposalFunc(nullptr)))
-    {}
-
-    explicit SOpenGLContextLocalCache(IOpenGL_FunctionTable* _gl) : 
-        VAOMap(maxVAOCacheSize, vao_cache_t::disposal_func_t(VAODisposalFunc(_gl))),
-        GraphicsPipelineMap(maxPipelineCacheSize, pipeline_cache_t::disposal_func_t(PipelineDisposalFunc(_gl))),
-        FBOCache(maxFBOCacheSize, fbo_cache_t::disposal_func_t(FBODisposalFunc(_gl)))
-    {
-    }
-
     SOpenGLState currentState;
     SOpenGLState nextState;
+
     // represents descriptors currently flushed into GL state,
     // layout is needed to disambiguate descriptor sets due to translation into OpenGL descriptor indices
     struct {
@@ -150,146 +45,12 @@ struct SOpenGLContextLocalCache
         core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
     } effectivelyBoundDescriptors;
 
-    // TODO(achal): Remove.
-    impl::pipeline_for_bindpoint_t<asset::EPBP_COMPUTE>::PushConstantsState pushConstantsStateCompute;
-    impl::pipeline_for_bindpoint_t<asset::EPBP_GRAPHICS>::PushConstantsState pushConstantsStateGraphics;
-
-    // TODO(achal): Remove.
-    //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)
-    template<asset::E_PIPELINE_BIND_POINT PBP>
-    typename impl::pipeline_for_bindpoint_t<PBP>::PushConstantsState* pushConstantsState()
-    {
-        if constexpr (PBP == asset::EPBP_COMPUTE)
-            return &pushConstantsStateCompute;
-        else if (PBP == asset::EPBP_GRAPHICS)
-            return &pushConstantsStateGraphics;
-        else
-            return nullptr;
-    }
-
-    vao_cache_t VAOMap;
-    pipeline_cache_t GraphicsPipelineMap;
-    fbo_cache_t FBOCache;
-
-    inline void removePipelineEntry(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& key)
-    {
-        SOpenGLContextLocalCache::SPipelineCacheVal* found = GraphicsPipelineMap.peek(key);
-        if (found)
-        {
-            GLuint GLname = found->GLname;
-
-            GraphicsPipelineMap.erase(key);
-
-            if (currentState.pipeline.graphics.usedPipeline == GLname)
-            {
-                currentState.pipeline.graphics.pipeline = nullptr;
-                currentState.pipeline.graphics.usedPipeline = 0u;
-                memset(currentState.pipeline.graphics.usedShadersHash.data(), 0, sizeof(SOpenGLState::SGraphicsPipelineHash));
-            }
-        }
-    }
-    inline void removeFBOEntry(IOpenGL_FunctionTable* gl, const SOpenGLState::SFBOHash& key)
-    {
-        GLuint* found = FBOCache.peek(key);
-        if (found)
-        {
-            GLuint GLname = found[0];
-
-            FBOCache.erase(key);
-
-            // for safety
-            if (currentState.framebuffer.GLname == GLname)
-            {
-                currentState.framebuffer.GLname = 0u;
-                memset(currentState.framebuffer.hash.data(), 0, sizeof(SOpenGLState::SFBOHash));
-            }
-        }
-    }
-
-    inline GLuint getSingleColorAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img, uint32_t mip, int32_t layer)
-    {
-        auto hash = COpenGLFramebuffer::getHashColorImage(img, mip, layer);
-        auto found = FBOCache.get(hash);
-        if (found)
-            return *found;
-        GLuint fbo = COpenGLFramebuffer::getNameColorImage(gl, img, mip, layer);
-        if (!fbo)
-            return 0u;
-        FBOCache.insert(hash, fbo);
-        return fbo;
-    }
-    inline GLuint getDepthStencilAttachmentFBO(IOpenGL_FunctionTable* gl, const IGPUImage* img, uint32_t mip, int32_t layer)
-    {
-        auto hash = COpenGLFramebuffer::getHashDepthStencilImage(img, mip, layer);
-        auto found = FBOCache.get(hash);
-        if (found)
-            return *found;
-        GLuint fbo = COpenGLFramebuffer::getNameDepthStencilImage(gl, img, mip, layer);
-        if (!fbo)
-            return 0u;
-        FBOCache.insert(hash, fbo);
-        return fbo;
-    }
-
-    void updateNextState_pipelineAndRaster(IOpenGL_FunctionTable* gl, const IGPUGraphicsPipeline* _pipeline, uint32_t ctxid);
     void updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* pipeline, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail);
 
-    template<asset::E_PIPELINE_BIND_POINT PBP>
-    inline void pushConstants(const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
-    {
-        //validation is done in pushConstants_validate() of command buffer GL impl (COpenGLCommandBuffer/COpenGLPrimaryCommandBuffer)
-        //if arguments were invalid (dont comply Valid Usage section of vkCmdPushConstants docs), execution should not even get to this point
-
-        if (pushConstantsState<PBP>()->layout && !pushConstantsState<PBP>()->layout->isCompatibleForPushConstants(_layout))
-        {
-            //#ifdef _NBL_DEBUG
-            constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
-            constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
-            constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
-            std::fill(reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data), reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data) + toFill, pattern);
-            if constexpr (bytesLeft > 0ull)
-                memcpy(reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data) + toFill, &pattern, bytesLeft);
-            //#endif
-
-            _stages |= IGPUShader::ESS_ALL;
-        }
-        pushConstantsState<PBP>()->incrementStamps(_stages);
-
-        pushConstantsState<PBP>()->layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(_layout);
-        memcpy(pushConstantsState<PBP>()->data + _offset, _values, _size);
-    }
-
     // state flushing 
-    void flushStateGraphics(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid); // TODO(achal): Temporary, just to make the old code still work.
     bool flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
-    void flushStateCompute(IOpenGL_FunctionTable* gl, uint32_t stateBits, uint32_t ctxid); // TODO(achal): Temporary, just to make the old code still work.
     bool flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
 
-    // TODO(achal): Temporary overload.
-    inline SBeforeClearStateBackup backupAndFlushStateClear(IOpenGL_FunctionTable* gl, uint32_t ctxid, bool color, bool depth, bool stencil)
-    {
-        SBeforeClearStateBackup backup;
-        memcpy(backup.colorWrite, currentState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4);
-        backup.depthWrite = currentState.rasterParams.depthWriteEnable;
-        backup.stencilWrite_back = currentState.rasterParams.stencilFunc_back.mask;
-        backup.stencilWrite_front = currentState.rasterParams.stencilFunc_front.mask;
-        //TODO dithering (? i think vulkan doesnt have dithering at all), scissor test (COpenGLCommandBuffer impl doesnt support scissor yet)
-        // "The pixel ownership test, the scissor test, dithering, and the buffer writemasks affect the operation of glClear."
-
-        if (color)
-            std::fill_n(nextState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4u, GL_TRUE);
-        if (depth)
-            nextState.rasterParams.depthWriteEnable = GL_TRUE;
-        if (stencil)
-        {
-            nextState.rasterParams.stencilFunc_back.mask = ~0u;
-            nextState.rasterParams.stencilFunc_front.mask = ~0u;
-        }
-
-        flushStateGraphics(gl, GSB_RASTER_PARAMETERS, ctxid);
-
-        return backup;
-    }
     inline SBeforeClearStateBackup backupAndFlushStateClear(IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const bool color, const bool depth, const bool stencil, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
     {
         SBeforeClearStateBackup backup;
@@ -325,9 +86,7 @@ struct SOpenGLContextLocalCache
 private:
     uint64_t m_timestampCounter = 0u;
 
-    void flushState_descriptors(IOpenGL_FunctionTable* gl, asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout); // TODO(achal): Temporary.
     bool flushState_descriptors(asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
-    GLuint createGraphicsPipeline(IOpenGL_FunctionTable* gl, const SOpenGLState::SGraphicsPipelineHash& _hash);
 
     static inline GLenum getGLpolygonMode(asset::E_POLYGON_MODE pm)
     {
@@ -373,12 +132,72 @@ private:
     }
 };
 
-// TODO(achal): This is temporary. I can most likely refactor SOpenGLConextLocalCache above into two parts: a queue local cache and all the "static" stuff (which can done on the main thread).
-// SOpenGLContextDependentCache and SOpenGLContextIndependentCache?
-struct SQueueLocalCache
+namespace impl
+{
+    // GCC is special
+    template<asset::E_PIPELINE_BIND_POINT>
+    struct pipeline_for_bindpoint;
+    template<> struct pipeline_for_bindpoint<asset::EPBP_COMPUTE> { using type = COpenGLComputePipeline; };
+    template<> struct pipeline_for_bindpoint<asset::EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
+
+    template<asset::E_PIPELINE_BIND_POINT PBP>
+    using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
+}
+
+struct SOpenGLContextDependentCache
 {
 private:
-    using disposal_func_t = std::function<void(GLuint)>;
+    static inline constexpr size_t MaxVAOCacheSize = 0x1ull << 10; //make this cache configurable
+    static inline constexpr size_t MaxFBOCacheSize = 0x1ull << 8; // 256
+
+    using vao_cache_t = core::LRUCache<SOpenGLState::SVAOCacheKey, GLuint, SOpenGLState::SVAOCacheKey::hash>;
+    using fbo_cache_t = core::LRUCache<SOpenGLState::SFBOHash, GLuint, SOpenGLState::SFBOHashFunc>;
+
+    struct VAODisposalFunc
+    {
+        VAODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(vao_cache_t::assoc_t& x) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glVertex.pglDeleteVertexArrays(1, &x.second);
+        }
+    };
+
+    struct FBODisposalFunc
+    {
+        FBODisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+
+        void operator()(fbo_cache_t::assoc_t& x) const
+        {
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glFramebuffer.pglDeleteFramebuffers(1, &x.second);
+        }
+    };
 
     struct SGraphicsPipelineCache
     {
@@ -418,15 +237,24 @@ private:
     };
 
 public:
-    SQueueLocalCache(IOpenGL_FunctionTable* _gl)
-        : fboCache(SOpenGLContextLocalCache::maxFBOCacheSize, SOpenGLContextLocalCache::fbo_cache_t::disposal_func_t(SOpenGLContextLocalCache::FBODisposalFunc(_gl))),
-        graphicsPipelineCache(_gl),
-        vaoCache(SOpenGLContextLocalCache::maxVAOCacheSize, SOpenGLContextLocalCache::vao_cache_t::disposal_func_t(SOpenGLContextLocalCache::VAODisposalFunc(nullptr)))
+    SOpenGLContextDependentCache(IOpenGL_FunctionTable* _gl)
+        : fboCache(MaxFBOCacheSize, fbo_cache_t::disposal_func_t(FBODisposalFunc(_gl))), graphicsPipelineCache(_gl),
+        vaoCache(MaxVAOCacheSize, vao_cache_t::disposal_func_t(VAODisposalFunc(_gl)))
     {}
 
-    SOpenGLContextLocalCache::fbo_cache_t fboCache;
+    // TODO(achal): SOpenGLContextLocalCache had two constructors, one which uses a gl function table for VAO/FBO/pipeline disposal functions and one that does not, why?
+    // Do we want to keep the constructor  which doesn't take the function table around?
+    /*
+    SOpenGLContextLocalCache()
+        : VAOMap(maxVAOCacheSize, vao_cache_t::disposal_func_t(VAODisposalFunc(nullptr))),
+        GraphicsPipelineMap(maxPipelineCacheSize, pipeline_cache_t::disposal_func_t(PipelineDisposalFunc(nullptr))),
+        FBOCache(maxFBOCacheSize, fbo_cache_t::disposal_func_t(FBODisposalFunc(nullptr)))
+    {}
+    */
+
+    fbo_cache_t fboCache;
     SGraphicsPipelineCache graphicsPipelineCache;
-    SOpenGLContextLocalCache::vao_cache_t vaoCache;
+    vao_cache_t vaoCache;
 
     impl::pipeline_for_bindpoint_t<asset::EPBP_COMPUTE>::PushConstantsState pushConstantsStateCompute;
     impl::pipeline_for_bindpoint_t<asset::EPBP_GRAPHICS>::PushConstantsState pushConstantsStateGraphics;

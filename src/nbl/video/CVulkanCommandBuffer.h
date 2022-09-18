@@ -265,9 +265,8 @@ public:
         return true;
     }
 
-    inline bool setDeviceMask(uint32_t deviceMask) override final
+    inline bool setDeviceMask_impl(uint32_t deviceMask) override final
     {
-        m_deviceMask = deviceMask;
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdSetDeviceMask(m_cmdbuf, deviceMask);
         return true;

@@ -268,7 +268,7 @@ public:
     virtual bool nextSubpass(E_SUBPASS_CONTENTS contents) = 0;
     virtual bool endRenderPass() = 0;
 
-    virtual bool setDeviceMask(uint32_t deviceMask) { m_deviceMask = deviceMask; return true; }
+    virtual bool setDeviceMask(uint32_t deviceMask) = 0;
 
     //those two instead of bindPipeline(E_PIPELINE_BIND_POINT, pipeline)
     virtual bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) = 0;

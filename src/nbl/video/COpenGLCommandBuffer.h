@@ -13,460 +13,16 @@
 #include "nbl/video/IQueryPool.h"
 #include "nbl/video/COpenGLCommandPool.h"
 
-#define NEW_WAY
-
-#ifdef NEW_WAY
-#define TODO_CMD __debugbreak()
-#else
-#define TODO_CMD
-#endif
-
 namespace nbl::video
 {
-
-namespace impl
-{
-#define _NBL_COMMAND_TYPES_LIST \
-    ECT_BIND_INDEX_BUFFER,\
-    ECT_DRAW,\
-    ECT_DRAW_INDEXED,\
-    ECT_DRAW_INDIRECT,\
-    ECT_DRAW_INDEXED_INDIRECT,\
-\
-    ECT_SET_VIEWPORT,\
-\
-    ECT_SET_LINE_WIDTH,\
-    ECT_SET_DEPTH_BIAS,\
-\
-    ECT_SET_BLEND_CONSTANTS,\
-\
-    ECT_COPY_BUFFER,\
-    ECT_COPY_IMAGE,\
-    ECT_COPY_BUFFER_TO_IMAGE,\
-    ECT_COPY_IMAGE_TO_BUFFER,\
-    ECT_BLIT_IMAGE,\
-    ECT_RESOLVE_IMAGE,\
-\
-    ECT_BIND_VERTEX_BUFFERS,\
-\
-    ECT_SET_SCISSORS,\
-    ECT_SET_DEPTH_BOUNDS,\
-    ECT_SET_STENCIL_COMPARE_MASK,\
-    ECT_SET_STENCIL_WRITE_MASK,\
-    ECT_SET_STENCIL_REFERENCE,\
-\
-    ECT_DISPATCH,\
-    ECT_DISPATCH_INDIRECT,\
-    ECT_DISPATCH_BASE,\
-\
-    ECT_SET_EVENT,\
-    ECT_RESET_EVENT,\
-    ECT_WAIT_EVENTS,\
-\
-    ECT_PIPELINE_BARRIER,\
-\
-    ECT_BEGIN_RENDERPASS,\
-    ECT_NEXT_SUBPASS,\
-    ECT_END_RENDERPASS,\
-\
-    ECT_SET_DEVICE_MASK,\
-\
-    ECT_BIND_GRAPHICS_PIPELINE,\
-    ECT_BIND_COMPUTE_PIPELINE,\
-\
-    ECT_RESET_QUERY_POOL,\
-    ECT_BEGIN_QUERY,\
-    ECT_END_QUERY,\
-    ECT_COPY_QUERY_POOL_RESULTS,\
-    ECT_WRITE_TIMESTAMP,\
-\
-    ECT_BIND_DESCRIPTOR_SETS,\
-\
-    ECT_PUSH_CONSTANTS,\
-\
-    ECT_CLEAR_COLOR_IMAGE,\
-    ECT_CLEAR_DEPTH_STENCIL_IMAGE,\
-    ECT_CLEAR_ATTACHMENTS,\
-    ECT_FILL_BUFFER,\
-    ECT_UPDATE_BUFFER,\
-    ECT_EXECUTE_COMMANDS,\
-    ECT_REGENERATE_MIPMAPS
-
-    enum E_COMMAND_TYPE
-    {
-        _NBL_COMMAND_TYPES_LIST
-    };
-
-    template <E_COMMAND_TYPE ECT>
-    struct SCmd_base
-    {
-        static inline constexpr E_COMMAND_TYPE type = ECT;
-    };
-    template <E_COMMAND_TYPE ECT>
-    struct SCmd : SCmd_base<ECT>
-    {
-
-    };
-#define _NBL_DEFINE_SCMD_SPEC(ECT) template<> struct SCmd<ECT> : SCmd_base<ECT>
-    _NBL_DEFINE_SCMD_SPEC(ECT_BIND_INDEX_BUFFER)
-    {
-        core::smart_refctd_ptr<const IGPUBuffer> buffer;
-        size_t offset;
-        asset::E_INDEX_TYPE indexType;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_DRAW)
-    {
-        uint32_t vertexCount;
-        uint32_t instanceCount;
-        uint32_t firstVertex;
-        uint32_t firstInstance;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_DRAW_INDEXED)
-    {
-        uint32_t indexCount;
-        uint32_t instanceCount;
-        uint32_t firstIndex;
-        uint32_t vertexOffset;
-        uint32_t firstInstance;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_DRAW_INDIRECT)
-    {
-        core::smart_refctd_ptr<const IGPUBuffer> buffer;
-        size_t offset;
-        core::smart_refctd_ptr<const IGPUBuffer> countBuffer;
-        size_t countBufferOffset;
-        uint32_t maxDrawCount;
-        uint32_t stride;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_DRAW_INDEXED_INDIRECT)
-    {
-        core::smart_refctd_ptr<const IGPUBuffer> buffer;
-        size_t offset;
-        core::smart_refctd_ptr<const IGPUBuffer> countBuffer;
-        size_t countBufferOffset;
-        uint32_t maxDrawCount;
-        uint32_t stride;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_VIEWPORT)
-    {
-        uint32_t firstViewport;
-        uint32_t viewportCount;
-        const asset::SViewport* viewports;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_LINE_WIDTH)
-    {
-        float lineWidth;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_DEPTH_BIAS)
-    {
-        float depthBiasConstantFactor;
-        float depthBiasClamp;
-        float depthBiasSlopeFactor;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_BLEND_CONSTANTS)
-    {
-        float blendConstants[4];
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_COPY_BUFFER)
-    {
-        core::smart_refctd_ptr<const IGPUBuffer> srcBuffer;
-        core::smart_refctd_ptr<IGPUBuffer> dstBuffer;
-        uint32_t regionCount;
-        const asset::SBufferCopy* regions;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_COPY_IMAGE)
-    {
-        core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::IImage::E_LAYOUT srcImageLayout;
-        core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::IImage::E_LAYOUT dstImageLayout;
-        uint32_t regionCount;
-        const asset::IImage::SImageCopy* regions;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_COPY_BUFFER_TO_IMAGE)
-    {
-        core::smart_refctd_ptr<const IGPUBuffer> srcBuffer;
-        core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::IImage::E_LAYOUT dstImageLayout;
-        uint32_t regionCount;
-        const asset::IImage::SBufferCopy* regions;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_COPY_IMAGE_TO_BUFFER)
-    {
-        core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::IImage::E_LAYOUT srcImageLayout;
-        core::smart_refctd_ptr<IGPUBuffer> dstBuffer;
-        uint32_t regionCount;
-        const asset::IImage::SBufferCopy* regions;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BLIT_IMAGE)
-    {
-        core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::IImage::E_LAYOUT srcImageLayout;
-        core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::IImage::E_LAYOUT dstImageLayout;
-        uint32_t regionCount;
-        const asset::SImageBlit* regions;
-        asset::ISampler::E_TEXTURE_FILTER filter;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_RESOLVE_IMAGE)
-    {
-        core::smart_refctd_ptr<const IGPUImage> srcImage;
-        asset::IImage::E_LAYOUT srcImageLayout;
-        core::smart_refctd_ptr<IGPUImage> dstImage;
-        asset::IImage::E_LAYOUT dstImageLayout;
-        uint32_t regionCount;
-        const asset::SImageResolve* regions;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BIND_VERTEX_BUFFERS)
-    {
-        uint32_t first;
-        uint32_t count;
-        core::smart_refctd_ptr<const IGPUBuffer> buffers[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-        size_t offsets[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_SCISSORS)
-    {
-        uint32_t firstScissor;
-        uint32_t scissorCount;
-        VkRect2D* scissors;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_DEPTH_BOUNDS)
-    {
-        float minDepthBounds;
-        float maxDepthBounds;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_STENCIL_COMPARE_MASK)
-    {
-        asset::E_STENCIL_FACE_FLAGS faceMask;
-        uint32_t cmpMask;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_STENCIL_WRITE_MASK)
-    {
-        asset::E_STENCIL_FACE_FLAGS faceMask;
-        uint32_t writeMask;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_STENCIL_REFERENCE)
-    {
-        asset::E_STENCIL_FACE_FLAGS faceMask;
-        uint32_t reference;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_DISPATCH)
-    {
-        uint32_t groupCountX, groupCountY, groupCountZ;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_DISPATCH_INDIRECT)
-    {
-        core::smart_refctd_ptr<const IGPUBuffer> buffer;
-        size_t offset;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_DISPATCH_BASE)
-    {
-        uint32_t baseGroupX, baseGroupY, baseGroupZ;
-        uint32_t groupCountX, groupCountY, groupCountZ;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_EVENT)
-    {
-        core::smart_refctd_ptr<IGPUEvent> event;
-        GLbitfield barrierBits;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_RESET_EVENT)
-    {
-        core::smart_refctd_ptr<IGPUEvent> event;
-        asset::E_PIPELINE_STAGE_FLAGS stageMask;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_WAIT_EVENTS)
-    {
-        GLbitfield barrier;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_PIPELINE_BARRIER)
-    {
-        GLbitfield barrier;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BEGIN_RENDERPASS)
-    {
-        IGPUCommandBuffer::SRenderpassBeginInfo renderpassBegin;
-        asset::E_SUBPASS_CONTENTS content;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_NEXT_SUBPASS)
-    {
-        asset::E_SUBPASS_CONTENTS contents;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_END_RENDERPASS)
-    {
-        // no parameters
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_SET_DEVICE_MASK)
-    {
-        uint32_t deviceMask;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BIND_GRAPHICS_PIPELINE)
-    {
-        core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BIND_COMPUTE_PIPELINE)
-    {
-        core::smart_refctd_ptr<const IGPUComputePipeline> pipeline;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_RESET_QUERY_POOL)
-    {
-        core::smart_refctd_ptr<IQueryPool> queryPool;
-        uint32_t query;
-        uint32_t queryCount;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BEGIN_QUERY)
-    {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
-        uint32_t query;
-        core::bitflag<IQueryPool::E_QUERY_CONTROL_FLAGS> flags;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_END_QUERY)
-    {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
-        uint32_t query;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_COPY_QUERY_POOL_RESULTS)
-    {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
-        uint32_t firstQuery;
-        uint32_t queryCount;
-        core::smart_refctd_ptr<const IGPUBuffer> dstBuffer;
-        size_t dstOffset;
-        size_t stride;
-        core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_WRITE_TIMESTAMP)
-    {
-        core::smart_refctd_ptr<const IQueryPool> queryPool;
-        asset::E_PIPELINE_STAGE_FLAGS pipelineStage;
-        uint32_t query;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_BIND_DESCRIPTOR_SETS)
-    {
-        asset::E_PIPELINE_BIND_POINT pipelineBindPoint;
-        core::smart_refctd_ptr<const IGPUPipelineLayout> layout;
-        uint32_t firstSet;
-        uint32_t dsCount;
-        core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-        static inline constexpr uint32_t MaxDynamicOffsets = SOpenGLState::MaxDynamicOffsets*IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
-        uint32_t dynamicOffsets[MaxDynamicOffsets];
-        uint32_t dynamicOffsetCount;
-
-        SCmd() = default;
-        SCmd<ECT_BIND_DESCRIPTOR_SETS>& operator=(SCmd<ECT_BIND_DESCRIPTOR_SETS>&& rhs)
-        {
-            pipelineBindPoint = rhs.pipelineBindPoint;
-            layout = std::move(rhs.layout);
-            firstSet = rhs.firstSet;
-            dsCount = rhs.dsCount;
-            dynamicOffsetCount = rhs.dynamicOffsetCount;
-            std::move(rhs.descriptorSets,rhs.descriptorSets+IGPUPipelineLayout::DESCRIPTOR_SET_COUNT,descriptorSets);
-            std::copy_n(rhs.dynamicOffsets,MaxDynamicOffsets,dynamicOffsets);
-            return *this;
-        }
-        SCmd(SCmd<ECT_BIND_DESCRIPTOR_SETS>&& rhs)
-        {
-            operator=(std::move(rhs));
-        }
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_PUSH_CONSTANTS)
-    {
-        constexpr static inline uint32_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
-
-        core::smart_refctd_ptr<const IGPUPipelineLayout> layout;
-        core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags;
-        uint32_t offset;
-        uint32_t size;
-        uint8_t values[MAX_PUSH_CONSTANT_BYTESIZE];
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_CLEAR_COLOR_IMAGE)
-    {
-        core::smart_refctd_ptr<IGPUImage> image;
-        asset::IImage::E_LAYOUT imageLayout;
-        asset::SClearColorValue color;
-        uint32_t rangeCount;
-        const asset::IImage::SSubresourceRange* ranges;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_CLEAR_DEPTH_STENCIL_IMAGE)
-    {
-        core::smart_refctd_ptr<IGPUImage> image;
-        asset::IImage::E_LAYOUT imageLayout;
-        asset::SClearDepthStencilValue depthStencil;
-        uint32_t rangeCount;
-        const asset::IImage::SSubresourceRange* ranges;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_CLEAR_ATTACHMENTS)
-    {
-        uint32_t attachmentCount;
-        const asset::SClearAttachment* attachments;
-        uint32_t rectCount;
-        const asset::SClearRect* rects;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_FILL_BUFFER)
-    {
-        core::smart_refctd_ptr<IGPUBuffer> dstBuffer;
-        size_t dstOffset;
-        size_t size;
-        uint32_t data;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_UPDATE_BUFFER)
-    {
-        core::smart_refctd_ptr<IGPUBuffer> dstBuffer;
-        size_t dstOffset;
-        size_t dataSize;
-        const void* data;
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_EXECUTE_COMMANDS)
-    {
-        core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf; // secondary!!!
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_REGENERATE_MIPMAPS)
-    {
-        core::smart_refctd_ptr<IGPUImage> imgview;
-    };
-
-#undef _NBL_DEFINE_SCMD_SPEC
-} //namespace impl
 
 class COpenGLCommandBuffer final : public IGPUCommandBuffer
 {
 protected:
-    void freeSpaceInCmdPool();
-
-    ~COpenGLCommandBuffer();
-
-    template <impl::E_COMMAND_TYPE ECT>
-    using SCmd = impl::SCmd<ECT>;
-
-    //NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
-#define _NBL_SCMD_TYPE_FOR_ECT(ECT) SCmd<impl::ECT>,
-    struct SCommand
+    ~COpenGLCommandBuffer()
     {
-        impl::E_COMMAND_TYPE type;
-        std::variant<
-            NBL_FOREACH(_NBL_SCMD_TYPE_FOR_ECT, _NBL_COMMAND_TYPES_LIST)
-            int
-        > variant;
-
-        template <impl::E_COMMAND_TYPE ECT>
-        explicit SCommand(SCmd<ECT>&& cmd) : type(ECT), variant(std::move(cmd)) {}
-
-        template <impl::E_COMMAND_TYPE ECT>
-        SCmd<ECT>& get() { return std::get<SCmd<ECT>>(variant); }
-        template <impl::E_COMMAND_TYPE ECT>
-        const SCmd<ECT>& get() const { return std::get<SCmd<ECT>>(variant); }
-    };
-#undef _NBL_SCMD_TYPE_FOR_ECT
-#undef _NBL_COMMAND_TYPES_LIST
-
-    // TODO(achal): Remove.
-    static void copyBufferToImage(const SCmd<impl::ECT_COPY_BUFFER_TO_IMAGE>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
-
-    // TODO(achal): Remove.
-    static void copyImageToBuffer(const SCmd<impl::ECT_COPY_IMAGE_TO_BUFFER>& c, IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const system::logger_opt_ptr logger);
-
-    // TODO(achal): Remove.
-    static void clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t count, const asset::SClearAttachment* attachments);
+        // We don't do anything here because the deletion of all command segment lists will happen in ~IGPUCommandBuffer through releaseResourcesBackToPool_impl.
+    }
 
     static bool pushConstants_validate(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values);
 
@@ -476,8 +32,7 @@ protected:
         const SOpenGLBarrierHelper& helper,
         uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
-        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers
-    )
+        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers)
     {
         const GLbitfield bufferBits = helper.AllBarrierBits^SOpenGLBarrierHelper::ImageTransferBits;
         constexpr GLbitfield imageBits = SOpenGLBarrierHelper::ImageDescriptorAccessBits|SOpenGLBarrierHelper::ImageTransferBits;
@@ -502,19 +57,12 @@ protected:
 
     COpenGLCommandPool* getGLCommandPool() const { return static_cast<COpenGLCommandPool*>(m_cmdpool.get()); }
 
-    template <impl::E_COMMAND_TYPE ECT>
-    void pushCommand(SCmd<ECT>&& cmd)
-    {
-        m_commands.emplace_back(std::move(cmd));
-    }
-    core::vector<SCommand> m_commands; // TODO: embed in the command pool via the use of linked list
     const COpenGLFeatureMap* m_features;
     mutable core::bitflag<IQueryPool::E_QUERY_TYPE> queriesActive;
     mutable std::tuple<IQueryPool const *,uint32_t/*query ix*/,renderpass_t const *,uint32_t/*subpass ix*/> currentlyRecordingQueries[IQueryPool::EQT_COUNT];
 
 public:
-    static void beginRenderpass_clearAttachments(IOpenGL_FunctionTable* gl, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid, const SRenderpassBeginInfo& info, GLuint fbo, const system::logger_opt_ptr logger);
-    static bool beginRenderpass_clearAttachments(SOpenGLContextLocalCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
+    static bool beginRenderpass_clearAttachments(SOpenGLContextIndependentCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
 
     static inline GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
     {
@@ -550,7 +98,7 @@ public:
 
     mutable renderpass_t const * currentlyRecordingRenderPass = nullptr;
 
-    void executeAll(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocal, SOpenGLContextLocalCache* ctxlocal, uint32_t ctxid) const;
+    void executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocal, uint32_t ctxid) const;
 
     COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger, const COpenGLFeatureMap* _features);
 
@@ -564,26 +112,17 @@ public:
 
     void releaseResourcesBackToPool_impl() override final;
 
-    void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
+    inline void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
         auto* glbuffer = static_cast<const COpenGLBuffer*>(buffer);
         m_stateCache.nextState.vertexInputParams.vaoval.idxBinding = { offset, core::smart_refctd_ptr<const COpenGLBuffer>(glbuffer) };
         m_stateCache.nextState.vertexInputParams.vaoval.idxType = indexType;
-
-        SCmd<impl::ECT_BIND_INDEX_BUFFER> cmd;
-        cmd.buffer = core::smart_refctd_ptr<const buffer_t>(buffer);
-        cmd.indexType = indexType;
-        cmd.offset = offset;
-        pushCommand<impl::ECT_BIND_INDEX_BUFFER>(std::move(cmd));
     }
 
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
     {
-        if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
-        {
-            assert(false);
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
-        }
 
         const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
         GLenum glpt = getGLprimitiveType(primType);
@@ -591,21 +130,13 @@ public:
         if (!m_cmdpool->emplace<COpenGLCommandPool::CDrawArraysInstancedBaseInstanceCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, firstVertex, vertexCount, instanceCount, firstInstance))
             return false;
 
-        SCmd<impl::ECT_DRAW> cmd;
-        cmd.vertexCount = vertexCount;
-        cmd.instanceCount = instanceCount;
-        cmd.firstVertex = firstVertex;
-        cmd.firstInstance = firstInstance;
-        pushCommand(std::move(cmd));
         return true;
     }
+
     bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
     {
-        if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
-        {
-            assert(false);
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
-        }
 
         const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
         GLenum glpt = getGLprimitiveType(primType);
@@ -631,15 +162,9 @@ public:
                 return false;
         }
 
-        SCmd<impl::ECT_DRAW_INDEXED> cmd;
-        cmd.indexCount = indexCount;
-        cmd.instanceCount = instanceCount;
-        cmd.firstIndex = firstIndex;
-        cmd.vertexOffset = vertexOffset;
-        cmd.firstInstance = firstInstance;
-        pushCommand(std::move(cmd));
         return true;
     }
+
     bool drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override;
     bool drawIndexedIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) override;
     bool drawIndirectCount_impl(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) override;
@@ -691,60 +216,37 @@ public:
 
     bool beginRenderPass_impl(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override
     {
-        m_stateCache.nextState.framebuffer.hash = static_cast<const COpenGLFramebuffer*>(pRenderPassBegin->framebuffer.get())->getHashValue();
-        m_stateCache.nextState.framebuffer.fbo = core::smart_refctd_ptr_static_cast<const COpenGLFramebuffer>(pRenderPassBegin->framebuffer);
-        if (!m_stateCache.flushStateGraphics(SOpenGLContextLocalCache::GSB_FRAMEBUFFER, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
-        {
-            assert(false);
+        const auto* glfb = static_cast<const COpenGLFramebuffer*>(pRenderPassBegin->framebuffer.get());
+        m_stateCache.nextState.framebuffer.hash = glfb->getHashValue();
+        m_stateCache.nextState.framebuffer.fbo = glfb;
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_FRAMEBUFFER, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
-        }
 
         if (!beginRenderpass_clearAttachments(&m_stateCache, *pRenderPassBegin, m_logger.getOptRawPtr(), m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
-        {
-            assert(false);
             return false;
-        }
 
         // This is most likely only required to do some checks for the query pool which can be safely done on the main thread at command record time.
         currentlyRecordingRenderPass = pRenderPassBegin->renderpass.get();
 
-        SCmd<impl::ECT_BEGIN_RENDERPASS> cmd;
-        cmd.renderpassBegin = pRenderPassBegin[0];
-        if (cmd.renderpassBegin.clearValueCount > 0u)
-        {
-            auto* clearVals = getGLCommandPool()->emplace_n<asset::SClearValue>(cmd.renderpassBegin.clearValueCount, cmd.renderpassBegin.clearValues[0]);
-            memcpy(clearVals, pRenderPassBegin->clearValues, cmd.renderpassBegin.clearValueCount*sizeof(asset::SClearValue));
-            cmd.renderpassBegin.clearValues = clearVals;
-        }
-        cmd.content = content;
-        pushCommand(std::move(cmd));
         return true;
     }
-    bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override
+
+    inline bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override
     {
-        SCmd<impl::ECT_NEXT_SUBPASS> cmd;
-        cmd.contents = contents;
-        pushCommand(std::move(cmd));
+        // TODO (when we support subpasses) some barriers based on subpass dependencies?
+        // not needed now tho, we dont support multiple subpasses yet
+
         return true;
     }
-    bool endRenderPass() override
+
+    inline bool endRenderPass() override
     {
         m_stateCache.nextState.framebuffer.hash = SOpenGLState::NULL_FBO_HASH;
-        m_stateCache.nextState.framebuffer.GLname = 0u;
         m_stateCache.nextState.framebuffer.fbo = nullptr;
 
         currentlyRecordingRenderPass = nullptr;
 
-        SCmd<impl::ECT_END_RENDERPASS> cmd;
-        pushCommand(std::move(cmd));
         return true;
-    }
-
-    bool setDeviceMask(uint32_t deviceMask) override
-    { 
-        // theres no need to add this command to buffer in GL backend
-        assert(false); //make calling this an error
-        return IGPUCommandBuffer::setDeviceMask(deviceMask);
     }
 
     bool bindGraphicsPipeline_impl(const graphics_pipeline_t* pipeline) override;
@@ -770,7 +272,7 @@ public:
     inline const void* getNativeHandle() const override {return nullptr;}
 
 private:
-    SOpenGLContextLocalCache m_stateCache;
+    SOpenGLContextIndependentCache m_stateCache;
     IGPUCommandPool::CCommandSegment::Iterator m_GLSegmentListHeadItr = {};
     IGPUCommandPool::CCommandSegment* m_GLSegmentListTail = nullptr;
 };

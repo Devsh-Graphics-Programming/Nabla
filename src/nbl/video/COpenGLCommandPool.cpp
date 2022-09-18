@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 
-static GLuint getFBOGLName(const COpenGLImage* image, const uint32_t level, const uint32_t layer, SQueueLocalCache& queueCache, IOpenGL_FunctionTable* gl, const bool isColorImage)
+static GLuint getFBOGLName(const COpenGLImage* image, const uint32_t level, const uint32_t layer, SOpenGLContextDependentCache& queueCache, IOpenGL_FunctionTable* gl, const bool isColorImage)
 {
     COpenGLFramebuffer::hash_t hash;
     if (isColorImage)
@@ -33,7 +33,7 @@ static GLuint getFBOGLName(const COpenGLImage* image, const uint32_t level, cons
     return GLName;
 };
 
-void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint GLname = 0u;
     if (m_fboHash != SOpenGLState::NULL_FBO_HASH)
@@ -56,7 +56,7 @@ void COpenGLCommandPool::CBindFramebufferCmd::operator()(IOpenGL_FunctionTable* 
     gl->glFramebuffer.pglBindFramebuffer(GL_FRAMEBUFFER, GLname);
 }
 
-void COpenGLCommandPool::CBlitNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBlitNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint srcfbo = getFBOGLName(m_srcImage, m_srcLevel, m_srcLayer, queueCache, gl, true);
     if (!srcfbo)
@@ -77,7 +77,7 @@ void COpenGLCommandPool::CBlitNamedFramebufferCmd::operator()(IOpenGL_FunctionTa
     gl->extGlBlitNamedFramebuffer(srcfbo, dstfbo, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, GL_COLOR_BUFFER_BIT, m_filter == asset::ISampler::ETF_NEAREST ? GL_NEAREST : GL_LINEAR);
 }
 
-void COpenGLCommandPool::CClearNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CClearNamedFramebufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint fbo = 0u;
     if (m_fboHash != SOpenGLState::NULL_FBO_HASH)
@@ -136,199 +136,199 @@ void COpenGLCommandPool::CClearNamedFramebufferCmd::operator()(IOpenGL_FunctionT
     }
 }
 
-void COpenGLCommandPool::CViewportArrayVCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CViewportArrayVCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlViewportArrayv(m_first, m_count, m_params);
 }
 
-void COpenGLCommandPool::CDepthRangeArrayVCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDepthRangeArrayVCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlDepthRangeArrayv(m_first, m_count, m_params);
 }
 
-void COpenGLCommandPool::CPolygonModeCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CPolygonModeCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlPolygonMode(GL_FRONT_AND_BACK, m_mode);
 }
 
-void COpenGLCommandPool::CEnableCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CEnableCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glGeneral.pglEnable(m_cap);
 }
 
-void COpenGLCommandPool::CDisableCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDisableCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glGeneral.pglDisable(m_cap);
 }
 
-void COpenGLCommandPool::CCullFaceCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CCullFaceCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glShader.pglCullFace(m_mode);
 }
 
-void COpenGLCommandPool::CStencilOpSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CStencilOpSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glFragment.pglStencilOpSeparate(m_face, m_sfail, m_dpfail, m_dppass);
 }
 
-void COpenGLCommandPool::CStencilFuncSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CStencilFuncSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glFragment.pglStencilFuncSeparate(m_face, m_func, m_ref, m_mask);
 }
 
-void COpenGLCommandPool::CStencilMaskSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CStencilMaskSeparateCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glFragment.pglStencilMaskSeparate(m_face, m_mask);
 }
 
-void COpenGLCommandPool::CDepthFuncCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDepthFuncCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glShader.pglDepthFunc(m_func);
 }
 
-void COpenGLCommandPool::CFrontFaceCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CFrontFaceCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glShader.pglFrontFace(m_mode);
 }
 
-void COpenGLCommandPool::CPolygonOffsetCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CPolygonOffsetCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glShader.pglPolygonOffset(m_factor, m_units);
 }
 
-void COpenGLCommandPool::CLineWidthCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CLineWidthCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glShader.pglLineWidth(m_width);
 }
 
-void COpenGLCommandPool::CMinSampleShadingCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CMinSampleShadingCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlMinSampleShading(m_value);
 }
 
-void COpenGLCommandPool::CSampleMaskICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CSampleMaskICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glFragment.pglSampleMaski(m_maskNumber, m_mask);
 }
 
-void COpenGLCommandPool::CDepthMaskCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDepthMaskCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glShader.pglDepthMask(m_flag);
 }
 
-void COpenGLCommandPool::CLogicOpCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CLogicOpCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlLogicOp(m_opcode);
 }
 
-void COpenGLCommandPool::CEnableICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CEnableICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlEnablei(m_cap, m_index);
 }
 
-void COpenGLCommandPool::CDisableICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDisableICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlDisablei(m_cap, m_index);
 }
 
-void COpenGLCommandPool::CBlendFuncSeparateICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBlendFuncSeparateICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlBlendFuncSeparatei(m_buf, m_srcRGB, m_dstRGB, m_srcAlpha, m_dstAlpha);
 }
 
-void COpenGLCommandPool::CColorMaskICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CColorMaskICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlColorMaski(m_buf, m_red, m_green, m_blue, m_alpha);
 }
 
-void COpenGLCommandPool::CMemoryBarrierCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CMemoryBarrierCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glSync.pglMemoryBarrier(m_barrierBits);
 }
 
-void COpenGLCommandPool::CBindPipelineComputeCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindPipelineComputeCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     const GLuint GLname = m_glppln->getShaderGLnameForCtx(0u, ctxid);
     gl->glShader.pglUseProgram(GLname);
 }
 
-void COpenGLCommandPool::CDispatchComputeCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDispatchComputeCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glCompute.pglDispatchCompute(m_numGroupsX, m_numGroupsY, m_numGroupsZ);
 }
 
-void COpenGLCommandPool::CDispatchComputeIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDispatchComputeIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glCompute.pglDispatchComputeIndirect(m_indirect);
 }
 
-void COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     const auto* pcState = queueLocalCache.pushConstantsState<asset::EPBP_COMPUTE>();
     assert(pcState);
     m_pipeline->setUniformsImitatingPushConstants(gl, ctxid, *pcState);
 }
 
-void COpenGLCommandPool::CSetUniformsImitatingPushConstantsGraphicsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CSetUniformsImitatingPushConstantsGraphicsCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     const auto* pcState = queueLocalCache.pushConstantsState<asset::EPBP_GRAPHICS>();
     assert(pcState);
     m_pipeline->setUniformsImitatingPushConstants(gl, ctxid, *pcState);
 }
 
-void COpenGLCommandPool::CBindBufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindBufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glBuffer.pglBindBuffer(m_target, m_bufferGLName);
 }
 
-void COpenGLCommandPool::CBindImageTexturesCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindImageTexturesCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlBindImageTextures(m_first, m_count, m_textures, m_formats);
 }
 
-void COpenGLCommandPool::CBindTexturesCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindTexturesCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlBindTextures(m_first, m_count, m_textures, m_targets);
 }
 
-void COpenGLCommandPool::CBindSamplersCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindSamplersCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlBindSamplers(m_first, m_count, m_samplers);
 }
 
-void COpenGLCommandPool::CBindBuffersRangeCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindBuffersRangeCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlBindBuffersRange(m_target, m_first, m_count, m_buffers, m_offsets, m_sizes);
 }
 
-void COpenGLCommandPool::CNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlNamedBufferSubData(m_bufferGLName, m_offset, m_size, m_data.data());
 }
 
-void COpenGLCommandPool::CResetQueryCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CResetQueryCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     m_queryPool->setLastQueueToUseForQuery(m_query, ctxid);
 }
 
-void COpenGLCommandPool::CQueryCounterCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CQueryCounterCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint query = m_queryPool->getQueryAt(ctxid, m_query);
     gl->glQuery.pglQueryCounter(query, m_target);
 }
 
-void COpenGLCommandPool::CBeginQueryCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBeginQueryCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint query = m_queryPool->getQueryAt(ctxid, m_query);
     gl->glQuery.pglBeginQuery(m_target, query);
 }
 
-void COpenGLCommandPool::CEndQueryCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CEndQueryCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glQuery.pglEndQuery(m_target);
 }
 
-void COpenGLCommandPool::CGetQueryBufferObjectUICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CGetQueryBufferObjectUICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     // COpenGLQueryPool::lastQueueToUseArray is set on the worker thread so it is important to retrieve its value on the worker thread as well, we cannot
     // do it on the main thread at command record time.
@@ -348,7 +348,7 @@ void COpenGLCommandPool::CGetQueryBufferObjectUICmd::operator()(IOpenGL_Function
         gl->extGlGetQueryBufferObjectuiv(query, m_buffer, m_pname, m_offset);
 }
 
-void COpenGLCommandPool::CBindPipelineGraphicsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindPipelineGraphicsCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint pipelineGLName;
 
@@ -390,7 +390,7 @@ void COpenGLCommandPool::CBindPipelineGraphicsCmd::operator()(IOpenGL_FunctionTa
     gl->glShader.pglUseProgram(0);
 }
 
-void COpenGLCommandPool::CBindVertexArrayCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CBindVertexArrayCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
 
@@ -450,7 +450,7 @@ void COpenGLCommandPool::CBindVertexArrayCmd::operator()(IOpenGL_FunctionTable* 
     }
 }
 
-void COpenGLCommandPool::CVertexArrayVertexBufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CVertexArrayVertexBufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     auto it = queueLocalCache.vaoCache.get(m_vaoKey);
     if (!it)
@@ -460,7 +460,7 @@ void COpenGLCommandPool::CVertexArrayVertexBufferCmd::operator()(IOpenGL_Functio
     gl->extGlVertexArrayVertexBuffer(vaoGLName, m_bindingIndex, m_bufferGLName, m_offset, m_stride);
 }
 
-void COpenGLCommandPool::CVertexArrayElementBufferCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CVertexArrayElementBufferCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     auto it = queueLocalCache.vaoCache.get(m_vaoKey);
     if (!it)
@@ -470,57 +470,57 @@ void COpenGLCommandPool::CVertexArrayElementBufferCmd::operator()(IOpenGL_Functi
     gl->extGlVertexArrayElementBuffer(vaoGLName, m_bufferGLName);
 }
 
-void COpenGLCommandPool::CPixelStoreICmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CPixelStoreICmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glShader.pglPixelStorei(m_pname, m_param);
 }
 
-void COpenGLCommandPool::CDrawArraysInstancedBaseInstanceCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDrawArraysInstancedBaseInstanceCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlDrawArraysInstancedBaseInstance(m_mode, m_first, m_count, m_instancecount, m_baseinstance);
 }
 
-void COpenGLCommandPool::CDrawElementsInstancedBaseVertexBaseInstanceCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CDrawElementsInstancedBaseVertexBaseInstanceCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlDrawElementsInstancedBaseVertexBaseInstance(m_mode, m_count, m_type, reinterpret_cast<void*>(m_idxBufOffset), m_instancecount, m_basevertex, m_baseinstance);
 }
 
-void COpenGLCommandPool::CCopyNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CCopyNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlCopyNamedBufferSubData(m_readBufferGLName, m_writeBufferGLName, m_readOffset, m_writeOffset, m_size);
 }
 
-void COpenGLCommandPool::CCompressedTextureSubImage2DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CCompressedTextureSubImage2DCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlCompressedTextureSubImage2D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_width, m_height, m_format, m_imageSize, m_data);
 }
 
-void COpenGLCommandPool::CCompressedTextureSubImage3DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CCompressedTextureSubImage3DCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlCompressedTextureSubImage3D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_format, m_imageSize, m_data);
 }
 
-void COpenGLCommandPool::CTextureSubImage2DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CTextureSubImage2DCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlTextureSubImage2D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_width, m_height, m_format, m_type, m_pixels);
 }
 
-void COpenGLCommandPool::CTextureSubImage3DCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CTextureSubImage3DCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlTextureSubImage3D(m_texture, m_target, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_format, m_type, m_pixels);
 }
 
-void COpenGLCommandPool::CGetCompressedTextureSubImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CGetCompressedTextureSubImageCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glTexture.pglGetCompressedTextureSubImage(m_texture, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_bufSize, reinterpret_cast<void*>(m_bufferOffset));
 }
 
-void COpenGLCommandPool::CGetTextureSubImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CGetTextureSubImageCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->glTexture.pglGetTextureSubImage(m_texture, m_level, m_xoffset, m_yoffset, m_zoffset, m_width, m_height, m_depth, m_format, m_type, m_bufSize, reinterpret_cast<void*>(m_bufferOffset));
 }
 
-void COpenGLCommandPool::CReadPixelsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CReadPixelsCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl, true);
 
@@ -539,42 +539,42 @@ void COpenGLCommandPool::CReadPixelsCmd::operator()(IOpenGL_FunctionTable* gl, S
     gl->glFramebuffer.pglBindFramebuffer(GL_READ_FRAMEBUFFER, prevReadFB);
 }
 
-void COpenGLCommandPool::CMultiDrawElementsIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CMultiDrawElementsIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
     gl->extGlMultiDrawElementsIndirect(m_mode, m_type, reinterpret_cast<void*>(m_indirect), m_drawcount, m_stride);
 }
 
-void COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
     gl->extGlMultiDrawElementsIndirectCount(m_mode, m_type, reinterpret_cast<void*>(m_indirect), m_drawcount, m_maxdrawcount, m_stride);
 }
 
-void COpenGLCommandPool::CExecuteCommandsCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CExecuteCommandsCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     for (auto i = 0; i < m_count; ++i)
-        static_cast<const COpenGLCommandBuffer*>(m_commandBuffers[i])->executeAll(gl, queueCache, nullptr, ctxid);
+        static_cast<const COpenGLCommandBuffer*>(m_commandBuffers[i])->executeAll(gl, queueCache, ctxid);
 }
 
-void COpenGLCommandPool::CMultiDrawArraysIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CMultiDrawArraysIndirectCountCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
     gl->extGlMultiDrawArraysIndirectCount(m_mode, reinterpret_cast<void*>(m_indirect), m_drawcount, m_maxdrawcount, m_stride);
 }
 
-void COpenGLCommandPool::CMultiDrawArraysIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CMultiDrawArraysIndirectCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     static_assert(sizeof(m_indirect) == sizeof(void*), "Bad reinterpret_cast");
     gl->extGlMultiDrawArraysIndirect(m_mode, reinterpret_cast<void*>(m_indirect), m_drawcount, m_stride);
 }
 
-void COpenGLCommandPool::CCopyImageSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CCopyImageSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlCopyImageSubData(m_srcName, m_srcTarget, m_srcLevel, m_srcX, m_srcY, m_srcZ, m_dstName, m_dstTarget, m_dstLevel, m_dstX, m_dstY, m_dstZ, m_srcWidth, m_srcHeight, m_srcDepth);
 }
 
-void COpenGLCommandPool::CClearColorImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CClearColorImageCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl, true);
 
@@ -612,7 +612,7 @@ void COpenGLCommandPool::CClearColorImageCmd::operator()(IOpenGL_FunctionTable* 
     }
 }
 
-void COpenGLCommandPool::CClearDepthStencilImageCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CClearDepthStencilImageCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     GLuint fbo = getFBOGLName(m_image, m_level, m_layer, queueCache, gl, false);
 
@@ -649,12 +649,12 @@ void COpenGLCommandPool::CClearDepthStencilImageCmd::operator()(IOpenGL_Function
     }
 }
 
-void COpenGLCommandPool::CClearNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CClearNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlClearNamedBufferSubData(m_bufferGLName, m_internalformat, m_offset, m_size, m_format, m_type, &m_data);
 }
 
-void COpenGLCommandPool::CGenerateTextureMipmapCmd::operator()(IOpenGL_FunctionTable* gl, SQueueLocalCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
+void COpenGLCommandPool::CGenerateTextureMipmapCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
     gl->extGlGenerateTextureMipmap(m_texture, m_target);
 }
