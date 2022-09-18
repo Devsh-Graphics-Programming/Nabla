@@ -82,6 +82,7 @@ struct SOpenGLContextLocalCache
                 gl->glVertex.pglDeleteVertexArrays(1, &x.second);
         }
     };
+    // TODO(achal): Remove.
     struct PipelineDisposalFunc
     {
         PipelineDisposalFunc(IOpenGL_FunctionTable* _gl) : gl(_gl)
@@ -376,13 +377,55 @@ private:
 // SOpenGLContextDependentCache and SOpenGLContextIndependentCache?
 struct SQueueLocalCache
 {
+private:
+    using disposal_func_t = std::function<void(GLuint)>;
+
+    struct SGraphicsPipelineCache
+    {
+        SGraphicsPipelineCache(IOpenGL_FunctionTable* _gl) : gl(_gl)
+#ifdef _NBL_DEBUG
+            , tid(std::this_thread::get_id())
+#endif
+        {}
+
+        inline core::unordered_map<const COpenGLRenderpassIndependentPipeline*, GLuint>& getMap()
+        {
+            return map;
+        }
+
+        inline void erase(COpenGLRenderpassIndependentPipeline* pipeline)
+        {
+            auto found = map.find(pipeline);
+            if (found == map.end())
+                return;
+
+            GLuint GLname = found->second;
+#ifdef _NBL_DEBUG
+            assert(std::this_thread::get_id() == tid);
+            if (std::this_thread::get_id() == tid)
+#endif
+                gl->glShader.pglDeleteProgramPipelines(1, &GLname);
+
+            map.erase(pipeline);
+        }
+
+    private:
+        core::unordered_map<const COpenGLRenderpassIndependentPipeline*, GLuint> map;
+        IOpenGL_FunctionTable* gl;
+#ifdef _NBL_DEBUG
+        const std::thread::id tid;
+#endif
+    };
+
+public:
     SQueueLocalCache(IOpenGL_FunctionTable* _gl)
         : fboCache(SOpenGLContextLocalCache::maxFBOCacheSize, SOpenGLContextLocalCache::fbo_cache_t::disposal_func_t(SOpenGLContextLocalCache::FBODisposalFunc(_gl))),
+        graphicsPipelineCache(_gl),
         vaoCache(SOpenGLContextLocalCache::maxVAOCacheSize, SOpenGLContextLocalCache::vao_cache_t::disposal_func_t(SOpenGLContextLocalCache::VAODisposalFunc(nullptr)))
     {}
 
     SOpenGLContextLocalCache::fbo_cache_t fboCache;
-    core::unordered_map<const COpenGLRenderpassIndependentPipeline*, GLuint> graphicsPipelineCache;
+    SGraphicsPipelineCache graphicsPipelineCache;
     SOpenGLContextLocalCache::vao_cache_t vaoCache;
 
     impl::pipeline_for_bindpoint_t<asset::EPBP_COMPUTE>::PushConstantsState pushConstantsStateCompute;

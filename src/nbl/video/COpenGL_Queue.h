@@ -85,7 +85,7 @@ class COpenGL_Queue final : public IGPUQueue
         };
         struct SRequestParams_DestroyPipeline : SRequestParamsBase<ERT_DESTROY_PIPELINE>
         {
-            SOpenGLState::SGraphicsPipelineHash hash;
+            COpenGLRenderpassIndependentPipeline* pipeline;
         };
         using SRequestParams_BeginCapture = SRequestParamsBase<ERT_BEGIN_CAPTURE>;
         using SRequestParams_EndCapture = SRequestParamsBase<ERT_END_CAPTURE>;
@@ -271,14 +271,20 @@ class COpenGL_Queue final : public IGPUQueue
                 {
                     auto& p = std::get<SRequestParams_DestroyFramebuffer>(req.params);
                     auto fbo_hash = p.fbo_hash;
-                    _state.ctxlocal.removeFBOEntry(&gl, fbo_hash);
+
+                    GLuint* found = _state.queueLocalCache.fboCache.peek(fbo_hash);
+                    if (found)
+                    {
+                        GLuint GLname = found[0];
+                        _state.queueLocalCache.fboCache.erase(fbo_hash);
+                    }
                 }
                 break;
                 case ERT_DESTROY_PIPELINE:
                 {
                     auto& p = std::get<SRequestParams_DestroyPipeline>(req.params);
-                    auto hash = p.hash;
-                    _state.ctxlocal.removePipelineEntry(&gl, hash);
+                    auto key = p.pipeline;
+                    _state.queueLocalCache.graphicsPipelineCache.erase(key);
                 }
                 break;
                 case ERT_BEGIN_CAPTURE:
@@ -458,7 +464,7 @@ class COpenGL_Queue final : public IGPUQueue
         void destroyPipeline(COpenGLRenderpassIndependentPipeline* pipeline)
         {
             SRequestParams_DestroyPipeline params;
-            params.hash = pipeline->getPipelineHash(m_ctxid);
+            params.pipeline = pipeline;
 
             auto& req = threadHandler.request(std::move(params));
             // TODO: Use a special form of request/IAsyncQueueDispatcher that lets us specify that certain requests wont be waited for and can be transitioned straight into ES_INITIAL

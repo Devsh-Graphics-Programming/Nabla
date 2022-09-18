@@ -352,8 +352,8 @@ void COpenGLCommandPool::CBindPipelineGraphicsCmd::operator()(IOpenGL_FunctionTa
 {
     GLuint pipelineGLName;
 
-    auto found = queueLocalCache.graphicsPipelineCache.find(m_pipeline);
-    if (found != queueLocalCache.graphicsPipelineCache.end())
+    auto found = queueLocalCache.graphicsPipelineCache.getMap().find(m_pipeline);
+    if (found != queueLocalCache.graphicsPipelineCache.getMap().end())
     {
         pipelineGLName = found->second;
     }
@@ -376,7 +376,7 @@ void COpenGLCommandPool::CBindPipelineGraphicsCmd::operator()(IOpenGL_FunctionTa
                     gl->glShader.pglUseProgramStages(pipelineGLName, stageFlags[ix], progName);
             }
         }
-        queueLocalCache.graphicsPipelineCache.insert({ m_pipeline, pipelineGLName });
+        queueLocalCache.graphicsPipelineCache.getMap().insert({ m_pipeline, pipelineGLName });
     }
 
     gl->glShader.pglBindProgramPipeline(pipelineGLName);

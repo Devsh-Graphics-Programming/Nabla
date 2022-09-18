@@ -17,7 +17,6 @@
 
 namespace nbl::video
 {
-struct ArgumentReferenceSegment;
 
 class CVulkanCommandBuffer : public IGPUCommandBuffer
 {
@@ -25,19 +24,7 @@ public:
     CVulkanCommandBuffer(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, E_LEVEL level,
         VkCommandBuffer _vkcmdbuf, core::smart_refctd_ptr<IGPUCommandPool>&& commandPool, system::logger_opt_smart_ptr&& logger)
         : IGPUCommandBuffer(std::move(logicalDevice), level, std::move(commandPool), std::move(logger)), m_cmdbuf(_vkcmdbuf)
-    {
-        if (m_cmdpool->getAPIType() == EAT_VULKAN)
-        {
-            CVulkanCommandPool* vulkanCommandPool = static_cast<CVulkanCommandPool*>(m_cmdpool.get());
-            vulkanCommandPool->emplace_n(m_argListTail, nullptr, nullptr);
-            m_argListHead = m_argListTail;
-        }
-    }
-
-    ~CVulkanCommandBuffer()
-    {
-        freeSpaceInCmdPool();
-    }
+    {}
 
     bool begin_impl(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo) override final;
 
@@ -53,15 +40,6 @@ public:
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         const VkResult result = vk->vk.vkResetCommandBuffer(m_cmdbuf, static_cast<VkCommandBufferResetFlags>(flags.value));
         return result == VK_SUCCESS;
-    }
-
-    // TODO(achal): This entire function is temporary. Vulkan doesn't need to do anything after IGPUCommandBuffer::releaseResouurcesBackToPool.
-    // I will remove before merge.
-    void releaseResourcesBackToPool_impl() override
-    {
-        // TODO(achal): This call is temporary. It frees the old Vulkan-specific segmented list which is still around 
-        // just for testing. I will remove this before the merge.
-        freeSpaceInCmdPool();
     }
 
     inline void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override final
@@ -381,33 +359,6 @@ public:
     VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
 
 private:
-    void freeSpaceInCmdPool()
-    {
-        if (m_cmdpool->getAPIType() == EAT_VULKAN && m_argListHead)
-        {
-            CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-            vulkanCommandPool->free_all(m_argListHead);
-            m_argListHead = nullptr;
-            m_argListTail = nullptr;
-        }
-    }
-
-    bool saveReferencesToResources(const core::smart_refctd_ptr<const core::IReferenceCounted>* begin,
-        const core::smart_refctd_ptr<const core::IReferenceCounted>* end)
-    {
-        if (m_cmdpool->getAPIType() != EAT_VULKAN)
-            return false;
-
-        CVulkanCommandPool* vulkanCommandPool = IBackendObject::compatibility_cast<CVulkanCommandPool*>(m_cmdpool.get(), this);
-        vulkanCommandPool->emplace_n(m_argListTail, begin, end);
-        // TODO: verify this
-        if (!m_argListHead) m_argListHead = m_argListTail;
-
-        return true;
-    }
-
-    CVulkanCommandPool::ArgumentReferenceSegment* m_argListHead = nullptr;
-    CVulkanCommandPool::ArgumentReferenceSegment* m_argListTail = nullptr;
     VkCommandBuffer m_cmdbuf;
 };  
 
