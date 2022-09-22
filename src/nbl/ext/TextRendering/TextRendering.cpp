@@ -7,6 +7,10 @@ using namespace nbl::video;
 #include "nabla.h"
 #include <nbl/ext/TextRendering/TextRendering.h>
 
+// TODO sticking to using this library?
+#define STB_RECT_PACK_IMPLEMENTATION
+#include <nbl/ext/TextRendering/stb_rect_pack.h>
+
 namespace nbl
 {
 namespace ext
@@ -19,28 +23,33 @@ uint32_t getCharacterAtlasPositionIx(char character)
 	return int(character) - int(' ');
 }
 
+uint32_t intlog2(uint32_t i)
+{
+	// TODO do this properly
+	return 31u - __lzcnt(i);
+}
+
 // Generates atlas of MSDF textures for each ASCII character
-FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t msdfWidth, uint32_t msdfHeight, uint32_t charsPerRow)
+FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t atlasWidth, uint32_t atlasHeight, uint32_t pixelSizes, uint32_t padding)
 {
 	auto error = FT_Init_FreeType(&library);
 	assert(!error);
 
-	error = FT_New_Face(library, "C:\\Windows\\Fonts\\arialbd.ttf", 0, &face);
+	error = FT_New_Face(library, fontFilename.c_str(), 0, &face);
 	assert(!error);
 
-	auto fence = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
-	auto commandPool = device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
-	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
-
+	std::vector<stbrp_rect> glyphRects;
 	std::vector<nbl::core::smart_refctd_ptr<video::IGPUBuffer>> dataBuffers;
-	std::vector<asset::IImage::SBufferCopy> bufferCopies;
+	std::vector<asset::IImage::SBufferCopy> dataBufferCopyRegions;
 
-	uint32_t characterCount = 0;
+	const int maxNodes = 4096 * 2;
+	struct stbrp_node nodes[maxNodes];
+
+	stbrp_context glyphPackerCtx;
+	stbrp_init_target(&glyphPackerCtx, atlasWidth, atlasHeight, nodes, maxNodes);
+
 	{
-		uint32_t atlasGlyphX = 0;
-		uint32_t atlasRow = 0;
-
+		// For each character
 		for (char k = ' '; k <= '~'; k++)
 		{
 			wchar_t unicode = wchar_t(k);
@@ -57,74 +66,99 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 			bool loadedGlyph = nbl::ext::TextRendering::TextRenderer::getGlyphShape(shape, library, face);
 			assert(loadedGlyph);
 
-			shape.normalize();
-			msdfgen::edgeColoringSimple(shape, 3.0); // TODO figure out what this is
-			msdfgen::Bitmap<float, 3> msdfMap(msdfWidth, msdfHeight);
-			msdfgen::generateMSDF(msdfMap, shape, 4.0, 1.0, { 4.0, 4.0 });
+			//shape.normalize();
+			auto shapeBounds = shape.getBounds();
 
-			uint32_t rowLength = msdfWidth * 4;
+			uint32_t glyphW = (shapeBounds.r - shapeBounds.l) * pixelSizes;
+			uint32_t glyphH = (shapeBounds.t - shapeBounds.b) * pixelSizes;
+			uint32_t mips = std::min(intlog2(glyphW), intlog2(glyphH));
 
-			video::IGPUBuffer::SCreationParams bufParams;
-			bufParams.size = rowLength * msdfHeight;
-			bufParams.usage = asset::IBuffer::EUF_TRANSFER_SRC_BIT;
+			characterAtlasPosition[getCharacterAtlasPositionIx(k)].resize(mips);
 
-			auto data = device->createBuffer(std::move(bufParams));
-			auto bufreqs = data->getMemoryReqs();
-			bufreqs.memoryTypeBits &= device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-			auto mem = device->allocate(bufreqs, data.get());
-
-			video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(data->getBoundMemory(), 0u, rowLength * msdfHeight);
-			device->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
-
-			auto texelBufferPtr = reinterpret_cast<char*>(data->getBoundMemory()->getMappedPointer());
-			for (int y = 0; y < msdfMap.height(); ++y)
+			printf("Generating MSDFs for glyph %c; %i mips; Shape bounds: %f %f %f %f\n", k, mips, shapeBounds.l, shapeBounds.b, shapeBounds.r, shapeBounds.t);
+			
+			for (uint32_t i = 0; i < mips; i++)
 			{
-				for (int x = 0; x < msdfMap.width(); ++x)
+				uint32_t div = 1 << i;
+				uint32_t mipW = glyphW / div;
+				uint32_t mipH = glyphH / div;
+
+				stbrp_rect rect;
+				rect.id = (int(k) << 8) | i;
+				rect.w = mipW + padding * 2;
+				rect.h = mipH + padding * 2;
+				rect.x = 0;
+				rect.y = 0;
+				rect.was_packed = 0;
+				glyphRects.push_back(rect);
+
+				printf("Glyph %c; mip %i: %ix%i\n", k, i, rect.w, rect.h);
+				// Generate MSDF for the current mip
+				msdfgen::edgeColoringSimple(shape, 3.0); // TODO figure out what this is
+				msdfgen::Bitmap<float, 3> msdfMap(mipW, mipH);
+
+				float scaleX = (1.0 / float(shapeBounds.r - shapeBounds.l)) * mipW;
+				float scaleY = (1.0 / float(shapeBounds.t - shapeBounds.b)) * mipH;
+				msdfgen::generateMSDF(msdfMap, shape, 4.0, { scaleX, scaleY }, 0.0);
+
+				uint32_t rowLength = mipW * 4;
+
+				video::IGPUBuffer::SCreationParams bufParams;
+				bufParams.size = rowLength * mipH;
+				bufParams.usage = asset::IBuffer::EUF_TRANSFER_SRC_BIT;
+				
+				// TODO: Merge with image_upload_utils and use uploadImageViaStagingBuffer 
+				auto data = device->createBuffer(std::move(bufParams));
+				auto bufreqs = data->getMemoryReqs();
+				bufreqs.memoryTypeBits &= device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+				auto mem = device->allocate(bufreqs, data.get());
+
+				video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(data->getBoundMemory(), 0u, rowLength * mipH);
+				device->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
+
+				auto texelBufferPtr = reinterpret_cast<char*>(data->getBoundMemory()->getMappedPointer());
+				for (int y = 0; y < msdfMap.height(); ++y)
 				{
-					auto pixel = msdfMap(x, msdfHeight - y);
-					texelBufferPtr[(x + y * msdfWidth) * 4 + 0] = msdfgen::pixelFloatToByte(pixel[0]);
-					texelBufferPtr[(x + y * msdfWidth) * 4 + 1] = msdfgen::pixelFloatToByte(pixel[1]);
-					texelBufferPtr[(x + y * msdfWidth) * 4 + 2] = msdfgen::pixelFloatToByte(pixel[2]);
-					texelBufferPtr[(x + y * msdfWidth) * 4 + 3] = 255;
+					for (int x = 0; x < msdfMap.width(); ++x)
+					{
+						auto pixel = msdfMap(x, mipH - 1 - y);
+						texelBufferPtr[(x + y * mipW) * 4 + 0] = msdfgen::pixelFloatToByte(pixel[0]);
+						texelBufferPtr[(x + y * mipW) * 4 + 1] = msdfgen::pixelFloatToByte(pixel[1]);
+						texelBufferPtr[(x + y * mipW) * 4 + 2] = msdfgen::pixelFloatToByte(pixel[2]);
+						texelBufferPtr[(x + y * mipW) * 4 + 3] = 255;
+					}
 				}
+
+				asset::IImage::SBufferCopy region;
+				region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
+				region.imageSubresource.mipLevel = 0u;
+				region.imageSubresource.baseArrayLayer = 0u;
+				region.imageSubresource.layerCount = 1u;
+				region.bufferOffset = 0u;
+				region.bufferRowLength = mipW;
+				region.bufferImageHeight = 0u;
+				region.imageExtent = { mipW, mipH, 1 };
+
+				dataBuffers.push_back(data);
+				dataBufferCopyRegions.push_back(region);
 			}
 
-			asset::IImage::SBufferCopy region;
-			region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
-			region.imageSubresource.mipLevel = 0u;
-			region.imageSubresource.baseArrayLayer = 0u;
-			region.imageSubresource.layerCount = 1u;
-			region.bufferOffset = 0u;
-			region.bufferRowLength = msdfWidth;
-			region.bufferImageHeight = 0u;
-			region.imageOffset = { atlasGlyphX * msdfWidth, atlasRow * msdfHeight, 0u };
-			region.imageExtent = { msdfWidth, msdfHeight, 1 };
-
-			characterAtlasPosition[getCharacterAtlasPositionIx(k)] = { uint16_t(atlasGlyphX * msdfWidth), uint16_t(atlasRow * msdfHeight) };
-			printf("k = %c | int(k) = %i | getCharacterAtlasPositionIx(k) = %i | Coords: %i, %i\n", k, int(k), getCharacterAtlasPositionIx(k), atlasGlyphX * msdfWidth, atlasRow * msdfHeight);
-
-			dataBuffers.push_back(data);
-			bufferCopies.push_back(region);
-			characterCount++;
-			atlasGlyphX++;
-			if (atlasGlyphX == charsPerRow)
-			{
-				atlasGlyphX = 0;
-				atlasRow++;
-			}
 		}
 	}
 
+	// Pack the glyphs on the atlas
+	int res = stbrp_pack_rects(&glyphPackerCtx, &glyphRects[0], glyphRects.size());
+	assert(res);
 
+	auto& glyphPackedRects = glyphRects;
+	
 	{
-		uint32_t atlasRows = (characterCount + (charsPerRow - 1)) / charsPerRow;
-
 		video::IGPUImage::SCreationParams imgParams;
 		imgParams.type = asset::IImage::ET_2D;
 		imgParams.format = asset::EF_R8G8B8A8_UNORM;
 		imgParams.samples = asset::IImage::ESCF_1_BIT;
-		imgParams.extent.width = charsPerRow * msdfWidth;
-		imgParams.extent.height = atlasRows * msdfHeight;
+		imgParams.extent.width = atlasWidth;
+		imgParams.extent.height = atlasHeight;
 		imgParams.extent.depth = 1;
 		imgParams.mipLevels = 1;
 		imgParams.arrayLayers = 1;
@@ -136,6 +170,11 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 		imgreqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 		device->allocate(imgreqs, atlasImage.get());
 	}
+
+	auto fence = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+	auto commandPool = device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
+	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
 
 	commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 
@@ -162,11 +201,19 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 		0u, nullptr,
 		1u, &layoutTransBarrier);
 
-	for (uint32_t i = 0; i < characterCount; i++)
+	for (uint32_t i = 0; i < dataBuffers.size(); i ++)
 	{
-		auto data = dataBuffers[i];
-		auto region = bufferCopies[i];
-		commandBuffer->copyBufferToImage(data.get(), atlasImage.get(), asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1, &region);
+		auto& buf = dataBuffers[i];
+		auto& region = dataBufferCopyRegions[i];
+		auto& rect = glyphPackedRects[i];
+
+		// rect.id = (int(k) << 8) | i;
+		char k = char(rect.id >> 8);
+		uint32_t mip = rect.id & 255;
+		characterAtlasPosition[getCharacterAtlasPositionIx(k)][mip] = { uint16_t(rect.x), uint16_t(rect.y) };
+
+		region.imageOffset = { rect.x + padding, rect.y + padding, 0u };
+		commandBuffer->copyBufferToImage(buf.get(), atlasImage.get(), asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1, &region);
 	}
 
 	layoutTransBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;

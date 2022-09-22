@@ -11,6 +11,7 @@
 #include "nbl/video/utilities/CPropertyPool.h"
 #include <msdfgen/msdfgen.h>
 #include <ft2build.h>
+#include <nbl/ext/TextRendering/TextRendering.h>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
 
@@ -36,12 +37,12 @@ struct SPixelCoord
 class NBL_API FontAtlas
 {
 public:
-	FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow);
+	FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow, uint32_t padding);
 private:
 	FT_Library library;
 	FT_Face face;
 
-	std::array<SPixelCoord, asciiAtlasCharacterCount> characterAtlasPosition;
+	std::array<std::vector<SPixelCoord>, asciiAtlasCharacterCount> characterAtlasPosition;
 	core::smart_refctd_ptr<video::IGPUImage> atlasImage;
 };
 
@@ -68,8 +69,9 @@ public:
 	using glyph_geometry_pool_t = video::SubAllocatedDataBufferST<pool_size_t>;
 	// Data stored as SoA in property pool:
 	// - Glyph offset
-	// - String bounding box
-	using string_pool_t = video::CPropertyPool<core::allocator, pool_size_t, StringBoundingBox>;
+	// - String bounding box 
+	// - MVP
+	using string_pool_t = video::CPropertyPool<core::allocator, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>;
 
 	struct string_handle_t
 	{
@@ -84,6 +86,7 @@ public:
 		const uint32_t count, // how many strings
 		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
 		const char* const* stringData,
+		const core::matrix3x4SIMD* transformMatricies,
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
 	);
 
@@ -91,10 +94,11 @@ public:
 		const uint32_t count, // how many strings
 		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
 		const char* const* stringData,
+		const core::matrix3x4SIMD* transformMatricies,
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
 	)
 	{
-		return allocateStrings(GPUEventWrapper::default_wait(), count, handles, stringData, wrappingBoxes);
+		return allocateStrings(GPUEventWrapper::default_wait(), count, handles, stringData, transformMatricies, wrappingBoxes);
 	}
 
 	void freeStrings(
