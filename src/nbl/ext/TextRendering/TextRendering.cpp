@@ -75,8 +75,6 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 
 			characterAtlasPosition[getCharacterAtlasPositionIx(k)].resize(mips);
 
-			printf("Generating MSDFs for glyph %c; %i mips; Shape bounds: %f %f %f %f\n", k, mips, shapeBounds.l, shapeBounds.b, shapeBounds.r, shapeBounds.t);
-			
 			for (uint32_t i = 0; i < mips; i++)
 			{
 				uint32_t div = 1 << i;
@@ -92,7 +90,6 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 				rect.was_packed = 0;
 				glyphRects.push_back(rect);
 
-				printf("Glyph %c; mip %i: %ix%i\n", k, i, rect.w, rect.h);
 				// Generate MSDF for the current mip
 				msdfgen::edgeColoringSimple(shape, 3.0); // TODO figure out what this is
 				msdfgen::Bitmap<float, 3> msdfMap(mipW, mipH);
@@ -245,10 +242,9 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 	device->blockForFences(1u, &fence.get());
 }
 
-TextRenderer::TextRenderer(core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString):
-	m_device(std::move(device))
+TextRenderer::TextRenderer(FontAtlas&& fontAtlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString):
+	m_device(std::move(device)), m_fontAtlas(std::move(fontAtlas))
 {
-	// [TODO]: Initialize these
 	// m_geomDataBuffer = core::make_smart_refctd_ptr<glyph_geometry_pool_t>(device.get());
 	// m_stringDataPropertyPool = core::make_smart_refctd_ptr<string_pool_t>(device.get());
 

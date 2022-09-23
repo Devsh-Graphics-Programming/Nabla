@@ -38,7 +38,7 @@ class NBL_API FontAtlas
 {
 public:
 	FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow, uint32_t padding);
-private:
+
 	FT_Library library;
 	FT_Face face;
 
@@ -62,7 +62,7 @@ class NBL_API TextRenderer
 public:
 	typedef typename uint32_t size_type;
 
-	TextRenderer(core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
+	TextRenderer(FontAtlas&& atlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
 
 	using pool_size_t = uint32_t;
 
@@ -88,7 +88,51 @@ public:
 		const char* const* stringData,
 		const core::matrix3x4SIMD* transformMatricies,
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
-	);
+	)
+	{
+		for (uint32_t i = 0; i < count; i++)
+		{
+			const char* string = stringData[i];
+			core::matrix3x4SIMD matrix = transformMatricies ? transformMatricies[i] : core::matrix3x4SIMD();
+			StringBoundingBox bbox = wrappingBoxes ? wrappingBoxes[i] : StringBoundingBox{ { 0, 0 }, { std::numeric_limits<uint16_t>::max(), std::numeric_limits<uint16_t>::max() } };
+
+			// TODO: Font size parameter
+			auto error = FT_Set_Pixel_Sizes(m_fontAtlas.face, 0, 1);
+
+			uint32_t x = bbox.min.x;
+			for (const char* stringIt = string; *stringIt != '\0'; stringIt++)
+			{
+				char k = *stringIt;
+				wchar_t unicode = wchar_t(k);
+				uint32_t glyphIndex = FT_Get_Char_Index(m_fontAtlas.face, unicode);
+
+				if (glyphIndex == 0) continue;
+				
+				error = FT_Load_Glyph(m_fontAtlas.face, glyphIndex, FT_LOAD_NO_BITMAP);
+				assert(!error);
+
+				// TODO mip selection
+				SPixelCoord glyphTableOffset = m_fontAtlas.characterAtlasPosition[int(k) - int(' ')][0];
+
+				// TODO write down glyph data here
+
+				auto& glyph = m_fontAtlas.face->glyph;
+				x += glyph->advance.x;
+
+			} 
+
+			// [TODO]:
+			// Allocate glyphs from `m_geomDataBuffer`
+			//  - Offset XY: FreeType layouting
+			//  - Extents XY: FreeType metrics
+			//  - Glyph table offset: Lookup from font atlas `characterAtlasPosition`
+			// Allocate string from `m_stringDataPropertyPool`
+			//	- Glyph offset: First index allocated from `m_geomDataBuffer` in prev step
+			//  - String bounding box = bbox
+			//  - MVP = matrix
+			// Store into string_handle_t
+		}
+	}
 
 	inline uint32_t allocateStrings(
 		const uint32_t count, // how many strings
@@ -227,6 +271,7 @@ private:
 	core::smart_refctd_ptr<video::IGPUBuffer> m_glyphIndexBuffer;
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_expansionPipeline;
+	FontAtlas m_fontAtlas;
 };
 
 }
