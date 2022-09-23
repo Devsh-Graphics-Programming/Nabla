@@ -90,6 +90,12 @@ public:
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
 	)
 	{
+		std::vector<std::tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>> stringDataTuples;
+		std::vector<uint32_t> stringIndices;
+
+		stringDataTuples.resize(count);
+		stringIndices.resize(count);
+
 		for (uint32_t i = 0; i < count; i++)
 		{
 			const char* string = stringData[i];
@@ -101,6 +107,7 @@ public:
 
 			uint32_t x = bbox.min.x;
 			uint32_t y = bbox.min.y;
+			uint32_t glyphCount = 0;
 			for (const char* stringIt = string; *stringIt != '\0'; stringIt++)
 			{
 				char k = *stringIt;
@@ -124,21 +131,36 @@ public:
 				uint32_t extentX = glyph->bitmap.width;
 				uint32_t extentY = glyph->bitmap.rows;
 
-				// TODO write down glyph data here
+				// [TODO]:
+				// Allocate glyphs from `m_geomDataBuffer`
+				//  - Offset XY: FreeType layouting
+				//  - Extents XY: FreeType metrics
+				//  - Glyph table offset: Lookup from font atlas `characterAtlasPosition`
 
 				x += glyph->advance.x >> 6;
+				glyphCount++;
 			} 
 
-			// [TODO]:
-			// Allocate glyphs from `m_geomDataBuffer`
-			//  - Offset XY: FreeType layouting
-			//  - Extents XY: FreeType metrics
-			//  - Glyph table offset: Lookup from font atlas `characterAtlasPosition`
-			// Allocate string from `m_stringDataPropertyPool`
-			//	- Glyph offset: First index allocated from `m_geomDataBuffer` in prev step
-			//  - String bounding box = bbox
-			//  - MVP = matrix
-			// Store into string_handle_t
+			pool_size_t glyphAllocationIx = 0;
+			stringDataTuples[i] = std::make_tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>(
+				std::move(glyphAllocationIx), 
+				std::move(glyphCount), 
+				std::move(bbox), 
+				std::move(matrix)
+			);
+			stringIndices[i] = string_pool_t::invalid;
+		}
+
+		bool res = m_stringDataPropertyPool->allocateProperties(&stringIndices[0], &stringIndices[stringIndices.size()]);
+		assert(res);
+
+		for (uint32_t i = 0; i < count; i++)
+		{
+			string_handle_t handle;
+			handle.stringAddr = stringIndices[i];
+			handle.glyphDataAddr = std::get<0>(stringDataTuples[i]);
+			handle.glyphCount = std::get<1>(stringDataTuples[i]);
+			handles[i] = handle;
 		}
 	}
 

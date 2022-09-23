@@ -246,7 +246,7 @@ TextRenderer::TextRenderer(FontAtlas&& fontAtlas, core::smart_refctd_ptr<ILogica
 	m_device(std::move(device)), m_fontAtlas(std::move(fontAtlas))
 {
 	// m_geomDataBuffer = core::make_smart_refctd_ptr<glyph_geometry_pool_t>(device.get());
-	// m_stringDataPropertyPool = core::make_smart_refctd_ptr<string_pool_t>(device.get());
+	m_stringDataPropertyPool = string_pool_t::create(device.get(), 8192);
 
 	{
 		// Global string DS
