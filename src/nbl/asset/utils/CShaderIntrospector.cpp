@@ -161,7 +161,7 @@ static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
         default:
             break;
     }
-    return EDT_INVALID;
+    return EDT_COUNT;
 }
 
 template<E_SHADER_RESOURCE_TYPE restype>

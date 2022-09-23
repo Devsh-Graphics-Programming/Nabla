@@ -761,6 +761,33 @@ static inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> ge
     return ret;
 }
 
+static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const asset::E_DESCRIPTOR_TYPE descriptorType)
+{
+    switch (descriptorType)
+    {
+    case asset::EDT_COMBINED_IMAGE_SAMPLER:
+        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    case asset::EDT_STORAGE_IMAGE:
+        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    case asset::EDT_UNIFORM_TEXEL_BUFFER:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+    case asset::EDT_STORAGE_TEXEL_BUFFER:
+        return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+    case asset::EDT_UNIFORM_BUFFER:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case asset::EDT_STORAGE_BUFFER:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+    case asset::EDT_INPUT_ATTACHMENT:
+        return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    default:
+        assert(!"Invalid code path.");
+        return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+    }
+}
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__

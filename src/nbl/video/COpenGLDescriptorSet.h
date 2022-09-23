@@ -283,7 +283,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
 		{
-			auto found = std::upper_bound(	m_bindingInfo->begin(),m_bindingInfo->end(),SBindingInfo{offset,asset::EDT_INVALID},
+			auto found = std::upper_bound(	m_bindingInfo->begin(),m_bindingInfo->end(),SBindingInfo{offset,asset::EDT_COUNT},
 											[](const auto& a, const auto& b) -> bool {return a.offset<b.offset;});
 			assert(found!=m_bindingInfo->begin());
 			return found-1;
@@ -293,7 +293,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		{
 			auto layoutBindings = m_layout->getBindings();
 			auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
-					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::IShader::ESS_ALL,nullptr},
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_COUNT,0u,asset::IShader::ESS_ALL,nullptr},
 					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
 			assert(layoutBinding!=layoutBindings.end());
 			return layoutBinding;
@@ -322,7 +322,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 				auto layoutBindings = m_layout->getBindings();
 				auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
-					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::IShader::ESS_ALL,nullptr},
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_COUNT,0u,asset::IShader::ESS_ALL,nullptr},
 					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
 				m_multibindParams.textures.samplers[offset] = layoutBinding->samplers ? //take immutable sampler if present
 						static_cast<COpenGLSampler*>(layoutBinding->samplers[local_iter].get())->getOpenGLName() :

@@ -155,7 +155,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 		{
 			if (m_bindingInfo && index<m_bindingInfo->size())
 				return m_bindingInfo->operator[](index).descriptorType;
-			return EDT_INVALID;
+			return EDT_COUNT;
 		}
 
 		//! Can modify the array of descriptors bound to a particular bindings

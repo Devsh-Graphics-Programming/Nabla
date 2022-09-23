@@ -190,7 +190,7 @@ class NBL_API IEmulatedDescriptorSet
 
 			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(lastBnd->binding+1u);
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
-				*it = {~0u,EDT_INVALID};
+				*it = {~0u,EDT_COUNT};
 			
 			auto outInfo = m_bindingInfo->begin();
 			uint32_t descriptorCount = 0u;
@@ -224,7 +224,7 @@ class NBL_API IEmulatedDescriptorSet
 			uint32_t off = ~0u;
 			for (auto it = m_bindingInfo->end() - 1; it != m_bindingInfo->begin() - 1; --it)
 			{
-				if (it->descriptorType != EDT_INVALID)
+				if (it->descriptorType != EDT_COUNT)
 					off = it->offset;
 				else
 					it->offset = off;
@@ -242,7 +242,7 @@ class NBL_API IEmulatedDescriptorSet
 			}
 
 			uint32_t offset;
-			E_DESCRIPTOR_TYPE descriptorType = EDT_INVALID;//whatever, default value
+			E_DESCRIPTOR_TYPE descriptorType = EDT_COUNT;//whatever, default value
 		};
 		static_assert(sizeof(SBindingInfo)==8ull, "Why is the enum not uint32_t sized!?");
 		core::smart_refctd_dynamic_array<SBindingInfo> m_bindingInfo;

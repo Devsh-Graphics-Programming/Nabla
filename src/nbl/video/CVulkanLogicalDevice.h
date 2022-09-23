@@ -231,7 +231,7 @@ public:
         VkDescriptorPoolSize vk_descriptorPoolSizes[MAX_DESCRIPTOR_POOL_SIZE_COUNT];
         for (uint32_t i = 0u; i < poolSizeCount; ++i)
         {
-            vk_descriptorPoolSizes[i].type = static_cast<VkDescriptorType>(poolSizes[i].type);
+            vk_descriptorPoolSizes[i].type = getVkDescriptorTypeFromDescriptorType(poolSizes[i].type);
             vk_descriptorPoolSizes[i].descriptorCount = poolSizes[i].count;
         }
 
@@ -632,7 +632,7 @@ public:
 
             vk_writeDescriptorSets[i].dstBinding = pDescriptorWrites[i].binding;
             vk_writeDescriptorSets[i].dstArrayElement = pDescriptorWrites[i].arrayElement;
-            vk_writeDescriptorSets[i].descriptorType = static_cast<VkDescriptorType>(pDescriptorWrites[i].descriptorType);
+            vk_writeDescriptorSets[i].descriptorType = getVkDescriptorTypeFromDescriptorType(pDescriptorWrites[i].descriptorType);
             vk_writeDescriptorSets[i].descriptorCount = pDescriptorWrites[i].count;
 
             assert(pDescriptorWrites[i].count <= MAX_DESCRIPTOR_ARRAY_COUNT);
@@ -1189,7 +1189,7 @@ protected:
 
             VkDescriptorSetLayoutBinding vkDescSetLayoutBinding = {};
             vkDescSetLayoutBinding.binding = binding->binding;
-            vkDescSetLayoutBinding.descriptorType = static_cast<VkDescriptorType>(binding->type);
+            vkDescSetLayoutBinding.descriptorType = getVkDescriptorTypeFromDescriptorType(binding->type);
             vkDescSetLayoutBinding.descriptorCount = binding->count;
             vkDescSetLayoutBinding.stageFlags = static_cast<VkShaderStageFlags>(binding->stageFlags);
             vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
