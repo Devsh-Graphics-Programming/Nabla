@@ -100,25 +100,33 @@ public:
 			auto error = FT_Set_Pixel_Sizes(m_fontAtlas.face, 0, 1);
 
 			uint32_t x = bbox.min.x;
+			uint32_t y = bbox.min.y;
 			for (const char* stringIt = string; *stringIt != '\0'; stringIt++)
 			{
 				char k = *stringIt;
 				wchar_t unicode = wchar_t(k);
 				uint32_t glyphIndex = FT_Get_Char_Index(m_fontAtlas.face, unicode);
 
-				if (glyphIndex == 0) continue;
-				
+				if (glyphIndex == 0 || k < ' ' || k > '~') continue;
+								
+				auto& characterAtlasMips = m_fontAtlas.characterAtlasPosition[int(k) - int(' ')];
+				if (characterAtlasMips.size() == 0) continue;
+				// TODO mip selection
+				SPixelCoord glyphTableOffset = characterAtlasMips[0];
+
 				error = FT_Load_Glyph(m_fontAtlas.face, glyphIndex, FT_LOAD_NO_BITMAP);
 				assert(!error);
 
-				// TODO mip selection
-				SPixelCoord glyphTableOffset = m_fontAtlas.characterAtlasPosition[int(k) - int(' ')][0];
+				auto& glyph = m_fontAtlas.face->glyph;
+
+				uint32_t offsetX = x + glyph->bitmap_left;
+				uint32_t offsetY = y + glyph->bitmap_top;
+				uint32_t extentX = glyph->bitmap.width;
+				uint32_t extentY = glyph->bitmap.rows;
 
 				// TODO write down glyph data here
 
-				auto& glyph = m_fontAtlas.face->glyph;
-				x += glyph->advance.x;
-
+				x += glyph->advance.x >> 6;
 			} 
 
 			// [TODO]:
