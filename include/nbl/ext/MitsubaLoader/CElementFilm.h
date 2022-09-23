@@ -138,7 +138,7 @@ class CElementFilm : public IElement
 		char outputFilePath[MaxPathLen+1] = {0};
 		char denoiserBloomFilePath[MaxPathLen+1] = {0};
 		int32_t cascadeCount = 1;
-		float cascadeLuminanceBase = 8.0f;
+		float cascadeLuminanceBase = core::nan<float>();
 		float cascadeLuminanceStart = core::nan<float>();
 		float denoiserBloomScale = 0.0f;
 		float denoiserBloomIntensity = 0.0f;

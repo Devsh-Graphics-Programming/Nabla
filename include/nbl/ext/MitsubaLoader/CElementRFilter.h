@@ -65,7 +65,7 @@ class CElementRFilter : public IElement
 			LanczosSinc			lanczos;
 		};
 		float kappa = 0.f;
-		float EminRelative = 0.05f;
+		float Emin = core::nan<float>();
 };
 
 

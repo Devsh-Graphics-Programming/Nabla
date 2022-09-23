@@ -103,9 +103,9 @@ bool CElementRFilter::addProperty(SNamedPropertyElement&& _property)
 			kappa = _property.fvalue;
 			return true;
 		}
-		else if (core::strcmpi(_property.name,std::string("EminRelative"))==0)
+		else if (core::strcmpi(_property.name,std::string("Emin"))==0)
 		{
-			EminRelative = _property.fvalue;
+			Emin = _property.fvalue;
 			return true;
 		}
 		else

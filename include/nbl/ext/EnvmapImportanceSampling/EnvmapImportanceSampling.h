@@ -60,7 +60,12 @@ public:
 	void deinitResources();
 
 	// returns if RIS should be enabled based on variance calculations
-	bool computeWarpMap(float envMapRegularizationFactor);
+	inline bool computeWarpMap(const float envMapRegularizationFactor)
+	{
+		[[maybe_unused]] float dummy;
+		return computeWarpMap(envMapRegularizationFactor,dummy);
+	}
+	bool computeWarpMap(const float envMapRegularizationFactor, float& maxEmittanceLuma);
 	
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getLuminanceImageView() { return m_luminanceBaseImageView; }
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getWarpMapImageView() { return m_warpMap; }

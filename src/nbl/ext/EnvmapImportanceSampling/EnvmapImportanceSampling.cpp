@@ -315,7 +315,7 @@ void EnvmapImportanceSampling::deinitResources()
 	m_warpMap = nullptr;
 }
 
-bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
+bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFactor, float& maxEmittanceLuma)
 {
 	bool enableRIS = false;
 
@@ -344,6 +344,7 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
 	}
 
+	// TODO: do this in the shader
 	// Download Luma Image and caclulate directionality metric (0 uniform, 1 totally unidirectional) and new Regularization Factor
 	// ideally would want a better metric of how "concentrated" the energy is in one direction rather than variance,
 	// it turns out that the first order spherical harmonic band and weighted (by luma) average of directions are the same thing.
@@ -398,6 +399,7 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 		}
 
 		float* fltData = reinterpret_cast<float*>(data);
+		maxEmittanceLuma = 0.f;
 		core::vectorSIMDf avgDir;
 		{
 			core::vector<core::vectorSIMDf> texelAccumulator(width);
@@ -413,6 +415,8 @@ bool EnvmapImportanceSampling::computeWarpMap(float envMapRegularizationFactor)
 				for (uint32_t i=0; i<width; ++i)
 				{
 					const float luma = fltData[j*width+i];
+					if (luma>maxEmittanceLuma)
+						maxEmittanceLuma = luma;
 
 					const float phi = (float(i)+0.5f)*toPhi;
 
