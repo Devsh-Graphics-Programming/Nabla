@@ -448,6 +448,8 @@ class NBL_API GeneralpurposeAddressAllocator : public AddressAllocatorBase<Gener
 
         virtual ~GeneralpurposeAddressAllocator() {}
 
+        // `reservedSpc` param for GeneralpurposeAddressAllocator cannot be nullptr because it needs some memory to operate. Get the exact amount of memory from the `reserved_size`
+        // method below.
         GeneralpurposeAddressAllocator(void* reservedSpc, size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, size_type minBlockSz) noexcept :
                     Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), AllocStrategy(bufSz-Base::alignOffset,minBlockSz)
         {

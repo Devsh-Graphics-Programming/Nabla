@@ -3,11 +3,6 @@
 namespace nbl::video
 {
 
-// This is a dummy commit to facilitate the following:
-// https://github.com/Devsh-Graphics-Programming/Nabla/issues/407#issuecomment-1254910489
-// The actual fix was applied way back, somewhere around here, https://github.com/Devsh-Graphics-Programming/Nabla/pull/345/commits/39cb0cc2dba39cb379cf55e699688d7dfd1c6ace
-// 
-// Beep-bop this comment will self destruct in the next commit.
 bool IGPUCommandBuffer::begin(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo)
 {
     if (m_state == ES_RECORDING || m_state == ES_PENDING)

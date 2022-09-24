@@ -245,8 +245,7 @@ public:
         VkDescriptorPool vk_descriptorPool;
         if (m_devf.vk.vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), maxSets, vk_descriptorPool);
+            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, maxSets, poolSizeCount, poolSizes, vk_descriptorPool);
         }
         else
         {
