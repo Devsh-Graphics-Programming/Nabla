@@ -1134,7 +1134,7 @@ protected:
         }
     }
 
-    core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override
+    core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, const uint32_t* descriptorStorageOffsets) override
     {
         if (pool->getAPIType() != EAT_VULKAN)
             return nullptr;
@@ -1149,6 +1149,7 @@ protected:
 
         if (layout->getAPIType() != EAT_VULKAN)
             return nullptr;
+
         VkDescriptorSetLayout vk_dsLayout = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(layout.get(), this)->getInternalObject();
         vk_allocateInfo.pSetLayouts = &vk_dsLayout;
 
@@ -1157,7 +1158,8 @@ protected:
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(layout),
-                core::smart_refctd_ptr<const CVulkanDescriptorPool>(vulkanDescriptorPool),
+                core::smart_refctd_ptr<IDescriptorPool>(pool),
+                descriptorStorageOffsets,
                 vk_descriptorSet);
         }
         else
