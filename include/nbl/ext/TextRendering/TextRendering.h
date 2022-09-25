@@ -82,6 +82,7 @@ public:
 
 	template<class Clock = typename std::chrono::steady_clock>
 	uint32_t allocateStrings(
+		IGPUQueue* queue,
 		const std::chrono::time_point<Clock>& maxWaitPoint, // lets have also a version without this (default)
 		const uint32_t count, // how many strings
 		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
@@ -154,17 +155,55 @@ public:
 		bool res = m_stringDataPropertyPool->allocateProperties(&stringIndices[0], &stringIndices[stringIndices.size()]);
 		assert(res);
 
+		auto fence = m_device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+		auto commandPool = m_device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
+		m_device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
+
+		commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+
 		for (uint32_t i = 0; i < count; i++)
 		{
+			// Write the properties that were allocated
+			// TODO: Use the upload utilities here
+			auto tuple = stringDataTuples[i];
+			uint32_t index = stringIndices[i];
+
+			auto writeProperty = [&](uint32_t propIx, uint32_t dataSize, const void* pData)
+			{
+				auto& buf = m_stringDataPropertyPool->getPropertyMemoryBlock(propIx);
+				commandBuffer->updateBuffer(buf.buffer.get(), buf.offset + index * dataSize, dataSize, pData);
+			};
+
+			writeProperty(0, sizeof(pool_size_t), std::get<0>(tuple));
+			writeProperty(1, sizeof(StringBoundingBox), std::get<2>(tuple));
+			writeProperty(2, sizeof(core::matrix3x4SIMD), std::get<3>(tuple));
+
+			// Output string_handle_t
 			string_handle_t handle;
 			handle.stringAddr = stringIndices[i];
 			handle.glyphDataAddr = std::get<0>(stringDataTuples[i]);
 			handle.glyphCount = std::get<1>(stringDataTuples[i]);
 			handles[i] = handle;
 		}
+
+		commandBuffer->end();
+
+		nbl::video::IGPUQueue::SSubmitInfo submit;
+		{
+			submit.commandBufferCount = 1u;
+			submit.commandBuffers = &commandBuffer.get();
+			submit.signalSemaphoreCount = 0u;
+			submit.waitSemaphoreCount = 0u;
+
+			queue->submit(1u, &submit, fence.get());
+		}
+
+		m_device->blockForFences(1u, &fence.get());
 	}
 
 	inline uint32_t allocateStrings(
+		IGPUQueue* queue,
 		const uint32_t count, // how many strings
 		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
 		const char* const* stringData,
@@ -172,7 +211,7 @@ public:
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
 	)
 	{
-		return allocateStrings(GPUEventWrapper::default_wait(), count, handles, stringData, transformMatricies, wrappingBoxes);
+		return allocateStrings(queue, GPUEventWrapper::default_wait(), count, handles, stringData, transformMatricies, wrappingBoxes);
 	}
 
 	void freeStrings(
