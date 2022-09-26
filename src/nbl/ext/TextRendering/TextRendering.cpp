@@ -245,27 +245,8 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 TextRenderer::TextRenderer(FontAtlas&& fontAtlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString):
 	m_device(std::move(device)), m_fontAtlas(std::move(fontAtlas))
 {
-	// IGPUBuffer::SCreationParams bufParams;
-	// bufParams.size = 1024 * 1024;
-	// bufParams.usage = asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-	// 
-	// IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
-	// {
-	// 	auto buf = device->createBuffer(std::move(bufParams));
-	// 	reqs = buf->getMemoryReqs();
-	// }
-	// 
-	// auto alloctr = SimpleGPUBufferAllocator(device.get(), reqs, true);
-	// m_geomDataBuffer = core::smart_refctd_ptr<video::SubAllocatedDataBufferST<>>(new video::SubAllocatedDataBufferST<>(
-	// 	device.get(), std::move(core::allocator<uint8_t>()), alloctr, 0u, 64u, 64u, bufParams.size));
-	m_stringDataPropertyPool = string_pool_t::create(device.get(), 8192);
-
-	{
-		video::IGPUBuffer::SCreationParams bufParams;
-		bufParams.size = 65536 * sizeof(uint64_t);
-		bufParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-		m_geomDataBuffer = m_device->createBuffer(std::move(bufParams));
-	}
+	m_geomDataBuffer = glyph_geometry_pool_t::create(device.get(), 8192);
+	m_stringDataPropertyPool = string_pool_t::create(device.get(), 8192, true);
 
 	{
 		video::IGPUBuffer::SCreationParams bufParams;
@@ -311,7 +292,8 @@ TextRenderer::TextRenderer(FontAtlas&& fontAtlas, core::smart_refctd_ptr<ILogica
 		{
 			descriptorInfos[0].image.imageLayout = asset::IImage::EL_GENERAL;
 			descriptorInfos[0].image.sampler = nullptr;
-			descriptorInfos[0].desc = m_geomDataBuffer;
+			// TODO take offset into account?
+			descriptorInfos[0].desc = m_geomDataBuffer->getPropertyMemoryBlock(0).buffer;
 
 			writeDescriptorSets[0].dstSet = m_globalStringDS.get();
 			writeDescriptorSets[0].binding = 0u;

@@ -66,7 +66,7 @@ public:
 
 	using pool_size_t = uint32_t;
 
-	using glyph_geometry_pool_t = video::SubAllocatedDataBufferST<pool_size_t>;
+	using glyph_geometry_pool_t = video::CPropertyPool<core::allocator, uint64_t>;
 	// Data stored as SoA in property pool:
 	// - Glyph offset
 	// - String bounding box 
@@ -101,6 +101,7 @@ public:
 		std::vector<std::tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>> stringDataTuples;
 		std::vector<uint32_t> stringIndices;
 		std::vector<uint64_t> glyphData;
+		std::vector<uint32_t> glyphDataIndices;
 		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> glyphDataBuffers;
 
 		stringDataTuples.resize(count);
@@ -154,12 +155,12 @@ public:
 				gp |= uint64_t(glyphTableOffset.x) << 12;
 				gp |= uint64_t(glyphTableOffset.y);
 				glyphData.push_back(gp);
+				glyphDataIndices.push_back(0);
 
 				x += glyph->advance.x >> 6;
 			} 
 
 			pool_size_t glyphCount = glyphData.size();
-			pool_size_t glyphAllocationIx = m_geomDataBufferHead;
 
 			// [TODO]: Use the upload utilities here
 			video::IGPUBuffer::SCreationParams bufParams;
@@ -180,14 +181,18 @@ public:
 				bufParams.size
 			);
 
+			bool res = m_stringDataPropertyPool->allocateProperties(&glyphDataIndices[0], &glyphDataIndices[glyphDataIndices.size()]);
+			assert(res);
+			pool_size_t glyphAllocationIx = glyphDataIndices[0];
+
 			asset::SBufferCopy region;
 			region.srcOffset = 0;
-			region.dstOffset = m_geomDataBufferHead;
+			region.dstOffset = glyphAllocationIx * sizeof(uint64_t) + m_geomDataBuffer->getPropertyMemoryBlock(0).offset;
 			region.size = bufParams.size;
-			commandBuffer->copyBuffer(data.get(), m_geomDataBuffer.get(), 1, &region);
+			commandBuffer->copyBuffer(data.get(), m_geomDataBuffer->getPropertyMemoryBlock(0).buffer.get(), 1, &region);
 
-			m_geomDataBufferHead += bufParams.size;
 			glyphData.clear();
+			glyphDataIndices.clear();
 
 			glyphDataBuffers[i] = std::move(data);
 			stringDataTuples[i] = std::make_tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>(
@@ -376,11 +381,7 @@ private:
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_globalStringDSLayout;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_globalStringDS;
 
-	// TODO use proper glyph geometry pool
-	core::smart_refctd_ptr<video::IGPUBuffer> m_geomDataBuffer;
-	uint32_t m_geomDataBufferHead;
-
-//	core::smart_refctd_ptr<glyph_geometry_pool_t> m_geomDataBuffer;
+	core::smart_refctd_ptr<glyph_geometry_pool_t> m_geomDataBuffer;
 	core::smart_refctd_ptr<string_pool_t> m_stringDataPropertyPool;
 
 	// - 30 bits global glyph ID
