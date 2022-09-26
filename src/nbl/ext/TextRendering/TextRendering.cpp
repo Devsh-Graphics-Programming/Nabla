@@ -245,47 +245,222 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 TextRenderer::TextRenderer(FontAtlas&& fontAtlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString):
 	m_device(std::move(device)), m_fontAtlas(std::move(fontAtlas))
 {
-	// m_geomDataBuffer = core::make_smart_refctd_ptr<glyph_geometry_pool_t>(device.get());
+	// IGPUBuffer::SCreationParams bufParams;
+	// bufParams.size = 1024 * 1024;
+	// bufParams.usage = asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+	// 
+	// IDeviceMemoryBacked::SDeviceMemoryRequirements reqs;
+	// {
+	// 	auto buf = device->createBuffer(std::move(bufParams));
+	// 	reqs = buf->getMemoryReqs();
+	// }
+	// 
+	// auto alloctr = SimpleGPUBufferAllocator(device.get(), reqs, true);
+	// m_geomDataBuffer = core::smart_refctd_ptr<video::SubAllocatedDataBufferST<>>(new video::SubAllocatedDataBufferST<>(
+	// 	device.get(), std::move(core::allocator<uint8_t>()), alloctr, 0u, 64u, 64u, bufParams.size));
 	m_stringDataPropertyPool = string_pool_t::create(device.get(), 8192);
 
 	{
-		// Global string DS
-		const uint32_t bindingCount = 2u;
+		video::IGPUBuffer::SCreationParams bufParams;
+		bufParams.size = 65536 * sizeof(uint64_t);
+		bufParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+		m_geomDataBuffer = m_device->createBuffer(std::move(bufParams));
+	}
+
+	{
+		video::IGPUBuffer::SCreationParams bufParams;
+		bufParams.size = 65536 * sizeof(uint32_t);
+		bufParams.usage = asset::IBuffer::EUF_INDEX_BUFFER_BIT;
+		m_glyphIndexBuffer = m_device->createBuffer(std::move(bufParams));
+	}
+
+	{
+		// Global string descriptor set: Only includes glyph geometry pool
+		const uint32_t bindingCount = 1u;
 		video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
 		{
-			// Geometry data buffer SSBO
 			bindings[0].binding = 0u;
-			bindings[0].type = asset::EDT_STORAGE_IMAGE;
-			bindings[0].count = 1u;
-			bindings[0].stageFlags = asset::IShader::ESS_ALL;
+			bindings[0].type = asset::EDT_STORAGE_BUFFER;
+			bindings[0].count = 2u;
+			bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bindings[0].samplers = nullptr;
-
-			// String data property pool SSBO
-			bindings[1].binding = 1u;
-			bindings[1].type = asset::EDT_STORAGE_IMAGE;
-			bindings[1].count = 1u;
-			bindings[1].stageFlags = asset::IShader::ESS_ALL;
-			bindings[1].samplers = nullptr;
 		}
 		m_globalStringDSLayout =
-			device->createDescriptorSetLayout(bindings, bindings + bindingCount);
+			m_device->createDescriptorSetLayout(bindings, bindings + bindingCount);
 
 		const uint32_t descriptorPoolSizeCount = 1u;
 		video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
-		poolSizes[0].type = asset::EDT_STORAGE_IMAGE;
+		poolSizes[0].type = asset::EDT_STORAGE_BUFFER;
 		poolSizes[0].count = 2u;
 
 		video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
 			static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
 
 		core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool
-			= device->createDescriptorPool(descriptorPoolFlags, 1,
+			= m_device->createDescriptorPool(descriptorPoolFlags, 1,
 				descriptorPoolSizeCount, poolSizes);
 
-		m_globalStringDS = device->createDescriptorSet(descriptorPool.get(),
+		m_globalStringDS = m_device->createDescriptorSet(descriptorPool.get(),
 			core::smart_refctd_ptr(m_globalStringDSLayout));
+
+		const uint32_t writeDescriptorCount = 2u;
+
+		video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
+		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
+
+		{
+			descriptorInfos[0].image.imageLayout = asset::IImage::EL_GENERAL;
+			descriptorInfos[0].image.sampler = nullptr;
+			descriptorInfos[0].desc = m_geomDataBuffer;
+
+			writeDescriptorSets[0].dstSet = m_globalStringDS.get();
+			writeDescriptorSets[0].binding = 0u;
+			writeDescriptorSets[0].arrayElement = 0u;
+			writeDescriptorSets[0].count = 1u;
+			writeDescriptorSets[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+			writeDescriptorSets[0].info = &descriptorInfos[0];
+		}
+
+		{
+			descriptorInfos[1].image.imageLayout = asset::IImage::EL_GENERAL;
+			descriptorInfos[1].image.sampler = nullptr;
+			descriptorInfos[1].desc = m_glyphIndexBuffer;
+
+			writeDescriptorSets[1].dstSet = m_globalStringDS.get();
+			writeDescriptorSets[1].binding = 1u;
+			writeDescriptorSets[1].arrayElement = 0u;
+			writeDescriptorSets[1].count = 1u;
+			writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+			writeDescriptorSets[1].info = &descriptorInfos[1];
+		}
+
+		m_device->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
 	}
 
+}
+
+void TextRenderer::updateVisibleStringDS(
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
+	core::smart_refctd_ptr<video::IGPUBuffer> visibleStringMvps,
+	core::smart_refctd_ptr<video::IGPUBuffer> visibleStringGlyphCounts,
+	core::smart_refctd_ptr<video::IGPUBuffer> cumulativeGlyphCount
+)
+{
+	const uint32_t writeDescriptorCount = 3u;
+
+	video::IGPUDescriptorSet::SDescriptorInfo descriptorInfos[writeDescriptorCount];
+	video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
+
+	{
+		descriptorInfos[0].image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[0].image.sampler = nullptr;
+		descriptorInfos[0].desc = visibleStringMvps;
+
+		writeDescriptorSets[0].dstSet = visibleStringDS.get();
+		writeDescriptorSets[0].binding = 0u;
+		writeDescriptorSets[0].arrayElement = 0u;
+		writeDescriptorSets[0].count = 1u;
+		writeDescriptorSets[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writeDescriptorSets[0].info = &descriptorInfos[0];
+	}
+
+	{
+		descriptorInfos[1].image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[1].image.sampler = nullptr;
+		descriptorInfos[1].desc = visibleStringGlyphCounts;
+
+		writeDescriptorSets[1].dstSet = visibleStringDS.get();
+		writeDescriptorSets[1].binding = 1u;
+		writeDescriptorSets[1].arrayElement = 0u;
+		writeDescriptorSets[1].count = 1u;
+		writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writeDescriptorSets[1].info = &descriptorInfos[1];
+	}
+
+	{
+		descriptorInfos[2].image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[2].image.sampler = nullptr;
+		descriptorInfos[2].desc = cumulativeGlyphCount;
+
+		writeDescriptorSets[2].dstSet = visibleStringDS.get();
+		writeDescriptorSets[2].binding = 2u;
+		writeDescriptorSets[2].arrayElement = 0u;
+		writeDescriptorSets[2].count = 1u;
+		writeDescriptorSets[2].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writeDescriptorSets[2].info = &descriptorInfos[2];
+	}
+
+	m_device->updateDescriptorSets(writeDescriptorCount, writeDescriptorSets, 0u, nullptr);
+}
+
+
+core::smart_refctd_ptr<video::IGPUGraphicsPipeline> TextRenderer::createPipeline(
+	video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
+	nbl::system::ILogger* logger,
+	nbl::asset::IAssetManager* assetManager,
+	core::smart_refctd_ptr<video::IGPURenderpass> renderpass,
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> visibleStringLayout
+)
+{
+	auto loadShader = [&](const char* pathToShader)
+	{
+		core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader = nullptr;
+		{
+			video::IGPUObjectFromAssetConverter cpu2gpu;
+			asset::IAssetLoader::SAssetLoadParams params = {};
+			params.logger = logger;
+			auto spec = (assetManager->getAsset(pathToShader, params).getContents());
+			auto specShader_cpu = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(pathToShader, params).getContents().begin());
+			specializedShader = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu, &specShader_cpu + 1, cpu2gpuParams)->front();
+		}
+		assert(specializedShader);
+
+		return specializedShader;
+	};
+
+	auto pipelineLayout = m_device->createPipelineLayout(nullptr, nullptr, std::move(m_globalStringDSLayout), std::move(visibleStringLayout));
+
+	asset::SVertexInputParams inputParams;
+	inputParams.enabledAttribFlags = 0;
+	inputParams.enabledBindingFlags = 0;
+
+	asset::SPrimitiveAssemblyParams assemblyParams;
+	assemblyParams.primitiveRestartEnable = false;
+	assemblyParams.primitiveType = asset::EPT_TRIANGLE_LIST;
+	assemblyParams.tessPatchVertCount = 3u;
+
+	asset::SBlendParams blendParams;
+	blendParams.logicOpEnable = false;
+	blendParams.logicOp = nbl::asset::ELO_NO_OP;
+
+	asset::SRasterizationParams rasterParams;
+	rasterParams.depthCompareOp = nbl::asset::ECO_ALWAYS;
+	rasterParams.minSampleShading = 1.f;
+	rasterParams.depthWriteEnable = false;
+	rasterParams.depthTestEnable = false;
+	rasterParams.faceCullingMode = nbl::asset::EFCM_NONE;
+
+	auto vs = loadShader("textvs.glsl");
+	auto fs = loadShader("textfs.glsl");
+	video::IGPUSpecializedShader* shaders[2] = { vs.get(), fs.get() };
+
+	auto gpuRenderpassIndependentPipeline = m_device->createRenderpassIndependentPipeline
+	(
+		nullptr,
+		std::move(pipelineLayout),
+		shaders,
+		shaders + 2,
+		inputParams,
+		blendParams,
+		assemblyParams,
+		rasterParams
+	);
+
+	video::IGPUGraphicsPipeline::SCreationParams pipelineCreationParams;
+	pipelineCreationParams.renderpassIndependent = gpuRenderpassIndependentPipeline;
+	pipelineCreationParams.renderpass = renderpass;
+
+	return m_device->createGraphicsPipeline(nullptr, std::move(pipelineCreationParams));
 }
 
 }

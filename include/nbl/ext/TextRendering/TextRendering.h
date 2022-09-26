@@ -91,11 +91,21 @@ public:
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
 	)
 	{
+		auto fence = m_device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
+		auto commandPool = m_device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
+		m_device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
+
+		commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+
 		std::vector<std::tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>> stringDataTuples;
 		std::vector<uint32_t> stringIndices;
+		std::vector<uint64_t> glyphData;
+		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> glyphDataBuffers;
 
 		stringDataTuples.resize(count);
 		stringIndices.resize(count);
+		glyphDataBuffers.resize(count);
 
 		for (uint32_t i = 0; i < count; i++)
 		{
@@ -108,7 +118,6 @@ public:
 
 			uint32_t x = bbox.min.x;
 			uint32_t y = bbox.min.y;
-			uint32_t glyphCount = 0;
 			for (const char* stringIt = string; *stringIt != '\0'; stringIt++)
 			{
 				char k = *stringIt;
@@ -132,20 +141,58 @@ public:
 				uint32_t extentX = glyph->bitmap.width;
 				uint32_t extentY = glyph->bitmap.rows;
 
-				// [TODO]:
-				// Allocate glyphs from `m_geomDataBuffer`
-				//  - Offset XY: FreeType layouting
-				//  - Extents XY: FreeType metrics
-				//  - Glyph table offset: Lookup from font atlas `characterAtlasPosition`
+				// [TODO] Allocate from suballocatedbuffer
+				// glyph value:
+				// - 12 bit offset X, 12 bit offset Y
+				// - 8 bit extent X, 8 bit extent Y
+				// - 12 bit atlas UV X, 12 bit atlas UV Y
+				uint64_t gp = 0;
+				gp |= uint64_t(offsetX) << 52;
+				gp |= uint64_t(offsetY) << 40;
+				gp |= uint64_t(extentX) << 32;
+				gp |= uint64_t(extentY) << 24;
+				gp |= uint64_t(glyphTableOffset.x) << 12;
+				gp |= uint64_t(glyphTableOffset.y);
+				glyphData.push_back(gp);
 
 				x += glyph->advance.x >> 6;
-				glyphCount++;
 			} 
 
-			pool_size_t glyphAllocationIx = 0;
+			pool_size_t glyphCount = glyphData.size();
+			pool_size_t glyphAllocationIx = m_geomDataBufferHead;
+
+			// [TODO]: Use the upload utilities here
+			video::IGPUBuffer::SCreationParams bufParams;
+			bufParams.size = glyphCount * sizeof(uint64_t);
+			bufParams.usage = asset::IBuffer::EUF_TRANSFER_SRC_BIT;
+
+			auto data = m_device->createBuffer(std::move(bufParams));
+			auto bufreqs = data->getMemoryReqs();
+			bufreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+			auto mem = m_device->allocate(bufreqs, data.get());
+
+			video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(data->getBoundMemory(), 0u, bufParams.size);
+			m_device->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
+			
+			memcpy(
+				reinterpret_cast<char*>(data->getBoundMemory()->getMappedPointer()),
+				reinterpret_cast<char*>(&glyphData[0]), 
+				bufParams.size
+			);
+
+			asset::SBufferCopy region;
+			region.srcOffset = 0;
+			region.dstOffset = m_geomDataBufferHead;
+			region.size = bufParams.size;
+			commandBuffer->copyBuffer(data.get(), m_geomDataBuffer.get(), 1, &region);
+
+			m_geomDataBufferHead += bufParams.size;
+			glyphData.clear();
+
+			glyphDataBuffers[i] = std::move(data);
 			stringDataTuples[i] = std::make_tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>(
 				std::move(glyphAllocationIx), 
-				std::move(glyphCount), 
+				std::move(glyphCount),
 				std::move(bbox), 
 				std::move(matrix)
 			);
@@ -155,18 +202,11 @@ public:
 		bool res = m_stringDataPropertyPool->allocateProperties(&stringIndices[0], &stringIndices[stringIndices.size()]);
 		assert(res);
 
-		auto fence = m_device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
-		auto commandPool = m_device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
-		m_device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
-
-		commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-
 		for (uint32_t i = 0; i < count; i++)
 		{
 			// Write the properties that were allocated
-			// TODO: Use the upload utilities here
-			auto tuple = stringDataTuples[i];
+			// [TODO]: Use the upload utilities here
+			auto [ glyphAllocationIx, glyphCount, bbox, matrix ] = stringDataTuples[i];
 			uint32_t index = stringIndices[i];
 
 			auto writeProperty = [&](uint32_t propIx, uint32_t dataSize, const void* pData)
@@ -175,15 +215,15 @@ public:
 				commandBuffer->updateBuffer(buf.buffer.get(), buf.offset + index * dataSize, dataSize, pData);
 			};
 
-			writeProperty(0, sizeof(pool_size_t), std::get<0>(tuple));
-			writeProperty(1, sizeof(StringBoundingBox), std::get<2>(tuple));
-			writeProperty(2, sizeof(core::matrix3x4SIMD), std::get<3>(tuple));
+			writeProperty(0, sizeof(pool_size_t), &glyphAllocationIx);
+			writeProperty(1, sizeof(StringBoundingBox), &bbox);
+			writeProperty(2, sizeof(core::matrix3x4SIMD), &matrix);
 
 			// Output string_handle_t
 			string_handle_t handle;
 			handle.stringAddr = stringIndices[i];
-			handle.glyphDataAddr = std::get<0>(stringDataTuples[i]);
-			handle.glyphCount = std::get<1>(stringDataTuples[i]);
+			handle.glyphDataAddr = glyphAllocationIx;
+			handle.glyphCount = glyphCount;
 			handles[i] = handle;
 		}
 
@@ -221,29 +261,33 @@ public:
 	);
 
 	// One of the sets would be our global DS, and the other would be the user provided visible strings DS
+	// layout(set=0, binding=0) Glyph geometry data
+	// layout(set=0, binding=1) Index buffer
+	// layout(set=1, binding=0) Visible string MVPs
+	// layout(set=1, binding=1) Visible string glyph count
+	// layout(set=1, binding=2) Cummulative visible string glyph count
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
-		video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, 
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> visibleStringLayout
-	);
-
-	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipelineIndexed(
-		video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, 
+		video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
+		nbl::system::ILogger* logger,
+		nbl::asset::IAssetManager* assetManager,
+		core::smart_refctd_ptr<video::IGPURenderpass> renderpass,
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> visibleStringLayout
 	);
 
 	// Visible strings are provided by the user's culling system
 	void updateVisibleStringDS(
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
-		core::smart_refctd_ptr<video::IGPUBuffer> visibleStrings,
+		core::smart_refctd_ptr<video::IGPUBuffer> visibleStringMvps,
 		core::smart_refctd_ptr<video::IGPUBuffer> visibleStringGlyphCounts,
 		core::smart_refctd_ptr<video::IGPUBuffer> cumulativeGlyphCount
 	);
 
-	void prefixSumHelper(
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf, 
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS, 
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> indirectDrawDS
-	);
+	// now doing aggregate append
+	//void prefixSumHelper(
+	//	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf, 
+	//	core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS, 
+	//	core::smart_refctd_ptr<video::IGPUDescriptorSet> indirectDrawDS
+	//);
 	
 	void drawText(
 		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf,
@@ -332,7 +376,11 @@ private:
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_globalStringDSLayout;
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_globalStringDS;
 
-	core::smart_refctd_ptr<glyph_geometry_pool_t> m_geomDataBuffer;
+	// TODO use proper glyph geometry pool
+	core::smart_refctd_ptr<video::IGPUBuffer> m_geomDataBuffer;
+	uint32_t m_geomDataBufferHead;
+
+//	core::smart_refctd_ptr<glyph_geometry_pool_t> m_geomDataBuffer;
 	core::smart_refctd_ptr<string_pool_t> m_stringDataPropertyPool;
 
 	// - 30 bits global glyph ID
