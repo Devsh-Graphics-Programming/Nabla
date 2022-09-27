@@ -32,13 +32,9 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_pool(std::move(pool))
 		{
 			memcpy(m_descriptorStorageOffsets, descriptorStorageOffsets, asset::EDT_COUNT * sizeof(uint32_t));
-
-			// VkWriteDescriptorSet::dstArrayElement -> Specifies from where to START updating this descriptor set's binding in case it expects an array of descriptors.
-			// VkWriteDescriptorSet::descriptorCount -> Specifies how many descriptors to update this binding with --this is the number of pBufferInfo or pImageInfo structs.
-			// VkWriteDescriptorSet::p{Image/Buffer}Info -> The array of descriptorCount elements used to update this binding with.
-			// In conclusion, 1 descriptor set binding will require 1 VkWriteDescriptorSet structure but that VkWriteDescriptorSetStructure can update the binding with more than
-			// 1 descriptors.
 		}
+
+		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type) const;
 
 	protected:
 		virtual ~IGPUDescriptorSet() = default;

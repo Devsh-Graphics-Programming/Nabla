@@ -596,7 +596,7 @@ public:
         return !anyFailed;
     }
 
-    void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
+    void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
         uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override
     {
         constexpr uint32_t MAX_DESCRIPTOR_ARRAY_COUNT = 256u;

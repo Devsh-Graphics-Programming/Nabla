@@ -265,15 +265,9 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
                 if (descriptorCount[type] == 0)
                     continue;
 
-                // Descriptors of a descriptor set will be stored contigously in our pool's storage arrays. Therefore, just the offset and the count
-                // is enough to locate a set's descriptors of a given type.
-                // When freeing is allowed we have a very lax fragmentation failure policy that will help us.
                 descriptorStorageOffsets[type] = pool->allocateDescriptors(static_cast<asset::E_DESCRIPTOR_TYPE>(type), descriptorCount[type]);
                 if (descriptorStorageOffsets[type] == ~0u)
                     return nullptr;
-
-                // I don't have to run the placement new here at all. When we update the descriptor sets and get the actual resources to put into the storage
-                // I can construct the core::smart_refctd_ptr then.
             }
 
             return createDescriptorSet_impl(pool, std::move(layout), descriptorStorageOffsets);
@@ -325,7 +319,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         }
 
         //! Fill out the descriptor sets with descriptors
-        virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
+        bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
         //! Create a sampler object to use with images
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
@@ -581,6 +575,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, const uint32_t* descriptorStorageOffsets) = 0;
+        virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
         virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(

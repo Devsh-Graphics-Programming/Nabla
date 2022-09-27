@@ -89,38 +89,8 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             }
         }
 
-        uint32_t getCapacity() const { return m_maxSets; }
-
-    protected:
-        uint32_t m_maxSets;
-
-    private:
-        friend class ILogicalDevice;
-
-        // This will return the offset into the pool's descriptor storage. These offsets will be combined
-        // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
-        uint32_t allocateDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t count)
+        inline uint8_t* getDescriptorMemoryBaseAddress(const asset::E_DESCRIPTOR_TYPE type) const
         {
-            const uint32_t bytesToAllocate = count * sizeof(void*);
-
-            uint32_t offset;
-            uint32_t invalidAddress;
-            if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
-            {
-                offset = m_generalAllocators[type].alloc_addr(bytesToAllocate, 1u);
-                invalidAddress = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-            }
-            else
-            {
-                offset = m_linearAllocators[type].alloc_addr(bytesToAllocate, 1u);
-                invalidAddress = core::LinearAddressAllocator<uint32_t>::invalid_address;
-            }
-
-            return (offset == invalidAddress) ? ~0u : offset;
-
-#if 0
-            // All of this would be done during descriptor set updation
-
             uint8_t* baseAddress;
             switch (type)
             {
@@ -149,21 +119,47 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 baseAddress = reinterpret_cast<uint8_t*>(m_UBO_SSBOStorage.get()) + (m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC]) * sizeof(void*);
                 break;
             case asset::EDT_INPUT_ATTACHMENT:
-                baseAddress = reinterpret_cast<uint8_t*>(m_storageImageStorage.get()) + m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE]*sizeof(void*);
+                baseAddress = reinterpret_cast<uint8_t*>(m_storageImageStorage.get()) + m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE] * sizeof(void*);
                 break;
             case asset::EDT_ACCELERATION_STRUCTURE:
                 baseAddress = reinterpret_cast<uint8_t*>(m_accelerationStructureStorage.get());
                 break;
             default:
                 assert(!"Invalid code path.");
-                baseAddress = nullptr;
+                return nullptr;
             }
 
-            if (baseAddress == nullptr)
-                return nullptr;
+            return baseAddress;
+        }
 
-            return reinterpret_cast<void*>(baseAddress + offset);
-#endif
+        uint32_t getCapacity() const { return m_maxSets; }
+
+    protected:
+        uint32_t m_maxSets;
+
+    private:
+        friend class ILogicalDevice;
+
+        // This will return the offset into the pool's descriptor storage. These offsets will be combined
+        // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
+        uint32_t allocateDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t count)
+        {
+            const uint32_t bytesToAllocate = count * sizeof(void*);
+
+            uint32_t offset;
+            uint32_t invalidAddress;
+            if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
+            {
+                offset = m_generalAllocators[type].alloc_addr(bytesToAllocate, 1u);
+                invalidAddress = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+            }
+            else
+            {
+                offset = m_linearAllocators[type].alloc_addr(bytesToAllocate, 1u);
+                invalidAddress = core::LinearAddressAllocator<uint32_t>::invalid_address;
+            }
+
+            return (offset == invalidAddress) ? ~0u : offset;
         }
 
         IDescriptorPool::E_CREATE_FLAGS m_flags;
