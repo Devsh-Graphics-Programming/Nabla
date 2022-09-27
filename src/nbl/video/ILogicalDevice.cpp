@@ -57,6 +57,9 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
         void* descriptorMemory = getDescriptorMemoryForBinding(pDescriptorWrites[i].binding, pDescriptorWrites[i].descriptorType, ds);
 
+        if (!descriptorMemory)
+            return false;
+
         auto* descriptors = new (descriptorMemory) core::smart_refctd_ptr<const asset::IDescriptor>[pDescriptorWrites[i].count];
 
         for (auto j = 0; j < pDescriptorWrites[i].count; ++j)
@@ -93,8 +96,6 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
 
         assert((descriptorType != asset::EDT_COUNT) && "No binding with binding number pDescriptorCopies[i].binding was found in the set pDescriptorCopies[i].srcSet!");
     }
-
-    // Where do we call the destructors, I think its best to call the destructors in ~IGPUDescriptorSet
 
     updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
 

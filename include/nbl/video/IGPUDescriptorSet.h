@@ -37,7 +37,23 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type) const;
 
 	protected:
-		virtual ~IGPUDescriptorSet() = default;
+		virtual ~IGPUDescriptorSet()
+		{
+			for (const auto& binding : getLayout()->getBindings())
+			{
+				assert(m_descriptorStorageOffsets[binding.type] != ~0u);
+
+				auto* baseAddress = getDescriptorMemory(binding.type);
+				assert(baseAddress);
+
+				const auto localOffset = getLayout()->getDescriptorOffsetForBinding(binding.binding);
+
+				auto* descriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(baseAddress + localOffset);
+
+				for (auto i = 0; i < binding.count; ++i)
+					descriptors[i].~smart_refctd_ptr();
+			}
+		}
 
 	private:
 		core::smart_refctd_ptr<IDescriptorPool> m_pool;
