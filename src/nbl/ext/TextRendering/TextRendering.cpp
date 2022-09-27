@@ -445,6 +445,31 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> TextRenderer::createPipeline
 	return m_device->createGraphicsPipeline(nullptr, std::move(pipelineCreationParams));
 }
 
+void TextRenderer::drawText(
+	video::IGPUCommandBuffer* cmdbuf,
+	video::IGPUDescriptorSet* visibleStringDS,
+	video::IGPUBuffer* indirectDrawArgs,
+	video::IGPUPipelineLayout* pipelineLayout
+)
+{
+	video::IGPUDescriptorSet* ds[2] = { m_globalStringDS.get(), visibleStringDS };
+	cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS, pipelineLayout, 0, 2, &ds[0]);
+	cmdbuf->drawIndirect(indirectDrawArgs, 0, 1, sizeof(uint32_t) * 4);
+}
+
+void TextRenderer::drawTextIndexed(
+	video::IGPUCommandBuffer* cmdbuf,
+	video::IGPUDescriptorSet* visibleStringDS,
+	video::IGPUBuffer* indirectDrawArgs,
+	video::IGPUPipelineLayout* pipelineLayout
+)
+{
+	cmdbuf->bindIndexBuffer(m_glyphIndexBuffer.get(), 0, asset::EIT_32BIT);
+	video::IGPUDescriptorSet* ds[2] = { m_globalStringDS.get(), visibleStringDS };
+	cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS, pipelineLayout, 0, 2, &ds[0]);
+	cmdbuf->drawIndexedIndirect(indirectDrawArgs, 0, 1, sizeof(uint32_t) * 5);
+}
+
 }
 }
 }

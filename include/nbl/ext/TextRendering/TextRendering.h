@@ -295,15 +295,17 @@ public:
 	//);
 	
 	void drawText(
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf,
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
-		core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawArgs
+		video::IGPUCommandBuffer* cmdbuf,
+		video::IGPUDescriptorSet* visibleStringDS,
+		video::IGPUBuffer* indirectDrawArgs,
+		video::IGPUPipelineLayout* pipelineLayout
 	);
 
 	void drawTextIndexed(
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf,
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
-		core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawArgs
+		video::IGPUCommandBuffer* cmdbuf,
+		video::IGPUDescriptorSet* visibleStringDS,
+		video::IGPUBuffer* indirectDrawArgs,
+		video::IGPUPipelineLayout* pipelineLayout
 	);
 
 	// TODO should be internal TextRendering.cpp thing
