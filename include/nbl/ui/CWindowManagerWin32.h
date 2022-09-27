@@ -69,7 +69,7 @@ class CWindowManagerWin32 : public IWindowManager
 			clientSize.right = width;
 			clientSize.bottom = height;
 
-			DWORD style = CThreadHandler::getWindowStyle(window->getFlags().value);
+			DWORD style = IWindowWin32::getWindowStyle(window->getFlags().value);
 			bool res = AdjustWindowRect(&clientSize, style, false);
 			assert(res);
 
@@ -270,43 +270,6 @@ class CWindowManagerWin32 : public IWindowManager
 				{
 				}
 
-				// TODO where should this be
-				static DWORD getWindowStyle(IWindow::E_CREATE_FLAGS flags)
-				{
-					DWORD style = WS_POPUP;
-
-					if ((flags & IWindow::ECF_FULLSCREEN) == 0)
-					{
-						if ((flags & IWindow::ECF_BORDERLESS) == 0)
-						{
-							style |= WS_BORDER;
-							style |= (WS_SYSMENU | WS_CAPTION);
-						}
-						// ? not sure about those below
-						style |= WS_CLIPCHILDREN;
-						style |= WS_CLIPSIBLINGS;
-					}
-					if (flags & IWindow::ECF_MINIMIZED)
-					{
-						style |= WS_MINIMIZE;
-					}
-					if (flags & IWindow::ECF_MAXIMIZED)
-					{
-						style |= WS_MAXIMIZE;
-					}
-					if (flags & IWindow::ECF_ALWAYS_ON_TOP)
-					{
-						style |= WS_EX_TOPMOST;
-					}
-					if ((flags & IWindow::ECF_HIDDEN) == 0)
-					{
-						style |= WS_VISIBLE;
-					}
-					style |= WS_OVERLAPPEDWINDOW;
-
-					return style;
-				}
-
 			private:
 				void waitForCompletion(SRequest& req)
 				{
@@ -364,7 +327,7 @@ class CWindowManagerWin32 : public IWindowManager
 						clientSize.right = clientSize.left + params.width;
 						clientSize.bottom = clientSize.top + params.height;
 
-						DWORD style = CThreadHandler::getWindowStyle(params.flags);
+						DWORD style = IWindowWin32::getWindowStyle(params.flags);
 
 						// TODO:
 						// if (hasMouseCaptured())
