@@ -242,29 +242,38 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 	device->blockForFences(1u, &fence.get());
 }
 
-TextRenderer::TextRenderer(FontAtlas&& fontAtlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString):
-	m_device(std::move(device)), m_fontAtlas(std::move(fontAtlas))
+TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString):
+	m_device(std::move(device)), m_fontAtlas(fontAtlas)
 {
-	m_geomDataBuffer = glyph_geometry_pool_t::create(device.get(), 8192);
-	m_stringDataPropertyPool = string_pool_t::create(device.get(), 8192, true);
+	m_geomDataBuffer = glyph_geometry_pool_t::create(m_device.get(), maxGlyphsPerString * maxStringCount);
+	m_stringDataPropertyPool = string_pool_t::create(m_device.get(), maxStringCount, true);
 
 	{
 		video::IGPUBuffer::SCreationParams bufParams;
 		bufParams.size = 65536 * sizeof(uint32_t);
-		bufParams.usage = asset::IBuffer::EUF_INDEX_BUFFER_BIT;
+		bufParams.usage = core::bitflag<asset::IBuffer::E_USAGE_FLAGS>(asset::IBuffer::EUF_INDEX_BUFFER_BIT) | asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
 		m_glyphIndexBuffer = m_device->createBuffer(std::move(bufParams));
+
+		m_device->allocate(m_glyphIndexBuffer->getMemoryReqs(), m_glyphIndexBuffer.get());
 	}
 
 	{
-		// Global string descriptor set: Only includes glyph geometry pool
-		const uint32_t bindingCount = 1u;
+		// Global string descriptor set
+		const uint32_t bindingCount = 2u;
 		video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
 		{
 			bindings[0].binding = 0u;
 			bindings[0].type = asset::EDT_STORAGE_BUFFER;
-			bindings[0].count = 2u;
+			bindings[0].count = 1u;
 			bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bindings[0].samplers = nullptr;
+		}
+		{
+			bindings[1].binding = 1u;
+			bindings[1].type = asset::EDT_STORAGE_BUFFER;
+			bindings[1].count = 1u;
+			bindings[1].stageFlags = asset::IShader::ESS_COMPUTE;
+			bindings[1].samplers = nullptr;
 		}
 		m_globalStringDSLayout =
 			m_device->createDescriptorSetLayout(bindings, bindings + bindingCount);

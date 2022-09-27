@@ -62,7 +62,7 @@ class NBL_API TextRenderer
 public:
 	typedef typename uint32_t size_type;
 
-	TextRenderer(FontAtlas&& atlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
+	TextRenderer(FontAtlas* atlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
 
 	using pool_size_t = uint32_t;
 
@@ -115,7 +115,7 @@ public:
 			StringBoundingBox bbox = wrappingBoxes ? wrappingBoxes[i] : StringBoundingBox{ { 0, 0 }, { std::numeric_limits<uint16_t>::max(), std::numeric_limits<uint16_t>::max() } };
 
 			// TODO: Font size parameter
-			auto error = FT_Set_Pixel_Sizes(m_fontAtlas.face, 0, 1);
+			auto error = FT_Set_Pixel_Sizes(m_fontAtlas->face, 0, 1);
 
 			uint32_t x = bbox.min.x;
 			uint32_t y = bbox.min.y;
@@ -123,19 +123,19 @@ public:
 			{
 				char k = *stringIt;
 				wchar_t unicode = wchar_t(k);
-				uint32_t glyphIndex = FT_Get_Char_Index(m_fontAtlas.face, unicode);
+				uint32_t glyphIndex = FT_Get_Char_Index(m_fontAtlas->face, unicode);
 
 				if (glyphIndex == 0 || k < ' ' || k > '~') continue;
 								
-				auto& characterAtlasMips = m_fontAtlas.characterAtlasPosition[int(k) - int(' ')];
+				auto& characterAtlasMips = m_fontAtlas->characterAtlasPosition[int(k) - int(' ')];
 				if (characterAtlasMips.size() == 0) continue;
 				// TODO mip selection
 				SPixelCoord glyphTableOffset = characterAtlasMips[0];
 
-				error = FT_Load_Glyph(m_fontAtlas.face, glyphIndex, FT_LOAD_NO_BITMAP);
+				error = FT_Load_Glyph(m_fontAtlas->face, glyphIndex, FT_LOAD_NO_BITMAP);
 				assert(!error);
 
-				auto& glyph = m_fontAtlas.face->glyph;
+				auto& glyph = m_fontAtlas->face->glyph;
 
 				uint32_t offsetX = x + glyph->bitmap_left;
 				uint32_t offsetY = y + glyph->bitmap_top;
@@ -391,7 +391,7 @@ private:
 	core::smart_refctd_ptr<video::IGPUBuffer> m_glyphIndexBuffer;
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_expansionPipeline;
-	FontAtlas m_fontAtlas;
+	FontAtlas* m_fontAtlas;
 };
 
 }
