@@ -89,6 +89,35 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             }
         }
 
+        // This will return the offset into the pool's descriptor storage. These offsets will be combined
+        // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
+        uint32_t allocateDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t count)
+        {
+            const uint32_t bytesToAllocate = count * sizeof(void*);
+
+            uint32_t offset;
+            uint32_t invalidAddress;
+            if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
+            {
+                offset = m_generalAllocators[type].alloc_addr(bytesToAllocate, 1u);
+                invalidAddress = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+            }
+            else
+            {
+                offset = m_linearAllocators[type].alloc_addr(bytesToAllocate, 1u);
+                invalidAddress = core::LinearAddressAllocator<uint32_t>::invalid_address;
+            }
+
+            return (offset == invalidAddress) ? ~0u : offset;
+        }
+
+        void freeDescriptors(const uint32_t count, void* descriptors, const asset::E_DESCRIPTOR_TYPE type)
+        {
+            assert(m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
+            uint32_t allocatedAddr = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(descriptors) - getDescriptorMemoryBaseAddress(type));
+            m_generalAllocators[type].free_addr(allocatedAddr, count*sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
+        }
+
         inline uint8_t* getDescriptorMemoryBaseAddress(const asset::E_DESCRIPTOR_TYPE type) const
         {
             uint8_t* baseAddress;
@@ -132,36 +161,17 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             return baseAddress;
         }
 
-        uint32_t getCapacity() const { return m_maxSets; }
+        inline bool allowsFreeingDescriptorSets() const
+        {
+            return (m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT);
+        }
+
+        inline uint32_t getCapacity() const { return m_maxSets; }
 
     protected:
         uint32_t m_maxSets;
 
     private:
-        friend class ILogicalDevice;
-
-        // This will return the offset into the pool's descriptor storage. These offsets will be combined
-        // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
-        uint32_t allocateDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t count)
-        {
-            const uint32_t bytesToAllocate = count * sizeof(void*);
-
-            uint32_t offset;
-            uint32_t invalidAddress;
-            if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
-            {
-                offset = m_generalAllocators[type].alloc_addr(bytesToAllocate, 1u);
-                invalidAddress = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-            }
-            else
-            {
-                offset = m_linearAllocators[type].alloc_addr(bytesToAllocate, 1u);
-                invalidAddress = core::LinearAddressAllocator<uint32_t>::invalid_address;
-            }
-
-            return (offset == invalidAddress) ? ~0u : offset;
-        }
-
         IDescriptorPool::E_CREATE_FLAGS m_flags;
         uint32_t m_maxDescriptorCount[asset::EDT_COUNT];
         core::LinearAddressAllocator<uint32_t> m_linearAllocators[asset::EDT_COUNT];

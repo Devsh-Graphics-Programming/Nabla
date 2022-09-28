@@ -34,23 +34,21 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 			memcpy(m_descriptorStorageOffsets, descriptorStorageOffsets, asset::EDT_COUNT * sizeof(uint32_t));
 		}
 
-		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type) const;
+		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const;
 
 	protected:
 		virtual ~IGPUDescriptorSet()
 		{
-			for (const auto& binding : getLayout()->getBindings())
+			for (const auto& b : getLayout()->getBindings())
 			{
-				assert(m_descriptorStorageOffsets[binding.type] != ~0u);
+				assert(m_descriptorStorageOffsets[b.type] != ~0u && "Descriptor of this type doesn't exist in the set!");
 
-				auto* baseAddress = getDescriptorMemory(binding.type);
-				assert(baseAddress);
+				auto* descriptorMemory = getDescriptorMemory(b.type, b.binding);
+				assert(descriptorMemory);
 
-				const auto localOffset = getLayout()->getDescriptorOffsetForBinding(binding.binding);
+				auto* descriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(descriptorMemory);
 
-				auto* descriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(baseAddress + localOffset);
-
-				for (auto i = 0; i < binding.count; ++i)
+				for (auto i = 0; i < b.count; ++i)
 					descriptors[i].~smart_refctd_ptr();
 			}
 		}

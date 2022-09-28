@@ -766,6 +766,28 @@ public:
             descriptorCopyCount, vk_copyDescriptorSets.data());
     }
 
+    bool freeDescriptorSets_impl(IDescriptorPool* pool, const uint32_t descriptorSetCount, IGPUDescriptorSet *const *const descriptorSets) override final
+    {
+        if (pool->getAPIType() != EAT_VULKAN)
+            return false;
+
+        VkDescriptorPool vk_descriptorPool = static_cast<CVulkanDescriptorPool*>(pool)->getInternalObject();
+
+        constexpr auto MaxDescriptorSetCount = 4u;
+        assert(descriptorSetCount <= MaxDescriptorSetCount);
+        VkDescriptorSet vk_descriptorSets[MaxDescriptorSetCount];
+
+        for (auto i = 0; i < descriptorSetCount; ++i)
+        {
+            if (descriptorSets[i]->getAPIType() != EAT_VULKAN)
+                return false;
+
+            vk_descriptorSets[i] = static_cast<CVulkanDescriptorSet*>(descriptorSets[i])->getInternalObject();
+        }
+
+       return m_devf.vk.vkFreeDescriptorSets(m_vkdev, vk_descriptorPool, descriptorSetCount, vk_descriptorSets) == VK_SUCCESS;
+    }
+
     SMemoryOffset allocate(const SAllocateInfo& info) override;
 
     core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override

@@ -321,6 +321,8 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         //! Fill out the descriptor sets with descriptors
         bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
+        bool freeDescriptorSets(IDescriptorPool* pool, const uint32_t descriptorSetCount, IGPUDescriptorSet *const *const descriptorSets);
+
         //! Create a sampler object to use with images
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
 
@@ -576,6 +578,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, const uint32_t* descriptorStorageOffsets) = 0;
         virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
+        virtual bool freeDescriptorSets_impl(IDescriptorPool* pool, const uint32_t descriptorSetCount, IGPUDescriptorSet *const *const descriptorSets) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
         virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(

@@ -41,22 +41,11 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
     // >
     // > Consecutive bindings must have identical VkDescriptorType, VkShaderStageFlags, VkDescriptorBindingFlagBits, and immutable samplers references.
 
-    auto getDescriptorMemoryForBinding = [](const uint32_t binding, const asset::E_DESCRIPTOR_TYPE type, const IGPUDescriptorSet* set) -> void*
-    {
-        const uint32_t localOffset = set->getLayout()->getDescriptorOffsetForBinding(binding);
-
-        auto* baseAddress = set->getDescriptorMemory(type);
-        if (!baseAddress)
-            return nullptr;
-
-        return reinterpret_cast<void*>(baseAddress + localOffset);
-    };
-
     for (auto i = 0; i < descriptorWriteCount; ++i)
     {
         auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
-        void* descriptorMemory = getDescriptorMemoryForBinding(pDescriptorWrites[i].binding, pDescriptorWrites[i].descriptorType, ds);
 
+        auto* descriptorMemory = ds->getDescriptorMemory(pDescriptorWrites[i].descriptorType, pDescriptorWrites[i].binding);
         if (!descriptorMemory)
             return false;
 
@@ -71,33 +60,57 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         const auto* srcDS = static_cast<const IGPUDescriptorSet*>(pDescriptorCopies[i].srcSet);
         auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
 
-        asset::E_DESCRIPTOR_TYPE descriptorType = asset::EDT_COUNT;
-        for (const auto& binding : srcDS->getLayout()->getBindings())
-        {
-            if (binding.binding == pDescriptorCopies[i].srcBinding)
+        auto foundBindingInfo = std::lower_bound(srcDS->getLayout()->getBindings().begin(), srcDS->getLayout()->getBindings().end(), pDescriptorCopies[i].srcBinding,
+            [](const IGPUDescriptorSetLayout::SBinding& a, const uint32_t b) -> bool
             {
-                descriptorType = binding.type;
+                return a.binding < b;
+            });
 
-                auto* srcDescriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(getDescriptorMemoryForBinding(pDescriptorCopies[i].srcBinding, descriptorType, srcDS));
-                if (!srcDescriptors)
-                    return false;
+        if (foundBindingInfo->binding != pDescriptorCopies[i].srcBinding)
+            return false;
 
-                auto* dstDescriptorMemory = getDescriptorMemoryForBinding(pDescriptorCopies[i].dstBinding, descriptorType, dstDS);
-                if (!dstDescriptorMemory)
-                    return false;
+        const asset::E_DESCRIPTOR_TYPE descriptorType = foundBindingInfo->type;
 
-                auto* dstDescriptors = new (dstDescriptorMemory) core::smart_refctd_ptr<const asset::IDescriptor>[pDescriptorCopies[i].count];
+        auto* srcDescriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(srcDS->getDescriptorMemory(descriptorType, pDescriptorCopies[i].srcBinding));
+        if (!srcDescriptors)
+            return false;
 
-                // This memcpy will increment the reference count, won't it?
-                memcpy(dstDescriptors, srcDescriptors, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
-                break;
-            }
-        }
+        auto* dstDescriptorMemory = dstDS->getDescriptorMemory(descriptorType, pDescriptorCopies[i].dstBinding);
+        if (!dstDescriptorMemory)
+            return false;
 
-        assert((descriptorType != asset::EDT_COUNT) && "No binding with binding number pDescriptorCopies[i].binding was found in the set pDescriptorCopies[i].srcSet!");
+        auto* dstDescriptors = new (dstDescriptorMemory) core::smart_refctd_ptr<const asset::IDescriptor>[pDescriptorCopies[i].count];
+
+        // This memcpy will increment the reference count, won't it?
+        memcpy(dstDescriptors, srcDescriptors, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
     }
 
     updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
 
     return true;
+}
+
+bool ILogicalDevice::freeDescriptorSets(IDescriptorPool* pool, const uint32_t descriptorSetCount, IGPUDescriptorSet *const *const descriptorSets)
+{
+    if (!pool->allowsFreeingDescriptorSets())
+        return false;
+
+    for (auto i = 0; i < descriptorSetCount; ++i)
+    {
+        for (const auto& b : descriptorSets[i]->getLayout()->getBindings())
+        {
+            auto* descriptorMemory = descriptorSets[i]->getDescriptorMemory(b.type, b.binding);
+            if (!descriptorMemory)
+                return false;
+
+            auto* descriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(descriptorMemory);
+
+            for (auto i = 0; i < b.count; ++i)
+                descriptors[i].~smart_refctd_ptr();
+
+            pool->freeDescriptors(b.count, descriptorMemory, b.type);
+        }
+    }
+
+    return freeDescriptorSets_impl(pool, descriptorSetCount, descriptorSets);
 }
