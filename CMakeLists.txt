@@ -87,6 +87,10 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
 set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 
+unset(CMAKE_CXX_FLAGS_DEBUG CACHE)
+unset(CMAKE_CXX_FLAGS_DEBUG)
+#set(CMAKE_CXX_FLAGS_DEBUG /Zi /Ob0 /Od /MTd)
+
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
@@ -99,6 +103,14 @@ endif()
 
 macro(nbl_adjust_flags)
 	option(NBL_SANITIZE_ADDRESS OFF)
+	
+	# test
+	add_compile_options("/fsanitize=adress")
+	add_compile_options("-fsanitize=adress")
+	#add_link_options("/fsanitize=address")
+
+	# TODO: AnastaZIuk please clean it later or somebody
+	#message(FATAL_ERROR "${CMAKE_CXX_FLAGS_DEBUG}")
 	
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		option(NBL_SANITIZE_THREAD OFF)
@@ -185,9 +197,9 @@ macro(nbl_adjust_flags)
 	elseif(MSVC) # /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
 		if (NBL_SANITIZE_ADDRESS)
 			set(NBL_MSVC_FLAG_SANITIZE_ADDRESS "/fsanitize=address")
-			message(WARNING "Due to https://github.com/google/sanitizers/issues/328 expect not to be able to use the Debug target!")
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /wholearchive:clang_rt.asan_dbg-x86_64.lib /wholearchive:clang_rt.asan_cxx_dbg-x86_64.lib")
-			set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /wholearchive:clang_rt.asan-x86_64.lib /wholearchive:clang_rt.asan_cxx-x86_64.lib")
+			#message(WARNING "Due to https://github.com/google/sanitizers/issues/328 expect not to be able to use the Debug target!")
+			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /wholearchive:clang_rt.asan_dbg-x86_64.lib /wholearchive:clang_rt.asan_cxx_dbg-x86_64.lib -fno-omit-frame-pointer -fsanitize=address")
+			set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /wholearchive:clang_rt.asan-x86_64.lib /wholearchive:clang_rt.asan_cxx-x86_64.lib -fno-omit-frame-pointer -fsanitize=address")
 		endif()
 		
 		# debug

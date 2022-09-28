@@ -75,6 +75,8 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
 
 	add_compile_options(${_EXTRA_OPTIONS})
+
+	target_compile_options(${EXECUTABLE_NAME} PUBLIC "-fsanitize=address")
 	
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		# add_compile_options("-msse4.2 -mfpmath=sse") ????
