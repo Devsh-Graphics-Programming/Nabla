@@ -333,7 +333,7 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 void TextRenderer::updateVisibleStringDS(
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
 	core::smart_refctd_ptr<video::IGPUBuffer> visibleStringMvps,
-	core::smart_refctd_ptr<video::IGPUBuffer> visibleStringGlyphCounts,
+	core::smart_refctd_ptr<video::IGPUBuffer> visibleStringGlyphOffsets,
 	core::smart_refctd_ptr<video::IGPUBuffer> cumulativeGlyphCount
 )
 {
@@ -358,7 +358,7 @@ void TextRenderer::updateVisibleStringDS(
 	{
 		descriptorInfos[1].image.imageLayout = asset::IImage::EL_GENERAL;
 		descriptorInfos[1].image.sampler = nullptr;
-		descriptorInfos[1].desc = visibleStringGlyphCounts;
+		descriptorInfos[1].desc = visibleStringGlyphOffsets;
 
 		writeDescriptorSets[1].dstSet = visibleStringDS.get();
 		writeDescriptorSets[1].binding = 1u;
@@ -431,8 +431,8 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> TextRenderer::createPipeline
 	rasterParams.depthTestEnable = false;
 	rasterParams.faceCullingMode = nbl::asset::EFCM_NONE;
 
-	auto vs = loadShader("textvs.glsl");
-	auto fs = loadShader("textfs.glsl");
+	auto vs = loadShader("text.vert");
+	auto fs = loadShader("text.frag");
 	video::IGPUSpecializedShader* shaders[2] = { vs.get(), fs.get() };
 
 	auto gpuRenderpassIndependentPipeline = m_device->createRenderpassIndependentPipeline
