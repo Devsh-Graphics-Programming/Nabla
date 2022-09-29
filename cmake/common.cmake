@@ -65,6 +65,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
 	add_dependencies(${EXECUTABLE_NAME} Nabla)
+	target_precompile_headers(${EXECUTABLE_NAME} REUSE_FROM Nabla)
 	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
 	
 	target_include_directories(${EXECUTABLE_NAME}
