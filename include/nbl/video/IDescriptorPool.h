@@ -3,6 +3,7 @@
 
 
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/StorageTrivializer.h"
 
 #include "nbl/asset/IDescriptorSetLayout.h"
 
@@ -40,14 +41,6 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             core::smart_refctd_ptr<video::IGPUSampler> sampler;
         };
 
-        // This construct makes it so that we don't trigger T's constructors and destructors.
-        // TODO(achal): Should we move it to the core namespace?
-        template <typename T>
-        struct alignas(T) StorageTrivializer
-        {
-            uint8_t storage[sizeof(T)];
-        };
-
     public:
         explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDescriptorPool::E_CREATE_FLAGS flags, uint32_t _maxSets, const uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) : IBackendObject(std::move(dev)), m_maxSets(_maxSets), m_flags(flags)
         {
@@ -73,11 +66,11 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             }
 
             // Initialize the storages.
-            m_combinedImageSamplerStorage = std::make_unique<StorageTrivializer<SCombinedImageSampler>[]>(m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER]);
-            m_storageImageStorage = std::make_unique<StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]>(m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE] + m_maxDescriptorCount[asset::EDT_INPUT_ATTACHMENT]);
-            m_UBO_SSBOStorage = std::make_unique<StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]>(m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER_DYNAMIC]);
-            m_UTB_STBStorage = std::make_unique<StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]>(m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER_DYNAMIC]);
-            m_accelerationStructureStorage = std::make_unique<StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]>(m_maxDescriptorCount[asset::EDT_ACCELERATION_STRUCTURE]);
+            m_combinedImageSamplerStorage = std::make_unique<core::StorageTrivializer<SCombinedImageSampler>[]>(m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER]);
+            m_storageImageStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]>(m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE] + m_maxDescriptorCount[asset::EDT_INPUT_ATTACHMENT]);
+            m_UBO_SSBOStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]>(m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER_DYNAMIC]);
+            m_UTB_STBStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]>(m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER_DYNAMIC]);
+            m_accelerationStructureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]>(m_maxDescriptorCount[asset::EDT_ACCELERATION_STRUCTURE]);
         }
 
         ~IDescriptorPool()
@@ -178,11 +171,11 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         core::GeneralpurposeAddressAllocator<uint32_t> m_generalAllocators[asset::EDT_COUNT];
         void* m_generalAllocatorReservedSpace[asset::EDT_COUNT];
 
-        std::unique_ptr<StorageTrivializer<SCombinedImageSampler>[]> m_combinedImageSamplerStorage;
-        std::unique_ptr<StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
-        std::unique_ptr<StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
-        std::unique_ptr<StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb
-        std::unique_ptr<StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]> m_accelerationStructureStorage;
+        std::unique_ptr<core::StorageTrivializer<SCombinedImageSampler>[]> m_combinedImageSamplerStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]> m_accelerationStructureStorage;
 };
 
 }
