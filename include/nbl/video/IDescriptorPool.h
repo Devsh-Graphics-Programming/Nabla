@@ -44,10 +44,10 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
     public:
         explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDescriptorPool::E_CREATE_FLAGS flags, uint32_t _maxSets, const uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) : IBackendObject(std::move(dev)), m_maxSets(_maxSets), m_flags(flags)
         {
-            memset(m_maxDescriptorCount, 0, asset::EDT_COUNT * sizeof(uint32_t));
+            std::fill_n(m_maxDescriptorCount, asset::EDT_COUNT, 0u);
 
             for (auto i = 0; i < poolSizeCount; ++i)
-                m_maxDescriptorCount[poolSizes[i].type]++;
+                m_maxDescriptorCount[poolSizes[i].type] += poolSizes[i].count;
 
             for (auto i = 0; i < asset::EDT_COUNT; ++i)
             {
