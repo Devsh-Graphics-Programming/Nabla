@@ -6,7 +6,7 @@ namespace nbl::video
 
 uint8_t* IGPUDescriptorSet::getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
 {
-    assert((m_descriptorStorageOffsets[type] != ~0u) && "The parent pool doesn't allow for this descriptor!");
+    assert((m_descriptorStorageOffsets.data[type] != ~0u) && "The parent pool doesn't allow for this descriptor!");
 
     auto* baseAddress = m_pool->getDescriptorMemoryBaseAddress(type);
     if (baseAddress == nullptr)
@@ -16,7 +16,7 @@ uint8_t* IGPUDescriptorSet::getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE t
     if (localOffset == ~0u)
         return nullptr;
 
-    return baseAddress + m_descriptorStorageOffsets[type] + localOffset;
+    return reinterpret_cast<uint8_t*>(reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(baseAddress) + m_descriptorStorageOffsets.data[type] + localOffset);
 }
 
 }

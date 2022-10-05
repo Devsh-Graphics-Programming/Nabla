@@ -160,7 +160,27 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 		IDescriptorSet(core::smart_refctd_ptr<layout_t>&& _layout) : m_layout(std::move(_layout))
 		{
 		}
-		virtual ~IDescriptorSet() = default;
+
+		virtual ~IDescriptorSet()
+		{
+			// std::destroy_n(getSamplerRefcountingStorage(), m_layout->getMutableSamplerCount());
+			// for (auto type = 0; type < EDT_COUNT; ++type)
+			// 	std::destroy_n(getDescriptorRefcountingStorage(type), m_layout->getTotalDescriptorCount(type));
+		}
+
+		// virtual core::smart_refctd_ptr<IDescriptor>* getDescriptorRefcountingStorage(const E_DESCRIPTOR_TYPE type) = 0;
+		// virtual core::smart_refctd_ptr<ISampler>* getSamplerRefcountingStorage() = 0;
+		// virtual void allocateDescriptors() = 0;
+
+#if 0
+		inline void createDescriptors()
+		{
+			allocateDescriptors();
+			std::uninitialized_default_construct_n(getSamplerRefcountingStorage(), m_layout->getMutableSamplerCount());
+			for (auto type = 0; type < EDT_COUNT; ++type)
+				std::uninitialized_default_construct_n(getDescriptorRefcountingStorage(type), m_layout->getTotalDescriptorCount(type));
+		}
+#endif
 
 		core::smart_refctd_ptr<layout_t> m_layout;
 };

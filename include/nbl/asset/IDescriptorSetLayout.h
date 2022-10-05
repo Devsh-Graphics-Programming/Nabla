@@ -169,10 +169,16 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 		{
 			size_t bndCount = _end-_begin;
 			size_t immSamplerCount = 0ull;
-			for (size_t i = 0ull; i < bndCount; ++i) {
+			for (size_t i = 0ull; i < bndCount; ++i)
+			{
 				const auto& bnd = _begin[i];
-				if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
-					immSamplerCount += bnd.count;
+				if (bnd.type == EDT_COMBINED_IMAGE_SAMPLER)
+				{
+					if (bnd.samplers)
+						immSamplerCount += bnd.count;
+					else
+						m_mutableSamplerCount += bnd.count;
+				}
 			}
 			m_samplers = immSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > >(immSamplerCount) : nullptr;
 
@@ -199,6 +205,7 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 				}
 			}
 
+			std::fill_n(m_descriptorCount, EDT_COUNT, 0ull);
             if (m_bindings)
             {
                 for (size_t i = 0ull; i < m_bindings->size(); ++i)
@@ -208,6 +215,8 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
                     static_assert(sizeof(size_t) == sizeof(bnd.samplers), "Bad reinterpret_cast!");
                     if (bnd.type == EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
                         bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers) - 1ull;
+
+					m_descriptorCount[bnd.type] += bnd.count;
                 }
 
                 // TODO: check for overlapping bindings (bad `SBinding` definitions)
@@ -234,7 +243,14 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 			return true;
 		}
 
+		inline size_t getMutableSamplerCount() const { return m_mutableSamplerCount; }
+		inline size_t getTotalDescriptorCount(const E_DESCRIPTOR_TYPE type) const { return m_descriptorCount[type]; }
+
 		core::SRange<const SBinding> getBindings() const { return {m_bindings->data(), m_bindings->data()+m_bindings->size()}; }
+
+	private:
+		size_t m_mutableSamplerCount = 0ull;
+		size_t m_descriptorCount[EDT_COUNT];
 };
 
 }

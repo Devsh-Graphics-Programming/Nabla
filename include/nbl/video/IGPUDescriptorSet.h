@@ -28,11 +28,9 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
 
 	public:
-		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, const uint32_t* descriptorStorageOffsets)
-			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_pool(std::move(pool))
-		{
-			memcpy(m_descriptorStorageOffsets, descriptorStorageOffsets, asset::EDT_COUNT * sizeof(uint32_t));
-		}
+		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& descriptorStorageOffsets)
+			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_pool(std::move(pool)), m_descriptorStorageOffsets(std::move(descriptorStorageOffsets))
+		{}
 
 		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const;
 
@@ -41,7 +39,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		{
 			for (const auto& b : getLayout()->getBindings())
 			{
-				assert(m_descriptorStorageOffsets[b.type] != ~0u && "Descriptor of this type doesn't exist in the set!");
+				assert(m_descriptorStorageOffsets.data[b.type] != ~0u && "Descriptor of this type doesn't exist in the set!");
 
 				auto* descriptorMemory = getDescriptorMemory(b.type, b.binding);
 				assert(descriptorMemory);
@@ -54,8 +52,15 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		}
 
 	private:
+#if 0
+		void allocateDescriptors() override
+		{
+			// No-OP because allocation is already been done in ILogicalDevice::createDescriptorSet
+		}
+#endif
+
 		core::smart_refctd_ptr<IDescriptorPool> m_pool;
-		uint32_t m_descriptorStorageOffsets[asset::EDT_COUNT];
+		IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
 };
 
 }

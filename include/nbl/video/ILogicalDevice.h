@@ -253,24 +253,9 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             if (!layout->wasCreatedBy(this))
                 return nullptr;
 
-            uint32_t descriptorCount[asset::EDT_COUNT] = { 0 };
-            for (const auto& binding : layout->getBindings())
-                descriptorCount[binding.type] += binding.count;
+            IDescriptorPool::SDescriptorOffsets descriptorStorageOffsets = pool->allocateDescriptors(layout.get());
 
-            uint32_t descriptorStorageOffsets[asset::EDT_COUNT];
-            memset(descriptorStorageOffsets, 0xff, sizeof(descriptorStorageOffsets));
-
-            for (uint32_t type = 0; type < asset::EDT_COUNT; ++type)
-            {
-                if (descriptorCount[type] == 0)
-                    continue;
-
-                descriptorStorageOffsets[type] = pool->allocateDescriptors(static_cast<asset::E_DESCRIPTOR_TYPE>(type), descriptorCount[type]);
-                if (descriptorStorageOffsets[type] == ~0u)
-                    return nullptr;
-            }
-
-            return createDescriptorSet_impl(pool, std::move(layout), descriptorStorageOffsets);
+            return createDescriptorSet_impl(pool, std::move(layout), std::move(descriptorStorageOffsets));
         }
 
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
@@ -576,7 +561,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, const uint32_t* descriptorStorageOffsets) = 0;
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, IDescriptorPool::SDescriptorOffsets&& descriptorStorageOffsets) = 0;
         virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
         virtual bool freeDescriptorSets_impl(IDescriptorPool* pool, const uint32_t descriptorSetCount, IGPUDescriptorSet *const *const descriptorSets) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;

@@ -16,6 +16,7 @@ namespace nbl::video
 class IGPUImageView;
 class IGPUSampler;
 class IGPUBufferView;
+class IGPUDescriptorSetLayout;
 
 class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
@@ -32,6 +33,18 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         {
             asset::E_DESCRIPTOR_TYPE type;
             uint32_t count;
+        };
+
+        struct SDescriptorOffsets
+        {
+            SDescriptorOffsets()
+            {
+                // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
+                // know which descriptors are present in the set and hence should be destroyed.
+                std::fill_n(data, asset::EDT_COUNT, ~0u);
+            }
+
+            uint32_t data[asset::EDT_COUNT];
         };
 
     private:
@@ -55,12 +68,12 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 {
                     if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
                     {
-                        m_generalAllocatorReservedSpace[i] = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(core::smart_refctd_ptr<asset::IDescriptor>), m_maxDescriptorCount[i] * sizeof(void*), 1u), _NBL_SIMD_ALIGNMENT);
-                        m_generalAllocators[i] = core::GeneralpurposeAddressAllocator<uint32_t>(m_generalAllocatorReservedSpace[i], 0u, 0u, 1u, m_maxDescriptorCount[i] * sizeof(void*), 1u);
+                        m_generalAllocatorReservedSpace[i] = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, m_maxDescriptorCount[i], 1u), _NBL_SIMD_ALIGNMENT);
+                        m_generalAllocators[i] = core::GeneralpurposeAddressAllocator<uint32_t>(m_generalAllocatorReservedSpace[i], 0u, 0u, 1u, m_maxDescriptorCount[i], 1u);
                     }
                     else
                     {
-                        m_linearAllocators[i] = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, m_maxDescriptorCount[i]*sizeof(void*));
+                        m_linearAllocators[i] = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, m_maxDescriptorCount[i]);
                     }
                 }
             }
@@ -82,27 +95,9 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             }
         }
 
-        // This will return the offset into the pool's descriptor storage. These offsets will be combined
+        // Returns the offset into the pool's descriptor storage. These offsets will be combined
         // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
-        uint32_t allocateDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t count)
-        {
-            const uint32_t bytesToAllocate = count * sizeof(void*);
-
-            uint32_t offset;
-            uint32_t invalidAddress;
-            if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
-            {
-                offset = m_generalAllocators[type].alloc_addr(bytesToAllocate, 1u);
-                invalidAddress = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-            }
-            else
-            {
-                offset = m_linearAllocators[type].alloc_addr(bytesToAllocate, 1u);
-                invalidAddress = core::LinearAddressAllocator<uint32_t>::invalid_address;
-            }
-
-            return (offset == invalidAddress) ? ~0u : offset;
-        }
+        SDescriptorOffsets allocateDescriptors(const IGPUDescriptorSetLayout* layout);
 
         void freeDescriptors(const uint32_t count, void* descriptors, const asset::E_DESCRIPTOR_TYPE type)
         {
