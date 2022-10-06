@@ -49,6 +49,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         if (!descriptorMemory)
             return false;
 
+        // TODO(achal): With the AoS Combined Image Sampler storage this shit won't work, because in that case you need to construct SCombinedImageSampler objects.
         auto* descriptors = new (descriptorMemory) core::smart_refctd_ptr<const asset::IDescriptor>[pDescriptorWrites[i].count];
 
         for (auto j = 0; j < pDescriptorWrites[i].count; ++j)

@@ -168,7 +168,7 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 			// 	std::destroy_n(getDescriptorRefcountingStorage(type), m_layout->getTotalDescriptorCount(type));
 		}
 
-		// virtual core::smart_refctd_ptr<IDescriptor>* getDescriptorRefcountingStorage(const E_DESCRIPTOR_TYPE type) = 0;
+		virtual core::smart_refctd_ptr<IDescriptor>* getDescriptorStorage(const E_DESCRIPTOR_TYPE type) const = 0;
 		// virtual core::smart_refctd_ptr<ISampler>* getSamplerRefcountingStorage() = 0;
 		// virtual void allocateDescriptors() = 0;
 
@@ -264,7 +264,9 @@ class NBL_API IEmulatedDescriptorSet
 			uint32_t offset;
 			E_DESCRIPTOR_TYPE descriptorType = EDT_COUNT;//whatever, default value
 		};
+
 		static_assert(sizeof(SBindingInfo)==8ull, "Why is the enum not uint32_t sized!?");
+		// This needs to be split into multiple arrays based on type then I wouldn't need SBindingInfo::descriptorType
 		core::smart_refctd_dynamic_array<SBindingInfo> m_bindingInfo;
 		core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> m_descriptors;
 };

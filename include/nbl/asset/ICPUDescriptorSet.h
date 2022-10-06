@@ -269,6 +269,9 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 		}
 
 		virtual ~ICPUDescriptorSet() = default;
+
+		private:
+			core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const override { _NBL_TODO(); return nullptr; }
 };
 
 }

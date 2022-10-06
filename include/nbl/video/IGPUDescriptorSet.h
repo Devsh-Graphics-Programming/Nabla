@@ -52,6 +52,52 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		}
 
 	private:
+		core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const override
+		{
+            core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
+            switch (type)
+            {
+            case asset::EDT_COMBINED_IMAGE_SAMPLER:
+                // TODO(achal): This is obviously wrong because m_combinedImageSamplerStorage is an array of SCombinedImageSampler. Switch to SoA to fix this shit.
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_combinedImageSamplerStorage.get());
+                break;
+            case asset::EDT_STORAGE_IMAGE:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get());
+                break;
+            case asset::EDT_UNIFORM_TEXEL_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get());
+                break;
+            case asset::EDT_STORAGE_TEXEL_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER] * sizeof(void*);
+                break;
+            case asset::EDT_UNIFORM_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get());
+                break;
+            case asset::EDT_STORAGE_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] * sizeof(void*);
+                break;
+            case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER]) * sizeof(void*);
+                break;
+            case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC]) * sizeof(void*);
+                break;
+            case asset::EDT_INPUT_ATTACHMENT:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE] * sizeof(void*);
+                break;
+            case asset::EDT_ACCELERATION_STRUCTURE:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_accelerationStructureStorage.get());
+                break;
+            default:
+                assert(!"Invalid code path.");
+                return nullptr;
+            }
+
+            return baseAddress;
+		}
+
+		// TODO(achal): We need another method for SamplerStorage here
+
 #if 0
 		void allocateDescriptors() override
 		{

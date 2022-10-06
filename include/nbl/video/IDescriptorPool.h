@@ -17,6 +17,7 @@ class IGPUImageView;
 class IGPUSampler;
 class IGPUBufferView;
 class IGPUDescriptorSetLayout;
+class IGPUDescriptorSet;
 
 class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
@@ -47,6 +48,8 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             uint32_t data[asset::EDT_COUNT];
         };
 
+    friend class IGPUDescriptorSet;
+
     private:
         struct SCombinedImageSampler
         {
@@ -68,8 +71,8 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 {
                     if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
                     {
-                        m_generalAllocatorReservedSpace[i] = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, m_maxDescriptorCount[i], 1u), _NBL_SIMD_ALIGNMENT);
-                        m_generalAllocators[i] = core::GeneralpurposeAddressAllocator<uint32_t>(m_generalAllocatorReservedSpace[i], 0u, 0u, 1u, m_maxDescriptorCount[i], 1u);
+                        m_generalAllocatorReservedSpace[i] = std::make_unique<uint8_t[]>(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, m_maxDescriptorCount[i], 1u));
+                        m_generalAllocators[i] = core::GeneralpurposeAddressAllocator<uint32_t>(m_generalAllocatorReservedSpace[i].get(), 0u, 0u, 1u, m_maxDescriptorCount[i], 1u);
                     }
                     else
                     {
@@ -86,14 +89,7 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             m_accelerationStructureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]>(m_maxDescriptorCount[asset::EDT_ACCELERATION_STRUCTURE]);
         }
 
-        ~IDescriptorPool()
-        {
-            for (auto i = 0; i < asset::EDT_COUNT; ++i)
-            {
-                if ((m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT) && (m_maxDescriptorCount[i] > 0))
-                    _NBL_ALIGNED_FREE(m_generalAllocatorReservedSpace[i]);
-            }
-        }
+        ~IDescriptorPool() {}
 
         // Returns the offset into the pool's descriptor storage. These offsets will be combined
         // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
@@ -102,51 +98,10 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         void freeDescriptors(const uint32_t count, void* descriptors, const asset::E_DESCRIPTOR_TYPE type)
         {
             assert(m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
-            uint32_t allocatedAddr = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(descriptors) - getDescriptorMemoryBaseAddress(type));
-            m_generalAllocators[type].free_addr(allocatedAddr, count*sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
-        }
-
-        inline uint8_t* getDescriptorMemoryBaseAddress(const asset::E_DESCRIPTOR_TYPE type) const
-        {
-            uint8_t* baseAddress;
-            switch (type)
-            {
-            case asset::EDT_COMBINED_IMAGE_SAMPLER:
-                baseAddress = reinterpret_cast<uint8_t*>(m_combinedImageSamplerStorage.get());
-                break;
-            case asset::EDT_STORAGE_IMAGE:
-                baseAddress = reinterpret_cast<uint8_t*>(m_storageImageStorage.get());
-                break;
-            case asset::EDT_UNIFORM_TEXEL_BUFFER:
-                baseAddress = reinterpret_cast<uint8_t*>(m_UTB_STBStorage.get());
-                break;
-            case asset::EDT_STORAGE_TEXEL_BUFFER:
-                baseAddress = reinterpret_cast<uint8_t*>(m_UTB_STBStorage.get()) + m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER] * sizeof(void*);
-                break;
-            case asset::EDT_UNIFORM_BUFFER:
-                baseAddress = reinterpret_cast<uint8_t*>(m_UBO_SSBOStorage.get());
-                break;
-            case asset::EDT_STORAGE_BUFFER:
-                baseAddress = reinterpret_cast<uint8_t*>(m_UBO_SSBOStorage.get()) + m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] * sizeof(void*);
-                break;
-            case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<uint8_t*>(m_UBO_SSBOStorage.get()) + (m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER]) * sizeof(void*);
-                break;
-            case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<uint8_t*>(m_UBO_SSBOStorage.get()) + (m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC]) * sizeof(void*);
-                break;
-            case asset::EDT_INPUT_ATTACHMENT:
-                baseAddress = reinterpret_cast<uint8_t*>(m_storageImageStorage.get()) + m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE] * sizeof(void*);
-                break;
-            case asset::EDT_ACCELERATION_STRUCTURE:
-                baseAddress = reinterpret_cast<uint8_t*>(m_accelerationStructureStorage.get());
-                break;
-            default:
-                assert(!"Invalid code path.");
-                return nullptr;
-            }
-
-            return baseAddress;
+            // TODO(achal): Don't do weird pointer arithmetic here xP
+            _NBL_TODO();
+            // uint32_t allocatedAddr = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(descriptors) - getDescriptorMemoryBaseAddress(type));
+            // m_generalAllocators[type].free_addr(allocatedAddr, count*sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
         }
 
         inline bool allowsFreeingDescriptorSets() const
@@ -160,11 +115,14 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         uint32_t m_maxSets;
 
     private:
-        IDescriptorPool::E_CREATE_FLAGS m_flags;
+        const IDescriptorPool::E_CREATE_FLAGS m_flags;
         uint32_t m_maxDescriptorCount[asset::EDT_COUNT];
-        core::LinearAddressAllocator<uint32_t> m_linearAllocators[asset::EDT_COUNT];
-        core::GeneralpurposeAddressAllocator<uint32_t> m_generalAllocators[asset::EDT_COUNT];
-        void* m_generalAllocatorReservedSpace[asset::EDT_COUNT];
+        union
+        {
+            core::LinearAddressAllocator<uint32_t> m_linearAllocators[asset::EDT_COUNT];
+            core::GeneralpurposeAddressAllocator<uint32_t> m_generalAllocators[asset::EDT_COUNT];
+        };
+        std::unique_ptr<uint8_t[]> m_generalAllocatorReservedSpace[asset::EDT_COUNT];
 
         std::unique_ptr<core::StorageTrivializer<SCombinedImageSampler>[]> m_combinedImageSamplerStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment

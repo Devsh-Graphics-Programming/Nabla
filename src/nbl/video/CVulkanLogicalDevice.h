@@ -1167,7 +1167,7 @@ protected:
         vk_allocateInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDescriptorSetVariableDescriptorCountAllocateInfo
 
         vk_allocateInfo.descriptorPool = vulkanDescriptorPool->getInternalObject();
-        vk_allocateInfo.descriptorSetCount = 1u; // Isn't creating only descriptor set every time wasteful?
+        vk_allocateInfo.descriptorSetCount = 1u;
 
         if (layout->getAPIType() != EAT_VULKAN)
             return nullptr;

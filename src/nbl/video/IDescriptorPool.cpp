@@ -20,8 +20,7 @@ IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptors(const I
         else
             offsets.data[type] = m_linearAllocators[type].alloc_addr(count, 1u);
 
-        assert(core::LinearAddressAllocator<uint32_t>::invalid_address == core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address);
-        assert((offsets.data[type] != core::LinearAddressAllocator<uint32_t>::invalid_address) && "PANIC: Allocation failed. This shoudn't have happened!");
+        assert((offsets.data[type] < m_maxDescriptorCount[i]) && "PANIC: Allocation failed. This shoudn't have happened!");
     }
 
     return offsets;
