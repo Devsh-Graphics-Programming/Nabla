@@ -35,6 +35,7 @@ class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUS
             }
         }
 
+        // TODO(achal): Do we need it anymore?
         inline uint32_t getDescriptorOffsetForBinding(const uint32_t binding) const
         {
             auto found = m_bindingToDescriptorOffsetMap.find(binding);

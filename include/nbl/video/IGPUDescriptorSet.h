@@ -30,25 +30,37 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 	public:
 		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& descriptorStorageOffsets)
 			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_pool(std::move(pool)), m_descriptorStorageOffsets(std::move(descriptorStorageOffsets))
-		{}
+		{
+            // TODO(achal): Samplers.
+            for (auto i = 0u; i < asset::EDT_COUNT; ++i)
+            {
+                // There is no descriptor of such type in the set.
+                if (m_descriptorStorageOffsets.data[i] == ~0u)
+                    continue;
+
+                const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(i);
+
+                // Default-construct the core::smart_refctd_ptr<IDescriptor>s because even if the user didn't update the descriptor set with ILogicalDevice::updateDescriptorSet we
+                // won't have uninitialized memory and destruction wouldn't crash in ~IGPUDescriptorSet.
+                std::uninitialized_default_construct_n(getDescriptorStorage(type) + m_descriptorStorageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
+            }
+        }
 
 		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const;
 
 	protected:
 		virtual ~IGPUDescriptorSet()
 		{
-			for (const auto& b : getLayout()->getBindings())
-			{
-				assert(m_descriptorStorageOffsets.data[b.type] != ~0u && "Descriptor of this type doesn't exist in the set!");
+            // TODO(achal): Samplers.
+            for (auto i = 0u; i < asset::EDT_COUNT; ++i)
+            {
+                // There is no descriptor of such type in the set.
+                if (m_descriptorStorageOffsets.data[i] == ~0u)
+                    continue;
 
-				auto* descriptorMemory = getDescriptorMemory(b.type, b.binding);
-				assert(descriptorMemory);
-
-				auto* descriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(descriptorMemory);
-
-				for (auto i = 0; i < b.count; ++i)
-					descriptors[i].~smart_refctd_ptr();
-			}
+                const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(i);
+                std::destroy_n(getDescriptorStorage(type) + m_descriptorStorageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
+            }
 		}
 
 	private:
@@ -68,22 +80,22 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get());
                 break;
             case asset::EDT_STORAGE_TEXEL_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER] * sizeof(void*);
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER];
                 break;
             case asset::EDT_UNIFORM_BUFFER:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get());
                 break;
             case asset::EDT_STORAGE_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] * sizeof(void*);
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER];
                 break;
             case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER]) * sizeof(void*);
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER]);
                 break;
             case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC]) * sizeof(void*);
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC]);
                 break;
             case asset::EDT_INPUT_ATTACHMENT:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE] * sizeof(void*);
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE];
                 break;
             case asset::EDT_ACCELERATION_STRUCTURE:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_accelerationStructureStorage.get());

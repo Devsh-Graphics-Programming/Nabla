@@ -752,7 +752,7 @@ public:
     CBuildAccelerationStructuresCmd(const uint32_t accelerationStructureCount, core::smart_refctd_ptr<const IGPUAccelerationStructure>* accelerationStructures, const uint32_t bufferCount, core::smart_refctd_ptr<const IGPUBuffer>* buffers)
         : ICommand(calc_size(accelerationStructureCount, accelerationStructures, bufferCount, buffers)), m_resourceCount(accelerationStructureCount + bufferCount)
     {
-        m_resources = new (this + sizeof(CWriteAccelerationStructurePropertiesCmd)) core::smart_refctd_ptr<const IReferenceCounted>[m_resourceCount];
+        m_resources = new (this + sizeof(CBuildAccelerationStructuresCmd)) core::smart_refctd_ptr<const IReferenceCounted>[m_resourceCount];
 
         uint32_t k = 0u;
         for (auto i = 0; i < accelerationStructureCount; ++i)
