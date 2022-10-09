@@ -25,4 +25,24 @@ void CVulkanDescriptorPool::setObjectDebugName(const char* label) const
 	nameInfo.pObjectName = getObjectDebugName();
 	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
 }
+
+bool CVulkanDescriptorPool::freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
+{
+    constexpr auto MaxDescriptorSetCount = 4u;
+    assert(descriptorSetCount <= MaxDescriptorSetCount);
+    VkDescriptorSet vk_descriptorSets[MaxDescriptorSetCount];
+
+    for (auto i = 0; i < descriptorSetCount; ++i)
+    {
+        if (descriptorSets[i]->getAPIType() != EAT_VULKAN)
+            return false;
+
+        vk_descriptorSets[i] = static_cast<CVulkanDescriptorSet*>(descriptorSets[i])->getInternalObject();
+    }
+
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto* vk = vulkanDevice->getFunctionTable();
+    return vk->vk.vkFreeDescriptorSets(vulkanDevice->getInternalObject(), m_descriptorPool, descriptorSetCount, vk_descriptorSets) == VK_SUCCESS;
+}
+
 }

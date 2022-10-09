@@ -26,4 +26,36 @@ IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptors(const I
     return offsets;
 }
 
+bool IDescriptorPool::freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
+{
+    const bool allowsFreeingDescriptorSets = m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT;
+    if (!allowsFreeingDescriptorSets)
+        return false;
+
+    for (auto i = 0u; i < descriptorSetCount; ++i)
+    {
+        for (auto t = 0u; t < asset::EDT_COUNT; ++i)
+        {
+            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+
+            const uint32_t allocatedOffset = descriptorSets[i]->getDescriptorStorageOffset(type);
+            if (allocatedOffset == ~0u)
+                continue;
+
+            const uint32_t count = descriptorSets[i]->getLayout()->getTotalDescriptorCount(type);
+            assert(count != 0u);
+
+            auto* descriptors = descriptorSets[i]->getDescriptors(type);
+            assert(descriptors);
+
+            for (auto c = 0u; c < count; ++c)
+                descriptors[c].~smart_refctd_ptr();
+
+            m_generalAllocators[type].free_addr(allocatedOffset, count);
+        }
+    }
+
+    return freeDescriptorSets_impl(descriptorSetCount, descriptorSets);
+}
+
 }

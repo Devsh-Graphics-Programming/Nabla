@@ -46,7 +46,24 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
             }
         }
 
+        // TODO(achal): Remove.
 		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const;
+
+        // This assumes that descriptors of a particular type in a set will always be contiguous in pool's storage memory, regardless of which binding they "belong" to.
+        core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::E_DESCRIPTOR_TYPE type)
+        {
+            auto* baseAddress = getDescriptorStorage(type);
+            if (baseAddress == nullptr)
+                return nullptr;
+
+            const auto offset = m_descriptorStorageOffsets.data[type];
+            if (offset == ~0u)
+                return nullptr;
+
+            return baseAddress + offset;
+        }
+
+        inline uint32_t getDescriptorStorageOffset(const asset::E_DESCRIPTOR_TYPE type) const { return m_descriptorStorageOffsets.data[type]; }
 
 	protected:
 		virtual ~IGPUDescriptorSet()

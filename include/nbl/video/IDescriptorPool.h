@@ -51,6 +51,7 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
     friend class IGPUDescriptorSet;
 
     private:
+        // TODO(achal): This needs to get removed.
         struct SCombinedImageSampler
         {
             core::smart_refctd_ptr<video::IGPUImageView> view;
@@ -95,24 +96,18 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
         SDescriptorOffsets allocateDescriptors(const IGPUDescriptorSetLayout* layout);
 
-        void freeDescriptors(const uint32_t count, void* descriptors, const asset::E_DESCRIPTOR_TYPE type)
-        {
-            assert(m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
-            // TODO(achal): Don't do weird pointer arithmetic here xP
-            _NBL_TODO();
-            // uint32_t allocatedAddr = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(descriptors) - getDescriptorMemoryBaseAddress(type));
-            // m_generalAllocators[type].free_addr(allocatedAddr, count*sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
-        }
-
-        inline bool allowsFreeingDescriptorSets() const
-        {
-            return (m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT);
-        }
+        bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
 
         inline uint32_t getCapacity() const { return m_maxSets; }
 
     protected:
         uint32_t m_maxSets;
+
+        virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
+        {
+            // We don't need to do anything on the GL backend, perhaps, so No-OP.
+            return true;
+        };
 
     private:
         const IDescriptorPool::E_CREATE_FLAGS m_flags;

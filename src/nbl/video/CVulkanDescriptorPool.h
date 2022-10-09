@@ -23,6 +23,8 @@ public:
     void setObjectDebugName(const char* label) const override;
 
 private:
+    bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) final override;
+
     VkDescriptorPool m_descriptorPool;
 };
 

@@ -90,28 +90,3 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
 
     return true;
 }
-
-bool ILogicalDevice::freeDescriptorSets(IDescriptorPool* pool, const uint32_t descriptorSetCount, IGPUDescriptorSet *const *const descriptorSets)
-{
-    if (!pool->allowsFreeingDescriptorSets())
-        return false;
-
-    for (auto i = 0; i < descriptorSetCount; ++i)
-    {
-        for (const auto& b : descriptorSets[i]->getLayout()->getBindings())
-        {
-            auto* descriptorMemory = descriptorSets[i]->getDescriptorMemory(b.type, b.binding);
-            if (!descriptorMemory)
-                return false;
-
-            auto* descriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(descriptorMemory);
-
-            for (auto i = 0; i < b.count; ++i)
-                descriptors[i].~smart_refctd_ptr();
-
-            pool->freeDescriptors(b.count, descriptorMemory, b.type);
-        }
-    }
-
-    return freeDescriptorSets_impl(pool, descriptorSetCount, descriptorSets);
-}

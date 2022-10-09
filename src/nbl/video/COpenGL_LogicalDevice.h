@@ -332,12 +332,6 @@ public:
             static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
     }
 
-    bool freeDescriptorSets_impl(IDescriptorPool* pool, const uint32_t descriptorSetCount, IGPUDescriptorSet *const *const descriptorSets) override final
-    {
-        _NBL_TODO();
-        return false;
-    }
-
     void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override final
     {
         SRequestFlushMappedMemoryRanges req_params{ ranges };
