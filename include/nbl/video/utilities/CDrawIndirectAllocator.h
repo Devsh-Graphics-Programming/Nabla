@@ -24,7 +24,7 @@ class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
             if (!params.device || params.drawCommandCapacity==0u)
                 return nullptr;
 
-            const auto& features = params.device->getPhysicalDevice()->getFeatures();
+            const auto& features = params.device->getEnabledFeatures();
             if (!features.drawIndirectCount)
                 params.drawCountCapacity = 0;
             const auto& limits = params.device->getPhysicalDevice()->getLimits();

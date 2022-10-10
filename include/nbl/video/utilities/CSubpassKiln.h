@@ -193,7 +193,7 @@ class NBL_API CSubpassKiln
             if (begin==end)
                 return;
 
-            const auto& features = cmdbuf->getOriginDevice()->getPhysicalDevice()->getFeatures();
+            const auto& features = cmdbuf->getOriginDevice()->getEnabledFeatures();
             const bool drawCountEnabled = features.drawIndirectCount;
 
             if (features.multiDrawIndirect)

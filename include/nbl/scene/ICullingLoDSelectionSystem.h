@@ -150,8 +150,8 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		static inline constexpr auto InputDescriptorBindingCount = 8u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
+			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
+			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[InputDescriptorBindingCount];
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
@@ -172,8 +172,8 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		static inline constexpr auto OutputDescriptorBindingCount = 4u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createOutputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
+			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
+			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[OutputDescriptorBindingCount];
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)

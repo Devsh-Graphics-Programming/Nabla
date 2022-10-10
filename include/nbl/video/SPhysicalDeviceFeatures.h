@@ -5,14 +5,9 @@
 
 namespace nbl::video
 {
-//! [TODOS]:
-//! 
+//! Usage of feature API
 //! ## LogicalDevice creation enabled features shouldn't necessarily equal the ones it reports as enabled (superset)
-//! 
-//! Basically what I'd imagine the usage of the API to be like.
-//! 
 //! **RARE: Creating a physical device with all advertised features/extensions:**
-//! ```cpp
 //! auto features = physicalDevice->getFeatures();
 //! 
 //! ILogicalDevice::SCreationParams params = {};
@@ -20,14 +15,11 @@ namespace nbl::video
 //! params.queueParams = ; // set queue stuff
 //! params.enabledFeatures = features;
 //! auto device = physicalDevice->createLogicalDevice(params);
-//! ```
-//! 
 //! **FREQUENT: Choosing a physical device with the features**
-//! ```cpp
 //! IPhysicalDevice::SRequiredProperties props = {}; // default initializes to apiVersion=1.1, deviceType = ET_UNKNOWN, pipelineCacheUUID = '\0', device UUID=`\0`, driverUUID=`\0`, deviceLUID=`\0`, deviceNodeMask= ~0u, driverID=UNKNOWN
 //! // example of particular config
 //! props.apiVersion = 1.2;
-//! props.deviceTypeMask = ~IPhysicalDevice::ET_CPU; // would be good to turn the enum into a mask
+//! props.deviceTypeMask = ~IPhysicalDevice::ET_CPU;
 //! props.driverIDMask = ~(EDI_AMD_PROPRIETARY|EDI_INTEL_PROPRIETARY_WINDOWS); // would be goot to turn the enum into a mask
 //! props.conformanceVersion = 1.2;
 //! 
@@ -35,45 +27,7 @@ namespace nbl::video
 //! requiredFeatures.rayQuery = true;
 //! 
 //! SDeviceLimits minimumLimits = {}; // would default initialize to worst possible values (small values for maximum sizes, large values for alignments, etc.)
-//! 
-//! // TODO: later add some stuff for requiring queue families, formats and minimum memory heap sizes
-//! 
-//! auto physicalDeviceCandidates = api->getCompatiblePhysicalDevices(props,requiredFeatures,minimumLimits,numSwapchains,supportedSwapchains,/*optional: would enforce tighter checks to actually accept compatibility, like formats, present modes and surface caps*/swapchainSupportDecider);
-//! if (physicalDeviceCandidates.empty())
-//! {
-//!     logError();
-//!     exit();
-//! }
-//! 
-//! // TODO: later iterate through candidate devices (fulfilling all the required criteria) to find the "best" one
-//! // std::sort(physicalDeviceCandidates.begin(),physicalDeviceCandidates.end(),SDefaultPhysicalDeviceOrder());
-//! auto physicalDevice = physicalDeviceCandidates.begin();
-//! assert(requiredFeatures < physicalDevice->getFeatures());
-//! assert(minimumLimits < physicalDevice->getLimits());
-//! 
-//! ILogicalDevice::SCreationParams params = {};
-//! params.queueParamsCount = ; // set queue stuff
-//! params.queueParams = ; // set queue stuff
-//! params.enabledFeatures = requiredFeatures;
-//! auto device = physicalDevice->createLogicalDevice(params);
-//! // this would be wrong, because during device creation we would enable additional features either due to:
-//! // - dependencies (like buffer address for raytracing)
-//! // - backend force-enabling them (like in OpenGL, where extensions are just enabled, you have no choice)
-//! // assert(requiredFeatures != device->getEnabledFeatures());
-//! assert(requiredFeatures < device->getEnabledFeatures());
-//! ```
-//! 
-//! ### `SDeviceFeatures` and `SDeviceLimits` should have a `operator<`
-//! 
-//! Basically to let us establish if features or limits are a superset of the requested.
-//! 
-//! If you need a `! = ` operator then define it as
-//! ```cpp
-//! inline bool operator!=(const& other) const
-//! {
-//!     return *this < other || other < *this;
-//! }
-//! ```
+
 struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
