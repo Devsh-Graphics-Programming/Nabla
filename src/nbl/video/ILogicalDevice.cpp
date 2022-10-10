@@ -45,13 +45,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
     {
         auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
 
-        auto* descriptorMemory = ds->getDescriptorMemory(pDescriptorWrites[i].descriptorType, pDescriptorWrites[i].binding);
-        if (!descriptorMemory)
-            return false;
-
-        // TODO(achal): With the AoS Combined Image Sampler storage this shit won't work, because in that case you need to construct SCombinedImageSampler objects.
-        auto* descriptors = new (descriptorMemory) core::smart_refctd_ptr<const asset::IDescriptor>[pDescriptorWrites[i].count];
-
+        auto* descriptors = ds->getDescriptors(pDescriptorWrites[i].descriptorType, pDescriptorWrites[i].binding);
         for (auto j = 0; j < pDescriptorWrites[i].count; ++j)
             descriptors[j] = pDescriptorWrites[i].info[j].desc;
     }
@@ -72,15 +66,13 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
 
         const asset::E_DESCRIPTOR_TYPE descriptorType = foundBindingInfo->type;
 
-        auto* srcDescriptors = reinterpret_cast<core::smart_refctd_ptr<const asset::IDescriptor>*>(srcDS->getDescriptorMemory(descriptorType, pDescriptorCopies[i].srcBinding));
+        auto* srcDescriptors = srcDS->getDescriptors(descriptorType, pDescriptorCopies[i].srcBinding);
         if (!srcDescriptors)
             return false;
 
-        auto* dstDescriptorMemory = dstDS->getDescriptorMemory(descriptorType, pDescriptorCopies[i].dstBinding);
-        if (!dstDescriptorMemory)
+        auto* dstDescriptors = dstDS->getDescriptors(descriptorType, pDescriptorCopies[i].dstBinding);
+        if (!dstDescriptors)
             return false;
-
-        auto* dstDescriptors = new (dstDescriptorMemory) core::smart_refctd_ptr<const asset::IDescriptor>[pDescriptorCopies[i].count];
 
         // This memcpy will increment the reference count, won't it?
         memcpy(dstDescriptors, srcDescriptors, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));

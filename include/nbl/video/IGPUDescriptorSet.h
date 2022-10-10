@@ -42,15 +42,14 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 
                 // Default-construct the core::smart_refctd_ptr<IDescriptor>s because even if the user didn't update the descriptor set with ILogicalDevice::updateDescriptorSet we
                 // won't have uninitialized memory and destruction wouldn't crash in ~IGPUDescriptorSet.
+                // 
+                // TODO(achal): With the combined image sampler storage in AoS form, SCombinedImageSampler, this won't work, because in that case you need to construct SCombinedImageSampler objects,
+                // but here we're only constructing core::smart_refctd_ptr<IDescriptor>. So switch to SoA.
                 std::uninitialized_default_construct_n(getDescriptorStorage(type) + m_descriptorStorageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
             }
         }
 
-        // TODO(achal): Remove.
-		uint8_t* getDescriptorMemory(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const;
-
-        // This assumes that descriptors of a particular type in a set will always be contiguous in pool's storage memory, regardless of which binding they "belong" to.
-        core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::E_DESCRIPTOR_TYPE type)
+        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::E_DESCRIPTOR_TYPE type) const
         {
             auto* baseAddress = getDescriptorStorage(type);
             if (baseAddress == nullptr)
@@ -61,6 +60,16 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
                 return nullptr;
 
             return baseAddress + offset;
+        }
+
+        // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
+        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
+        {
+            const auto localOffset = getLayout()->getDescriptorOffsetForBinding(type, binding);
+            if (localOffset == ~0)
+                return nullptr;
+
+            return getDescriptors(type) + localOffset;
         }
 
         inline uint32_t getDescriptorStorageOffset(const asset::E_DESCRIPTOR_TYPE type) const { return m_descriptorStorageOffsets.data[type]; }
@@ -81,7 +90,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		}
 
 	private:
-		core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const override
+		inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const override
 		{
             core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
             switch (type)

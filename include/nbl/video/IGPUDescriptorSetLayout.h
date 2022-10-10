@@ -24,25 +24,91 @@ class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUS
 {
         using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 
+        struct SBindingRedirect
+        {
+            SBindingRedirect() : bindings(nullptr), offsets(nullptr), count(0ull) {}
+
+            SBindingRedirect(const size_t _count) : count(_count)
+            {
+                bindings = std::make_unique<uint32_t[]>(count << 1);
+                offsets = bindings.get() + count;
+            }
+
+            inline uint32_t operator[](const uint32_t binding) const
+            {
+                assert(bindings && offsets && (count != 0ull));
+
+                constexpr auto Invalid = ~0u;
+
+                auto found = std::lower_bound(bindings.get(), bindings.get() + count, binding);
+                if (found < bindings.get() + count)
+                {
+                    if (*found != binding)
+                        return Invalid;
+
+                    const uint32_t foundIdx = found - bindings.get();
+                    assert(foundIdx < count);
+                    return offsets[foundIdx];
+                }
+
+                return Invalid;
+            }
+
+            std::unique_ptr<uint32_t[]> bindings;
+            uint32_t* offsets;
+            size_t count;
+        };
+
+        // Maps a binding number to a local (to descriptor set layout) offset, for a given descriptor type.
+        SBindingRedirect m_redirects[asset::EDT_COUNT];
+        // TODO(achal): One for samplers
+
     public:
         IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SBinding* const _begin, const SBinding* const _end) : base_t(_begin, _end), IBackendObject(std::move(dev))
         {
-            uint32_t localDescriptorOffset = 0u;
+            // TODO(achal): Move this common stuff to IDescriptorSetLayout
+            struct SBindingRedirectBuildInfo
+            {
+                uint32_t binding;
+                uint32_t count;
+
+                inline bool operator< (const SBindingRedirectBuildInfo& other) const { return binding < other.binding; }
+            };
+
+            core::vector<SBindingRedirectBuildInfo> buildInfo[asset::EDT_COUNT];
+            // TODO(achal): One for samplers
+
             for (auto b = _begin; b != _end; ++b)
             {
-                m_bindingToDescriptorOffsetMap.insert({ b->binding, localDescriptorOffset });
-                localDescriptorOffset += b->count;
+                buildInfo[b->type].emplace_back(b->binding, b->count);
+                // TODO(achal): One for samplers
             }
+
+            for (auto type = 0u; type < asset::EDT_COUNT; ++type)
+            {
+                m_redirects[type] = SBindingRedirect(buildInfo[type].size());
+            }
+
+            auto buildRedirect = [](SBindingRedirect& redirect, core::vector<SBindingRedirectBuildInfo>& info)
+            {
+                std::sort(info.begin(), info.end());
+
+                for (size_t i = 0u; i < info.size(); ++i)
+                {
+                    redirect.bindings[i] = info[i].binding;
+                    redirect.offsets[i] = info[i].count;
+                }
+
+                std::exclusive_scan(redirect.offsets, redirect.offsets + info.size(), redirect.offsets, 0u);
+            };
+
+            for (auto type = 0u; type < asset::EDT_COUNT; ++type)
+                buildRedirect(m_redirects[type], buildInfo[type]);
         }
 
-        // TODO(achal): Do we need it anymore?
-        inline uint32_t getDescriptorOffsetForBinding(const uint32_t binding) const
+        inline uint32_t getDescriptorOffsetForBinding(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
         {
-            auto found = m_bindingToDescriptorOffsetMap.find(binding);
-            if (found != m_bindingToDescriptorOffsetMap.end())
-                return found->second;
-
-            return ~0u;
+            return m_redirects[type][binding];
         }
 
     protected:
@@ -50,14 +116,6 @@ class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUS
 
         bool m_isPushDescLayout = false;
         bool m_canUpdateAfterBind = false;
-
-    private:
-        // This maps the descriptor set layout's binding number to the LOCAL offset in the array of descriptors where the descriptors of this binding number start.
-        // Therefore, a given binding number (say, b) having n array elements, will have descriptors stored at the local offset of [m_bindingToDescriptorOffsetMap[b], m_bindingToDescriptorOffsetMap[b]+n).
-        // 
-        // TODO(achal): Can I use a flat array here? It can be done if we enforce any upper limit on VkDescriptorSetLayoutBinding::binding.
-        core::unordered_map<uint32_t, uint32_t> m_bindingToDescriptorOffsetMap;
-
 };
 
 }
