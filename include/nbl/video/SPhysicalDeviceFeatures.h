@@ -1238,32 +1238,6 @@ struct SPhysicalDeviceFeatures
         if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
         return true;
     }
-
-    // TODO: Is this API specific? should stay here? should be moved to SVulkanPhysDev?
-    bool isValid() const
-    {
-        // If the shadingRateImage feature is enabled, the pipelineFragmentShadingRate feature must not be enabled
-        // If the shadingRateImage feature is enabled, the primitiveFragmentShadingRate feature must not be enabled
-        // If the shadingRateImage feature is enabled, the attachmentFragmentShadingRate feature must not be enabled
-        // If the fragmentDensityMap feature is enabled, the pipelineFragmentShadingRate feature must not be enabled
-        // If the fragmentDensityMap feature is enabled, the primitiveFragmentShadingRate feature must not be enabled
-        // If the fragmentDensityMap feature is enabled, the attachmentFragmentShadingRate feature must not be enabled
-        
-        // If sparseImageInt64Atomics is enabled, shaderImageInt64Atomics must be enabled
-        if(sparseImageInt64Atomics && !shaderImageInt64Atomics)
-            return false;
-        // If sparseImageFloat32Atomics is enabled, shaderImageFloat32Atomics must be enabled
-        if(sparseImageFloat32Atomics && !shaderImageFloat32Atomics)
-            return false;
-        // If sparseImageFloat32AtomicAdd is enabled, shaderImageFloat32AtomicAdd must be enabled
-        if(sparseImageFloat32AtomicAdd && !shaderImageFloat32AtomicAdd)
-            return false;
-        // If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
-        if(sparseImageFloat32AtomicMinMax && !shaderImageFloat32AtomicMinMax)
-            return false;
-
-        return true;
-    }
 };
 
 } // nbl::video

@@ -1256,7 +1256,7 @@ protected:
     
     //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
     //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.
-    inline void resolveFeatureDependencies(SFeatures& features)
+    inline void resolveFeatureDependencies(SFeatures& features) const
     {
         // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`: this dependancy needs the extension to be enabled not individual features, so this will be handled later on when enabling features before vkCreateDevice
         
@@ -1399,10 +1399,40 @@ protected:
 
         // Handle later: E_SWAPCHAIN_MODE::ESM_SURFACE: VK_KHR_swapchain requires VK_KHR_surface instance extension
     }
+    
+    inline bool isFeaturesValid(const SFeatures& features) const
+    {
+        // If the shadingRateImage feature is enabled, the pipelineFragmentShadingRate feature must not be enabled
+        // If the shadingRateImage feature is enabled, the primitiveFragmentShadingRate feature must not be enabled
+        // If the shadingRateImage feature is enabled, the attachmentFragmentShadingRate feature must not be enabled
+        // If the fragmentDensityMap feature is enabled, the pipelineFragmentShadingRate feature must not be enabled
+        // If the fragmentDensityMap feature is enabled, the primitiveFragmentShadingRate feature must not be enabled
+        // If the fragmentDensityMap feature is enabled, the attachmentFragmentShadingRate feature must not be enabled
+        
+        // If sparseImageInt64Atomics is enabled, shaderImageInt64Atomics must be enabled
+        if(features.sparseImageInt64Atomics && !features.shaderImageInt64Atomics)
+            return false;
+        // If sparseImageFloat32Atomics is enabled, shaderImageFloat32Atomics must be enabled
+        if(features.sparseImageFloat32Atomics && !features.shaderImageFloat32Atomics)
+            return false;
+        // If sparseImageFloat32AtomicAdd is enabled, shaderImageFloat32AtomicAdd must be enabled
+        if(features.sparseImageFloat32AtomicAdd && !features.shaderImageFloat32AtomicAdd)
+            return false;
+        // If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
+        if(features.sparseImageFloat32AtomicMinMax && !features.shaderImageFloat32AtomicMinMax)
+            return false;
+
+        return true;
+    }
 
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override
     {
         resolveFeatureDependencies(params.featuresToEnable);
+        if (!isFeaturesValid(params.featuresToEnable))
+        {
+            assert(false); // Feature struct is invalid
+            return nullptr; 
+        }
 
         core::unordered_set<core::string> extensionsToEnable;
 
@@ -1531,13 +1561,14 @@ protected:
             vk_deviceFeatures2.features.shaderInt16 = m_properties.limits.shaderInt16;
             vk_deviceFeatures2.features.samplerAnisotropy = m_properties.limits.samplerAnisotropy;
 
+            insertExtensionIfAvailable(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
             if(useVk12Struct)
             {
                 vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
                 vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
                 vulkan12Features.storagePushConstant8                = m_properties.limits.storagePushConstant8;
             }
-            else if (insertExtensionIfAvailable(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
+            else
             {
                 // All Requirements Exist in Vulkan 1.1 
                 _8BitStorageFeaturesKHR.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
@@ -1546,12 +1577,13 @@ protected:
                 addFeatureToChain(&_8BitStorageFeaturesKHR);
             }
             
+            insertExtensionIfAvailable(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
             if(useVk12Struct)
             {
                 vulkan12Features.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
                 vulkan12Features.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
             }
-            else if (insertExtensionIfAvailable(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
+            else
             {
                 // All Requirements Exist in Vulkan 1.1 
                 shaderAtomicInt64FeaturesKHR.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
@@ -1559,12 +1591,13 @@ protected:
                 addFeatureToChain(&shaderAtomicInt64FeaturesKHR);
             }
             
+            insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
             if(useVk12Struct)
             {
                 vulkan12Features.shaderFloat16 = m_properties.limits.shaderFloat16;
                 vulkan12Features.shaderInt8 = m_properties.limits.shaderInt8;
             }
-            else if (insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
+            else
             {
                 // All Requirements Exist in Vulkan 1.1 
                 shaderFloat16Int8Features.shaderFloat16 = m_properties.limits.shaderFloat16;
@@ -1682,11 +1715,11 @@ protected:
 #define CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(VAR_NAME, EXT_NAME, FEATURE_STRUCT)             \
         if(enabledFeatures.VAR_NAME)                                                        \
         {                                                                                   \
+            insertExtensionIfAvailable(EXT_NAME);                                           \
             if(useVk12Struct)                                                               \
                 vulkan12Features.VAR_NAME = enabledFeatures.VAR_NAME;                       \
             else                                                                            \
             {                                                                               \
-                insertExtensionIfAvailable(EXT_NAME);                                       \
                 FEATURE_STRUCT.VAR_NAME = enabledFeatures.VAR_NAME;                         \
                 addFeatureToChain(&FEATURE_STRUCT);                                         \
             }                                                                               \
@@ -1725,7 +1758,8 @@ protected:
             enabledFeatures.descriptorBindingVariableDescriptorCount ||
             enabledFeatures.runtimeDescriptorArray)
         {
-
+            // All Requirements Exist in Vulkan 1.1
+            insertExtensionIfAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
             if(useVk12Struct)
             {
                 vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
@@ -1752,8 +1786,6 @@ protected:
             }
             else
             {
-                // All Requirements Exist in Vulkan 1.1
-                insertExtensionIfAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
                 descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
                 descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
                 descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayDynamicIndexing = enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing;
@@ -1787,6 +1819,8 @@ protected:
 
         if (enabledFeatures.bufferDeviceAddress || enabledFeatures.bufferDeviceAddressMultiDevice)
         {
+            // All Requirements Exist in Vulkan 1.1
+            insertExtensionIfAvailable(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
             if(useVk12Struct)
             {
                 vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
@@ -1795,8 +1829,6 @@ protected:
             }
             else
             {
-                // All Requirements Exist in Vulkan 1.1
-                insertExtensionIfAvailable(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
                 bufferDeviceAddressFeatures.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
                 bufferDeviceAddressFeatures.bufferDeviceAddressCaptureReplay = false;
                 bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
@@ -1808,6 +1840,8 @@ protected:
             enabledFeatures.vulkanMemoryModelDeviceScope ||
             enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains)
         {
+            // All Requirements Exist in Vulkan 1.1
+            insertExtensionIfAvailable(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME);
             if(useVk12Struct)
             {
                 vulkan12Features.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
@@ -1816,8 +1850,6 @@ protected:
             }
             else
             {
-                // All Requirements Exist in Vulkan 1.1
-                insertExtensionIfAvailable(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME);
                 vulkanMemoryModelFeatures.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
                 vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
                 vulkanMemoryModelFeatures.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
