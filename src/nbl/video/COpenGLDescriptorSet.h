@@ -92,14 +92,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 			{
 				// Compute the total number of active bindings for all descriptor types.
-				// uint32_t activeBindingCount = 0u;
-				// for (auto t = 0u; t < asset::EDT_COUNT; ++t)
-				// 	activeBindingCount += m_layout->m_redirects[t].count;
+				uint32_t activeBindingCount = 0u;
+				for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+					activeBindingCount += m_layout->m_redirects[t].count;
 
-				
-
-				// TODO(achal): This should be dense, not sparse.
-				m_flatOffsets2 = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
+				m_flatOffsets2 = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(activeBindingCount);
 
 				uint32_t uboCount2 = 0u;//includes dynamics
 				uint32_t ssboCount2 = 0u;//includes dynamics
@@ -109,10 +106,15 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				for (auto t = 0u; t < asset::EDT_COUNT; ++t)
 				{
 					const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+					const auto& redirect = m_layout->m_redirects[t];
 
-					for (auto i = 0u; i < m_layout->m_redirects[t].count; ++i)
+					for (auto i = 0u; i < redirect.count; ++i)
 					{
-						const auto binding = m_layout->m_redirects[t].bindings[i];
+						const auto binding = redirect.bindings[i];
+
+						const auto index = redirect.searchForBinding(binding);
+						assert(index != redirect.Invalid);
+
 						const auto count = getDescriptorCountForBinding(type, binding);
 						assert(count != ~0u && "Descriptor type and binding number doesn't match!");
 
@@ -121,28 +123,28 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 						case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
 							[[fallthrough]];
 						case asset::EDT_UNIFORM_BUFFER:
-							m_flatOffsets2->operator[](binding) = uboCount2;
+							m_flatOffsets2->operator[](index) = uboCount2;
 							uboCount2 += count;
 							break;
 
 						case asset::EDT_STORAGE_BUFFER_DYNAMIC:
 							[[fallthrough]];
 						case asset::EDT_STORAGE_BUFFER:
-							m_flatOffsets2->operator[](binding) = ssboCount2;
+							m_flatOffsets2->operator[](index) = ssboCount2;
 							ssboCount2 += count;
 							break;
 
 						case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
 							[[fallthrough]];
 						case asset::EDT_COMBINED_IMAGE_SAMPLER:
-							m_flatOffsets2->operator[](binding) = textureCount2;
+							m_flatOffsets2->operator[](index) = textureCount2;
 							textureCount2 += count;
 							break;
 
 						case asset::EDT_STORAGE_IMAGE:
 							[[fallthrough]];
 						case asset::EDT_STORAGE_TEXEL_BUFFER:
-							m_flatOffsets2->operator[](binding) = imageCount2;
+							m_flatOffsets2->operator[](index) = imageCount2;
 							imageCount2 += count;
 							break;
 
@@ -153,22 +155,27 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				}
 
 				// TODO(achal): Just some debug/test code that will be removed in the future.
-				if (uboCount != uboCount2)
-					__debugbreak();
-				if (ssboCount != ssboCount2)
-					__debugbreak();
-				if (textureCount != textureCount2)
-					__debugbreak();
-				if (imageCount != imageCount2)
-					__debugbreak();
-
-				for (auto i = 0; i < m_flatOffsets->size(); ++i)
 				{
-					if (m_flatOffsets->operator[](i) != m_flatOffsets2->operator[](i))
+					if (uboCount != uboCount2)
 						__debugbreak();
-				}
+					if (ssboCount != ssboCount2)
+						__debugbreak();
+					if (textureCount != textureCount2)
+						__debugbreak();
+					if (imageCount != imageCount2)
+						__debugbreak();
 
-				std::cout << "PASS!!" << std::endl;
+					for (auto i = 0; i < m_flatOffsets->size(); ++i)
+					{
+						if (m_bindingInfo->operator[](i).descriptorType != asset::EDT_COUNT)
+						{
+							if (m_flatOffsets->operator[](i) != m_flatOffsets2->operator[](i))
+								__debugbreak();
+						}
+					}
+
+					std::cout << "PASS!!" << std::endl;
+				}
 			}
 
 			m_buffer2descIx = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint> >(uboCount+ssboCount);
