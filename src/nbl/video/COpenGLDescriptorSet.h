@@ -56,7 +56,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			uint32_t imageCount = 0u;
 
 // TODO(achal): Remove. This is only for testing purposes.
-// #define USE_M_BINDING_INFO
+#define USE_M_BINDING_INFO
 
 #ifdef USE_M_BINDING_INFO
 			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
@@ -115,7 +115,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					assert(index != redirect.Invalid);
 
 					const auto count = getDescriptorCountForBinding(type, binding);
-					assert(count != ~0u && "Descriptor type and binding number doesn't match!");
+					assert(count != ~0u && "Descriptor of this type doesn't exist at this binding!");
 
 					switch (type)
 					{
@@ -196,7 +196,9 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			m_dynamicOffsetCount = 0u;
 			auto uboDescIxIter = m_buffer2descIx->begin();
 			auto ssboDescIxIter = m_buffer2descIx->begin()+uboCount;
-			
+
+#ifdef USE_M_BINDING_INFO
+
 			for (size_t i=0u; i<m_bindingInfo->size(); i++)
 			{
 				const auto& info = m_bindingInfo->operator[](i);
@@ -224,6 +226,53 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 						break;
 				}
 			}
+#else
+			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+			{
+				const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+				const auto& redirect = m_layout->m_redirects[t];
+
+				for (auto i = 0u; i < redirect.count; ++i)
+				{
+					const auto binding = redirect.bindings[i];
+
+					const auto index = redirect.searchForBinding(binding);
+					const auto offset = m_flatOffsets->operator[](index);
+
+					const auto count = getDescriptorCountForBinding(type, binding);
+					assert(count != ~0u && "Descriptor of this type doesn't exist at this binding!");
+
+					for (uint32_t j = 0u; j < count; j++)
+					{
+						switch (type)
+						{
+						case asset::EDT_UNIFORM_BUFFER:
+							*(uboDescIxIter++) = offset + j;
+							m_multibindParams.ubos.dynOffsetIxs[offset + j] = ~0u;
+							break;
+
+						case asset::EDT_STORAGE_BUFFER:
+							*(ssboDescIxIter++) = offset + j;
+							m_multibindParams.ssbos.dynOffsetIxs[offset + j] = ~0u;
+							break;
+
+						case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+							*(uboDescIxIter++) = offset + j;
+							m_multibindParams.ubos.dynOffsetIxs[offset + j] = m_dynamicOffsetCount++;
+							break;
+
+						case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+							*(ssboDescIxIter++) = offset + j;
+							m_multibindParams.ssbos.dynOffsetIxs[offset + j] = m_dynamicOffsetCount++;
+							break;
+
+						default:
+							break;
+						}
+					}
+				}
+			}
+#endif
 		}
 
 		/* The following is supported:
