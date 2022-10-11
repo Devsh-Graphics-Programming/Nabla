@@ -50,133 +50,109 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		COpenGLDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& descriptorStorageOffsets)
 			: IGPUDescriptorSet(std::move(dev), std::move(_layout), std::move(pool), std::move(descriptorStorageOffsets)), asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>(m_layout.get()), m_revision(0ull)
 		{
-			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
-
 			uint32_t uboCount = 0u;//includes dynamics
 			uint32_t ssboCount = 0u;//includes dynamics
 			uint32_t textureCount = 0u;
 			uint32_t imageCount = 0u;
-			for (uint32_t i=0u; i<m_bindingInfo->size(); i++)
+
+// TODO(achal): Remove. This is only for testing purposes.
+// #define USE_M_BINDING_INFO
+
+#ifdef USE_M_BINDING_INFO
+			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
+
+			for (uint32_t i = 0u; i < m_bindingInfo->size(); i++)
 			{
 				auto count = getDescriptorCountAtIndex(i);
 				switch (m_bindingInfo->operator[](i).descriptorType)
 				{
+				case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+					[[fallthrough]];
+				case asset::EDT_UNIFORM_BUFFER:
+					m_flatOffsets->operator[](i) = uboCount;
+					uboCount += count;
+					break;
+				case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+					[[fallthrough]];
+				case asset::EDT_STORAGE_BUFFER:
+					m_flatOffsets->operator[](i) = ssboCount;
+					ssboCount += count;
+					break;
+				case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
+					[[fallthrough]];
+				case asset::EDT_COMBINED_IMAGE_SAMPLER:
+					m_flatOffsets->operator[](i) = textureCount;
+					textureCount += count;
+					break;
+				case asset::EDT_STORAGE_IMAGE:
+					[[fallthrough]];
+				case asset::EDT_STORAGE_TEXEL_BUFFER:
+					m_flatOffsets->operator[](i) = imageCount;
+					imageCount += count;
+					break;
+				default:
+					break;
+			}
+}
+#else
+			// Compute the total number of active bindings for all descriptor types.
+			uint32_t activeBindingCount = 0u;
+			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+				activeBindingCount += m_layout->m_redirects[t].count;
+
+			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(activeBindingCount);
+
+			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+			{
+				const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+				const auto& redirect = m_layout->m_redirects[t];
+
+				for (auto i = 0u; i < redirect.count; ++i)
+				{
+					const auto binding = redirect.bindings[i];
+
+					const auto index = redirect.searchForBinding(binding);
+					assert(index != redirect.Invalid);
+
+					const auto count = getDescriptorCountForBinding(type, binding);
+					assert(count != ~0u && "Descriptor type and binding number doesn't match!");
+
+					switch (type)
+					{
 					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
 						[[fallthrough]];
 					case asset::EDT_UNIFORM_BUFFER:
-						m_flatOffsets->operator[](i) = uboCount;
+						m_flatOffsets->operator[](index) = uboCount;
 						uboCount += count;
 						break;
+
 					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
 						[[fallthrough]];
 					case asset::EDT_STORAGE_BUFFER:
-						m_flatOffsets->operator[](i) = ssboCount;
+						m_flatOffsets->operator[](index) = ssboCount;
 						ssboCount += count;
 						break;
+
 					case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
 						[[fallthrough]];
 					case asset::EDT_COMBINED_IMAGE_SAMPLER:
-						m_flatOffsets->operator[](i) = textureCount;
+						m_flatOffsets->operator[](index) = textureCount;
 						textureCount += count;
 						break;
+
 					case asset::EDT_STORAGE_IMAGE:
 						[[fallthrough]];
 					case asset::EDT_STORAGE_TEXEL_BUFFER:
-						m_flatOffsets->operator[](i) = imageCount;
+						m_flatOffsets->operator[](index) = imageCount;
 						imageCount += count;
 						break;
+
 					default:
 						break;
-				}
-			}
-
-			{
-				// Compute the total number of active bindings for all descriptor types.
-				uint32_t activeBindingCount = 0u;
-				for (auto t = 0u; t < asset::EDT_COUNT; ++t)
-					activeBindingCount += m_layout->m_redirects[t].count;
-
-				m_flatOffsets2 = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(activeBindingCount);
-
-				uint32_t uboCount2 = 0u;//includes dynamics
-				uint32_t ssboCount2 = 0u;//includes dynamics
-				uint32_t textureCount2 = 0u;
-				uint32_t imageCount2 = 0u;
-
-				for (auto t = 0u; t < asset::EDT_COUNT; ++t)
-				{
-					const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
-					const auto& redirect = m_layout->m_redirects[t];
-
-					for (auto i = 0u; i < redirect.count; ++i)
-					{
-						const auto binding = redirect.bindings[i];
-
-						const auto index = redirect.searchForBinding(binding);
-						assert(index != redirect.Invalid);
-
-						const auto count = getDescriptorCountForBinding(type, binding);
-						assert(count != ~0u && "Descriptor type and binding number doesn't match!");
-
-						switch (type)
-						{
-						case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-							[[fallthrough]];
-						case asset::EDT_UNIFORM_BUFFER:
-							m_flatOffsets2->operator[](index) = uboCount2;
-							uboCount2 += count;
-							break;
-
-						case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-							[[fallthrough]];
-						case asset::EDT_STORAGE_BUFFER:
-							m_flatOffsets2->operator[](index) = ssboCount2;
-							ssboCount2 += count;
-							break;
-
-						case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
-							[[fallthrough]];
-						case asset::EDT_COMBINED_IMAGE_SAMPLER:
-							m_flatOffsets2->operator[](index) = textureCount2;
-							textureCount2 += count;
-							break;
-
-						case asset::EDT_STORAGE_IMAGE:
-							[[fallthrough]];
-						case asset::EDT_STORAGE_TEXEL_BUFFER:
-							m_flatOffsets2->operator[](index) = imageCount2;
-							imageCount2 += count;
-							break;
-
-						default:
-							break;
-						}
 					}
 				}
-
-				// TODO(achal): Just some debug/test code that will be removed in the future.
-				{
-					if (uboCount != uboCount2)
-						__debugbreak();
-					if (ssboCount != ssboCount2)
-						__debugbreak();
-					if (textureCount != textureCount2)
-						__debugbreak();
-					if (imageCount != imageCount2)
-						__debugbreak();
-
-					for (auto i = 0; i < m_flatOffsets->size(); ++i)
-					{
-						if (m_bindingInfo->operator[](i).descriptorType != asset::EDT_COUNT)
-						{
-							if (m_flatOffsets->operator[](i) != m_flatOffsets2->operator[](i))
-								__debugbreak();
-						}
-					}
-
-					std::cout << "PASS!!" << std::endl;
-				}
 			}
+#endif
 
 			m_buffer2descIx = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint> >(uboCount+ssboCount);
 			std::fill(m_buffer2descIx->begin(), m_buffer2descIx->end(), ~0u);
@@ -215,8 +191,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			m_multibindParams.textures.targets = (*m_targetsAndFormats).data();
 			m_multibindParams.textureImages.textures = (*m_names).data() + imagNamesOffset;
 			m_multibindParams.textureImages.formats = (*m_targetsAndFormats).data() + textureCount;
-
-			// TODO(achal): If the above test is successful then code till here should work fine.
 
 			// set up dynamic offset redirects
 			m_dynamicOffsetCount = 0u;
@@ -479,8 +453,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		}
 
 		SMultibindParams m_multibindParams;
-		core::smart_refctd_dynamic_array<uint32_t> m_flatOffsets; // TODO(achal): Remove.
-		core::smart_refctd_dynamic_array<uint32_t> m_flatOffsets2;
+		core::smart_refctd_dynamic_array<uint32_t> m_flatOffsets;
 
 		core::smart_refctd_dynamic_array<uint32_t> m_buffer2descIx;
 
