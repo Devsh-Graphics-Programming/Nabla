@@ -55,46 +55,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			uint32_t textureCount = 0u;
 			uint32_t imageCount = 0u;
 
-// TODO(achal): Remove. This is only for testing purposes.
-#define USE_M_BINDING_INFO
-
-#ifdef USE_M_BINDING_INFO
-			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
-
-			for (uint32_t i = 0u; i < m_bindingInfo->size(); i++)
-			{
-				auto count = getDescriptorCountAtIndex(i);
-				switch (m_bindingInfo->operator[](i).descriptorType)
-				{
-				case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-					[[fallthrough]];
-				case asset::EDT_UNIFORM_BUFFER:
-					m_flatOffsets->operator[](i) = uboCount;
-					uboCount += count;
-					break;
-				case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-					[[fallthrough]];
-				case asset::EDT_STORAGE_BUFFER:
-					m_flatOffsets->operator[](i) = ssboCount;
-					ssboCount += count;
-					break;
-				case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
-					[[fallthrough]];
-				case asset::EDT_COMBINED_IMAGE_SAMPLER:
-					m_flatOffsets->operator[](i) = textureCount;
-					textureCount += count;
-					break;
-				case asset::EDT_STORAGE_IMAGE:
-					[[fallthrough]];
-				case asset::EDT_STORAGE_TEXEL_BUFFER:
-					m_flatOffsets->operator[](i) = imageCount;
-					imageCount += count;
-					break;
-				default:
-					break;
-			}
-}
-#else
 			// Compute the total number of active bindings for all descriptor types.
 			uint32_t activeBindingCount = 0u;
 			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
@@ -152,7 +112,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					}
 				}
 			}
-#endif
 
 			m_buffer2descIx = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint> >(uboCount+ssboCount);
 			std::fill(m_buffer2descIx->begin(), m_buffer2descIx->end(), ~0u);
@@ -197,36 +156,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			auto uboDescIxIter = m_buffer2descIx->begin();
 			auto ssboDescIxIter = m_buffer2descIx->begin()+uboCount;
 
-#ifdef USE_M_BINDING_INFO
-
-			for (size_t i=0u; i<m_bindingInfo->size(); i++)
-			{
-				const auto& info = m_bindingInfo->operator[](i);
-				auto offset = m_flatOffsets->operator[](i);
-				for (uint32_t j=0u; j<getDescriptorCountAtIndex(i); j++)
-				switch (info.descriptorType)
-				{
-					case asset::EDT_UNIFORM_BUFFER:
-						*(uboDescIxIter++) = offset+j;
-						m_multibindParams.ubos.dynOffsetIxs[offset+j] = ~static_cast<uint32_t>(0u);
-						break;
-					case asset::EDT_STORAGE_BUFFER:
-						*(ssboDescIxIter++) = offset+j;
-						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = ~static_cast<uint32_t>(0u);
-						break;
-					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-						*(uboDescIxIter++) = offset+j;
-						m_multibindParams.ubos.dynOffsetIxs[offset+j] = m_dynamicOffsetCount++;
-						break;
-					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-						*(ssboDescIxIter++) = offset+j;
-						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = m_dynamicOffsetCount++;
-						break;
-					default:
-						break;
-				}
-			}
-#else
 			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
 			{
 				const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
@@ -237,6 +166,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					const auto binding = redirect.bindings[i];
 
 					const auto index = redirect.searchForBinding(binding);
+					assert(index != redirect.Invalid);
+
 					const auto offset = m_flatOffsets->operator[](index);
 
 					const auto count = getDescriptorCountForBinding(type, binding);
@@ -272,7 +203,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					}
 				}
 			}
-#endif
 		}
 
 		/* The following is supported:
@@ -314,7 +244,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 				*output = _write.info[i];
 				uint32_t localIx = _write.arrayElement+i;
-				updateMultibindParams(type,*output,m_flatOffsets->operator[](_write.binding)+localIx,_write.binding,localIx);
+				
+				const auto index = m_layout->m_redirects[type].searchForBinding(_write.binding);
+				assert(index != m_layout->m_redirects[type].Invalid && "This binding doesn't exist in the set!");
+
+				updateMultibindParams(type,*output,m_flatOffsets->operator[](index)+localIx,_write.binding,localIx);
 			}
 
 			m_revision++;
@@ -354,7 +288,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				#endif
 				*output = *input;
 				uint32_t localIx = _copy.dstArrayElement+i;
-				updateMultibindParams(type,*output,m_flatOffsets->operator[](_copy.dstBinding)+localIx,_copy.dstBinding,localIx);
+
+				const auto index = m_layout->m_redirects[type].searchForBinding(_copy.dstBinding);
+				assert(index != m_layout->m_redirects[type].Invalid && "This binding doesn't exist in the set!");
+
+				updateMultibindParams(type,*output,m_flatOffsets->operator[](index)+localIx,_copy.dstBinding,localIx);
 			}
 
 			m_revision++;
