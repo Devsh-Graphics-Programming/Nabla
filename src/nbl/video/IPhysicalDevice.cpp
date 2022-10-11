@@ -3,8 +3,8 @@
 namespace nbl::video
 {
 
-IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
-    m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
+IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api) :
+    m_system(std::move(s)), m_api(api)
 {}
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const

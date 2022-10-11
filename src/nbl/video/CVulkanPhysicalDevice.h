@@ -12,8 +12,8 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance, uint32_t instanceApiVersion)
-        : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_vkInstance(vk_instance)
+    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance, uint32_t instanceApiVersion)
+        : IPhysicalDevice(std::move(sys), api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_vkInstance(vk_instance)
     {
         // Get Supported Extensions
         {
@@ -2286,7 +2286,6 @@ protected:
     }
 
 private:
-    IAPIConnection* m_api; // purposefully not refcounted to avoid circular ref
     renderdoc_api_t* m_rdoc_api;
     VkInstance m_vkInstance;
     VkPhysicalDevice m_vkPhysicalDevice;

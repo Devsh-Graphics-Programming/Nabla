@@ -612,7 +612,13 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
-        inline asset::IGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
+
+        inline asset::IGLSLCompiler* getGLSLCompiler() const 
+        {
+            if (m_api)
+                return m_api->getGLSLCompiler();
+            return nullptr;
+        }
 
         virtual IDebugCallback* getDebugCallback() = 0;
 
@@ -624,7 +630,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
     protected:
-        IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
+        IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api);
 
         virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) = 0;
 
@@ -690,7 +696,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 maxSubgroupSize = 64u;
             }
         }
-
+        
+        IAPIConnection* m_api; // dumb pointer to avoid circ ref
         core::smart_refctd_ptr<system::ISystem> m_system;
         core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 

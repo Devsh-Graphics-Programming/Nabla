@@ -28,9 +28,9 @@ class IOpenGLPhysicalDeviceBase : public IPhysicalDevice
 
 		IOpenGLPhysicalDeviceBase(
 			core::smart_refctd_ptr<system::ISystem>&& s,
-			core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
+			IAPIConnection* api,
 			egl::CEGL&& _egl
-		) : IPhysicalDevice(std::move(s),std::move(glslc)), m_egl(std::move(_egl))
+		) : IPhysicalDevice(std::move(s), api), m_egl(std::move(_egl))
 		{}
 	
 		const egl::CEGL& getInternalObject() const {return m_egl;}
@@ -186,7 +186,7 @@ protected:
 
 public:
 	IOpenGL_PhysicalDeviceBase(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
-		: IOpenGLPhysicalDeviceBase(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(s.get()),std::move(_egl)), m_api(api), m_rdoc_api(rdoc), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
+		: IOpenGLPhysicalDeviceBase(std::move(s), api, std::move(_egl)), m_rdoc_api(rdoc), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
 	{
 		// OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
 		SQueueFamilyProperties qprops;
@@ -837,7 +837,7 @@ public:
 				m_features.rasterizationOrderStencilAttachmentAccess = true;
 			}
 
-            m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
+			m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
 
 			// TODO: move this to IPhysicalDevice::SFeatures
 			const bool runningInRenderDoc = (m_rdoc_api != nullptr);
@@ -1368,7 +1368,6 @@ public:
 	}
 
 protected:
-	IAPIConnection* m_api; // dumb pointer to avoid circ ref
 	renderdoc_api_t* m_rdoc_api;
 	COpenGLDebugCallback m_dbgCb;
 

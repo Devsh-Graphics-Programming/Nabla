@@ -7,6 +7,7 @@
 #include "nbl/video/debug/IDebugCallback.h"
 #include "nbl/video/utilities/renderdoc.h"
 #include "nbl/video/ECommonEnums.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
 
 namespace nbl::video
 {
@@ -41,15 +42,18 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         virtual IDebugCallback* getDebugCallback() const = 0;
 
         core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
-        
+
         const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; };
 
+        inline asset::IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
+
     protected:
-        IAPIConnection(const SFeatures& enabledFeatures);
+        IAPIConnection(const SFeatures& enabledFeatures, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
 
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
         renderdoc_api_t* m_rdoc_api;
         SFeatures m_enabledFeatures = {};
+        core::smart_refctd_ptr<asset::IGLSLCompiler> m_glslCompiler;
 };
 
 }

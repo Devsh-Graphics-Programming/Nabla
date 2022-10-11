@@ -239,16 +239,14 @@ namespace nbl::video
                 return nullptr;
         }
 
-        CVulkanConnection* apiRaw = new CVulkanConnection(vk_instance, enabledFeatures, std::move(debugCallback), vk_debugMessenger);
+        CVulkanConnection* apiRaw = new CVulkanConnection(vk_instance, enabledFeatures, core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()), std::move(debugCallback), vk_debugMessenger);
         core::smart_refctd_ptr<CVulkanConnection> api(apiRaw, core::dont_grab);
         auto& physicalDevices = api->m_physicalDevices;
         physicalDevices.reserve(physicalDeviceCount);
         for (uint32_t i = 0u; i < physicalDeviceCount; ++i)
         {
             physicalDevices.emplace_back(std::make_unique<CVulkanPhysicalDevice>(
-                core::smart_refctd_ptr(sys),
-                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()),
-                api.get(), api->m_rdoc_api, vk_physicalDevices[i], vk_instance, instanceApiVersion));
+                core::smart_refctd_ptr(sys), api.get(), api->m_rdoc_api, vk_physicalDevices[i], vk_instance, instanceApiVersion));
 
         }
 
@@ -258,9 +256,10 @@ namespace nbl::video
     CVulkanConnection::CVulkanConnection(
         VkInstance instance,
         const SFeatures& enabledFeatures,
+        core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
         std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger)
-        : IAPIConnection(enabledFeatures)
+        : IAPIConnection(enabledFeatures, std::move(glslc))
         , m_vkInstance(instance)
         , m_debugCallback(std::move(debugCallback))
         , m_vkDebugUtilsMessengerEXT(vk_debugMessenger)
