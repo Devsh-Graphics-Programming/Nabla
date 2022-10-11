@@ -1356,23 +1356,6 @@ public:
 			m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
 		}
 
-		std::ostringstream pool;
-		addCommonGLSLDefines(pool,m_glfeatures.runningInRenderDoc);
-		{
-			std::string define;
-			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
-			{
-				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
-				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
-				{
-					define = "NBL_GLSL_IMPL_";
-					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
-					addGLSLDefineToPool(pool,define.c_str());
-				}
-			}
-		}
-		finalizeGLSLDefinePool(std::move(pool));
-
 		// we dont need this context any more
 		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		m_egl.call.peglDestroyContext(m_egl.display, ctx);

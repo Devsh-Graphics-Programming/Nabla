@@ -1240,10 +1240,6 @@ public:
             m_bufferUsages[format].storageBufferViewAtomic = (bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT) ? 1 : 0;
             m_bufferUsages[format].accelerationStructureVertex = (bufferFeatures & VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR) ? 1 : 0;
         }
-        std::ostringstream pool;
-        bool runningRDoc = (m_rdoc_api != nullptr);
-        addCommonGLSLDefines(pool,runningRDoc);
-        finalizeGLSLDefinePool(std::move(pool));
     }
             
     inline VkPhysicalDevice getInternalObject() const { return m_vkPhysicalDevice; }

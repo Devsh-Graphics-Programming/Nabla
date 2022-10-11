@@ -498,6 +498,13 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;
+        
+        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
+        inline core::SRange<const char* const> getExtraGLSLDefines() const
+        {
+            const char* const* begin = m_extraGLSLDefines.data();
+            return {begin,begin+m_extraGLSLDefines.size()};
+        }
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
@@ -576,6 +583,38 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         ) = 0;
         virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
         virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+        
+        void addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderDoc);
+
+        template<typename... Args>
+        inline void addGLSLDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
+        {
+            const ptrdiff_t pos = pool.tellp();
+            m_extraGLSLDefines.push_back(reinterpret_cast<const char*>(pos));
+            pool << define << " ";
+            ((pool << std::forward<Args>(args)), ...);
+        }
+        inline void finalizeGLSLDefinePool(std::ostringstream&& pool)
+        {
+            m_GLSLDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraGLSLDefines.size());
+            const auto data = ptrdiff_t(m_GLSLDefineStringPool.data());
+
+            const auto str = pool.str();
+            size_t nullCharsWritten = 0u;
+            for (auto i=0u; i<m_extraGLSLDefines.size(); i++)
+            {
+                auto& dst = m_extraGLSLDefines[i];
+                const auto len = (i!=(m_extraGLSLDefines.size()-1u) ? ptrdiff_t(m_extraGLSLDefines[i+1]):str.length())-ptrdiff_t(dst);
+                const char* src = str.data()+ptrdiff_t(dst);
+                dst += data+(nullCharsWritten++);
+                memcpy(const_cast<char*>(dst),src,len);
+                const_cast<char*>(dst)[len] = 0;
+            }
+        }
+
+        core::vector<char> m_GLSLDefineStringPool;
+        core::vector<const char*> m_extraGLSLDefines;
+
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
         SPhysicalDeviceFeatures m_enabledFeatures;

@@ -68,6 +68,11 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
             }
         }
+        
+        std::ostringstream pool;
+        bool runningInRenderdoc = (rdoc != nullptr);
+        addCommonGLSLDefines(pool,runningInRenderdoc);
+        finalizeGLSLDefinePool(std::move(pool));
 
         m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
     }
@@ -520,7 +525,7 @@ public:
             const char* end = begin + source->getSize();
 
             std::string glsl(begin, end);
-            asset::IShader::insertDefines(glsl, m_physicalDevice->getExtraGLSLDefines());
+            asset::IShader::insertDefines(glsl, getExtraGLSLDefines());
 
             auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
 

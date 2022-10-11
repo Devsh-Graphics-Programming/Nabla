@@ -579,13 +579,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             );
         }
 
-        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
-        inline core::SRange<const char* const> getExtraGLSLDefines() const
-        {
-            const char* const* begin = m_extraGLSLDefines.data();
-            return {begin,begin+m_extraGLSLDefines.size()};
-        }
-
         template<typename FORMAT_USAGE>
         struct FormatPromotionRequest
         {
@@ -637,35 +630,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
 
-        void addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderDoc);
-
-        template<typename... Args>
-        inline void addGLSLDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
-        {
-            const ptrdiff_t pos = pool.tellp();
-            m_extraGLSLDefines.push_back(reinterpret_cast<const char*>(pos));
-            pool << define << " ";
-            ((pool << std::forward<Args>(args)), ...);
-        }
-        inline void finalizeGLSLDefinePool(std::ostringstream&& pool)
-        {
-            m_GLSLDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraGLSLDefines.size());
-            const auto data = ptrdiff_t(m_GLSLDefineStringPool.data());
-
-            const auto str = pool.str();
-            size_t nullCharsWritten = 0u;
-            for (auto i=0u; i<m_extraGLSLDefines.size(); i++)
-            {
-                auto& dst = m_extraGLSLDefines[i];
-                const auto len = (i!=(m_extraGLSLDefines.size()-1u) ? ptrdiff_t(m_extraGLSLDefines[i+1]):str.length())-ptrdiff_t(dst);
-                const char* src = str.data()+ptrdiff_t(dst);
-                dst += data+(nullCharsWritten++);
-                memcpy(const_cast<char*>(dst),src,len);
-                const_cast<char*>(dst)[len] = 0;
-            }
-        }
-
-        
         static inline uint32_t getMaxInvocationsPerComputeUnitsFromDriverID(E_DRIVER_ID driverID)
         {
             const bool isIntelGPU = (driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
@@ -740,9 +704,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         SFormatImageUsages m_linearTilingUsages = {};
         SFormatImageUsages m_optimalTilingUsages = {};
         SFormatBufferUsages m_bufferUsages = {};
-
-        core::vector<char> m_GLSLDefineStringPool;
-        core::vector<const char*> m_extraGLSLDefines;
 
         typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>::equal_to> format_buffer_cache_t;
         typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>::equal_to> format_image_cache_t;
