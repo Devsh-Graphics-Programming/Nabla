@@ -81,6 +81,50 @@ enum E_DESCRIPTOR_TYPE : uint32_t
 template<typename SamplerType>
 class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 {
+	struct SBindingRedirect
+	{
+		static constexpr inline uint32_t Invalid = ~0u;
+
+		SBindingRedirect() : bindings(nullptr), offsets(nullptr), count(0ull) {}
+
+		SBindingRedirect(const size_t _count) : count(_count)
+		{
+			bindings = std::make_unique<uint32_t[]>(count << 1);
+			offsets = bindings.get() + count;
+		}
+
+		// For a given binding number `binding` in `bindings`, return its offset in `offsets`.
+		inline uint32_t operator[](const uint32_t binding) const
+		{
+			const uint32_t index = searchForBinding(binding);
+			if (index == Invalid)
+				return Invalid;
+
+			return offsets[index];
+		}
+
+		// Returns index into the `bindings` and `offsets` array for the given binding number `binding.
+		// Assumes `bindings` is sorted.
+		inline uint32_t searchForBinding(const uint32_t binding) const
+		{
+			if (!bindings || !offsets || (count == 0ull))
+				return Invalid;
+
+			auto found = std::lower_bound(bindings.get(), bindings.get() + count, binding);
+
+			if ((found >= bindings.get() + count) || (*found != binding))
+				return Invalid;
+
+			const uint32_t foundIndex = found - bindings.get();
+			assert(foundIndex < count);
+			return foundIndex;
+		}
+
+		std::unique_ptr<uint32_t[]> bindings;
+		uint32_t* offsets;
+		size_t count;
+	};
+
 	public:
 		using sampler_type = SamplerType;
 
@@ -167,6 +211,46 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 		IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : 
 			m_bindings((_end-_begin) ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin) : nullptr)
 		{
+			struct SBindingRedirectBuildInfo
+			{
+				uint32_t binding;
+				uint32_t count;
+
+				inline bool operator< (const SBindingRedirectBuildInfo& other) const { return binding < other.binding; }
+			};
+
+			core::vector<SBindingRedirectBuildInfo> buildInfo[asset::EDT_COUNT];
+			// TODO(achal): One for samplers
+
+			for (auto b = _begin; b != _end; ++b)
+			{
+				buildInfo[b->type].emplace_back(b->binding, b->count);
+				// TODO(achal): One for samplers
+			}
+
+			for (auto type = 0u; type < asset::EDT_COUNT; ++type)
+			{
+				m_redirects[type] = SBindingRedirect(buildInfo[type].size());
+			}
+
+			auto buildRedirect = [](SBindingRedirect& redirect, core::vector<SBindingRedirectBuildInfo>& info)
+			{
+				std::sort(info.begin(), info.end());
+
+				for (size_t i = 0u; i < info.size(); ++i)
+				{
+					redirect.bindings[i] = info[i].binding;
+					redirect.offsets[i] = info[i].count;
+				}
+
+				std::exclusive_scan(redirect.offsets, redirect.offsets + info.size(), redirect.offsets, 0u);
+			};
+
+			for (auto type = 0u; type < asset::EDT_COUNT; ++type)
+				buildRedirect(m_redirects[type], buildInfo[type]);
+
+
+
 			size_t bndCount = _end-_begin;
 			size_t immSamplerCount = 0ull;
 			for (size_t i = 0ull; i < bndCount; ++i)
@@ -247,6 +331,12 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 		inline size_t getTotalDescriptorCount(const E_DESCRIPTOR_TYPE type) const { return m_descriptorCount[type]; }
 
 		core::SRange<const SBinding> getBindings() const { return {m_bindings->data(), m_bindings->data()+m_bindings->size()}; }
+
+	// TODO(achal): protected:
+	public:
+		// Maps a binding number to a local (to descriptor set layout) offset, for a given descriptor type.
+		SBindingRedirect m_redirects[asset::EDT_COUNT];
+		// TODO(achal): One for samplers
 
 	private:
 		size_t m_mutableSamplerCount = 0ull;

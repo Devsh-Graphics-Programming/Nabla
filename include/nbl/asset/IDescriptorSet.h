@@ -206,6 +206,7 @@ class NBL_API IEmulatedDescriptorSet
 
 			auto bindings = _layout->getBindings();
 
+			// TODO(achal): We don't want this sparse shit.
             auto lastBnd = std::max_element(bindings.begin(), bindings.end(), max_bnd_cmp);
 
 			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(lastBnd->binding+1u);
@@ -266,7 +267,7 @@ class NBL_API IEmulatedDescriptorSet
 		};
 
 		static_assert(sizeof(SBindingInfo)==8ull, "Why is the enum not uint32_t sized!?");
-		// This needs to be split into multiple arrays based on type then I wouldn't need SBindingInfo::descriptorType
+
 		core::smart_refctd_dynamic_array<SBindingInfo> m_bindingInfo;
 		core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> m_descriptors;
 };
