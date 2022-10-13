@@ -253,29 +253,57 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 			m_revision++;
 		}
-		inline void copyDescriptorSet(const SCopyDescriptorSet& _copy)
+		inline void copyDescriptorSet(const SCopyDescriptorSet& copy)
 		{
-			assert(_copy.dstSet==static_cast<decltype(_copy.dstSet)>(this));
-			assert(_copy.srcSet);
-			const auto* srcGLSet = static_cast<const COpenGLDescriptorSet*>(_copy.srcSet);
-			assert(m_bindingInfo && srcGLSet->m_bindingInfo);
+			assert(copy.dstSet==static_cast<decltype(copy.dstSet)>(this));
+			const auto* dstGLSet = static_cast<const COpenGLDescriptorSet*>(copy.dstSet);
 
-			assert(_copy.srcBinding<srcGLSet->m_bindingInfo->size());
-			assert(_copy.dstBinding<m_bindingInfo->size());
-			assert(_copy.srcArrayElement+_copy.count<=srcGLSet->m_descriptorInfos->size());
-			assert(_copy.dstArrayElement+_copy.count<=m_descriptorInfos->size());
+			assert(copy.srcSet);
+			const auto* srcGLSet = static_cast<const COpenGLDescriptorSet*>(copy.srcSet);
+
+			assert(copy.srcArrayElement+copy.count<=srcGLSet->m_descriptorInfos->size());
+			assert(copy.dstArrayElement+copy.count<=m_descriptorInfos->size());
+
+			asset::E_DESCRIPTOR_TYPE type = asset::EDT_COUNT;
+			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+			{
+				const auto& redirect = srcGLSet->m_layout->m_redirects[t];
+				const auto found = redirect.searchForBinding(copy.srcBinding);
+				if (found != redirect.Invalid)
+				{
+					type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+					break;
+				}
+			}
+			assert(type != asset::EDT_COUNT);
+
 			// The type of dstBinding within dstSet must be equal to the type of srcBinding within srcSet
-			const auto type = srcGLSet->m_bindingInfo->operator[](_copy.srcBinding).descriptorType;
-			assert(type==m_bindingInfo->operator[](_copy.dstBinding).descriptorType);
+#ifdef _NBL_DEBUG
+			asset::E_DESCRIPTOR_TYPE dstType = asset::EDT_COUNT;
+			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+			{
+				const auto& redirect = dstGLSet->m_layout->m_redirects[t];
+				const auto found = redirect.searchForBinding(copy.dstBinding);
+				if (found != redirect.Invalid)
+				{
+					dstType = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+					break;
+				}
+			}
+			assert((dstType != asset::EDT_COUNT) && (dstType == type));
+#endif
 			
-			const auto* input = srcGLSet->getDescriptorInfos(_copy.srcBinding)+_copy.srcArrayElement;
-			auto* output = getDescriptorInfos(_copy.dstBinding)+_copy.dstArrayElement;
+			const auto* input = srcGLSet->getDescriptorInfos(copy.srcBinding)+copy.srcArrayElement;
+			auto* output = getDescriptorInfos(copy.dstBinding)+copy.dstArrayElement;
+
 			// If srcSet is equal to dstSet, then the source and destination ranges of descriptors must not overlap
 			if (this==srcGLSet)
-				assert(input+_copy.count<=output||output+_copy.count<=input);
-			for (uint32_t i=0u; i<_copy.count; i++,input++,output++)
+				assert(input+copy.count<=output||output+copy.count<=input);
+
+			for (uint32_t i=0u; i<copy.count; i++,input++,output++)
 			{
-				#ifdef _NBL_DEBUG
+				// TODO(achal): Do we need any DEBUG code here?
+				#if 0 // #ifdef _NBL_DEBUG
 					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptorInfos->begin());
 					auto foundOut = getBindingInfo(output-m_descriptorInfos->begin());
 					assert(foundIn->descriptorType==foundOut->descriptorType);
@@ -287,12 +315,12 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					//assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
 				#endif
 				*output = *input;
-				uint32_t localIx = _copy.dstArrayElement+i;
+				uint32_t localIx = copy.dstArrayElement+i;
 
-				const auto index = m_layout->m_redirects[type].searchForBinding(_copy.dstBinding);
+				const auto index = m_layout->m_redirects[type].searchForBinding(copy.dstBinding);
 				assert(index != m_layout->m_redirects[type].Invalid && "This binding doesn't exist in the set!");
 
-				updateMultibindParams(type,*output,m_flatOffsets->operator[](index)+localIx,_copy.dstBinding,localIx);
+				updateMultibindParams(type,*output,m_flatOffsets->operator[](index)+localIx,copy.dstBinding,localIx);
 			}
 
 			m_revision++;
@@ -317,7 +345,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 	protected:
 		inline SDescriptorInfo* getDescriptorInfos(uint32_t index) 
-		{ 
+		{
+			// TODO(achal): This is most likely incorrect because index no longer corresponds to the binding number anymore, same for the method below.
 			const auto& info = m_bindingInfo->operator[](index);
 			return m_descriptorInfos->begin()+info.offset;
 		}
