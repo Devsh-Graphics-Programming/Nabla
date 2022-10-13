@@ -129,8 +129,8 @@ static GLenum ESS2GLenum(asset::IShader::E_SHADER_STAGE _stage)
     switch (_stage)
     {
 		case asset::IShader::ESS_VERTEX: return GL_VERTEX_SHADER;
-		case asset::IShader::ESS_TESSELATION_CONTROL: return GL_TESS_CONTROL_SHADER;
-		case asset::IShader::ESS_TESSELATION_EVALUATION: return GL_TESS_EVALUATION_SHADER;
+		case asset::IShader::ESS_TESSELLATION_CONTROL: return GL_TESS_CONTROL_SHADER;
+		case asset::IShader::ESS_TESSELLATION_EVALUATION: return GL_TESS_EVALUATION_SHADER;
 		case asset::IShader::ESS_GEOMETRY: return GL_GEOMETRY_SHADER;
 		case asset::IShader::ESS_FRAGMENT: return GL_FRAGMENT_SHADER;
 		case asset::IShader::ESS_COMPUTE: return GL_COMPUTE_SHADER;

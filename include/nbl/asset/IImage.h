@@ -62,6 +62,7 @@ class NBL_API IImage : public IDescriptor
 	public:
 		enum E_ASPECT_FLAGS : uint16_t
 		{
+			EAF_NONE				= 0u,
 			EAF_COLOR_BIT			= 0x1u << 0u,
 			EAF_DEPTH_BIT			= 0x1u << 1u,
 			EAF_STENCIL_BIT			= 0x1u << 2u,
@@ -122,7 +123,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		enum E_USAGE_FLAGS : uint16_t
 		{
-            EUF_NONE = 0x00000000,
+			EUF_NONE = 0x00000000,
 			EUF_TRANSFER_SRC_BIT = 0x00000001,
 			EUF_TRANSFER_DST_BIT = 0x00000002,
 			EUF_SAMPLED_BIT = 0x00000004,
@@ -136,7 +137,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceRange
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u);
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		baseMipLevel = 0u;
 			uint32_t		levelCount = 0u;
 			uint32_t		baseArrayLayer = 0u;
@@ -144,7 +145,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceLayers
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u);
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		mipLevel = 0u;
 			uint32_t		baseArrayLayer = 0u;
 			uint32_t		layerCount = 0u;
@@ -157,7 +158,7 @@ class NBL_API IImage : public IDescriptor
 			{
 				// TODO: more complex check of compatible aspects
 				// Image Extent must be a mutiple of texel block dims OR offset + extent = image subresourceDims
- 				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
+				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
 				// If planar subresource aspectMask should be PLANE_{0,1,2}
 				if (false)
 					return false;
@@ -538,7 +539,7 @@ class NBL_API IImage : public IDescriptor
 			EL_SHADING_RATE_OPTIMAL_NV = 1000164003,
 			EL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
 		};
-    protected:
+	protected:
 		IImage(const SCreationParams& _params) : m_creationParams(_params), info(_params.format) {}
 
 		virtual ~IImage() {}

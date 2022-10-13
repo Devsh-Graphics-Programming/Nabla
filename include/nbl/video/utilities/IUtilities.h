@@ -189,7 +189,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             // Todo: Remove this API check once OpenGL(ES) does its format usage reporting correctly
             if (srcBuffer->getAPIType() == EAT_VULKAN)
             {
-                const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(params.format);
+                const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[params.format];
                 if (!formatUsages.transferDst)
                     return nullptr;
             }
@@ -210,7 +210,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
 
             IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
-            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.srcAccessMask = asset::EAF_NONE;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
             barrier.oldLayout = asset::IImage::EL_UNDEFINED;
             barrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
@@ -298,12 +298,12 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 const auto validateFormatFeature = [&params, physicalDevice](const auto format, const auto reqFormatUsages) -> bool
                 {
                     if (params.tiling == IGPUImage::ET_OPTIMAL)
-                        return (physicalDevice->getImageFormatUsagesOptimal(params.format) & reqFormatUsages) == reqFormatUsages;
+                        return (physicalDevice->getImageFormatUsagesOptimalTiling()[params.format] & reqFormatUsages) == reqFormatUsages;
                     else
-                        return (physicalDevice->getImageFormatUsagesLinear(params.format) & reqFormatUsages) == reqFormatUsages;
+                        return (physicalDevice->getImageFormatUsagesLinearTiling()[params.format] & reqFormatUsages) == reqFormatUsages;
                 };
 
-                IPhysicalDevice::SFormatImageUsage requiredFormatUsage = {};
+                IPhysicalDevice::SFormatImageUsages::SUsage requiredFormatUsage = {};
                 requiredFormatUsage.transferSrc = 1;
                 if (!validateFormatFeature(srcImage->getCreationParameters().format, requiredFormatUsage))
                     return nullptr;
@@ -330,7 +330,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
             assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
 
             IGPUCommandBuffer::SImageMemoryBarrier barrier = {};
-            barrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
+            barrier.barrier.srcAccessMask = asset::EAF_NONE;
             barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
             barrier.oldLayout = asset::IImage::EL_UNDEFINED;
             barrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;

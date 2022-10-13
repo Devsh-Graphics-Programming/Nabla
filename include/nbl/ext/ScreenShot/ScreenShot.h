@@ -93,7 +93,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::IImage::EL_TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
 
 		barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
-		barrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+		barrier.barrier.dstAccessMask = asset::EAF_NONE;
 		barrier.oldLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = imageLayout;
 		gpuCommandBuffer->pipelineBarrier(
