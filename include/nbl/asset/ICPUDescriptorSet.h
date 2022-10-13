@@ -40,7 +40,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 
 		inline size_t conservativeSizeEstimate() const override
 		{
-			return sizeof(void*)+m_descriptors->size()*sizeof(SDescriptorInfo)+m_bindingInfo->size()*sizeof(impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>::SBindingInfo);
+			return sizeof(void*)+m_descriptorInfos->size()*sizeof(SDescriptorInfo)+m_bindingInfo->size()*sizeof(impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>::SBindingInfo);
 		}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
@@ -108,7 +108,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			{
                 --referenceLevelsBelowToConvert;
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
-				for (auto it=m_descriptors->begin(); it!=m_descriptors->end(); it++)
+				for (auto it=m_descriptorInfos->begin(); it!=m_descriptorInfos->end(); it++)
 				{
 					auto descriptor = it->desc.get();
 					if (!descriptor)
@@ -166,11 +166,11 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			if (m_bindingInfo && index<m_bindingInfo->size())
 			{
 				const auto& info = m_bindingInfo->operator[](index);
-				auto _begin = m_descriptors->begin()+info.offset;
+				auto _begin = m_descriptorInfos->begin()+info.offset;
 				if (index+1u!=m_bindingInfo->size())
-					return core::SRange<SDescriptorInfo>{_begin, m_descriptors->begin()+m_bindingInfo->operator[](index+1u).offset};
+					return core::SRange<SDescriptorInfo>{_begin, m_descriptorInfos->begin()+m_bindingInfo->operator[](index+1u).offset};
 				else
-					return core::SRange<SDescriptorInfo>{_begin, m_descriptors->end()};
+					return core::SRange<SDescriptorInfo>{_begin, m_descriptorInfos->end()};
 			}
 			else
 				return core::SRange<SDescriptorInfo>{nullptr, nullptr};
@@ -180,11 +180,11 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			if (m_bindingInfo && index<m_bindingInfo->size())
 			{
 				const auto& info = m_bindingInfo->operator[](index);
-				auto _begin = m_descriptors->begin()+info.offset;
+				auto _begin = m_descriptorInfos->begin()+info.offset;
 				if (index+1u!=m_bindingInfo->size())
-					return core::SRange<const SDescriptorInfo>{_begin, m_descriptors->begin()+m_bindingInfo->operator[](index+1u).offset};
+					return core::SRange<const SDescriptorInfo>{_begin, m_descriptorInfos->begin()+m_bindingInfo->operator[](index+1u).offset};
 				else
-					return core::SRange<const SDescriptorInfo>{_begin, m_descriptors->end()};
+					return core::SRange<const SDescriptorInfo>{_begin, m_descriptorInfos->end()};
 			}
 			else
 				return core::SRange<const SDescriptorInfo>{nullptr, nullptr};
@@ -192,7 +192,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 
 		inline auto getTotalDescriptorCount() const
 		{
-			return m_descriptors->size();
+			return m_descriptorInfos->size();
 		}
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
@@ -210,13 +210,13 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			{
 				--_levelsBelow;
 				restoreFromDummy_impl_call(m_layout.get(), other->getLayout(), _levelsBelow);
-				for (auto it = m_descriptors->begin(); it != m_descriptors->end(); it++)
+				for (auto it = m_descriptorInfos->begin(); it != m_descriptorInfos->end(); it++)
 				{
 					auto descriptor = it->desc.get();
 					if (!descriptor)
 						continue;
-					const auto i = it - m_descriptors->begin();
-					auto* d_other = other->m_descriptors->begin()[i].desc.get();
+					const auto i = it - m_descriptorInfos->begin();
+					auto* d_other = other->m_descriptorInfos->begin()[i].desc.get();
 
 					switch (descriptor->getTypeCategory())
 					{
@@ -226,7 +226,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 					case IDescriptor::EC_IMAGE:
 						restoreFromDummy_impl_call(static_cast<ICPUImageView*>(descriptor), static_cast<ICPUImageView*>(d_other), _levelsBelow);
 						if (descriptor->getTypeCategory() == IDescriptor::EC_IMAGE && it->image.sampler)
-							restoreFromDummy_impl_call(it->image.sampler.get(), other->m_descriptors->begin()[i].image.sampler.get(), _levelsBelow);
+							restoreFromDummy_impl_call(it->image.sampler.get(), other->m_descriptorInfos->begin()[i].image.sampler.get(), _levelsBelow);
 						break;
 					case IDescriptor::EC_BUFFER_VIEW:
 						restoreFromDummy_impl_call(static_cast<ICPUBufferView*>(descriptor), static_cast<ICPUBufferView*>(d_other), _levelsBelow);
@@ -241,7 +241,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			--_levelsBelow;
 			if (m_layout->isAnyDependencyDummy(_levelsBelow))
 				return true;
-			for (auto it = m_descriptors->begin(); it != m_descriptors->end(); it++)
+			for (auto it = m_descriptorInfos->begin(); it != m_descriptorInfos->end(); it++)
 			{
 				auto descriptor = it->desc.get();
 				if (!descriptor)

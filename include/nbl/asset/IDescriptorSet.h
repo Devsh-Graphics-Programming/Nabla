@@ -213,7 +213,6 @@ class NBL_API IEmulatedDescriptorSet
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
 				*it = {~0u,EDT_COUNT};
 			
-			auto outInfo = m_bindingInfo->begin();
 			uint32_t descriptorCount = 0u;
 			uint32_t prevBinding = 0;
 			// set up the offsets of specified bindings and determine descriptor count
@@ -230,7 +229,8 @@ class NBL_API IEmulatedDescriptorSet
 
 			uint32_t offset = descriptorCount;
 			
-			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
+			m_descriptorInfos = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
+
 			// set up all offsets, reverse iteration important because "it is for filling gaps with offset of next binding"
 			// TODO: rewrite this whole constructor to initialize the `SBindingOffset::offset` to 0 and simply use `std::exclusive_scan` to set it all up
 			for (auto it=m_bindingInfo->end()-1; it!=m_bindingInfo->begin()-1; it--)
@@ -263,13 +263,13 @@ class NBL_API IEmulatedDescriptorSet
 			}
 
 			uint32_t offset;
-			E_DESCRIPTOR_TYPE descriptorType = EDT_COUNT;//whatever, default value
+			E_DESCRIPTOR_TYPE descriptorType = EDT_COUNT; //whatever, default value
 		};
 
 		static_assert(sizeof(SBindingInfo)==8ull, "Why is the enum not uint32_t sized!?");
 
 		core::smart_refctd_dynamic_array<SBindingInfo> m_bindingInfo;
-		core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> m_descriptors;
+		core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> m_descriptorInfos;
 };
 
 }
