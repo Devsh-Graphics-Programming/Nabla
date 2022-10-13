@@ -1194,6 +1194,11 @@ struct SPhysicalDeviceFeatures
     }
 };
 
-} // nbl::video
+template<typename T>
+concept DeviceFeatureDependantClass = requires(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& features) { 
+    T::enableRequiredFeautres(features);
+    T::enablePreferredFeatures(availableFeatures, features);
+};
 
+} // nbl::video
 #endif

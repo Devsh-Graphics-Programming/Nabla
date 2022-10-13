@@ -18,6 +18,17 @@ namespace nbl::video
 class NBL_API CSubpassKiln
 {
     public:
+
+        static void enableRequiredFeautres(SPhysicalDeviceFeatures& featuresToEnable)
+        {
+        }
+
+        static void enablePreferredFeatures(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& featuresToEnable)
+        {
+            featuresToEnable.multiDrawIndirect = availableFeatures.multiDrawIndirect;
+            featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
+        }
+
         // for finding upper and lower bounds of subpass drawcalls
         struct SearchObject
         {
