@@ -1077,7 +1077,7 @@ protected:
             vkDescSetLayoutBinding.binding = binding->binding;
             vkDescSetLayoutBinding.descriptorType = static_cast<VkDescriptorType>(binding->type);
             vkDescSetLayoutBinding.descriptorCount = binding->count;
-            vkDescSetLayoutBinding.stageFlags = static_cast<VkShaderStageFlags>(binding->stageFlags);
+            vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding->stageFlags);
             vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
             if (binding->type==asset::ESRT_SAMPLED_IMAGE && binding->samplers && binding->count > 0u)
@@ -1157,7 +1157,7 @@ protected:
         {
             const auto pcRange = _pcRangesBegin + i;
 
-            vk_pushConstantRanges[i].stageFlags = static_cast<VkShaderStageFlags>(pcRange->stageFlags);
+            vk_pushConstantRanges[i].stageFlags = getVkShaderStageFlagsFromShaderStage(pcRange->stageFlags);
             vk_pushConstantRanges[i].offset = pcRange->offset;
             vk_pushConstantRanges[i].size = pcRange->size;
         }

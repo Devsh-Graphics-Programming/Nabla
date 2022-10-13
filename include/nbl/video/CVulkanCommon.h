@@ -336,6 +336,28 @@ static inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPres
     }
 }
 
+static inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
+{
+    VkShaderStageFlags ret = 0u;
+    if(in.hasFlags(asset::IShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(in.hasFlags(asset::IShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(in.hasFlags(asset::IShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(in.hasFlags(asset::IShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(in.hasFlags(asset::IShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    return ret;
+}
+
 static inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
 {
     switch (in)

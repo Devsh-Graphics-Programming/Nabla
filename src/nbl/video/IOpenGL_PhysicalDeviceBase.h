@@ -1222,9 +1222,9 @@ public:
 				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
 					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
 				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELLATION_CONTROL;
 				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELLATION_EVALUATION;
 				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
 					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
 				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
