@@ -167,8 +167,8 @@ struct SOpenGLState
         SVAO vaoval;
 
         //putting it here because idk where else
-        const COpenGLBuffer* indirectDrawBuf;
-        const COpenGLBuffer* parameterBuf;//GL>=4.6
+        const COpenGLBuffer* indirectDrawBuf = nullptr;
+        const COpenGLBuffer* parameterBuf = nullptr;//GL>=4.6
     } vertexInputParams;
 
     struct {

@@ -141,12 +141,6 @@ class COpenGL_Queue final : public IGPUQueue
                 this->start();
             }
 
-            // TODO(achal): Just some debug code. Remove.
-            inline std::thread::id getThreadID()
-            {
-                return this->m_thread.get_id();
-            }
-
             template <typename RequestParams>
             void waitForRequestCompletion(SRequest& req)
             {
@@ -367,12 +361,6 @@ class COpenGL_Queue final : public IGPUQueue
             m_mempool(128u,1u,512u,sizeof(void*)),
             m_ctxid(_ctxid)
         {
-        }
-
-        // TODO(achal): Just some debug code. Remove.
-        inline std::thread::id getUnderlyingThreadID()
-        {
-            return threadHandler.getThreadID();
         }
 
         void waitForInitComplete()
