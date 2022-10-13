@@ -327,19 +327,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			return m_descriptorInfos->begin() + info.offset;
 		}
 
-		// TODO(achal): Remove.
-		inline uint32_t getDescriptorCountAtIndex(uint32_t index) const
-		{
-			const auto& info = m_bindingInfo->operator[](index);
-			if (index + 1u != m_bindingInfo->size())
-			{
-				const auto& info1 = m_bindingInfo->operator[](index + 1u);
-				return info1.offset - info.offset;
-			}
-			else
-				return m_descriptorInfos->size() - info.offset;
-		}
-
 		// TODO(achal):
 		// 1. Why is this protected?
 		// 2. I think I should move it to COpenGLDescriptorSetLayout (or even IDescriptorSetLayout) if other classes want this functionality.
