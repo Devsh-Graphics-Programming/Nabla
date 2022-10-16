@@ -39,7 +39,7 @@ class NBL_API IGPUFence : public core::IReferenceCounted, public IBackendObject
 };
 
 
-class NBL_API GPUEventWrapper : public core::Uncopyable
+class NBL_API2 GPUEventWrapper : public core::Uncopyable
 {
 protected:
     ILogicalDevice* mDevice;
