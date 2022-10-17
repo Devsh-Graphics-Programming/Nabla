@@ -892,9 +892,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             
         auto regions = cpuimg->getRegions();
         _params.utilities->updateImageViaStagingBuffer(
-            cmdbuf_transfer.get(), transfer_fence.get(), _params.perQueue[EQU_TRANSFER].queue,
+            cmdbuf_transfer.get(),
             cpuimg->getBuffer(), cpuimg->getCreationParameters().format, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL, regions,
-            submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask);
+            submit_transfer, _params.perQueue[EQU_TRANSFER].queue, transfer_fence.get());
     };
     auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg, asset::IImage::E_LAYOUT newLayout) -> void
     {

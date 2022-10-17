@@ -5,9 +5,9 @@
 namespace nbl::video
 {
 void IUtilities::updateImageViaStagingBuffer(
-    IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
+    IGPUCommandBuffer* cmdbuf,
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    uint32_t& waitSemaphoreCount, IGPUSemaphore*const * &semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore)
+    IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence)
 {
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
     const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
@@ -17,14 +17,14 @@ void IUtilities::updateImageViaStagingBuffer(
     if(regions.size() == 0)
         return;
     
-    if(cmdbuf == nullptr || fence == nullptr || queue == nullptr || dstImage == nullptr || (srcBuffer == nullptr || srcBuffer->getPointer() == nullptr))
+    if(cmdbuf == nullptr || submissionFence == nullptr || submissionQueue == nullptr || dstImage == nullptr || (srcBuffer == nullptr || srcBuffer->getPointer() == nullptr))
     {
         assert(false);
         return;
     }
 
     assert(cmdbuf->isResettable());
-    assert(cmdpool->getQueueFamilyIndex()==queue->getFamilyIndex());
+    assert(cmdpool->getQueueFamilyIndex()==submissionQueue->getFamilyIndex());
     assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
     if(dstImage->getCreationParameters().samples != asset::IImage::ESCF_1_BIT)
     {
@@ -33,7 +33,7 @@ void IUtilities::updateImageViaStagingBuffer(
     }
 
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
-    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[queue->getFamilyIndex()];
+    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[submissionQueue->getFamilyIndex()];
     auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
     
     assert(dstImage->getCreationParameters().format != asset::EF_UNKNOWN);
@@ -76,24 +76,21 @@ void IUtilities::updateImageViaStagingBuffer(
         {
             // but first sumbit the already buffered up copies
             cmdbuf->end();
-            IGPUQueue::SSubmitInfo submit;
+            IGPUQueue::SSubmitInfo submit = submitInfoBeforeOverwrite;
             submit.commandBufferCount = 1u;
             submit.commandBuffers = &cmdbuf;
             submit.signalSemaphoreCount = 0u;
             submit.pSignalSemaphores = nullptr;
-            assert(!waitSemaphoreCount || semaphoresToWaitBeforeOverwrite && stagesToWaitForPerSemaphore);
-            submit.waitSemaphoreCount = waitSemaphoreCount;
-            submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
-            submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
-            queue->submit(1u, &submit, fence);
-            m_device->blockForFences(1u, &fence);
-            waitSemaphoreCount = 0u;
-            semaphoresToWaitBeforeOverwrite = nullptr;
-            stagesToWaitForPerSemaphore = nullptr;
+            assert(submit.isValid());
+            submissionQueue->submit(1u, &submit, submissionFence);
+            m_device->blockForFences(1u, &submissionFence);
+            submitInfoBeforeOverwrite.waitSemaphoreCount = 0u;
+            submitInfoBeforeOverwrite.pWaitSemaphores = nullptr;
+            submitInfoBeforeOverwrite.pWaitDstStageMask = nullptr;
             // before resetting we need poll all events in the allocator's deferred free list
             m_defaultUploadBuffer->cull_frees();
             // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
-            m_device->resetFences(1u, &fence);
+            m_device->resetFences(1u, &submissionFence);
             cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
             cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             continue;
@@ -135,45 +132,36 @@ void IUtilities::updateImageViaStagingBuffer(
         }
 
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, core::smart_refctd_ptr<IGPUFence>(fence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
+        m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, core::smart_refctd_ptr<IGPUFence>(submissionFence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
     }
 }
 
 void IUtilities::updateImageViaStagingBuffer(
-    IGPUFence* fence, IGPUQueue* queue,
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
-    const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
+    IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence
 )
 {
-    core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+    core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(submissionQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
     core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
     m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
     assert(cmdbuf);
     cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-    updateImageViaStagingBuffer(cmdbuf.get(),fence,queue,srcBuffer,srcFormat,dstImage,dstImageLayout,regions,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore);
+    updateImageViaStagingBuffer(cmdbuf.get(),srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submitInfoBeforeOverwrite,submissionQueue,submissionFence);
     cmdbuf->end();
-    IGPUQueue::SSubmitInfo submit;
+    IGPUQueue::SSubmitInfo submit = submitInfoBeforeOverwrite;
     submit.commandBufferCount = 1u;
     submit.commandBuffers = &cmdbuf.get();
-    submit.signalSemaphoreCount = signalSemaphoreCount;
-    submit.pSignalSemaphores = semaphoresToSignal;
-    assert(!waitSemaphoreCount || semaphoresToWaitBeforeOverwrite && stagesToWaitForPerSemaphore);
-    submit.waitSemaphoreCount = waitSemaphoreCount;
-    submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
-    submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
-    queue->submit(1u,&submit,fence);
+    assert(submitInfoBeforeOverwrite.isValid());
+    submissionQueue->submit(1u,&submit,submissionFence);
 }
 
 void IUtilities::updateImageViaStagingBuffer(
-    IGPUQueue* queue,
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    uint32_t waitSemaphoreCount, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore,
-    const uint32_t signalSemaphoreCount, IGPUSemaphore* const* semaphoresToSignal
+    IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue
 )
 {
     auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBuffer(fence.get(),queue,srcBuffer,srcFormat,dstImage,dstImageLayout,regions,waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,signalSemaphoreCount,semaphoresToSignal);
+    updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submitInfoBeforeOverwrite,submissionQueue,fence.get());
     auto* fenceptr = fence.get();
     m_device->blockForFences(1u,&fenceptr);
 }

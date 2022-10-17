@@ -727,23 +727,19 @@ class NBL_API IUtilities : public core::IReferenceCounted
         // --------------
 
         void updateImageViaStagingBuffer(
-            IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue,
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore);
+            IGPUCommandBuffer* cmdbuf,
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence);
 
         void updateImageViaStagingBuffer(
-            IGPUFence* fence, IGPUQueue* queue,
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence
         );
 
         //! WARNING: This function blocks and stalls the GPU!
         void updateImageViaStagingBuffer(
-            IGPUQueue* queue,
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue
         );
 
     protected:
