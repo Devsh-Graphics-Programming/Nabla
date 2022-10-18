@@ -726,20 +726,14 @@ class NBL_API IUtilities : public core::IReferenceCounted
         // updateImageViaStagingBuffer
         // --------------
 
-        void updateImageViaStagingBuffer(
-            IGPUCommandBuffer* cmdbuf,
+        [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] IGPUQueue::SSubmitInfo updateImageViaStagingBuffer(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence);
-
-        void updateImageViaStagingBuffer(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence
-        );
+            IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence);
 
         //! WARNING: This function blocks and stalls the GPU!
         void updateImageViaStagingBuffer(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue
+            const IGPUQueue::SSubmitInfo& intendedNextSubmit, IGPUQueue* submissionQueue
         );
 
     protected:

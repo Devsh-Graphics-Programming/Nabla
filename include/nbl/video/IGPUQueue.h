@@ -28,13 +28,13 @@ class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
             uint32_t commandBufferCount = 0u;
             IGPUCommandBuffer*const * commandBuffers = nullptr;
 
-            inline bool isValid()
+            inline bool isValid() const
             {
-                if(waitSemaphoreCount > 0u && (pWaitSemaphores == nullptr || pWaitDstStageMask == nullptr))
+                if (waitSemaphoreCount > 0u && (pWaitSemaphores == nullptr || pWaitDstStageMask == nullptr))
                     return false;
-                if(signalSemaphoreCount > 0u && pSignalSemaphores == nullptr)
+                if (signalSemaphoreCount > 0u && pSignalSemaphores == nullptr)
                     return false;
-                if(commandBufferCount > 0u && commandBuffers == nullptr)
+                if (commandBufferCount > 0u && commandBuffers == nullptr)
                     return false;
                 return true;
             }

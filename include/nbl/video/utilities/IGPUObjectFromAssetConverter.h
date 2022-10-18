@@ -891,8 +891,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             1u, &toTransferDst);
             
         auto regions = cpuimg->getRegions();
-        _params.utilities->updateImageViaStagingBuffer(
-            cmdbuf_transfer.get(),
+        submit_transfer = _params.utilities->updateImageViaStagingBuffer(
             cpuimg->getBuffer(), cpuimg->getCreationParameters().format, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL, regions,
             submit_transfer, _params.perQueue[EQU_TRANSFER].queue, transfer_fence.get());
     };

@@ -4,32 +4,52 @@
 
 namespace nbl::video
 {
-void IUtilities::updateImageViaStagingBuffer(
-    IGPUCommandBuffer* cmdbuf,
+IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence)
+    IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence)
 {
-    const auto& limits = m_device->getPhysicalDevice()->getLimits();
-    const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
-
-    auto* cmdpool = cmdbuf->getPool();
-    
-    if(regions.size() == 0)
-        return;
-    
-    if(cmdbuf == nullptr || submissionFence == nullptr || submissionQueue == nullptr || dstImage == nullptr || (srcBuffer == nullptr || srcBuffer->getPointer() == nullptr))
+    if(!intendedNextSubmit.isValid())
     {
+        // TODO: log error
         assert(false);
-        return;
+        return intendedNextSubmit;
     }
 
-    assert(cmdbuf->isResettable());
-    assert(cmdpool->getQueueFamilyIndex()==submissionQueue->getFamilyIndex());
+    bool noCommandBufferInNextSubmit = (intendedNextSubmit.commandBufferCount == 0);
+    if (noCommandBufferInNextSubmit)
+    {
+        core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(submissionQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+        core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+        m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
+        assert(cmdbuf);
+        intendedNextSubmit.commandBufferCount = 1u;
+        intendedNextSubmit.commandBuffers = &cmdbuf.get();
+        cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+    }
+
+    const auto& limits = m_device->getPhysicalDevice()->getLimits();
+    const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
+ 
+    // Use the last command buffer in intendedNextSubmit, it should be in recording state
+    auto cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount-1];
+    assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING && cmdbuf->isResettable());
     assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
-    if(dstImage->getCreationParameters().samples != asset::IImage::ESCF_1_BIT)
+   
+    if (regions.size() == 0)
+        return intendedNextSubmit;
+    
+    if (cmdbuf == nullptr || submissionFence == nullptr || submissionQueue == nullptr || dstImage == nullptr || (srcBuffer == nullptr || srcBuffer->getPointer() == nullptr))
+    {
+        assert(false);
+        return intendedNextSubmit;
+    }
+    
+    auto* cmdpool = cmdbuf->getPool();
+    assert(cmdpool->getQueueFamilyIndex()==submissionQueue->getFamilyIndex());
+    if (dstImage->getCreationParameters().samples != asset::IImage::ESCF_1_BIT)
     {
         _NBL_TODO(); // "Erfan hasn't figured out yet how to copy to multisampled images"
-        return;
+        return intendedNextSubmit;
     }
 
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
@@ -37,7 +57,7 @@ void IUtilities::updateImageViaStagingBuffer(
     auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
     
     assert(dstImage->getCreationParameters().format != asset::EF_UNKNOWN);
-    if(srcFormat == asset::EF_UNKNOWN)
+    if (srcFormat == asset::EF_UNKNOWN)
     {
         // If valid srcFormat is not provided, assume srcBuffer is laid out in memory based on dstImage format
         srcFormat = dstImage->getCreationParameters().format;
@@ -74,19 +94,19 @@ void IUtilities::updateImageViaStagingBuffer(
         // keep trying again
         if (failedAllocation)
         {
-            // but first sumbit the already buffered up copies
+            // but first submit the already buffered up copies and whatever previously recorded into the command buffer
             cmdbuf->end();
-            IGPUQueue::SSubmitInfo submit = submitInfoBeforeOverwrite;
-            submit.commandBufferCount = 1u;
-            submit.commandBuffers = &cmdbuf;
+            IGPUQueue::SSubmitInfo submit = intendedNextSubmit;
             submit.signalSemaphoreCount = 0u;
             submit.pSignalSemaphores = nullptr;
             assert(submit.isValid());
             submissionQueue->submit(1u, &submit, submissionFence);
             m_device->blockForFences(1u, &submissionFence);
-            submitInfoBeforeOverwrite.waitSemaphoreCount = 0u;
-            submitInfoBeforeOverwrite.pWaitSemaphores = nullptr;
-            submitInfoBeforeOverwrite.pWaitDstStageMask = nullptr;
+            intendedNextSubmit.commandBufferCount = 1u;
+            intendedNextSubmit.commandBuffers = &cmdbuf;
+            intendedNextSubmit.waitSemaphoreCount = 0u;
+            intendedNextSubmit.pWaitSemaphores = nullptr;
+            intendedNextSubmit.pWaitDstStageMask = nullptr;
             // before resetting we need poll all events in the allocator's deferred free list
             m_defaultUploadBuffer->cull_frees();
             // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
@@ -108,7 +128,7 @@ void IUtilities::updateImageViaStagingBuffer(
             for (uint32_t d = 0u; d < maxIterations && !regionIterator.isFinished(); ++d)
             {
                 asset::IImage::SBufferCopy nextRegionToCopy = {};
-                if(availableUploadBufferMemory > 0u && regionIterator.advanceAndCopyToStagingBuffer(nextRegionToCopy, availableUploadBufferMemory, currentUploadBufferOffset, m_defaultUploadBuffer->getBufferPointer()))
+                if (availableUploadBufferMemory > 0u && regionIterator.advanceAndCopyToStagingBuffer(nextRegionToCopy, availableUploadBufferMemory, currentUploadBufferOffset, m_defaultUploadBuffer->getBufferPointer()))
                 {
                     anyTransferRecorded = true;
                     regionsToCopy.push_back(nextRegionToCopy);
@@ -117,7 +137,7 @@ void IUtilities::updateImageViaStagingBuffer(
                     break;
             }
 
-            if(!regionsToCopy.empty())
+            if (!regionsToCopy.empty())
             {
                 cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, dstImageLayout, regionsToCopy.size(), regionsToCopy.data());
             }
@@ -134,34 +154,33 @@ void IUtilities::updateImageViaStagingBuffer(
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
         m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, core::smart_refctd_ptr<IGPUFence>(submissionFence), &cmdbuf); // can queue with a reset but not yet pending fence, just fine
     }
+
+    if (noCommandBufferInNextSubmit)
+    {
+        cmdbuf->end();
+        assert(intendedNextSubmit.isValid());
+        submissionQueue->submit(1u,&intendedNextSubmit,submissionFence);
+        intendedNextSubmit.commandBufferCount = 0u;
+        intendedNextSubmit.commandBuffers = nullptr;
+    }
+
+    return intendedNextSubmit;
 }
 
 void IUtilities::updateImageViaStagingBuffer(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue, IGPUFence* submissionFence
+    const IGPUQueue::SSubmitInfo& intendedNextSubmit, IGPUQueue* submissionQueue
 )
 {
-    core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(submissionQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-    core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-    m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&cmdbuf);
-    assert(cmdbuf);
-    cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-    updateImageViaStagingBuffer(cmdbuf.get(),srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submitInfoBeforeOverwrite,submissionQueue,submissionFence);
-    cmdbuf->end();
-    IGPUQueue::SSubmitInfo submit = submitInfoBeforeOverwrite;
-    submit.commandBufferCount = 1u;
-    submit.commandBuffers = &cmdbuf.get();
-    assert(submitInfoBeforeOverwrite.isValid());
-    submissionQueue->submit(1u,&submit,submissionFence);
-}
+    if(!intendedNextSubmit.isValid())
+    {
+        // TODO: log error
+        assert(false);
+        return;
+    }
 
-void IUtilities::updateImageViaStagingBuffer(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue::SSubmitInfo& submitInfoBeforeOverwrite, IGPUQueue* submissionQueue
-)
-{
     auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submitInfoBeforeOverwrite,submissionQueue,fence.get());
+    auto newSubmitInfo = updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,intendedNextSubmit,submissionQueue,fence.get());
     auto* fenceptr = fence.get();
     m_device->blockForFences(1u,&fenceptr);
 }
