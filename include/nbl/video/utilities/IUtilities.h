@@ -768,11 +768,11 @@ class NBL_API IUtilities : public core::IReferenceCounted
             IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence);
         
         //! This function is an specialization of the `updateImageViaStagingBuffer` function above.
-        //! Submission of the commandBuffer to submissionqueue happens automatically, no need for the user to handle submit
+        //! Submission of the commandBuffer to submissionQueue happens automatically, no need for the user to handle submit
         //! Patches the intendedNextSubmit::commandBuffers
         //! If intendedNextSubmit::commandBufferCount == 0, it will create an implicit command buffer to use for recording copy commands
         //! If intendedNextSubmit::commandBufferCount > 0 the last command buffer is in `EXECUTABLE` state, It will add another temporary command buffer to end of the array and use it for recording and submission
-        //! WARNING: If commandBufferCount > 0, Don't expect the last commandBuffer to be in the same state as it was before entering the function, because it needs to be `end()`ed and submitted
+        //! WARNING: If commandBufferCount > 0, The last commandBuffer won't be in the same state as it was before entering the function, because it needs to be `end()`ed and submitted
         //! Valid Usage:
         //!     * If intendedNextSubmit::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
         //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
