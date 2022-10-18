@@ -726,10 +726,44 @@ class NBL_API IUtilities : public core::IReferenceCounted
         // updateImageViaStagingBuffer
         // --------------
 
+        //! Copies `srcBuffer` to stagingBuffer and Records the commands needed to copy the image from stagingBuffer to `dstImage`
+        //! This function may need to submit the command buffer via the `submissionQueue` and then signal
+        //! Returns:
+        //!     IGPUQueue::SSubmitInfo to use for command buffer submission instead of `intendedNextSubmit`. 
+        //!         for example: in the case the `SSubmitInfo::waitSemaphores` were already signalled, the new SSubmitInfo will have it's waitSemaphores emptied from `intendedNextSubmit`.
+        //! Parameters:
+        //!     - srcBuffer: source buffer to copy image from
+        //!     - srcFormat: The image format the `srcBuffer` is laid out in memory.
+        //          In the case that dstImage has a different format this function will make the necessary conversions.
+        //          If `srcFormat` is EF_UNKOWN, it will be assumed to have the same format `dstImage` was created with.
+        //!     - dstImage: destination image to copy image to
+        //!     - dstImageLayout: the image layout of `dstImage` at the point of submission
+        //!     - regions: regions to copy `srcBuffer`
+        //!     - intendedNextSubmit:
+        //!         Is the SubmitInfo you intended to submit your command buffers, behaviour is different with
+        //!         ** If commandBufferCount > 0, the last command buffer will be used to record the copy commands.
+        //!             In this case, Make sure to submit with the new SSubmitInfo returned by this function
+        //!         ** If commandBufferCount == 0 [LAZY USAGE], then this function will submit with an implicit CommandBuffer for you.
+        //!             In this case, Make sure to wait for the `submissionFence` to make sure the copies are done.
+        //!     - submissionQueue: IGPUQueue used to submit, when needed. 
+        //!         Note: This parameter is required but may not be used if there is no need to submit
+        //!     - submissionFence: Fence to signal when submission has finished
+        //! Valid Usage:
+        //!     * srcBuffer must point to a valid ICPUBuffer
+        //!     * srcBuffer->getPointer() must not be nullptr.
+        //!     * dstImage must point to a valid IGPUImage
+        //!     * regions.size() must be > 0u
+        //!     * If SubmitInfo::commandBufferCount > 0, then the commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
+        //!     * If SubmitInfo::commandBufferCount > 0, the last command buffer should be in `RECORDING` state (call begin() before this function)
+        //!     * If SubmitInfo::commandBufferCount > 0, the last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
+        //!     * If SubmitInfo::commandBufferCount > 0, To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
+        //!     * submissionQueue must point to a valid IGPUQueue
+        //!     * submissionFence must point to a valid IGPUFence
         [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] IGPUQueue::SSubmitInfo updateImageViaStagingBuffer(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence);
 
+        //! Specializes the function above: Forces submit and waits for the fence
         //! WARNING: This function blocks and stalls the GPU!
         void updateImageViaStagingBuffer(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
