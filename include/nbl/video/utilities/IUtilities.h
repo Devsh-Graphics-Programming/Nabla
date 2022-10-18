@@ -727,10 +727,11 @@ class NBL_API IUtilities : public core::IReferenceCounted
         // --------------
 
         //! Copies `srcBuffer` to stagingBuffer and Records the commands needed to copy the image from stagingBuffer to `dstImage`
-        //! This function may need to submit the command buffer via the `submissionQueue` and then signal
+        //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
         //! Returns:
         //!     IGPUQueue::SSubmitInfo to use for command buffer submission instead of `intendedNextSubmit`. 
         //!         for example: in the case the `SSubmitInfo::waitSemaphores` were already signalled, the new SSubmitInfo will have it's waitSemaphores emptied from `intendedNextSubmit`.
+        //!     Make sure to submit with the new SSubmitInfo returned by this function
         //! Parameters:
         //!     - srcBuffer: source buffer to copy image from
         //!     - srcFormat: The image format the `srcBuffer` is laid out in memory.
@@ -741,31 +742,49 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //!     - regions: regions to copy `srcBuffer`
         //!     - intendedNextSubmit:
         //!         Is the SubmitInfo you intended to submit your command buffers, behaviour is different with
-        //!         ** If commandBufferCount > 0, the last command buffer will be used to record the copy commands.
-        //!             In this case, Make sure to submit with the new SSubmitInfo returned by this function
-        //!         ** If commandBufferCount == 0 [LAZY USAGE], then this function will submit with an implicit CommandBuffer for you.
-        //!             In this case, Make sure to wait for the `submissionFence` to make sure the copies are done.
+        //!         ** The last command buffer will be used to record the copy commands
         //!     - submissionQueue: IGPUQueue used to submit, when needed. 
         //!         Note: This parameter is required but may not be used if there is no need to submit
-        //!     - submissionFence: Fence to signal when submission has finished
+        //!     - submissionFence: 
+        //!         - This is the fence you will use to submit the copies to, this allows freeing up space in stagingBuffer when the fence is signalled, indicating that the copy has finished.
+        //!         - This fence may be used for CommandBuffer submissions using `submissionQueue` inside the function.
+        //!         ** NOTE: This fence will be signalled everytime there is a submission inside this function, which may be more than one until the job is finished.
         //! Valid Usage:
         //!     * srcBuffer must point to a valid ICPUBuffer
         //!     * srcBuffer->getPointer() must not be nullptr.
         //!     * dstImage must point to a valid IGPUImage
-        //!     * regions.size() must be > 0u
-        //!     * If SubmitInfo::commandBufferCount > 0, then the commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
-        //!     * If SubmitInfo::commandBufferCount > 0, the last command buffer should be in `RECORDING` state (call begin() before this function)
-        //!     * If SubmitInfo::commandBufferCount > 0, the last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
-        //!     * If SubmitInfo::commandBufferCount > 0, To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
+        //!     * regions.size() must be > 0
+        //!     * intendedNextSubmit::commandBufferCount must be > 0
+        //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
+        //!     * The last command buffer should be in `RECORDING` state.
+        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT` flag
+        //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
+        //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
+        //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
         //!     * submissionQueue must point to a valid IGPUQueue
         //!     * submissionFence must point to a valid IGPUFence
         [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] IGPUQueue::SSubmitInfo updateImageViaStagingBuffer(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence);
+        
+        //! This function is an specialization of the `updateImageViaStagingBuffer` function above.
+        //! Submission of the commandBuffer to submissionqueue happens automatically, no need for the user to handle submit
+        //! Patches the intendedNextSubmit::commandBuffers
+        //! If intendedNextSubmit::commandBufferCount == 0, it will create an implicit command buffer to use for recording copy commands
+        //! If intendedNextSubmit::commandBufferCount > 0 the last command buffer is in `EXECUTABLE` state, It will add another temporary command buffer to end of the array and use it for recording and submission
+        //! WARNING: If commandBufferCount > 0, Don't expect the last commandBuffer to be in the same state as it was before entering the function, because it needs to be `end()`ed and submitted
+        //! Valid Usage:
+        //!     * If intendedNextSubmit::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
+        //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
+        void updateImageViaStagingBufferAutoSubmit(
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence);
 
-        //! Specializes the function above: Forces submit and waits for the fence
+        
+        //! This function is an specialization of the `updateImageViaStagingBufferAutoSubmit` function above.
+        //! Additionally waits for the fence
         //! WARNING: This function blocks and stalls the GPU!
-        void updateImageViaStagingBuffer(
+        void updateImageViaStagingBufferAutoSubmit(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             const IGPUQueue::SSubmitInfo& intendedNextSubmit, IGPUQueue* submissionQueue
         );
