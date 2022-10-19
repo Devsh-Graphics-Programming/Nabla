@@ -6,7 +6,7 @@ namespace nbl::video
 {
 IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence)
+    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit)
 {
     if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
     {
@@ -148,10 +148,10 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue::SSubmitInfo intendedNextSubmit, IGPUQueue* submissionQueue, IGPUFence* submissionFence
+    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submissionInfo
 )
 {
-    if(!intendedNextSubmit.isValid())
+    if(!submissionInfo.isValid())
     {
         // TODO: log error
         assert(false);
@@ -160,11 +160,11 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 
     bool needToCreateNewCommandBuffer = false;
 
-    if (intendedNextSubmit.commandBufferCount <= 0u)
+    if (submissionInfo.commandBufferCount <= 0u)
         needToCreateNewCommandBuffer = true;
     else 
     {
-        auto lastCmdBuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount - 1u];
+        auto lastCmdBuf = submissionInfo.commandBuffers[submissionInfo.commandBufferCount - 1u];
         if (lastCmdBuf->getState() == IGPUCommandBuffer::ES_EXECUTABLE)
             needToCreateNewCommandBuffer = true;
     }
@@ -179,41 +179,41 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
         core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(submissionQueue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
         m_device->createCommandBuffers(pool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&newCommandBuffer);
         
-        const uint32_t newCommandBufferCount = (needToCreateNewCommandBuffer) ? intendedNextSubmit.commandBufferCount + 1 : intendedNextSubmit.commandBufferCount;
+        const uint32_t newCommandBufferCount = (needToCreateNewCommandBuffer) ? submissionInfo.commandBufferCount + 1 : submissionInfo.commandBufferCount;
         commandBuffers.resize(newCommandBufferCount);
 
-        for (uint32_t i = 0u; i < intendedNextSubmit.commandBufferCount; ++i)
-            commandBuffers[i] = intendedNextSubmit.commandBuffers[i];
+        for (uint32_t i = 0u; i < submissionInfo.commandBufferCount; ++i)
+            commandBuffers[i] = submissionInfo.commandBuffers[i];
         
         commandBuffer = newCommandBuffer.get();
         commandBuffers[newCommandBufferCount - 1u] = commandBuffer;
 
-        intendedNextSubmit.commandBufferCount = newCommandBufferCount;
-        intendedNextSubmit.commandBuffers = commandBuffers.data();
+        submissionInfo.commandBufferCount = newCommandBufferCount;
+        submissionInfo.commandBuffers = commandBuffers.data();
         
         commandBuffer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
     }
     else
     {
-        commandBuffer = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount - 1u];
+        commandBuffer = submissionInfo.commandBuffers[submissionInfo.commandBufferCount - 1u];
         // If the last command buffer is in INITIAL state, bring it to RECORDING state
         if(commandBuffer->getState() == IGPUCommandBuffer::ES_INITIAL)
             commandBuffer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
     }
 
-    intendedNextSubmit = updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,intendedNextSubmit,submissionQueue,submissionFence);
+    submissionInfo = updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submissionQueue,submissionFence,submissionInfo);
     commandBuffer->end();
 
-    assert(intendedNextSubmit.isValid());
-    submissionQueue->submit(1u,&intendedNextSubmit,submissionFence);
+    assert(submissionInfo.isValid());
+    submissionQueue->submit(1u,&submissionInfo,submissionFence);
 }
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    const IGPUQueue::SSubmitInfo& intendedNextSubmit, IGPUQueue* submissionQueue
+    IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submissionInfo
 )
 {
-    if(!intendedNextSubmit.isValid())
+    if(!submissionInfo.isValid())
     {
         // TODO: log error
         assert(false);
@@ -221,9 +221,8 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
     }
 
     auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBufferAutoSubmit(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,intendedNextSubmit,submissionQueue,fence.get());
-    auto* fenceptr = fence.get();
-    m_device->blockForFences(1u,&fenceptr);
+    updateImageViaStagingBufferAutoSubmit(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submissionQueue,fence.get(),submissionInfo);
+    m_device->blockForFences(1u,&fence.get());
 }
 
 ImageRegionIterator::ImageRegionIterator(
