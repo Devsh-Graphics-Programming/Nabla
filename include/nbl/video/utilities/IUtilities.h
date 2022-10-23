@@ -417,7 +417,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //!     - bufferRange: contains offset + size into bufferRange::buffer that will be copied from `data` (offset doesn't affect how `data` is accessed)
         //!     - data: raw pointer to data that will be copied to bufferRange::buffer
         //!     - intendedNextSubmit:
-        //!         Is the SubmitInfo you intended to submit your command buffers, behaviour is different with
+        //!         Is the SubmitInfo you intended to submit your command buffers.
         //!         ** The last command buffer will be used to record the copy commands
         //!     - submissionQueue: IGPUQueue used to submit, when needed. 
         //!         Note: This parameter is required but may not be used if there is no need to submit
@@ -439,6 +439,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //!     * submissionQueue must point to a valid IGPUQueue
         //!     * submissionFence must point to a valid IGPUFence
         //!     * submissionFence must be in `UNSIGNALED` state
+        //!     ** IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after fence is signaled. 
         [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] inline IGPUQueue::SSubmitInfo updateBufferRangeViaStagingBuffer(
             const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit
@@ -646,61 +647,41 @@ class NBL_API IUtilities : public core::IReferenceCounted
             void* m_dstPtr;
         };
 
-        class CDownstreamingDataConsumer final : public core::IReferenceCounted
-        {
-        public:
-            CDownstreamingDataConsumer(
-                size_t dstOffset,
-                const IDeviceMemoryAllocation::MemoryRange& copyRange,
-                const std::function<data_consumption_callback_t>& consumeCallback,
-                IGPUCommandBuffer* cmdBuffer,
-                StreamingTransientDataBufferMT<>* downstreamingBuffer,
-                core::smart_refctd_ptr<ILogicalDevice>&& device
-            )
-                : m_dstOffset(dstOffset)
-                , m_copyRange(copyRange)
-                , m_consumeCallback(consumeCallback)
-                , m_cmdBuffer(core::smart_refctd_ptr<IGPUCommandBuffer>(cmdBuffer))
-                , m_downstreamingBuffer(downstreamingBuffer)
-                , m_device(std::move(device))
-            {}
-
-            ~CDownstreamingDataConsumer()
-            {
-                if(m_downstreamingBuffer != nullptr)
-                {
-                    if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
-                    {
-                        IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length);
-                        m_device->invalidateMappedMemoryRanges(1u, &flushRange);
-                    }
-                    // Call the function
-                    const uint8_t* copySrc = reinterpret_cast<uint8_t*>(m_downstreamingBuffer->getBufferPointer()) + m_copyRange.offset;
-                    m_consumeCallback(m_dstOffset, copySrc, m_copyRange.length);
-                }
-                else
-                {
-                    assert(false);
-                }
-            }
-        private:
-            const size_t m_dstOffset;
-            const IDeviceMemoryAllocation::MemoryRange m_copyRange;
-            std::function<data_consumption_callback_t> m_consumeCallback;
-            core::smart_refctd_ptr<ILogicalDevice> m_device;
-            const core::smart_refctd_ptr<const IGPUCommandBuffer> m_cmdBuffer; // because command buffer submiting the copy shouldn't go out of scope when copy isn't finished
-            StreamingTransientDataBufferMT<>* m_downstreamingBuffer = nullptr;
-        };
-
-        //! This function records a CommandBuffer that copies srcBufferRange to DefaultDownStreamingBuffer and returns memoryRangesToReadBack
-        //! Using `memoryRangesToReadBack` you need to copy from IUtilities::DownStreamingBuffer to your data after submiting aforementioned command buffer and waiting for the copies to finish.
-        //! Use `finalizeDownStreamingMemoryCopies` to invalidate the mapped memory ranges if needed and do the copies for you.
-        //! This function may submit the command buffer and apply the memory copies internally if needed to (memory wasn't available to record more copies)
-        //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
-        // `cmdbuf` needs to be already begun and from a pool that allows for resetting commandbuffers individually
-        // `fence` needs to be in unsignalled state
-        // `queue` must have the transfer capability
-        // `semaphoresToWaitBeforeOverwrite` and `stagesToWaitForPerSemaphore` are references which will be set to null (consumed)  if we needed to perform a submit
+        //! Calls the callback to copy the data to a destination Offset
+        //! * IMPORTANT: To make the copies ready, IUtility::getDefaultDownStreamingBuffer()->cull_frees() should be called after the `submissionFence` is signaled.
+        //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
+        //! Returns:
+        //!     IGPUQueue::SSubmitInfo to use for command buffer submission instead of `intendedNextSubmit`. 
+        //!         for example: in the case the `SSubmitInfo::waitSemaphores` were already signalled, the new SSubmitInfo will have it's waitSemaphores emptied from `intendedNextSubmit`.
+        //!     Make sure to submit with the new SSubmitInfo returned by this function
+        //! Parameters:
+        //!     - consumeCallback: it's a std::function called when the data is ready to be copied (see `data_consumption_callback_t`)
+        //!     - srcBufferRange: the buffer range (buffer + size) to be copied from.
+        //!     - intendedNextSubmit:
+        //!         Is the SubmitInfo you intended to submit your command buffers.
+        //!         ** The last command buffer will be used to record the copy commands
+        //!     - submissionQueue: IGPUQueue used to submit, when needed. 
+        //!         Note: This parameter is required but may not be used if there is no need to submit
+        //!     - submissionFence: 
+        //!         - This is the fence you will use to submit the copies to, this allows freeing up space in stagingBuffer when the fence is signalled, indicating that the copy has finished.
+        //!         - This fence will be in `UNSIGNALED` state after exiting the function. (It will reset after each implicit submit)
+        //!         - This fence may be used for CommandBuffer submissions using `submissionQueue` inside the function.
+        //!         ** NOTE: This fence will be signalled everytime there is a submission inside this function, which may be more than one until the job is finished.
+        //! Valid Usage:
+        //!     * srcBuffer must point to a valid ICPUBuffer
+        //!     * srcBuffer->getPointer() must not be nullptr.
+        //!     * dstImage must point to a valid IGPUImage
+        //!     * regions.size() must be > 0
+        //!     * intendedNextSubmit::commandBufferCount must be > 0
+        //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
+        //!     * The last command buffer should be in `RECORDING` state.
+        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT` flag
+        //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
+        //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
+        //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
+        //!     * submissionQueue must point to a valid IGPUQueue
+        //!     * submissionFence must point to a valid IGPUFence
+        //!     * submissionFence must be in `UNSIGNALED` state
         [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] inline IGPUQueue::SSubmitInfo downloadBufferRangeViaStagingBuffer(
             const std::function<data_consumption_callback_t>& consumeCallback, const asset::SBufferRange<IGPUBuffer>& srcBufferRange,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit = {}
@@ -781,8 +762,21 @@ class NBL_API IUtilities : public core::IReferenceCounted
             return intendedNextSubmit;
         }
 
-        //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
-        // `fence` needs to be in unsignalled state
+        //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
+        //! Submission of the commandBuffer to submissionQueue happens automatically, no need for the user to handle submit
+        //! Parameters:
+        //! - `submissionInfo`: IGPUQueue::SSubmitInfo used to submit the copy operations.
+        //!     * Use this parameter to wait for previous operations to finish using submissionInfo::waitSemaphores or signal new semaphores using submissionInfo::signalSemaphores
+        //!     * Fill submissionInfo::commandBuffers with the commandbuffers you want to be submitted before the copy in this struct as well, for example pipeline barrier commands.
+        //!     * Empty by default: waits for no semaphore and signals no semaphores.
+        //! Patches the submissionInfo::commandBuffers
+        //! If submissionInfo::commandBufferCount == 0, it will create an implicit command buffer to use for recording copy commands
+        //! If submissionInfo::commandBufferCount > 0 the last command buffer is in `EXECUTABLE` state, It will add another temporary command buffer to end of the array and use it for recording and submission
+        //! If submissionInfo::commandBufferCount > 0 the last command buffer is in `RECORDING` or `INITIAL` state, It won't add another command buffer and uses the last command buffer for the copy commands.
+        //! WARNING: If commandBufferCount > 0, The last commandBuffer won't be in the same state as it was before entering the function, because it needs to be `end()`ed and submitted
+        //! Valid Usage:
+        //!     * If submissionInfo::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
+        //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
         inline void downloadBufferRangeViaStagingBufferAutoSubmit(
             const std::function<data_consumption_callback_t>& consumeCallback, const asset::SBufferRange<IGPUBuffer>& srcBufferRange,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submissionInfo = {}
@@ -845,6 +839,9 @@ class NBL_API IUtilities : public core::IReferenceCounted
             submissionQueue->submit(1u, &submissionInfo, submissionFence);
         }
 
+        //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
+        //! Additionally waits for the fence
+        //! WARNING: This function blocks CPU and stalls the GPU!
         inline void downloadBufferRangeViaStagingBufferAutoSubmit(
             const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data,
             IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submissionInfo = {}
@@ -916,7 +913,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //!     - dstImageLayout: the image layout of `dstImage` at the point of submission
         //!     - regions: regions to copy `srcBuffer`
         //!     - intendedNextSubmit:
-        //!         Is the SubmitInfo you intended to submit your command buffers, behaviour is different with
+        //!         Is the SubmitInfo you intended to submit your command buffers.
         //!         ** The last command buffer will be used to record the copy commands
         //!     - submissionQueue: IGPUQueue used to submit, when needed. 
         //!         Note: This parameter is required but may not be used if there is no need to submit
@@ -940,6 +937,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //!     * submissionQueue must point to a valid IGPUQueue
         //!     * submissionFence must point to a valid IGPUFence
         //!     * submissionFence must be in `UNSIGNALED` state
+        //!     ** IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
         [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] IGPUQueue::SSubmitInfo updateImageViaStagingBuffer(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit);
@@ -972,7 +970,55 @@ class NBL_API IUtilities : public core::IReferenceCounted
         );
 
     protected:
-        
+
+        //! Used in downloadBufferRangeViaStagingBuffer multi_deallocate objectsToHold, 
+        //! Calls the std::function callback in destructor because allocator will hold on to this object and drop it when it's safe (fence is singnalled and submit has finished)
+        class CDownstreamingDataConsumer final : public core::IReferenceCounted
+        {
+        public:
+            CDownstreamingDataConsumer(
+                size_t dstOffset,
+                const IDeviceMemoryAllocation::MemoryRange& copyRange,
+                const std::function<data_consumption_callback_t>& consumeCallback,
+                IGPUCommandBuffer* cmdBuffer,
+                StreamingTransientDataBufferMT<>* downstreamingBuffer,
+                core::smart_refctd_ptr<ILogicalDevice>&& device
+            )
+                : m_dstOffset(dstOffset)
+                , m_copyRange(copyRange)
+                , m_consumeCallback(consumeCallback)
+                , m_cmdBuffer(core::smart_refctd_ptr<IGPUCommandBuffer>(cmdBuffer))
+                , m_downstreamingBuffer(downstreamingBuffer)
+                , m_device(std::move(device))
+            {}
+
+            ~CDownstreamingDataConsumer()
+            {
+                if (m_downstreamingBuffer != nullptr)
+                {
+                    if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
+                    {
+                        IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length);
+                        m_device->invalidateMappedMemoryRanges(1u, &flushRange);
+                    }
+                    // Call the function
+                    const uint8_t* copySrc = reinterpret_cast<uint8_t*>(m_downstreamingBuffer->getBufferPointer()) + m_copyRange.offset;
+                    m_consumeCallback(m_dstOffset, copySrc, m_copyRange.length);
+                }
+                else
+                {
+                    assert(false);
+                }
+            }
+        private:
+            const size_t m_dstOffset;
+            const IDeviceMemoryAllocation::MemoryRange m_copyRange;
+            std::function<data_consumption_callback_t> m_consumeCallback;
+            core::smart_refctd_ptr<ILogicalDevice> m_device;
+            const core::smart_refctd_ptr<const IGPUCommandBuffer> m_cmdBuffer; // because command buffer submiting the copy shouldn't go out of scope when copy isn't finished
+            StreamingTransientDataBufferMT<>* m_downstreamingBuffer = nullptr;
+        };
+
         core::smart_refctd_ptr<ILogicalDevice> m_device;
 
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
