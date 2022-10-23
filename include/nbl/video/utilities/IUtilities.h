@@ -182,6 +182,9 @@ class NBL_API IUtilities : public core::IReferenceCounted
             return buffer;
         }
 
+        // ! Create Filled Image from IGPUBuffer
+        // TODO: Look into removing this set of functions (next 3) now that we have uploadImageViaStagingBuffer? Because every usage of this function creates a big IGPUBuffer only to feed into this.
+
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
         {
@@ -241,51 +244,32 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
             return retImg;
         }
+        
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
-            IGPUFence* fence, IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions,
-            const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
-        )
-        {
-            auto cmdpool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_TRANSIENT_BIT);
-            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-            m_device->createCommandBuffers(cmdpool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
-            assert(cmdbuf);
-            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-            auto retval = createFilledDeviceLocalImageOnDedMem(cmdbuf.get(), std::move(params), srcBuffer, regionCount, pRegions);
-            cmdbuf->end();
-            IGPUQueue::SSubmitInfo submit;
-            submit.commandBufferCount = 1u;
-            submit.commandBuffers = &cmdbuf.get();
-            assert(!signalSemaphoreCount || semaphoresToSignal);
-            submit.signalSemaphoreCount = signalSemaphoreCount;
-            submit.pSignalSemaphores = semaphoresToSignal;
-            assert(!waitSemaphoreCount || semaphoresToWaitBeforeExecution && stagesToWaitForPerSemaphore);
-            submit.waitSemaphoreCount = waitSemaphoreCount;
-            submit.pWaitSemaphores = semaphoresToWaitBeforeExecution;
-            submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
-            queue->submit(1u, &submit, fence);
-            m_device->waitForFences(1u, &fence, false, 9999999999ull);
-            return retval;
-        }
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
-            IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions,
-            const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
+            IGPUImage::SCreationParams&& params, const IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions,
+            IGPUQueue* submissionQueue, IGPUQueue::SSubmitInfo submitInfo = {}
         )
         {
+            if (!submitInfo.isValid())
+            {
+                // TODO: log error
+                assert(false);
+                return nullptr;
+            }
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             auto* fenceptr = fence.get();
-            auto retval = createFilledDeviceLocalImageOnDedMem(
-                fenceptr, queue, std::move(params), srcBuffer, regionCount, pRegions,
-                waitSemaphoreCount, semaphoresToWaitBeforeExecution, stagesToWaitForPerSemaphore,
-                signalSemaphoreCount, semaphoresToSignal
-            );
-            m_device->waitForFences(1u, &fenceptr, false, 9999999999ull);
+            CSubmitInfoPatcher submitInfoPatcher;
+            submitInfoPatcher.patchAndBegin(submitInfo, m_device, submissionQueue->getFamilyIndex());
+            auto retval = createFilledDeviceLocalImageOnDedMem(submitInfoPatcher.getRecordingCommandBuffer(), std::move(params), srcBuffer, regionCount, pRegions);
+            submitInfoPatcher.end();
+            submissionQueue->submit(1u, &submitInfo, fenceptr);
+            m_device->blockForFences(1u, &fenceptr);
             return retval;
         }
+
+        // ! Create Filled Image from another IGPUImage
 
         //! Remember to ensure a memory dependency between the command recorded here and any users (so fence wait, semaphore when submitting, pipeline barrier or event)
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(IGPUCommandBuffer* cmdbuf, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
@@ -357,49 +341,28 @@ class NBL_API IUtilities : public core::IReferenceCounted
         }
         
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
-        inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
-            IGPUFence* fence, IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions,
-            const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
-        )
-        {
-            auto cmdpool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_TRANSIENT_BIT);
-            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-            m_device->createCommandBuffers(cmdpool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
-            assert(cmdbuf);
-            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-            auto retval = createFilledDeviceLocalImageOnDedMem(cmdbuf.get(), std::move(params), srcImage, regionCount, pRegions);
-            cmdbuf->end();
-            IGPUQueue::SSubmitInfo submit;
-            submit.commandBufferCount = 1u;
-            submit.commandBuffers = &cmdbuf.get();
-            assert(!signalSemaphoreCount || semaphoresToSignal);
-            submit.signalSemaphoreCount = signalSemaphoreCount;
-            submit.pSignalSemaphores = semaphoresToSignal;
-            assert(!waitSemaphoreCount || semaphoresToWaitBeforeExecution && stagesToWaitForPerSemaphore);
-            submit.waitSemaphoreCount = waitSemaphoreCount;
-            submit.pWaitSemaphores = semaphoresToWaitBeforeExecution;
-            submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
-            queue->submit(1u, &submit, fence);
-            m_device->waitForFences(1u, &fence, false, 9999999999ull);
-            return retval;
-        }
-
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalImageOnDedMem(
-            IGPUQueue* queue, IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions,
-            const uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
+            IGPUImage::SCreationParams&& params, const IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions,
+            IGPUQueue* submissionQueue, IGPUQueue::SSubmitInfo submitInfo = {}
         )
         {
+            if (!submitInfo.isValid())
+            {
+                // TODO: log error
+                assert(false);
+                return nullptr;
+            }
+
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             auto* fenceptr = fence.get();
-            auto retval = createFilledDeviceLocalImageOnDedMem(
-                fenceptr, queue, std::move(params), srcImage, regionCount, pRegions,
-                waitSemaphoreCount, semaphoresToWaitBeforeExecution, stagesToWaitForPerSemaphore,
-                signalSemaphoreCount, semaphoresToSignal
-            );
-            m_device->waitForFences(1u, &fenceptr, false, 9999999999ull);
+
+            CSubmitInfoPatcher submitInfoPatcher;
+            submitInfoPatcher.patchAndBegin(submitInfo, m_device, submissionQueue->getFamilyIndex());
+            auto retval = createFilledDeviceLocalImageOnDedMem(submitInfoPatcher.getRecordingCommandBuffer(), std::move(params), srcImage, regionCount, pRegions);
+            submitInfoPatcher.end();
+            submissionQueue->submit(1u, &submitInfo, fenceptr);
+            m_device->blockForFences(1u, &fenceptr);
             return retval;
         }
 
@@ -946,11 +909,12 @@ class NBL_API IUtilities : public core::IReferenceCounted
             {
                 m_recordCommandBuffer->end();
             }
+            inline IGPUCommandBuffer* getRecordingCommandBuffer() { return m_recordCommandBuffer; }
 
         private:
             IGPUCommandBuffer* m_recordCommandBuffer;
             core::vector<IGPUCommandBuffer*> m_allCommandBuffers;
-            core::smart_refctd_ptr<IGPUCommandBuffer> m_newCommandBuffer;
+            core::smart_refctd_ptr<IGPUCommandBuffer> m_newCommandBuffer; // if necessary, then need to hold reference to.
         };
 
         //! Used in downloadBufferRangeViaStagingBuffer multi_deallocate objectsToHold, 
