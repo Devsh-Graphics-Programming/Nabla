@@ -22,7 +22,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         constexpr static inline uint32_t minStreamingBufferAllocationSize = 1024u;
 
     public:
-        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& _device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(_device))
+        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(device))
         {
             auto physicalDevice = m_device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();
@@ -627,33 +627,70 @@ class NBL_API IUtilities : public core::IReferenceCounted
         // --------------
         // downloadBufferRangeViaStagingBuffer
         // --------------
-    
-        inline bool finalizeDownStreamingMemoryCopies(const IDeviceMemoryAllocation::MemoryRange* rangesToReadBack, const uint32_t rangesToReadBackCount, void* dst, uint32_t dstSize)
-        {
-            bool success = true;
-            uint8_t* copyDst = reinterpret_cast<uint8_t*>(dst) + dstSize;
+        
+        /* callback signature used for downstreaming requests */
+        using data_consumption_callback_t = void(const size_t /*dstOffset*/, const void* /*srcPtr*/, const size_t /*size*/);
 
-            for(int i = rangesToReadBackCount - 1u; i >= 0; --i)
+        struct default_data_consumption_callback_t
+        {
+            default_data_consumption_callback_t(void* dstPtr) :
+                m_dstPtr(dstPtr)
+            {}
+
+            inline void operator()(const size_t dstOffset, const void* srcPtr, const size_t size)
             {
-                const auto& range = rangesToReadBack[i];
-
-                if(m_defaultDownloadBuffer->needsManualFlushOrInvalidate())
-                {
-                    IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),range.offset,range.length);
-                    m_device->invalidateMappedMemoryRanges(1u,&flushRange);
-                }
-
-                copyDst -= range.length;
-                const void* copySrc = reinterpret_cast<uint8_t*>(m_defaultDownloadBuffer->getBufferPointer()) + range.offset;
-                memcpy(copyDst, copySrc, range.length);
+                uint8_t* dst = reinterpret_cast<uint8_t*>(m_dstPtr) + dstOffset;
+                memcpy(dst, srcPtr, size);
             }
-            return success;
-        }
 
-        inline size_t getMaxStreamingCopiesNeeded(size_t size) const
+            void* m_dstPtr;
+        };
+
+        class CDownstreamingDataConsumer final : public core::IReferenceCounted
         {
-            return (size/minStreamingBufferAllocationSize)+1u;
-        }
+        public:
+            CDownstreamingDataConsumer(
+                size_t dstOffset,
+                const IDeviceMemoryAllocation::MemoryRange& copyRange,
+                const std::function<data_consumption_callback_t>& consumeCallback,
+                IGPUCommandBuffer* cmdBuffer,
+                StreamingTransientDataBufferMT<>* downstreamingBuffer,
+                core::smart_refctd_ptr<ILogicalDevice>&& device
+            )
+                : m_dstOffset(dstOffset)
+                , m_copyRange(copyRange)
+                , m_consumeCallback(consumeCallback)
+                , m_cmdBuffer(core::smart_refctd_ptr<IGPUCommandBuffer>(cmdBuffer))
+                , m_downstreamingBuffer(downstreamingBuffer)
+                , m_device(std::move(device))
+            {}
+
+            ~CDownstreamingDataConsumer()
+            {
+                if(m_downstreamingBuffer != nullptr)
+                {
+                    if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
+                    {
+                        IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length);
+                        m_device->invalidateMappedMemoryRanges(1u, &flushRange);
+                    }
+                    // Call the function
+                    const uint8_t* copySrc = reinterpret_cast<uint8_t*>(m_downstreamingBuffer->getBufferPointer()) + m_copyRange.offset;
+                    m_consumeCallback(m_dstOffset, copySrc, m_copyRange.length);
+                }
+                else
+                {
+                    assert(false);
+                }
+            }
+        private:
+            const size_t m_dstOffset;
+            const IDeviceMemoryAllocation::MemoryRange m_copyRange;
+            std::function<data_consumption_callback_t> m_consumeCallback;
+            core::smart_refctd_ptr<ILogicalDevice> m_device;
+            const core::smart_refctd_ptr<const IGPUCommandBuffer> m_cmdBuffer; // because command buffer submiting the copy shouldn't go out of scope when copy isn't finished
+            StreamingTransientDataBufferMT<>* m_downstreamingBuffer = nullptr;
+        };
 
         //! This function records a CommandBuffer that copies srcBufferRange to DefaultDownStreamingBuffer and returns memoryRangesToReadBack
         //! Using `memoryRangesToReadBack` you need to copy from IUtilities::DownStreamingBuffer to your data after submiting aforementioned command buffer and waiting for the copies to finish.
@@ -664,24 +701,32 @@ class NBL_API IUtilities : public core::IReferenceCounted
         // `fence` needs to be in unsignalled state
         // `queue` must have the transfer capability
         // `semaphoresToWaitBeforeOverwrite` and `stagesToWaitForPerSemaphore` are references which will be set to null (consumed)  if we needed to perform a submit
-        inline void downloadBufferRangeViaStagingBuffer(
-            IDeviceMemoryAllocation::MemoryRange* rangesToReadBack, uint32_t& rangesToReadBackCount,
-            IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data,
-            uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore
+        [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] inline IGPUQueue::SSubmitInfo downloadBufferRangeViaStagingBuffer(
+            const std::function<data_consumption_callback_t>& consumeCallback, const asset::SBufferRange<IGPUBuffer>& srcBufferRange,
+            IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit = {}
         )
         {
+            if (!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
+            {
+                // TODO: log error -> intendedNextSubmit is invalid
+                assert(false);
+                return intendedNextSubmit;
+            }
+
+            // Use the last command buffer in intendedNextSubmit, it should be in recording state
+            auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount - 1];
+
+            assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING && cmdbuf->isResettable());
+            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
             const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
 
             auto* cmdpool = cmdbuf->getPool();
-            assert(cmdbuf->isResettable());
-            assert(cmdpool->getQueueFamilyIndex() == queue->getFamilyIndex());
-            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
-            
-            const size_t maxCopiesNeeded = getMaxStreamingCopiesNeeded(srcBufferRange.size);
-            rangesToReadBackCount = 0u;
+            assert(cmdpool->getQueueFamilyIndex() == submissionQueue->getFamilyIndex());
  
+            // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
             for (size_t downloadedSize = 0ull; downloadedSize < srcBufferRange.size;)
             {
                 const size_t notDownloadedSize = srcBufferRange.size - downloadedSize;
@@ -694,7 +739,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultDownloadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&alignment);
                 
-                if (localOffset != StreamingTransientDataBufferMT<>::invalid_value && rangesToReadBackCount < maxCopiesNeeded)
+                if (localOffset != StreamingTransientDataBufferMT<>::invalid_value)
                 {
                     asset::SBufferCopy copy;
                     copy.srcOffset = srcBufferRange.offset + downloadedSize;
@@ -702,90 +747,123 @@ class NBL_API IUtilities : public core::IReferenceCounted
                     copy.size = copySize;
                     cmdbuf->copyBuffer(srcBufferRange.buffer.get(), m_defaultDownloadBuffer.get()->getBuffer(), 1u, &copy);
 
-                    rangesToReadBack[rangesToReadBackCount].offset = localOffset;
-                    rangesToReadBack[rangesToReadBackCount].length = copySize;
-                    rangesToReadBackCount++;
+                    auto dataConsumer = core::make_smart_refctd_ptr<CDownstreamingDataConsumer>(downloadedSize, IDeviceMemoryAllocation::MemoryRange(localOffset, copySize), consumeCallback, cmdbuf, m_defaultDownloadBuffer.get(), core::smart_refctd_ptr(m_device));
 
-                    m_defaultDownloadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+                    m_defaultDownloadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, core::smart_refctd_ptr<IGPUFence>(submissionFence), &dataConsumer.get());
+
                     downloadedSize += copySize;
                 }
                 else
                 {
                     // but first sumbit the already buffered up copies
                     cmdbuf->end();
-                    IGPUQueue::SSubmitInfo submit;
-                    submit.commandBufferCount = 1u;
-                    submit.commandBuffers = &cmdbuf;
+                    IGPUQueue::SSubmitInfo submit = intendedNextSubmit;
                     submit.signalSemaphoreCount = 0u;
                     submit.pSignalSemaphores = nullptr;
-                    assert(!waitSemaphoreCount || semaphoresToWaitBeforeOverwrite && stagesToWaitForPerSemaphore);
-                    submit.waitSemaphoreCount = waitSemaphoreCount;
-                    submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
-                    submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
-                    queue->submit(1u, &submit, fence);
-                    m_device->blockForFences(1u, &fence);
-                    waitSemaphoreCount = 0u;
-                    semaphoresToWaitBeforeOverwrite = nullptr;
-                    stagesToWaitForPerSemaphore = nullptr;
+                    assert(submit.isValid());
+                    submissionQueue->submit(1u, &submit, submissionFence);
+                    m_device->blockForFences(1u, &submissionFence);
 
-                    finalizeDownStreamingMemoryCopies(rangesToReadBack, rangesToReadBackCount, data, downloadedSize);
-                    rangesToReadBackCount = 0u;
+                    intendedNextSubmit.commandBufferCount = 1u;
+                    intendedNextSubmit.commandBuffers = &cmdbuf;
+                    intendedNextSubmit.waitSemaphoreCount = 0u;
+                    intendedNextSubmit.pWaitSemaphores = nullptr;
+                    intendedNextSubmit.pWaitDstStageMask = nullptr;
 
                     // before resetting we need poll all events in the allocator's deferred free list
                     m_defaultDownloadBuffer->cull_frees();
                     // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
-                    m_device->resetFences(1u, &fence);
+                    m_device->resetFences(1u, &submissionFence);
                     cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
                     cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
                 }
             }
+            return intendedNextSubmit;
         }
+
         //! Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
         // `fence` needs to be in unsignalled state
-        inline void downloadBufferRangeViaStagingBuffer(
-            IDeviceMemoryAllocation::MemoryRange* rangesToReadBack, uint32_t& rangesToReadBackCount,
-            IGPUFence* fence, IGPUQueue* queue, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data,
-            uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
+        inline void downloadBufferRangeViaStagingBufferAutoSubmit(
+            const std::function<data_consumption_callback_t>& consumeCallback, const asset::SBufferRange<IGPUBuffer>& srcBufferRange,
+            IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submissionInfo = {}
         )
         {
-            core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-            m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
-            assert(cmdbuf);
-            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-            downloadBufferRangeViaStagingBuffer(rangesToReadBack, rangesToReadBackCount, cmdbuf.get(), fence, queue, srcBufferRange, data, waitSemaphoreCount, semaphoresToWaitBeforeOverwrite, stagesToWaitForPerSemaphore);
-            cmdbuf->end();
-            IGPUQueue::SSubmitInfo submit;
-            submit.commandBufferCount = 1u;
-            submit.commandBuffers = &cmdbuf.get();
-            submit.signalSemaphoreCount = signalSemaphoreCount;
-            submit.pSignalSemaphores = semaphoresToSignal;
-            assert(!waitSemaphoreCount || semaphoresToWaitBeforeOverwrite && stagesToWaitForPerSemaphore);
-            submit.waitSemaphoreCount = waitSemaphoreCount;
-            submit.pWaitSemaphores = semaphoresToWaitBeforeOverwrite;
-            submit.pWaitDstStageMask = stagesToWaitForPerSemaphore;
-            queue->submit(1u, &submit, fence);
-        }
-        //! WARNING: This function blocks and stalls the GPU!
-        inline void downloadBufferRangeViaStagingBuffer(
-            IGPUQueue* queue, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data,
-            uint32_t waitSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToWaitBeforeOverwrite = nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore = nullptr,
-            const uint32_t signalSemaphoreCount = 0u, IGPUSemaphore* const* semaphoresToSignal = nullptr
-        )
-        {
-            // TODO(Erfan): Isn't it better to make the other two function take a maxCopiesInOneSubmit as a parameter? because in example 48, rangesToReadBack is 1u most of the time because the streaming buffer is not fragmented and the copies are large
-            const size_t maxCopiesNeeded = getMaxStreamingCopiesNeeded(srcBufferRange.size);
-            auto rangesToReadBackDynArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IDeviceMemoryAllocation::MemoryRange>>(maxCopiesNeeded, IDeviceMemoryAllocation::MemoryRange{0ull, 0ull}); 
-            auto rangesToReadBack = rangesToReadBackDynArray.get()->begin();
-            uint32_t rangesToReadBackCount = 0u;
+            if (!submissionInfo.isValid())
+            {
+                // TODO: log error
+                assert(false);
+                return;
+            }
 
-            auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-            downloadBufferRangeViaStagingBuffer(rangesToReadBack, rangesToReadBackCount, fence.get(), queue, srcBufferRange, data, waitSemaphoreCount, semaphoresToWaitBeforeOverwrite, stagesToWaitForPerSemaphore, signalSemaphoreCount, semaphoresToSignal);
+            bool needToCreateNewCommandBuffer = false;
+
+            if (submissionInfo.commandBufferCount <= 0u)
+                needToCreateNewCommandBuffer = true;
+            else
+            {
+                auto lastCmdBuf = submissionInfo.commandBuffers[submissionInfo.commandBufferCount - 1u];
+                if (lastCmdBuf->getState() == IGPUCommandBuffer::ES_EXECUTABLE)
+                    needToCreateNewCommandBuffer = true;
+            }
+
+            // commandBuffer used to record the commands
+            IGPUCommandBuffer* commandBuffer;
+
+            core::vector<IGPUCommandBuffer*> commandBuffers;
+            core::smart_refctd_ptr<IGPUCommandBuffer> newCommandBuffer;
+            if (needToCreateNewCommandBuffer)
+            {
+                core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(submissionQueue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+                m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &newCommandBuffer);
+
+                const uint32_t newCommandBufferCount = (needToCreateNewCommandBuffer) ? submissionInfo.commandBufferCount + 1 : submissionInfo.commandBufferCount;
+                commandBuffers.resize(newCommandBufferCount);
+
+                for (uint32_t i = 0u; i < submissionInfo.commandBufferCount; ++i)
+                    commandBuffers[i] = submissionInfo.commandBuffers[i];
+
+                commandBuffer = newCommandBuffer.get();
+                commandBuffers[newCommandBufferCount - 1u] = commandBuffer;
+
+                submissionInfo.commandBufferCount = newCommandBufferCount;
+                submissionInfo.commandBuffers = commandBuffers.data();
+
+                commandBuffer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            }
+            else
+            {
+                commandBuffer = submissionInfo.commandBuffers[submissionInfo.commandBufferCount - 1u];
+                // If the last command buffer is in INITIAL state, bring it to RECORDING state
+                if (commandBuffer->getState() == IGPUCommandBuffer::ES_INITIAL)
+                    commandBuffer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            }
+
+            submissionInfo = downloadBufferRangeViaStagingBuffer(consumeCallback, srcBufferRange, submissionQueue, submissionFence, submissionInfo);
+            commandBuffer->end();
+
+            assert(submissionInfo.isValid());
+            submissionQueue->submit(1u, &submissionInfo, submissionFence);
+        }
+
+        inline void downloadBufferRangeViaStagingBufferAutoSubmit(
+            const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data,
+            IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submissionInfo = {}
+        )
+        {
+            if (!submissionInfo.isValid())
+            {
+                // TODO: log error
+                assert(false);
+                return;
+            }
+            
+
+            auto fence = m_device->createFence(IGPUFence::ECF_UNSIGNALED);
+            downloadBufferRangeViaStagingBufferAutoSubmit(std::function<data_consumption_callback_t>(default_data_consumption_callback_t(data)), srcBufferRange, submissionQueue, fence.get(), submissionInfo);
             auto* fenceptr = fence.get();
             m_device->blockForFences(1u, &fenceptr);
 
-            finalizeDownStreamingMemoryCopies(rangesToReadBack, rangesToReadBackCount, data, srcBufferRange.size);
+            m_defaultDownloadBuffer->cull_frees();
         }
         
         // --------------
