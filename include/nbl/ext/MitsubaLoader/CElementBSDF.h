@@ -255,7 +255,7 @@ class CElementBSDF : public IElement
 
 			BlendBSDF() : weight(0.5f) {}
 
-			CElementTexture::FloatOrTexture weight;
+			CElementTexture::SpectrumOrTexture weight;
 		};
 		struct Mask : MetaBSDF
 		{

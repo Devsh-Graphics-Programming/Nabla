@@ -62,18 +62,19 @@ inline void CImageFilterKernel<CRTP,value_type>::evaluateImpl(
 	value_type* windowSample,
 	core::vectorSIMDf& relativePos,
 	const core::vectorSIMDi32& globalTexelCoord,
+	value_type* weightSum,
 	const UserData* userData
 ) const
 {
 	// static cast is because I'm calling a non-static but non-virtual function
-	static_cast<const CRTP*>(this)->create_sample_functor_t(preFilter,postFilter)(windowSample,relativePos,globalTexelCoord,userData);
+	static_cast<const CRTP*>(this)->create_sample_functor_t(preFilter,postFilter)(windowSample,relativePos,globalTexelCoord,weightSum,userData);
 }
 
 // @see CImageFilterKernel::evaluate
 template<class CRTP>
 template<class PreFilter, class PostFilter>
 inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()(
-		value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData
+		value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, value_type* weightSum, const IImageFilterKernel::UserData* userData
 )
 {
 	// this is programmable, but usually in the case of a convolution filter it would be loading the values from a temporary and decoded copy of the input image
@@ -84,9 +85,11 @@ inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t
 	auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
 	for (int32_t i=0; i<CRTP::MaxChannels; i++)
 	{
-		windowSample[i] *= _this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i);
+		auto weight = _this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i);
 		if (scale)
-			windowSample[i] *= scale->factor[i];
+			weight *= scale->factor[i];
+		weightSum[i] += weight;
+		windowSample[i] *= weight;
 	}
 
 	// this is programmable, but usually in the case of a convolution filter it would be summing the values

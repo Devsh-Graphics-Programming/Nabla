@@ -43,16 +43,18 @@ class MyKernel : public CFloatingPointSeparableImageFilterKernelBase<MyKernel<Ke
 				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, value_type* weightSum, const IImageFilterKernel::UserData* userData)
 				{
 					preFilter(windowSample, relativePos, globalTexelCoord, userData);
 					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
 					for (int32_t i=0; i<MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
-						windowSample[i] *= _this->weight(relativePos.x, i);
+						auto weight = _this->weight(relativePos.x, i);
 						if (scale)
-							windowSample[i] *= scale->factor[i];
+							weight *= scale->factor[i];
+						weightSum[i] += weight;
+						windowSample[i] *= weight;
 					}
 					postFilter(windowSample, relativePos, globalTexelCoord, userData);
 				}
@@ -92,16 +94,18 @@ class SeparateOutXAxisKernel : public CFloatingPointSeparableImageFilterKernelBa
 				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, value_type* weightSum, const IImageFilterKernel::UserData* userData)
 				{
 					preFilter(windowSample, relativePos, globalTexelCoord, userData);
 					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
 					for (int32_t i=0; i<MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
-						windowSample[i] *= _this->kernel.weight(relativePos.x, i);
+						auto weight = _this->kernel.weight(relativePos.x, i);
 						if (scale)
-							windowSample[i] *= scale->factor[i];
+							weight *= scale->factor[i];
+						weightSum[i] += weight;
+						windowSample[i] *= weight;
 					}
 					postFilter(windowSample, relativePos, globalTexelCoord, userData);
 				}

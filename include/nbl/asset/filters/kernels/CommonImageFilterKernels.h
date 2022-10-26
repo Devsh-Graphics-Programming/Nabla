@@ -64,7 +64,7 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 				sample_functor_t(const CRTP* __this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(__this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData);
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, value_type* weightSum, const IImageFilterKernel::UserData* userData);
 
 			private:
 				const CRTP* _this;

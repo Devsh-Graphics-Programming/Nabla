@@ -142,13 +142,20 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				virtual ~CState() {}
 
 				// we'll need to rescale the kernel support to be relative to the output image but in the input image coordinate system
-				// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
 				template<class Kernel>
 				inline auto contructScaledKernel(const Kernel& kernel) const
 				{
+					// This is a placeholder function, the real one should be called `constructConvolvedKernel`
+					// because in reality we should convolve a reconstruction Kernel with a scaled resampling Kernel.
+					// (scaled means that if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
+					// This however requires the Polyphase LUT feature from the `master` branch
+					// because the convolution needs to be numerically calculated and tabulated.
 					const core::vectorSIMDf fInExtent(inExtentLayerCount);
 					const core::vectorSIMDf fOutExtent(outExtentLayerCount);
-					const auto fScale = fInExtent.preciseDivision(fOutExtent);
+					// The `max` statement is because we don't support a reconstruction filter yet,
+					// normally we'd only apply the `fScale` without the `max` to the resampling filter.
+					auto fScale = fInExtent.preciseDivision(fOutExtent);
+					fScale = core::max(core::vectorSIMDf(0.5f),fScale);
 					return CScaledImageFilterKernel<Kernel>(fScale,kernel);
 				}
 
@@ -401,7 +408,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					const bool lastPass = inImageType==axis;
 					const auto windowSize = kernel.getWindowSize()[axis];
 
-					IImageFilterKernel::ScaleFactorUserData scale(1.f/fScale[axis]);
+					// see the reason for the max with 0.5 in the comments for `contructScaledKernel`
+					IImageFilterKernel::ScaleFactorUserData scale(1.f/core::max(0.5f,fScale[axis]));
 					const IImageFilterKernel::ScaleFactorUserData* otherScale = nullptr;
 					switch (axis)
 					{
@@ -529,20 +537,28 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 								for (auto h=0; h<MaxChannels; h++)
 									value[h] += windowSample[h];
 							};
-							// do the filtering 
-							core::vectorSIMDf tmp;
-							tmp[axis] = float(i)+0.5f;
-							core::vectorSIMDi32 windowCoord;
-							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
-							auto relativePos = tmp[axis]-float(windowCoord[axis]);
-							for (auto h=0; h<windowSize; h++)
+							// do the filtering
 							{
-								value_type windowSample[MaxChannels];
+								double weightSum[MaxChannels] = {0.0};
+								{
+									core::vectorSIMDf tmp;
+									tmp[axis] = float(i)+0.5f;
+									core::vectorSIMDi32 windowCoord;
+									windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
+									auto relativePos = tmp[axis]-float(windowCoord[axis]);
+									for (auto h=0; h<windowSize; h++)
+									{
+										value_type windowSample[MaxChannels];
 
-								core::vectorSIMDf tmp(relativePos,0.f,0.f);
-								kernel.evaluateImpl(load,evaluate,windowSample,tmp,windowCoord,&scale);
-								relativePos -= 1.f;
-								windowCoord[axis]++;
+										core::vectorSIMDf tmp(relativePos,0.f,0.f);
+										kernel.evaluateImpl(load,evaluate,windowSample,tmp,windowCoord,weightSum,&scale);
+										relativePos -= 1.f;
+										windowCoord[axis]++;
+									}
+								}
+								for (auto h=0; h<MaxChannels; h++)
+								if (weightSum[h]>std::numeric_limits<double>::min())
+									value[h] /= weightSum[h];
 							}
 							if (lastPass)
 							{

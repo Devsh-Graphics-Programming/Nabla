@@ -75,7 +75,7 @@ class IImageFilterKernel
 			{
 			}
 		};
-		using sample_functor_operator_t = void(void*, core::vectorSIMDf&, const core::vectorSIMDi32&, const UserData* userData);
+		using sample_functor_operator_t = void(void*, core::vectorSIMDf&, const core::vectorSIMDi32&, const UserData*);
 
 		// Whether we can break up the convolution in multiple dimensions as a separate convlution per dimension all followed after each other,this is very important for performance
 		// as it turns a convolution from a O(window_size.x*image_extent.x*window_size.y*image_extent.y...) to O(window_size.x*image_extent.x+window_size.y*image_extent.y+..)
@@ -88,13 +88,13 @@ class IImageFilterKernel
 		// function to evaluate the kernel at a pixel position
 		// `globalPos` is the unnormalized (measured in pixels) center sampled (origin is at the center of the first pixel) position 
 		// The`preFilter` and `postFilter` are supposed to be executed for-each-pixel-in-the-window immediately before and after, the business logic of the kernel.
-		virtual void pEvaluate(const core::vectorSIMDf& globalPos,	std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const = 0;
+		virtual void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter, double* weightSum=nullptr) const = 0;
 
 		// convenience function in-case we don't want to run any pre or post filters
 		inline void pEvaluate(const core::vectorSIMDf& globalPos) const
 		{
 			std::function void_functor = default_sample_functor_t();
-			pEvaluate(globalPos, void_functor, void_functor);
+			pEvaluate(globalPos, void_functor, void_functor, nullptr);
 		}
 
 		// given an unnormalized (measured in pixels), center sampled coordinate (origin is at the center of the first pixel),
@@ -165,19 +165,23 @@ class CImageFilterKernel : public IImageFilterKernel
 		{
 			return static_cast<const CRTP*>(this)->getUserData();
 		}
-		void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override
+		void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter, double* weightSum=nullptr) const override
 		{
-			static_cast<const CRTP*>(this)->evaluate(globalPos,preFilter,postFilter);
+			value_type _weightSum[CRTP::MaxChannels];
+			static_cast<const CRTP*>(this)->evaluate(globalPos,preFilter,postFilter,weightSum);
+			if (weightSum)
+				std::copy_n(_weightSum,CRTP::MaxChannels,weightSum);
 		}
 
 
 		// `globalPos` is an unnormalized and center sampled pixel coordinate
 		// each derived class needs to declare a method `template<class PreFilter, class PostFilter> auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const`
 		// the created functor must execute the given `preFilter` before, and the given `postFilter` after, the business logic that the class wants to perform on the pixel window.
+		// `weightSum` contains a sum of all kernel weights (so that we can normalize if we want)
 		template<class PreFilter=const default_sample_functor_t, class PostFilter=const default_sample_functor_t>
-		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
+		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter, value_type* weightSum) const
 		{
-			// offsetGlobalPos now is a unnormalized but corner sampled coord
+			// offsetGlobalPos now is an unnormalized but corner sampled coord
 			core::vectorSIMDf offsetGlobalPos;
 			// get the first and one-past-the-last integer coordinates of the window
 			const auto startCoord = getWindowMinCoord(globalPos,offsetGlobalPos);
@@ -185,6 +189,9 @@ class CImageFilterKernel : public IImageFilterKernel
 
 			// temporary storage for a single pixel
 			value_type windowSample[CRTP::MaxChannels];
+
+			// clear the sum
+			std::fill_n(weightSum,CRTP::MaxChannels,0.f);
 
 			core::vectorSIMDi32 windowCoord(0,0,0);
 			// loop over the window's global coordinates
@@ -194,8 +201,15 @@ class CImageFilterKernel : public IImageFilterKernel
 			{
 				// get position relative to kernel origin, note that it is in reverse (tau-x), in accordance with Mathematical Convolution notation
 				auto relativePos = offsetGlobalPos-core::vectorSIMDf(windowCoord);
-				evaluateImpl<PreFilter,PostFilter>(preFilter,postFilter,windowSample,relativePos,windowCoord,static_cast<const CRTP*>(this)->getUserData());
+				evaluateImpl<PreFilter,PostFilter>(preFilter,postFilter,windowSample,relativePos,windowCoord,weightSum,static_cast<const CRTP*>(this)->getUserData());
 			}
+		}
+		// utility
+		template<class PreFilter = const default_sample_functor_t, class PostFilter = const default_sample_functor_t>
+		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
+		{
+			value_type dummy[CRTP::MaxChannels];
+			evaluate(globalPos,preFilter,postFilter,dummy);
 		}
 
 		// This function is called once for each pixel in the kernel window, for explanation of `preFilter` and `postFilter` @see evaluate.
@@ -204,7 +218,7 @@ class CImageFilterKernel : public IImageFilterKernel
 		// The `relativePosAndFactor.xyz` holds the NEGATIVE coordinate of the pixel relative to the window's center (can be fractional so its a float)
 		// `userData` is a mechanism to pass non-static variables from the derived class to this kernel inner loop
 		template<class PreFilter, class PostFilter>
-		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const UserData* userData) const;
+		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, value_type* weightSum, const UserData* userData) const;
 };
 
 //use this whenever you have diamond inheritance and ambiguous resolves
@@ -219,14 +233,14 @@ inline const auto& getWindowSize() const \
 	return BASENAME::getWindowSize(); \
 } \
 template<class PreFilter=const typename BASENAME::default_sample_functor_t, class PostFilter=const typename BASENAME::default_sample_functor_t> \
-inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const \
+inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter, value_type* weightSum) const \
 { \
-	BASENAME::evaluate(globalPos, preFilter, postFilter); \
+	BASENAME::evaluate(globalPos, preFilter, postFilter, weightSum); \
 } \
 template<class PreFilter, class PostFilter> \
-inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const nbl::asset::IImageFilterKernel::UserData* userData) const \
+inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, value_type* weightSum, const nbl::asset::IImageFilterKernel::UserData* userData) const \
 { \
-	BASENAME::evaluateImpl(preFilter, postFilter, windowSample, relativePos, globalTexelCoord, userData); \
+	BASENAME::evaluateImpl(preFilter, postFilter, windowSample, relativePos, globalTexelCoord, weightSum, userData); \
 }
 
 } // end namespace asset
