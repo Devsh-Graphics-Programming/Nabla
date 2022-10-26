@@ -88,7 +88,8 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
                 dst = std::move(tex);
             }
-            else dst = src.value.fvalue;
+            else
+                dst = src.value.fvalue;
         };
         auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) -> void
         {
@@ -96,6 +97,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
             {
                 IR::INode::STextureSource tex;
                 std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture,semantic);
+                assert(!core::isnan(tex.scale));
                 dst = std::move(tex);
             }
             else
@@ -283,16 +285,7 @@ auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
         {
             ir_node = ir->allocNode<IR::CBSDFBlendNode>();
             ir_node->children.count = 2u;
-
-            auto* node = static_cast<IR::CBSDFBlendNode*>(ir_node);
-            if (_bsdf->blendbsdf.weight.value.type == SPropertyElementData::INVALID)
-            {
-                std::tie(node->weight.texture.image, node->weight.texture.sampler, node->weight.texture.scale) =
-                    getTexture(_bsdf->blendbsdf.weight.texture,EIVS_BLEND_WEIGHT);
-                assert(!core::isnan(node->weight.texture.scale));
-            }
-            else
-                node->weight = IR::INode::color_t(_bsdf->blendbsdf.weight.value.fvalue);
+            getSpectrumOrTexture(_bsdf->blendbsdf.weight,static_cast<IR::CBSDFBlendNode*>(ir_node)->weight,EIVS_BLEND_WEIGHT);
         }
         break;
         case CElementBSDF::MIXTURE_BSDF:

@@ -388,6 +388,7 @@ class ITraversalGenerator
 				if (!static_cast<const IR::CBSDFBlendNode*>(_node)->weight.isConstant())
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 			}
+			break;
 			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
@@ -1585,7 +1586,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	{
 		bool weight = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 		_out << "Weight tex " << weight << "\n";
-		_out << "Weight val/reg " << paramVal1OrRegStr(data.blend.weight, weight) << "\n";
+		_out << "Weight val/reg " << paramVal3OrRegStr(data.blend.weight, weight) << "\n";
 	}
 	break;
 	case instr_stream::OP_DIFFTRANS:
