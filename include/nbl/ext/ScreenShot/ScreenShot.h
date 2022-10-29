@@ -62,6 +62,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		region.imageExtent = { extent.x, extent.y, extent.z };
 
 		video::IGPUBuffer::SCreationParams bufferCreationParams = {};
+		// TODO: this is wrong, doesn't respect minImageTransferGranularity Requirements
 		bufferCreationParams.size = extent.x*extent.y*extent.z*asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format);
 		bufferCreationParams.usage = asset::IBuffer::EUF_TRANSFER_DST_BIT;
 		gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));

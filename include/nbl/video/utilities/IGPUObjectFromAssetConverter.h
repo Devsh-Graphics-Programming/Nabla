@@ -494,7 +494,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         submit.waitSemaphoreCount = 0u;
         submit.pWaitDstStageMask = nullptr;
         submit.pWaitSemaphores = nullptr;
-        uint32_t waitSemaphoreCount = 0u;
     }
     
     assert(cmdbuf && cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
@@ -539,9 +538,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
                 bufrng.size = cpubuffer->getSize();
                 bufrng.buffer = gpubuffer;
                 output->setBuffer(core::smart_refctd_ptr(gpubuffer));
-                _params.utilities->updateBufferRangeViaStagingBuffer(
-                    cmdbuf.get(),fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpubuffer->getPointer(),
-                    submit.waitSemaphoreCount,submit.pWaitSemaphores,submit.pWaitDstStageMask
+                submit = _params.utilities->updateBufferRangeViaStagingBuffer(
+                    bufrng,cpubuffer->getPointer(),
+                    _params.perQueue[EQU_TRANSFER].queue, fence.get(), submit
                 );
             }
         }
@@ -891,10 +890,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             1u, &toTransferDst);
             
         auto regions = cpuimg->getRegions();
-        _params.utilities->updateImageViaStagingBuffer(
-            cmdbuf_transfer.get(), transfer_fence.get(), _params.perQueue[EQU_TRANSFER].queue,
+        submit_transfer = _params.utilities->updateImageViaStagingBuffer(
             cpuimg->getBuffer(), cpuimg->getCreationParameters().format, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL, regions,
-            submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask);
+            _params.perQueue[EQU_TRANSFER].queue, transfer_fence.get(), submit_transfer);
     };
     auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg, asset::IImage::E_LAYOUT newLayout) -> void
     {
