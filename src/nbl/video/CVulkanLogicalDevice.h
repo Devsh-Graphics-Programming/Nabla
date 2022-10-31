@@ -1040,7 +1040,8 @@ protected:
         vk_allocateInfo.pSetLayouts = &vk_dsLayout;
 
         VkDescriptorSet vk_descriptorSet;
-        if (m_devf.vk.vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
+        const auto vk_res = m_devf.vk.vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet);
+        if (vk_res == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(layout),
