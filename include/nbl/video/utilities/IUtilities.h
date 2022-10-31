@@ -21,6 +21,9 @@ class NBL_API IUtilities : public core::IReferenceCounted
         constexpr static inline uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
         constexpr static inline uint32_t minStreamingBufferAllocationSize = 1024u;
 
+        uint32_t m_allocationAlignment = 0u;
+        uint32_t m_allocationAlignmentForBufferImageCopy = 0u;
+
     public:
         IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(device))
         {
@@ -37,16 +40,27 @@ class NBL_API IUtilities : public core::IReferenceCounted
                     minImageTransferGranularityVolume = volume;
             }
 
-            const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
-            const uint32_t imageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
-            const uint32_t optimalTransferAtom = core::max(bufferOptimalTransferAtom, imageOptimalTransferAtom);
+            // host-mapped device memory needs to have this alignment in flush/invalidate calls, therefore this is the streaming buffer's "allocationAlignment".
+            m_allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
+            m_allocationAlignmentForBufferImageCopy = core::max(static_cast<uint32_t>(limits.optimalBufferCopyOffsetAlignment), m_allocationAlignment);
 
-            // nonCoherentAtomSize < minBlockSize < optimalTransferAtom < stagingBuffeRSize/4
-            assert(limits.nonCoherentAtomSize < minStreamingBufferAllocationSize);
-            assert(minStreamingBufferAllocationSize < optimalTransferAtom);
-            assert(optimalTransferAtom * 4u < upstreamSize);
-            assert(optimalTransferAtom * 4u < downstreamSize);
-            assert(static_cast<uint64_t>(minStreamingBufferAllocationSize) % limits.nonCoherentAtomSize == 0u);
+            const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
+            const uint32_t maxImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
+            const uint32_t minImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R8_UINT).getBlockByteSize();;
+            const uint32_t maxOptimalTransferAtom = core::max(bufferOptimalTransferAtom, maxImageOptimalTransferAtom);
+            const uint32_t minOptimalTransferAtom = core::min(bufferOptimalTransferAtom, minImageOptimalTransferAtom);
+
+            // allocationAlignment <= minBlockSize <= minOptimalTransferAtom <= maxOptimalTransferAtom <= stagingBufferSize/4
+            assert(m_allocationAlignment <= minStreamingBufferAllocationSize);
+            assert(m_allocationAlignmentForBufferImageCopy <= minStreamingBufferAllocationSize);
+
+            assert(minStreamingBufferAllocationSize <= minOptimalTransferAtom);
+
+            assert(maxOptimalTransferAtom * 4u <= upstreamSize);
+            assert(maxOptimalTransferAtom * 4u <= downstreamSize);
+
+            assert(minStreamingBufferAllocationSize % m_allocationAlignment == 0u);
+            assert(minStreamingBufferAllocationSize % m_allocationAlignmentForBufferImageCopy == 0u);
 
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
             bool shaderDeviceAddressSupport = false; //TODO(Erfan)
@@ -143,7 +157,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         }
         
         //! This function provides some guards against streamingBuffer fragmentation or allocation failure
-        static uint32_t getAllocationSizeForStreamingBuffer(const size_t size, const size_t alignment, uint32_t maxFreeBlock, const uint32_t optimalTransferAtom)
+        static uint32_t getAllocationSizeForStreamingBuffer(const size_t size, const uint64_t alignment, uint32_t maxFreeBlock, const uint32_t optimalTransferAtom)
         {
             // due to coherent flushing atom sizes, we need to pad
             const size_t paddedSize = core::alignUp(size,alignment);
@@ -417,7 +431,6 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
-            const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
             
             // Use the last command buffer in intendedNextSubmit, it should be in recording state
             auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount-1];
@@ -435,12 +448,12 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 // how large we can make the allocation
                 uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
                 // get allocation size
-                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size, alignment, maxFreeBlock, optimalTransferAtom);
+                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size, m_allocationAlignment, maxFreeBlock, optimalTransferAtom);
                 // make sure we dont overrun the destination buffer due to padding
                 const uint32_t subSize = core::min(allocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
-                m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&alignment);
+                m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
                 // copy only the unpadded part
                 if (localOffset != StreamingTransientDataBufferMT<>::invalid_value)
                 {
@@ -624,7 +637,6 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
-            const uint32_t alignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
 
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdpool->getQueueFamilyIndex() == submissionQueue->getFamilyIndex());
@@ -636,11 +648,11 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 // how large we can make the allocation
                 uint32_t maxFreeBlock = m_defaultDownloadBuffer.get()->max_size();
                 // get allocation size
-                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(notDownloadedSize, alignment, maxFreeBlock, optimalTransferAtom);
+                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(notDownloadedSize, m_allocationAlignment, maxFreeBlock, optimalTransferAtom);
                 const uint32_t copySize = core::min(allocationSize, notDownloadedSize);
 
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
-                m_defaultDownloadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&alignment);
+                m_defaultDownloadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
                 
                 if (localOffset != StreamingTransientDataBufferMT<>::invalid_value)
                 {
@@ -791,7 +803,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //          In the case that dstImage has a different format this function will make the necessary conversions.
         //          If `srcFormat` is EF_UNKOWN, it will be assumed to have the same format `dstImage` was created with.
         //!     - dstImage: destination image to copy image to
-        //!     - dstImageLayout: the image layout of `dstImage` at the point of submission
+        //!     - currentDstImageLayout: the image layout of `dstImage` at the time of submission.
         //!     - regions: regions to copy `srcBuffer`
         //!     - intendedNextSubmit:
         //!         Is the SubmitInfo you intended to submit your command buffers.
@@ -820,7 +832,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //!     * submissionFence must be in `UNSIGNALED` state
         //!     ** IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
         [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] IGPUQueue::SSubmitInfo updateImageViaStagingBuffer(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit);
         
         //! This function is an specialization of the `updateImageViaStagingBuffer` function above.
@@ -839,14 +851,14 @@ class NBL_API IUtilities : public core::IReferenceCounted
         //!     * If submitInfo::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
         //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
         void updateImageViaStagingBufferAutoSubmit(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submitInfo = {});
 
         //! This function is an specialization of the `updateImageViaStagingBufferAutoSubmit` function above.
         //! Additionally waits for the fence
         //! WARNING: This function blocks CPU and stalls the GPU!
         void updateImageViaStagingBufferAutoSubmit(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submitInfo = {}
         );
 
@@ -1008,7 +1020,7 @@ private:
     core::SRange<const asset::IImage::SBufferCopy> regions;
 
     bool canTransferMipLevelsPartially = false;
-    VkExtent3D minImageTransferGranularity;
+    asset::VkExtent3D minImageTransferGranularity = {};
     uint32_t bufferOffsetAlignment = 1u;
 
     asset::E_FORMAT srcImageFormat;

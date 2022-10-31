@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit)
 {
     if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
@@ -22,7 +22,6 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
    
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
-    const uint32_t allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
  
     if (regions.size() == 0)
         return intendedNextSubmit;
@@ -54,7 +53,6 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 
     ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, srcFormat, dstImage);
 
-    // TODO[FUTURE]: consider benefits of using `limits->optimalBufferCopyOffsetAlignment` and `limits->optimalBufferCopyRowPitchAlignment`
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
     const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth); 
 
@@ -62,11 +60,9 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     {
         size_t memoryNeededForRemainingRegions = regionIterator.getMemoryNeededForRemainingRegions();
 
-        // memoryLowerBound = max(maxResidentImageTransferSize, the largest rowPitch of regions); 
         uint32_t memoryLowerBound = maxResidentImageTransferSize;
-        for (uint32_t i = regionIterator.getCurrentRegion(); i < regions.size(); ++i)
         {
-            const asset::IImage::SBufferCopy & region = regions[i];
+            const asset::IImage::SBufferCopy & region = regions[regionIterator.getCurrentRegion()];
             auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
             auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
             auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
@@ -75,9 +71,9 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 
         uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;
         uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
-        const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(memoryNeededForRemainingRegions, allocationAlignment, maxFreeBlock, memoryLowerBound);
+        const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(memoryNeededForRemainingRegions, m_allocationAlignmentForBufferImageCopy, maxFreeBlock, memoryLowerBound);
         // cannot use `multi_place` because of the extra padding size we could have added
-        m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &allocationSize, &allocationAlignment);
+        m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &allocationSize, &m_allocationAlignmentForBufferImageCopy);
         bool failedAllocation = (localOffset == video::StreamingTransientDataBufferMT<>::invalid_value);
 
         // keep trying again
@@ -128,7 +124,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 
             if (!regionsToCopy.empty())
             {
-                cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, dstImageLayout, regionsToCopy.size(), regionsToCopy.data());
+                cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
             }
 
             assert(anyTransferRecorded && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
@@ -147,7 +143,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 }
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submitInfo
 )
 {
@@ -160,7 +156,7 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 
     CSubmitInfoPatcher submitInfoPatcher;
     submitInfoPatcher.patchAndBegin(submitInfo, m_device, submissionQueue->getFamilyIndex());
-    submitInfo = updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submissionQueue,submissionFence,submitInfo);
+    submitInfo = updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions,submissionQueue,submissionFence,submitInfo);
     submitInfoPatcher.end();
 
     assert(submitInfo.isValid());
@@ -168,7 +164,7 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 }
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT dstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submitInfo
 )
 {
@@ -180,7 +176,7 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
     }
 
     auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBufferAutoSubmit(srcBuffer,srcFormat,dstImage,dstImageLayout,regions,submissionQueue,fence.get(),submitInfo);
+    updateImageViaStagingBufferAutoSubmit(srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions,submissionQueue,fence.get(),submitInfo);
     m_device->blockForFences(1u,&fence.get());
 }
 
@@ -192,6 +188,7 @@ ImageRegionIterator::ImageRegionIterator(
     video::IGPUImage* const dstImage
 )
     : regions(copyRegions)
+    , minImageTransferGranularity(queueFamilyProps.minImageTransferGranularity)
     , srcBuffer(srcBuffer)
     , dstImage(dstImage)
     , srcImageFormat(srcImageFormat)
@@ -205,8 +202,6 @@ ImageRegionIterator::ImageRegionIterator(
     if(srcImageFormat == asset::EF_UNKNOWN)
         srcImageFormat = dstImageFormat;
     asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
-
-    memcpy(&minImageTransferGranularity, &queueFamilyProps.minImageTransferGranularity, sizeof(VkExtent3D));
 
     // bufferOffsetAlignment:
         // [x] If Depth/Stencil -> must be multiple of 4
@@ -323,6 +318,8 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
 
 bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, size_t& availableMemory, size_t& stagingBufferOffset, void* stagingBufferPointer)
 {
+    // TODO [FUTURE]: make use of `optimalBufferCopyRowPitchAlignment`
+
     if(isFinished())
         return false;
         

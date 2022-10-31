@@ -584,7 +584,7 @@ class NBL_API IImage : public IDescriptor
 				//if (!formatHasAspects(m_creationParams.format,subresource.aspectMask))
 					//return false;
 				// The aspectMask member of imageSubresource must only have a single bit set
-				if (static_cast<uint32_t>(subresource.aspectMask) == 0u || !core::isPoT(static_cast<uint32_t>(subresource.aspectMask)))
+				if (!core::bitCount(static_cast<uint32_t>(subresource.aspectMask)) == 1u)
 					return false;
 				if (subresource.mipLevel >= m_creationParams.mipLevels)
 					return false;

@@ -1037,17 +1037,20 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         if (needToCompMipsForThisImg(cpuimg))
         {
             params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
-            // TODO: revise the next two lines
+            // TODO: will change when we do the blit on compute shader.
             promotionRequest.usages.blitDst = true;
             promotionRequest.usages.blitSrc = true;
         }
         
         promotionRequest.usages = promotionRequest.usages | params.usage;
         auto newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
+        
+        // If Format Promotion failed try the same usages but with linear tiling.
+        if (params.format == asset::EF_UNKNOWN)
+            newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_LINEAR);
 
         assert(params.format != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
-        if(params.format != newFormat)
-            params.format = newFormat;
+        params.format = newFormat;
 
         auto gpuimg = _params.device->createImage(std::move(params));
         auto gpuimgMemReqs = gpuimg->getMemoryReqs();
