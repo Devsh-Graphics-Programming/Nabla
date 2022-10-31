@@ -487,7 +487,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                 if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
                 {
-                    IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,allocationSize);
+                    auto flushRange = AlignedMappedMemoryRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize,limits.nonCoherentAtomSize);
                     m_device->flushMappedMemoryRanges(1u,&flushRange);
                 }
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
@@ -864,6 +864,17 @@ class NBL_API IUtilities : public core::IReferenceCounted
 
     protected:
         
+        // The application must round down the start of the range to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize,
+        // and round the end of the range up to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize.
+        static IDeviceMemoryAllocation::MappedMemoryRange AlignedMappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len, size_t nonCoherentAtomSize)
+        {
+            IDeviceMemoryAllocation::MappedMemoryRange range = {};
+            range.memory = mem;
+            range.offset = core::alignDown(off, nonCoherentAtomSize);
+            range.length = core::min(core::alignUp(len, nonCoherentAtomSize), mem->getAllocationSize());
+            return range;
+        }
+
         //! Internal tool used to patch command buffers in submit info.
         class CSubmitInfoPatcher
         {
@@ -956,7 +967,8 @@ class NBL_API IUtilities : public core::IReferenceCounted
                 {
                     if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
                     {
-                        IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length);
+                        const auto nonCoherentAtomSize = m_device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
+                        auto flushRange = AlignedMappedMemoryRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length, nonCoherentAtomSize);
                         m_device->invalidateMappedMemoryRanges(1u, &flushRange);
                     }
                     // Call the function

@@ -56,6 +56,13 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
     const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth); 
 
+    core::vector<asset::IImage::SBufferCopy> regionsToCopy;
+
+    // Worst case iterations: remaining blocks --> remaining rows --> remaining slices --> full layers
+    const uint32_t maxIterations = regions.size() * 4u;
+
+    regionsToCopy.reserve(maxIterations);
+
     while (!regionIterator.isFinished())
     {
         size_t memoryNeededForRemainingRegions = regionIterator.getMemoryNeededForRemainingRegions();
@@ -105,17 +112,12 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
             size_t currentUploadBufferOffset = localOffset;
             size_t availableUploadBufferMemory = allocationSize;
 
-            bool anyTransferRecorded = false;
-            core::vector<asset::IImage::SBufferCopy> regionsToCopy;
-
-            // Worst case iterations: remaining blocks --> remaining rows --> remaining slices --> full layers
-            const uint32_t maxIterations = regions.size() * 4u; 
+            regionsToCopy.clear();
             for (uint32_t d = 0u; d < maxIterations && !regionIterator.isFinished(); ++d)
             {
                 asset::IImage::SBufferCopy nextRegionToCopy = {};
                 if (availableUploadBufferMemory > 0u && regionIterator.advanceAndCopyToStagingBuffer(nextRegionToCopy, availableUploadBufferMemory, currentUploadBufferOffset, m_defaultUploadBuffer->getBufferPointer()))
                 {
-                    anyTransferRecorded = true;
                     regionsToCopy.push_back(nextRegionToCopy);
                 }
                 else
@@ -127,11 +129,13 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
                 cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
             }
 
-            assert(anyTransferRecorded && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
+            assert(!regionsToCopy.empty() && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
             
             // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-            if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate()) {
-                IDeviceMemoryAllocation::MappedMemoryRange flushRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, allocationSize);
+            if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
+            {
+                const auto consumedMemory = allocationSize - availableUploadBufferMemory;
+                auto flushRange = AlignedMappedMemoryRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(), localOffset, consumedMemory, limits.nonCoherentAtomSize);
                 m_device->flushMappedMemoryRanges(1u, &flushRange);
             }
         }
