@@ -171,7 +171,7 @@ public:
     }
 
     //! Override class to facilitate changing how assets are loaded
-    class IAssetLoaderOverride
+    NBL_API2 class IAssetLoaderOverride
     {
     protected:
 		_NBL_STATIC_INLINE_CONSTEXPR IAsset::E_MUTABILITY ASSET_MUTABILITY_ON_CACHE_INSERT = IAsset::EM_MUTABLE;
