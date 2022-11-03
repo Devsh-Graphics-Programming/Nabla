@@ -133,7 +133,6 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 			logicalDevice->invalidateMappedMemoryRanges(1u,&mappedMemoryRange);
 
 		auto cpuNewImage = asset::ICPUImage::create(std::move(fetchedGpuImageParams));
-		auto texelBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedGpuImageParams.extent.width * asset::getBlockDimensions(fetchedGpuImageParams.format).X, asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format));
 
 		auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
 		asset::ICPUImage::SBufferCopy& region = regions->front();
@@ -143,7 +142,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		region.imageSubresource.baseArrayLayer = 0u;
 		region.imageSubresource.layerCount = 1u;
 		region.bufferOffset = 0u;
-		region.bufferRowLength = texelBufferRowLength;
+		region.bufferRowLength = fetchedGpuImageParams.extent.width;
 		region.bufferImageHeight = 0u;
 		region.imageOffset = { 0u, 0u, 0u };
 		region.imageExtent = cpuNewImage->getCreationParameters().extent;
