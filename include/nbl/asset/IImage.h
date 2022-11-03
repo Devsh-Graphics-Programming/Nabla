@@ -284,7 +284,12 @@ class NBL_API IImage : public IDescriptor
 				default:
 					break;
 			}
-			return 1u + uint32_t(floorf(log2(float(maxSideLen))));
+			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
+			return core::findLSB(round);
+		}
+		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
+		{
+			return calculateMaxMipLevel(extent,type)+1u;
 		}
 
 		//!
@@ -385,7 +390,7 @@ class NBL_API IImage : public IDescriptor
 					return false;
 			}
 
-			if (_params.mipLevels > calculateMaxMipLevel(_params.extent, _params.type))
+			if (_params.mipLevels > calculateFullMipPyramidLevelCount(_params.extent, _params.type))
 				return false;
 
 			return true;
