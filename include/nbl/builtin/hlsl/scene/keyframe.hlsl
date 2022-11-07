@@ -38,13 +38,14 @@ namespace scene
 		quaternion_t rotation;
 		float3 translation;
 
-		FatKeyframe_t FatKeyframe_t(in Keyframe_t keyframe);
+		FatKeyframe_t(in Keyframe_t keyframe);
 		FatKeyframe_t interpolate(in FatKeyframe_t start, in FatKeyframe_t end, in float fraction);
-		Float4x3 constructMatrix()
+		float4x3 constructMatrix();
 	};
 } 
 }
 }
+
 
 
 
