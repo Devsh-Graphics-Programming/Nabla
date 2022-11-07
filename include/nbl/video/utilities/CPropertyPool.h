@@ -48,17 +48,15 @@ class NBL_API CPropertyPool final : public IPropertyPool
         {
             asset::SBufferRange<video::IGPUBuffer> blocks[PropertyCount];
             video::IGPUBuffer::SCreationParams params;
-            params.canUpdateSubRange = false; // maybe user provide?
             params.queueFamilyIndexCount = 0u;
             params.queueFamilyIndices = nullptr;
-            params.sharingMode = asset::ESM_EXCLUSIVE;
             params.usage = usage;
             for (auto i = 0u; i < PropertyCount; i++)
             {
                 blocks[i].offset = 0ull;
                 blocks[i].size = capacity * PropertySizes[i];
                 params.size = blocks[i].size;
-                blocks[i].buffer = device->createBuffer(params);
+                blocks[i].buffer = device->createBuffer(std::move(params));
                 auto bufferReqs = blocks[i].buffer->getMemoryReqs();
                 bufferReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
                 auto gpubufferMem = device->allocate(bufferReqs, blocks[i].buffer.get());

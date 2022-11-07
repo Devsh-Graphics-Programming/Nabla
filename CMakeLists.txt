@@ -17,6 +17,7 @@ project(Nabla LANGUAGES CXX C)
 
 option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
+option(NBL_SANITIZE_ADDRESS OFF)
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
@@ -87,6 +88,13 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
 set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 
+if(NBL_SANITIZE_ADDRESS) # get rid of RTC1 flag provided by CMake for Debug and RelWithDebInfo configurations for ASAN purposes
+	unset(CMAKE_CXX_FLAGS_DEBUG CACHE) 
+	unset(CMAKE_CXX_FLAGS_DEBUG)
+	unset(CMAKE_CXX_FLAGS_RELWITHDEBINFO CACHE) 
+	unset(CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+endif()
+
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
@@ -98,8 +106,6 @@ else()
 endif()
 
 macro(nbl_adjust_flags)
-	option(NBL_SANITIZE_ADDRESS OFF)
-	
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		option(NBL_SANITIZE_THREAD OFF)
 	endif()
@@ -183,11 +189,9 @@ macro(nbl_adjust_flags)
 		endif()
 
 	elseif(MSVC) # /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
-		if (NBL_SANITIZE_ADDRESS)
-			set(NBL_MSVC_FLAG_SANITIZE_ADDRESS "/fsanitize=address")
-			message(WARNING "Due to https://github.com/google/sanitizers/issues/328 expect not to be able to use the Debug target!")
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /wholearchive:clang_rt.asan_dbg-x86_64.lib /wholearchive:clang_rt.asan_cxx_dbg-x86_64.lib")
-			set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /wholearchive:clang_rt.asan-x86_64.lib /wholearchive:clang_rt.asan_cxx-x86_64.lib")
+		if(NBL_SANITIZE_ADDRESS)
+			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /wholearchive:clang_rt.asan_dbg-x86_64.lib /wholearchive:clang_rt.asan_cxx_dbg-x86_64.lib -fno-omit-frame-pointer -fsanitize=address /fsanitize=address")
+			set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /wholearchive:clang_rt.asan-x86_64.lib /wholearchive:clang_rt.asan_cxx-x86_64.lib -fno-omit-frame-pointer -fsanitize=address /fsanitize=address")
 		endif()
 		
 		# debug
@@ -287,12 +291,12 @@ option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
-if(NBL_UPDATE_GIT_SUBMODULE)
-execute_process(COMMAND git submodule init
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-execute_process(COMMAND git submodule sync --recursive
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-endif()
+option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
+option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
+find_package(Git REQUIRED)
+include(common)
+
+NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)

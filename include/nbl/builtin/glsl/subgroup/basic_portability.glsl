@@ -17,9 +17,9 @@
 #define nbl_glsl_MinSubgroupSizeLog2 2
 #define nbl_glsl_MinSubgroupSize (0x1<<nbl_glsl_MinSubgroupSizeLog2)
 
-#ifdef NBL_IMPL_GL_NV_shader_thread_group
+#ifdef NBL_GLSL_IMPL_GL_NV_shader_thread_group
 	#define nbl_glsl_MaxSubgroupSizeLog2 5
-#elif defined(NBL_IMPL_GL_AMD_gcn_shader)||defined(NBL_IMPL_GL_ARB_shader_ballot)
+#elif defined(NBL_GLSL_IMPL_GL_AMD_gcn_shader)||defined(NBL_GLSL_IMPL_GL_ARB_shader_ballot)
 	#define nbl_glsl_MaxSubgroupSizeLog2 6
 #else
 	#define nbl_glsl_MaxSubgroupSizeLog2 7

@@ -989,7 +989,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                 auto& c = cmd.get<impl::ECT_COPY_QUERY_POOL_RESULTS>();
 
                 const IPhysicalDevice* physdev = getOriginDevice()->getPhysicalDevice();
-                if(!physdev->getFeatures().allowCommandBufferQueryCopies)
+                if(!physdev->getLimits().allowCommandBufferQueryCopies)
                 {
                     assert(false); // allowCommandBufferQueryCopies feature not enabled -> can't write query results to buffer
                     break;

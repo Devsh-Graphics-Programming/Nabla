@@ -614,6 +614,28 @@ static inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorS
     return VK_COLOR_SPACE_MAX_ENUM_KHR;
 }
 
+static inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<asset::IBuffer::E_USAGE_FLAGS> in)
+{
+    VkBufferUsageFlags ret = 0u;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDIRECT_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT)) ret |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_CONDITIONAL_RENDERING_BIT_EXT)) ret |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_BINDING_TABLE_BIT)) ret |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+    return ret;
+}
+
 static inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISampler::E_TEXTURE_CLAMP in)
 {
     switch (in)

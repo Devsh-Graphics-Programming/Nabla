@@ -76,7 +76,7 @@ void SOpenGLContextLocalCache::updateNextState_pipelineAndRaster(IOpenGL_Functio
     raster_dst.depthWriteEnable = raster_src.depthWriteEnable;
     raster_dst.stencilTestEnable = raster_src.stencilTestEnable;
 
-    raster_dst.multisampleEnable = (raster_src.rasterizationSamplesHint > asset::IImage::ESCF_1_BIT);
+    raster_dst.multisampleEnable = (nextState.pipeline.graphics.pipeline->getCreationParameters().rasterizationSamples > asset::IImage::ESCF_1_BIT);
 
     const auto& blend_src = ppln->getBlendParams();
     raster_dst.logicOpEnable = blend_src.logicOpEnable;

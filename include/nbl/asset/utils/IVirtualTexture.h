@@ -1090,7 +1090,7 @@ protected:
         writes[0].dstSet = _dstSet;
         writes[0].info = info;
         info[0].desc = core::smart_refctd_ptr<image_view_t>(getPageTableView());
-        info[0].image.imageLayout = EIL_UNDEFINED;
+        info[0].image.imageLayout = IImage::EL_UNDEFINED;
         info[0].image.sampler = nullptr; //samplers are left for user to specify at will
 
         uint32_t i = 1u, j = 1u;
@@ -1105,7 +1105,7 @@ protected:
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getFloatViews().begin()[j-j0].view;
-                info[j].image.imageLayout = EIL_UNDEFINED;
+                info[j].image.imageLayout = IImage::EL_UNDEFINED;
                 info[j].image.sampler = nullptr;
             }
             ++i;
@@ -1121,7 +1121,7 @@ protected:
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getIntViews().begin()[j-j0].view;
-                info[j].image.imageLayout = EIL_UNDEFINED;
+                info[j].image.imageLayout = IImage::EL_UNDEFINED;
                 info[j].image.sampler = nullptr;
             }
             ++i;
@@ -1137,7 +1137,7 @@ protected:
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getUintViews().begin()[j-j0].view;
-                info[j].image.imageLayout = EIL_UNDEFINED;
+                info[j].image.imageLayout = IImage::EL_UNDEFINED;
                 info[j].image.sampler = nullptr;
             }
             ++i;

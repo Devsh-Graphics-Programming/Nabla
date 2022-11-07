@@ -10,7 +10,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 {
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
 	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
-	m_alignment = core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
+	m_alignment = core::max(deviceLimits.minSSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
 
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
@@ -56,7 +56,7 @@ bool CPropertyPoolHandler::transferProperties(
 {
 	if (requestsBegin==requestsEnd)
 		return true;
-	if (!scratch.buffer || !scratch.buffer->getCachedCreationParams().canUpdateSubRange)
+	if (!scratch.buffer || !scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
 	{
 		logger.log("CPropertyPoolHandler: Need a valid scratch buffer which can have updates staged from the commandbuffer!",system::ILogger::ELL_ERROR);
 		return false;
