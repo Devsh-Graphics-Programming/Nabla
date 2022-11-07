@@ -22,7 +22,7 @@ namespace scene
 		const float4x4 boneTransform, const float3x3 boneOrientationInvT, const float boneWeight)
 	{
 		accVertexPos = mul(boneTransform, float4(inVertexPos * boneWeight, boneWeight));
-		accVertexNormal = boneOrientationInvT * inVertexNormal * boneWeight;
+		accVertexNormal = mul(boneOrientationInvT, inVertexNormal * boneWeight);
 	}
 
 
@@ -30,10 +30,10 @@ namespace scene
 	void Node_accumulateLinearSkin(
 		inout float4 accVertexPos, inout float3 accVertexNormal,
 		const float3 inVertexPos, const float3 inVertexNormal,
-		const float4x4 boneTransform, const float3X3 boneOrientationInvT, const float boneWeight)
+		const float4x4 boneTransform, const float3x3 boneOrientationInvT, const float boneWeight)
 	{
-		accVertexPos += boneTransform * float4(inVertexPos * boneWeight, boneWeight);
-		accVertexNormal += boneOrientationInvT * inVertexNormal * boneWeight;
+		accVertexPos += mul(boneTransform, float4(inVertexPos * boneWeight, boneWeight));
+		accVertexNormal += mul(boneOrientationInvT, inVertexNormal * boneWeight);
 	}
 }
 }
