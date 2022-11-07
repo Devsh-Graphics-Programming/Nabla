@@ -12,7 +12,7 @@ namespace nbl::video
 //! If you bound an "exotic" memory object to the resource, you might require "special" cleanups in the destructor
 struct ICleanup
 {
-    virtual ~ICleanup() = 0;
+    NBL_API2 virtual ~ICleanup() = 0;
 };
 
 //! Interface from which resources backed by IDeviceMemoryAllocation inherit from
