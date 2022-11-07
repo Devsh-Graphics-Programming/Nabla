@@ -3,8 +3,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_HLSL_SCENE_KEYFRAME_INCLUDED_
-#define _NBL_HLSL_SCENE_KEYFRAME_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SCENE_KEYFRAME_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SCENE_KEYFRAME_INCLUDED_
 
 
 
@@ -14,32 +14,36 @@
 
 namespace nbl
 {
-	namespace hlsl
+namespace hlsl
+{
+namespace scene
+{
+	using namespace math;
+
+
+	struct Keyframe_t
 	{
-		namespace scene
-		{
-			struct Keyframe_t
-			{
-				uint2 data[3];
+		uint2 data[3];
 
-				float3 getScale(in Keyframe_t keyframe);
-				quaternion_t getRotation(in Keyframe_t keyframe);
-				float3 getTranslation(in Keyframe_t keyframe);
-			};
+		float3 getScale();
+		quaternion_t getRotation();
+		float3 getTranslation();
+	};
 
 
 
+	struct FatKeyframe_t
+	{
+		float3 scale;
+		quaternion_t rotation;
+		float3 translation;
 
-			struct FatKeyframe_t
-			{
-				float3 scale;
-				quaternion_t rotation;
-				float3 translation;
-
-				FatKeyframe_t FatKeyframe_t(in Keyframe_t keyframe);
-			};
-		} 
-	}
+		FatKeyframe_t FatKeyframe_t(in Keyframe_t keyframe);
+		FatKeyframe_t interpolate(in FatKeyframe_t start, in FatKeyframe_t end, in float fraction);
+		Float4x3 constructMatrix()
+	};
+} 
+}
 }
 
 
