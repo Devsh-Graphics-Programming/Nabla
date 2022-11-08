@@ -512,7 +512,7 @@ public:
         const char* entryPoint = "main";
         const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
 
-        const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
+        const asset::ICPUBuffer* source = cpushader->getContent();
 
         core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
         if (cpushader->containsGLSL())
@@ -530,7 +530,7 @@ public:
                     shaderStage, cpushader->getFilepathHint().c_str(), 4u, logger);
 
             spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
-                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+                reinterpret_cast<const char*>(glslShader_woIncludes->getContent()->getPointer()),
                 shaderStage,
                 entryPoint,
                 cpushader->getFilepathHint().c_str(),

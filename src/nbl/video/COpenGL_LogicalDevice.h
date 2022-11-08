@@ -149,12 +149,9 @@ public:
 
     core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override final
     {
-        auto source = cpushader->getSPVorGLSL();
+        auto source = cpushader->getContent();
         auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
-        if (cpushader->containsGLSL())
-            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), IGPUShader::buffer_contains_glsl, cpushader->getStage(), std::string(cpushader->getFilepathHint()));
-        else
-            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), cpushader->getStage(), std::string(cpushader->getFilepathHint()));
+        return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), cpushader->getStage(), cpushader->getContentType(), std::string(cpushader->getFilepathHint()));
     }
 
     core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override final
@@ -734,18 +731,19 @@ protected:
 
         const std::string& EP = _specInfo.entryPoint;
         const asset::IShader::E_SHADER_STAGE stage = _unspecialized->getStage();
+        const asset::IShader::E_CONTENT_TYPE contentType = (glUnspec->containsGLSL()) ? asset::IShader::ECT_GLSL : asset::IShader::ECT_SPIRV;
 
         core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
         if (glUnspec->containsGLSL())
         {
-            auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
-            auto end = begin + glUnspec->getSPVorGLSL()->getSize();
+            auto begin = reinterpret_cast<const char*>(glUnspec->getContent()->getPointer());
+            auto end = begin + glUnspec->getContent()->getSize();
             std::string glsl(begin,end);
             asset::IShader::insertAfterVersionAndPragmaShaderStage(glsl,std::ostringstream()<<COpenGLShader::k_openGL2VulkanExtensionMap); // TODO: remove this eventually
             asset::IShader::insertDefines(glsl,m_physicalDevice->getExtraGLSLDefines());
             auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, glUnspec->getFilepathHint().c_str(), 4u, getLogger());
             spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
-                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+                reinterpret_cast<const char*>(glslShader_woIncludes->getContent()->getPointer()),
                 stage,
                 EP.c_str(),
                 glUnspec->getFilepathHint().c_str(),
@@ -769,7 +767,7 @@ protected:
         if (!spirv)
             return nullptr;
 
-        auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, std::string(_unspecialized->getFilepathHint()));
+        auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, contentType, std::string(_unspecialized->getFilepathHint()));
 
         asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines()};
         asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
@@ -789,7 +787,7 @@ protected:
             return nullptr;
         }
 
-        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList), stage);
+        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_glfeatures->ShaderLanguageVersion, spvCPUShader->getContent(), _specInfo, std::move(uniformList), stage);
     }
     core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
     {

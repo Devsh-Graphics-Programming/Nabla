@@ -29,35 +29,21 @@ class NBL_API ICPUShader : public IAsset, public IShader
 	protected:
 		virtual ~ICPUShader() = default;
 
-	private:
-		ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _code, bool _isGLSL, const E_SHADER_STAGE stage, std::string&& filepathHint)
-			: IShader(stage, std::move(filepathHint)), m_code(std::move(_code)), m_containsGLSL(_isGLSL)
-		{}
-
 	public:
-		ICPUShader(
-			core::smart_refctd_ptr<ICPUBuffer>&& _spirv,
-			const E_SHADER_STAGE stage,
-			std::string&& filepathHint)
-			: ICPUShader(std::move(_spirv), false, stage, std::move(filepathHint))
+
+		ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& code, const E_SHADER_STAGE stage, E_CONTENT_TYPE contentType, std::string&& filepathHint)
+			: IShader(stage, std::move(filepathHint)), m_code(std::move(code))
+			, m_contentType(contentType)
 		{}
 
 		ICPUShader(
-			core::smart_refctd_ptr<ICPUBuffer>&& _glsl,
-			buffer_contains_glsl_t _buffer_contains_glsl,
+			const char* code,
 			const E_SHADER_STAGE stage,
-			std::string&& filepathHint)
-			: ICPUShader(std::move(_glsl), true, stage, std::move(filepathHint))
-		{}
-
-		ICPUShader(
-			const char* _glsl,
-			const E_SHADER_STAGE stage,
-			std::string&& filepathHint)
-			: ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(_glsl) + 1u), true, 
-				stage, std::move(filepathHint))
+			E_CONTENT_TYPE contentType,
+			std::string&& filepathHint) 
+			: ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(code) + 1u), stage, contentType, std::move(filepathHint))
 		{
-			memcpy(m_code->getPointer(), _glsl, m_code->getSize());
+			memcpy(m_code->getPointer(), code, m_code->getSize());
 		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SHADER;
@@ -73,7 +59,7 @@ class NBL_API ICPUShader : public IAsset, public IShader
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;
-			auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), m_containsGLSL, getStage(), std::string(getFilepathHint())), core::dont_grab);
+			auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), getStage(), m_contentType, std::string(getFilepathHint())), core::dont_grab);
 			clone_common(cp.get());
 
 			return cp;
@@ -87,9 +73,15 @@ class NBL_API ICPUShader : public IAsset, public IShader
 				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
-		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
-		bool containsGLSL() const { return m_containsGLSL; }
-		
+		const ICPUBuffer* getContent() const { return m_code.get(); };
+
+		inline E_CONTENT_TYPE getContentType() const { return m_contentType; }
+		// TODO: find better function name
+		inline bool isContentRawCode() const
+		{
+			return (m_contentType == ECT_GLSL || m_contentType == ECT_HLSL);
+		}
+
 		bool setShaderStage(const E_SHADER_STAGE stage)
 		{
 			if(isImmutable_debug())
@@ -109,7 +101,7 @@ class NBL_API ICPUShader : public IAsset, public IShader
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUShader*>(_other);
-			if (m_containsGLSL != other->m_containsGLSL)
+			if (m_contentType != other->m_contentType)
 				return false;
 			if (getFilepathHint() != other->getFilepathHint())
 				return false;
@@ -140,9 +132,8 @@ class NBL_API ICPUShader : public IAsset, public IShader
 			return m_code->isAnyDependencyDummy(_levelsBelow);
 		}
 
-		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<ICPUBuffer>	m_code;
-		const bool							m_containsGLSL;
+		E_CONTENT_TYPE m_contentType;
 };
 
 }

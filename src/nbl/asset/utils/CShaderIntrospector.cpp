@@ -88,7 +88,7 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
 
     auto introspectSPV = [this,_shader,&_params](const ICPUShader* _spvshader) -> CIntrospectionData*
     {
-        const ICPUBuffer* spv = _spvshader->getSPVorGLSL();
+        const ICPUBuffer* spv = _spvshader->getContent();
         spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
         auto introspection = doIntrospection(comp,_params,_shader->getStage());
         // cache introspection
@@ -103,13 +103,13 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
 
     if (_shader->containsGLSL())
     {
-        auto begin = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
-        auto end = begin+_shader->getSPVorGLSL()->getSize();
+        auto begin = reinterpret_cast<const char*>(_shader->getContent()->getPointer());
+        auto end = begin+_shader->getContent()->getSize();
         std::string glsl(begin,end);
         ICPUShader::insertDefines(glsl,_params.extraDefines);
         auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _shader->getStage(), _shader->getFilepathHint().c_str());
         auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
-            reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
+            reinterpret_cast<const char*>(glslShader_woIncludes->getContent()->getPointer()),
             glslShader_woIncludes->getStage(),
             _params.entryPoint,
             glslShader_woIncludes->getFilepathHint().c_str()

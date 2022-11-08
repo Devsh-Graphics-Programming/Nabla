@@ -17,26 +17,20 @@ namespace nbl::video
 class COpenGLShader : public IGPUShader
 {
 	public:
+
 		COpenGLShader(
 			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv,
 			const IShader::E_SHADER_STAGE _stage,
+			const IShader::E_CONTENT_TYPE _contentType,
 			std::string&& _filepathHint)
 			: IGPUShader(std::move(dev), _stage, std::move(_filepathHint)),
-			m_code(std::move(_spirv)), m_containsGLSL(false)
-		{}
+			m_code(std::move(_spirv)), m_containsGLSL(_contentType == IShader::E_CONTENT_TYPE::ECT_GLSL)
+		{
+			assert(_contentType == IShader::E_CONTENT_TYPE::ECT_GLSL || _contentType == IShader::E_CONTENT_TYPE::ECT_SPIRV);
+		}
 
-		COpenGLShader(
-			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl,
-			buffer_contains_glsl_t buffer_contains_glsl,
-			const IShader::E_SHADER_STAGE _stage,
-			std::string&& _filepathHint)
-			: IGPUShader(std::move(dev), _stage, std::move(_filepathHint)),
-			m_code(std::move(_glsl)), m_containsGLSL(true)
-		{}
-
-		inline const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
+		inline const asset::ICPUBuffer* getContent() const { return m_code.get(); };
 		inline const core::smart_refctd_ptr<asset::ICPUBuffer>& getSPVorGLSL_refctd() const { return m_code; };
 		inline bool containsGLSL() const { return m_containsGLSL; }
 

@@ -53,8 +53,13 @@ class NBL_API IShader : public virtual core::IReferenceCounted
 			ESS_ALL = 0xffffffff
 		};
 
-		struct buffer_contains_glsl_t {};
-		_NBL_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
+		enum E_CONTENT_TYPE : uint8_t
+		{
+			ECT_UNKNOWN = 0,
+			ECT_GLSL,
+			ECT_HLSL,
+			ECT_SPIRV,
+		};
 
 		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
 			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint))
