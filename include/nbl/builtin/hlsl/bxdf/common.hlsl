@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
 
+#include <nbl/builtin/hlsl/limits.hlsl>
+
 namespace nbl
 {
 namespace hlsl
@@ -19,6 +21,20 @@ namespace ray_dir_info
 struct Basic
 {
   float3 getDirection() {return direction;}
+
+  Basic transmit()
+  {
+    Basic retval;
+    retval.direction = -direction;
+    return retval;
+  }
+  
+  Basic reflect(const float3 N, const float directionDotN)
+  {
+    Basic retval;
+    retval.direction = nbl::hlsl::reflect(direction,N,directionDotN);
+    return retval;
+  }
 
   float3 direction;
 };
@@ -211,11 +227,26 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 
 
 // finally fixed the semantic F-up, value/pdf = quotient not remainder
-template<typename SpectralBuckets>
-SpectralBuckets quotient_to_value(const SpectralBuckets quotient, const float pdf)
+template<typename SpectralBins>
+struct quotient_and_pdf
 {
-  return quotient*pdf;
-}
+  quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float _pdf)
+  {
+    quotient_and_pdf<SpectralBins> retval;
+    retval.quotient = _quotient;
+    retval.pdf = _pdf;
+    return retval;
+  }
+
+  SpectralBins value()
+  {
+    return quotient*pdf;
+  }
+  
+  SpectralBins quotient;
+  float pdf;
+};
+
 
 }
 }
