@@ -36,6 +36,10 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 			ESV_COUNT = 0x7FFFFFFFu
 		};
 
+		// TODO: make a new enum on compile type or something, doesn't make sense to have to compile ECT_SPIRV
+		// And it's not "contentType" in this context. It's codeType (?)
+		IShader::E_CONTENT_TYPE getContentType() const override { return IShader::ECT_GLSL;  };
+
 		IGLSLCompiler(system::ISystem* _s);
 
 		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }

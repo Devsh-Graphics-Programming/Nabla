@@ -84,7 +84,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(
     if (_opt)
         spirvBuffer = _opt->optimize(spirvBuffer.get(),logger) ;
 
-    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer), _stage, _compilationId);
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer), _stage, IShader::ECT_GLSL, _compilationId);
 }
 
 core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(
