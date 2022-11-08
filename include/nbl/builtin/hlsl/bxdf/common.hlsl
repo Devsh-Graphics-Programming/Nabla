@@ -192,7 +192,6 @@ struct LightSample
 //
 struct IsotropicMicrofacetCache
 {
-  // always valid by construction
   // always valid because its specialized for the reflective case
   static IsotropicMicrofacetCache createForReflection(const float NdotV, const float NdotL, const float VdotL, out float LplusV_rcpLen)
   {
@@ -290,6 +289,36 @@ struct IsotropicMicrofacetCache
 struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 {
   // always valid by construction
+  static AnisotropicMicrofacetCache create(const float3 tangentSpaceV, const float3 tangentSpaceH)
+  {
+    AnisotropicMicrofacetCache retval;
+    
+    retval.VdotH = dot(tangentSpaceV,tangentSpaceH);
+    retval.LdotH = retval.VdotH;
+    retval.NdotH = tangentSpaceH.z;
+    retval.NdotH2 = retval.NdotH*retval.NdotH;
+    retval.TdotH = tangentSpaceH.x;
+    retval.BdotH = tangentSpaceH.y;
+    
+    return retval;
+  }
+  static AnisotropicMicrofacetCache create(
+    const float3 tangentSpaceV, 
+    const float3 tangentSpaceH,
+    const bool transmitted,
+    const float rcpOrientedEta,
+    const float rcpOrientedEta2
+  )
+  {
+    AnisotropicMicrofacetCache retval = create(tangentSpaceV,tangentSpaceH);
+    if (transmitted)
+    {
+      const float VdotH = retval.VdotH;
+      LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2);
+    }
+    
+    return retval;
+  }
   // always valid because its specialized for the reflective case
   static AnisotropicMicrofacetCache createForReflection(const float3 tangentSpaceV, const float3 tangentSpaceL, const float VdotL)
   {
