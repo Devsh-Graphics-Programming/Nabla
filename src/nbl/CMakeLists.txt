@@ -230,6 +230,7 @@ set(NBL_ASSET_SOURCES
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/IShaderCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/IGLSLCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CShaderIntrospector.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp

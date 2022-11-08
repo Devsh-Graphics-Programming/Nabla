@@ -13,9 +13,9 @@
 
 namespace spirv_cross
 {
-    class ParsedIR;
-    class Compiler;
-    struct SPIRType;
+	class ParsedIR;
+	class Compiler;
+	struct SPIRType;
 }
 
 namespace nbl::asset
@@ -66,8 +66,8 @@ class NBL_API IShader : public virtual core::IReferenceCounted
 
 		static inline void insertDefines(std::string& _glsl, const core::SRange<const char* const>& _defines)
 		{
-            if (_defines.empty())
-                return;
+			if (_defines.empty())
+				return;
 
 			std::ostringstream insertion;
 			for (auto def : _defines)

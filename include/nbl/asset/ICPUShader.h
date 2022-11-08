@@ -29,20 +29,20 @@ class NBL_API ICPUShader : public IAsset, public IShader
 	protected:
 		virtual ~ICPUShader() = default;
 
-    private:
-        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _code, bool _isGLSL, const E_SHADER_STAGE stage, std::string&& filepathHint)
+	private:
+		ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _code, bool _isGLSL, const E_SHADER_STAGE stage, std::string&& filepathHint)
 			: IShader(stage, std::move(filepathHint)), m_code(std::move(_code)), m_containsGLSL(_isGLSL)
 		{}
 
 	public:
-        ICPUShader(
+		ICPUShader(
 			core::smart_refctd_ptr<ICPUBuffer>&& _spirv,
 			const E_SHADER_STAGE stage,
 			std::string&& filepathHint)
 			: ICPUShader(std::move(_spirv), false, stage, std::move(filepathHint))
 		{}
 
-        ICPUShader(
+		ICPUShader(
 			core::smart_refctd_ptr<ICPUBuffer>&& _glsl,
 			buffer_contains_glsl_t _buffer_contains_glsl,
 			const E_SHADER_STAGE stage,
@@ -70,18 +70,18 @@ class NBL_API ICPUShader : public IAsset, public IShader
 			return estimate;
 		}
 
-        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
-        {
-            auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;
-            auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), m_containsGLSL, getStage(), std::string(getFilepathHint())), core::dont_grab);
-            clone_common(cp.get());
+		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+		{
+			auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;
+			auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), m_containsGLSL, getStage(), std::string(getFilepathHint())), core::dont_grab);
+			clone_common(cp.get());
 
-            return cp;
-        }
+			return cp;
+		}
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
+			convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
 				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
