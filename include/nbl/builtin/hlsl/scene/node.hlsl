@@ -6,8 +6,6 @@
 #ifndef _NBL_BUILTIN_HLSL_SCENE_NODE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SCENE_NODE_INCLUDED_
 
-
-
 #include <nbl/builtin/hlsl/math/animations.hlsl>
 
 namespace nbl
@@ -16,29 +14,32 @@ namespace hlsl
 {
 namespace scene
 {
-	void Node_initializeLinearSkin(
-		out float4 accVertexPos, out float3 accVertexNormal,
-		const float3 inVertexPos, const float3 inVertexNormal,
-		const float4x4 boneTransform, const float3x3 boneOrientationInvT, const float boneWeight)
-	{
-		accVertexPos = mul(boneTransform, float4(inVertexPos * boneWeight, boneWeight));
-		accVertexNormal = mul(boneOrientationInvT, inVertexNormal * boneWeight);
-	}
+namespace node
+{
 
-
-
-	void Node_accumulateLinearSkin(
-		inout float4 accVertexPos, inout float3 accVertexNormal,
-		const float3 inVertexPos, const float3 inVertexNormal,
-		const float4x4 boneTransform, const float3x3 boneOrientationInvT, const float boneWeight)
-	{
-		accVertexPos += mul(boneTransform, float4(inVertexPos * boneWeight, boneWeight));
-		accVertexNormal += mul(boneOrientationInvT, inVertexNormal * boneWeight);
-	}
-}
-}
+void initializeLinearSkin(
+	out float4 accVertexPos, out float3 accVertexNormal,
+	const float3 inVertexPos, const float3 inVertexNormal,
+	const float4x4 boneTransform, const float3x3 boneOrientationInvT, const float boneWeight)
+{
+	accVertexPos = mul(boneTransform, float4(inVertexPos * boneWeight, boneWeight));
+	accVertexNormal = mul(boneOrientationInvT, inVertexNormal * boneWeight);
 }
 
 
+
+void accumulateLinearSkin(
+	inout float4 accVertexPos, inout float3 accVertexNormal,
+	const float3 inVertexPos, const float3 inVertexNormal,
+	const float4x4 boneTransform, const float3x3 boneOrientationInvT, const float boneWeight)
+{
+	accVertexPos += mul(boneTransform, float4(inVertexPos * boneWeight, boneWeight));
+	accVertexNormal += mul(boneOrientationInvT, inVertexNormal * boneWeight);
+}
+
+}
+}
+}
+}
 
 #endif

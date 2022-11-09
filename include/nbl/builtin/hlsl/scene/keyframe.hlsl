@@ -6,11 +6,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SCENE_KEYFRAME_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SCENE_KEYFRAME_INCLUDED_
 
-
-
 #include <nbl/builtin/hlsl/math/quaternions.hlsl>
-
-
 
 namespace nbl
 {
@@ -18,37 +14,72 @@ namespace hlsl
 {
 namespace scene
 {
-	using namespace math;
 
+using namespace math;
 
-	struct Keyframe_t
+struct Keyframe_t
+{
+	uint2 data[3];
+
+	float3 getScale()
 	{
-		uint2 data[3];
+		return decodeRGB18E7S3(data[2]);
+	}
 
-		float3 getScale();
-		quaternion_t getRotation();
-		float3 getTranslation();
-	};
-
-
-
-	struct FatKeyframe_t
+	quaternion_t getRotation()
 	{
-		float3 scale;
-		quaternion_t rotation;
-		float3 translation;
+		return { decode8888Quaternion(data[1][1]) };
+	}
 
-		FatKeyframe_t(in Keyframe_t keyframe);
-		FatKeyframe_t interpolate(in FatKeyframe_t start, in FatKeyframe_t end, in float fraction);
-		float4x3 constructMatrix();
-	};
-} 
+	float3 getTranslation()
+	{
+		return uintBitsToFloat(uint3(data[0].xy, data[1][0]));
+	}
+};
+
+
+struct FatKeyframe_t
+{
+	float3 scale;
+	quaternion_t rotation;
+	float3 translation;
+
+	FatKeyframe_t decompress(const Keyframe_t keyframe)
+	{
+		FatKeyframe_t result;
+
+		result.scale       = keyframe.getScale();
+		result.rotation    = keyframe.getRotation();
+		result.translation = keyframe.getTranslation();
+
+		return result;
+	}
+
+	FatKeyframe_t interpolate(const FatKeyframe_t start, const FatKeyframe_t end, const float fraction)
+	{
+		FatKeyframe_t result;
+
+		result.scale = lerp(start.scale, end.scale, fraction);
+		result.rotation = quaternion_t.flerp(start.rotation, end.rotation, fraction);
+		result.translation = lerp(start.translation, end.translation, fraction);
+
+		return result;
+	}
+
+	float4x3 constructMatrix(const FatKeyframe_t keyframe)
+	{
+		float3x3 rotation = constructMatrix(keyframe.rotation);
+		float4x3 tform = float4x3(rotation[0], rotation[1], rotation[2], keyframe.translation);
+
+		for (int i=0; i<3; i++)
+			tform[i] *= scale[i];
+
+		return tform;
+	}
+};
+
 }
 }
-
-
-
-
-
+}
 
 #endif
