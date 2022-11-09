@@ -5,19 +5,21 @@
 
 // TODO: rename Eta to something more fitting to let it be known that reciprocal Eta convention is used (ior_dest/ior_src)
 
-#ifndef _NBL_BUILTIN_HLSL_BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
-#define _NBL_BUILTIN_HLSL_BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_BXDF_FRESNEL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_BXDF_FRESNEL_INCLUDED_
 
 
 namespace nbl
 {
 namespace hlsl
 {
+namespace bxdf
+{
 namespace fresnel
 {
 
 // only works for implied IoR==1.333....
-float3 schlick(in float3 F0, in float VdotH)
+float3 schlick(const float3 F0, const float VdotH)
 {
     float x = 1.0 - VdotH;
     return F0 + (1.0 - F0) * x*x*x*x*x;
@@ -124,6 +126,7 @@ struct thindielectric
     }
 };
 
+}
 }
 }
 }

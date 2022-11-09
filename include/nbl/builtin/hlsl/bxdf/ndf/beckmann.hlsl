@@ -3,8 +3,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BSDF_BECKMANN_INCLUDED_
-#define _NBL_BSDF_BECKMANN_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_BXDF_NDF_BECKMANN_INCLUDED_
+#define _NBL_BUILTIN_HLSL_BXDF_NDF_BECKMANN_INCLUDED_
 
 #include <nbl/builtin/hlsl/math/constants.hlsl>
 #include <nbl/builtin/hlsl/bxdf/ndf/common.hlsl>
@@ -14,6 +14,11 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace bxdf
+{
+namespace ndf
+{
+
 
 float beckmann(in float a2, in float NdotH2)
 {
@@ -30,7 +35,10 @@ float beckmann(in float ax, in float ay, in float ax2, in float ay2, in float Td
 
     return RECIPROCAL_PI * nom / denom;
 }
-	
+
+
+}
+}	
 }
 }
 

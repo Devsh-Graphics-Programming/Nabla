@@ -33,7 +33,7 @@ struct Keyframe_t
 
 	float3 getTranslation()
 	{
-		return uintBitsToFloat(uint3(data[0].xy, data[1][0]));
+		return asfloat(uint3(data[0].xy, data[1][0]));
 	}
 };
 
@@ -60,19 +60,19 @@ struct FatKeyframe_t
 		FatKeyframe_t result;
 
 		result.scale = lerp(start.scale, end.scale, fraction);
-		result.rotation = quaternion_t.flerp(start.rotation, end.rotation, fraction);
+		result.rotation = quaternion_t::flerp(start.rotation, end.rotation, fraction);
 		result.translation = lerp(start.translation, end.translation, fraction);
 
 		return result;
 	}
 
-	float4x3 constructMatrix(const FatKeyframe_t keyframe)
+	float3x4 constructMatrix(const FatKeyframe_t keyframe)
 	{
-		float3x3 rotation = constructMatrix(keyframe.rotation);
-		float4x3 tform = float4x3(rotation[0], rotation[1], rotation[2], keyframe.translation);
+		float3x3 rotation = keyframe.rotation.constructMatrix(keyframe.rotation);
+		float3x3 tform; = float4x3(rotation[0], rotation[1], rotation[2], keyframe.translation);
 
 		for (int i=0; i<3; i++)
-			tform[i] *= scale[i];
+			tform[i] = float4(rotation[i]*scale,keyframe.translation[i]);
 
 		return tform;
 	}

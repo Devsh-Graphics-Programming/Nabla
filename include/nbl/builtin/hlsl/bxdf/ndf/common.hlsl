@@ -11,9 +11,13 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace bxdf
+{
+namespace ndf
+{
 
 // general path
-float microfacet_to_light_measure_transform(in float NDFcos, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
+static float microfacet_to_light_measure_transform(in float NDFcos, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
 {
     float denominator = absNdotV;
     if (transmitted)
@@ -24,7 +28,7 @@ float microfacet_to_light_measure_transform(in float NDFcos, in float absNdotV, 
     }
     return NDFcos*(transmitted ? VdotHLdotH:0.25)/denominator;
 }
-float microfacet_to_light_measure_transform(in float NDFcos, in float maxNdotV)
+static float microfacet_to_light_measure_transform(in float NDFcos, in float maxNdotV)
 {
     return 0.25*NDFcos/maxNdotV;
 }
@@ -34,7 +38,7 @@ namespace ggx
 {
 
 // specialized factorizations for GGX
-float ggx_microfacet_to_light_measure_transform(in float NDFcos_already_in_reflective_dL_measure, in float absNdotL, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
+float microfacet_to_light_measure_transform(in float NDFcos_already_in_reflective_dL_measure, in float absNdotL, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
 {
     float factor = absNdotL;
     if (transmitted)
@@ -45,7 +49,7 @@ float ggx_microfacet_to_light_measure_transform(in float NDFcos_already_in_refle
     }
     return NDFcos_already_in_reflective_dL_measure*factor;
 }
-float ggx_microfacet_to_light_measure_transform(in float NDFcos_already_in_reflective_dL_measure, in float maxNdotL)
+float microfacet_to_light_measure_transform(in float NDFcos_already_in_reflective_dL_measure, in float maxNdotL)
 {
     return NDFcos_already_in_reflective_dL_measure*maxNdotL;
 }

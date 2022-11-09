@@ -3,8 +3,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_BXDF_GGX_INCLUDED_
-#define _NBL_BUILTIN_HLSL_BXDF_GGX_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_BXDF_NDF_GGX_INCLUDED_
+#define _NBL_BUILTIN_HLSL_BXDF_NDF_GGX_INCLUDED_
 
 #include <nbl/builtin/hlsl/math/constants.hlsl>
 #include <nbl/builtin/hlsl/bxdf/ndf/common.hlsl>
@@ -14,8 +14,13 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace bxdf
+{
+namespace ndf
+{
 namespace ggx
 {
+
 
 float trowbridge_reitz(in float a2, in float NdotH2)
 {
@@ -40,6 +45,9 @@ float aniso(in float TdotH2, in float BdotH2, in float NdotH2, in float ax, in f
 	return RECIPROCAL_PI / (a2 * denom * denom);
 }
 	
+
+}
+]
 }
 }
 }
