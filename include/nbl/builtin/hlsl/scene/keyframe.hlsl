@@ -69,7 +69,7 @@ struct FatKeyframe_t
 	float3x4 constructMatrix(const FatKeyframe_t keyframe)
 	{
 		float3x3 rotation = keyframe.rotation.constructMatrix(keyframe.rotation);
-		float3x3 tform; = float4x3(rotation[0], rotation[1], rotation[2], keyframe.translation);
+		float3x4 tform; = float3x4(rotation[0], rotation[1], rotation[2], keyframe.translation);
 
 		for (int i=0; i<3; i++)
 			tform[i] = float4(rotation[i]*scale,keyframe.translation[i]);
