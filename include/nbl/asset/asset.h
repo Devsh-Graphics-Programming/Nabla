@@ -39,7 +39,6 @@
 #include "nbl/asset/filters/CSummedAreaTableImageFilter.h"
 
 // shaders
-#include "nbl/asset/ISPIR_VProgram.h"
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/utils/ShaderRes.h"
