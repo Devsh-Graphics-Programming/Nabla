@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED
-#define NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED
+#ifndef _NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED_
+#define _NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 #include "nbl/system/declarations.h"
