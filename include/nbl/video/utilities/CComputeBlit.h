@@ -195,7 +195,7 @@ public:
 			shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
 		shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_blit.comp>\n";
 
-		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, "CComputeBlit::createBlitSpecializedShader");
+		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::ECT_GLSL, "CComputeBlit::createBlitSpecializedShader");
 		auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 		auto specShader = m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 

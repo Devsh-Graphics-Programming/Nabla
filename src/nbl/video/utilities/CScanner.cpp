@@ -15,7 +15,7 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 	}
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glsl->getSize());
 	memcpy(buffer->getPointer(), glsl->getMappedPointer(), glsl->getSize());
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, "????");
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::ESS_COMPUTE, asset::IShader::ECT_GLSL, "????");
 	const char* storageType = nullptr;
 	switch (dataType)
 	{

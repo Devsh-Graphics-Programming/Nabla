@@ -17,9 +17,8 @@ using namespace nbl::asset;
 
 
 IGLSLCompiler::IGLSLCompiler(system::ISystem* _s)
-    : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_s)), IShaderCompiler(_s)
+    : IShaderCompiler(_s)
 {
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_s));
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(

@@ -5,15 +5,6 @@
 #ifndef __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
 #define __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
 
-#include "nbl/core/declarations.h"
-#include "nbl/system/declarations.h"
-
-#include "nbl/system/IFile.h"
-#include "nbl/system/ISystem.h"
-
-#include "nbl/asset/ICPUSpecializedShader.h"
-#include "nbl/asset/utils/IIncludeHandler.h"
-
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
@@ -36,14 +27,9 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 			ESV_COUNT = 0x7FFFFFFFu
 		};
 
-		// TODO: make a new enum on compile type or something, doesn't make sense to have to compile ECT_SPIRV
-		// And it's not "contentType" in this context. It's codeType (?)
-		IShader::E_CONTENT_TYPE getContentType() const override { return IShader::ECT_GLSL;  };
+		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::ECT_GLSL;  };
 
 		IGLSLCompiler(system::ISystem* _s);
-
-		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
-		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
 
 		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(
 			const char* _glslCode,
@@ -155,9 +141,6 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 				return "";
 			}
 		}
-
-	private:
-		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
 };
 
 }

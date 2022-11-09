@@ -515,7 +515,7 @@ public:
         const asset::ICPUBuffer* source = cpushader->getContent();
 
         core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
-        if (cpushader->containsGLSL())
+        if (cpushader->getContentType() == asset::ICPUShader::ECT_GLSL)
         {
             const char* begin = static_cast<const char*>(source->getPointer());
             const char* end = begin + source->getSize();
@@ -539,9 +539,13 @@ public:
                 logger,
                 m_physicalDevice->getLimits().spirvVersion);
         }
-        else
+        else if(cpushader->getContentType() == asset::ICPUShader::ECT_SPIRV)
         {
             spirv = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
+        }
+        else
+        {
+            assert(false); // TODO[ShaderCompiler]: not supported right now
         }
 
         if (!spirv)

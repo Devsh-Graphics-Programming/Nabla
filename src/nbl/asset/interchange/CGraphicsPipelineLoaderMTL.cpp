@@ -36,8 +36,8 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
         memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
             std::move(buffer),
-            asset::IShader::buffer_contains_glsl_t{},
             stage,
+            asset::IShader::ECT_GLSL,
             stage != ICPUShader::ESS_VERTEX
             ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?"
             : "?IrrlichtBAW PipelineLoaderMTL VertexShader?");

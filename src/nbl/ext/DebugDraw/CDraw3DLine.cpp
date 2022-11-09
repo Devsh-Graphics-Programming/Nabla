@@ -26,8 +26,8 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 	assert(layout);
 	{
 
-		auto vs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader, asset::IShader::ESS_VERTEX, "vs"));
-		auto fs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader, asset::IShader::ESS_FRAGMENT, "fs"));
+		auto vs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader, asset::IShader::ESS_VERTEX, asset::IShader::ECT_GLSL, "vs"));
+		auto fs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader, asset::IShader::ESS_FRAGMENT, asset::IShader::ECT_GLSL, "fs"));
 
 		asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main");
 		auto vs = m_device->createSpecializedShader(vs_unspec.get(), vsinfo);

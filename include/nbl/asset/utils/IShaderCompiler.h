@@ -120,13 +120,17 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 			outCode += epilogueLen;
 			*outCode = 0; // terminating char
 
-			return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), original->getContentType(), original->getStage(), std::string(original->getFilepathHint()));
+			return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), original->getStage(), original->getContentType(), std::string(original->getFilepathHint()));
 		}
 
-		virtual IShader::E_CONTENT_TYPE getContentType() const = 0;
+		virtual IShader::E_CONTENT_TYPE getCodeContentType() const = 0;
+
+		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
+		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
 
 	private:
 		system::ISystem* m_system;
+		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
 };
 
 }

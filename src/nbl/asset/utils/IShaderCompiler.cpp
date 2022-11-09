@@ -16,6 +16,8 @@ using namespace nbl::asset;
 IShaderCompiler::IShaderCompiler(system::ISystem* _s)
     : m_system(_s)
 {
+    m_inclHandler = core::make_smart_refctd_ptr<CIncludeHandler>(_s);
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_s));
 }
 
 namespace nbl::asset::impl
@@ -176,7 +178,7 @@ core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
     shaderc::Compiler comp;
     shaderc::CompileOptions options;
     options.SetTargetSpirv(shaderc_spirv_version_1_6);
-    // TODO: options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_system, _maxSelfInclusionCnt+1u));//custom #include handler
+    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_system, _maxSelfInclusionCnt+1u));//custom #include handler
     const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(_code, stage, _originFilepath, options);
 
@@ -188,7 +190,7 @@ core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
     impl::reenableDirectives(res_str);
 
-    return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str(), _stage, getContentType(), std::string(_originFilepath));
+    return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str(), _stage, getCodeContentType(), std::string(_originFilepath));
 }
 
 core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
