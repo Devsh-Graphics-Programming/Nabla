@@ -76,8 +76,8 @@ class NBL_API ICPUShader : public IAsset, public IShader
 		const ICPUBuffer* getContent() const { return m_code.get(); };
 
 		inline E_CONTENT_TYPE getContentType() const { return m_contentType; }
-		// TODO: find better function name
-		inline bool isContentRawCode() const
+		
+		inline bool isContentHighLevelLanguage() const
 		{
 			return (m_contentType == ECT_GLSL || m_contentType == ECT_HLSL);
 		}

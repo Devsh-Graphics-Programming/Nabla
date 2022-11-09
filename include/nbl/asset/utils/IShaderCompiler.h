@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED__
-#define __NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED__
+#ifndef NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED
+#define NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED
 
 #include "nbl/core/declarations.h"
 #include "nbl/system/declarations.h"
@@ -27,7 +27,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
-		This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such ICPUShader (mostly GLSL source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.
+		This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such ICPUShader (mostly High Level source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.
 
 		Internally function "disables" all preprocessor directives (so that they're not processed by preprocessor) except `#include` (and also `#version` and `#pragma shader_stage`).
 		Note that among the directives there may be include guards. Because of that, _maxSelfInclusionCnt parameter is provided.
@@ -37,7 +37,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 		@param _originFilepath Path to not necesarilly existing file whose directory will be base for relative (""-type) top-level #include's resolution.
 			If _originFilepath is non-path-like string (e.g. "whatever" - no slashes), the base directory is assumed to be "." (working directory of your executable). It's important for it to be unique.
 
-		@returns Shader containing logically same GLSL code as input but with #include directives resolved.
+		@returns Shader containing logically same High Level code as input but with #include directives resolved.
 		*/
 		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(
 			std::string&& _code,
@@ -56,7 +56,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 		/*
 			Creates a formatted copy of the original
 
-			@param original An original glsl shader (must contain glsl and not be a dummy object of be a nullptr).
+			@param original An original High Level shader (must contain high level language code and must not be a nullptr).
 			@param fmt A string with c-like format, which will be filled with data from ...args
 			@param ...args Data to fill fmt with
 			@returns shader containing fmt filled with ...args, placed before the original code.
@@ -68,7 +68,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
 		{
-			assert(original == nullptr || (!original->isADummyObjectForCache() && original->isContentRawCode()));
+			assert(original == nullptr || (!original->isADummyObjectForCache() && original->isContentHighLevelLanguage()));
 
 			constexpr auto getMaxSize = [](auto num) -> size_t
 			{

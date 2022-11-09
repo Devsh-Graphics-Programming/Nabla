@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_SHADER_H_INCLUDED__
-#define __NBL_ASSET_I_SHADER_H_INCLUDED__
+#ifndef NBL_ASSET_I_SHADER_H_INCLUDED
+#define NBL_ASSET_I_SHADER_H_INCLUDED
 
 #include <algorithm>
 #include <string>
