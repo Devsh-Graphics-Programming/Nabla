@@ -79,7 +79,7 @@ class NBL_API ICPUShader : public IAsset, public IShader
 		
 		inline bool isContentHighLevelLanguage() const
 		{
-			return (m_contentType == ECT_GLSL || m_contentType == ECT_HLSL);
+			return (m_contentType == E_CONTENT_TYPE::ECT_GLSL || m_contentType == E_CONTENT_TYPE::ECT_HLSL);
 		}
 
 		bool setShaderStage(const E_SHADER_STAGE stage)

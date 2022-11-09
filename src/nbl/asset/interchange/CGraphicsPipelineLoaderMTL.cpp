@@ -37,7 +37,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
             std::move(buffer),
             stage,
-            asset::IShader::ECT_GLSL,
+            asset::IShader::E_CONTENT_TYPE::ECT_GLSL,
             stage != ICPUShader::ESS_VERTEX
             ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?"
             : "?IrrlichtBAW PipelineLoaderMTL VertexShader?");

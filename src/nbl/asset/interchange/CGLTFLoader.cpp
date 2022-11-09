@@ -49,7 +49,7 @@ using namespace nbl::asset;
 				auto glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 
-				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), stage, asset::ICPUShader::ECT_GLSL, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
+				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), stage, asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
 				if (extraDefine)
 					unspecializedShader = IShaderCompiler::createOverridenCopy(unspecializedShader.get(),"%s",extraDefine);
 

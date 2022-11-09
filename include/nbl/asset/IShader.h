@@ -32,6 +32,7 @@ namespace nbl::asset
 class NBL_API IShader : public virtual core::IReferenceCounted
 {
 	public:
+		// TODO: make this enum class
 		enum E_SHADER_STAGE : uint32_t
 		{
 			ESS_VERTEX = 1 << 0,
@@ -53,7 +54,7 @@ class NBL_API IShader : public virtual core::IReferenceCounted
 			ESS_ALL = 0xffffffff
 		};
 
-		enum E_CONTENT_TYPE : uint8_t
+		enum class E_CONTENT_TYPE : uint8_t
 		{
 			ECT_UNKNOWN = 0,
 			ECT_GLSL,

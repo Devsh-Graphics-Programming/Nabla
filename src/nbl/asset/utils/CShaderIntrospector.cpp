@@ -101,7 +101,7 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
         return m_introspectionCache[std::move(key)].insert({core::smart_refctd_ptr<const ICPUShader>(_shader),std::move(introspection)}).first->second.get();
     };
 
-    if (_shader->getContentType() == ICPUShader::ECT_GLSL)
+    if (_shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
     {
         auto begin = reinterpret_cast<const char*>(_shader->getContent()->getPointer());
         auto end = begin+_shader->getContent()->getSize();
@@ -119,7 +119,7 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
 
         return introspectSPV(spvShader.get());
     }
-    else if (_shader->getContentType() == ICPUShader::ECT_SPIRV)
+    else if (_shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
         return introspectSPV(_shader);
     else
         return nullptr; // TODO[ShaderCompiler] ?

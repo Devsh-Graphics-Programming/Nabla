@@ -27,7 +27,7 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 			ESV_COUNT = 0x7FFFFFFFu
 		};
 
-		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::ECT_GLSL;  };
+		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL;  };
 
 		IGLSLCompiler(system::ISystem* _s);
 

@@ -731,7 +731,7 @@ protected:
 
         const std::string& EP = _specInfo.entryPoint;
         const asset::IShader::E_SHADER_STAGE stage = _unspecialized->getStage();
-        const asset::IShader::E_CONTENT_TYPE contentType = (glUnspec->containsGLSL()) ? asset::IShader::ECT_GLSL : asset::IShader::ECT_SPIRV;
+        const asset::IShader::E_CONTENT_TYPE contentType = (glUnspec->containsGLSL()) ? asset::IShader::E_CONTENT_TYPE::ECT_GLSL : asset::IShader::E_CONTENT_TYPE::ECT_SPIRV;
 
         core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
         if (glUnspec->containsGLSL())

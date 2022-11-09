@@ -515,7 +515,7 @@ public:
         const asset::ICPUBuffer* source = cpushader->getContent();
 
         core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
-        if (cpushader->getContentType() == asset::ICPUShader::ECT_GLSL)
+        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
         {
             const char* begin = static_cast<const char*>(source->getPointer());
             const char* end = begin + source->getSize();
@@ -539,7 +539,7 @@ public:
                 logger,
                 m_physicalDevice->getLimits().spirvVersion);
         }
-        else if(cpushader->getContentType() == asset::ICPUShader::ECT_SPIRV)
+        else if(cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
         {
             spirv = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
         }
