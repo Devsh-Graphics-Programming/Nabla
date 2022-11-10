@@ -12,9 +12,9 @@ namespace hlsl
 {
 
 
-float numeric_limits_float_epsilon(float n);
-float numeric_limits_float_epsilon(int n);
-float numeric_limits_float_epsilon();
+float numeric_limits::float_epsilon(float n);
+float numeric_limits::float_epsilon(int n);
+float numeric_limits::float_epsilon();
 
 uint bitfieldExtract(uint value, int offset, int bits)
 {
@@ -95,12 +95,12 @@ uint encode_ufloat_impl(in int exponent, in uint exponentBits, in uint mantissa,
 
 float gamma(float n)
 {
-	const float a = numeric_limits_float_epsilon(n);
+	const float a = numeric_limits::float_epsilon(n);
 	return a / (1.f - a);
 }
 float rcpgamma(float n)
 {
-	const float a = numeric_limits_float_epsilon(n);
+	const float a = numeric_limits::float_epsilon(n);
 	return 1.f / a - 1.f;
 }
 
@@ -115,14 +115,14 @@ float rcpgamma(uint n)
 
 float3 add_with_bounds_wo_gamma(out float3 error, in float3 a, in float3 a_error, in float3 b, in float3 b_error)
 {
-	error = (a_error + b_error) / numeric_limits_float_epsilon(1u);
+	error = (a_error + b_error) / numeric_limits::float_epsilon(1u);
 	float3 sum = a + b;
 	error += abs(sum);
 	return sum;
 }
 float3 sub_with_bounds_wo_gamma(out float3 error, in float3 a, in float3 a_error, in float3 b, in float3 b_error)
 {
-	error = (a_error + b_error) / numeric_limits_float_epsilon(1u);
+	error = (a_error + b_error) / numeric_limits::float_epsilon(1u);
 	float3 sum = a - b;
 	error += abs(sum);
 	return sum;
@@ -131,7 +131,7 @@ float3 mul_with_bounds_wo_gamma(out float3 error, in float3 a, in float3 a_error
 {
 	float3 crossCorrelationA = abs(a) * b_error;
 	float3 crossCorrelationB = a_error * abs(b);
-	error = (crossCorrelationB + crossCorrelationA + crossCorrelationB * crossCorrelationA) / numeric_limits_float_epsilon(1u);
+	error = (crossCorrelationB + crossCorrelationA + crossCorrelationB * crossCorrelationA) / numeric_limits::float_epsilon(1u);
 	float3 product = a * b;
 	error += abs(product);
 	return product;

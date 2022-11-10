@@ -19,7 +19,7 @@ namespace frustrum
 {
 
 	// assuming an NDC of [-1,1]^2 x [0,1]
-	static Frustum_t extract(in float4x4 proj)
+	Frustum_t extract(in float4x4 proj)
 	{
 	    AABB_t bounds;
 	    bounds.minVx = float3(-1.f,-1.f,0.f);
@@ -28,7 +28,7 @@ namespace frustrum
 	}
 
 	// will place planes which correspond to the bounds in NDC
-	static Frustum_t extract(in float4x4 proj, in AABB_t bounds)
+	Frustum_t extract(in float4x4 proj, in AABB_t bounds)
 	{
 		float4x3 proj4x3;
 		for (int i = 0; i < 4; i++)
