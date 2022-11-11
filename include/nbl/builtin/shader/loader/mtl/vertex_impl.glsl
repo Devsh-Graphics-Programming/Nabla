@@ -44,18 +44,28 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO
 } CamData;
 #endif //_NBL_VERT_SET1_BINDINGS_DEFINED_
 
+
+#ifndef NBL_GLSL_FEATURE_MULTI_DRAW_INDIRECT
+// always 0 cause there's no possibility of multi-draw indirect
+#define DRAW_ID 0u
+#elif defined(NBL_GLSL_FEATURE_SHADER_DRAW_PARAMETERS)
+#define DRAW_ID gl_DrawID
+#else
+#define DRAW_ID 0u
+// "Cannot get DrawID for potential Multi Draw Indirect call, fallback to always reporting 0!"
+#endif
+
 #ifndef _NBL_VERT_MAIN_DEFINED_
 #define _NBL_VERT_MAIN_DEFINED_
 void main()
 {
-	//TODO: 0 -> gl_DrawID
-    LocalPos = nbl_glsl_fetchVtxPos(gl_VertexIndex, /*gl_DrawID*/ 0);
+    LocalPos = nbl_glsl_fetchVtxPos(gl_VertexIndex, DRAW_ID);
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(CamData.params.MVP, LocalPos);
     ViewPos = nbl_glsl_pseudoMul3x4with3x1(CamData.params.MV, LocalPos);
     mat3 normalMat = nbl_glsl_SBasicViewParameters_GetNormalMat(CamData.params.NormalMatAndEyePos);
-    Normal = normalMat*normalize(nbl_glsl_fetchVtxNormal(gl_VertexIndex, /*gl_DrawID*/ 0));
+    Normal = normalMat*normalize(nbl_glsl_fetchVtxNormal(gl_VertexIndex, DRAW_ID));
 #ifndef _NO_UV
-    UV = nbl_glsl_fetchVtxUV(gl_VertexIndex, /*gl_DrawID*/ 0);
+    UV = nbl_glsl_fetchVtxUV(gl_VertexIndex, DRAW_ID);
 #endif
 }
 #endif //_NBL_VERT_MAIN_DEFINED_

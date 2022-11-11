@@ -14,6 +14,7 @@ namespace nbl::video
 
 class ILogicalDevice;
 
+// TODO: Check for feature availability (should be enabled) from logical device in IGPUAccelerationStructure and CVulkanAccelerationStructure
 class CVulkanAccelerationStructure final : public IGPUAccelerationStructure
 {
 public:

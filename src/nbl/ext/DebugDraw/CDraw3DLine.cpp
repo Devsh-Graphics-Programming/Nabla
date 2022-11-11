@@ -26,8 +26,8 @@ CDraw3DLine::CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& de
 	assert(layout);
 	{
 
-		auto vs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader, asset::IShader::ESS_VERTEX, "vs"));
-		auto fs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader, asset::IShader::ESS_FRAGMENT, "fs"));
+		auto vs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineVertexShader, asset::IShader::ESS_VERTEX, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "vs"));
+		auto fs_unspec = m_device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(Draw3DLineFragmentShader, asset::IShader::ESS_FRAGMENT, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "fs"));
 
 		asset::ISpecializedShader::SInfo vsinfo(nullptr, nullptr, "main");
 		auto vs = m_device->createSpecializedShader(vs_unspec.get(), vsinfo);
@@ -105,11 +105,11 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 	
 	if (!fence)
 	{
-		utilities->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
+		utilities->updateBufferRangeViaStagingBufferAutoSubmit(range, m_lines.data(), queue);
 	}
 	else
 	{
 		*fence = m_device->createFence(video::IGPUFence::ECF_UNSIGNALED);
-		utilities->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
+		utilities->updateBufferRangeViaStagingBufferAutoSubmit(range, m_lines.data(), queue, fence->get());
 	}
 }

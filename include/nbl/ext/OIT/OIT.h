@@ -107,7 +107,7 @@ class NBL_API COIT
             resolve_glsl += "#define NBL_GLSL_SPINLOCK_IMAGE_BINDING " + std::to_string(spinlockBnd) + "\n";
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
-            const bool hasInterlock = dev->getPhysicalDevice()->getFeatures().fragmentShaderPixelInterlock;
+            const bool hasInterlock = dev->getEnabledFeatures().fragmentShaderPixelInterlock;
             // TODO bring back
 #if 0
             if (hasInterlock)
@@ -116,7 +116,7 @@ class NBL_API COIT
 #endif
                 m_images.spinlock = createOITImage(SpinlockImageFormat);
 
-            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, "oit_resolve.frag");
+            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "oit_resolve.frag");
             auto shader = dev->createShader(std::move(cpushader));
             if (!shader)
                 return false;

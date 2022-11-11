@@ -178,7 +178,7 @@ class NBL_API CToneMapper : public core::IReferenceCounted, public core::Interfa
 		
 		//
 		static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createShader(
-			asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
+			asset::CGLSLCompiler* compilerToAddBuiltinIncludeTo,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
 			E_OPERATOR _operator,
