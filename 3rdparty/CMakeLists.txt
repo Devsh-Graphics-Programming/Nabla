@@ -16,10 +16,14 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
-
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
+# DXC
+#option(_NBL_COMPILE_WITH_DXC_ "Build Nabla with DXC" ON)
+if(_NBL_COMPILE_WITH_DXC_)
+	add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
+endif()
 
 # volk
 set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples

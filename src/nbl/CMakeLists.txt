@@ -575,6 +575,12 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
+# DXC
+if(_NBL_COMPILE_WITH_DXC_)
+	add_dependencies(Nabla dxc dxcompiler)
+	# TODO
+endif()
+
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
