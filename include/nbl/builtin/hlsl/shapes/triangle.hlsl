@@ -2,17 +2,13 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_TRIANGLE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_TRIANGLE_INCLUDED_
 
+#include <nbl/builtin/hlsl/common.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 
 namespace nbl
 {
 namespace hlsl
 {
-
-bool3 greaterThanEqual(float3 x, float3 y)
-{
-	return select(x>=y, bool3(true, true, true), bool3(false, false, false));
-}
 
 namespace shapes
 {

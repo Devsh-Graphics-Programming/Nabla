@@ -6,28 +6,17 @@
 #ifndef _NBL_BUILTIN_HLSL_IEE754_H_INCLUDED_
 #define _NBL_BUILTIN_HLSL_IEE754_H_INCLUDED_
 
+#include <nbl/builtin/hlsl/common.hlsl>
+
 namespace nbl
 {
 namespace hlsl
 {
 
-
 float numeric_limits::float_epsilon(float n);
 float numeric_limits::float_epsilon(int n);
 float numeric_limits::float_epsilon();
 
-uint bitfieldExtract(uint value, int offset, int bits)
-{
-	uint mask = uint((1 << bits) - 1);
-	return uint(value >> offset) & mask;
-}
-uint bitfieldInsert(uint value, int insert, int offset, int bits)
-{
-	uint mask = ~(0xffffffff << bits) << offset;
-	mask = ~mask;
-	value &= mask;
-	return value | (insert << offset);
-}
 
 namespace ieee754
 {
