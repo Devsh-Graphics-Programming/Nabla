@@ -20,7 +20,7 @@ set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
-#option(_NBL_COMPILE_WITH_DXC_ "Build Nabla with DXC" ON)
+option(_NBL_COMPILE_WITH_DXC_ "Build Nabla with DXC" ON)
 if(_NBL_COMPILE_WITH_DXC_)
 	add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
 endif()

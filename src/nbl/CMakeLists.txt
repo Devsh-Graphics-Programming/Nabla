@@ -577,7 +577,7 @@ endif()
 
 # DXC
 if(_NBL_COMPILE_WITH_DXC_)
-	add_dependencies(Nabla dxc dxcompiler)
+	add_dependencies(Nabla dxc)
 	# TODO
 endif()
 
