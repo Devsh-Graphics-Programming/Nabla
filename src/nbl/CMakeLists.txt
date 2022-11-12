@@ -582,7 +582,96 @@ endif()
 # DXC
 if(_NBL_COMPILE_WITH_DXC_)
 	add_dependencies(Nabla dxc)
-	# TODO
+	
+	############################################################################
+	# list files you want to compile with DXC in _NBL_ENABLE_DXC_COMPILE_TESTS_
+	# once we have guarantee all of shaders in Nabla can be compiled with DXC,
+	# we can simply grep all of those files/use existing vars holding paths to
+	# shaders and remove manual adding the files bellow
+	###################################################
+	
+	if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+		set(_NBL_DXC_CT_INCLUDE_ROOT_ "${NBL_ROOT_PATH}/include") # Nabla include root path for shaders
+		set(_NBL_DXC_CT_BINARY_BIN_ "${CMAKE_CURRENT_BINARY_DIR}/DXC/CT") # compile-test directory
+		
+		if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
+			message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} _NBL_DXC_CT_INCLUDE_ROOT_ = '${_NBL_DXC_CT_INCLUDE_ROOT_}'")
+			message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} _NBL_DXC_CT_BINARY_BIN_ = '${_NBL_DXC_CT_BINARY_BIN_}'")
+		endif()
+		
+		# this is how you add file for compilation test
+		set(_NBL_DXC_CT_SHADER_FILES_ 
+			"${_NBL_DXC_CT_INCLUDE_ROOT_}/nbl/builtin/hlsl/barycentric/utils.hlsl"
+		)
+		
+		foreach(_SHADER_FILE_PATH_ IN LISTS _NBL_DXC_CT_SHADER_FILES_)
+			if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
+				message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} adding _SHADER_FILE_PATH_ = '${_SHADER_FILE_PATH_}' as INPUT of DXC CT target")
+			endif()
+			
+			cmake_path(RELATIVE_PATH _SHADER_FILE_PATH_ BASE_DIRECTORY "${_NBL_DXC_CT_INCLUDE_ROOT_}" OUTPUT_VARIABLE _SHADER_NEW_RELATIVE_FILE_PATH_)
+			cmake_path(REPLACE_EXTENSION _SHADER_NEW_RELATIVE_FILE_PATH_ LAST_ONLY "bin" OUTPUT_VARIABLE _OUTPUT_NEW_RELATIVE_FILE_PATH_)
+			
+			set(_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_ "${_NBL_DXC_CT_BINARY_BIN_}/${_OUTPUT_NEW_RELATIVE_FILE_PATH_}")
+			
+			if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
+				message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} adding _NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_ = '${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}' as OUTPUT of DXC CT target")
+			endif()
+			
+			###############################################################
+			# scans include files of particular hlsl file to compile by DXC
+			# performs validation of include files and adds them as DEPENDS 
+			# of custom command to keep track of modifications of any
+			# dependency file
+			#
+			# TODO: add recursive scanning of ALL includes, right now it
+			# doesn't scan recursivly but sinks only with include depth = 1
+			###############################################################
+			
+			set(_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_ "${_SHADER_FILE_PATH_}")
+			list(APPEND _TMP_CURRENT_DEPS_LIST_ "${_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_}")
+			file(STRINGS "${_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_}" _NBL_DXC_CT_INPUT_SCAN_INCLUDE_LINES_ REGEX "#include <|#include \"")
+
+			foreach(_NBL_DXC_CT_CURRENT_INPUT_SCAN_LINE_ IN LISTS _NBL_DXC_CT_INPUT_SCAN_INCLUDE_LINES_)
+				string(REGEX MATCH "<.*>|\".*\"" _TMP_INCLUDE_WITH_SHEATH_CHARS_ "${_NBL_DXC_CT_CURRENT_INPUT_SCAN_LINE_}")
+				string(REGEX REPLACE <|>|\" "" _TMP_INCLUDE_WITHOUT_SHEATH_CHARS_ "${_TMP_INCLUDE_WITH_SHEATH_CHARS_}")
+			
+				set(_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_ "${_NBL_DXC_CT_INCLUDE_ROOT_}/${_TMP_INCLUDE_WITHOUT_SHEATH_CHARS_}")
+				
+				if(NOT EXISTS "${_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_}")
+					# NOTE: this won't work for shaders included that are registered on fly by asset manager, but let's assume we won't test shaders including another files stored in virtual file system
+					message(FATAL_ERROR "${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} File '${_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_}' included by '${_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_}' doesn't exist!")
+				endif()
+				
+				list(APPEND _TMP_CURRENT_DEPS_LIST_ "${_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_}") # add scanned include files as DEPENDS of a add_custom_command
+			endforeach()
+			
+			list(APPEND _NBL_DXC_CT_BIN_OUTPUTS_ "${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}")
+			
+			# TODO!
+			# why COMMAND doesnt work when compiling with MSVC? but once you copy paste what it does it works in any CMD
+			# TODO: create wrapper file and launch it in CMake script file in order to have clean enviroment untouched by any generator
+			add_custom_command(OUTPUT "${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}"
+				COMMAND cmd /c "${DXC_EXECUTABLE}" -HV 2021 -T "lib_6_7" -I${_NBL_DXC_CT_INCLUDE_ROOT_} -Zi -Fo "${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}" "${_SHADER_FILE_PATH_}"
+				DEPENDS ${_TMP_CURRENT_DEPS_LIST_}
+				USES_TERMINAL
+				VERBATIM
+			)
+			
+			unset(_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_)
+			unset(_TMP_CURRENT_DEPS_LIST_)
+		endforeach()
+	
+		add_custom_target(HLSL_NABLA_COMPILE_TEST DEPENDS ${_NBL_DXC_CT_BIN_OUTPUTS_}
+			COMMENT "${CMAKE_COMMAND}" -E echo "Launching Nabla HLSL compile test..."
+		)
+		
+		unset(_NBL_DXC_CT_BIN_OUTPUTS_)
+		unset(_NBL_DXC_CT_BINARY_BIN_)
+		unset(_NBL_DXC_CT_SHADER_FILES_)
+		unset(_NBL_DXC_CT_INCLUDE_ROOT_)
+	endif()
+	
 endif()
 
 # Linux Display Systems
