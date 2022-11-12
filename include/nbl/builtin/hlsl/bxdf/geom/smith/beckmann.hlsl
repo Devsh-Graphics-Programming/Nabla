@@ -36,7 +36,7 @@ float Lambda(in float c2)
     float c = sqrt(c2);
     float nom = 1.0 - 1.259*c + 0.396*c2;
     float denom = 2.181*c2 + 3.535*c;
-    return mix(0.0, nom/denom, c<1.6);
+    return lerp(0.0, nom/denom, c<1.6);
 }
 
 float Lambda(in float NdotX2, in float a2)

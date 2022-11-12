@@ -45,7 +45,7 @@
 
 namespace nbl
 {
-nbl hlsl
+namespace hlsl
 {
 namespace numeric_limits
 {
