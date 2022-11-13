@@ -33,8 +33,8 @@ list(APPEND DXC_CMAKE_ARGS "-DDXC_BUILD_ARCH=x64")
 set(DXC_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc" CACHE PATH "")
 set(DXC_BINARY_DIR_EP "${CMAKE_CURRENT_BINARY_DIR}/external/dxc" CACHE PATH "")
 set(DXC_BINARY_DIR_GE "${DXC_BINARY_DIR_EP}/Release" CACHE PATH "")
-get_filename_component(DXC_BIN_DIR "${DXC_BINARY_DIR_GE}/Release/bin" ABSOLUTE)
-get_filename_component(DXC_EXECUTABLE "${DXC_BIN_DIR}/dxc.exe" ABSOLUTE)
+set(DXC_BIN_DIR "${DXC_BINARY_DIR_GE}/Release/bin" CACHE PATH "")
+set(DXC_EXECUTABLE "${DXC_BIN_DIR}/dxc.exe" CACHE FILEPATH "")
 
 ExternalProject_Add(dxc
 	DOWNLOAD_COMMAND  ""
