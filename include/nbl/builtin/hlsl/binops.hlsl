@@ -49,7 +49,7 @@ struct mul
 template<typename T, class Comparator>
 struct min
 {
-    T operator()(const T lhs, const T rhs, in Comparator comp)
+    T operator()(const T lhs, const T rhs, inout Comparator comp)
     {
         return comp(lhs, rhs) ? lhs : rhs;
     }
