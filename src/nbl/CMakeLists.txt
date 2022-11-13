@@ -684,6 +684,8 @@ if(_NBL_COMPILE_WITH_DXC_)
 			COMMENT "${CMAKE_COMMAND}" -E echo "Launching Nabla HLSL compile test..."
 		)
 		
+		add_dependencies(HLSL_NABLA_COMPILE_TEST dxc)
+		
 		unset(_NBL_DXC_CT_BIN_OUTPUTS_)
 		unset(_NBL_DXC_CT_BINARY_BIN_)
 		unset(_NBL_DXC_CT_SHADER_FILES_)
