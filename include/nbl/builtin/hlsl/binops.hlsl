@@ -46,12 +46,31 @@ struct mul
     }
 };
 
+template<typename T, class Comparator>
+struct min
+{
+    T operator()(const T lhs, const T rhs, in Comparator comp)
+    {
+        return comp(lhs, rhs) ? lhs : rhs;
+    }
+};
+
 template<typename T>
 struct min
 {
     T operator()(const T lhs, const T rhs)
     {
-        return lhs>rhs ? rhs : lhs;
+		comparator_lt_t comp;
+        return min(lhs, rhs, comp);
+    }
+};
+
+template<typename T, class Comparator>
+struct max
+{
+    T operator()(const T lhs, const T rhs, in Comparator comp)
+    {
+        return comp(lhs, rhs) ? lhs : rhs;
     }
 };
 
@@ -60,7 +79,8 @@ struct max
 {
     T operator()(const T lhs, const T rhs)
     {
-        return lhs>rhs ? lhs : rhs;
+		comparator_gt_t comp;
+        return max(lhs, rhs, comp);
     }
 };
 
