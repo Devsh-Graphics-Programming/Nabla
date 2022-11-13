@@ -582,6 +582,18 @@ endif()
 # DXC
 if(_NBL_COMPILE_WITH_DXC_)
 	add_dependencies(Nabla dxc)
+	target_include_directories(Nabla PRIVATE 
+		"${DXC_BINARY_DIR_GE}/tools/clang/tools/dxcompiler"
+		"${DXC_SOURCE_DIR}/tools/clang/tools/dxcompiler"
+		"${DXC_SOURCE_DIR}/tools/clang/include"
+		"${DXC_BINARY_DIR_GE}/tools/clang/include"
+		"${DXC_SOURCE_DIR}/include/llvm/llvm_assert"
+		"${DXC_BINARY_DIR_GE}/include"
+		"${DXC_SOURCE_DIR}/include"
+		"${DXC_BINARY_DIR_GE}/include/dxc/Tracing"
+		"${DXC_BINARY_DIR_GE}/utils/version"
+	)
+	target_link_libraries(Nabla INTERFACE "${DXC_DXCOMPILER_LIB}")
 	
 	############################################################################
 	# list files you want to compile with DXC in _NBL_ENABLE_DXC_COMPILE_TESTS_
