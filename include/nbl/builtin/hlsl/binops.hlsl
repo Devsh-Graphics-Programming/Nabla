@@ -1,8 +1,8 @@
 // Copyright (C) 2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_MACROS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MACROS_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_BINOPS_INCLUDED_
+#define _NBL_BUILTIN_HLSL_BINOPS_INCLUDED_
 // TODO (PentaKon): Should this file be renamed to binops.hlsl ?
 // TODO (PentaKon): Should we move isNPoT from algorithm.hlsl to this file ?
 namespace nbl
