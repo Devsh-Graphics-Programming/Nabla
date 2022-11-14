@@ -68,7 +68,7 @@ struct bitwise_min
 template<typename T, class Comparator>
 struct bitwise_max
 {
-    T operator()(const T lhs, const T rhs, in Comparator comp)
+    T operator()(const T lhs, const T rhs, inout Comparator comp)
     {
         return comp(lhs, rhs) ? lhs : rhs;
     }
