@@ -56,7 +56,7 @@ float float_epsilon(float n)
 }
 float float_epsilon(int n)
 {
-	return numeric_limits::float_epsilon(float(n));
+	return float_epsilon(float(n));
 }
 float float_epsilon()
 {
