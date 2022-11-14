@@ -11,7 +11,7 @@ namespace hlsl
 namespace binops
 {
 template<typename T>
-struct and
+struct bitwise_and
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -20,7 +20,7 @@ struct and
 };
 
 template<typename T>
-struct or
+struct bitwise_or
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -29,7 +29,7 @@ struct or
 };
 
 template<typename T>
-struct xor
+struct bitwise_xor
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -38,7 +38,7 @@ struct xor
 };
 
 template<typename T>
-struct mul
+struct bitwise_mul
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -47,7 +47,7 @@ struct mul
 };
 
 template<typename T, class Comparator>
-struct min
+struct bitwise_min
 {
     T operator()(const T lhs, const T rhs, inout Comparator comp)
     {
@@ -56,7 +56,7 @@ struct min
 };
 
 template<typename T>
-struct min
+struct bitwise_min
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -66,7 +66,7 @@ struct min
 };
 
 template<typename T, class Comparator>
-struct max
+struct bitwise_max
 {
     T operator()(const T lhs, const T rhs, in Comparator comp)
     {
@@ -75,7 +75,7 @@ struct max
 };
 
 template<typename T>
-struct max
+struct bitwise_max
 {
     T operator()(const T lhs, const T rhs)
     {
