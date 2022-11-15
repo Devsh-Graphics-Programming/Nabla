@@ -145,10 +145,10 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 		};
 		
 		// fold into IIncludeGenerator or at least some functions?!
-		class NBL_API IBuiltinIncludeGenerator : public IIncludeGenerator
+		class NBL_API CBuiltinIncludeGenerator : public IIncludeGenerator
 		{
 		public:
-			IBuiltinIncludeGenerator(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
+			CBuiltinIncludeGenerator(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
 			{}
 
 			std::string getInclude(const std::string& includeName) const override
@@ -246,7 +246,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 		class NBL_API CIncludeFinder : public core::IReferenceCounted
 		{
 		public:
-			CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
+			CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system) : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
 			{
 			}
 
@@ -255,7 +255,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 			// @param includeName: the string within <> of the include preprocessing directive
 			std::string getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const
 			{
-				std::string ret = tryPrefixLoaders(includeName);
+				std::string ret = tryIncludeGenerators(includeName);
 				if (ret.empty())
 					ret = trySearchPaths(includeName);
 				if (ret.empty())
@@ -276,18 +276,48 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 			core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
+			void addSearchPath(const std::string& searchPath, core::smart_refctd_ptr<IIncludeLoader> loader)
+			{
+				m_loaders.push_back(LoaderSearchPath{ loader, searchPath });
+			}
+
+			void addGenerator(core::smart_refctd_ptr<IIncludeGenerator> generator)
+			{
+				// TODO:
+				// Sorting:
+				// nbl/builtin comes first
+				// longer prefices come before shorter
+				// some other criterion to establish strong ordering between same-length prefices
+				m_generators.push_back(generator);
+			}
+
 		protected:
 
 			std::string trySearchPaths(const std::string& includeName) const
 			{
-				return "";
+				std::string ret;
+				for (const auto& itr : m_loaders)
+				{
+					ret = itr.loader->getInclude(itr.searchPath, includeName);
+					if (!ret.empty())
+						break;
+				}
+				return ret;
 			}
 
-			std::string tryPrefixLoaders(const std::string& includeName) const
+			std::string tryIncludeGenerators(const std::string& includeName) const
 			{
 				return "";
 			}
 
+			struct LoaderSearchPath
+			{
+				core::smart_refctd_ptr<IIncludeLoader> loader = nullptr;
+				std::string searchPath = {};
+			};
+
+			std::vector<LoaderSearchPath> m_loaders;
+			std::vector<core::smart_refctd_ptr<IIncludeGenerator>> m_generators;
 			core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
 		};
 
