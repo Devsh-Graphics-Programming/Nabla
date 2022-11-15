@@ -144,7 +144,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 			virtual std::string_view getPrefix() const = 0;
 		};
 		
-		// fold into IIncludeGenerator or at least some functions?!
+		// TODO: fold into IIncludeGenerator or at least some functions?!
 		class NBL_API CBuiltinIncludeGenerator : public IIncludeGenerator
 		{
 		public:
@@ -278,11 +278,15 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 			void addSearchPath(const std::string& searchPath, core::smart_refctd_ptr<IIncludeLoader> loader)
 			{
+				if (!loader)
+					return;
 				m_loaders.push_back(LoaderSearchPath{ loader, searchPath });
 			}
 
 			void addGenerator(core::smart_refctd_ptr<IIncludeGenerator> generator)
 			{
+				if (!generator)
+					return;
 				// TODO:
 				// Sorting:
 				// nbl/builtin comes first
@@ -307,7 +311,12 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 			std::string tryIncludeGenerators(const std::string& includeName) const
 			{
-				return "";
+				for (const auto& generator : m_generators)
+				{
+					const bool prefixMatches = includeName.rfind(generator->getPrefix().data(), 0) == 0;
+					if (prefixMatches)
+						generator->getInclude(includeName);
+				}
 			}
 
 			struct LoaderSearchPath
