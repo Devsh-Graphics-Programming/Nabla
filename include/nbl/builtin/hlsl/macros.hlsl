@@ -29,9 +29,7 @@
 #define NBL_HLSL_SUB(X,Y) (NBL_HLSL_EVAL(X)-NBL_HLSL_EVAL(Y))
 #define NBL_HLSL_MUL(X,Y) (NBL_HLSL_EVAL(X)*NBL_HLSL_EVAL(Y))
 
-// https://github.com/google/shaderc/issues/1155
-// This issue still seems to exist
-// #define NBL_HLSL_MAX(X,Y) (((NBL_HLSL_EVAL(X))>(NBL_HLSL_EVAL(Y))) ? (NBL_HLSL_EVAL(X)):(NBL_HLSL_EVAL(Y)))
-// #define NBL_HLSL_MIN(X,Y) (((NBL_HLSL_EVAL(X))<(NBL_HLSL_EVAL(Y))) ? (NBL_HLSL_EVAL(X)):(NBL_HLSL_EVAL(Y)))
+#define NBL_HLSL_MAX(X,Y) (((NBL_HLSL_EVAL(X))>(NBL_HLSL_EVAL(Y))) ? (NBL_HLSL_EVAL(X)):(NBL_HLSL_EVAL(Y)))
+#define NBL_HLSL_MIN(X,Y) (((NBL_HLSL_EVAL(X))<(NBL_HLSL_EVAL(Y))) ? (NBL_HLSL_EVAL(X)):(NBL_HLSL_EVAL(Y)))
 
 #endif
