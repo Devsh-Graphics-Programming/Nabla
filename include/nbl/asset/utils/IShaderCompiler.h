@@ -13,6 +13,7 @@
 
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/utils/IIncludeHandler.h"
+#include "nbl/asset/utils/CIncludeHandler.h"
 
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
@@ -127,6 +128,168 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
 		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
+
+		class NBL_API IIncludeLoader : public core::IReferenceCounted
+		{
+		public:
+			virtual std::string getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
+		};
+
+		class NBL_API IIncludeGenerator : public core::IReferenceCounted
+		{
+		public:
+			// ! if includeName doesn't begin with prefix from `getPrefix` this function will return an empty string
+			virtual std::string getInclude(const std::string& includeName) const = 0;
+
+			virtual std::string_view getPrefix() const = 0;
+		};
+		
+		// fold into IIncludeGenerator or at least some functions?!
+		class NBL_API IBuiltinIncludeGenerator : public IIncludeGenerator
+		{
+		public:
+			IBuiltinIncludeGenerator(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
+			{}
+
+			std::string getInclude(const std::string& includeName) const override
+			{
+				core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
+
+				for (const auto& pattern : builtinNames)
+					if (std::regex_match(includeName, pattern.first))
+					{
+						auto a = pattern.second(includeName);
+						return a;
+					}
+
+				return {};
+			}
+
+			std::string_view getPrefix() const override { return "nbl/builtin"; };
+
+		protected:
+			core::smart_refctd_ptr<system::ISystem> m_system;
+
+			using HandleFunc_t = std::function<std::string(const std::string&)>;
+			virtual core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const
+			{
+				std::string pattern(getPrefix());
+				pattern += ".*";
+				HandleFunc_t tmp = [this](const std::string& _name) -> std::string {
+					return getFromDiskOrEmbedding(_name);
+				};
+				return { {std::regex{pattern},std::move(tmp)} };
+			}
+
+			static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
+			{
+				core::vector<std::string> args;
+
+				std::stringstream ss{ _path };
+				std::string arg;
+				while (std::getline(ss, arg, '/'))
+					args.push_back(std::move(arg));
+
+				return args;
+			}
+
+			// includeName must begin with return value of `getPrefix()`
+			inline std::string getFromDiskOrEmbedding(const std::string& includeName) const
+			{
+				system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+				m_system->createFile(future, includeName, core::bitflag(system::IFileBase::ECF_READ) | system::IFileBase::ECF_MAPPABLE);
+				core::smart_refctd_ptr<const system::IFile> data = future.get();
+				if (!data)
+					return "";
+				auto begin = reinterpret_cast<const char*>(data->getMappedPointer());
+				auto end = begin + data->getSize();
+				return std::string(begin, end);
+			}
+
+		};
+
+		class NBL_API CFileSystemIncludeLoader : public IIncludeLoader
+		{
+		public:
+			CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
+			{}
+
+			std::string getInclude(const system::path& searchPath, const std::string& includeName) const override
+			{
+				system::path path = searchPath / includeName;
+				if (std::filesystem::exists(path))
+					path = std::filesystem::canonical(path);
+
+				core::smart_refctd_ptr<system::IFile> f;
+				{
+					system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+					m_system->createFile(future, path.c_str(), system::IFile::ECF_READ);
+					f = future.get();
+					if (!f)
+						return {};
+				}
+				const size_t size = f->getSize();
+
+				std::string contents(size, '\0');
+				system::IFile::success_t succ;
+				f->read(succ, contents.data(), 0, size);
+				const bool success = bool(succ);
+				assert(success);
+
+				return contents;
+			}
+
+		protected:
+			core::smart_refctd_ptr<system::ISystem> m_system;
+		};
+
+		class NBL_API CIncludeFinder : public core::IReferenceCounted
+		{
+		public:
+			CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
+			{
+			}
+
+			// ! includes within <>
+			// @param requestingSourceDir: the directory where the incude was requested
+			// @param includeName: the string within <> of the include preprocessing directive
+			std::string getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const
+			{
+				std::string ret = tryPrefixLoaders(includeName);
+				if (ret.empty())
+					ret = trySearchPaths(includeName);
+				if (ret.empty())
+					ret = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
+				return ret;
+			}
+
+			// ! includes within ""
+			// @param requestingSourceDir: the directory where the incude was requested
+			// @param includeName: the string within "" of the include preprocessing directive
+			std::string getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const
+			{
+				std::string ret = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
+				if (ret.empty())
+					ret = trySearchPaths(includeName);
+				return ret;
+			}
+
+			core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
+
+		protected:
+
+			std::string trySearchPaths(const std::string& includeName) const
+			{
+				return "";
+			}
+
+			std::string tryPrefixLoaders(const std::string& includeName) const
+			{
+				return "";
+			}
+
+			core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
+		};
 
 	private:
 		system::ISystem* m_system;
