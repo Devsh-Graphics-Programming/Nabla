@@ -47,8 +47,7 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace numeric_limits
-{
+
 	
 float float_epsilon(float n)
 {
@@ -63,7 +62,7 @@ float float_epsilon()
 	return FLT_EPSILON;
 }
 
-}
+
 }
 }
 

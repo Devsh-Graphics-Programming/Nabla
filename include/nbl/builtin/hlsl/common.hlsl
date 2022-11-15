@@ -14,34 +14,34 @@ namespace hlsl
 
 bool3 greaterThanEqual(float3 x, float3 y)
 {
-	return select(x>=y, bool3(true, true, true), bool3(false, false, false));
+    return select(x>=y, bool3(true, true, true), bool3(false, false, false));
 }
 bool3 lessThanEqual(float3 x, float3 y)
 {
-	return select(x<=y, bool3(true, true, true), bool3(false, false, false));
+    return select(x<=y, bool3(true, true, true), bool3(false, false, false));
 }
 bool3 greaterThan(float3 x, float3 y)
 {
-	return select(x>y, bool3(true, true, true), bool3(false, false, false));
+    return select(x>y, bool3(true, true, true), bool3(false, false, false));
 }
 bool3 lessThan(float3 x, float3 y)
 {
-	return select(x<y, bool3(true, true, true), bool3(false, false, false));
+    return select(x<y, bool3(true, true, true), bool3(false, false, false));
 }
 
 
 
 uint bitfieldExtract(uint value, int offset, int bits)
 {
-	uint mask = uint((1 << bits) - 1);
-	return uint(value >> offset) & mask;
+    uint mask = uint((1L << bits) - 1);
+    return uint(value >> offset) & mask;
 }
 uint bitfieldInsert(uint value, int insert, int offset, int bits)
 {
-	uint mask = ~(0xffffffff << bits) << offset;
-	mask = ~mask;
-	value &= mask;
-	return value | (insert << offset);
+    uint mask = ~(0xffffffffL << bits) << offset;
+    mask = ~mask;
+    value &= mask;
+    return value | (insert << offset);
 }
 
 
