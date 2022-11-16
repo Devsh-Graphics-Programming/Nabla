@@ -246,7 +246,7 @@ namespace nbl::video
         {
             physicalDevices.emplace_back(std::make_unique<CVulkanPhysicalDevice>(
                 core::smart_refctd_ptr(sys),
-                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(sys.get()),
+                core::make_smart_refctd_ptr<asset::IGLSLCompiler>(core::smart_refctd_ptr(sys)),
                 api.get(), api->m_rdoc_api, vk_physicalDevices[i], vk_instance, instanceApiVersion));
 
         }

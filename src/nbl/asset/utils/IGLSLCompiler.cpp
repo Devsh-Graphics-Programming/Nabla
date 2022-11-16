@@ -3,9 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#include "nbl/asset/utils/CIncludeHandler.h"
 
-#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
+#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
 
 #include <sstream>
 #include <regex>
@@ -16,8 +15,8 @@ using namespace nbl;
 using namespace nbl::asset;
 
 
-IGLSLCompiler::IGLSLCompiler(system::ISystem* _s)
-    : IShaderCompiler(_s)
+IGLSLCompiler::IGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
+    : IShaderCompiler(std::move(system))
 {
 }
 

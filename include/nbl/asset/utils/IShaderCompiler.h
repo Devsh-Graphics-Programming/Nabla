@@ -12,9 +12,6 @@
 #include "nbl/system/ISystem.h"
 
 #include "nbl/asset/ICPUSpecializedShader.h"
-#include "nbl/asset/utils/IIncludeHandler.h"
-#include "nbl/asset/utils/CIncludeHandler.h"
-
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 namespace nbl::asset
@@ -24,7 +21,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 {
 	public:
 
-		IShaderCompiler(system::ISystem* _s);
+		IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
@@ -126,9 +123,6 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 		virtual IShader::E_CONTENT_TYPE getCodeContentType() const = 0;
 
-		IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
-		const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
-
 		class NBL_API IIncludeLoader : public core::IReferenceCounted
 		{
 		public:
@@ -139,19 +133,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 		{
 		public:
 			// ! if includeName doesn't begin with prefix from `getPrefix` this function will return an empty string
-			virtual std::string getInclude(const std::string& includeName) const = 0;
-
-			virtual std::string_view getPrefix() const = 0;
-		};
-		
-		// TODO: fold into IIncludeGenerator or at least some functions?!
-		class NBL_API CBuiltinIncludeGenerator : public IIncludeGenerator
-		{
-		public:
-			CBuiltinIncludeGenerator(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
-			{}
-
-			std::string getInclude(const std::string& includeName) const override
+			virtual std::string getInclude(const std::string& includeName) const
 			{
 				core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
 
@@ -165,22 +147,15 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 				return {};
 			}
 
-			std::string_view getPrefix() const override { return "nbl/builtin"; };
+			virtual std::string_view getPrefix() const = 0;
 
 		protected:
-			core::smart_refctd_ptr<system::ISystem> m_system;
 
 			using HandleFunc_t = std::function<std::string(const std::string&)>;
-			virtual core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const
-			{
-				std::string pattern(getPrefix());
-				pattern += ".*";
-				HandleFunc_t tmp = [this](const std::string& _name) -> std::string {
-					return getFromDiskOrEmbedding(_name);
-				};
-				return { {std::regex{pattern},std::move(tmp)} };
-			}
+			virtual core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const = 0;
 
+			// ! Parses arguments from include path
+			// ! template is path/to/shader.hlsl/arg0/arg1/...
 			static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
 			{
 				core::vector<std::string> args;
@@ -192,20 +167,6 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 				return args;
 			}
-
-			// includeName must begin with return value of `getPrefix()`
-			inline std::string getFromDiskOrEmbedding(const std::string& includeName) const
-			{
-				system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-				m_system->createFile(future, includeName, core::bitflag(system::IFileBase::ECF_READ) | system::IFileBase::ECF_MAPPABLE);
-				core::smart_refctd_ptr<const system::IFile> data = future.get();
-				if (!data)
-					return "";
-				auto begin = reinterpret_cast<const char*>(data->getMappedPointer());
-				auto end = begin + data->getSize();
-				return std::string(begin, end);
-			}
-
 		};
 
 		class NBL_API CFileSystemIncludeLoader : public IIncludeLoader
@@ -248,6 +209,7 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 		public:
 			CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system) : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
 			{
+				addSearchPath("", m_defaultFileSystemLoader);
 			}
 
 			// ! includes within <>
@@ -287,12 +249,15 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 			{
 				if (!generator)
 					return;
-				// TODO:
-				// Sorting:
-				// nbl/builtin comes first
-				// longer prefices come before shorter
-				// some other criterion to establish strong ordering between same-length prefices
-				m_generators.push_back(generator);
+
+				auto itr = m_generators.begin();
+				for (; itr != m_generators.end(); ++itr)
+				{
+					auto str = (*itr)->getPrefix();
+					if (str.compare(generator->getPrefix()) <= 0) // Reverse Lexicographic Order
+						break;
+				}
+				m_generators.insert(itr, generator);
 			}
 
 		protected:
@@ -311,12 +276,55 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 			std::string tryIncludeGenerators(const std::string& includeName) const
 			{
-				for (const auto& generator : m_generators)
+				// Need custom function because std::filesystem doesn't consider the parameters we use after the extension like CustomShader.hlsl/512/64
+				auto removeExtension = [](const std::string& str)
 				{
-					const bool prefixMatches = includeName.rfind(generator->getPrefix().data(), 0) == 0;
-					if (prefixMatches)
-						generator->getInclude(includeName);
+					return str.substr(0, str.find_last_of('.'));
+				};
+
+				auto standardizePrefix = [](const std::string_view& prefix) -> std::string
+				{
+					std::string ret(prefix);
+					// Remove Trailing '/' if any, to compare to filesystem paths
+					if (*ret.rbegin() == '/' && ret.size() > 1u)
+						ret.resize(ret.size() - 1u);
+					return ret;
+				};
+
+				auto extension_removed_path = system::path(removeExtension(includeName));
+				system::path path = extension_removed_path.parent_path();
+
+				// Try Generators with Matching Prefixes:
+				// Uses a "Path Peeling" method which goes one level up the directory tree until it finds a suitable generator
+				auto end = m_generators.begin();
+				while (!path.empty() && path.root_name().empty() && end != m_generators.end())
+				{  
+					auto begin = std::lower_bound(end, m_generators.end(), path.string(),
+						[&standardizePrefix](const core::smart_refctd_ptr<IIncludeGenerator>& generator, const std::string& value)
+						{
+							const auto element = standardizePrefix(generator->getPrefix());
+							return element.compare(value) > 0; // first to return false is lower_bound -> first element that is <= value
+						});
+
+					// search from new beginning to real end
+					end = std::upper_bound(begin, m_generators.end(), path.string(),
+						[&standardizePrefix](const std::string& value, const core::smart_refctd_ptr<IIncludeGenerator>& generator)
+						{
+							const auto element = standardizePrefix(generator->getPrefix());
+							return value.compare(element) > 0; // first to return true is upper_bound -> first element that is < value
+						});
+
+					for (auto generatorIt = begin; generatorIt != end; generatorIt++)
+					{
+						auto str = (*generatorIt)->getInclude(includeName);
+						if (!str.empty())
+							return str;
+					}
+
+					path = path.parent_path();
 				}
+
+				return "";
 			}
 
 			struct LoaderSearchPath
@@ -330,9 +338,13 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 			core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
 		};
 
+		CIncludeFinder* getIncludeFinder() { return m_inclFinder.get(); }
+
+		const CIncludeFinder* getIncludeFinder() const { return m_inclFinder.get(); }
+
 	private:
-		system::ISystem* m_system;
-		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
+		core::smart_refctd_ptr<system::ISystem> m_system;
+		core::smart_refctd_ptr<CIncludeFinder> m_inclFinder;
 };
 
 }

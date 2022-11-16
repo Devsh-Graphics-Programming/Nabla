@@ -11,7 +11,7 @@
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
-#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
+#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeGenerator.h"
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
@@ -421,7 +421,7 @@ void CMitsubaLoader::initialize()
 
 	auto* glslc = m_assetMgr->getGLSLCompiler();
 
-	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_system));
+	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeGenerator>(m_system));
 }
 
 bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const

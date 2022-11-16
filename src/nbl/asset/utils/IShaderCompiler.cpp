@@ -13,11 +13,12 @@ using namespace nbl;
 using namespace nbl::asset;
 
 
-IShaderCompiler::IShaderCompiler(system::ISystem* _s)
-    : m_system(_s)
+IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
+    : m_system(std::move(system))
 {
-    m_inclHandler = core::make_smart_refctd_ptr<CIncludeHandler>(_s);
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_s));
+    m_inclFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
+    m_inclFinder->addGenerator(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeGenerator>());
+    m_inclFinder->getIncludeStandard("", "nbl/builtin/glsl/utils/common.glsl");
 }
 
 namespace nbl::asset::impl
@@ -93,12 +94,12 @@ namespace nbl::asset::impl
 
     class Includer : public shaderc::CompileOptions::IncluderInterface
     {
-        const asset::IIncludeHandler* m_inclHandler;
+        const IShaderCompiler::CIncludeFinder* m_inclFinder;
         const system::ISystem* m_system;
         const uint32_t m_maxInclCnt;
 
     public:
-        Includer(const asset::IIncludeHandler* _inclhndlr, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_inclHandler(_inclhndlr), m_system(_fs), m_maxInclCnt{_maxInclCnt} {}
+        Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_inclFinder(_inclFinder), m_system(_fs), m_maxInclCnt{_maxInclCnt} {}
 
         //_requesting_source in top level #include's is what shaderc::Compiler's compiling functions get as `input_file_name` parameter
         //so in order for properly working relative #include's (""-type) `input_file_name` has to be path to file from which the GLSL source really come from
@@ -110,27 +111,17 @@ namespace nbl::asset::impl
         {
             shaderc_include_result* res = new shaderc_include_result;
             std::string res_str;
-            std::filesystem::path relDir;
-            const bool reqFromBuiltin = asset::IIncludeHandler::isBuiltinPath(_requesting_source);
-            const bool reqBuiltin = asset::IIncludeHandler::isBuiltinPath(_requested_source);
-            if (!reqFromBuiltin && !reqBuiltin)
-            {
-                //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
-                //  This rule applies also while a builtin is #includ`ing another builtin.
-                //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
-                //  or path relative to executable's working directory (""-type).
-                relDir = std::filesystem::path(_requesting_source).parent_path();
-            }
-
+            std::filesystem::path relDir = std::filesystem::path(_requesting_source).parent_path();
             std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir/_requested_source) : (_requested_source);
 
-            if (!reqBuiltin)
+            // TODO: did I change this correctly?!
+            if (std::filesystem::exists(name))
                 name = std::filesystem::absolute(name);
 
             if (_type == shaderc_include_type_relative)
-                res_str = m_inclHandler->getIncludeRelative(_requested_source, relDir.string());
+                res_str = m_inclFinder->getIncludeRelative(relDir, _requested_source);
             else //shaderc_include_type_standard
-                res_str = m_inclHandler->getIncludeStandard(_requested_source);
+                res_str = m_inclFinder->getIncludeStandard(relDir, _requested_source);
 
             if (!res_str.size()) {
                 const char* error_str = "Could not open file";
@@ -178,7 +169,7 @@ core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
     shaderc::Compiler comp;
     shaderc::CompileOptions options;
     options.SetTargetSpirv(shaderc_spirv_version_1_6);
-    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_system, _maxSelfInclusionCnt+1u));//custom #include handler
+    options.SetIncluder(std::make_unique<impl::Includer>(m_inclFinder.get(), m_system.get(), _maxSelfInclusionCnt + 1u));//custom #include handler
     const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(_code, stage, _originFilepath, options);
 
