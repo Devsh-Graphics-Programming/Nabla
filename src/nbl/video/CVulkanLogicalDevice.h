@@ -643,16 +643,16 @@ public:
                 {
                     VkDescriptorBufferInfo dummyInfo = {};
                     dummyInfo.buffer = static_cast<const CVulkanBuffer*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-                    dummyInfo.offset = pDescriptorWrites[i].info[0].buffer.offset;
-                    dummyInfo.range = pDescriptorWrites[i].info[0].buffer.size;
+                    dummyInfo.offset = pDescriptorWrites[i].info[0].info.buffer.offset;
+                    dummyInfo.range = pDescriptorWrites[i].info[0].info.buffer.size;
 
                     for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
                     {
-                        if (pDescriptorWrites[i].info[j].buffer.size)
+                        if (pDescriptorWrites[i].info[j].info.buffer.size)
                         {
                             vk_bufferInfos[bufferInfoOffset + j].buffer = static_cast<const CVulkanBuffer*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
-                            vk_bufferInfos[bufferInfoOffset + j].offset = pDescriptorWrites[i].info[j].buffer.offset;
-                            vk_bufferInfos[bufferInfoOffset + j].range = pDescriptorWrites[i].info[j].buffer.size;
+                            vk_bufferInfos[bufferInfoOffset + j].offset = pDescriptorWrites[i].info[j].info.buffer.offset;
+                            vk_bufferInfos[bufferInfoOffset + j].range = pDescriptorWrites[i].info[j].info.buffer.size;
                         }
                         else
                         {
@@ -666,17 +666,17 @@ public:
 
                 case asset::IDescriptor::EC_IMAGE:
                 {
-                    const auto& firstDescWriteImageInfo = pDescriptorWrites[i].info[0].image;
+                    const auto& firstDescWriteImageInfo = pDescriptorWrites[i].info[0].info.image;
 
                     VkDescriptorImageInfo dummyInfo = { VK_NULL_HANDLE };
                     if (firstDescWriteImageInfo.sampler && (firstDescWriteImageInfo.sampler->getAPIType() == EAT_VULKAN))
                         dummyInfo.sampler = static_cast<const CVulkanSampler*>(firstDescWriteImageInfo.sampler.get())->getInternalObject();
                     dummyInfo.imageView = static_cast<const CVulkanImageView*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-                    dummyInfo.imageLayout = static_cast<VkImageLayout>(pDescriptorWrites[i].info[0].image.imageLayout);
+                    dummyInfo.imageLayout = static_cast<VkImageLayout>(pDescriptorWrites[i].info[0].info.image.imageLayout);
 
                     for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
                     {
-                        const auto& descriptorWriteImageInfo = pDescriptorWrites[i].info[j].image;
+                        const auto& descriptorWriteImageInfo = pDescriptorWrites[i].info[j].info.image;
                         if (descriptorWriteImageInfo.imageLayout != asset::IImage::EL_UNDEFINED)
                         {
                             VkSampler vk_sampler = VK_NULL_HANDLE;
@@ -705,7 +705,7 @@ public:
 
                     for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
                     {
-                        if (pDescriptorWrites[i].info[j].buffer.size)
+                        if (pDescriptorWrites[i].info[j].info.buffer.size)
                         {
                             vk_bufferViews[bufferViewOffset + j] = static_cast<const CVulkanBufferView*>(pDescriptorWrites[i].info[j].desc.get())->getInternalObject();
                         }
@@ -1195,7 +1195,7 @@ protected:
             vkDescSetLayoutBinding.stageFlags = static_cast<VkShaderStageFlags>(binding->stageFlags);
             vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-            if (binding->type==asset::ESRT_SAMPLED_IMAGE && binding->samplers && binding->count > 0u)
+            if (binding->type==asset::EDT_COMBINED_IMAGE_SAMPLER && binding->samplers && binding->count > 0u)
             {
                 // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
                 // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.

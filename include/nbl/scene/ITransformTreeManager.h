@@ -54,8 +54,8 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			for (auto i = 0u; i < BindingCount; i++)
 			{
 				infos[i].desc = std::move(bufferBindings[i].buffer);
-				infos[i].buffer.offset = bufferBindings[i].offset;
-				infos[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
+				infos[i].info.buffer.offset = bufferBindings[i].offset;
+				infos[i].info.buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
 				writes[i].dstSet = set;
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;

@@ -343,9 +343,9 @@ class NBL_API CScanner final : public core::IReferenceCounted
 		{
 			IGPUDescriptorSet::SDescriptorInfo infos[2];
 			infos[0].desc = input_range.buffer;
-			infos[0].buffer = {input_range.offset,input_range.size};
+			infos[0].info.buffer = {input_range.offset,input_range.size};
 			infos[1].desc = scratch_range.buffer;
-			infos[1].buffer = {scratch_range.offset,scratch_range.size};
+			infos[1].info.buffer = {scratch_range.offset,scratch_range.size};
 
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[2];
 			for (auto i=0u; i<2u; i++)

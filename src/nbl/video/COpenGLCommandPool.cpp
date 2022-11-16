@@ -60,11 +60,11 @@ void COpenGLCommandPool::CBlitNamedFramebufferCmd::operator()(IOpenGL_FunctionTa
 {
     GLuint srcfbo = getFBOGLName(m_srcImage, m_srcLevel, m_srcLayer, queueCache, gl, true);
     if (!srcfbo)
-        return; // TODO(achal): Log warning?
+        return;
 
     GLuint dstfbo = getFBOGLName(m_dstImage, m_dstLevel, m_dstLayer, queueCache, gl, true);
     if (!dstfbo)
-        return; // TODO(achal): Log warning?
+        return;
 
     GLint sx0 = m_srcOffsets[0].x;
     GLint sy0 = m_srcOffsets[0].y;
@@ -84,7 +84,7 @@ void COpenGLCommandPool::CClearNamedFramebufferCmd::operator()(IOpenGL_FunctionT
     {
         auto* found = queueLocalCache.fboCache.get(m_fboHash);
         if (!found)
-            return; // TODO(achal): Log warning?
+            return;
 
         fbo = *found;
 
@@ -454,7 +454,7 @@ void COpenGLCommandPool::CVertexArrayVertexBufferCmd::operator()(IOpenGL_Functio
 {
     auto it = queueLocalCache.vaoCache.get(m_vaoKey);
     if (!it)
-        return; // TODO(achal): Log warning?
+        return;
 
     GLuint vaoGLName = *it;
     gl->extGlVertexArrayVertexBuffer(vaoGLName, m_bindingIndex, m_bufferGLName, m_offset, m_stride);
@@ -464,7 +464,7 @@ void COpenGLCommandPool::CVertexArrayElementBufferCmd::operator()(IOpenGL_Functi
 {
     auto it = queueLocalCache.vaoCache.get(m_vaoKey);
     if (!it)
-        return; // TODO(achal): Log warning?
+        return;
 
     GLuint vaoGLName = *it;
     gl->extGlVertexArrayElementBuffer(vaoGLName, m_bufferGLName);

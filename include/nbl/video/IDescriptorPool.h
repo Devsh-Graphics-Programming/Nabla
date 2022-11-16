@@ -42,21 +42,13 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             {
                 // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
                 // know which descriptors are present in the set and hence should be destroyed.
-                std::fill_n(data, asset::EDT_COUNT, ~0u);
+                std::fill_n(data, asset::EDT_COUNT+1, ~0u);
             }
 
-            uint32_t data[asset::EDT_COUNT];
+            uint32_t data[asset::EDT_COUNT+1];
         };
 
     friend class IGPUDescriptorSet;
-
-    private:
-        // TODO(achal): This needs to get removed.
-        struct SCombinedImageSampler
-        {
-            core::smart_refctd_ptr<video::IGPUImageView> view;
-            core::smart_refctd_ptr<video::IGPUSampler> sampler;
-        };
 
     public:
         explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDescriptorPool::E_CREATE_FLAGS flags, uint32_t _maxSets, const uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) : IBackendObject(std::move(dev)), m_maxSets(_maxSets), m_flags(flags)
@@ -82,8 +74,20 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 }
             }
 
+            // For (possibly) mutable samplers.
+            if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
+            {
+                m_generalAllocatorReservedSpace[asset::EDT_COUNT] = std::make_unique<uint8_t[]>(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER], 1u));
+                m_generalAllocators[asset::EDT_COUNT] = core::GeneralpurposeAddressAllocator<uint32_t>(m_generalAllocatorReservedSpace[asset::EDT_COUNT].get(), 0u, 0u, 1u, m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER], 1u);
+            }
+            else
+            {
+                m_linearAllocators[asset::EDT_COUNT] = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER]);
+            }
+
             // Initialize the storages.
-            m_combinedImageSamplerStorage = std::make_unique<core::StorageTrivializer<SCombinedImageSampler>[]>(m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER]);
+            m_textureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]>(m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER]);
+            m_mutableSamplerStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]>(m_maxDescriptorCount[asset::EDT_COMBINED_IMAGE_SAMPLER]);
             m_storageImageStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]>(m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE] + m_maxDescriptorCount[asset::EDT_INPUT_ATTACHMENT]);
             m_UBO_SSBOStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]>(m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER_DYNAMIC]);
             m_UTB_STBStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]>(m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER] + m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER_DYNAMIC]);
@@ -103,9 +107,9 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
     protected:
         uint32_t m_maxSets;
 
+        // TODO(achal): Make this pure virtual after GL is removed.
         virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
         {
-            // We don't need to do anything on the GL backend, perhaps, so No-OP.
             return true;
         };
 
@@ -114,12 +118,13 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         uint32_t m_maxDescriptorCount[asset::EDT_COUNT];
         union
         {
-            core::LinearAddressAllocator<uint32_t> m_linearAllocators[asset::EDT_COUNT];
-            core::GeneralpurposeAddressAllocator<uint32_t> m_generalAllocators[asset::EDT_COUNT];
+            core::LinearAddressAllocator<uint32_t> m_linearAllocators[asset::EDT_COUNT+1];
+            core::GeneralpurposeAddressAllocator<uint32_t> m_generalAllocators[asset::EDT_COUNT+1];
         };
-        std::unique_ptr<uint8_t[]> m_generalAllocatorReservedSpace[asset::EDT_COUNT];
+        std::unique_ptr<uint8_t[]> m_generalAllocatorReservedSpace[asset::EDT_COUNT+1];
 
-        std::unique_ptr<core::StorageTrivializer<SCombinedImageSampler>[]> m_combinedImageSamplerStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableSamplerStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb

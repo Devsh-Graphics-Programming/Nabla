@@ -319,7 +319,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
                 vpparams[4 * i + 3] = viewport.height;
             }
 
-            double vpdparams[SOpenGLState::MAX_VIEWPORT_COUNT * 4]; // TODO(achal): This should be two.
+            double vpdparams[SOpenGLState::MAX_VIEWPORT_COUNT * 2];
             for (uint32_t i = 0u; i < SOpenGLState::MAX_VIEWPORT_COUNT; ++i)
             {
                 auto& vpdc = nextState.rasterParams.viewport_depth[i];

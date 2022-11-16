@@ -52,7 +52,7 @@ bool IGPUCommandBuffer::begin(core::bitflag<E_USAGE> flags, const SInheritanceIn
         if (!inheritanceInfo->renderpass || inheritanceInfo->renderpass->getAPIType() != getAPIType() || !inheritanceInfo->renderpass->isCompatibleDevicewise(this))
             return false;
 
-        if (!inheritanceInfo->framebuffer || inheritanceInfo->framebuffer->getAPIType() != getAPIType() || !inheritanceInfo->framebuffer->isCompatibleDevicewise(this))
+        if (inheritanceInfo->framebuffer && (inheritanceInfo->framebuffer->getAPIType() != getAPIType() || !inheritanceInfo->framebuffer->isCompatibleDevicewise(this)))
             return false;
 
         if (!m_cmdpool->emplace<IGPUCommandPool::CBeginCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass.get()), core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer.get())))

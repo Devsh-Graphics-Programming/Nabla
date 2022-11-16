@@ -219,19 +219,22 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 				inline bool operator< (const SBindingRedirectBuildInfo& other) const { return binding < other.binding; }
 			};
 
-			core::vector<SBindingRedirectBuildInfo> buildInfo[asset::EDT_COUNT];
-			// TODO(achal): One for samplers
+			core::vector<SBindingRedirectBuildInfo> buildInfo_descriptors[asset::EDT_COUNT];
+			core::vector<SBindingRedirectBuildInfo> buildInfo_samplers;
 
 			for (auto b = _begin; b != _end; ++b)
 			{
-				buildInfo[b->type].emplace_back(b->binding, b->count);
-				// TODO(achal): One for samplers
+				buildInfo_descriptors[b->type].emplace_back(b->binding, b->count);
+				if (b->type == EDT_COMBINED_IMAGE_SAMPLER && b->samplers == nullptr)
+				{
+					buildInfo_samplers.emplace_back(b->binding, b->count);
+					m_mutableSamplerCount += b->count;
+				}
 			}
 
 			for (auto type = 0u; type < asset::EDT_COUNT; ++type)
-			{
-				m_redirects[type] = SBindingRedirect(buildInfo[type].size());
-			}
+				m_descriptorRedirects[type] = SBindingRedirect(buildInfo_descriptors[type].size());
+			m_samplerRedirects = SBindingRedirect(buildInfo_samplers.size());
 
 			auto buildRedirect = [](SBindingRedirect& redirect, core::vector<SBindingRedirectBuildInfo>& info)
 			{
@@ -247,9 +250,8 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 			};
 
 			for (auto type = 0u; type < asset::EDT_COUNT; ++type)
-				buildRedirect(m_redirects[type], buildInfo[type]);
-
-
+				buildRedirect(m_descriptorRedirects[type], buildInfo_descriptors[type]);
+			buildRedirect(m_samplerRedirects, buildInfo_samplers);
 
 			size_t bndCount = _end-_begin;
 			size_t immSamplerCount = 0ull;
@@ -260,8 +262,6 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 				{
 					if (bnd.samplers)
 						immSamplerCount += bnd.count;
-					else
-						m_mutableSamplerCount += bnd.count;
 				}
 			}
 			m_samplers = immSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > >(immSamplerCount) : nullptr;
@@ -327,16 +327,22 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 			return true;
 		}
 
-		inline size_t getMutableSamplerCount() const { return m_mutableSamplerCount; }
+		inline size_t getTotalMutableSamplerCount() const { return m_mutableSamplerCount; }
 		inline size_t getTotalDescriptorCount(const E_DESCRIPTOR_TYPE type) const { return m_descriptorCount[type]; }
 
 		core::SRange<const SBinding> getBindings() const { return {m_bindings->data(), m_bindings->data()+m_bindings->size()}; }
 
-	// TODO(achal): protected:
-	public:
+		inline uint32_t getBindingCount(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type].count; }
+		inline uint32_t* getBindingStorage(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type].bindings.get(); }
+		inline uint32_t* getBindingOffsetStorage(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type].offsets; }
+
+		inline uint32_t getDescriptorOffset(const E_DESCRIPTOR_TYPE type, const uint32_t binding) const{ return m_descriptorRedirects[type][binding]; }
+		inline uint32_t getMutableSamplerOffset(const uint32_t binding) const { return m_samplerRedirects[binding]; }
+
+	protected:
 		// Maps a binding number to a local (to descriptor set layout) offset, for a given descriptor type.
-		SBindingRedirect m_redirects[asset::EDT_COUNT];
-		// TODO(achal): One for samplers
+		SBindingRedirect m_descriptorRedirects[asset::EDT_COUNT];
+		SBindingRedirect m_samplerRedirects;
 
 	private:
 		size_t m_mutableSamplerCount = 0ull;

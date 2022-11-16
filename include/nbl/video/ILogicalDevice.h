@@ -254,7 +254,6 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
                 return nullptr;
 
             IDescriptorPool::SDescriptorOffsets descriptorStorageOffsets = pool->allocateDescriptors(layout.get());
-
             return createDescriptorSet_impl(pool, std::move(layout), std::move(descriptorStorageOffsets));
         }
 

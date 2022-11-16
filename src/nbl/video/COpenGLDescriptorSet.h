@@ -19,6 +19,47 @@ namespace nbl::video
 
 class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IEmulatedDescriptorSet<const IGPUDescriptorSetLayout>
 {
+	// This is OpenGL specific. The only reason it exists is because m_flatOffsets needs a coarser
+	// granularity than E_DESCRIPTOR_TYPE.
+	enum E_GL_DESCRIPTOR_TYPE
+	{
+		EGDT_UBO = 0,
+		EGDT_SSBO,
+		EGDT_TEXTURE,
+		EGDT_IMAGE,
+		EGDT_COUNT
+	};
+
+	inline E_GL_DESCRIPTOR_TYPE getGLDescriptorType(const asset::E_DESCRIPTOR_TYPE descriptorType)
+	{
+		switch (descriptorType)
+		{
+		case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+			[[fallthrough]];
+		case asset::EDT_UNIFORM_BUFFER:
+			return EGDT_UBO;
+
+		case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+			[[fallthrough]];
+		case asset::EDT_STORAGE_BUFFER:
+			return EGDT_SSBO;
+
+		case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
+			[[fallthrough]];
+		case asset::EDT_COMBINED_IMAGE_SAMPLER:
+			return EGDT_TEXTURE;
+
+		case asset::EDT_STORAGE_IMAGE:
+			[[fallthrough]];
+		case asset::EDT_STORAGE_TEXEL_BUFFER:
+			return EGDT_IMAGE;
+
+		default:
+			assert(!"Invalid code path.");
+			return EGDT_COUNT;
+		}
+	}
+
 	public:
 		struct SMultibindParams
 		{
@@ -56,55 +97,58 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			uint32_t imageCount = 0u;
 
 			// Compute the total number of active bindings for all descriptor types.
-			uint32_t activeBindingCount = 0u;
-			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
-				activeBindingCount += m_layout->m_redirects[t].count;
+			// uint32_t totalActiveBindingCount = 0u;
+			// for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+			// 	totalActiveBindingCount += m_layout->m_descriptorRedirects[t].count;
 
-			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(activeBindingCount);
+			// The m_flatOffsets here currently has the problem that it will come out different based on whether there are dynamics or not.
+			// m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(totalActiveBindingCount);
 
-			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
+#if 0
+			for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
 			{
-				const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
-				const auto& redirect = m_layout->m_redirects[t];
+				const auto descriptorType = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+				const auto& redirect = m_layout->m_descriptorRedirects[t];
 
-				for (auto i = 0u; i < redirect.count; ++i)
+				const auto activeBindingCount = redirect.count;
+				for (uint32_t i = 0u; i < activeBindingCount; ++i)
 				{
 					const auto binding = redirect.bindings[i];
 
 					const auto index = redirect.searchForBinding(binding);
 					assert(index != redirect.Invalid);
 
-					const auto count = getDescriptorCountForBinding(type, binding);
-					assert(count != ~0u && "Descriptor of this type doesn't exist at this binding!");
+					const auto descriptorCount = getDescriptorCount(descriptorType, binding);
+					assert(descriptorCount != ~0u && "Descriptor of this type doesn't exist at this binding!");
 
-					switch (type)
+					switch (descriptorType)
 					{
 					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
 						[[fallthrough]];
 					case asset::EDT_UNIFORM_BUFFER:
 						m_flatOffsets->operator[](index) = uboCount;
-						uboCount += count;
+						uboCount += descriptorCount;
 						break;
 
 					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
 						[[fallthrough]];
 					case asset::EDT_STORAGE_BUFFER:
 						m_flatOffsets->operator[](index) = ssboCount;
-						ssboCount += count;
+						ssboCount += descriptorCount;
 						break;
 
 					case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
 						[[fallthrough]];
 					case asset::EDT_COMBINED_IMAGE_SAMPLER:
 						m_flatOffsets->operator[](index) = textureCount;
-						textureCount += count;
+						textureCount += descriptorCount;
 						break;
 
 					case asset::EDT_STORAGE_IMAGE:
 						[[fallthrough]];
 					case asset::EDT_STORAGE_TEXEL_BUFFER:
 						m_flatOffsets->operator[](index) = imageCount;
-						imageCount += count;
+						imageCount += descriptorCount;
 						break;
 
 					default:
@@ -112,6 +156,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					}
 				}
 			}
+#endif
 
 			m_buffer2descIx = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint> >(uboCount+ssboCount);
 			std::fill(m_buffer2descIx->begin(), m_buffer2descIx->end(), ~0u);
@@ -156,12 +201,14 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			auto uboDescIxIter = m_buffer2descIx->begin();
 			auto ssboDescIxIter = m_buffer2descIx->begin()+uboCount;
 
+#if 0
 			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
 			{
 				const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
 				const auto& redirect = m_layout->m_redirects[t];
+				const auto activeBindingCount = redirect.count;
 
-				for (auto i = 0u; i < redirect.count; ++i)
+				for (auto i = 0u; i < activeBindingCount; ++i)
 				{
 					const auto binding = redirect.bindings[i];
 
@@ -170,7 +217,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 					const auto offset = m_flatOffsets->operator[](index);
 
-					const auto count = getDescriptorCountForBinding(type, binding);
+					const auto count = getDescriptorCount(type, binding);
 					assert(count != ~0u && "Descriptor of this type doesn't exist at this binding!");
 
 					for (uint32_t j = 0u; j < count; j++)
@@ -203,6 +250,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					}
 				}
 			}
+#endif
 		}
 
 		/* The following is supported:
@@ -214,7 +262,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		inline void writeDescriptorSet(const SWriteDescriptorSet& write)
 		{
 			assert(write.dstSet==static_cast<decltype(write.dstSet)>(this));
-			assert(getDescriptorCountForBinding(write.descriptorType, write.binding)>0u);
+			assert(getDescriptorCount(write.descriptorType, write.binding)>0u);
 			assert(write.count>0);
 
 			const auto type = write.descriptorType;
@@ -227,28 +275,19 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				bool usesImmutableSamplers = layoutBinding->samplers;
 			#endif
 
-			assert(write.arrayElement+write.count<=m_descriptorInfos->size());
+			// assert(write.arrayElement+write.count<=m_descriptorInfos2[type]->size());
 
-			auto* outDescriptorInfo = getDescriptorInfos(write.binding)+write.arrayElement;
+			auto* outDescriptorInfo = getDescriptorInfos(type, write.binding)+write.arrayElement;
 
 			for (uint32_t i=0u; i<write.count; i++,outDescriptorInfo++)
 			{
-				// TODO(achal): Do we need any DEBUG code here?
-#if 0 // #ifdef _NBL_DEBUG
-					auto found = getBindingInfo(outDescriptorInfo-m_descriptors->begin());
-					assert(found->descriptorType == type);
-					layoutBinding = getLayoutBinding(found - m_bindingInfo->begin());
-					assert(layoutBinding->stageFlags==stageFlags);
-					assert((!!layoutBinding->samplers)==usesImmutableSamplers);
-#endif
-
 				*outDescriptorInfo = write.info[i];
 				uint32_t localIx = write.arrayElement+i;
 				
-				const auto index = m_layout->m_redirects[type].searchForBinding(write.binding);
-				assert(index != m_layout->m_redirects[type].Invalid && "This binding doesn't exist in the set!");
+				// const auto index = m_layout->m_redirects[type].searchForBinding(write.binding);
+				// assert(index != m_layout->m_redirects[type].Invalid && "This binding doesn't exist in the set!");
 
-				updateMultibindParams(type,*outDescriptorInfo,m_flatOffsets->operator[](index)+localIx,write.binding,localIx);
+				// updateMultibindParams(type,*outDescriptorInfo,m_flatOffsets->operator[](index)+localIx,write.binding,localIx);
 			}
 
 			m_revision++;
@@ -261,13 +300,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			assert(copy.srcSet);
 			const auto* srcGLSet = static_cast<const COpenGLDescriptorSet*>(copy.srcSet);
 
-			assert(copy.srcArrayElement+copy.count<=srcGLSet->m_descriptorInfos->size());
-			assert(copy.dstArrayElement+copy.count<=m_descriptorInfos->size());
-
+#if 0
 			asset::E_DESCRIPTOR_TYPE type = asset::EDT_COUNT;
 			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
 			{
-				const auto& redirect = srcGLSet->m_layout->m_redirects[t];
+				// const auto& redirect = srcGLSet->m_layout->m_redirects[t];
 				const auto found = redirect.searchForBinding(copy.srcBinding);
 				if (found != redirect.Invalid)
 				{
@@ -276,9 +313,11 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				}
 			}
 			assert(type != asset::EDT_COUNT);
+#endif
 
 			// The type of dstBinding within dstSet must be equal to the type of srcBinding within srcSet
 #ifdef _NBL_DEBUG
+#if 0
 			asset::E_DESCRIPTOR_TYPE dstType = asset::EDT_COUNT;
 			for (auto t = 0u; t < asset::EDT_COUNT; ++t)
 			{
@@ -292,9 +331,14 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			}
 			assert((dstType != asset::EDT_COUNT) && (dstType == type));
 #endif
+#endif
 			
-			const auto* input = srcGLSet->getDescriptorInfos(copy.srcBinding)+copy.srcArrayElement;
-			auto* output = getDescriptorInfos(copy.dstBinding)+copy.dstArrayElement;
+			// assert(copy.srcArrayElement+copy.count<=srcGLSet->m_descriptorInfos2[type]->size());
+			// assert(copy.dstArrayElement+copy.count<=m_descriptorInfos2[type]->size());
+
+#if 0
+			const auto* input = srcGLSet->getDescriptorInfos(type, copy.srcBinding)+copy.srcArrayElement;
+			auto* output = getDescriptorInfos(type, copy.dstBinding)+copy.dstArrayElement;
 
 			// If srcSet is equal to dstSet, then the source and destination ranges of descriptors must not overlap
 			if (this==srcGLSet)
@@ -302,18 +346,6 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 			for (uint32_t i=0u; i<copy.count; i++,input++,output++)
 			{
-				// TODO(achal): Do we need any DEBUG code here?
-				#if 0 // #ifdef _NBL_DEBUG
-					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptorInfos->begin());
-					auto foundOut = getBindingInfo(output-m_descriptorInfos->begin());
-					assert(foundIn->descriptorType==foundOut->descriptorType);
-
-					// TODO: fix this debug code
-					//auto inLayoutBinding = getLayoutBinding(foundIn-srcGLSet->m_bindingInfo->begin());
-					//auto outLayoutBinding = getLayoutBinding(foundOut-m_bindingInfo->begin());
-					//assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
-					//assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
-				#endif
 				*output = *input;
 				uint32_t localIx = copy.dstArrayElement+i;
 
@@ -322,6 +354,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](index)+localIx,copy.dstBinding,localIx);
 			}
+#endif
 
 			m_revision++;
 		}
@@ -329,7 +362,9 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		inline const COpenGLBuffer* getUBO(uint32_t localIndex) const
 		{
 			auto ix = m_buffer2descIx->operator[](localIndex);
-			return static_cast<COpenGLBuffer*>(m_descriptorInfos->operator[](ix).desc.get());
+
+			// return static_cast<COpenGLBuffer*>(m_descriptorInfos->operator[](ix).desc.get());
+			return nullptr;
 		}
 
 		inline const COpenGLBuffer* getSSBO(uint32_t localIndex) const
@@ -344,26 +379,27 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 		inline uint32_t getDynamicOffsetCount() const {return m_dynamicOffsetCount;}
 
 	protected:
-		inline SDescriptorInfo* getDescriptorInfos(uint32_t index) 
+		inline SDescriptorInfo* getDescriptorInfos(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) 
 		{
-			// TODO(achal): This is most likely incorrect because index no longer corresponds to the binding number anymore, same for the method below.
-			const auto& info = m_bindingInfo->operator[](index);
-			return m_descriptorInfos->begin()+info.offset;
+			// const auto& redirect = m_layout->m_descriptorRedirects[type];
+			// const auto offset = redirect[binding];
+			// if (offset == redirect.Invalid)
+			// 	return nullptr;
+			// 
+			// // return m_descriptorInfos2[type]->begin() + offset;
+			// return nullptr;
+			return nullptr;
 		}
-		inline const SDescriptorInfo* getDescriptorInfos(uint32_t index) const
+		inline const SDescriptorInfo* getDescriptorInfos(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
 		{
-			const auto& info = m_bindingInfo->operator[](index);
-			return m_descriptorInfos->begin() + info.offset;
+			return getDescriptorInfos(type, binding);
 		}
 
-		// TODO(achal):
-		// 1. Why is this protected?
-		// 2. I think I should move it to COpenGLDescriptorSetLayout (or even IDescriptorSetLayout) if other classes want this functionality.
-		// 3. I don't think it is required anywhere else except the GL backend so better make this a method of COpenGLDescriptorSetLayout.
-		inline uint32_t getDescriptorCountForBinding(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
+		inline uint32_t getDescriptorCount(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
 		{
 			constexpr auto InvalidCount = ~0u;
 
+#if 0
 			const auto& redirect = m_layout->m_redirects[type];
 
 			const auto foundIndex = redirect.searchForBinding(binding);
@@ -384,15 +420,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				assert(totalDescriptorCount > currOffset);
 				return totalDescriptorCount - currOffset;
 			}
-		}
-
-		// TODO(achal): I don't think it will be required anymore, remove.
-		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
-		{
-			auto found = std::upper_bound(	m_bindingInfo->begin(),m_bindingInfo->end(),SBindingInfo{offset,asset::EDT_COUNT},
-											[](const auto& a, const auto& b) -> bool {return a.offset<b.offset;});
-			assert(found!=m_bindingInfo->begin());
-			return found-1;
+#endif
+			return InvalidCount;
 		}
 
 		inline const video::IGPUDescriptorSetLayout::SBinding* getLayoutBinding(const uint32_t binding) const
@@ -414,14 +443,14 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			if (descriptorType==asset::EDT_UNIFORM_BUFFER || descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC)
 			{
 				m_multibindParams.ubos.buffers[offset] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
-				m_multibindParams.ubos.offsets[offset] = info.buffer.offset;
-				m_multibindParams.ubos.sizes[offset] = info.buffer.size;
+				m_multibindParams.ubos.offsets[offset] = info.info.buffer.offset;
+				m_multibindParams.ubos.sizes[offset] = info.info.buffer.size;
 			}
 			else if (descriptorType==asset::EDT_STORAGE_BUFFER || descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC)
 			{
 				m_multibindParams.ssbos.buffers[offset] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
-				m_multibindParams.ssbos.offsets[offset] = info.buffer.offset;
-				m_multibindParams.ssbos.sizes[offset] = info.buffer.size;
+				m_multibindParams.ssbos.offsets[offset] = info.info.buffer.offset;
+				m_multibindParams.ssbos.sizes[offset] = info.info.buffer.size;
 			}
 			else if (descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
 			{
@@ -435,7 +464,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
 				m_multibindParams.textures.samplers[offset] = layoutBinding->samplers ? //take immutable sampler if present
 						static_cast<COpenGLSampler*>(layoutBinding->samplers[local_iter].get())->getOpenGLName() :
-						static_cast<COpenGLSampler*>(info.image.sampler.get())->getOpenGLName();
+						static_cast<COpenGLSampler*>(info.info.image.sampler.get())->getOpenGLName();
 				m_multibindParams.textures.targets[offset] = glimgview->getOpenGLTarget();
 			}
 			else if (descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)

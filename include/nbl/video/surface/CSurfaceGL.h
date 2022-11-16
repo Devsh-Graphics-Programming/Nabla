@@ -47,8 +47,6 @@ class CSurfaceGLImpl : public Base<Window,ISurface>
         
         inline void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override
         {
-            // Todo(achal): Need to properly map asset::E_FORMAT which would also dictate
-            // formatCount
             formatCount = 1u;
 
             if (!formats)

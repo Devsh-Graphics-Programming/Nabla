@@ -103,27 +103,6 @@ class COpenGLQueryPool final : public IQueryPool
 
 		inline uint32_t getGLQueriesPerQuery() const { return m_glQueriesPerQuery; }
 
-		// TODO(achal): Temporary overload.
-		inline void beginQuery(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags) const
-		{
-			if(gl != nullptr)
-			{
-				if(params.queryType == EQT_OCCLUSION)
-				{
-					GLuint query = getQueryAt(ctxid, queryIndex);
-					gl->glQuery.pglBeginQuery(GL_SAMPLES_PASSED, query);
-				}
-				else if(params.queryType == EQT_TIMESTAMP)
-				{
-					assert(false && "TIMESTAMP QueryPool doesn't work with begin/end functions.");
-				}
-				else
-				{
-					assert(false && "QueryType is not supported.");
-				}
-			}
-		}
-
 		inline bool beginQuery(uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail) const
 		{
 			if (params.queryType == EQT_OCCLUSION)
@@ -143,28 +122,6 @@ class COpenGLQueryPool final : public IQueryPool
 			}
 
 			return true;
-		}
-		
-		// TODO(achal): Temporary overload.
-		inline void endQuery(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex) const
-		{
-			// End Function doesn't use queryIndex
-			if(gl != nullptr)
-			{
-				if(params.queryType == EQT_OCCLUSION)
-				{
-					gl->glQuery.pglEndQuery(GL_SAMPLES_PASSED);
-					lastQueueToUseArray[queryIndex] = ctxid;
-				}
-				else if(params.queryType == EQT_TIMESTAMP)
-				{
-					assert(false && "TIMESTAMP QueryPool doesn't work with begin/end functions.");
-				}
-				else
-				{
-					assert(false && "QueryType is not supported.");
-				}
-			}
 		}
 
 		inline bool endQuery(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
@@ -192,24 +149,6 @@ class COpenGLQueryPool final : public IQueryPool
 			return true;
 		}
 
-		// TODO(achal): Temporary overload.
-		inline void writeTimestamp(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t queryIndex) const
-		{
-			if(gl != nullptr)
-			{
-				if(params.queryType == EQT_TIMESTAMP)
-				{
-					GLuint query = getQueryAt(ctxid, queryIndex);
-					gl->glQuery.pglQueryCounter(query, GL_TIMESTAMP);
-					lastQueueToUseArray[queryIndex] = ctxid;
-				}
-				else
-				{
-					assert(false && "Cannot use writeTimestamp for non-timestamp query pools.");
-				}
-			}
-		}
-
 		inline bool writeTimestamp(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
 		{
 			if (params.queryType == EQT_TIMESTAMP)
@@ -227,25 +166,6 @@ class COpenGLQueryPool final : public IQueryPool
 			}
 
 			return true;
-		}
-
-		// TODO(achal): Temporary overload.
-		inline bool resetQueries(IOpenGL_FunctionTable* gl, uint32_t ctxid, uint32_t query, uint32_t queryCount)
-		{
-			// NOTE: There is no Reset Queries on OpenGL
-			// NOOP, ONLY set last queue used.
-			// TODO: validations about reseting queries and unavailable/available state
-			if(query + queryCount <= params.queryCount)
-			{
-				for(uint32_t i = 0; i < queryCount; ++i)
-					lastQueueToUseArray[query + i] = ctxid;
-				return true;
-			}
-			else
-			{
-				assert(false);
-				return false;
-			}
 		}
 
 		inline bool resetQueries(uint32_t query, uint32_t queryCount, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)

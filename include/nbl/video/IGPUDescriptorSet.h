@@ -31,7 +31,6 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& descriptorStorageOffsets)
 			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_pool(std::move(pool)), m_descriptorStorageOffsets(std::move(descriptorStorageOffsets))
 		{
-            // TODO(achal): Samplers.
             for (auto i = 0u; i < asset::EDT_COUNT; ++i)
             {
                 // There is no descriptor of such type in the set.
@@ -42,14 +41,15 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 
                 // Default-construct the core::smart_refctd_ptr<IDescriptor>s because even if the user didn't update the descriptor set with ILogicalDevice::updateDescriptorSet we
                 // won't have uninitialized memory and destruction wouldn't crash in ~IGPUDescriptorSet.
-                // 
-                // TODO(achal): With the combined image sampler storage in AoS form, SCombinedImageSampler, this won't work, because in that case you need to construct SCombinedImageSampler objects,
-                // but here we're only constructing core::smart_refctd_ptr<IDescriptor>. So switch to SoA.
                 std::uninitialized_default_construct_n(getDescriptorStorage(type) + m_descriptorStorageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
             }
+
+            const auto mutableSamplerCount = m_layout->getTotalMutableSamplerCount();
+            if (mutableSamplerCount > 0)
+                std::uninitialized_default_construct_n(getMutableSamplerStorage() + m_descriptorStorageOffsets.data[asset::EDT_COUNT], mutableSamplerCount);
         }
 
-        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::E_DESCRIPTOR_TYPE type) const
+        inline core::smart_refctd_ptr<asset::IDescriptor>* getAllDescriptors(const asset::E_DESCRIPTOR_TYPE type) const
         {
             auto* baseAddress = getDescriptorStorage(type);
             if (baseAddress == nullptr)
@@ -62,22 +62,52 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
             return baseAddress + offset;
         }
 
+        inline core::smart_refctd_ptr<IGPUSampler>* getAllMutableSamplers() const
+        {
+            auto* baseAddress = getMutableSamplerStorage();
+            if (baseAddress == nullptr)
+                return nullptr;
+
+            const auto poolOffset = m_descriptorStorageOffsets.data[asset::EDT_COUNT];
+            if (poolOffset == ~0u)
+                return nullptr;
+
+            return baseAddress + poolOffset;
+        }
+
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getDescriptorOffsetForBinding(type, binding);
+            const auto localOffset = getLayout()->getDescriptorOffset(type, binding);
             if (localOffset == ~0)
                 return nullptr;
 
-            return getDescriptors(type) + localOffset;
+            auto* descriptors = getAllDescriptors(type);
+            if (!descriptors)
+                return nullptr;
+
+            return descriptors + localOffset;
+        }
+
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplers(const uint32_t binding) const
+        {
+            const auto localOffset = getLayout()->getMutableSamplerOffset(binding);
+            if (localOffset == ~0u)
+                return nullptr;
+
+            auto* samplers = getAllMutableSamplers();
+            if (!samplers)
+                return nullptr;
+
+            return samplers + localOffset;
         }
 
         inline uint32_t getDescriptorStorageOffset(const asset::E_DESCRIPTOR_TYPE type) const { return m_descriptorStorageOffsets.data[type]; }
+        inline uint32_t getMutableSamplerStorageOffset() const { return m_descriptorStorageOffsets.data[asset::EDT_COUNT]; }
 
 	protected:
 		virtual ~IGPUDescriptorSet()
 		{
-            // TODO(achal): Samplers.
             for (auto i = 0u; i < asset::EDT_COUNT; ++i)
             {
                 // There is no descriptor of such type in the set.
@@ -87,17 +117,20 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
                 const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(i);
                 std::destroy_n(getDescriptorStorage(type) + m_descriptorStorageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
             }
+
+            const auto mutableSamplerCount = m_layout->getTotalMutableSamplerCount();
+            if (mutableSamplerCount > 0)
+                std::destroy_n(getMutableSamplerStorage() + getMutableSamplerStorageOffset(), mutableSamplerCount);
 		}
 
 	private:
-		inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const override
+		inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const
 		{
             core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
             switch (type)
             {
             case asset::EDT_COMBINED_IMAGE_SAMPLER:
-                // TODO(achal): This is obviously wrong because m_combinedImageSamplerStorage is an array of SCombinedImageSampler. Switch to SoA to fix this shit.
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_combinedImageSamplerStorage.get());
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_textureStorage.get());
                 break;
             case asset::EDT_STORAGE_IMAGE:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get());
@@ -134,14 +167,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
             return baseAddress;
 		}
 
-		// TODO(achal): We need another method for SamplerStorage here
-
-#if 0
-		void allocateDescriptors() override
-		{
-			// No-OP because allocation is already been done in ILogicalDevice::createDescriptorSet
-		}
-#endif
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const { return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_pool->m_mutableSamplerStorage.get()); }
 
 		core::smart_refctd_ptr<IDescriptorPool> m_pool;
 		IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;

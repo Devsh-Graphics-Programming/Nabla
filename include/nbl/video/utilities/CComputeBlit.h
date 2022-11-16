@@ -515,18 +515,18 @@ public:
 			}
 			
 			infos[0].desc = inImageView;
-			infos[0].image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-			infos[0].image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
+			infos[0].info.image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+			infos[0].info.image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 			infos[1].desc = outImageView;
-			infos[1].image.imageLayout = asset::IImage::EL_GENERAL;
-			infos[1].image.sampler = nullptr;
+			infos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+			infos[1].info.image.sampler = nullptr;
 
 			if (coverageAdjustmentScratchBuffer)
 			{
 				infos[2].desc = coverageAdjustmentScratchBuffer;
-				infos[2].buffer.offset = 0;
-				infos[2].buffer.size = coverageAdjustmentScratchBuffer->getSize();
+				infos[2].info.buffer.offset = 0;
+				infos[2].info.buffer.size = coverageAdjustmentScratchBuffer->getSize();
 			}
 
 			if (!updateDS(blitDS, infos))
@@ -537,8 +537,8 @@ public:
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo info = {};
 			info.desc = kernelWeightsUTB;
-			info.buffer.offset = 0ull;
-			info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getSize();
+			info.info.buffer.offset = 0ull;
+			info.info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getSize();
 
 			if (!updateDS(kernelWeightsDS, &info))
 				return false;

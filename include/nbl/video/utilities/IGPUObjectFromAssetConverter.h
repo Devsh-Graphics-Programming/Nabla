@@ -953,7 +953,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             copyRegion.bufferOffset = 0ull;
             copyRegion.bufferRowLength = cpuimg->getCreationParameters().extent.width;
             copyRegion.bufferImageHeight = 0u;
-            copyRegion.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT; // Todo(achal): all bits?
+            copyRegion.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
             copyRegion.imageSubresource.mipLevel = 0u;
             copyRegion.imageSubresource.baseArrayLayer = 0u;
             copyRegion.imageSubresource.layerCount = cpuimg->getCreationParameters().arrayLayers;
@@ -1743,24 +1743,27 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     {
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
 		cpuLayouts.push_back(cpuds->getLayout());
-              
-		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-		{
-			const uint32_t cnt = cpuds->getDescriptors(j).size();
-			if (cnt)
-				maxWriteCount++;
-			descCount += cnt;
 
-			const auto type = cpuds->getDescriptorsType(j);
-			if (isBufferDesc(type))
-				bufCount += cnt;
-			else if (isBufviewDesc(type))
-				bufviewCount += cnt;
-			else if (isSampledImgViewDesc(type))
-				sampledImgViewCount += cnt;
-			else if (isStorageImgDesc(type))
-				storageImgViewCount += cnt;
-		}
+        for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
+        {
+            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+            
+            // Since one binding can have multiple descriptors which will all be updated with a single SWriteDescriptorSet,
+            // we add the binding count here not the descriptor count.
+            maxWriteCount += cpuds->getLayout()->getBindingCount(type);
+
+            const auto count = cpuds->getLayout()->getTotalDescriptorCount(type);
+            descCount += count;
+
+            if (isBufferDesc(type))
+                bufCount += count;
+            else if (isBufviewDesc(type))
+                bufCount += count;
+            else if (isSampledImgViewDesc(type))
+                sampledImgViewCount += count;
+            else if (isStorageImgDesc(type))
+                storageImgViewCount += count;
+        }
     }
 	
     core::vector<asset::ICPUBuffer*> cpuBuffers;
@@ -1774,50 +1777,56 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
-		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-		{
-			const auto type = cpuds->getDescriptorsType(j);
-			for (const auto& info : cpuds->getDescriptors(j))
-			{
-				if (isBufferDesc(type))
-				{
-					auto cpuBuf = static_cast<asset::ICPUBuffer*>(info.desc.get());
-					if(type == asset::EDT_UNIFORM_BUFFER || type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
-					else if(type == asset::EDT_STORAGE_BUFFER || type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
-					cpuBuffers.push_back(cpuBuf);
-				}
-				else if (isBufviewDesc(type))
-				{
-					auto cpuBufView = static_cast<asset::ICPUBufferView*>(info.desc.get());
-					auto cpuBuf = cpuBufView->getUnderlyingBuffer();
-					if(cpuBuf && type == asset::EDT_UNIFORM_TEXEL_BUFFER)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-					else if(cpuBuf && type == asset::EDT_STORAGE_TEXEL_BUFFER)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
-					cpuBufviews.push_back(cpuBufView);
-				}
-				else if (isSampledImgViewDesc(type))
-				{
-					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
-					auto cpuImg = cpuImgView->getCreationParameters().image;
-					if(cpuImg)
-						cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
-					cpuImgViews.push_back(cpuImgView);
-					if (info.image.sampler)
-					    cpuSamplers.push_back(info.image.sampler.get());
-				}
-				else if (isStorageImgDesc(type))
-				{
-					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
-					auto cpuImg = cpuImgView->getCreationParameters().image;
-					if(cpuImg)
-						cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
-					cpuImgViews.push_back(cpuImgView);
-				}
-			}
-		}
+
+        for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
+        {
+            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+            if (!cpuds->getDescriptorStorage(type))
+                continue;
+
+            for (uint32_t d = 0u; d < cpuds->getLayout()->getTotalDescriptorCount(type); ++d)
+            {
+                auto descriptor = cpuds->getDescriptorStorage(type)[d].get();
+                if (isBufferDesc(type))
+                {
+                    auto cpuBuf = static_cast<asset::ICPUBuffer*>(descriptor);
+                    if (type == asset::EDT_UNIFORM_BUFFER || type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
+                    else if (type == asset::EDT_STORAGE_BUFFER || type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
+                    cpuBuffers.push_back(cpuBuf);
+                }
+                else if (isBufviewDesc(type))
+                {
+                    auto cpuBufView = static_cast<asset::ICPUBufferView*>(descriptor);
+                    auto cpuBuf = cpuBufView->getUnderlyingBuffer();
+                    if (cpuBuf && type == asset::EDT_UNIFORM_TEXEL_BUFFER)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
+                    else if (cpuBuf && type == asset::EDT_STORAGE_TEXEL_BUFFER)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
+                    cpuBufviews.push_back(cpuBufView);
+                }
+                else if (isSampledImgViewDesc(type))
+                {
+                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
+                    auto cpuImg = cpuImgView->getCreationParameters().image;
+                    if (cpuImg)
+                        cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
+                    cpuImgViews.push_back(cpuImgView);
+                }
+                else if (isStorageImgDesc(type))
+                {
+                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
+                    auto cpuImg = cpuImgView->getCreationParameters().image;
+                    if (cpuImg)
+                        cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
+                    cpuImgViews.push_back(cpuImgView);
+                }
+            }
+        }
+
+        for (uint32_t s = 0u; s < cpuds->getLayout()->getTotalMutableSamplerCount(); ++s)
+            cpuSamplers.push_back(cpuds->getMutableSamplerStorage()[s].get());
     }
 
 	using redirs_t = core::vector<size_t>;
@@ -1850,72 +1859,91 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 			auto gpuds = res->operator[](i).get();
 
             const asset::ICPUDescriptorSet* cpuds = _begin[i];
-			for (uint32_t j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-			{
-				auto descriptors = cpuds->getDescriptors(j);
-				if (descriptors.size()==0u)
-					continue;
 
-				const auto type = cpuds->getDescriptorsType(j);
-				write_it->dstSet = gpuds;
-				write_it->binding = j;
-				write_it->arrayElement = 0;
-				write_it->count = descriptors.size();
-				write_it->descriptorType = type;
-				write_it->info = &(*info);
-                bool allDescriptorsPresent = true;
-				for (const auto& desc : descriptors)
-				{
-					if (isBufferDesc(type))
-					{
-						core::smart_refctd_ptr<video::IGPUOffsetBufferPair> buffer = bufRedirs[bi]>=gpuBuffers->size() ? nullptr : gpuBuffers->operator[](bufRedirs[bi]);
-                        if (buffer)
-                        {
-                            info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
-                            info->buffer.offset = desc.buffer.offset + buffer->getOffset();
-                            info->buffer.size = desc.buffer.size;
-                        }
-                        else
-                        {
-                            info->desc = nullptr;
-                            info->buffer.offset = 0u;
-                            info->buffer.size = 0u;
-                        }
-                        ++bi;
-					}
-                    else if (isBufviewDesc(type))
+            for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
+            {
+                const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+                const auto activeBindingCount = cpuds->getLayout()->getBindingCount(type);
+
+                for (uint32_t b = 0u; b < activeBindingCount; ++b)
+                {
+                    uint32_t descriptorCount;
                     {
-                        info->desc = bufviewRedirs[bvi]>=gpuBufviews->size() ? nullptr : gpuBufviews->operator[](bufviewRedirs[bvi]);
-                        ++bvi;
+                        if (b + 1u < activeBindingCount)
+                            descriptorCount = cpuds->getLayout()->getBindingOffsetStorage(type)[b + 1] - cpuds->getLayout()->getBindingOffsetStorage(type)[b];
+                        else
+                            descriptorCount = cpuds->getLayout()->getTotalDescriptorCount(type) - cpuds->getLayout()->getBindingOffsetStorage(type)[b];
                     }
-					else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
-					{
-						info->desc = imgViewRedirs[ivi]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
-                        ++ivi;
-						// TODO: This should be set in the loader (or whoever is creating
-                        // the descriptor)
-                        if (info->image.imageLayout == asset::IImage::EL_UNDEFINED)
+                    assert(descriptorCount <= 40000000);
+                    
+                    write_it->dstSet = gpuds;
+                    write_it->binding = cpuds->getLayout()->getBindingStorage(type)[b];
+                    write_it->arrayElement = 0u;
+                    write_it->count = descriptorCount;
+                    write_it->descriptorType = type;
+                    write_it->info = &(*info);
+
+                    const uint32_t offset = cpuds->getLayout()->getBindingOffsetStorage(type)[b];
+
+                    auto descriptorInfos = cpuds->getDescriptorInfoStorage(type);
+                    auto samplers = cpuds->getMutableSamplers(write_it->binding);
+
+                    // Iterate through each descriptor in this binding to fill the info structs
+                    bool allDescriptorsPresent = true;
+                    for (uint32_t d = 0u; d < descriptorCount; ++d)
+                    {
+                        if (isBufferDesc(type))
                         {
-                            if (isStorageImgDesc(type))
+                            core::smart_refctd_ptr<video::IGPUOffsetBufferPair> buffer = bufRedirs[bi] >= gpuBuffers->size() ? nullptr : gpuBuffers->operator[](bufRedirs[bi]);
+                            if (buffer)
                             {
-                                info->image.imageLayout = asset::IImage::EL_GENERAL;
+                                info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
+                                info->info.buffer.offset = descriptorInfos[offset + d].buffer.offset + buffer->getOffset();
+                                info->info.buffer.size = descriptorInfos[offset+d].buffer.size;
                             }
                             else
                             {
-                                const auto imageFormat = static_cast<asset::ICPUImageView*>(info->desc.get())->getCreationParameters().format;
-                                info->image.imageLayout = isDepthOrStencilFormat(imageFormat) ? asset::IImage::EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL : asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+                                info->desc = nullptr;
+                                info->info.buffer.offset = 0u;
+                                info->info.buffer.size = 0u;
+                            }
+                            ++bi;
+                        }
+                        else if (isBufviewDesc(type))
+                        {
+                            info->desc = bufviewRedirs[bvi] >= gpuBufviews->size() ? nullptr : gpuBufviews->operator[](bufviewRedirs[bvi]);
+                            ++bvi;
+                        }
+                        else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
+                        {
+                            info->desc = imgViewRedirs[ivi] >= gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
+                            ++ivi;
+                            // TODO: This should be set in the loader (or whoever is creating
+                            // the descriptor)
+                            if (info->info.image.imageLayout == asset::IImage::EL_UNDEFINED)
+                            {
+                                if (isStorageImgDesc(type))
+                                {
+                                    info->info.image.imageLayout = asset::IImage::EL_GENERAL;
+                                }
+                                else
+                                {
+                                    const auto imageFormat = static_cast<asset::ICPUImageView*>(info->desc.get())->getCreationParameters().format;
+                                    info->info.image.imageLayout = isDepthOrStencilFormat(imageFormat) ? asset::IImage::EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL : asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
-                                if (desc.image.sampler)
-							        info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+                                    if (samplers.size() != 0ull)
+                                        info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+                                }
                             }
                         }
-					}
-                    allDescriptorsPresent = allDescriptorsPresent && info->desc;
-					info++;
-				}
-                if (allDescriptorsPresent)
-                    write_it++;
-			}
+                        allDescriptorsPresent = allDescriptorsPresent && info->desc;
+                        info++;
+                    }
+
+                    if (allDescriptorsPresent)
+                        write_it++;
+                }
+            }
 		}
 	}
 

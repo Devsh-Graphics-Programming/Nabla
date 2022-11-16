@@ -19,6 +19,8 @@
 namespace nbl::asset
 {
 
+class IAccelerationStructure;
+
 //! Interface class for various Descriptor Set's resources
 /*
 	Buffers, Images and Samplers all derive from IDescriptor
@@ -57,29 +59,34 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
                 };
                     
 				core::smart_refctd_ptr<IDescriptor> desc;
-				union
+				union SBufferImageInfo
 				{
+					SBufferImageInfo()
+					{
+						memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
+					};
+
+					~SBufferImageInfo() {};
+
 					SBufferInfo buffer;
 					SImageInfo image;
-				};
+				} info;
 
-				SDescriptorInfo()
-				{
-					memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
-				}
+				SDescriptorInfo() {}
+
 				template<typename BufferType>
 				SDescriptorInfo(const SBufferBinding<BufferType>& binding) : desc()
 				{
 					desc = binding.buffer;
-					buffer.offset = binding.offset;
-					buffer.size = SBufferInfo::WholeBuffer;
+					info.buffer.offset = binding.offset;
+					info.buffer.size = SBufferInfo::WholeBuffer;
 				}
 				template<typename BufferType>
 				SDescriptorInfo(const SBufferRange<BufferType>& range) : desc()
 				{
 					desc = range.buffer;
-					buffer.offset = range.offset;
-					buffer.size = range.size;
+					info.buffer.offset = range.offset;
+					info.buffer.size = range.size;
 				}
 				SDescriptorInfo(const SDescriptorInfo& other) : SDescriptorInfo()
 				{
@@ -92,33 +99,33 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 				~SDescriptorInfo()
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						image.sampler = nullptr;
+						info.image.sampler = nullptr;
 				}
 
 				inline SDescriptorInfo& operator=(const SDescriptorInfo& other)
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						image.sampler = nullptr;
+						info.image.sampler = nullptr;
 					desc = other.desc;
 					const auto type = desc->getTypeCategory();
 					if (type!=IDescriptor::EC_IMAGE)
-						buffer = other.buffer;
+						info.buffer = other.info.buffer;
 					else
-						image = other.image;
+						info.image = other.info.image;
 					return *this;
 				}
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						image = {nullptr,IImage::EL_UNDEFINED};
+						info.image = {nullptr,IImage::EL_UNDEFINED};
 					desc = std::move(other.desc);
 					if (desc)
 					{
 						const auto type = desc->getTypeCategory();
 						if (type!=IDescriptor::EC_IMAGE)
-							buffer = other.buffer;
+							info.buffer = other.info.buffer;
 						else
-							image = other.image;
+							info.image = other.info.image;
 					}
 					return *this;
 				}
@@ -127,7 +134,7 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 				{
 					if (desc != desc)
 						return true;
-					return buffer != other.buffer;
+					return info.buffer != other.info.buffer;
 				}
 		};
 
@@ -157,30 +164,9 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 		const layout_t* getLayout() const { return m_layout.get(); }
 
 	protected:
-		IDescriptorSet(core::smart_refctd_ptr<layout_t>&& _layout) : m_layout(std::move(_layout))
-		{
-		}
+		IDescriptorSet(core::smart_refctd_ptr<layout_t>&& _layout) : m_layout(std::move(_layout)) {}
 
-		virtual ~IDescriptorSet()
-		{
-			// std::destroy_n(getSamplerRefcountingStorage(), m_layout->getMutableSamplerCount());
-			// for (auto type = 0; type < EDT_COUNT; ++type)
-			// 	std::destroy_n(getDescriptorRefcountingStorage(type), m_layout->getTotalDescriptorCount(type));
-		}
-
-		virtual core::smart_refctd_ptr<IDescriptor>* getDescriptorStorage(const E_DESCRIPTOR_TYPE type) const = 0;
-		// virtual core::smart_refctd_ptr<ISampler>* getSamplerRefcountingStorage() = 0;
-		// virtual void allocateDescriptors() = 0;
-
-#if 0
-		inline void createDescriptors()
-		{
-			allocateDescriptors();
-			std::uninitialized_default_construct_n(getSamplerRefcountingStorage(), m_layout->getMutableSamplerCount());
-			for (auto type = 0; type < EDT_COUNT; ++type)
-				std::uninitialized_default_construct_n(getDescriptorRefcountingStorage(type), m_layout->getTotalDescriptorCount(type));
-		}
-#endif
+		virtual ~IDescriptorSet() {}
 
 		core::smart_refctd_ptr<layout_t> m_layout;
 };
@@ -201,75 +187,27 @@ class NBL_API IEmulatedDescriptorSet
 			if (!_layout)
 				return;
 
-			using bnd_t = typename LayoutType::SBinding;
-			auto max_bnd_cmp = [](const bnd_t& a, const bnd_t& b) { return a.binding < b.binding; };
-
-			auto bindings = _layout->getBindings();
-
-			// TODO(achal): We don't want this sparse shit.
-            auto lastBnd = std::max_element(bindings.begin(), bindings.end(), max_bnd_cmp);
-
-			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(lastBnd->binding+1u);
-			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
-				*it = {~0u,EDT_COUNT};
-			
-			uint32_t descriptorCount = 0u;
-			uint32_t prevBinding = 0;
-			// set up the offsets of specified bindings and determine descriptor count
-			for (auto it=bindings.begin(); it!=bindings.end(); it++)
+			for (uint32_t t = 0u; t < EDT_COUNT; ++t)
 			{
-				// if bindings are sorted, offsets shall be sorted too
-				assert(it==bindings.begin() || it->binding>prevBinding);
+				const auto type = static_cast<E_DESCRIPTOR_TYPE>(t);
+				const uint32_t count = _layout->getTotalDescriptorCount(type);
+				if (count == 0u)
+					continue;
 
-				m_bindingInfo->operator[](it->binding) = { descriptorCount,it->type};
-				descriptorCount += it->count;
-				
-				prevBinding = it->binding;
+				m_descriptors[type] = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>>>(count);
 			}
 
-			uint32_t offset = descriptorCount;
-			
-			m_descriptorInfos = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
-
-			// set up all offsets, reverse iteration important because "it is for filling gaps with offset of next binding"
-			// TODO: rewrite this whole constructor to initialize the `SBindingOffset::offset` to 0 and simply use `std::exclusive_scan` to set it all up
-			for (auto it=m_bindingInfo->end()-1; it!=m_bindingInfo->begin()-1; it--)
-			{
-				if (it->offset < descriptorCount)
-					offset = it->offset;
-				else
-					it->offset = offset;
-			}
-
-			// this is vital for getDescriptorCountAtIndex
-			uint32_t off = ~0u;
-			for (auto it = m_bindingInfo->end() - 1; it != m_bindingInfo->begin() - 1; --it)
-			{
-				if (it->descriptorType != EDT_COUNT)
-					off = it->offset;
-				else
-					it->offset = off;
-			}
+			const uint32_t mutableSamplerCount = _layout->getTotalMutableSamplerCount();
+			if (mutableSamplerCount > 0u)
+				m_mutableSamplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<ICPUSampler>>>(mutableSamplerCount);
 		}
 
 	protected:
 		virtual ~IEmulatedDescriptorSet() = default;
 
-		struct SBindingInfo
-		{
-			inline bool operator!=(const SBindingInfo& other) const
-			{
-				return offset!=other.offset || descriptorType!=other.descriptorType;
-			}
-
-			uint32_t offset;
-			E_DESCRIPTOR_TYPE descriptorType = EDT_COUNT; //whatever, default value
-		};
-
-		static_assert(sizeof(SBindingInfo)==8ull, "Why is the enum not uint32_t sized!?");
-
-		core::smart_refctd_dynamic_array<SBindingInfo> m_bindingInfo;
-		core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> m_descriptorInfos;
+	protected:
+		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>> m_descriptors[EDT_COUNT];
+		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<ICPUSampler>> m_mutableSamplers = nullptr;
 };
 
 }

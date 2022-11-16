@@ -31,23 +31,19 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 
 bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies)
 {
-    // TODO(achal): Allow for this behaviour from the spec:
-    // > If the dstBinding has fewer than descriptorCount array elements remaining starting from dstArrayElement,
-    // > then the remainder will be used to update the subsequent binding - dstBinding+1 starting at array element zero.
-    // >
-    // > If a binding has a descriptorCount of zero, it is skipped.
-    // >
-    // > This behavior applies recursively, with the update affecting consecutive bindings as needed to update all descriptorCount descriptors.
-    // >
-    // > Consecutive bindings must have identical VkDescriptorType, VkShaderStageFlags, VkDescriptorBindingFlagBits, and immutable samplers references.
-
     for (auto i = 0; i < descriptorWriteCount; ++i)
     {
         auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
 
         auto* descriptors = ds->getDescriptors(pDescriptorWrites[i].descriptorType, pDescriptorWrites[i].binding);
+        auto* samplers = ds->getMutableSamplers(pDescriptorWrites[i].binding);
         for (auto j = 0; j < pDescriptorWrites[i].count; ++j)
+        {
             descriptors[j] = pDescriptorWrites[i].info[j].desc;
+
+            if (samplers)
+                samplers[j] = pDescriptorWrites[i].info[j].info.image.sampler;
+        }
     }
 
     for (auto i = 0; i < descriptorCopyCount; ++i)
@@ -67,15 +63,20 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         const asset::E_DESCRIPTOR_TYPE descriptorType = foundBindingInfo->type;
 
         auto* srcDescriptors = srcDS->getDescriptors(descriptorType, pDescriptorCopies[i].srcBinding);
+        auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);
         if (!srcDescriptors)
             return false;
 
         auto* dstDescriptors = dstDS->getDescriptors(descriptorType, pDescriptorCopies[i].dstBinding);
+        auto* dstSamplers = dstDS->getMutableSamplers(pDescriptorCopies[i].dstBinding);
         if (!dstDescriptors)
             return false;
 
         // This memcpy will increment the reference count, won't it?
         memcpy(dstDescriptors, srcDescriptors, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
+
+        if (srcSamplers && dstSamplers)
+            memcpy(dstSamplers, srcSamplers, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const IGPUSampler>));
     }
 
     updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);

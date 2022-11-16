@@ -29,12 +29,6 @@ class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUS
             : base_t(_begin, _end), IBackendObject(std::move(dev))
         {}
 
-        // TODO(achal): This can be moved to IDescriptorSetLayout, if ICPUDescriptorSetLayout also want this.
-        inline uint32_t getDescriptorOffsetForBinding(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
-        {
-            return m_redirects[type][binding];
-        }
-
     protected:
         virtual ~IGPUDescriptorSetLayout() = default;
 

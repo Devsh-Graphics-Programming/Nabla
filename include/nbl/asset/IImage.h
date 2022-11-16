@@ -21,10 +21,9 @@
 namespace nbl::asset
 {
 
-// Todo(achal): Vulkan's VkOffset3D has int32_t members, getting rid of this
-// produces a bunch of errors in the filtering APIs and core::vectorSIMD**,
-// gotta do it carefully
-// Resultion(devsh): when we have our own HLSL lib, replace these types with `uvec3`
+// TODO: Vulkan's VkOffset3D has int32_t members, getting rid of this
+// produces a bunch of errors in the filtering APIs and core::vectorSIMD**.
+// When we have our own HLSL lib, replace these types with `uvec3`. 
 
 //placeholder until we configure Vulkan SDK
 typedef struct VkOffset3D {

@@ -174,7 +174,6 @@ class COpenGL_Queue final : public IGPUQueue
                 #endif
                 new (state_ptr) ThreadInternalStateType(egl,features,core::smart_refctd_ptr<system::ILogger>(m_dbgCb->getLogger()));
                 auto& gl = state_ptr->gl;
-                // auto& ctxlocal = state_ptr->ctxlocal; // TODO(achal): Remove.
                 
                 #ifdef _NBL_DEBUG
                 gl.glGeneral.pglEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -193,12 +192,6 @@ class COpenGL_Queue final : public IGPUQueue
                 }
 
                 gl.glGeneral.pglFinish();
-
-                // TODO(achal): Remove.
-                // default values tracked by engine
-                // ctxlocal.nextState.rasterParams.multisampleEnable = 0;
-                // ctxlocal.nextState.rasterParams.depthFunc = GL_GEQUAL;
-                // ctxlocal.nextState.rasterParams.frontFace = GL_CCW;
             }
 
             template <typename RequestParams>
@@ -211,8 +204,6 @@ class COpenGL_Queue final : public IGPUQueue
             void process_request(SRequest& req, ThreadInternalStateType& _state)
             {
                 auto& gl = _state.gl;
-                // TODO(achal): Remove
-                // auto& ctxlocal = _state.ctxlocal;
 
                 switch (req.type)
                 {
@@ -242,18 +233,12 @@ class COpenGL_Queue final : public IGPUQueue
                     for (uint32_t i = 0u; i < submit.commandBufferCount; ++i)
                     {
                         // reset initial state to default before cmdbuf execution (in Vulkan command buffers are independent of each other)
-                        // TODO(achal): Remove
-                        // ctxlocal.nextState = SOpenGLState();
                         // those flushes are done because propagation of changes done to buffer's/image's contents is done by rebinding it on context where the changed resource is used
                         // Section 5 of GL spec
                         //
                         // TODO: decide what to flush based on queue family flags
                         // also: we can limit flushing to bindings (especially buffers and textures): vertex, index, SSBO, UBO, indirect, ...
-                        // TODO(achal): Remove.
-                        // ctxlocal.flushStateGraphics(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
-                        // ctxlocal.flushStateCompute(&gl, SOpenGLContextLocalCache::GSB_ALL, m_ctxid);
                         auto* cmdbuf = IBackendObject::device_compatibility_cast<COpenGLCommandBuffer*>(submit.commandBuffers[i].get(), m_device);
-                        // cmdbuf->executeAll(&gl, _state.queueLocalCache, &_state.ctxlocal, m_ctxid);
                         cmdbuf->executeAll(&gl, _state.queueLocalCache, m_ctxid);
                     }
 

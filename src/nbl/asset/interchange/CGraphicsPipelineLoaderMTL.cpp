@@ -707,11 +707,9 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     auto dummy2d = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW).first;
     for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
     {
-        auto desc = ds->getDescriptors(i).begin();
-
-        desc->desc = _views[i] ? std::move(_views[i]) : dummy2d;
-        desc->image.imageLayout = IImage::EL_UNDEFINED;
-        desc->image.sampler = nullptr; //not needed, immutable (in DS layout) samplers are used
+        auto [descriptor, info] = ds->getDescriptors(i);
+        descriptor.begin()[0] = _views[i] ? std::move(_views[i]) : dummy2d;
+        info.begin()[0].image.imageLayout = IImage::EL_UNDEFINED;
     }
 
     return ds;

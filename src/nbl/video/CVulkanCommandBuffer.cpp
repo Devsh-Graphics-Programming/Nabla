@@ -21,7 +21,8 @@ bool CVulkanCommandBuffer::begin_impl(core::bitflag<E_USAGE> recordingFlags, con
         // From the spec:
         // Specifying the exact framebuffer that the secondary command buffer will be
         // executed with may result in better performance at command buffer execution time.
-        vk_inheritanceInfo.framebuffer = IBackendObject::compatibility_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer.get(), this)->getInternalObject();
+        if (inheritanceInfo->framebuffer)
+            vk_inheritanceInfo.framebuffer = IBackendObject::compatibility_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer.get(), this)->getInternalObject();
         vk_inheritanceInfo.occlusionQueryEnable = inheritanceInfo->occlusionQueryEnable;
         vk_inheritanceInfo.queryFlags = static_cast<VkQueryControlFlags>(inheritanceInfo->queryFlags.value);
         vk_inheritanceInfo.pipelineStatistics = static_cast<VkQueryPipelineStatisticFlags>(0u); // must be 0

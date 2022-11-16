@@ -403,14 +403,15 @@ void IAssetManager::insertBuiltinAssets()
     {
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
-            auto desc = ds1->getDescriptors(0u).begin();
-            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
             auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
-            desc->desc = std::move(ubo);
-            desc->buffer.offset = 0ull;
-            desc->buffer.size = UBO_SZ;
+
+            auto [descriptor, info] = ds1->getDescriptors(0u);
+            descriptor.begin()[0] = std::move(ubo);
+            info.begin()[0].buffer.offset = 0ull;
+            info.begin()[0].buffer.size = UBO_SZ;
         }
         addBuiltInToCaches(ds1, "nbl/builtin/descriptor_set/basic_view_parameters");
         addBuiltInToCaches(defaultDs1Layout, "nbl/builtin/descriptor_set_layout/basic_view_parameters");

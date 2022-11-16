@@ -23,6 +23,15 @@ IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptors(const I
         assert((offsets.data[type] < m_maxDescriptorCount[i]) && "PANIC: Allocation failed. This shoudn't have happened!");
     }
 
+    const auto mutableSamplerCount = layout->getTotalMutableSamplerCount();
+    if (mutableSamplerCount != 0ull)
+    {
+        if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
+            offsets.data[asset::EDT_COUNT] = m_generalAllocators[asset::EDT_COUNT].alloc_addr(mutableSamplerCount, 1u);
+        else
+            offsets.data[asset::EDT_COUNT] = m_linearAllocators[asset::EDT_COUNT].alloc_addr(mutableSamplerCount, 1u);
+    }
+
     return offsets;
 }
 
@@ -45,13 +54,29 @@ bool IDescriptorPool::freeDescriptorSets(const uint32_t descriptorSetCount, IGPU
             const uint32_t count = descriptorSets[i]->getLayout()->getTotalDescriptorCount(type);
             assert(count != 0u);
 
-            auto* descriptors = descriptorSets[i]->getDescriptors(type);
+            auto* descriptors = descriptorSets[i]->getAllDescriptors(type);
             assert(descriptors);
 
             for (auto c = 0u; c < count; ++c)
                 descriptors[c].~smart_refctd_ptr();
 
             m_generalAllocators[type].free_addr(allocatedOffset, count);
+        }
+
+        const uint32_t count = descriptorSets[i]->getLayout()->getTotalMutableSamplerCount();
+        if (count > 0)
+        {
+            const uint32_t allocatedOffset = descriptorSets[i]->getMutableSamplerStorageOffset();
+            if (allocatedOffset == ~0u)
+                continue;
+
+            auto* samplers = descriptorSets[i]->getAllMutableSamplers();
+            assert(samplers);
+
+            for (auto c = 0u; c < count; ++c)
+                samplers[c].~smart_refctd_ptr();
+
+            m_generalAllocators[asset::EDT_COUNT].free_addr(allocatedOffset, count);
         }
     }
 

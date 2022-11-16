@@ -534,7 +534,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertiesPerDispatch*2u+2u];
 	infos[0] = scratch;
-	infos[0].buffer.size = sizeof(nbl_glsl_property_pool_transfer_t)*propertyCount;
+	infos[0].info.buffer.size = sizeof(nbl_glsl_property_pool_transfer_t)*propertyCount;
 	infos[1] = addresses;
 	auto* inDescInfo = infos+2;
 	auto* outDescInfo = infos+2+maxPropertiesPerPass;

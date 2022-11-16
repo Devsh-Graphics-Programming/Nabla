@@ -17,10 +17,11 @@ class NBL_API IDescriptor : public virtual core::IReferenceCounted
 	public:
 		enum E_CATEGORY
 		{
-			EC_BUFFER,
+			EC_BUFFER = 0,
 			EC_IMAGE,
 			EC_BUFFER_VIEW,
-			EC_ACCELERATION_STRUCTURE
+			EC_ACCELERATION_STRUCTURE,
+			EC_COUNT
 		};
 
 		virtual E_CATEGORY getTypeCategory() const = 0;
