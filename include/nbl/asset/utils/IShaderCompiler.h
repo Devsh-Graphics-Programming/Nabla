@@ -55,16 +55,15 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 			Creates a formatted copy of the original
 
 			@param original An original High Level shader (must contain high level language code and must not be a nullptr).
+			@param position if original != nullptr, is the position in the code to insert the formatted string to the original shader code
 			@param fmt A string with c-like format, which will be filled with data from ...args
 			@param ...args Data to fill fmt with
 			@returns shader containing fmt filled with ...args, placed before the original code.
 
-			If original == nullptr, the output buffer will only contain the data from fmt. If original code contains #version specifier,
-			then the filled fmt will be placed onto the next line after #version in the output buffer. If not, fmt will be placed into the
-			beginning of the output buffer.
+			If original == nullptr, the output buffer will only contain the data from fmt.
 		*/
 		template<typename... Args>
-		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
+		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, uint32_t position, const char* fmt, Args... args)
 		{
 			assert(original == nullptr || (!original->isADummyObjectForCache() && original->isContentHighLevelLanguage()));
 
@@ -95,30 +94,34 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 			nbl::core::smart_refctd_ptr<ICPUBuffer> outBuffer = nbl::core::make_smart_refctd_ptr<ICPUBuffer>(outSize);
 
-			size_t versionDirectiveLength = 0;
-
-			std::string_view origCode;
+			auto origCode = std::string_view(reinterpret_cast<const char*>(original->getContent()->getPointer()), origLen);
 			auto outCode = reinterpret_cast<char*>(outBuffer->getPointer());
-			if (original!=nullptr)
+
+			if (position < origLen)
 			{
-				origCode = std::string_view(reinterpret_cast<const char*>(original->getContent()->getPointer()),origLen);
-				auto start = origCode.find("#version");
-				auto end = origCode.find("\n",start);
-				if (end!=std::string_view::npos)
-					versionDirectiveLength = end+1u;
+				// Copy whatever comes before position
+				std::copy_n(origCode.data(), position, outCode);
+				outCode += position;
+
+				// Copy formatted string
+				outCode += sprintf(outCode,fmt,std::forward<Args>(args)...);
+
+				// Copy the rest of the original code
+				auto epilogueLen = origLen - position;
+				std::copy_n(origCode.data() + position, epilogueLen, outCode);
+				outCode += epilogueLen;
+
+				// terminating char
+				*outCode = 0;
+
+				return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), original->getStage(), original->getContentType(), std::string(original->getFilepathHint()));
 			}
-
-			std::copy_n(origCode.data(),versionDirectiveLength,outCode);
-			outCode += versionDirectiveLength;
-
-			outCode += sprintf(outCode,fmt,std::forward<Args>(args)...);
-
-			auto epilogueLen = origLen-versionDirectiveLength;
-			std::copy_n(origCode.data()+versionDirectiveLength,epilogueLen,outCode);
-			outCode += epilogueLen;
-			*outCode = 0; // terminating char
-
-			return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), original->getStage(), original->getContentType(), std::string(original->getFilepathHint()));
+			else
+			{
+				// Position isn't valid.
+				assert(false);
+				return nullptr;
+			}
 		}
 
 		virtual IShader::E_CONTENT_TYPE getCodeContentType() const = 0;

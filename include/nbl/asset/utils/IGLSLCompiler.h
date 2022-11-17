@@ -84,6 +84,28 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 			system::logger_opt_ptr logger = nullptr,
 			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
 
+		/*
+		 If original code contains #version specifier,
+			then the filled fmt will be placed onto the next line after #version in the output buffer. If not, fmt will be placed into the
+			beginning of the output buffer.
+		*/
+		template<typename... Args>
+		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
+		{
+			uint32_t position = 0u;
+			if (original != nullptr)
+			{
+				auto origCodeBuffer = original->getContent();
+				auto origCode = std::string_view(reinterpret_cast<const char*>(origCodeBuffer->getPointer()), origCodeBuffer->getSize());
+				auto start = origCode.find("#version");
+				auto end = origCode.find("\n", start);
+				if (end != std::string_view::npos)
+					position = end + 1u;
+			}
+
+			return IShaderCompiler::createOverridenCopy(original, position, fmt, args...);
+		}
+
 		static inline const char* getStorageImageFormatQualifier(const asset::E_FORMAT format)
 		{
 			switch (format)
