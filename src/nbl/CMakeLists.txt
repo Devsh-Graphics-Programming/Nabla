@@ -630,10 +630,20 @@ if(_NBL_COMPILE_WITH_DXC_)
 			
 			# MSVC and other generators have "SetEnv" task - we need to make sure our enviroment is clean while invoking DXC compilation
 			string(APPEND _TMP_CLEAN_ENV_ "set PATH=$ENV{PATH}\nset CAExcludePath=\nset LIB=\nset LIBPATH=\nset INCLUDE=\nset EXTERNAL_INCLUDE=\n")
-			string(APPEND _NBL_DXC_CT_WRAPPER_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T lib_6_7 -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -Fo \"${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
+			
+			# Include dependency chain for considered compile file
+			set(_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/depends.txt")
+			set(_NBL_DXC_CT_CURRENT_IDC_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/depends.cmd")
+			string(APPEND _NBL_DXC_CT_WRAPPER_IDC_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T lib_6_7 -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -MF \"${_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
+			file(WRITE "${_NBL_DXC_CT_CURRENT_IDC_FILEPATH_}" "${_NBL_DXC_CT_WRAPPER_IDC_COMMAND_}")
+			# TODO execute_process for _NBL_DXC_CT_CURRENT_IDC_FILEPATH_ and hanlding _NBL_DXC_CT_CURRENT_IDC_FILEPATH_'s deps by custom command
+			
+			# Compile command
+			string(APPEND _NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T lib_6_7 -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -Fo \"${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
 			set(_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/compile.cmd")
-			file(WRITE "${_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_}" "${_NBL_DXC_CT_WRAPPER_COMMAND_}")
-			unset(_NBL_DXC_CT_WRAPPER_COMMAND_)
+			file(WRITE "${_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_}" "${_NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_}")
+			
+			unset(_NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_)
 			unset(_TMP_CLEAN_ENV_)
 			
 			if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
