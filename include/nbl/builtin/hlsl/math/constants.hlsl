@@ -6,10 +6,18 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_CONSTANTS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_CONSTANTS_INCLUDED_
 
-#include <nbl/builtin/hlsl/limits/numeric.hlsl>
+namespace nbl
+{
+namespace hlsl
+{
+namespace math
+{
+	static const float PI = 3.14159265359;
+	static const float RECIPROCAL_PI = 0.318309886183;
+	static const float SQRT_RECIPROCAL_PI = 0.56418958354;
+}
+}
+}
 
-#define PI 3.14159265359
-#define RECIPROCAL_PI 0.318309886183
-#define SQRT_RECIPROCAL_PI 0.56418958354
 
 #endif
