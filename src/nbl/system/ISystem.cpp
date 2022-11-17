@@ -33,11 +33,10 @@ core::smart_refctd_ptr<const IFile> ISystem::impl_loadEmbeddedBuiltinData(const 
     return nullptr;
 }
 
-constexpr const char* builtinPathPrefix = "nbl/builtin/";
 bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) const
 {
     const bool writeUsage = flags.value&IFile::ECF_WRITE;
-    if (!writeUsage && filename.string().find(builtinPathPrefix)==0)
+    if (!writeUsage && builtin::hasPathPrefix(filename.string()))
     {
         #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
             std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(filename.string());
@@ -61,7 +60,7 @@ bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_
 bool ISystem::isPathReadOnly(const system::path& p) const
 {
     // first check if its a builtin path
-    if (p.string().find(builtinPathPrefix)==0)
+    if (builtin::hasPathPrefix(p.string()))
         return true;
 
     // check all parent subpaths
@@ -212,7 +211,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
     if (std::filesystem::exists(filename))
         filename = std::filesystem::canonical(filename);
     // try builtins
-    if (!(flags.value&IFile::ECF_WRITE) && filename.string().find(builtinPathPrefix)==0)
+    if (!(flags.value&IFile::ECF_WRITE) && builtin::hasPathPrefix(filename.string()))
     {
         #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
             auto file = impl_loadEmbeddedBuiltinData(filename.string(),nbl::builtin::get_resource_runtime(filename.string()));
