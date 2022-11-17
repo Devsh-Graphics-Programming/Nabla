@@ -2,13 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <string_view>
 
-namespace nbl::builtin
-{
-    constexpr std::string_view PathPrefix = "nbl/builtin/";
-    constexpr bool hasPathPrefix(std::string_view str) { return str.find(PathPrefix) == 0ull; }
-}
 
 #ifndef _NBL_BUILTIN_COMMON_H_INCLUDED_
 #define _NBL_BUILTIN_COMMON_H_INCLUDED_
@@ -16,6 +10,13 @@ namespace nbl::builtin
 #include "BuildConfigOptions.h"
 
 #include <cstring>
+
+#include <string_view>
+namespace nbl::builtin
+{
+    constexpr std::string_view PathPrefix = "nbl/builtin/";
+    constexpr bool hasPathPrefix(std::string_view str) { return str.find(PathPrefix) == 0ull; }
+}
 
 namespace nbl
 {
