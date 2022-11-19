@@ -27,7 +27,16 @@ class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUS
     public:
         IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SBinding* const _begin, const SBinding* const _end)
             : base_t(_begin, _end), IBackendObject(std::move(dev))
-        {}
+        {
+            for (const auto* binding = _begin; binding != _end; ++binding)
+            {
+                if (binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT))
+                {
+                    m_canUpdateAfterBind = true;
+                    break;
+                }
+            }
+        }
 
     protected:
         virtual ~IGPUDescriptorSetLayout() = default;

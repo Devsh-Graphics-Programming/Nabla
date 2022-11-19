@@ -1874,7 +1874,6 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                         else
                             descriptorCount = cpuds->getLayout()->getTotalDescriptorCount(type) - cpuds->getLayout()->getBindingOffsetStorage(type)[b];
                     }
-                    assert(descriptorCount <= 40000000);
                     
                     write_it->dstSet = gpuds;
                     write_it->binding = cpuds->getLayout()->getBindingStorage(type)[b];

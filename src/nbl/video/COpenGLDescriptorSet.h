@@ -426,6 +426,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 
 		inline const video::IGPUDescriptorSetLayout::SBinding* getLayoutBinding(const uint32_t binding) const
 		{
+#if 0
 			auto layoutBindings = m_layout->getBindings();
 			auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
 					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_COUNT,0u,asset::IShader::ESS_ALL,nullptr},
@@ -435,6 +436,8 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				return nullptr;
 			else
 				return layoutBinding;
+#endif
+			return nullptr;
 		}
 
 	private:
@@ -454,6 +457,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			}
 			else if (descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
 			{
+#if 0
 				auto* glimgview = static_cast<COpenGLImageView*>(info.desc.get());
 
 				m_multibindParams.textures.textures[offset] = glimgview->getOpenGLName();
@@ -466,6 +470,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 						static_cast<COpenGLSampler*>(layoutBinding->samplers[local_iter].get())->getOpenGLName() :
 						static_cast<COpenGLSampler*>(info.info.image.sampler.get())->getOpenGLName();
 				m_multibindParams.textures.targets[offset] = glimgview->getOpenGLTarget();
+#endif
 			}
 			else if (descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)
 			{

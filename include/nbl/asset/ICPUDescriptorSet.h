@@ -173,8 +173,6 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 
 		std::pair<core::SRange<core::smart_refctd_ptr<IDescriptor>>, core::SRange<SDescriptorInfo::SBufferImageInfo>> getDescriptors(const uint32_t binding)
 		{
-			// TODO(achal): We are doing multiple binary searches here, albeit over different arrays, but still this can be avoided
-			// if we store more data in SBindingRedirect, specifically the type and the count.
 			const auto bindingInfo = std::lower_bound(getLayout()->getBindings().begin(), getLayout()->getBindings().end(), ICPUDescriptorSetLayout::SBinding{binding});
 			assert(bindingInfo->binding == binding && "binding is not in the descriptor set!");
 

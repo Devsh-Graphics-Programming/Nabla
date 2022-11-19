@@ -15,7 +15,7 @@ namespace asset
 {
 
 // TODO: move this to appropriate class
-enum E_DESCRIPTOR_TYPE : uint32_t
+enum E_DESCRIPTOR_TYPE : uint8_t
 {
     EDT_COMBINED_IMAGE_SAMPLER = 0,
     EDT_STORAGE_IMAGE,
@@ -130,10 +130,19 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 
 		struct SBinding
 		{
+			enum class E_CREATE_FLAGS : uint8_t
+			{
+				ECF_NONE							= 0,
+				ECF_UPDATE_AFTER_BIND_BIT			= 1u << 1,
+				ECF_UPDATE_UNUSED_WHILE_PENDING_BIT = 1u << 2,
+				ECF_PARTIALLY_BOUND_BIT				= 1u << 3
+			};
+
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
+			core::bitflag<E_CREATE_FLAGS> createFlags;
+			IShader::E_SHADER_STAGE stageFlags; // TODO(achal): Should make a core::bitflag out of this as well?
 			uint32_t count;
-			IShader::E_SHADER_STAGE stageFlags;
 			// Use this if you want an immutable sampler that is baked into the DS layout itself.
 			// If its `nullptr` then the sampler used is mutable and can be specified while writing the image descriptor to a binding while updating the DS.
 			const core::smart_refctd_ptr<sampler_type>* samplers;
@@ -149,13 +158,17 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 						{
 							if (stageFlags==rhs.stageFlags)
 							{
-								for (uint32_t i=0u; i<count; i++)
+								if (createFlags.value == rhs.createFlags.value)
 								{
-									if (samplers[i]==rhs.samplers[i])
-										continue;
-									return samplers[i]<rhs.samplers[i];
+									for (uint32_t i = 0u; i < count; i++)
+									{
+										if (samplers[i] == rhs.samplers[i])
+											continue;
+										return samplers[i] < rhs.samplers[i];
+									}
+									return false;
 								}
-								return false;
+								return createFlags.value < rhs.createFlags.value;
 							}
 							return stageFlags<rhs.stageFlags;
 						}
@@ -174,6 +187,8 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 				if (count != rhs.count)
 					return false;
 				if (stageFlags != rhs.stageFlags)
+					return false;
+				if (createFlags.value != rhs.createFlags.value)
 					return false;
 
 				if (!samplers && !rhs.samplers)
@@ -310,7 +325,7 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 		virtual ~IDescriptorSetLayout() = default;
 
 		core::smart_refctd_dynamic_array<SBinding> m_bindings;
-		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > m_samplers;
+		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>> m_samplers;
 
 	public:
 		bool isIdenticallyDefined(const IDescriptorSetLayout<sampler_type>* _other) const
