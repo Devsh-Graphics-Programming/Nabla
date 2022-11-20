@@ -142,8 +142,11 @@ protected:
 
     virtual ~IGPUCommandBuffer()
     {
+        // Only release the resources if the parent pool has not been reset because if it has been then the resources will already be released.
         if (!checkForParentPoolReset())
+        {
             releaseResourcesBackToPool();
+        }
     }
 
     system::logger_opt_smart_ptr m_logger;

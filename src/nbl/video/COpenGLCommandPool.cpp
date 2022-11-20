@@ -303,7 +303,7 @@ void COpenGLCommandPool::CBindBuffersRangeCmd::operator()(IOpenGL_FunctionTable*
 
 void COpenGLCommandPool::CNamedBufferSubDataCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)
 {
-    gl->extGlNamedBufferSubData(m_bufferGLName, m_offset, m_size, m_data.data());
+    gl->extGlNamedBufferSubData(m_bufferGLName, m_offset, m_size, m_data);
 }
 
 void COpenGLCommandPool::CResetQueryCmd::operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocalCache, const uint32_t ctxid, const system::logger_opt_ptr logger)

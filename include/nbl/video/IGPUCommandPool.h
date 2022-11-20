@@ -7,7 +7,7 @@
 #include "nbl/core/containers/CMemoryPool.h"
 
 #include "nbl/video/decl/IBackendObject.h"
-
+#include "nbl/video/IGPUPipelineLayout.h"
 
 namespace nbl::video
 {
@@ -75,7 +75,7 @@ public:
         template <typename... Args>
         static uint32_t calc_size(const Args&...)
         {
-            return core::alignUp(sizeof(CRTP), alignof(CRTP));
+            return sizeof(CRTP);
         }
 
     protected:
@@ -408,24 +408,37 @@ private:
     core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
 };
 
-class IGPUCommandPool::CPipelineBarrierCmd : public IGPUCommandPool::IFixedSizeCommand<CPipelineBarrierCmd>
+class IGPUCommandPool::CPipelineBarrierCmd : public IGPUCommandPool::ICommand
 {
 public:
     CPipelineBarrierCmd(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
+        : ICommand(calc_size(bufferCount, buffers, imageCount, images)), m_resourceCount(bufferCount+imageCount)
     {
-        m_barrierResources = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const core::IReferenceCounted>>>(imageCount + bufferCount);
+        m_barrierResources = new (this + sizeof(CPipelineBarrierCmd)) core::smart_refctd_ptr<const core::IReferenceCounted>[m_resourceCount];
 
         uint32_t k = 0;
 
         for (auto i = 0; i < bufferCount; ++i)
-            m_barrierResources->begin()[k++] = buffers[i];
+            m_barrierResources[k++] = buffers[i];
 
         for (auto i = 0; i < imageCount; ++i)
-            m_barrierResources->begin()[k++] = images[i];
+            m_barrierResources[k++] = images[i];
+    }
+
+    ~CPipelineBarrierCmd()
+    {
+        for (auto i = 0; i < m_resourceCount; ++i)
+            m_barrierResources[i].~smart_refctd_ptr();
+    }
+
+    static uint32_t calc_size(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
+    {
+        return core::alignUp(sizeof(CPipelineBarrierCmd) + (bufferCount+imageCount)*sizeof(core::smart_refctd_ptr<const core::IReferenceCounted>), alignof(CPipelineBarrierCmd));
     }
 
 private:
-    core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const core::IReferenceCounted>> m_barrierResources;
+    const uint32_t m_resourceCount;
+    core::smart_refctd_ptr<const core::IReferenceCounted>* m_barrierResources;
 };
 
 class IGPUCommandPool::CBindDescriptorSetsCmd : public IGPUCommandPool::IFixedSizeCommand<CBindDescriptorSetsCmd>
@@ -434,15 +447,13 @@ public:
     CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const core::smart_refctd_ptr<const IGPUDescriptorSet>* sets)
         : m_layout(std::move(pipelineLayout))
     {
-        m_sets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array< core::smart_refctd_ptr<const IGPUDescriptorSet>>>(setCount);
-
         for (auto i = 0; i < setCount; ++i)
-            m_sets->begin()[i] = sets[i];
+            m_sets[i] = sets[i];
     }
 
 private:
     core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
-    core::smart_refctd_dynamic_array< core::smart_refctd_ptr<const IGPUDescriptorSet>> m_sets;
+    core::smart_refctd_ptr<const IGPUDescriptorSet> m_sets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
 };
 
 class IGPUCommandPool::CBindComputePipelineCmd : public IGPUCommandPool::IFixedSizeCommand<CBindComputePipelineCmd>
@@ -595,13 +606,30 @@ private:
     core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
-class IGPUCommandPool::CExecuteCommandsCmd : public IGPUCommandPool::IFixedSizeCommand<CExecuteCommandsCmd>
+class IGPUCommandPool::CExecuteCommandsCmd : public IGPUCommandPool::ICommand
 {
 public:
-    CExecuteCommandsCmd(core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const IGPUCommandBuffer>>&& commandBuffers) : m_commandBuffers(std::move(commandBuffers)) {}
+    CExecuteCommandsCmd(const uint32_t count, IGPUCommandBuffer* const* const commandBuffers) : ICommand(calc_size(count, commandBuffers)), m_count(count)
+    {
+        m_commandBuffers = new (this + sizeof(CExecuteCommandsCmd)) core::smart_refctd_ptr<const IGPUCommandBuffer>[count];
+        for (auto i = 0; i < m_count; ++i)
+            m_commandBuffers[i] = core::smart_refctd_ptr<const IGPUCommandBuffer>(commandBuffers[i]);
+    }
+
+    ~CExecuteCommandsCmd()
+    {
+        for (auto i = 0; i < m_count; ++i)
+            m_commandBuffers->~smart_refctd_ptr();
+    }
+
+    static uint32_t calc_size(const uint32_t count, IGPUCommandBuffer* const* const commandBuffers)
+    {
+        return core::alignUp(sizeof(CExecuteCommandsCmd) + count*sizeof(core::smart_refctd_ptr<const IGPUCommandBuffer>), alignof(CExecuteCommandsCmd));
+    }
 
 private:
-    core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const IGPUCommandBuffer>> m_commandBuffers;
+    const uint32_t m_count;
+    core::smart_refctd_ptr<const IGPUCommandBuffer>* m_commandBuffers;
 };
 
 class IGPUCommandPool::CDispatchIndirectCmd : public IGPUCommandPool::IFixedSizeCommand<CDispatchIndirectCmd>
@@ -641,7 +669,7 @@ public:
     static uint32_t calc_size(const uint32_t bufferCount, const IGPUBuffer *const *const, const uint32_t imageCount, const IGPUImage *const *const, const uint32_t eventCount, IGPUEvent *const *const)
     {
         const uint32_t resourceCount = bufferCount + imageCount + eventCount;
-        return core::alignUp(sizeof(CWaitEventsCmd) + resourceCount * sizeof(void*), alignof(ICommand));
+        return core::alignUp(sizeof(CWaitEventsCmd) + resourceCount * sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CWaitEventsCmd));
     }
 
 private:
@@ -737,7 +765,7 @@ public:
 
     static uint32_t calc_size(const IQueryPool* queryPool, const uint32_t accelerationStructureCount, IGPUAccelerationStructure const *const *const accelerationStructures)
     {
-        return core::alignUp(sizeof(CWriteAccelerationStructurePropertiesCmd) + (accelerationStructureCount + 1)* sizeof(void*), alignof(ICommand));
+        return core::alignUp(sizeof(CWriteAccelerationStructurePropertiesCmd) + (accelerationStructureCount + 1)* sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CWriteAccelerationStructurePropertiesCmd));
     }
 
 private:
@@ -771,7 +799,7 @@ public:
     static uint32_t calc_size(const uint32_t accelerationStructureCount, core::smart_refctd_ptr<const IGPUAccelerationStructure>* accelerationStructures, const uint32_t bufferCount, core::smart_refctd_ptr<const IGPUBuffer>* buffers)
     {
         const auto resourceCount = accelerationStructureCount + bufferCount;
-        return core::alignUp(sizeof(CBuildAccelerationStructuresCmd) + resourceCount * sizeof(void*), alignof(ICommand));
+        return core::alignUp(sizeof(CBuildAccelerationStructuresCmd) + resourceCount * sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CBuildAccelerationStructuresCmd));
     }
 
 private:

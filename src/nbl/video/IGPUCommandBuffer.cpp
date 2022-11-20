@@ -873,11 +873,7 @@ bool IGPUCommandBuffer::executeCommands(uint32_t count, cmdbuf_t* const* const c
             return false;
     }
 
-    auto commandBuffers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<const IGPUCommandBuffer>>>(count);
-    for (auto i = 0; i < commandBuffers->size(); ++i)
-        commandBuffers->begin()[i] = core::smart_refctd_ptr<const IGPUCommandBuffer>(cmdbufs[i]);
-
-    if (!m_cmdpool->emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_segmentListHeadItr, m_segmentListTail, std::move(commandBuffers)))
+    if (!m_cmdpool->emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_segmentListHeadItr, m_segmentListTail, count, cmdbufs))
         return false;
 
     return executeCommands_impl(count, cmdbufs);

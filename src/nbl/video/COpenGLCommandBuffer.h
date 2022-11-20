@@ -225,7 +225,6 @@ public:
         if (!beginRenderpass_clearAttachments(&m_stateCache, *pRenderPassBegin, m_logger.getOptRawPtr(), m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
 
-        // This is most likely only required to do some checks for the query pool which can be safely done on the main thread at command record time.
         currentlyRecordingRenderPass = pRenderPassBegin->renderpass.get();
 
         return true;

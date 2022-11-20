@@ -633,23 +633,27 @@ private:
     GLintptr m_sizes[MaxOffsets];
 };
 
-class COpenGLCommandPool::CNamedBufferSubDataCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CNamedBufferSubDataCmd>
+class COpenGLCommandPool::CNamedBufferSubDataCmd : public IOpenGLCommand
 {
 public:
     CNamedBufferSubDataCmd(const GLuint bufferGLName, const GLintptr offset, const GLsizeiptr size, const void* data)
-        : m_bufferGLName(bufferGLName), m_offset(offset), m_size(size)
+        : IOpenGLCommand(calc_size(bufferGLName, offset, size, data)), m_bufferGLName(bufferGLName), m_offset(offset), m_size(size)
     {
-        m_data.resize(size);
-        memcpy(m_data.data(), data, m_size);
+        memcpy(m_data, data, m_size);
     }
 
     void operator()(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueCache, const uint32_t ctxid, const system::logger_opt_ptr logger) override;
+
+    static uint32_t calc_size(const GLuint bufferGLName, const GLintptr offset, const GLsizeiptr size, const void* data)
+    {
+        return core::alignUp(sizeof(CNamedBufferSubDataCmd) + size, alignof(IOpenGLCommand));
+    }
 
 private:
     const GLuint m_bufferGLName;
     const GLintptr m_offset;
     const GLsizeiptr m_size;
-    core::vector<uint8_t> m_data;
+    uint8_t* m_data;
 };
 
 class COpenGLCommandPool::CResetQueryCmd : public COpenGLCommandPool::IOpenGLFixedSizeCommand<CResetQueryCmd>
