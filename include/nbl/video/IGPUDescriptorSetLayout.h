@@ -30,7 +30,7 @@ class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUS
         {
             for (const auto* binding = _begin; binding != _end; ++binding)
             {
-                if (binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT))
+                if (binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) || binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT))
                 {
                     m_canUpdateAfterBind = true;
                     break;

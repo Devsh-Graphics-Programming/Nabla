@@ -270,7 +270,8 @@ private:
     uint32_t m_resetCheckedStamp = 0;
 
     // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
-    // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND.
+    // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
+    // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
     core::unordered_map<const IGPUDescriptorSet*, uint64_t> m_boundDescriptorSetsRecord;
     
     IGPUCommandPool::CCommandSegment::Iterator m_segmentListHeadItr = {};
