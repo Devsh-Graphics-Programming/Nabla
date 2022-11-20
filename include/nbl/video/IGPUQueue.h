@@ -95,37 +95,24 @@ class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
             return true;
         }
 
+        inline void clearBoundDescriptorSetsRecord(uint32_t _count, const SSubmitInfo* _submits)
+        {
+            for (uint32_t i = 0u; i < _count; ++i)
+            {
+                for (uint32_t c = 0u; c < _submits[i].commandBufferCount; ++c)
+                {
+                    auto* cmdbuf = _submits[i].commandBuffers[c];
+                    if (cmdbuf)
+                        cmdbuf->clearBoundDescriptorSetsRecord();
+                }
+            }
+        }
 
         const uint32_t m_familyIndex;
         const E_CREATE_FLAGS m_flags;
         const float m_priority;
         ILogicalDevice* m_originDevice;
 };
-
-inline bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
-{
-    if(_submits == nullptr)
-        return false;
-
-    for (uint32_t i = 0u; i < _count; ++i)
-    {
-        auto& submit = _submits[i];
-        for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
-        {
-            if(submit.commandBuffers[j] == nullptr)
-                return false;
-
-            assert(submit.commandBuffers[j]->getLevel() == IGPUCommandBuffer::EL_PRIMARY);
-            assert(submit.commandBuffers[j]->getState() == IGPUCommandBuffer::ES_EXECUTABLE);
-
-            if (submit.commandBuffers[j]->getLevel() != IGPUCommandBuffer::EL_PRIMARY)
-                return false;
-            if (submit.commandBuffers[j]->getState() != IGPUCommandBuffer::ES_EXECUTABLE)
-                return false;
-        }
-    }
-    return true;
-}
 
 }
 

@@ -38,6 +38,8 @@ class NBL_API IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUS
             }
         }
 
+        inline bool canUpdateAfterBind() const { return m_canUpdateAfterBind; }
+
     protected:
         virtual ~IGPUDescriptorSetLayout() = default;
 

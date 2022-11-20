@@ -250,6 +250,30 @@ bool IGPUCommandBuffer::bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipeline
     if (!m_cmdpool->emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout), descriptorSetCount, descriptorSets_refctd))
         return false;
 
+    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+    {
+        if (pDescriptorSets[i] && !pDescriptorSets[i]->getLayout()->canUpdateAfterBind())
+        {
+            const auto currentVersion = pDescriptorSets[i]->getVersion();
+
+            auto found = m_boundDescriptorSetsRecord.find(pDescriptorSets[i]);
+
+            if (found != m_boundDescriptorSetsRecord.end())
+            {
+                if (found->second != currentVersion)
+                {
+                    m_logger.log("Descriptor set #%u version does not match that of the command buffer's bound descriptor set.", system::ILogger::ELL_ERROR, i);
+                    m_state = ES_INVALID;
+                    return false;
+                }
+            }
+            else
+            {
+                m_boundDescriptorSetsRecord.insert({ pDescriptorSets[i], currentVersion });
+            }
+        }
+    }
+
     return bindDescriptorSets_impl(pipelineBindPoint, layout, firstSet, descriptorSetCount, pDescriptorSets, dynamicOffsetCount, dynamicOffsets);
 }
 

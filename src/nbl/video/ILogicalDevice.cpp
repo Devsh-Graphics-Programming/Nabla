@@ -34,6 +34,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
     for (auto i = 0; i < descriptorWriteCount; ++i)
     {
         auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
+        ds->incrementVersion();
 
         auto* descriptors = ds->getDescriptors(pDescriptorWrites[i].descriptorType, pDescriptorWrites[i].binding);
         auto* samplers = ds->getMutableSamplers(pDescriptorWrites[i].binding);

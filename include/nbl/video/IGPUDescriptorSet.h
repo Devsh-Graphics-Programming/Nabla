@@ -29,7 +29,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 
 	public:
 		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& descriptorStorageOffsets)
-			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_pool(std::move(pool)), m_descriptorStorageOffsets(std::move(descriptorStorageOffsets))
+			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_version(0ull), m_pool(std::move(pool)), m_descriptorStorageOffsets(std::move(descriptorStorageOffsets))
 		{
             for (auto i = 0u; i < asset::EDT_COUNT; ++i)
             {
@@ -48,6 +48,10 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
             if (mutableSamplerCount > 0)
                 std::uninitialized_default_construct_n(getMutableSamplerStorage() + m_descriptorStorageOffsets.data[asset::EDT_COUNT], mutableSamplerCount);
         }
+
+        inline uint64_t getVersion() const { return m_version.load(); }
+
+        inline void incrementVersion() { m_version.fetch_add(1ull); }
 
         inline core::smart_refctd_ptr<asset::IDescriptor>* getAllDescriptors(const asset::E_DESCRIPTOR_TYPE type) const
         {
@@ -169,6 +173,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 
         inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const { return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_pool->m_mutableSamplerStorage.get()); }
 
+        std::atomic_uint64_t m_version;
 		core::smart_refctd_ptr<IDescriptorPool> m_pool;
 		IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
 };
