@@ -23,6 +23,16 @@ core::smart_refctd_ptr<ICPUBuffer> CGLSLCompiler::compileToSPIRV(const char* cod
     core::smart_refctd_ptr<ICPUBuffer> outSpirv = nullptr;
     if (code)
     {
+        core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
+        if (options.includeFinder != nullptr)
+        {
+            cpuShader = resolveIncludeDirectives(code, options.stage, options.sourceIdentifier, options.maxSelfInclusionCount, options.logger);
+            if (cpuShader)
+            {
+                code = reinterpret_cast<const char*>(cpuShader->getContent()->getPointer());
+            }
+        }
+
         if (strcmp(options.entryPoint, "main") == 0)
         {
             shaderc::Compiler comp;

@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class NBL_API CHLSLCompiler final : public IShaderCompiler
+class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 {
 	public:
 		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
@@ -21,32 +21,15 @@ class NBL_API CHLSLCompiler final : public IShaderCompiler
 		struct SOptions : IShaderCompiler::SOptions
 		{
 			// TODO: Add extra dxc options
+
+			void setCommonData(const IShaderCompiler::SOptions& opt)
+			{
+				static_cast<IShaderCompiler::SOptions&>(*this) = opt;
+			}
+
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
-		/**
-		If options.stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
-		#pragma shader_stage(vertex),       or
-		#pragma shader_stage(tesscontrol),  or
-		#pragma shader_stage(tesseval),     or
-		#pragma shader_stage(geometry),     or
-		#pragma shader_stage(fragment),     or
-		#pragma shader_stage(compute)
-
-		Such annotation should be placed right after #version directive.
-
-		This function does NOT process #include directives! Use resolveIncludeDirectives() first.
-
-		@params code high level code
-		@param options
-			entryPoint Must be "main" since shaderc does not allow other entry points for HLSL. Kept with hope that shaderc will drop that requirement.
-			compilationId String that will be printed along with possible errors as source identifier.
-			genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
-				The engine, while running on OpenGL, won't be able to set push constants for shaders loaded as SPIR-V without debug info.
-			outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
-
-		@returns Shader containing SPIR-V bytecode.
-		*/
 		core::smart_refctd_ptr<ICPUBuffer> compileToSPIRV(const char* code, const CHLSLCompiler::SOptions& options) const;
 
 		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(const char* code, const CHLSLCompiler::SOptions& options) const;

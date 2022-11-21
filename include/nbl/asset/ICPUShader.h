@@ -132,7 +132,7 @@ class NBL_API ICPUShader : public IAsset, public IShader
 			return m_code->isAnyDependencyDummy(_levelsBelow);
 		}
 
-		core::smart_refctd_ptr<ICPUBuffer>	m_code;
+		core::smart_refctd_ptr<ICPUBuffer> m_code;
 		E_CONTENT_TYPE m_contentType;
 };
 

@@ -17,7 +17,7 @@
 namespace nbl::asset
 {
 
-class NBL_API IShaderCompiler : public core::IReferenceCounted
+class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 {
 	public:
 
@@ -107,16 +107,30 @@ class NBL_API IShaderCompiler : public core::IReferenceCounted
 
 		IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
+		/*
+			@stage shaderStage
+			@targetSpirvVersion spirv version
+			@entryPoint entryPoint
+			@sourceIdentifier String that will be printed along with possible errors as source identifier, and used as include's requestingSrc
+			@outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
+			@spirvOptimizer Optional parameter;
+			@logger Optional parameter; used for logging errors/info
+			@includeFinder Optional parameter; if not nullptr, it will resolve the includes in the code
+			@maxSelfInclusionCount used only when includeFinder is not nullptr
+			@genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
+				The engine, while running on OpenGL, won't be able to set push constants for shaders loaded as SPIR-V without debug info.
+		*/
 		struct SOptions
 		{
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
-			const E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
+			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			const char* entryPoint = nullptr;
 			const char* sourceIdentifier = nullptr;
-			std::string* outAssembly = nullptr;					// @optional, 
-			const ISPIRVOptimizer* spirvOptimizer = nullptr;	// @optional, 
-			system::logger_opt_ptr logger = nullptr;			// @optional, for logging purposes
-			const CIncludeFinder* includeFinder = nullptr;		// @optional, If not CGLSLCompiler will use it's default one.
+			std::string* outAssembly = nullptr;
+			const ISPIRVOptimizer* spirvOptimizer = nullptr;
+			system::logger_opt_ptr logger = nullptr;
+			const CIncludeFinder* includeFinder = nullptr;
+			uint32_t maxSelfInclusionCount = 4u;
 			bool genDebugInfo = true;
 
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };

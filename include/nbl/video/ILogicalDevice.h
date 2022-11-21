@@ -3,6 +3,7 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/CCompilerSet.h"
 
 #include "nbl/video/IGPUFence.h"
 /*

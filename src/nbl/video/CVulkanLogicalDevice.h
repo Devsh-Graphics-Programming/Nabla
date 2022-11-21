@@ -514,34 +514,41 @@ public:
 
         const asset::ICPUBuffer* source = cpushader->getContent();
 
+        // TODO:
+        core::smart_refctd_ptr<asset::CCompilerSet> compilerSet;
+
+        const char* begin = static_cast<const char*>(source->getPointer());
+        const char* end = begin + source->getSize();
+        std::string code(begin, end);
+
+        auto compiler = compilerSet->getShaderCompiler(cpushader->getContentType());
+        asset::IShaderCompiler::SOptions commonCompileOptions = {};
+        commonCompileOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+        commonCompileOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+        commonCompileOptions.stage = shaderStage;
+        commonCompileOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
+        commonCompileOptions.entryPoint = entryPoint;
+        commonCompileOptions.genDebugInfo = true;
+        commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
+        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+
+        if (cpushader->getContentType() != asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+            asset::IShader::insertDefines(code, m_physicalDevice->getExtraGLSLDefines());
+
         core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
-        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+
+        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
         {
-            const char* begin = static_cast<const char*>(source->getPointer());
-            const char* end = begin + source->getSize();
-
-            std::string glsl(begin, end);
-            asset::IShader::insertDefines(glsl, m_physicalDevice->getExtraGLSLDefines());
-
-            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-
-            core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
-                m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
-                    shaderStage, cpushader->getFilepathHint().c_str(), 4u, logger);
-
-            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
-                reinterpret_cast<const char*>(glslShader_woIncludes->getContent()->getPointer()),
-                shaderStage,
-                entryPoint,
-                cpushader->getFilepathHint().c_str(),
-                true,
-                nullptr,
-                logger,
-                m_physicalDevice->getLimits().spirvVersion);
+            // TODO: add specific HLSLCompiler::SOption params
+            spirv = compilerSet->compileToSPIRV(cpushader, commonCompileOptions);
         }
-        else
+        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
         {
-            assert(false); // TODO[ShaderCompiler]: not supported right now
+            spirv = compilerSet->compileToSPIRV(cpushader, commonCompileOptions);
+        }
+        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        {
+            spirv = core::smart_refctd_ptr<asset::ICPUBuffer>(const_cast<asset::ICPUBuffer*>(cpushader->getContent()));
         }
 
         if (!spirv)
