@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_BUILTIN_HLSL_BINOPS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BINOPS_INCLUDED_
-// TODO (PentaKon): Should we move isNPoT from algorithm.hlsl to this file ?
+
 namespace nbl
 {
 namespace hlsl
@@ -38,7 +38,7 @@ struct bitwise_xor
 };
 
 template<typename T>
-struct bitwise_add
+struct add
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -47,7 +47,7 @@ struct bitwise_add
 };
 
 template<typename T>
-struct bitwise_mul
+struct mul
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -56,7 +56,7 @@ struct bitwise_mul
 };
 
 template<typename T, class Comparator>
-struct bitwise_min
+struct min
 {
     T operator()(const T lhs, const T rhs, inout Comparator comp)
     {
@@ -65,7 +65,7 @@ struct bitwise_min
 };
 
 template<typename T>
-struct bitwise_min
+struct min
 {
     T operator()(const T lhs, const T rhs)
     {
@@ -75,7 +75,7 @@ struct bitwise_min
 };
 
 template<typename T, class Comparator>
-struct bitwise_max
+struct max
 {
     T operator()(const T lhs, const T rhs, inout Comparator comp)
     {
@@ -84,7 +84,7 @@ struct bitwise_max
 };
 
 template<typename T>
-struct bitwise_max
+struct max
 {
     T operator()(const T lhs, const T rhs)
     {
