@@ -30,12 +30,12 @@ uint3 impl_sharedExponentEncodeCommon(in float3 clamped, in int newExpBias, in i
 	const bool need = maxm==(0x1u<<mantissaBits);
 	scale = select(need, 0.5 * scale, scale);
 	shared_exp = select(need, shared_exp + 1, shared_exp);
-	return uint3(clamped*scale + float3(0.5));
+	return uint3(clamped*scale + (0.5).xxx);
 }
 
 uint2 encodeRGB19E7(in float3 col)
 {
-	const float3 clamped = clamp(col,float3(0.0),float3(MAX_RGB19E7));
+	const float3 clamped = clamp(col, (0.0).xxx, (MAX_RGB19E7).xxx);
 
 	int shared_exp;
 	const uint3 mantissas = impl_sharedExponentEncodeCommon(clamped,RGB19E7_EXP_BIAS,MAX_RGB19E7_EXP,RGB19E7_MANTISSA_BITS,shared_exp);
@@ -55,12 +55,12 @@ uint2 encodeRGB19E7(in float3 col)
 uint2 encodeRGB18E7S3(in float3 col)
 {
 	const float3 absCol = abs(col);
-	const float3 clamped = min(absCol,float3(MAX_RGB18E7S3));
+	const float3 clamped = min(absCol, (MAX_RGB18E7S3).xxx);
 
 	int shared_exp;
 	const uint3 mantissas = impl_sharedExponentEncodeCommon(clamped,RGB18E7S3_EXP_BIAS,MAX_RGB18E7S3_EXP,RGB18E7S3_MANTISSA_BITS,shared_exp);
 
-	uint3 signs = floatBitsToUint(col)&0x80000000u;
+	uint3 signs = asuint(col)&0x80000000u;
 	signs.xy >>= uint2(2u,1u);
 
 	uint2 encoded;
@@ -79,17 +79,17 @@ uint2 encodeRGB18E7S3(in float3 col)
 //
 uint encodeRGB10A2_UNORM(in float4 col)
 {
-	const uint3 rgbMask = uint3(0x3ffu);
-	const float4 clamped = clamp(col,float4(0.0),float4(1.0));
+	const uint3 rgbMask = (0x3ffu).xxx;
+	const float4 clamped = clamp(col, (0.0).xxxx, (1.0).xxxx);
 	uint4 quantized = uint4(clamped*float4(float3(rgbMask),3.0));
 	quantized.gba <<= uint3(10,20,30);
 	return quantized.r|quantized.g|quantized.b|quantized.a;
 }
 uint encodeRGB10A2_SNORM(in float4 col)
 {
-	const int4 mask = int4(int3(0x3ffu),0x3u);
-	const uint3 halfMask = uint3(0x1ffu);
-	const float4 clamped = clamp(col,float4(-1.f),float4(1.f));
+	const int4 mask = int4((0x3ffu).xxx, 0x3u);
+	const uint3 halfMask = (0x1ffu).xxx;
+	const float4 clamped = clamp(col, (-1.f).xxxx, (1.f).xxxx);
 	uint4 quantized = uint4(int4(clamped.rgb*float3(halfMask),int(clamped.a))&mask);
 	quantized.gba <<= uint3(10,20,30);
 	return quantized.r|quantized.g|quantized.b|quantized.a;
@@ -98,12 +98,12 @@ uint encodeRGB10A2_SNORM(in float4 col)
 // TODO: break it down into uint encode_ufloat_exponent(in float _f32) and encode_ufloat_mantissa(in float _f32, in uint mantissaBits, in bool leadingOne)
 uint encode_ufloat(in float _f32, in uint mantissaBits, in uint expBits)
 {
-	uint minSinglePrecisionVal = floatBitsToUint(ieee754::min(expBits, mantissaBits));
-	uint maxSinglePrecisionVal = floatBitsToUint(ieee754::max(expBits, mantissaBits));
+	uint minSinglePrecisionVal = asuint(ieee754::min(expBits, mantissaBits));
+	uint maxSinglePrecisionVal = asuint(ieee754::max(expBits, mantissaBits));
 
-	if (_f32 < uintBitsToFloat(maxSinglePrecisionVal))
+	if (_f32 < asfloat(maxSinglePrecisionVal))
 	{
-		if (_f32 < uintBitsToFloat(minSinglePrecisionVal))
+		if (_f32 < asfloat(minSinglePrecisionVal))
 			return 0;
 
 		const int exp = ieee754::extract_exponent(_f32);

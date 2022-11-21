@@ -89,7 +89,7 @@ complex_t<scalar_t> twiddle(in uint k, in float N)
 template<typename scalar_t>
 complex_t<scalar_t> twiddle(in uint k, in uint logTwoN)
 {
-    return twiddle<scalar_t>(k,float(1<<logTwoN));
+    return twiddle<scalar_t>(k,float(1u<<logTwoN));
 }
 
 template<typename scalar_t>
@@ -104,7 +104,7 @@ complex_t<scalar_t> twiddle(in bool is_inverse, in uint k, in float N)
 template<typename scalar_t>
 complex_t<scalar_t> twiddle(in bool is_inverse, in uint k, in uint logTwoN)
 {
-    return twiddle<scalar_t>(is_inverse,k,float(1<<logTwoN));
+    return twiddle<scalar_t>(is_inverse,k,float(1u<<logTwoN));
 }
 
 

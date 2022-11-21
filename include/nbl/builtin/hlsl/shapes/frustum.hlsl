@@ -15,32 +15,7 @@ namespace hlsl
 {
 namespace shapes
 {
-namespace frustrum
-{
 
-	// assuming an NDC of [-1,1]^2 x [0,1]
-	Frustum_t extract(in float4x4 proj)
-	{
-	    AABB_t bounds;
-	    bounds.minVx = float3(-1.f,-1.f,0.f);
-	    bounds.maxVx = float3(1.f,1.f,1.f);
-	    return extract(proj, bounds);
-	}
-
-	// will place planes which correspond to the bounds in NDC
-	Frustum_t extract(in float4x4 proj, in AABB_t bounds)
-	{
-		float4x3 proj4x3;
-		for (int i = 0; i < 4; i++)
-			proj4x3[i] = proj[i];
-
-	    Frustum_t frust;
-	    frust.minPlanes = proj4x3 - float4x3(proj[3] * bounds.minVx[0], proj[3] * bounds.minVx[1], proj[3] * bounds.minVx[2]);
-	    frust.maxPlanes = float4x3(proj[3]*bounds.maxVx[0], proj[3]*bounds.maxVx[1],proj[3]*bounds.maxVx[2]) - proj4x3;
-	    return frust;
-	}
-
-}
 
 struct Frustum_t
 {
@@ -68,6 +43,29 @@ struct Frustum_t
 	#undef getClosestDP
 	}
 };
+
+// assuming an NDC of [-1,1]^2 x [0,1]
+Frustum_t extract(in float4x4 proj)
+{
+    AABB_t bounds;
+    bounds.minVx = float3(-1.f,-1.f,0.f);
+    bounds.maxVx = float3(1.f,1.f,1.f);
+    return extract(proj, bounds);
+}
+
+// will place planes which correspond to the bounds in NDC
+Frustum_t extract(in float4x4 proj, in AABB_t bounds)
+{
+	float4x3 proj4x3;
+	for (int i = 0; i < 4; i++)
+		proj4x3[i] = proj[i];
+
+    Frustum_t frust;
+    frust.minPlanes = proj4x3 - float4x3(proj[3] * bounds.minVx[0], proj[3] * bounds.minVx[1], proj[3] * bounds.minVx[2]);
+    frust.maxPlanes = float4x3(proj[3]*bounds.maxVx[0], proj[3]*bounds.maxVx[1],proj[3]*bounds.maxVx[2]) - proj4x3;
+    return frust;
+}
+
 
 }
 }

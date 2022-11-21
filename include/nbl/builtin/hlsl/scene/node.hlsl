@@ -6,7 +6,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SCENE_NODE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SCENE_NODE_INCLUDED_
 
-#include <nbl/builtin/hlsl/math/animations.hlsl>
+#include <nbl/builtin/hlsl/scene/animation.hlsl>
 
 namespace nbl
 {

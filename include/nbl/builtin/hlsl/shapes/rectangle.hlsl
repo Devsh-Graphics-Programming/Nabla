@@ -32,7 +32,7 @@ float SolidAngleOfRectangle(in float3 r0, in float2 rectangleExtents)
         -n_z[2]*n_z[3],
         -n_z[3]*n_z[0]
     );
-    return getSumofArccosABCD(cosGamma[0], cosGamma[1], cosGamma[2], cosGamma[3]) - 2*PI;
+    return math::getSumofArccosABCD(cosGamma[0], cosGamma[1], cosGamma[2], cosGamma[3]) - 2 * math::PI;
 }
 
 

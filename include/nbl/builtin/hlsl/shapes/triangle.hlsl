@@ -4,6 +4,7 @@
 
 #include <nbl/builtin/hlsl/common.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
+#include <nbl/builtin/hlsl/limits/numeric.hlsl>
 
 namespace nbl
 {
@@ -55,7 +56,7 @@ float SolidAngleOfTriangle(in float3x3 sphericalVertices, out float3 cos_vertice
     sin_vertices = sqrt(float3(1.f,1.f,1.f)-cos_vertices*cos_vertices);
     
     // the solid angle of a triangle is the sum of its planar vertices' angles minus PI
-    return getArccosSumofABC_minus_PI(cos_vertices[0],cos_vertices[1],cos_vertices[2],sin_vertices[0],sin_vertices[1],sin_vertices[2]);
+    return math::getArccosSumofABC_minus_PI(cos_vertices[0],cos_vertices[1],cos_vertices[2],sin_vertices[0],sin_vertices[1],sin_vertices[2]);
 }
 float SolidAngleOfTriangle(in float3x3 sphericalVertices)
 {
@@ -96,7 +97,7 @@ float ProjectedSolidAngleOfTriangle(in float3x3 sphericalVertices, in float3 rec
     const float3 externalProducts = abs(mul(tp_awayFromEdgePlane, receiverNormal));
 
     const float3 pyramidAngles = acos(cos_sides);
-    return dot(pyramidAngles,externalProducts)/(2.f*PI);
+    return dot(pyramidAngles,externalProducts)/(2.f * math::PI);
 }
 float ProjectedSolidAngleOfTriangle(in float3x3 sphericalVertices, in float3 receiverNormal, out float3 cos_sides, out float3 csc_sides)
 {

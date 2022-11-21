@@ -14,8 +14,6 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace format
-{
 
 
 float3 decodeRGB19E7(in uint2 x)
@@ -75,14 +73,14 @@ float4 decodeRGB10A2_SNORM(in uint x)
 }
 
 //
-quaternion_t decode8888Quaternion(in uint x)
+math::quaternion_t decode8888Quaternion(in uint x)
 {
-	quaternion_t quat;
+	math::quaternion_t quat;
 	quat.data = normalize(unpackSnorm4x8(x));
 	return quat;
 }
 
-quaternion_t decode1010102Quaternion(in uint x)
+math::quaternion_t decode1010102Quaternion(in uint x)
 {
 	const uint3 rgbMask = (0x3ffu).xxx;
 	const uint4 shifted = uint4(x, (x).xxx >> uint3(10,20,30));
@@ -92,7 +90,7 @@ quaternion_t decode1010102Quaternion(in uint x)
 	const int3 unnorm = max(-maxVal,int3(shifted.rgb&rgbMask)-int3(maxVal+1));
 	const float3 smallest3Components = float3(unnorm)*rsqrt(2.f)/float3(maxVal);
 
-	quaternion_t quat;
+	math::quaternion_t quat;
 	quat.data[select(maxCompIx > 0u, 0, 1)] = smallest3Components[0];
 	quat.data[select(maxCompIx > 1u, 1, 2)] = smallest3Components[1];
 	quat.data[select(maxCompIx > 2u, 2, 3)] = smallest3Components[2];
@@ -101,7 +99,6 @@ quaternion_t decode1010102Quaternion(in uint x)
 }
 
 
-}
 }
 }
 

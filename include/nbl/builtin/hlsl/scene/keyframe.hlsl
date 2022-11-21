@@ -7,6 +7,7 @@
 #define _NBL_BUILTIN_HLSL_SCENE_KEYFRAME_INCLUDED_
 
 #include <nbl/builtin/hlsl/math/quaternions.hlsl>
+#include <nbl/builtin/hlsl/format/decode.hlsl>
 
 namespace nbl
 {
@@ -26,9 +27,9 @@ struct Keyframe_t
 		return decodeRGB18E7S3(data[2]);
 	}
 
-	quaternion_t getRotation()
+	math::quaternion_t getRotation()
 	{
-		return { decode8888Quaternion(data[1][1]) };
+		return decode8888Quaternion(data[1][1]);
 	}
 
 	float3 getTranslation()
@@ -41,7 +42,7 @@ struct Keyframe_t
 struct FatKeyframe_t
 {
 	float3 scale;
-	quaternion_t rotation;
+	math::quaternion_t rotation;
 	float3 translation;
 
 	FatKeyframe_t decompress(const Keyframe_t keyframe)
@@ -60,7 +61,7 @@ struct FatKeyframe_t
 		FatKeyframe_t result;
 
 		result.scale = lerp(start.scale, end.scale, fraction);
-		result.rotation = quaternion_t::flerp(start.rotation, end.rotation, fraction);
+		result.rotation = math::quaternion_t::flerp(start.rotation, end.rotation, fraction);
 		result.translation = lerp(start.translation, end.translation, fraction);
 
 		return result;
