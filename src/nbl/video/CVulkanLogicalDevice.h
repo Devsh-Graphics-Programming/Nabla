@@ -539,12 +539,13 @@ public:
 
         if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
         {
+            // TODO: actually use code to create a ICPUShader (via non allocating CPUBuffer) or change the function signature for "compilerSet"
             // TODO: add specific HLSLCompiler::SOption params
-            spirv = compilerSet->compileToSPIRV(cpushader, commonCompileOptions);
+            spirv = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
         }
         else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
         {
-            spirv = compilerSet->compileToSPIRV(cpushader, commonCompileOptions);
+            spirv = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
         }
         else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
         {

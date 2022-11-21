@@ -101,24 +101,29 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
         return m_introspectionCache[std::move(key)].insert({core::smart_refctd_ptr<const ICPUShader>(_shader),std::move(introspection)}).first->second.get();
     };
 
-    // TODO: Use the compilerSet here to also take care of HLSL
-    if (_shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
-    {
-        auto begin = reinterpret_cast<const char*>(_shader->getContent()->getPointer());
-        auto end = begin+_shader->getContent()->getSize();
-        std::string glsl(begin,end);
-        ICPUShader::insertDefines(glsl,_params.extraDefines);
-        auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _shader->getStage(), _shader->getFilepathHint().c_str());
-        auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
-            reinterpret_cast<const char*>(glslShader_woIncludes->getContent()->getPointer()),
-            glslShader_woIncludes->getStage(),
-            _params.entryPoint,
-            glslShader_woIncludes->getFilepathHint().c_str()
-        );
-        if (!spvShader)
-            return nullptr;
+    auto begin = reinterpret_cast<const char*>(_shader->getContent()->getPointer());
+    auto end = begin + _shader->getContent()->getSize();
+    std::string code(begin, end);
+    if (_shader->getContentType() != ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        ICPUShader::insertDefines(code, _params.extraDefines);
 
-        return introspectSPV(spvShader.get());
+    // TODO:
+    core::smart_refctd_ptr<asset::CCompilerSet> compilerSet;
+
+    auto compiler = compilerSet->getShaderCompiler(_shader->getContentType());
+    asset::IShaderCompiler::SOptions commonCompileOptions = {};
+    commonCompileOptions.logger = nullptr;
+    commonCompileOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+    commonCompileOptions.stage = _shader->getStage();
+    commonCompileOptions.sourceIdentifier = _shader->getFilepathHint().c_str();
+    commonCompileOptions.entryPoint = _params.entryPoint;
+    commonCompileOptions.genDebugInfo = true;
+    commonCompileOptions.spirvOptimizer = nullptr; // No need of optimizing for introspection
+
+    if (_shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_GLSL || _shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+    {
+        // TODO: actually use code to create a ICPUShader or change the function signature for "compilerSet"
+        compilerSet->compileToSPIRV(_shader, commonCompileOptions);
     }
     else if (_shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
         return introspectSPV(_shader);
