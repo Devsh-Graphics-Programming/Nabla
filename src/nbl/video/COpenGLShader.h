@@ -27,7 +27,7 @@ class COpenGLShader : public IGPUShader
 			: IGPUShader(std::move(dev), _stage, std::move(_filepathHint)),
 			m_code(std::move(_spirv)), m_containsGLSL(_contentType == IShader::E_CONTENT_TYPE::ECT_GLSL)
 		{
-			assert(_contentType == IShader::E_CONTENT_TYPE::ECT_GLSL || _contentType == IShader::E_CONTENT_TYPE::ECT_SPIRV);
+			assert(false); // OpenGL backend officially killed
 		}
 
 		inline const asset::ICPUBuffer* getContent() const { return m_code.get(); };
