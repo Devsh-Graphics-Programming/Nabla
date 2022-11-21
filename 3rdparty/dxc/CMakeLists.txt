@@ -6,7 +6,7 @@ list(APPEND DXC_CMAKE_ARGS "-DHLSL_ENABLE_FIXED_VER:BOOL=OFF")
 list(APPEND DXC_CMAKE_ARGS "-DHLSL_FIXED_VERSION_LOCATION:STRING=")
 list(APPEND DXC_CMAKE_ARGS "-DHLSL_BUILD_DXILCONV:BOOL=ON")
 list(APPEND DXC_CMAKE_ARGS "-DCLANG_VENDOR:STRING=")
-list(APPEND DXC_CMAKE_ARGS "-DENABLE_SPIRV_CODEGEN:BOOL=OFF")
+list(APPEND DXC_CMAKE_ARGS "-DENABLE_SPIRV_CODEGEN:BOOL=ON")
 list(APPEND DXC_CMAKE_ARGS "-DSPIRV_BUILD_TESTS:BOOL=OFF")
 list(APPEND DXC_CMAKE_ARGS "-DCLANG_ENABLE_ARCMT:BOOL=OFF")
 list(APPEND DXC_CMAKE_ARGS "-DCLANG_ENABLE_STATIC_ANALYZER:BOOL=OFF")
@@ -30,19 +30,26 @@ list(APPEND DXC_CMAKE_ARGS "-DCLANG_CL:BOOL=OFF")
 list(APPEND DXC_CMAKE_ARGS "-DCMAKE_SYSTEM_VERSION=10.0.17763.0")
 list(APPEND DXC_CMAKE_ARGS "-DDXC_BUILD_ARCH=x64")
 
+set(_DXC_CURRENT_CONFIG_ "$<IF:$<CONFIG:Debug>,Debug,Release>")
 set(DXC_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc" CACHE INTERNAL "")
 set(DXC_BINARY_DIR_EP "${CMAKE_CURRENT_BINARY_DIR}/external/dxc" CACHE INTERNAL "")
-set(DXC_BINARY_DIR_GE "${DXC_BINARY_DIR_EP}/Release" CACHE INTERNAL "")
-set(DXC_BIN_DIR "${DXC_BINARY_DIR_GE}/Release/bin" CACHE INTERNAL "")
-set(DXC_LIB_DIR "${DXC_BINARY_DIR_GE}/Release/lib" CACHE INTERNAL "")
+set(DXC_BINARY_DIR_GE "${DXC_BINARY_DIR_EP}/${_DXC_CURRENT_CONFIG_}" CACHE INTERNAL "")
+set(DXC_BIN_DIR "${DXC_BINARY_DIR_GE}/${_DXC_CURRENT_CONFIG_}/bin" CACHE INTERNAL "")
+set(DXC_LIB_DIR "${DXC_BINARY_DIR_GE}/${_DXC_CURRENT_CONFIG_}/lib" CACHE INTERNAL "")
 set(DXC_EXECUTABLE "${DXC_BIN_DIR}/dxc.exe" CACHE INTERNAL "")
-set(DXC_DXCOMPILER_LIB "${DXC_LIB_DIR}/dxcompiler.lib" CACHE INTERNAL "")
+set(DXC_DXCOMPILER_LIB "${DXC_LIB_DIR}/dxcompiler.lib" CACHE INTERNAL "") # TODO: check if there is any debug postfix/suffix!
+
+# DXC External Project
+# builds DXC executable target and dxcompiler library target
+# we cannot include it to Nabla's BS because DXC's BS isn't supposed to be added via submodule 
+# - there are troubles with linker input paths and include/link search directory paths
 
 ExternalProject_Add(dxc
 	DOWNLOAD_COMMAND  ""
 	SOURCE_DIR        "${DXC_SOURCE_DIR}"
 	BINARY_DIR        "${DXC_BINARY_DIR_EP}"
-	BUILD_COMMAND     "${CMAKE_COMMAND}" --build "${DXC_BINARY_DIR_GE}" --config Release --target dxc --target dxcompiler -v
+	BUILD_COMMAND     "${CMAKE_COMMAND}" --build "${DXC_BINARY_DIR_GE}" --config Release --target dxc -v # DXC executable will be compiled always in Release mode
+	COMMAND			  "${CMAKE_COMMAND}" --build "${DXC_BINARY_DIR_GE}" --config ${_DXC_CURRENT_CONFIG_} --target dxcompiler -v
 	CONFIGURE_COMMAND "${CMAKE_COMMAND}" -S "${DXC_SOURCE_DIR}" -B "${DXC_BINARY_DIR_GE}" -G "${CMAKE_GENERATOR}" "-Ax64" -T "${CMAKE_GENERATOR_TOOLSET}" ${DXC_CMAKE_ARGS}
 	INSTALL_COMMAND	  ""
 	TEST_COMMAND      ""
@@ -50,3 +57,4 @@ ExternalProject_Add(dxc
 )
 
 unset(DXC_CMAKE_ARGS)
+unset(_DXC_CURRENT_CONFIG_)
