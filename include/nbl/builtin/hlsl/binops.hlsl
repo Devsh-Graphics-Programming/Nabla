@@ -38,6 +38,15 @@ struct bitwise_xor
 };
 
 template<typename T>
+struct bitwise_add
+{
+    T operator()(const T lhs, const T rhs)
+    {
+        return lhs+rhs;
+    }
+};
+
+template<typename T>
 struct bitwise_mul
 {
     T operator()(const T lhs, const T rhs)
@@ -61,7 +70,7 @@ struct bitwise_min
     T operator()(const T lhs, const T rhs)
     {
 		comparator_lt_t comp;
-        return min(lhs, rhs, comp);
+        return bitwise_min(lhs, rhs, comp);
     }
 };
 
@@ -80,7 +89,7 @@ struct bitwise_max
     T operator()(const T lhs, const T rhs)
     {
 		comparator_gt_t comp;
-        return max(lhs, rhs, comp);
+        return bitwise_max(lhs, rhs, comp);
     }
 };
 
