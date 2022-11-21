@@ -17,7 +17,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 
-#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
 
 
@@ -119,7 +119,7 @@ class NBL_API IAssetManager : public core::IReferenceCounted, public core::QuitS
 
         core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
         core::smart_refctd_ptr<IMeshManipulator> m_meshManipulator;
-        core::smart_refctd_ptr<IGLSLCompiler> m_glslCompiler;
+        core::smart_refctd_ptr<CGLSLCompiler> m_glslCompiler;
         // called as a part of constructor only
         void initializeMeshTools();
 
@@ -144,7 +144,7 @@ class NBL_API IAssetManager : public core::IReferenceCounted, public core::QuitS
 
         const IGeometryCreator* getGeometryCreator() const;
         IMeshManipulator* getMeshManipulator();
-        IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
+        CGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
 
     protected:
 		virtual ~IAssetManager()

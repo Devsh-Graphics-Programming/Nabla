@@ -28,7 +28,7 @@ class IOpenGLPhysicalDeviceBase : public IPhysicalDevice
 
 		IOpenGLPhysicalDeviceBase(
 			core::smart_refctd_ptr<system::ISystem>&& s,
-			core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
+			core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc,
 			egl::CEGL&& _egl
 		) : IPhysicalDevice(std::move(s),std::move(glslc)), m_egl(std::move(_egl))
 		{}
@@ -186,7 +186,7 @@ protected:
 
 public:
 	IOpenGL_PhysicalDeviceBase(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
-		: IOpenGLPhysicalDeviceBase(std::move(s),core::make_smart_refctd_ptr<asset::IGLSLCompiler>(core::smart_refctd_ptr(m_system)),std::move(_egl)), m_api(api), m_rdoc_api(rdoc), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
+		: IOpenGLPhysicalDeviceBase(std::move(s),core::make_smart_refctd_ptr<asset::CGLSLCompiler>(core::smart_refctd_ptr(m_system)),std::move(_egl)), m_api(api), m_rdoc_api(rdoc), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
 	{
 		// OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
 		SQueueFamilyProperties qprops;
@@ -1235,7 +1235,7 @@ public:
 				// From https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_shader_subgroup.txt:
 				// <id> must be an integral constant expression when targeting SPIR - V 1.4 and below, otherwise it must
 				// be dynamically uniform within the subgroup.
-				// Since `m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;`, this is always true in GL.
+				// Since `m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;`, this is always true in GL.
 				m_features.subgroupBroadcastDynamicId = true;
 			}
 			// TODO: Use ARB_shader_ballot to perform runtime test for more specific subgroup min & max
@@ -1353,7 +1353,7 @@ public:
 			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
 			m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
 
-			m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
+			m_properties.limits.spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6;
 		}
 
 		std::ostringstream pool;

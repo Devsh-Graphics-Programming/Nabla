@@ -177,7 +177,7 @@ public:
 		const auto castedFormat = getOutImageViewFormat(outFormat);
 		const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
 		
-		const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
+		const char* glslFormatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 		shaderSourceStream
 			<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"

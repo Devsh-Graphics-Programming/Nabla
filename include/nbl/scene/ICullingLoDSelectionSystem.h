@@ -498,7 +498,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				baseShader.first->setFilePathHint(path.string());
 				baseShader.first->setShaderStage(asset::IShader::ESS_COMPUTE);
 				auto shader =  device->createShader(
-					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
+					asset::CGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};

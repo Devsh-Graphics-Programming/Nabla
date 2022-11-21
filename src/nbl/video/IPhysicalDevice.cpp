@@ -3,7 +3,7 @@
 namespace nbl::video
 {
 
-IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc) :
+IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc) :
     m_system(std::move(s)), m_GLSLCompiler(std::move(glslc))
 {
     memset(&m_memoryProperties, 0, sizeof(SMemoryProperties));

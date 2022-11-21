@@ -2,7 +2,7 @@
 #define _NBL_VIDEO_S_PHYSICAL_DEVICE_LIMITS_H_INCLUDED_
 
 #include <type_traits>
-#include "nbl/asset/utils/IGLSLCompiler.h" // asset::IGLSLCompiler::E_SPIRV_VERSION
+#include "nbl/asset/utils/CGLSLCompiler.h" // asset::CGLSLCompiler::E_SPIRV_VERSION
 #include "nbl/asset/IImage.h"
 
 namespace nbl::video
@@ -587,7 +587,7 @@ struct SPhysicalDeviceLimits
     bool allowCommandBufferQueryCopies = false;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
-    asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
+    asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion;
 
     // utility functions
     // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),

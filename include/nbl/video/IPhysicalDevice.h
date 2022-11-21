@@ -549,7 +549,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
-        inline asset::IGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
+        inline asset::CGLSLCompiler* getGLSLCompiler() const {return m_GLSLCompiler.get();}
 
         virtual IDebugCallback* getDebugCallback() = 0;
 
@@ -565,7 +565,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
     protected:
-        IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
+        IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc);
 
         virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) = 0;
 
@@ -662,7 +662,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
         core::smart_refctd_ptr<system::ISystem> m_system;
-        core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
+        core::smart_refctd_ptr<asset::CGLSLCompiler> m_GLSLCompiler;
 
         SProperties m_properties;
         SFeatures m_features;

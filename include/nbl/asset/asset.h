@@ -43,7 +43,7 @@
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
-#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/CShaderIntrospector.h"
 
 // pipelines

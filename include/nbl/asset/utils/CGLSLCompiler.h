@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
-#define __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_GLSL_COMPILER_H_INCLUDED_
+#define _NBL_ASSET_C_GLSL_COMPILER_H_INCLUDED_
 
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
@@ -11,38 +11,20 @@
 namespace nbl::asset
 {
 
-//! Will be derivative of IShaderGenerator, but we have to establish interface first
-class NBL_API IGLSLCompiler final : public IShaderCompiler
+class NBL_API CGLSLCompiler final : public IShaderCompiler
 {
 	public:
-		enum E_SPIRV_VERSION
+		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL; };
+
+		CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
+
+		struct SOptions : IShaderCompiler::SOptions
 		{
-			ESV_1_0 = 0x010000u,
-			ESV_1_1 = 0x010100u,
-			ESV_1_2 = 0x010200u,
-			ESV_1_3 = 0x010300u,
-			ESV_1_4 = 0x010400u,
-			ESV_1_5 = 0x010500u,
-			ESV_1_6 = 0x010600u,
-			ESV_COUNT = 0x7FFFFFFFu
+			virtual IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL; };
 		};
 
-		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL;  };
-
-		IGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
-
-		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(
-			const char* _glslCode,
-			IShader::E_SHADER_STAGE _stage,
-			const char* _entryPoint,
-			const char* _compilationId,
-			bool _genDebugInfo = true,
-			std::string* _outAssembly = nullptr,
-			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
-
 		/**
-		If _stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
+		If options.stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
 		#pragma shader_stage(vertex),       or
 		#pragma shader_stage(tesscontrol),  or
 		#pragma shader_stage(tesseval),     or
@@ -54,14 +36,34 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 
 		This function does NOT process #include directives! Use resolveIncludeDirectives() first.
 
-		@param _entryPoint Must be "main" since shaderc does not allow other entry points for GLSL. Kept with hope that shaderc will drop that requirement.
-		@param _compilationId String that will be printed along with possible errors as source identifier.
-		@param _genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
-			The engine, while running on OpenGL, won't be able to set push constants for shaders loaded as SPIR-V without debug info.
-		@param _outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
+		@params code high level code
+		@param options
+			entryPoint Must be "main" since shaderc does not allow other entry points for GLSL. Kept with hope that shaderc will drop that requirement.
+			compilationId String that will be printed along with possible errors as source identifier.
+			genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
+				The engine, while running on OpenGL, won't be able to set push constants for shaders loaded as SPIR-V without debug info.
+			outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
 
 		@returns Shader containing SPIR-V bytecode.
 		*/
+		core::smart_refctd_ptr<ICPUBuffer> compileToSPIRV(const char* code, const CGLSLCompiler::SOptions& options) const;
+
+		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(const char* code, const CGLSLCompiler::SOptions& options) const;
+
+		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(system::IFile* sourceFile, const CGLSLCompiler::SOptions& options) const;
+
+		// TODO: REMOVE
+		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(
+			const char* _glslCode,
+			IShader::E_SHADER_STAGE _stage,
+			const char* _entryPoint,
+			const char* _compilationId,
+			bool _genDebugInfo = true,
+			std::string* _outAssembly = nullptr,
+			system::logger_opt_ptr logger = nullptr,
+			const E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6) const;
+
+		// TODO: REMOVE
 		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(
 			const char* _glslCode,
 			IShader::E_SHADER_STAGE _stage,
@@ -71,8 +73,9 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 			bool _genDebugInfo = true,
 			std::string* _outAssembly = nullptr,
 			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
+			const E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6) const;
 
+		// TODO: REMOVE
 		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(
 			system::IFile* _sourcefile,
 			IShader::E_SHADER_STAGE _stage,
@@ -82,7 +85,7 @@ class NBL_API IGLSLCompiler final : public IShaderCompiler
 			bool _genDebugInfo = true,
 			std::string* _outAssembly = nullptr,
 			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = ESV_1_6) const;
+			const E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6) const;
 
 		/*
 		 If original code contains #version specifier,

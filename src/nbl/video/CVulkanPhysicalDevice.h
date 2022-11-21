@@ -12,7 +12,7 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
 public:
-    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance, uint32_t instanceApiVersion)
+    CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc, IAPIConnection* api, renderdoc_api_t* rdoc, VkPhysicalDevice vk_physicalDevice, VkInstance vk_instance, uint32_t instanceApiVersion)
         : IPhysicalDevice(std::move(sys),std::move(glslc)), m_api(api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_vkInstance(vk_instance)
     {
         // Get Supported Extensions
@@ -504,22 +504,22 @@ public:
                 A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
             */
 
-            m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+            m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_3;
 
             switch (VK_API_VERSION_MINOR(apiVersion))
             {
             case 0:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; 
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_0; 
                 assert(false);
                 break;
             case 1:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_3;
                 break;
             case 2:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5;
                 break;
             case 3:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5; //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
@@ -1277,9 +1277,9 @@ protected:
                 continue;
         }
                     
-        if (m_availableFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != m_availableFeatureSet.end() && (m_properties.limits.spirvVersion < asset::IGLSLCompiler::ESV_1_4))
+        if (m_availableFeatureSet.find(VK_KHR_SPIRV_1_4_EXTENSION_NAME) != m_availableFeatureSet.end() && (m_properties.limits.spirvVersion < asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_4))
         {
-            m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_4;
+            m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_4;
             selectedFeatureSet.insert(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
         }
 

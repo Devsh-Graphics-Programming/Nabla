@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
 
 #include <sstream>
 #include <regex>
@@ -16,9 +17,9 @@ using namespace nbl::asset;
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
 {
-    m_inclFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
-    m_inclFinder->addGenerator(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeGenerator>());
-    m_inclFinder->getIncludeStandard("", "nbl/builtin/glsl/utils/common.glsl");
+    m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
+    m_defaultIncludeFinder->addGenerator(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeGenerator>());
+    m_defaultIncludeFinder->getIncludeStandard("", "nbl/builtin/glsl/utils/common.glsl");
 }
 
 namespace nbl::asset::impl
@@ -94,12 +95,12 @@ namespace nbl::asset::impl
 
     class Includer : public shaderc::CompileOptions::IncluderInterface
     {
-        const IShaderCompiler::CIncludeFinder* m_inclFinder;
+        const IShaderCompiler::CIncludeFinder* m_defaultIncludeFinder;
         const system::ISystem* m_system;
         const uint32_t m_maxInclCnt;
 
     public:
-        Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_inclFinder(_inclFinder), m_system(_fs), m_maxInclCnt{_maxInclCnt} {}
+        Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_defaultIncludeFinder(_inclFinder), m_system(_fs), m_maxInclCnt{_maxInclCnt} {}
 
         //_requesting_source in top level #include's is what shaderc::Compiler's compiling functions get as `input_file_name` parameter
         //so in order for properly working relative #include's (""-type) `input_file_name` has to be path to file from which the GLSL source really come from
@@ -129,9 +130,9 @@ namespace nbl::asset::impl
                 name = std::filesystem::absolute(name);
 
             if (_type == shaderc_include_type_relative)
-                res_str = m_inclFinder->getIncludeRelative(relDir, _requested_source);
+                res_str = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
             else //shaderc_include_type_standard
-                res_str = m_inclFinder->getIncludeStandard(relDir, _requested_source);
+                res_str = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
 
             if (!res_str.size()) {
                 const char* error_str = "Could not open file";
@@ -179,7 +180,7 @@ core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
     shaderc::Compiler comp;
     shaderc::CompileOptions options;
     options.SetTargetSpirv(shaderc_spirv_version_1_6);
-    options.SetIncluder(std::make_unique<impl::Includer>(m_inclFinder.get(), m_system.get(), _maxSelfInclusionCnt + 1u));//custom #include handler
+    options.SetIncluder(std::make_unique<impl::Includer>(m_defaultIncludeFinder.get(), m_system.get(), _maxSelfInclusionCnt + 1u));//custom #include handler
     const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(_code, stage, _originFilepath, options);
 
@@ -201,14 +202,14 @@ core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
     uint32_t _maxSelfInclusionCnt,
     system::logger_opt_ptr logger) const
 {
-    std::string glsl(_sourcefile->getSize(), '\0');
+    std::string code(_sourcefile->getSize(), '\0');
 
     system::IFile::success_t success;
-    _sourcefile->read(success, glsl.data(), 0, _sourcefile->getSize());
+    _sourcefile->read(success, code.data(), 0, _sourcefile->getSize());
     if (!success)
         return nullptr;
 
-    return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt, logger);
+    return resolveIncludeDirectives(std::move(code), _stage, _originFilepath, _maxSelfInclusionCnt, logger);
 }
 
 std::string IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const

@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/CShaderIntrospector.h"
 #include "nbl/asset/utils/spvUtils.h"
 

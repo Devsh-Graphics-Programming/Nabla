@@ -33,7 +33,7 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 			break;
 	}
 
-	return asset::IGLSLCompiler::createOverridenCopy(
+	return asset::CGLSLCompiler::createOverridenCopy(
 		cpushader.get(),
 		"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ %d\n#define _NBL_GLSL_SCAN_TYPE_ %d\n#define _NBL_GLSL_SCAN_STORAGE_TYPE_ %s\n#define _NBL_GLSL_SCAN_BIN_OP_ %d\n",
 		m_workgroupSize,core::findMSB(m_workgroupSize),uint32_t(scanType),storageType,uint32_t(op)

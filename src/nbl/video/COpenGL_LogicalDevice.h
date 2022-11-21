@@ -725,7 +725,7 @@ protected:
 
         return core::make_smart_refctd_ptr<COpenGLFramebuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(params));
     }
-    core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
+    core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) override final
     {
         const COpenGLShader* glUnspec = IBackendObject::device_compatibility_cast<const COpenGLShader*>(_unspecialized, this);
 
@@ -760,9 +760,6 @@ protected:
         {
             spirv = glUnspec->getSPVorGLSL_refctd();
         }
-
-        if (_spvopt)                                                      
-            spirv = _spvopt->optimize(spirv.get(),getLogger());
 
         if (!spirv)
             return nullptr;

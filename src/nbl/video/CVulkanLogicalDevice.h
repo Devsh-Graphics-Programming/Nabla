@@ -539,10 +539,6 @@ public:
                 logger,
                 m_physicalDevice->getLimits().spirvVersion);
         }
-        else if(cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-        {
-            spirv = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
-        }
         else
         {
             assert(false); // TODO[ShaderCompiler]: not supported right now
@@ -561,7 +557,7 @@ public:
         if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(spirv), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
         }
         else
         {
@@ -1055,21 +1051,12 @@ protected:
 
     core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(
         const IGPUShader* _unspecialized,
-        const asset::ISpecializedShader::SInfo& specInfo,
-        const asset::ISPIRVOptimizer* spvopt) override
+        const asset::ISpecializedShader::SInfo& specInfo) override
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
             return nullptr;
 
         const CVulkanShader* vulkanShader = IBackendObject::device_compatibility_cast<const CVulkanShader*>(_unspecialized, this);
-
-        auto spirv = core::smart_refctd_ptr<const asset::ICPUBuffer>(static_cast<const CVulkanShader*>(_unspecialized)->getSPV());
-
-        if (spvopt)
-            spirv = spvopt->optimize(spirv.get(), m_physicalDevice->getDebugCallback()->getLogger());
-
-        if (!spirv)
-            return nullptr;
 
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),

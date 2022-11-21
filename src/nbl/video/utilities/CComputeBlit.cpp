@@ -31,7 +31,7 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormali
 	const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
 
 	const auto castedFormat = getOutImageViewFormat(outFormat);
-	const char* glslFormatQualifier = asset::IGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
+	const char* glslFormatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 	std::ostringstream shaderSourceStream;
 	shaderSourceStream

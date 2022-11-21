@@ -56,7 +56,7 @@ namespace nbl
 	{
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 		core::smart_refctd_ptr<IVideoDriver> createOpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
-			io::IFileSystem* io, CIrrDeviceStub* device, const asset::IGLSLCompiler* glslcomp);
+			io::IFileSystem* io, CIrrDeviceStub* device, const asset::CGLSLCompiler* glslcomp);
 #endif
 	}
 } // end namespace nbl

@@ -15,7 +15,7 @@
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 #include "nbl/asset/utils/ShaderRes.h"
-#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CGLSLCompiler.h"
 
 
 #include "nbl/core/definitions.h"
@@ -89,7 +89,7 @@ class NBL_API CShaderIntrospector : public core::Uncopyable
 		};
 
 		//In the future there's also going list of enabled extensions
-		CShaderIntrospector(const IGLSLCompiler* _glslcomp) : m_glslCompiler(_glslcomp) {}
+		CShaderIntrospector(const CGLSLCompiler* _glslcomp) : m_glslCompiler(_glslcomp) {}
 
 		//
 		const CIntrospectionData* introspect(const ICPUShader* _shader, const SIntrospectionParams& _params);
@@ -156,7 +156,7 @@ class NBL_API CShaderIntrospector : public core::Uncopyable
 		size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
 
 	private:
-		const IGLSLCompiler* m_glslCompiler;
+		const CGLSLCompiler* m_glslCompiler;
 
 
 		struct Key
