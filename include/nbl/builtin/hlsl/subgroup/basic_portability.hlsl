@@ -5,7 +5,6 @@ namespace nbl
 {
 namespace hlsl
 {
-	// USE GLSL OR HLSL TERMINOLOGY? (Workgroup vs Threadgroup, Subgroup vs Wave, Invocation vs Thread)
 	static const uint MaxWorkgroupSizeLog2 = 11;
 	static const uint MaxWorkgroupSize = 0x1 << MaxWorkgroupSizeLog2;
 	static const uint MinSubgroupSizeLog2 = 2;
@@ -20,9 +19,50 @@ namespace hlsl
 #endif
 	static const uint MaxSubgroupSize = (0x1<<MaxSubgroupSizeLog2);
 	
+	// REVIEW: No need for #ifdef check because these are always available in HLSL 2021 it seems
+	uint subgroupSize() {
+		return WaveGetLaneCount();
+	}
 	
+	uint subgroupSizeLog2() {
+		return firstbithigh(subgroupSize());
+	}
+	
+	uint subgroupInvocationID() {
+		return WaveGetLaneIndex();
+	}
+
+	// REVIEW: Masks don't seem to be available in Wave Ops
+	uint64_t subgroupEqMask() { // return type for these must be 64-bit
+		// REVIEW: I think the spec says that the subgroup size can potentially go up to 128 in which case uint64 won't work properly...
+		//  Should we somehow block shaders from running if subgroup size > 64?
+		//  Use uint64_t2 ?
+		return 0x1 << subgroupInvocationID();
+	}
+	
+	uint64_t subgroupGeMask() {
+		return 0xffffffff<<subgroupInvocationID();
+	}
+	
+	uint64_t subgroupGtMask() {
+		return subgroupGeMask()<<1;
+	}
+	
+	uint64_t subgroupLeMask() {
+		return ~subgroupGtMask();
+	}
+	
+	uint64_t subgroupLtMask() {
+		return ~subgroupGeMask();
+	}
+	
+	// REVIEW: Should we define the Small/LargeSubgroupXMask and Small/LargeHalfSubgroupSizes?
 	
 	// WAVE BARRIERS
+	
+	void subgroupBarrier() {
+		
+	}
 }
 }
 

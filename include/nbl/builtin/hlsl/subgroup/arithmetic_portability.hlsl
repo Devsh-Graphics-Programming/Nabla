@@ -5,7 +5,7 @@
 #include <nbl/builtin/hlsl/subgroup/basic_portability.hlsl>
 #endif
 
-static uint4 WHOLE_WAVE = ~0;
+static const uint4 WHOLE_WAVE = ~0; // REVIEW: Confirm this is proper placement and definition point
 
 namespace nbl
 {

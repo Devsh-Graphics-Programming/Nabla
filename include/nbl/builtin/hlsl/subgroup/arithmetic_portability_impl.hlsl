@@ -1,7 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
-uint threadIndex : SV_GroupIndex; // Use HLSL terminology or follow GLSL (i.e. call them invocations instead of threads)?
+uint localInvocationIndex : SV_GroupIndex; // REVIEW: Discuss proper placement of SV_* values. They are not allowed to be defined inside a function scope, only as arguments of global variables in the shader.
 
 namespace nbl
 {
@@ -39,7 +39,7 @@ struct inclusive_scan<binops::bitwise_and>
     template<typename T>
     T operator()(const T x)
     {
-        return WaveMultiPrefixAnd(x, WHOLE_WAVE) & x; // TODO (PentaKon): Should this use the binops::bitwise_and functor?
+        return WaveMultiPrefixAnd(x, WHOLE_WAVE) & x;
     }
 };
 
@@ -268,11 +268,11 @@ struct scan_base
    static const uint HalfSubgroupSize = WaveGetLaneCount()>>1u; // TODO (PentaKon): Replace with nbl_hlsl_SubgroupSize or nbl::hlsl::subgroup::Size
    static const uint LoMask = WaveGetLaneCount()-1u; // TODO (PentaKon): Replace with nbl_hlsl_SubgroupSize
    static const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // TODO (PentaKon): Where should this be defined?
-   static const uint pseudoSubgroupInvocation = threadIndex&LoMask; // Also used in substructs
+   static const uint pseudoSubgroupInvocation = localInvocationIndex&LoMask; // Also used in substructs, thus static const
    
     static inclusive_scan<Binop,ScratchAccessor> create()
     {
-       const uint pseudoSubgroupElectedInvocation = threadIndex&(~LoMask);
+       const uint pseudoSubgroupElectedInvocation = localInvocationIndex&(~LoMask);
     
        inclusive_scan<Binop,ScratchAccessor> retval;
        
@@ -304,7 +304,7 @@ struct inclusive_scan : scan_base
 {
     static inclusive_scan<Binop,ScratchAccessor> create()
     {    
-       return scan_base<Binop,ScratchAccessor>::create(); // Is this correct?
+       return scan_base<Binop,ScratchAccessor>::create(); // REVIEW: Is this correct?
     }
 
     template<typename T, bool initializeScratch>
@@ -324,7 +324,7 @@ struct inclusive_scan : scan_base
        nbl::hlsl::subgroupBarrier();
        nbl::hlsl::subgroupMemoryBarrierShared();
        // Stone-Kogge adder
-       // it seems that lanes below <HalfSubgroupSize/step are doing useless work,
+       // (devsh): it seems that lanes below <HalfSubgroupSize/step are doing useless work,
        // but they're SIMD and adding an `if`/conditional execution is more expensive
        value = op(value,scratchAccessor.get(scanStoreOffset-1u));
        [[unroll]]
