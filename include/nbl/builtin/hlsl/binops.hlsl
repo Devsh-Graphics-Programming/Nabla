@@ -17,6 +17,11 @@ struct bitwise_and
     {
         return lhs&rhs;
     }
+	
+	T identity()
+	{
+		return ~0;
+	}
 };
 
 template<typename T>
@@ -26,6 +31,11 @@ struct bitwise_or
     {
         return lhs|rhs;
     }
+	
+	T identity()
+	{
+		return 0;
+	}
 };
 
 template<typename T>
@@ -35,6 +45,11 @@ struct bitwise_xor
     {
         return lhs^rhs;
     }
+	
+	T identity()
+	{
+		return 0;
+	}
 };
 
 template<typename T>
@@ -44,6 +59,11 @@ struct add
     {
         return lhs+rhs;
     }
+	
+	T identity()
+	{
+		return 0;
+	}
 };
 
 template<typename T>
@@ -53,6 +73,11 @@ struct mul
     {
         return lhs*rhs;
     }
+	
+	T identity()
+	{
+		return 1;
+	}
 };
 
 template<typename T, class Comparator>
@@ -72,6 +97,11 @@ struct min
 		comparator_lt_t comp;
         return bitwise_min(lhs, rhs, comp);
     }
+	
+	T identity()
+	{
+		return ~0;
+	}
 };
 
 template<typename T, class Comparator>
@@ -91,6 +121,11 @@ struct max
 		comparator_gt_t comp;
         return bitwise_max(lhs, rhs, comp);
     }
+	
+	T identity()
+	{
+		return 0; // REVIEW: This assumes T = unsigned but what if we got T = signed ?
+	}
 };
 
 template<typename T>

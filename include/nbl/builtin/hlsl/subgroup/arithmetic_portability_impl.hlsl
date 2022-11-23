@@ -265,9 +265,10 @@ struct ScratchAccessorAdaptor {
 struct scan_base
 {
    // even if you have a `const uint nbl::hlsl::subgroup::Size` it wont work I think, so `#define` needed
-   static const uint HalfSubgroupSize = WaveGetLaneCount()>>1u; // TODO (PentaKon): Replace with nbl_hlsl_SubgroupSize or nbl::hlsl::subgroup::Size
-   static const uint LoMask = WaveGetLaneCount()-1u; // TODO (PentaKon): Replace with nbl_hlsl_SubgroupSize
-   static const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // TODO (PentaKon): Where should this be defined?
+   static const uint SubgroupSize = nbl::hlsl::subgroup::subgroupSize();
+   static const uint HalfSubgroupSize = SubgroupSize>>1u; // REVIEW: Is this ok?
+   static const uint LoMask = SubgroupSize-1u;
+   static const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
    static const uint pseudoSubgroupInvocation = localInvocationIndex&LoMask; // Also used in substructs, thus static const
    
     static inclusive_scan<Binop,ScratchAccessor> create()
@@ -283,7 +284,7 @@ struct scan_base
        retval.scanStoreOffset = paddingMemoryEnd+pseudoSubgroupInvocation;
        
 		uint reductionResultOffset = paddingMemoryEnd;
-		if ((LastWorkgroupInvocation>>firstbithigh(WaveGetLaneCount()))!=nbl::hlsl::subgroup::ID()) // TODO (PentaKon): Replace with nbl_hlsl_SubgroupSizeLog2
+		if ((LastWorkgroupInvocation>>nbl::hlsl::subgroup::subgroupSizeLog2())!=nbl::hlsl::subgroup::subgroupInvocationID())
            retval.reductionResultOffset += LastWorkgroupInvocation&LoMask;
 		else
            retval.reductionResultOffset += LoMask;
@@ -319,7 +320,7 @@ struct inclusive_scan : scan_base
            nbl::hlsl::subgroupMemoryBarrierShared();
            scratchAccessor.set(scanStoreOffset ,value);
            if (scan_base::pseudoSubgroupInvocation<scan_base::HalfSubgroupSize)
-               scratchAccessor.set(lastLoadOffset,Binop::identity());
+               scratchAccessor.set(lastLoadOffset,op::identity());
        }
        nbl::hlsl::subgroupBarrier();
        nbl::hlsl::subgroupMemoryBarrierShared();
@@ -405,7 +406,7 @@ struct reduction
        nbl::hlsl::subgroupBarrier();
        nbl::hlsl::subgroupMemoryBarrierShared();
        uint reductionResultOffset = impl.paddingMemoryEnd;
-       if ((scan_base::LastWorkgroupInvocation>>firstbithigh(WaveGetLaneCount()))!=nbl::hlsl::subgroup::ID()) // TODO (PentaKon): Replace with nbl_hlsl_SubgroupSizeLog2
+       if ((scan_base::LastWorkgroupInvocation>>nbl::hlsl::subgroup::subgroupSizeLog2())!=nbl::hlsl::subgroup::ID())
            reductionResultOffset += scan_base::LastWorkgroupInvocation & scan_base::LoMask;
        else
            reductionResultOffset += scan_base::LoMask;

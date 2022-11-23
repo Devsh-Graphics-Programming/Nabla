@@ -7,6 +7,9 @@ namespace hlsl
 {
 	static const uint MaxWorkgroupSizeLog2 = 11;
 	static const uint MaxWorkgroupSize = 0x1 << MaxWorkgroupSizeLog2;
+	
+namespace subgroup
+{
 	static const uint MinSubgroupSizeLog2 = 2;
 	static const uint MinSubgroupSize = 0x1 << MinSubgroupSizeLog2;
 	
@@ -60,9 +63,27 @@ namespace hlsl
 	
 	// WAVE BARRIERS
 	
+	// REVIEW: Review everything related to subgroup barriers and SPIR-V injection
+	
+	[[vk::ext_instruction(/* subgroupBarrier */ 224)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
+	void spirv_subgroupBarrier(uint executionScope, uint memoryScope, uint memorySemantics);
+	
 	void subgroupBarrier() {
+		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_scope_id
+		// Subgroup scope is number 3
 		
+		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
+		// By providing memory semantics None we do both control and memory barrier as is done in GLSL
+		spirv_subgroupBarrier(3, 3, 0x0);
 	}
+	
+	[[vk::ext_instruction(/* subgroupMemoryBarrierShared */ 225)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
+	void spirv_subgroupMemoryBarrierShared(uint memoryScope, uint memorySemantics);
+	
+	void subgroupMemoryBarrierShared() {
+		spirv_subgroupMemoryBarrierShared(3, 0x0); // REVIEW: Need advice on memory semantics. Would think SubgroupMemory(0x80) but have no idea
+	}
+}
 }
 }
 
