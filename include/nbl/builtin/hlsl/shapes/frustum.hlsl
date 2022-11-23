@@ -19,8 +19,8 @@ namespace shapes
 
 struct Frustum_t
 {
-    float4x3 minPlanes;
-    float4x3 maxPlanes;
+    float3x4 minPlanes;
+    float3x4 maxPlanes;
 
 
 	// gives false negatives
@@ -44,6 +44,22 @@ struct Frustum_t
 	}
 };
 
+
+// will place planes which correspond to the bounds in NDC
+Frustum_t extract(in float4x4 proj, in AABB_t bounds)
+{
+    const float4x4 pTpose = transpose(proj);
+
+	float3x4 pTpose3x4;
+	for (int i = 0; i < 12; i++)
+		pTpose3x4[i] = proj[i];
+
+    Frustum_t frust;
+    frust.minPlanes = pTpose3x4-float3x4(pTpose[3]*bounds.minVx[0],pTpose[3]*bounds.minVx[1],pTpose[3]*bounds.minVx[2]);
+    frust.maxPlanes = float3x4(pTpose[3]*bounds.maxVx[0],pTpose[3]*bounds.maxVx[1],pTpose[3]*bounds.maxVx[2])-pTpose3x4;
+    return frust;
+}
+
 // assuming an NDC of [-1,1]^2 x [0,1]
 Frustum_t extract(in float4x4 proj)
 {
@@ -51,19 +67,6 @@ Frustum_t extract(in float4x4 proj)
     bounds.minVx = float3(-1.f,-1.f,0.f);
     bounds.maxVx = float3(1.f,1.f,1.f);
     return extract(proj, bounds);
-}
-
-// will place planes which correspond to the bounds in NDC
-Frustum_t extract(in float4x4 proj, in AABB_t bounds)
-{
-	float4x3 proj4x3;
-	for (int i = 0; i < 4; i++)
-		proj4x3[i] = proj[i];
-
-    Frustum_t frust;
-    frust.minPlanes = proj4x3 - float4x3(proj[3] * bounds.minVx[0], proj[3] * bounds.minVx[1], proj[3] * bounds.minVx[2]);
-    frust.maxPlanes = float4x3(proj[3]*bounds.maxVx[0], proj[3]*bounds.maxVx[1],proj[3]*bounds.maxVx[2]) - proj4x3;
-    return frust;
 }
 
 

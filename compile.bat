@@ -4,7 +4,7 @@
 setlocal enabledelayedexpansion
 
 
-:: List of shaders to compile (path relative to include/nbl/builtin/hlsl/)
+:: List of shaders to compile (paths relative to include/nbl/builtin/hlsl/)
 set file_path[0]=common
 set file_path[1]=algorithm
 set file_path[2]=ieee754
@@ -25,15 +25,18 @@ set file_path[12]=format/constants
 set file_path[13]=format/decode
 set file_path[14]=format/encode
 
-set file_path[15]=shapes/aabb
-set file_path[16]=shapes/rectangle
-set file_path[17]=shapes/triangle
-rem set file_path[18]=shapes/frustum
+set file_path[15]=colorspace/decodeCIEXYZ
+set file_path[16]=colorspace/encodeCIEXYZ
+set file_path[17]=colorspace/EOTF
+set file_path[18]=colorspace/OETF
 
-set file_path[18]=colorspace/decodeCIEXYZ
-set file_path[19]=colorspace/encodeCIEXYZ
-set file_path[20]=colorspace/EOTF
-set file_path[21]=colorspace/OETF
+set file_path[19]=shapes/aabb
+set file_path[20]=shapes/rectangle
+set file_path[21]=shapes/triangle
+set file_path[22]=shapes/frustum
+
+
+
 
 
 

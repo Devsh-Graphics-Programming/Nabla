@@ -260,7 +260,7 @@ uint rotl(in uint x, in uint k)
 // Count Leading Zeroes
 uint clz(in uint x) 
 {
-    return 31u - findMSB(x);
+    return 31u - firstbithigh(x);
 }
 
 // GLSL's builtin is badly named

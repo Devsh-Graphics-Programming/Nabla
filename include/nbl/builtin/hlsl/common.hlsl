@@ -53,18 +53,6 @@ bool3 lessThan(float3 x, float3 y)
 }
 
 
-template<typename integer_t>
-integer_t findMSB(integer_t val)
-{
-    return (val & 0x80000000);
-}
-
-template<typename integer_t>
-integer_t findLSB(integer_t val)
-{
-    return (val & 0x00000001);
-}
-
 
 
 uint bitfieldExtract(uint value, int offset, int bits)
