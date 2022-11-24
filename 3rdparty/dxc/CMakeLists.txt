@@ -58,3 +58,7 @@ ExternalProject_Add(dxc
 
 unset(DXC_CMAKE_ARGS)
 unset(_DXC_CURRENT_CONFIG_)
+
+if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+	add_subdirectory(CT CT)
+endif()
