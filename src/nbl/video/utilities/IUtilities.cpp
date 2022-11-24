@@ -338,6 +338,113 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     return memoryNeededForRemainingRegions;
 }
 
+// These Swizzles makes sure copying from srcFormat image to promotedFormat image is consistent and extra "unused" channels will be ZERO and alpha will be ONE
+struct FourComponentSwizzle
+{
+    template<typename InT, typename OutT>
+    void operator()(const InT* in, OutT* out) const
+    {
+        using in_t = std::conditional_t<std::is_void_v<InT>, uint64_t, InT>;
+        using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
+
+        reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
+        reinterpret_cast<out_t*>(out)[1u] = reinterpret_cast<const in_t*>(in)[1u];
+        reinterpret_cast<out_t*>(out)[2u] = reinterpret_cast<const in_t*>(in)[2u];
+        reinterpret_cast<out_t*>(out)[3u] = reinterpret_cast<const in_t*>(in)[3u];
+    }
+};
+struct ThreeComponentSwizzle
+{
+    template<typename InT, typename OutT>
+    void operator()(const InT* in, OutT* out) const
+    {
+        using in_t = std::conditional_t<std::is_void_v<InT>, uint64_t, InT>;
+        using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
+
+        reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
+        reinterpret_cast<out_t*>(out)[1u] = reinterpret_cast<const in_t*>(in)[1u];
+        reinterpret_cast<out_t*>(out)[2u] = reinterpret_cast<const in_t*>(in)[2u];
+        reinterpret_cast<out_t*>(out)[3u] = static_cast<in_t>(1);
+    }
+};
+struct TwoComponentSwizzle
+{
+    template<typename InT, typename OutT>
+    void operator()(const InT* in, OutT* out) const
+    {
+        using in_t = std::conditional_t<std::is_void_v<InT>, uint64_t, InT>;
+        using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
+
+        reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
+        reinterpret_cast<out_t*>(out)[1u] = reinterpret_cast<const in_t*>(in)[1u];
+        reinterpret_cast<out_t*>(out)[2u] = static_cast<in_t>(0);
+        reinterpret_cast<out_t*>(out)[3u] = static_cast<in_t>(1);
+    }
+};
+struct OneComponentSwizzle
+{
+    template<typename InT, typename OutT>
+    void operator()(const InT* in, OutT* out) const
+    {
+        using in_t = std::conditional_t<std::is_void_v<InT>, uint64_t, InT>;
+        using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
+
+        reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
+        reinterpret_cast<out_t*>(out)[1u] = static_cast<in_t>(0);
+        reinterpret_cast<out_t*>(out)[2u] = static_cast<in_t>(0);
+        reinterpret_cast<out_t*>(out)[3u] = static_cast<in_t>(1);
+    }
+};
+
+template<typename Filter>
+bool performCopyUsingImageFilter(
+    const core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage,
+    const core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage,
+    const asset::IImage::SBufferCopy& region)
+{
+    Filter filter;
+    typename Filter::state_type state = {};
+    state.extent = region.imageExtent;
+    state.layerCount = region.imageSubresource.layerCount;
+    state.inImage = inCPUImage.get();
+    state.outImage = outCPUImage.get();
+    state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
+    state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
+    state.inMipLevel = 0u;
+    state.outMipLevel = 0u;
+
+    if (filter.execute(core::execution::par_unseq, &state))
+        return true;
+    else
+        return false;
+}
+
+bool performCopy(
+    asset::E_FORMAT srcImageFormat,
+    asset::E_FORMAT dstImageFormat,
+    const core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage,
+    const core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage,
+    const asset::IImage::SBufferCopy& region)
+{
+    // In = srcBuffer, Out = stagingBuffer
+    if (srcImageFormat == dstImageFormat)
+    {
+        return performCopyUsingImageFilter<asset::CCopyImageFilter>(inCPUImage, outCPUImage, region);
+    }
+    else
+    {
+        auto srcChannelCount = asset::getFormatChannelCount(srcImageFormat);
+        if (srcChannelCount == 1u)
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, OneComponentSwizzle>>(inCPUImage, outCPUImage, region);
+        else if (srcChannelCount == 2u)
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, TwoComponentSwizzle>>(inCPUImage, outCPUImage, region);
+        else if (srcChannelCount == 3u)
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, ThreeComponentSwizzle>>(inCPUImage, outCPUImage, region);
+        else
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, FourComponentSwizzle>>(inCPUImage, outCPUImage, region);
+    }
+}
+
 bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer)
 {
     if(isFinished())
@@ -421,16 +528,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
             currentRegion++;
         }
     };
-    
-    // Swizzle for when promoted image has more channels that src channel, only used when srcImageFormat!=dstImageFormat
-    asset::ICPUImageView::SComponentMapping componentMapping;
-    componentMapping.r = asset::ICPUImageView::SComponentMapping::ES_ZERO;
-    componentMapping.g = asset::ICPUImageView::SComponentMapping::ES_ZERO;
-    componentMapping.b = asset::ICPUImageView::SComponentMapping::ES_ZERO;
-    componentMapping.a = asset::ICPUImageView::SComponentMapping::ES_ONE;
-    auto srcChannelCount = asset::getFormatChannelCount(srcImageFormat);
-    for (uint32_t c = 0u; c < srcChannelCount; c++)
-        componentMapping[c] = asset::ICPUImageView::SComponentMapping::ES_IDENTITY;
 
     uint32_t eachBlockNeededMemory  = imageExtentBlockStridesInBytes[0];  // = blockByteSize
     uint32_t eachRowNeededMemory    = imageExtentBlockStridesInBytes[1];  // = blockByteSize * imageExtentInBlocks.x
@@ -548,8 +645,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     {
         uint32_t layersToUploadMemorySize = eachLayerNeededMemory * uploadableArrayLayers;
 
-        bool copySuccess = false;
-            
         regionToCopyNext.bufferOffset = stagingBufferOffset;
         regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
         regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
@@ -568,42 +663,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, layersToUploadMemorySize);
 
-        // In = srcBuffer, Out = stagingBuffer
-        if (srcImageFormat == dstImageFormat)
-        {
-            using CopyFilter = asset::CCopyImageFilter;
-            CopyFilter copyFilter;
-            CopyFilter::state_type state = {};
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-
-            if (copyFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
-        else
-        {
-            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConvertFilter convertFilter;
-            ConvertFilter::state_type state = {};
-            state.swizzle = componentMapping;
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-            
-            if (convertFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
+        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {
@@ -623,9 +683,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     {
         // tryFillLayer();
         uint32_t slicesToUploadMemorySize = eachSliceNeededMemory * uploadableSlices;
-              
-        bool copySuccess = false;
-            
+
         regionToCopyNext.bufferOffset = stagingBufferOffset;
         regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
         regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
@@ -644,41 +702,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, slicesToUploadMemorySize);
 
-        if (srcImageFormat == dstImageFormat)
-        {
-            using CopyFilter = asset::CCopyImageFilter;
-            CopyFilter copyFilter;
-            CopyFilter::state_type state = {};
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-
-            if (copyFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
-        else
-        {
-            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConvertFilter convertFilter;
-            ConvertFilter::state_type state = {};
-            state.swizzle = componentMapping;
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-            
-            if (convertFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
+        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {
@@ -699,8 +723,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         // tryFillSlice();
         uint32_t rowsToUploadMemorySize = eachRowNeededMemory * uploadableRows;
 
-        bool copySuccess = false; 
-
         regionToCopyNext.bufferOffset = stagingBufferOffset;
         regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
         regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
@@ -719,41 +741,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, rowsToUploadMemorySize);
 
-        if (srcImageFormat == dstImageFormat)
-        {
-            using CopyFilter = asset::CCopyImageFilter;
-            CopyFilter copyFilter;
-            CopyFilter::state_type state = {};
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-
-            if (copyFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
-        else
-        {
-            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConvertFilter convertFilter;
-            ConvertFilter::state_type state = {};
-            state.swizzle = componentMapping; 
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-            
-            if (convertFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
+        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {
@@ -774,8 +762,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         // tryFillRow();
         uint32_t blocksToUploadMemorySize = eachBlockNeededMemory * uploadableBlocks;
 
-        bool copySuccess = false; 
-              
         regionToCopyNext.bufferOffset = stagingBufferOffset;
         regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
         regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
@@ -794,41 +780,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, blocksToUploadMemorySize);
 
-        if (srcImageFormat == dstImageFormat)
-        {
-            using CopyFilter = asset::CCopyImageFilter;
-            CopyFilter copyFilter;
-            CopyFilter::state_type state = {};
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-
-            if (copyFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
-        else
-        {
-            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConvertFilter convertFilter;
-            ConvertFilter::state_type state = {};
-            state.swizzle = componentMapping; 
-            state.extent = regionToCopyNext.imageExtent;
-            state.layerCount = regionToCopyNext.imageSubresource.layerCount;
-            state.inImage = inCPUImage.get();
-            state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.inMipLevel = 0u;
-            state.outMipLevel = 0u;
-            
-            if (convertFilter.execute(core::execution::par_unseq,&state))
-                copySuccess = true;
-        }
+        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {
