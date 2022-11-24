@@ -303,19 +303,20 @@ void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPat
     m_loaders.push_back(LoaderSearchPath{ loader, searchPath });
 }
 
-void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator)
+void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd)
 {
-    if (!generator)
+    if (!generatorToAdd)
         return;
 
-    auto itr = m_generators.begin();
-    for (; itr != m_generators.end(); ++itr)
-    {
-        auto str = (*itr)->getPrefix();
-        if (str.compare(generator->getPrefix()) <= 0) // Reverse Lexicographic Order
-            break;
-    }
-    m_generators.insert(itr, generator);
+    // this will find the place of first generator with prefix <= generatorToAdd or end
+    auto found = std::lower_bound(m_generators.begin(), m_generators.end(), generatorToAdd->getPrefix(),
+        [](const core::smart_refctd_ptr<IIncludeGenerator>& generator, const std::string_view& value)
+        {
+            auto element = generator->getPrefix();
+            return element.compare(value) > 0; // first to return false is lower_bound -> first element that is <= value
+        });
+
+    m_generators.insert(found, generatorToAdd);
 }
 
 std::string IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName) const
