@@ -18,30 +18,20 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 {
 }
 
-core::smart_refctd_ptr<ICPUBuffer> CHLSLCompiler::compileToSPIRV(const char* code, const CHLSLCompiler::SOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const CHLSLCompiler::SOptions& options) const
 {
-    core::smart_refctd_ptr<ICPUBuffer> outSpirv = nullptr;
-    if (code)
-    {
-        // TODO: Use DXC
-    }
-    else
+    if (!code)
     {
         options.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
-    }
-    return outSpirv;
-}
-
-core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::createSPIRVShader(const char* code, const CHLSLCompiler::SOptions& options) const
-{
-    auto spirv = compileToSPIRV(code, options);
-    if (spirv)
-        return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), options.stage, IShader::E_CONTENT_TYPE::ECT_HLSL, options.sourceIdentifier);
-    else
         return nullptr;
+    }
+
+    core::smart_refctd_ptr<ICPUBuffer> spirv = nullptr;
+    // TODO: Use DXC
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), options.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, options.sourceIdentifier.data());
 }
 
-core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::createSPIRVShader(system::IFile* sourceFile, const CHLSLCompiler::SOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(system::IFile* sourceFile, const CHLSLCompiler::SOptions& options) const
 {
     size_t fileSize = sourceFile->getSize();
     std::string code(fileSize, '\0');
@@ -49,7 +39,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::createSPIRVShader(system::IFil
     system::IFile::success_t success;
     sourceFile->read(success, code.data(), 0, fileSize);
     if (success)
-        return createSPIRVShader(code.c_str(), options);
+        return compileToSPIRV(code.c_str(), options);
     else
         return nullptr;
 }

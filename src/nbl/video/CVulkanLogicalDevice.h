@@ -535,25 +535,26 @@ public:
         if (cpushader->getContentType() != asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
             asset::IShader::insertDefines(code, m_physicalDevice->getExtraGLSLDefines());
 
-        core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
+        core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
 
         if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
         {
-            // TODO: actually use code to create a ICPUShader (via non allocating CPUBuffer) or change the function signature for "compilerSet"
             // TODO: add specific HLSLCompiler::SOption params
-            spirv = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+            spirvShader = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
         }
         else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
         {
-            spirv = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+            spirvShader = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
         }
-        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        else
         {
-            spirv = core::smart_refctd_ptr<asset::ICPUBuffer>(const_cast<asset::ICPUBuffer*>(cpushader->getContent()));
+            spirvShader = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
         }
 
-        if (!spirv)
+        if (!spirvShader || !spirvShader->getContent())
             return nullptr;
+
+        auto spirv = spirvShader->getContent();
 
         VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
         vk_createInfo.pNext = nullptr;

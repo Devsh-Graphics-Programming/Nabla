@@ -6,9 +6,9 @@
 using namespace nbl;
 using namespace nbl::asset;
 
-core::smart_refctd_ptr<ICPUBuffer> CCompilerSet::compileToSPIRV(const asset::ICPUShader* shader, const IShaderCompiler::SOptions& options)
+core::smart_refctd_ptr<const ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader* shader, const IShaderCompiler::SOptions& options)
 {
-	core::smart_refctd_ptr<ICPUBuffer> outSpirvShader;
+	core::smart_refctd_ptr<const ICPUShader> outSpirvShader = nullptr;
 	if (shader)
 	{
 		switch (shader->getContentType())
@@ -18,13 +18,13 @@ core::smart_refctd_ptr<ICPUBuffer> CCompilerSet::compileToSPIRV(const asset::ICP
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
 			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_HLSL)
 			{
-				m_HLSLCompiler->compileToSPIRV(code, static_cast<const CHLSLCompiler::SOptions&>(options));
+				outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, static_cast<const CHLSLCompiler::SOptions&>(options));
 			}
 			else
 			{
 				CHLSLCompiler::SOptions hlslCompilerOptions = {};
 				hlslCompilerOptions.setCommonData(options);
-				m_HLSLCompiler->compileToSPIRV(code, hlslCompilerOptions);
+				outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, hlslCompilerOptions);
 			}
 		}
 		break;
@@ -33,19 +33,19 @@ core::smart_refctd_ptr<ICPUBuffer> CCompilerSet::compileToSPIRV(const asset::ICP
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
 			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_GLSL)
 			{
-				m_GLSLCompiler->compileToSPIRV(code, static_cast<const CGLSLCompiler::SOptions&>(options));
+				outSpirvShader = m_GLSLCompiler->compileToSPIRV(code, static_cast<const CGLSLCompiler::SOptions&>(options));
 			}
 			else
 			{
 				CGLSLCompiler::SOptions glslCompilerOptions = {};
 				glslCompilerOptions.setCommonData(options);
-				m_GLSLCompiler->compileToSPIRV(code, glslCompilerOptions);
+				outSpirvShader = m_GLSLCompiler->compileToSPIRV(code, glslCompilerOptions);
 			}
 		}
 		break;
 		case IShader::E_CONTENT_TYPE::ECT_SPIRV:
 		{
-			outSpirvShader = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(shader->getContent()));
+			outSpirvShader = core::smart_refctd_ptr<const ICPUShader>(shader);
 		}
 		break;
 		}

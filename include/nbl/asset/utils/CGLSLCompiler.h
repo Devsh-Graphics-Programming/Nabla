@@ -42,11 +42,10 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 		@returns Shader containing SPIR-V bytecode.
 		*/
-		core::smart_refctd_ptr<ICPUBuffer> compileToSPIRV(const char* code, const CGLSLCompiler::SOptions& options) const;
 
-		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(const char* code, const CGLSLCompiler::SOptions& options) const;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const CGLSLCompiler::SOptions& options) const;
 
-		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(system::IFile* sourceFile, const CGLSLCompiler::SOptions& options) const;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const CGLSLCompiler::SOptions& options) const;
 
 		/*
 		 If original code contains #version specifier,

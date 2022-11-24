@@ -122,8 +122,10 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
 
     if (_shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_GLSL || _shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
     {
-        // TODO: actually use code to create a ICPUShader or change the function signature for "compilerSet"
-        compilerSet->compileToSPIRV(_shader, commonCompileOptions);
+        auto compiledShader = compilerSet->compileToSPIRV(_shader, commonCompileOptions);
+        if (!compiledShader)
+            return nullptr;
+        return introspectSPV(compiledShader.get());
     }
     else if (_shader->getContentType() == ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
         return introspectSPV(_shader);

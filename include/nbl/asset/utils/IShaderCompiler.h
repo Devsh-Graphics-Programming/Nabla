@@ -118,7 +118,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			@includeFinder Optional parameter; if not nullptr, it will resolve the includes in the code
 			@maxSelfInclusionCount used only when includeFinder is not nullptr
 			@genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
-				The engine, while running on OpenGL, won't be able to set push constants for shaders loaded as SPIR-V without debug info.
+				Anything non-vulkan, basically you can't recover the names of original variables with CShaderIntrospector without debug info
+				By variables we mean names of PC/SSBO/UBO blocks, as they're essentially instantiations of structs with custom packing.
 		*/
 		struct SOptions
 		{
@@ -126,7 +127,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			std::string_view entryPoint = nullptr;
 			std::string_view sourceIdentifier = nullptr;
-			std::string* outAssembly = nullptr;
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;

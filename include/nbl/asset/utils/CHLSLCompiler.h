@@ -24,11 +24,9 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
-		core::smart_refctd_ptr<ICPUBuffer> compileToSPIRV(const char* code, const CHLSLCompiler::SOptions& options) const;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const CHLSLCompiler::SOptions& options) const;
 
-		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(const char* code, const CHLSLCompiler::SOptions& options) const;
-
-		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(system::IFile* sourceFile, const CHLSLCompiler::SOptions& options) const;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const CHLSLCompiler::SOptions& options) const;
 
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
