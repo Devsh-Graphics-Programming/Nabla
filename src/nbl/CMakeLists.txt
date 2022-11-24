@@ -630,14 +630,41 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 		# MSVC and other generators have "SetEnv" task - we need to make sure our enviroment is clean while invoking DXC compilation
 		string(APPEND _TMP_CLEAN_ENV_ "set PATH=$ENV{PATH}\nset CAExcludePath=\nset LIB=\nset LIBPATH=\nset INCLUDE=\nset EXTERNAL_INCLUDE=\n")
 		
-		# Include dependency chain for considered compile file
+		# include-dependency input file chain
 		set(_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/depends.txt")
 		set(_NBL_DXC_CT_CURRENT_IDC_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/depends.cmd")
 		string(APPEND _NBL_DXC_CT_WRAPPER_IDC_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T lib_6_7 -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -MF \"${_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
 		file(WRITE "${_NBL_DXC_CT_CURRENT_IDC_FILEPATH_}" "${_NBL_DXC_CT_WRAPPER_IDC_COMMAND_}")
-		# TODO execute_process for _NBL_DXC_CT_CURRENT_IDC_FILEPATH_ and hanlding _NBL_DXC_CT_CURRENT_IDC_FILEPATH_'s deps by custom command
 		
-		# Compile command
+		# create a file contating paths to all input file's dependencies scanned recursively
+		if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
+			execute_process(COMMAND "${_NBL_DXC_CT_CURRENT_IDC_FILEPATH_}")
+		else()
+			execute_process(COMMAND "${_NBL_DXC_CT_CURRENT_IDC_FILEPATH_}"
+				OUTPUT_QUIET
+				ERROR_QUIET
+			)
+		endif()
+		
+		file(READ "${_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_}" _NBL_DXC_CT_DEPENDENCIES_)
+		unset(_NBL_DXC_CT_WRAPPER_IDC_COMMAND_)
+		
+		# filter DXC output MF's file dependencies and put them into CMake list
+		string(REPLACE ": " ";" _NBL_DXC_CT_DEPENDENCIES_S_ "${_NBL_DXC_CT_DEPENDENCIES_}")
+		string(REPLACE " \\" ";" _NBL_DXC_CT_DEPENDENCIES_S_ "${_NBL_DXC_CT_DEPENDENCIES_S_}")
+		string(REPLACE "\r" "" _NBL_DXC_CT_DEPENDENCIES_S_ "${_NBL_DXC_CT_DEPENDENCIES_S_}")
+		string(REPLACE "\n" "" _NBL_DXC_CT_DEPENDENCIES_S_ "${_NBL_DXC_CT_DEPENDENCIES_S_}")
+		string(STRIP "${_NBL_DXC_CT_DEPENDENCIES_S_}" _NBL_DXC_CT_DEPENDENCIES_S_)
+		list(APPEND _NBL_DXC_CT_DEPENDENCIES_L_ "${_NBL_DXC_CT_DEPENDENCIES_S_}")
+		list(TRANSFORM _NBL_DXC_CT_DEPENDENCIES_L_ STRIP)
+		list(REMOVE_DUPLICATES _NBL_DXC_CT_DEPENDENCIES_L_)
+		
+		set(_NBL_DXC_CT_CURRENT_DEPS_LIST_ ${_NBL_DXC_CT_DEPENDENCIES_L_})
+		unset(_NBL_DXC_CT_DEPENDENCIES_)
+		unset(_NBL_DXC_CT_DEPENDENCIES_S_)
+		unset(_NBL_DXC_CT_DEPENDENCIES_L_)
+		
+		# compile command
 		string(APPEND _NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T lib_6_7 -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -Fo \"${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
 		set(_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/compile.cmd")
 		file(WRITE "${_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_}" "${_NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_}")
@@ -649,40 +676,13 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 			message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} adding _NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_ = '${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}' as OUTPUT of DXC CT target")
 		endif()
 		
-		###############################################################
-		# scans include files of particular hlsl file to compile by DXC
-		# performs validation of include files and adds them as DEPENDS 
-		# of custom command to keep track of modifications of any
-		# dependency file
-		#
-		# TODO: add recursive scanning of ALL includes, right now it
-		# doesn't scan recursivly but sinks only with include depth = 1
-		###############################################################
-		
-		set(_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_ "${_SHADER_FILE_PATH_}")
-		list(APPEND _TMP_CURRENT_DEPS_LIST_ "${_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_}")
-		file(STRINGS "${_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_}" _NBL_DXC_CT_INPUT_SCAN_INCLUDE_LINES_ REGEX "#include <|#include \"")
-
-		foreach(_NBL_DXC_CT_CURRENT_INPUT_SCAN_LINE_ IN LISTS _NBL_DXC_CT_INPUT_SCAN_INCLUDE_LINES_)
-			string(REGEX MATCH "<.*>|\".*\"" _TMP_INCLUDE_WITH_SHEATH_CHARS_ "${_NBL_DXC_CT_CURRENT_INPUT_SCAN_LINE_}")
-			string(REGEX REPLACE <|>|\" "" _TMP_INCLUDE_WITHOUT_SHEATH_CHARS_ "${_TMP_INCLUDE_WITH_SHEATH_CHARS_}")
-		
-			set(_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_ "${_NBL_DXC_CT_INCLUDE_ROOT_}/${_TMP_INCLUDE_WITHOUT_SHEATH_CHARS_}")
-			
-			if(NOT EXISTS "${_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_}")
-				# NOTE: this won't work for shaders included that are registered on fly by asset manager, but let's assume we won't test shaders including another files stored in virtual file system
-				message(FATAL_ERROR "${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} File '${_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_}' included by '${_NBL_DXC_CT_CURRENT_ROOT_COMPILE_FILE_ISSUER_}' doesn't exist!")
-			endif()
-			
-			list(APPEND _TMP_CURRENT_DEPS_LIST_ "${_NBL_DXC_CT_CURRENT_HANDLED_INCLUDE_PATH_}") # add scanned include files as DEPENDS of a add_custom_command
-		endforeach()
-		
 		list(APPEND _NBL_DXC_CT_BIN_OUTPUTS_ "${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}")
 		
+		# create custom command per input file with it's all dependencies listed as DEPENDS
 		add_custom_command(
 			OUTPUT "${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}"
 			COMMAND "${_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_}"
-			DEPENDS ${_TMP_CURRENT_DEPS_LIST_}
+			DEPENDS ${_NBL_DXC_CT_CURRENT_DEPS_LIST_}
 			WORKING_DIRECTORY "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}"
 			USES_TERMINAL
 			VERBATIM
@@ -690,9 +690,10 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 		
 		unset(_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_)
 		unset(_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_)
-		unset(_TMP_CURRENT_DEPS_LIST_)
+		unset(_NBL_DXC_CT_CURRENT_DEPS_LIST_)
 	endforeach()
-
+	
+	# create custom targets for which DEPENDS are all of input files for DXC compile test
 	add_custom_target(HLSL_NABLA_COMPILE_TEST DEPENDS ${_NBL_DXC_CT_BIN_OUTPUTS_}
 		COMMENT "${CMAKE_COMMAND}" -E echo "Launching Nabla HLSL compile test..."
 	)
