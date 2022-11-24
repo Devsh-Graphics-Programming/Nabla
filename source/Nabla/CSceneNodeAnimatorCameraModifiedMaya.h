@@ -94,6 +94,12 @@ namespace nbl
 
 			gui::ICursorControl* CursorControl;
 			scene::ICameraSceneNode* OldCamera;
+			// new way to do this
+			// - quaternion to represent rotation
+			// - from mouse delta figure out additional quaternion
+			// - from applied quaternion and enforced up-vector work out view matrix
+			// - target is pivot
+			// - move camera origin zoom-distance away from pivot
 			core::vectorSIMDf OldTarget;
 			core::vector3df LastCameraTarget;	// to find out if the camera target was moved outside this animator
 			core::position2df RotateStart;
