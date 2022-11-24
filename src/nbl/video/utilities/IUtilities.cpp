@@ -578,8 +578,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
             state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
+            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
+            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
             state.inMipLevel = 0u;
             state.outMipLevel = 0u;
 
@@ -588,16 +588,16 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConverFilter convertFilter;
-            ConverFilter::state_type state = {};
+            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
+            ConvertFilter convertFilter;
+            ConvertFilter::state_type state = {};
             state.swizzle = componentMapping;
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
             state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
+            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
+            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
             state.inMipLevel = 0u;
             state.outMipLevel = 0u;
             
@@ -653,8 +653,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
             state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
+            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
+            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
             state.inMipLevel = 0u;
             state.outMipLevel = 0u;
 
@@ -663,16 +663,16 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConverFilter convertFilter;
-            ConverFilter::state_type state = {};
+            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
+            ConvertFilter convertFilter;
+            ConvertFilter::state_type state = {};
             state.swizzle = componentMapping;
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
             state.inImage = inCPUImage.get();
             state.outImage = outCPUImage.get();
-            state.inOffsetBaseLayer = core::vectorSIMDu32(0u); 
-            state.outOffsetBaseLayer = core::vectorSIMDu32(0u); 
+            state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
+            state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
             state.inMipLevel = 0u;
             state.outMipLevel = 0u;
             
@@ -738,9 +738,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConverFilter convertFilter;
-            ConverFilter::state_type state = {};
+            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
+            ConvertFilter convertFilter;
+            ConvertFilter::state_type state = {};
             state.swizzle = componentMapping; 
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
@@ -813,9 +813,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            using ConverFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
-            ConverFilter convertFilter;
-            ConverFilter::state_type state = {};
+            using ConvertFilter = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, asset::DefaultSwizzle>;
+            ConvertFilter convertFilter;
+            ConvertFilter::state_type state = {};
             state.swizzle = componentMapping; 
             state.extent = regionToCopyNext.imageExtent;
             state.layerCount = regionToCopyNext.imageSubresource.layerCount;
