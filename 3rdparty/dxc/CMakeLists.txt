@@ -33,11 +33,11 @@ list(APPEND DXC_CMAKE_ARGS "-DDXC_BUILD_ARCH=x64")
 set(_DXC_CURRENT_CONFIG_ "$<IF:$<CONFIG:Debug>,Debug,Release>")
 set(DXC_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc" CACHE INTERNAL "")
 set(DXC_BINARY_DIR_EP "${CMAKE_CURRENT_BINARY_DIR}/external/dxc" CACHE INTERNAL "")
-set(DXC_BINARY_DIR_GE "${DXC_BINARY_DIR_EP}/${_DXC_CURRENT_CONFIG_}" CACHE INTERNAL "")
-set(DXC_BIN_DIR "${DXC_BINARY_DIR_GE}/${_DXC_CURRENT_CONFIG_}/bin" CACHE INTERNAL "")
-set(DXC_LIB_DIR "${DXC_BINARY_DIR_GE}/${_DXC_CURRENT_CONFIG_}/lib" CACHE INTERNAL "")
+set(DXC_BINARY_DIR_GE "${DXC_BINARY_DIR_EP}/build" CACHE INTERNAL "")
+set(DXC_BIN_DIR "${DXC_BINARY_DIR_GE}/Release/bin" CACHE INTERNAL "") # hardcoded
+set(DXC_LIB_DIR "${DXC_BINARY_DIR_GE}/${_DXC_CURRENT_CONFIG_}/lib" CACHE INTERNAL "") # library path depends on the configuration
 set(DXC_EXECUTABLE "${DXC_BIN_DIR}/dxc.exe" CACHE INTERNAL "")
-set(DXC_DXCOMPILER_LIB "${DXC_LIB_DIR}/dxcompiler.lib" CACHE INTERNAL "") # TODO: check if there is any debug postfix/suffix!
+set(DXC_DXCOMPILER_LIB "${DXC_LIB_DIR}/dxcompiler.lib" CACHE INTERNAL "")
 
 # DXC External Project
 # builds DXC executable target and dxcompiler library target
