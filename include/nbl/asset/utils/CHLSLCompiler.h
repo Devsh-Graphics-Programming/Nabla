@@ -21,13 +21,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		struct SOptions : IShaderCompiler::SOptions
 		{
 			// TODO: Add extra dxc options
-
-			void setCommonData(const IShaderCompiler::SOptions& opt)
-			{
-				static_cast<IShaderCompiler::SOptions&>(*this) = opt;
-			}
-
-			virtual IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
+			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
 		core::smart_refctd_ptr<ICPUBuffer> compileToSPIRV(const char* code, const CHLSLCompiler::SOptions& options) const;
@@ -36,22 +30,17 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(system::IFile* sourceFile, const CHLSLCompiler::SOptions& options) const;
 
-		/*
-		 If original code contains #version specifier,
-			then the filled fmt will be placed onto the next line after #version in the output buffer. If not, fmt will be placed into the
-			beginning of the output buffer.
-		*/
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
 		{
 			return IShaderCompiler::createOverridenCopy(original, 0u, fmt, args...);
 		}
 
-		static inline const char* getStorageImageFormatQualifier(const asset::E_FORMAT format)
-		{
-			// TODO
-			return "";
-		}
+		// TODO
+		//static inline const char* getStorageImageFormatQualifier(const asset::E_FORMAT format)
+		//{
+		//	return "";
+		//}
 };
 
 }

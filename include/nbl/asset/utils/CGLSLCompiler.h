@@ -20,12 +20,7 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 		struct SOptions : IShaderCompiler::SOptions
 		{
-			void setCommonData(const IShaderCompiler::SOptions& opt)
-			{
-				static_cast<IShaderCompiler::SOptions&>(*this) = opt;
-			}
-
-			virtual IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL; };
+			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL; };
 		};
 
 		/**

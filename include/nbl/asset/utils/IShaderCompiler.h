@@ -124,14 +124,19 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
-			const char* entryPoint = nullptr;
-			const char* sourceIdentifier = nullptr;
+			std::string_view entryPoint = nullptr;
+			std::string_view sourceIdentifier = nullptr;
 			std::string* outAssembly = nullptr;
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
 			uint32_t maxSelfInclusionCount = 4u;
 			bool genDebugInfo = true;
+
+			void setCommonData(const SOptions& opt)
+			{
+				(*this) = opt;
+			}
 
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };
 		};
