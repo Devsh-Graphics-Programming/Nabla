@@ -53,41 +53,6 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 		core::smart_refctd_ptr<ICPUShader> createSPIRVShader(system::IFile* sourceFile, const CGLSLCompiler::SOptions& options) const;
 
-		// TODO: REMOVE after GL Deprecation
-		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(
-			const char* _glslCode,
-			IShader::E_SHADER_STAGE _stage,
-			const char* _entryPoint,
-			const char* _compilationId,
-			bool _genDebugInfo = true,
-			std::string* _outAssembly = nullptr,
-			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6) const;
-
-		// TODO: REMOVE after GL Deprecation
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(
-			const char* _glslCode,
-			IShader::E_SHADER_STAGE _stage,
-			const char* _entryPoint,
-			const char* _compilationId,
-			const ISPIRVOptimizer* _opt = nullptr,
-			bool _genDebugInfo = true,
-			std::string* _outAssembly = nullptr,
-			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6) const;
-
-		// TODO: REMOVE after GL Deprecation
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(
-			system::IFile* _sourcefile,
-			IShader::E_SHADER_STAGE _stage,
-			const char* _entryPoint,
-			const char* _compilationId,
-			const ISPIRVOptimizer* _opt = nullptr,
-			bool _genDebugInfo = true,
-			std::string* _outAssembly = nullptr,
-			system::logger_opt_ptr logger = nullptr,
-			const E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6) const;
-
 		/*
 		 If original code contains #version specifier,
 			then the filled fmt will be placed onto the next line after #version in the output buffer. If not, fmt will be placed into the
