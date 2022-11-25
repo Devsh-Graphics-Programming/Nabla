@@ -242,7 +242,7 @@ class NBL_API IImage : public IDescriptor
 			VkExtent3D									extent;
 			uint32_t									mipLevels;
 			uint32_t									arrayLayers;
-			E_CREATE_FLAGS								flags = ECF_NONE; // TODO: bitflags
+			core::bitflag<E_CREATE_FLAGS>				flags = ECF_NONE;
 			core::bitflag<E_USAGE_FLAGS>				usage = EUF_NONE;
 
 			inline bool operator==(const SCreationParams& rhs) const
@@ -257,7 +257,7 @@ class NBL_API IImage : public IDescriptor
 					extent!=rhs.extent ||
 					mipLevels!=rhs.mipLevels ||
 					arrayLayers!=rhs.arrayLayers ||
-					flags!=rhs.flags ||
+					flags.value!=rhs.flags.value ||
 					usage.value!=rhs.usage.value;
 			}
 		};
@@ -324,7 +324,7 @@ class NBL_API IImage : public IDescriptor
 			if (core::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
 				return false;
 
-			if (_params.flags & ECF_CUBE_COMPATIBLE_BIT)
+			if (_params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT))
 			{
 				if (_params.type != ET_2D)
 					return false;
@@ -335,28 +335,28 @@ class NBL_API IImage : public IDescriptor
 				if (_params.samples != ESCF_1_BIT)
 					return false;
 			}
-			if ((_params.flags & ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
+			if (_params.flags.hasFlags(ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
 				return false;
-			if ((_params.flags & ECF_SPARSE_RESIDENCY_BIT) || (_params.flags & ECF_SPARSE_ALIASED_BIT))
+			if (_params.flags.hasFlags(ECF_SPARSE_RESIDENCY_BIT) || _params.flags.hasFlags(ECF_SPARSE_ALIASED_BIT))
 			{
-				if (!(_params.flags & ECF_SPARSE_BINDING_BIT))
+				if (!_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT))
 					return false;
-				if (_params.flags & ECF_PROTECTED_BIT)
+				if (_params.flags.hasFlags(ECF_PROTECTED_BIT))
 					return false;
 			}
-			if ((_params.flags & ECF_SPARSE_BINDING_BIT) && (_params.flags & ECF_PROTECTED_BIT))
+			if (_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT) && _params.flags.hasFlags(ECF_PROTECTED_BIT))
 				return false;
-			if (_params.flags & ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
+			if (_params.flags.hasFlags(ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT))
 			{
 				if (_params.mipLevels > 1u || _params.arrayLayers > 1u || _params.type != ET_2D)
 					return false;
 			}
-			if (_params.flags & ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
+			if (_params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT))
 			{
-				if (!isBlockCompressionFormat(_params.format) || !(_params.flags & ECF_MUTABLE_FORMAT_BIT))
+				if (!isBlockCompressionFormat(_params.format) || !_params.flags.hasFlags(ECF_MUTABLE_FORMAT_BIT))
 					return false;
 			}
-			if ((_params.flags & ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
+			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
 				return false;
 
 			if (_params.samples != ESCF_1_BIT && _params.type != ET_2D)
@@ -385,7 +385,7 @@ class NBL_API IImage : public IDescriptor
 			}
 			else
 			{
-				if (!(_params.flags & ECF_ALIAS_BIT) && (_params.flags & ECF_DISJOINT_BIT))
+				if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
 					return false;
 			}
 

@@ -194,7 +194,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
 {
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     vk_createInfo.pNext = nullptr; // there are a lot of extensions
-    vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
+    vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags.value);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
     vk_createInfo.format = getVkFormatFromFormat(params.format);
     vk_createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
