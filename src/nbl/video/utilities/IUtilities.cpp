@@ -235,11 +235,11 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     auto texelBlockDim = dstImageTexelBlockInfo.getDimension();
     uint32_t memoryNeededForRemainingRegions = 0ull;
     
-    // We want to roundUp to bufferOffsetAlignment everytime we increment, because the incrementation here correspond a single copy command (assuming enough memory).
+    // We want to first roundUp to bufferOffsetAlignment everytime we increment, because the incrementation here correspond a single copy command that needs it's bufferOffset to be aligned correctly (assuming enough memory).
     auto incrementMemoryNeeded = [&](const uint32_t size)
     {
-        memoryNeededForRemainingRegions += size;
         memoryNeededForRemainingRegions = core::roundUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
+        memoryNeededForRemainingRegions += size;
     };
 
     for (uint32_t i = currentRegion; i < regions.size(); ++i)
@@ -248,36 +248,41 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
 
         auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
 
+        // Validate Region, TODO: move these to IGPUImage::validateCopies and call them on every region at the beginning
+
         assert(static_cast<uint32_t>(region.imageSubresource.aspectMask) != 0u);
         assert(core::isPoT(static_cast<uint32_t>(region.imageSubresource.aspectMask)) && "region.aspectMask should only have a single bit set.");
-        // Validate Region
-        // canTransferMipLevelsPartially
-        if(!canTransferMipLevelsPartially)
+        
+        // canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
+        if (canTransferMipLevelsPartially)
+        {
+            // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
+            bool isImageOffsetAlignmentValid =
+                (region.imageOffset.x % (minImageTransferGranularity.width * texelBlockDim.x) == 0) &&
+                (region.imageOffset.y % (minImageTransferGranularity.height * texelBlockDim.y) == 0) &&
+                (region.imageOffset.z % (minImageTransferGranularity.depth * texelBlockDim.z) == 0);
+            assert(isImageOffsetAlignmentValid);
+
+            // region.imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
+            // OR ELSE (region.imageOffset.{x/y/z} + region.imageExtent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
+            bool isImageExtentAlignmentValid = 
+                (region.imageExtent.width  % (minImageTransferGranularity.width  * texelBlockDim.x) == 0 || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
+                (region.imageExtent.height % (minImageTransferGranularity.height * texelBlockDim.y) == 0 || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
+                (region.imageExtent.depth  % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0 || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
+            assert(isImageExtentAlignmentValid);
+
+            bool isImageExtentAndOffsetValid = 
+                (region.imageExtent.width + region.imageOffset.x <= subresourceSize.x) &&
+                (region.imageExtent.height + region.imageOffset.y <= subresourceSize.y) &&
+                (region.imageExtent.depth + region.imageOffset.z <= subresourceSize.z);
+            assert(isImageExtentAndOffsetValid);
+        }
+        else
         {
             assert(region.imageOffset.x == 0 && region.imageOffset.y == 0 && region.imageOffset.z == 0);
             assert(region.imageExtent.width == subresourceSize.x && region.imageExtent.height == subresourceSize.y && region.imageExtent.depth == subresourceSize.z);
         }
 
-        // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
-        bool isImageOffsetAlignmentValid =
-            (region.imageOffset.x % (minImageTransferGranularity.width  * texelBlockDim.x) == 0) &&
-            (region.imageOffset.y % (minImageTransferGranularity.height * texelBlockDim.y) == 0) &&
-            (region.imageOffset.z % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0);
-        assert(isImageOffsetAlignmentValid);
-
-        // region.imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
-        // OR ELSE (region.imageOffset.{x/y/z} + region.imageExtent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
-        bool isImageExtentAlignmentValid = 
-            (region.imageExtent.width  % (minImageTransferGranularity.width  * texelBlockDim.x) == 0 || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
-            (region.imageExtent.height % (minImageTransferGranularity.height * texelBlockDim.y) == 0 || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
-            (region.imageExtent.depth  % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0 || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
-        assert(isImageExtentAlignmentValid);
-
-        bool isImageExtentAndOffsetValid = 
-            (region.imageExtent.width + region.imageOffset.x <= subresourceSize.x) &&
-            (region.imageExtent.height + region.imageOffset.y <= subresourceSize.y) &&
-            (region.imageExtent.depth + region.imageOffset.z <= subresourceSize.z);
-        assert(isImageExtentAndOffsetValid);
 
         auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
         auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(imageExtent);
@@ -335,16 +340,14 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
 
 bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer)
 {
-    // TODO [FUTURE]: make use of `optimalBufferCopyRowPitchAlignment`
-
     if(isFinished())
         return false;
         
     auto addToCurrentUploadBufferOffset = [&](uint32_t size) -> bool 
     {
         const auto initialOffset = stagingBufferOffset;
-        stagingBufferOffset += size;
         stagingBufferOffset = core::roundUp(stagingBufferOffset, bufferOffsetAlignment);
+        stagingBufferOffset += size;
         const auto consumedMemory = stagingBufferOffset - initialOffset;
         if(consumedMemory <= availableMemory)
         {
@@ -357,7 +360,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
     };
 
-    if(!addToCurrentUploadBufferOffset(0u)) // in order to fix initial alignment to bufferOffsetAlignment
+    // early out: checking initial alignment of stagingBufferOffset and if any memory will be left after alignment
+    if(!addToCurrentUploadBufferOffset(0u))
     {
         return false;
     }
@@ -368,7 +372,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     asset::TexelBlockInfo srcImageTexelBlockInfo(srcImageFormat);
     asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
         
-    const core::vector4du32_SIMD srcBufferByteStrides = srcImageTexelBlockInfo.convert3DBlockStridesTo1DByteStrides(mainRegion.getBlockStrides(srcImageTexelBlockInfo));
+    const core::vector4du32_SIMD srcBufferByteStrides = mainRegion.getByteStrides(srcImageTexelBlockInfo);
 
     // ! We only need subresourceSize for validations and assertions about minImageTransferGranularity because granularity requirements can be ignored if region fits against the right corner of the subresource (described in more detail below)
     const auto subresourceSize = dstImage->getMipSize(mainRegion.imageSubresource.mipLevel);
