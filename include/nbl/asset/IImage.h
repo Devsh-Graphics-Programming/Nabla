@@ -190,7 +190,7 @@ class NBL_API IImage : public IDescriptor
 			{
 				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
 			}
-			static inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
+			static inline uint64_t		getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
 			{
 				return core::dot(localXYZLayerOffset,byteStrides)[0];
 			}
@@ -198,7 +198,6 @@ class NBL_API IImage : public IDescriptor
 			{
 				return bufferOffset+getLocalByteOffset(localXYZLayerOffset,byteStrides);
 			}
-
 
 			size_t				bufferOffset = 0ull;
 			// setting this to different from 0 can fail an image copy on OpenGL
