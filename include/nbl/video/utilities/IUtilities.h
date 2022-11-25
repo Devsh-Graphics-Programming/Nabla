@@ -1018,7 +1018,7 @@ public:
     // ! updates `availableMemory` (availableMemory -= consumedMemory)
     // ! updates `stagingBufferOffset` based on consumed memory and alignment requirements
     // ! this function may do format conversions when copying from `srcBuffer` to `stagingBuffer` if srcBufferFormat != dstImage->Format passed as constructor parameters
-    bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, size_t& availableMemory, size_t& stagingBufferOffset, void* stagingBufferPointer);
+    bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer);
 
     // ! returns true when there is no more regions left over to copy
     bool isFinished() const { return currentRegion == regions.size(); }
@@ -1041,11 +1041,11 @@ private:
     video::IGPUImage* const dstImage;
     
     // Block Offsets 
-    uint32_t currentBlockInRow = 0u;
-    uint32_t currentRowInSlice = 0u;
-    uint32_t currentSliceInLayer = 0u;
-    uint32_t currentLayerInRegion = 0u;
-    uint32_t currentRegion = 0u;
+    uint16_t currentBlockInRow = 0u;
+    uint16_t currentRowInSlice = 0u;
+    uint16_t currentSliceInLayer = 0u;
+    uint16_t currentLayerInRegion = 0u;
+    uint16_t currentRegion = 0u;
 };
 
 }

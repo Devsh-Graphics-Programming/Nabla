@@ -109,8 +109,8 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
         }
         else
         {
-            size_t currentUploadBufferOffset = localOffset;
-            size_t availableUploadBufferMemory = allocationSize;
+            uint32_t currentUploadBufferOffset = localOffset;
+            uint32_t availableUploadBufferMemory = allocationSize;
 
             regionsToCopy.clear();
             for (uint32_t d = 0u; d < maxIterations && !regionIterator.isFinished(); ++d)
@@ -320,7 +320,7 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     return memoryNeededForRemainingRegions;
 }
 
-bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, size_t& availableMemory, size_t& stagingBufferOffset, void* stagingBufferPointer)
+bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer)
 {
     // TODO [FUTURE]: make use of `optimalBufferCopyRowPitchAlignment`
 
