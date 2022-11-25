@@ -143,7 +143,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         ctxlocal->nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
         {
-            if(it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+            if(it->bufferOffset != core::roundUp(it->bufferOffset, static_cast<size_t>(blockByteSize)))
             {
                 assert(false && "bufferOffset should be aligned to block/texel byte size.");
                 continue;

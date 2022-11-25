@@ -212,7 +212,7 @@ ImageRegionIterator::ImageRegionIterator(
         // [ ] If multi-planar -> bufferOffset must be a multiple of the element size of the compatible format for the aspectMask of imagesubresource
         // [x] If Queue doesn't support GRAPHICS_BIT or COMPUTE_BIT ->  must be multiple of 4
         // [x] bufferOffset must be a multiple of texel block size in bytes
-    bufferOffsetAlignment = dstImageTexelBlockInfo.getBlockByteSize();
+    bufferOffsetAlignment = dstImageTexelBlockInfo.getBlockByteSize(); // can be non power of two
     if(asset::isDepthOrStencilFormat(dstImageFormat))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
 
@@ -222,7 +222,6 @@ ImageRegionIterator::ImageRegionIterator(
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
     // TODO: Need to have a function to get equivalent format of the specific plane of this format (in aspectMask)
     // if(asset::isPlanarFormat(dstImageFormat->getCreationParameters().format))
-    assert(core::is_alignment(bufferOffsetAlignment));
         
     // Queues supporting graphics and/or compute operations must report (1,1,1) in minImageTransferGranularity, meaning that there are no additional restrictions on the granularity of image transfer operations for these queues.
     // Other queues supporting image transfer operations are only required to support whole mip level transfers, thus minImageTransferGranularity for queues belonging to such queue families may be (0,0,0)
@@ -234,10 +233,10 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
     assert(dstImageTexelBlockInfo.getBlockByteSize()>0u);
     auto texelBlockDim = dstImageTexelBlockInfo.getDimension();
-    size_t memoryNeededForRemainingRegions = 0ull;
+    uint32_t memoryNeededForRemainingRegions = 0ull;
     for (uint32_t i = currentRegion; i < regions.size(); ++i)
     {
-        memoryNeededForRemainingRegions = core::alignUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
+        memoryNeededForRemainingRegions = core::roundUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
 
         const asset::IImage::SBufferCopy & region = regions[i];
 
@@ -331,7 +330,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     {
         const auto initialOffset = stagingBufferOffset;
         stagingBufferOffset += size;
-        stagingBufferOffset = core::alignUp(stagingBufferOffset, bufferOffsetAlignment);
+        stagingBufferOffset = core::roundUp(stagingBufferOffset, bufferOffsetAlignment);
         const auto consumedMemory = stagingBufferOffset - initialOffset;
         if(consumedMemory <= availableMemory)
         {
