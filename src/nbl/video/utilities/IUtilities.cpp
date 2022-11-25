@@ -353,7 +353,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
         else
         {
-            assert(false);
             return false;
         }
     };
