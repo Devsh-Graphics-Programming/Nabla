@@ -875,7 +875,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         toTransferDst.srcQueueFamilyIndex = transferFamIx;
         toTransferDst.dstQueueFamilyIndex = transferFamIx;
         toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(gpuimg);
-        toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
+        toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
         toTransferDst.subresourceRange.baseMipLevel = 0u;
         toTransferDst.subresourceRange.levelCount = gpuimg->getCreationParameters().mipLevels;
         toTransferDst.subresourceRange.baseArrayLayer = 0u;
