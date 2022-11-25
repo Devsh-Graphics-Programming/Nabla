@@ -234,10 +234,16 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     assert(dstImageTexelBlockInfo.getBlockByteSize()>0u);
     auto texelBlockDim = dstImageTexelBlockInfo.getDimension();
     uint32_t memoryNeededForRemainingRegions = 0ull;
+    
+    // We want to roundUp to bufferOffsetAlignment everytime we increment, because the incrementation here correspond a single copy command (assuming enough memory).
+    auto incrementMemoryNeeded = [&](const uint32_t size)
+    {
+        memoryNeededForRemainingRegions += size;
+        memoryNeededForRemainingRegions = core::roundUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
+    };
+
     for (uint32_t i = currentRegion; i < regions.size(); ++i)
     {
-        memoryNeededForRemainingRegions = core::roundUp(memoryNeededForRemainingRegions, bufferOffsetAlignment);
-
         const asset::IImage::SBufferCopy & region = regions[i];
 
         auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
@@ -284,36 +290,44 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
             auto remainingSlicesInLayer = imageExtentInBlocks.z - currentSliceInLayer;
             auto remainingLayersInRegion = region.imageSubresource.layerCount - currentLayerInRegion;
 
-            if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
-                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * remainingLayersInRegion;
+            if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
+            {
+                incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * remainingLayersInRegion);
+            }
             else if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
             {
-                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[2] * remainingSlicesInLayer;
-                if(remainingLayersInRegion > 1u)
-                    memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
+                incrementMemoryNeeded(imageExtentBlockStridesInBytes[2] * remainingSlicesInLayer);
+                if (remainingLayersInRegion > 1u)
+                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u));
             }
             else if (currentBlockInRow == 0 && currentRowInSlice > 0)
             {
-                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[1] * remainingRowsInSlice;
+                incrementMemoryNeeded(imageExtentBlockStridesInBytes[1] * remainingRowsInSlice);
+
                 if(remainingSlicesInLayer > 1u)
-                    memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u);
+                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u));
                 if(remainingLayersInRegion > 1u)
-                    memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
+                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u));
             }
             else if (currentBlockInRow > 0)
             {
-                memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[0] * remainingBlocksInRow;
+                // want to first fill the remaining blocks in current row
+                incrementMemoryNeeded(imageExtentBlockStridesInBytes[0] * remainingBlocksInRow);
+                // then fill the remaining rows in current slice
                 if(remainingRowsInSlice > 1u)
-                    memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[1] * (remainingRowsInSlice - 1u);
+                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[1] * (remainingRowsInSlice - 1u));
+                // then fill the remaining slices in current layer
                 if(remainingSlicesInLayer > 1u)
-                    memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u);
+                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u));
+                // then fill the remaining layers in current region
                 if(remainingLayersInRegion > 1u)
-                    memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u);
+                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u));
             }
         }
         else
         {
-            memoryNeededForRemainingRegions += imageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount; // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
+            // we want to fill the whole layers in the region
+            incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount); // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
         }
     }
     return memoryNeededForRemainingRegions;
