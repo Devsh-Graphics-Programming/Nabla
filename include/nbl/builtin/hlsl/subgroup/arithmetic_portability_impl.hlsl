@@ -1,7 +1,9 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
-uint localInvocationIndex : SV_GroupIndex; // REVIEW: Discuss proper placement of SV_* values. They are not allowed to be defined inside a function scope, only as arguments of global variables in the shader.
+#define WHOLE_WAVE ~0
+
+uint gl_LocalInvocationIndex : SV_GroupIndex; // REVIEW: Discuss proper placement of SV_* values. They are not allowed to be defined inside a function scope, only as arguments of global variables in the shader.
 
 namespace nbl
 {
@@ -117,7 +119,7 @@ struct exclusive_scan<binops::bitwise_add>
     template<typename T>
     T operator()(const T x)
     {
-        return WaveMultiPrefixSum(x, WHOLE_WAVE);
+        return WavePrefixSum(x);
     }
 };
 template<>
@@ -126,7 +128,7 @@ struct inclusive_scan<binops::bitwise_add>
     template<typename T>
     T operator()(const T x)
     {
-        return WaveMultiPrefixSum(x, WHOLE_WAVE) + x;
+        return WavePrefixSum(x) + x;
     }
 };
 
@@ -146,7 +148,7 @@ struct exclusive_scan<binops::bitwise_mul>
     template<typename T>
     T operator()(const T x)
     {
-        return WaveMultiPrefixProduct(x, WHOLE_WAVE);
+        return WavePrefixProduct(x);
     }
 };
 template<>
@@ -155,7 +157,7 @@ struct inclusive_scan<binops::bitwise_mul>
     template<typename T>
     T operator()(const T x)
     {
-        return WaveMultiPrefixProduct(x, WHOLE_WAVE) * x;
+        return WavePrefixProduct(x) * x;
     }
 };
 
@@ -264,40 +266,31 @@ struct ScratchAccessorAdaptor {
 
 struct scan_base
 {
-   // even if you have a `const uint nbl::hlsl::subgroup::Size` it wont work I think, so `#define` needed
-   static const uint SubgroupSize = nbl::hlsl::subgroup::subgroupSize();
-   static const uint HalfSubgroupSize = SubgroupSize>>1u; // REVIEW: Is this ok?
-   static const uint LoMask = SubgroupSize-1u;
-   static const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
-   static const uint pseudoSubgroupInvocation = localInvocationIndex&LoMask; // Also used in substructs, thus static const
+	// even if you have a `const uint nbl::hlsl::subgroup::Size` it wont work I think, so `#define` needed
+	static const uint SubgroupSize = nbl::hlsl::subgroup::Size();
+	static const uint HalfSubgroupSize = SubgroupSize>>1u; // REVIEW: Is this ok?
+	static const uint LoMask = SubgroupSize-1u;
+	static const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
+	static const uint pseudoSubgroupInvocation = gl_LocalInvocationIndex&LoMask; // Also used in substructs, thus static const
    
-    static inclusive_scan<Binop,ScratchAccessor> create()
-    {
-       const uint pseudoSubgroupElectedInvocation = localInvocationIndex&(~LoMask);
-    
-       inclusive_scan<Binop,ScratchAccessor> retval;
-       
-       const uint subgroupMemoryBegin = pseudoSubgroupElectedInvocation<<1u;
-       retval.lastLoadOffset = subgroupMemoryBegin+pseudoSubgroupInvocation;
-       
-       const uint paddingMemoryEnd = subgroupMemoryBegin+HalfSubgroupSize;
-       retval.scanStoreOffset = paddingMemoryEnd+pseudoSubgroupInvocation;
-       
-		uint reductionResultOffset = paddingMemoryEnd;
-		if ((LastWorkgroupInvocation>>nbl::hlsl::subgroup::subgroupSizeLog2())!=nbl::hlsl::subgroup::subgroupInvocationID())
-           retval.reductionResultOffset += LastWorkgroupInvocation&LoMask;
-		else
-           retval.reductionResultOffset += LoMask;
-
-		retval.paddingMemoryEnd = reductionResultOffset;
-
-       return retval;
+	static inclusive_scan<Binop,ScratchAccessor> create()
+	{
+		const uint pseudoSubgroupElectedInvocation = gl_LocalInvocationIndex&(~LoMask);
+		
+		inclusive_scan<Binop,ScratchAccessor> retval;
+		
+		const uint subgroupMemoryBegin = pseudoSubgroupElectedInvocation<<1u;
+		retval.lastLoadOffset = subgroupMemoryBegin+pseudoSubgroupInvocation;
+		retval.paddingMemoryEnd = subgroupMemoryBegin+HalfSubgroupSize;
+		retval.scanStoreOffset = retval.paddingMemoryEnd+pseudoSubgroupInvocation;
+		
+		return retval;
     }
    
 // protected:   
-   uint paddingMemoryEnd;
-   uint scanStoreOffset;
-   uint lastLoadOffset;
+	uint paddingMemoryEnd;
+	uint scanStoreOffset;
+	uint lastLoadOffset;
 };
 
 template<class Binop, class ScratchAccessor>
@@ -305,40 +298,57 @@ struct inclusive_scan : scan_base
 {
     static inclusive_scan<Binop,ScratchAccessor> create()
     {    
-       return scan_base<Binop,ScratchAccessor>::create(); // REVIEW: Is this correct?
+		return scan_base<Binop,ScratchAccessor>::create(); // REVIEW: Is this correct?
     }
 
     template<typename T, bool initializeScratch>
     T operator()(T value)
     {
-       ScratchAccessor scratchAccessor;
-       Binop op;
+		ScratchAccessor scratchAccessor;
+		Binop op;
        
-       if (initializeScratch)
-       {
-           nbl::hlsl::subgroupBarrier();
-           nbl::hlsl::subgroupMemoryBarrierShared();
-           scratchAccessor.set(scanStoreOffset ,value);
-           if (scan_base::pseudoSubgroupInvocation<scan_base::HalfSubgroupSize)
-               scratchAccessor.set(lastLoadOffset,op::identity());
-       }
-       nbl::hlsl::subgroupBarrier();
-       nbl::hlsl::subgroupMemoryBarrierShared();
-       // Stone-Kogge adder
-       // (devsh): it seems that lanes below <HalfSubgroupSize/step are doing useless work,
-       // but they're SIMD and adding an `if`/conditional execution is more expensive
-       value = op(value,scratchAccessor.get(scanStoreOffset-1u));
-       [[unroll]]
-       for (uint stp=2u; stp<=scan_base::HalfSubgroupSize; stp<<=1u)
-       {
-           scratchAccessor.set(scanStoreOffset,value);
-           nbl::hlsl::subgroupBarrier();
-           nbl::hlsl::subgroupMemoryBarrierShared();
-           value = op(value,scratchAccessor.get(scanStoreOffset-stp));
-           nbl::hlsl::subgroupBarrier();
-           nbl::hlsl::subgroupMemoryBarrierShared();
-       }
-       return value;
+		if (initializeScratch)
+		{
+			nbl::hlsl::subgroup::Barrier();
+			nbl::hlsl::subgroup::MemoryBarrierShared();
+			
+			// each invocation initializes its respective slot with its value
+			scratchAccessor.set(scanStoreOffset ,value);
+			
+			// additionally, the first half invocations initialize the padding slots
+			// with identity values
+			if (scan_base::pseudoSubgroupInvocation<scan_base::HalfSubgroupSize)
+				scratchAccessor.set(lastLoadOffset,op::identity());
+		}
+		nbl::hlsl::subgroup::Barrier();
+		nbl::hlsl::subgroup::MemoryBarrierShared();
+		// Stone-Kogge adder
+		// (devsh): it seems that lanes below <HalfSubgroupSize/step are doing useless work,
+		// but they're SIMD and adding an `if`/conditional execution is more expensive
+	#ifdef NBL_GL_KHR_shader_subgroup_shuffle
+		if(scan_base::pseudoSubgroupInvocation>=1u)
+			// the first invocation (index 0) in the subgroup doesn't have anything in its left
+			value = op(value, ShuffleUp(value, 1u));
+	#else
+		value = op(value,scratchAccessor.get(scanStoreOffset-1u));
+	#endif
+		[[unroll]]
+		for (uint step=2u; step<=scan_base::HalfSubgroupSize; step<<=1u)
+		{
+		#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: maybe use it by default?
+			// there is no scratch and padding entries in this case so we have to guard the shuffles to not go out of bounds
+			if(scan_base::pseudoSubgroupInvocation>=step)
+				value = op(value, ShuffleUp(value, step));
+		#else
+			scratchAccessor.set(scanStoreOffset,value);
+			nbl::hlsl::subgroup::Barrier();
+			nbl::hlsl::subgroup::MemoryBarrierShared();
+			value = op(value,scratchAccessor.get(scanStoreOffset-step));
+			nbl::hlsl::subgroup::Barrier();
+			nbl::hlsl::subgroup::MemoryBarrierShared();
+		#endif
+		}
+		return value;
     }
     
     template<typename T>
@@ -361,29 +371,32 @@ struct exclusive_scan
     template<typename T, bool initializeScratch>
     T operator()(T value)
     {
-       value = impl.operator()<T,initializeScratch>(value);
+		value = impl.operator()<T,initializeScratch>(value);
 
-       // store value to smem so we can shuffle it
-       scratchAccessor.set(impl.scanStoreOffset,value);
-       nbl::hlsl::subgroupBarrier();
-       nbl::hlsl::subgroupMemoryBarrierShared();
-       // get previous item
-       value = scratchAccessor.get(impl.scanStoreOffset-1u);
-       nbl::hlsl::subgroupBarrier();
-       nbl::hlsl::subgroupMemoryBarrierShared();
-
-       // return it
-       return value;
+		// store value to smem so we can shuffle it
+	#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: Should we check this or just use shuffle by default?
+		value = ShuffleUp(value, 1);
+	#else
+		scratchAccessor.set(impl.scanStoreOffset,value);
+		nbl::hlsl::subgroup::Barrier();
+		nbl::hlsl::subgroup::MemoryBarrierShared();
+		// get previous item
+		value = scratchAccessor.get(impl.scanStoreOffset-1u);
+		nbl::hlsl::subgroup::Barrier();
+		nbl::hlsl::subgroup::MemoryBarrierShared();
+	#endif
+		// return it
+		return value;
     }
     
     template<typename T>
     T operator()(const T value)
     {
-        return operator()<T,true>(value);
+		return operator()<T,true>(value);
     }
-    
+	
 // protected:
-    inclusive_scan<Binop,ScratchAccessor> impl;
+	inclusive_scan<Binop,ScratchAccessor> impl;
 };
 
 template<class Binop, class ScratchAccessor>
@@ -399,23 +412,29 @@ struct reduction
     template<typename T, bool initializeScratch>
     T operator()(T value)
     {
-       value = impl.operator()<T,initializeScratch>(value);
-
-       // store value to smem so we can broadcast it to everyone
-       scratchAccessor.set(impl.scanStoreOffset,value);
-       nbl::hlsl::subgroupBarrier();
-       nbl::hlsl::subgroupMemoryBarrierShared();
-       uint reductionResultOffset = impl.paddingMemoryEnd;
-       if ((scan_base::LastWorkgroupInvocation>>nbl::hlsl::subgroup::subgroupSizeLog2())!=nbl::hlsl::subgroup::ID())
-           reductionResultOffset += scan_base::LastWorkgroupInvocation & scan_base::LoMask;
-       else
-           reductionResultOffset += scan_base::LoMask;
-       value = scratchAccessor.get(reductionResultOffset);
-       nbl::hlsl::subgroupBarrier();
-       nbl::hlsl::subgroupMemoryBarrierShared();
-
-       // return it
-       return value;
+		value = impl.operator()<T,initializeScratch>(value);
+	
+		// in case of multiple subgroups inside the WG
+		if ((scan_base::LastWorkgroupInvocation>>nbl::hlsl::subgroup::SizeLog2())!=nbl::hlsl::subgroup::InvocationID())
+			reductionResultOffset += scan_base::LastWorkgroupInvocation & scan_base::LoMask;
+		else // in case of single subgroup in WG
+			reductionResultOffset += scan_base::LoMask;
+		
+	#ifdef NBL_GL_KHR_shader_subgroup_shuffle
+		Shuffle(value, reductionResultOffset);
+	#else
+		// store value to smem so we can broadcast it to everyone
+		scratchAccessor.set(impl.scanStoreOffset,value);
+		nbl::hlsl::subgroup::Barrier();
+		nbl::hlsl::subgroup::MemoryBarrierShared();
+		uint reductionResultOffset = impl.paddingMemoryEnd;
+		
+		value = scratchAccessor.get(reductionResultOffset);
+		nbl::hlsl::subgroup::Barrier();
+		nbl::hlsl::subgroup::MemoryBarrierShared();
+	#endif
+		// return it
+		return value;
     }
     
     template<typename T>
@@ -432,5 +451,7 @@ struct reduction
 }
 }
 }
+
+#undef WHOLE_WAVE
 
 #endif

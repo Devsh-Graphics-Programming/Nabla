@@ -5,8 +5,6 @@
 #include <nbl/builtin/hlsl/subgroup/basic_portability.hlsl>
 #endif
 
-static const uint4 WHOLE_WAVE = ~0; // REVIEW: Confirm this is proper placement and definition point
-
 namespace nbl
 {
 namespace hlsl
@@ -28,17 +26,29 @@ struct inclusive_scan;
 }
 #endif
 
+namespace portability
+{
+
+// PORTABILITY BINOP DECLARATIONS
+template<class Binop, class ScratchAccessor>
+struct reduction;
+template<class Binop, class ScratchAccessor>
+struct inclusive_scan;
+template<class Binop, class ScratchAccessor>
+struct exclusive_scan;
+
+}
+
 template<class Binop>
 struct reduction
 {
     template<class ScratchAccessor, typename T>
     T operator()(const T x)
-    {
+    { // REVIEW: Should these extension headers have the GL name?
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
         return native::reduction<Binop>()(x);
     #else
-        portability::reduction<Binop,ScratchAccessor> impl;
-        return impl(x);
+        return portability::reduction<Binop,ScratchAccessor>::create()(x);
     #endif
     }
 };
@@ -52,8 +62,7 @@ struct exclusive_scan
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
         return native::exclusive_scan<Binop>()(x);
     #else
-        portability::exclusive_scan<Binop,ScratchAccessor> impl;
-        return impl(x);
+        portability::exclusive_scan<Binop,ScratchAccessor>::create()(x);
     #endif
     }
 };
@@ -67,24 +76,10 @@ struct inclusive_scan
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
         return native::inclusive_scan<Binop>()(x);
     #else
-        portability::inclusive_scan<Binop,ScratchAccessor> impl;
-        return impl(x);
+        portability::inclusive_scan<Binop,ScratchAccessor>::create()(x);
     #endif
     }
 };
-
-namespace portability
-{
-
-// PORTABILITY BINOP DECLARATIONS
-template<class Binop, class ScratchAccessor>
-struct reduction;
-template<class Binop, class ScratchAccessor>
-struct inclusive_scan;
-template<class Binop, class ScratchAccessor>
-struct exclusive_scan;
-
-}
 
 }
 }

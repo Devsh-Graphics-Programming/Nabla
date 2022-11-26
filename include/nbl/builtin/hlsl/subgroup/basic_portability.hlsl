@@ -23,40 +23,40 @@ namespace subgroup
 	static const uint MaxSubgroupSize = (0x1<<MaxSubgroupSizeLog2);
 	
 	// REVIEW: No need for #ifdef check because these are always available in HLSL 2021 it seems
-	uint subgroupSize() {
+	uint Size() {
 		return WaveGetLaneCount();
 	}
 	
-	uint subgroupSizeLog2() {
-		return firstbithigh(subgroupSize());
+	uint SizeLog2() {
+		return firstbithigh(Size());
 	}
 	
-	uint subgroupInvocationID() {
+	uint InvocationID() {
 		return WaveGetLaneIndex();
 	}
 
 	// REVIEW: Masks don't seem to be available in Wave Ops
-	uint64_t subgroupEqMask() { // return type for these must be 64-bit
+	uint64_t EqMask() { // return type for these must be 64-bit
 		// REVIEW: I think the spec says that the subgroup size can potentially go up to 128 in which case uint64 won't work properly...
 		//  Should we somehow block shaders from running if subgroup size > 64?
 		//  Use uint64_t2 ?
-		return 0x1 << subgroupInvocationID();
+		return 0x1 << InvocationID();
 	}
 	
-	uint64_t subgroupGeMask() {
-		return 0xffffffff<<subgroupInvocationID();
+	uint64_t GeMask() {
+		return 0xffffffff<<InvocationID();
 	}
 	
-	uint64_t subgroupGtMask() {
-		return subgroupGeMask()<<1;
+	uint64_t GtMask() {
+		return GeMask()<<1;
 	}
 	
-	uint64_t subgroupLeMask() {
-		return ~subgroupGtMask();
+	uint64_t LeMask() {
+		return ~GtMask();
 	}
 	
-	uint64_t subgroupLtMask() {
-		return ~subgroupGeMask();
+	uint64_t LtMask() {
+		return ~GeMask();
 	}
 	
 	// REVIEW: Should we define the Small/LargeSubgroupXMask and Small/LargeHalfSubgroupSizes?
@@ -68,7 +68,7 @@ namespace subgroup
 	[[vk::ext_instruction(/* subgroupBarrier */ 224)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
 	void spirv_subgroupBarrier(uint executionScope, uint memoryScope, uint memorySemantics);
 	
-	void subgroupBarrier() {
+	void Barrier() {
 		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_scope_id
 		// Subgroup scope is number 3
 		
@@ -80,7 +80,7 @@ namespace subgroup
 	[[vk::ext_instruction(/* subgroupMemoryBarrierShared */ 225)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
 	void spirv_subgroupMemoryBarrierShared(uint memoryScope, uint memorySemantics);
 	
-	void subgroupMemoryBarrierShared() {
+	void MemoryBarrierShared() {
 		spirv_subgroupMemoryBarrierShared(3, 0x0); // REVIEW: Need advice on memory semantics. Would think SubgroupMemory(0x80) but have no idea
 	}
 }
