@@ -1,11 +1,4 @@
-############################################################################
-# list files you want to compile with DXC in _NBL_ENABLE_DXC_COMPILE_TESTS_
-# once we have guarantee all of shaders in Nabla can be compiled with DXC,
-# we can simply grep all of those files/use existing vars holding paths to
-# shaders and remove manual adding the files bellow
-###################################################
-
-set(_NBL_DXC_CT_INCLUDE_ROOT_ "${NBL_ROOT_PATH}/include") # Nabla include root path for shaders
+set(_NBL_DXC_CT_INCLUDE_ROOT_ "${NBL_ROOT_PATH}/include") # Nabla include root path
 set(_NBL_DXC_CT_BINARY_BIN_ "${CMAKE_CURRENT_BINARY_DIR}") # compile-test directory
 
 if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
@@ -13,12 +6,17 @@ if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
 	message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} _NBL_DXC_CT_BINARY_BIN_ = '${_NBL_DXC_CT_BINARY_BIN_}'")
 endif()
 
-# this is how you add file for compilation test
-set(_NBL_DXC_CT_SHADER_FILES_ 
-	"${_NBL_DXC_CT_INCLUDE_ROOT_}/nbl/builtin/hlsl/barycentric/utils.hlsl"
-)
+####################################
+# NBL_DXC_CT_ADD_INPUT_FILE function
+# @_NBL_INPUT_REL_FILEPATH_@ is path relative to _NBL_DXC_CT_INCLUDE_ROOT_, the file must be nested in _NBL_DXC_CT_INCLUDE_ROOT_ as well to follow Nabla include rules
+# @_NBL_PROFILE_@ is DXC target profile, e.g "lib_6_7"
+# @_NBL_ENTRY_POINT_@ is entry point name for both HLSL and SPIRV if enabled. Leave it as empty "" string to not specify the entry point explicitly
+# @_NBL_GENERATE_SPIRV_@ is a bool option for enabling SPIRV code generation 
+#############################################################################
 
-foreach(_SHADER_FILE_PATH_ IN LISTS _NBL_DXC_CT_SHADER_FILES_)
+function(NBL_DXC_CT_ADD_INPUT_FILE _NBL_INPUT_REL_FILEPATH_ _NBL_PROFILE_ _NBL_ENTRY_POINT_ _NBL_GENERATE_SPIRV_)
+	set(_SHADER_FILE_PATH_ "${_NBL_DXC_CT_INCLUDE_ROOT_}/${_NBL_INPUT_REL_FILEPATH_}")
+	
 	if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
 		message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} adding _SHADER_FILE_PATH_ = '${_SHADER_FILE_PATH_}' as INPUT of DXC CT target")
 	endif()
@@ -30,13 +28,31 @@ foreach(_SHADER_FILE_PATH_ IN LISTS _NBL_DXC_CT_SHADER_FILES_)
 	set(_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_ "${_NBL_DXC_CT_BINARY_BIN_}/${_SHADER_NEW_RELATIVE_OUTPUT_DIR_}/bin")
 	set(_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/${_SHADER_NEW_STEAM_}.bin")
 	
+	string(FIND "${_NBL_PROFILE_}" "lib" _TMP_FOUND_LIB_PROFILE_)
+	if("${_TMP_FOUND_LIB_PROFILE_}" STREQUAL "-1")
+		if(_NBL_GENERATE_SPIRV_)
+			cmake_path(REPLACE_EXTENSION _NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_ "spv")
+		endif()
+	else()
+		cmake_path(REPLACE_EXTENSION _NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_ "dxil")
+	endif()
+	unset(_TMP_FOUND_LIB_PROFILE_)
+	
 	# MSVC and other generators have "SetEnv" task - we need to make sure our enviroment is clean while invoking DXC compilation
 	string(APPEND _TMP_CLEAN_ENV_ "set PATH=$ENV{PATH}\nset CAExcludePath=\nset LIB=\nset LIBPATH=\nset INCLUDE=\nset EXTERNAL_INCLUDE=\n")
+	
+	if(NOT "${_NBL_ENTRY_POINT_}" STREQUAL "")
+		string(APPEND _TMP_ENTRY_POINT_ARG_ "-E ${_NBL_ENTRY_POINT_}")
+	endif()
+
+	if(_NBL_GENERATE_SPIRV_)
+		string(APPEND _TMP_ENABLE_SPIRV_GEN_ARG_ "-spirv")
+	endif()
 	
 	# include-dependency input file chain
 	set(_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/depends.txt")
 	set(_NBL_DXC_CT_CURRENT_IDC_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/depends.cmd")
-	string(APPEND _NBL_DXC_CT_WRAPPER_IDC_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T lib_6_7 -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -MF \"${_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
+	string(APPEND _NBL_DXC_CT_WRAPPER_IDC_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T ${_NBL_PROFILE_} ${_TMP_ENTRY_POINT_ARG_} ${_TMP_ENABLE_SPIRV_GEN_ARG_} -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -MF \"${_NBL_DXC_CT_CURRENT_DEPENDS_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
 	file(WRITE "${_NBL_DXC_CT_CURRENT_IDC_FILEPATH_}" "${_NBL_DXC_CT_WRAPPER_IDC_COMMAND_}")
 	
 	# create a file contating paths to all input file's dependencies scanned recursively
@@ -68,18 +84,23 @@ foreach(_SHADER_FILE_PATH_ IN LISTS _NBL_DXC_CT_SHADER_FILES_)
 	unset(_NBL_DXC_CT_DEPENDENCIES_L_)
 	
 	# compile command
-	string(APPEND _NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T lib_6_7 -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -Fo \"${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
+	string(APPEND _NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_ "${_TMP_CLEAN_ENV_}\"${DXC_EXECUTABLE}\" -HV 2021 -T ${_NBL_PROFILE_} ${_TMP_ENTRY_POINT_ARG_} ${_TMP_ENABLE_SPIRV_GEN_ARG_} -I\"${_NBL_DXC_CT_INCLUDE_ROOT_}\" -Zi -Fo \"${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}\" \"${_SHADER_FILE_PATH_}\"")
 	set(_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_ "${_NBL_DXC_CT_CURRENT_OUTPUT_BIN_DIR_}/compile.cmd")
 	file(WRITE "${_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_}" "${_NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_}")
 	
 	unset(_NBL_DXC_CT_WRAPPER_COMPILE_COMMAND_)
 	unset(_TMP_CLEAN_ENV_)
+	unset(_TMP_ENTRY_POINT_ARG_)
+	unset(_TMP_ENABLE_SPIRV_GEN_ARG_)
 	
 	if(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_)
 		message("${_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_} adding _NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_ = '${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}' as OUTPUT of DXC CT target")
 	endif()
 	
-	list(APPEND _NBL_DXC_CT_BIN_OUTPUTS_ "${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}")
+	set(_NBL_DXC_CT_BIN_OUTPUTS_ 
+		${_NBL_DXC_CT_BIN_OUTPUTS_}
+		"${_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_}"
+	PARENT_SCOPE)
 	
 	# create custom command per input file with it's all dependencies listed as DEPENDS
 	add_custom_command(
@@ -91,10 +112,17 @@ foreach(_SHADER_FILE_PATH_ IN LISTS _NBL_DXC_CT_SHADER_FILES_)
 		VERBATIM
 	)
 	
+	unset(_SHADER_FILE_PATH_)
 	unset(_NBL_DXC_CT_CURRENT_OUTPUT_FILEPATH_)
 	unset(_NBL_DXC_CT_CURRENT_SHADER_COMPILE_FILEPATH_)
 	unset(_NBL_DXC_CT_CURRENT_DEPS_LIST_)
-endforeach()
+endfunction()
+
+###############################################################################
+# list files you would like to compile with DXC using NBL_DXC_CT_ADD_INPUT_FILE
+###############################################################################
+
+NBL_DXC_CT_ADD_INPUT_FILE("nbl/builtin/hlsl/barycentric/utils.hlsl" "lib_6_7" "" OFF)
 
 # create custom targets for which DEPENDS are all of input files for DXC compile test
 add_custom_target(HLSL_NABLA_COMPILE_TEST DEPENDS ${_NBL_DXC_CT_BIN_OUTPUTS_}
@@ -105,5 +133,4 @@ add_dependencies(HLSL_NABLA_COMPILE_TEST dxc)
 
 unset(_NBL_DXC_CT_BIN_OUTPUTS_)
 unset(_NBL_DXC_CT_BINARY_BIN_)
-unset(_NBL_DXC_CT_SHADER_FILES_)
 unset(_NBL_DXC_CT_INCLUDE_ROOT_)
