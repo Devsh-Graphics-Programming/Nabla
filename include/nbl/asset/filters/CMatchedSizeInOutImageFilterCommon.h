@@ -195,7 +195,7 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 			{
 				IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
 				state_type::TexelRange range = {state->inOffset,state->extent};
-				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.outFormat);
+				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.inFormat);
 				// setup convert state
 				// I know my two's complement wraparound well enough to make this work
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
