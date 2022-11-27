@@ -1496,13 +1496,6 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImageView> >(assetCount);
 
-    asset::CConvertFormatImageFilter promoteFormatFilter;
-    asset::CConvertFormatImageFilter<>::state_type filterState = {};
-    filterState.inBaseLayer = 0u;
-    filterState.inOffset = { 0, 0, 0 };
-    filterState.outBaseLayer = 0u;
-    filterState.outOffset = { 0, 0, 0 };
-
     core::vector<asset::ICPUImage*> cpuDeps;
     cpuDeps.reserve(res->size());
 
