@@ -316,8 +316,9 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     return memoryNeededForRemainingRegions;
 }
 
-// These Swizzles makes sure copying from srcFormat image to promotedFormat image is consistent and extra "unused" channels will be ZERO and alpha will be ONE
-struct FourComponentSwizzle
+// This Swizzles makes sure copying from srcFormat image to promotedFormat image is consistent and extra "unused" channels will be ZERO and alpha will be ONE
+template<unsigned int SRC_CHANNELS>
+struct PromotionComponentSwizzle
 {
     template<typename InT, typename OutT>
     void operator()(const InT* in, OutT* out) const
@@ -326,51 +327,21 @@ struct FourComponentSwizzle
         using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
 
         reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
-        reinterpret_cast<out_t*>(out)[1u] = reinterpret_cast<const in_t*>(in)[1u];
-        reinterpret_cast<out_t*>(out)[2u] = reinterpret_cast<const in_t*>(in)[2u];
-        reinterpret_cast<out_t*>(out)[3u] = reinterpret_cast<const in_t*>(in)[3u];
-    }
-};
-struct ThreeComponentSwizzle
-{
-    template<typename InT, typename OutT>
-    void operator()(const InT* in, OutT* out) const
-    {
-        using in_t = std::conditional_t<std::is_void_v<InT>, uint64_t, InT>;
-        using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
 
-        reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
-        reinterpret_cast<out_t*>(out)[1u] = reinterpret_cast<const in_t*>(in)[1u];
-        reinterpret_cast<out_t*>(out)[2u] = reinterpret_cast<const in_t*>(in)[2u];
-        reinterpret_cast<out_t*>(out)[3u] = static_cast<in_t>(1);
-    }
-};
-struct TwoComponentSwizzle
-{
-    template<typename InT, typename OutT>
-    void operator()(const InT* in, OutT* out) const
-    {
-        using in_t = std::conditional_t<std::is_void_v<InT>, uint64_t, InT>;
-        using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
+        if constexpr (SRC_CHANNELS > 1)
+            reinterpret_cast<out_t*>(out)[1u] = reinterpret_cast<const in_t*>(in)[1u];
+        else
+            reinterpret_cast<out_t*>(out)[1u] = static_cast<in_t>(0);
 
-        reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
-        reinterpret_cast<out_t*>(out)[1u] = reinterpret_cast<const in_t*>(in)[1u];
-        reinterpret_cast<out_t*>(out)[2u] = static_cast<in_t>(0);
-        reinterpret_cast<out_t*>(out)[3u] = static_cast<in_t>(1);
-    }
-};
-struct OneComponentSwizzle
-{
-    template<typename InT, typename OutT>
-    void operator()(const InT* in, OutT* out) const
-    {
-        using in_t = std::conditional_t<std::is_void_v<InT>, uint64_t, InT>;
-        using out_t = std::conditional_t<std::is_void_v<OutT>, uint64_t, OutT>;
+        if constexpr (SRC_CHANNELS > 2)
+            reinterpret_cast<out_t*>(out)[2u] = reinterpret_cast<const in_t*>(in)[2u];
+        else
+            reinterpret_cast<out_t*>(out)[2u] = static_cast<in_t>(0);
 
-        reinterpret_cast<out_t*>(out)[0u] = reinterpret_cast<const in_t*>(in)[0u];
-        reinterpret_cast<out_t*>(out)[1u] = static_cast<in_t>(0);
-        reinterpret_cast<out_t*>(out)[2u] = static_cast<in_t>(0);
-        reinterpret_cast<out_t*>(out)[3u] = static_cast<in_t>(1);
+        if constexpr (SRC_CHANNELS > 3)
+            reinterpret_cast<out_t*>(out)[3u] = reinterpret_cast<const in_t*>(in)[3u];
+        else
+            reinterpret_cast<out_t*>(out)[3u] = static_cast<in_t>(1);
     }
 };
 
@@ -413,13 +384,13 @@ bool performCopy(
     {
         auto srcChannelCount = asset::getFormatChannelCount(srcImageFormat);
         if (srcChannelCount == 1u)
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, OneComponentSwizzle>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<1u>>>(inCPUImage, outCPUImage, region);
         else if (srcChannelCount == 2u)
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, TwoComponentSwizzle>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<2u>>>(inCPUImage, outCPUImage, region);
         else if (srcChannelCount == 3u)
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, ThreeComponentSwizzle>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<3u>>>(inCPUImage, outCPUImage, region);
         else
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, FourComponentSwizzle>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<4u>>>(inCPUImage, outCPUImage, region);
     }
 }
 
