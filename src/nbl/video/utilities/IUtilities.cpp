@@ -253,7 +253,7 @@ ImageRegionIterator::ImageRegionIterator(
     */
 
     imageFilterInCPUImages.resize(regions.size());
-    // imageFilterOutCPUImages.resize(regions.size());
+    imageFilterOutCPUImages.resize(regions.size());
     for (uint32_t i = 0; i < copyRegions.size(); ++i)
     {
         auto& inCPUImage = imageFilterInCPUImages[i];
@@ -291,6 +291,20 @@ ImageRegionIterator::ImageRegionIterator(
         inCPUImage->setBufferAndRegions(std::move(inCPUBuffer), inCpuImageRegionsDynArray);
         assert(inCPUImage->getBuffer());
         assert(inCPUImage->getRegions().size() > 0u);
+
+        // outCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u
+        // the buffer of this image is set to (stagingBufferPointer + stagingBufferOffset) and the related region is set to cover the whole copy region (offset from 0)
+
+        auto& outCPUImage = imageFilterOutCPUImages[i];
+        outCPUImageRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1);
+        
+        asset::ICPUImage::SCreationParams outCPUImageParams = dstImageParams;
+        outCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
+        outCPUImageParams.extent = region.imageExtent;
+        outCPUImageParams.arrayLayers = region.imageSubresource.layerCount;
+        outCPUImageParams.mipLevels = 1u;
+        outCPUImage = asset::ICPUImage::create(std::move(outCPUImageParams));
+        assert(outCPUImage);
     }
 }
 
@@ -563,48 +577,32 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     // ! Function to create mock cpu images that can go into image filters for copying/converting
     auto createMockInOutCPUImagesForFilter = [&](core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage, core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage, const size_t outCPUBufferSize) -> void
     {
-        // this one is cached because we can 
+        // Cached because we can
         inCPUImage = imageFilterInCPUImages[currentRegion];
-        auto dstImageParams = dstImage->getCreationParameters();
+        outCPUImage = imageFilterOutCPUImages[currentRegion];
 
-        // this one is not cached currently
-        // because image creation depends on creating it with a buffer pointing to stagingBuffer memory pointer which we do not have access to in initialization time
-        // [TODO] but maybe we could cache it by tricking the filtes to have the `stagingBufferOffset` with outOffsetBaseLayer 
-        // and we know we can because `stagingBufferOffset` is a multiple of block byte size, but range checks may fail?!
+        // But we need to set outCPUImage regions and buffer since that cannot be known at initialization time.
+        auto& outCpuImageRegion = outCPUImageRegions->front();
+        outCpuImageRegion = {};
+        outCpuImageRegion.bufferOffset = 0u;
+        outCpuImageRegion.bufferRowLength = regionToCopyNext.bufferRowLength;
+        outCpuImageRegion.bufferImageHeight = regionToCopyNext.bufferImageHeight;
+        outCpuImageRegion.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
+        outCpuImageRegion.imageSubresource.mipLevel = 0u;
+        outCpuImageRegion.imageSubresource.baseArrayLayer = 0u;
+        outCpuImageRegion.imageOffset.x = 0u;
+        outCpuImageRegion.imageOffset.y = 0u;
+        outCpuImageRegion.imageOffset.z = 0u;
+        outCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
+        outCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
+        outCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
+        outCpuImageRegion.imageSubresource.layerCount = core::max(regionToCopyNext.imageSubresource.layerCount, 1u);
 
-        // outCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u
-        // the buffer of this image is set to (stagingBufferPointer + stagingBufferOffset) and the related region is set to cover the whole copy region (offset from 0)
-        {
-            auto outCpuImageRegionsDynArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1);
-            auto& outCpuImageRegion = outCpuImageRegionsDynArray->front();
-            outCpuImageRegion = {};
-            outCpuImageRegion.bufferOffset = 0u;
-            outCpuImageRegion.bufferRowLength = regionToCopyNext.bufferRowLength;
-            outCpuImageRegion.bufferImageHeight = regionToCopyNext.bufferImageHeight;
-            outCpuImageRegion.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
-            outCpuImageRegion.imageSubresource.mipLevel = 0u;
-            outCpuImageRegion.imageSubresource.baseArrayLayer = 0u;
-            outCpuImageRegion.imageOffset.x = 0u;
-            outCpuImageRegion.imageOffset.y = 0u;
-            outCpuImageRegion.imageOffset.z = 0u;
-            outCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
-            outCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
-            outCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
-            outCpuImageRegion.imageSubresource.layerCount = core::max(regionToCopyNext.imageSubresource.layerCount, 1u);
-
-            asset::ICPUImage::SCreationParams outCPUImageParams = dstImageParams;
-            uint8_t* outCpuBufferPointer = reinterpret_cast<uint8_t*>(stagingBufferPointer) + stagingBufferOffset;
-            outCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
-            outCPUImageParams.extent = regionToCopyNext.imageExtent;
-            outCPUImageParams.arrayLayers = regionToCopyNext.imageSubresource.layerCount;
-            outCPUImageParams.mipLevels = 1u;
-            outCPUImage = asset::ICPUImage::create(std::move(outCPUImageParams));
-            assert(outCPUImage);
-            core::smart_refctd_ptr<asset::ICPUBuffer> outCPUBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(outCPUBufferSize, outCpuBufferPointer, core::adopt_memory);
-            outCPUImage->setBufferAndRegions(std::move(outCPUBuffer), outCpuImageRegionsDynArray);
-            assert(outCPUImage->getBuffer());
-            assert(outCPUImage->getRegions().size() > 0u);
-        }
+        uint8_t* outCpuBufferPointer = reinterpret_cast<uint8_t*>(stagingBufferPointer) + stagingBufferOffset;
+        core::smart_refctd_ptr<asset::ICPUBuffer> outCPUBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(outCPUBufferSize, outCpuBufferPointer, core::adopt_memory);
+        outCPUImage->setBufferAndRegions(std::move(outCPUBuffer), outCPUImageRegions);
+        assert(outCPUImage->getBuffer());
+        assert(outCPUImage->getRegions().size() > 0u);
     };
 
     if(currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && uploadableArrayLayers > 0)

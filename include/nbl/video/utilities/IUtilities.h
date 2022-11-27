@@ -1037,6 +1037,8 @@ private:
 
     // Mock CPU Images used to copy cpu buffer to staging buffer
     std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterInCPUImages;
+    core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy> outCPUImageRegions; // Because this needs to update before each upload
+    std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterOutCPUImages;
 
     bool canTransferMipLevelsPartially = false;
     asset::VkExtent3D minImageTransferGranularity = {};
