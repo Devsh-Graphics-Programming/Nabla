@@ -229,12 +229,12 @@ ImageRegionIterator::ImageRegionIterator(
         // [x] If Queue doesn't support GRAPHICS_BIT or COMPUTE_BIT ->  must be multiple of 4
         // [x] bufferOffset must be a multiple of texel block size in bytes
     bufferOffsetAlignment = dstImageTexelBlockInfo.getBlockByteSize(); // can be non power of two
-    if(asset::isDepthOrStencilFormat(dstImageFormat))
+    if (asset::isDepthOrStencilFormat(dstImageFormat))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
 
     bool queueSupportsCompute = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_COMPUTE_BIT);
     bool queueSupportsGraphics = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_GRAPHICS_BIT);
-    if((queueSupportsGraphics || queueSupportsCompute) == false)
+    if ((queueSupportsGraphics || queueSupportsCompute) == false)
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
     // TODO: Need to have a function to get equivalent format of the specific plane of this format (in aspectMask)
     // if(asset::isPlanarFormat(dstImageFormat->getCreationParameters().format))
@@ -242,6 +242,56 @@ ImageRegionIterator::ImageRegionIterator(
     // Queues supporting graphics and/or compute operations must report (1,1,1) in minImageTransferGranularity, meaning that there are no additional restrictions on the granularity of image transfer operations for these queues.
     // Other queues supporting image transfer operations are only required to support whole mip level transfers, thus minImageTransferGranularity for queues belonging to such queue families may be (0,0,0)
     canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
+
+    auto dstImageParams = dstImage->getCreationParameters();
+
+    /*
+        We have to first construct two `ICPUImage`s per Region named `inCPUImage` and `outCPUImage`
+        Then we will create fake ICPUBuffers that point to srcBuffer and stagingBuffer with correct offsets
+        Then we have to set the buffer and regions for each one of those ICPUImages using setBufferAndRegions
+        Finally we fill the filter state and `execute` which require in/out CPUImages
+    */
+
+    imageFilterInCPUImages.resize(regions.size());
+    // imageFilterOutCPUImages.resize(regions.size());
+    for (uint32_t i = 0; i < copyRegions.size(); ++i)
+    {
+        auto& inCPUImage = imageFilterInCPUImages[i];
+        const auto region = regions[i];
+        // inCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u and the format being srcImageFormat
+        // the buffer of this image is set to (srcBuffer+Offset) and the related region is set to cover the whole copy region (offset from 0)
+        auto inCpuImageRegionsDynArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1);
+        auto& inCpuImageRegion = inCpuImageRegionsDynArray->front();
+        inCpuImageRegion = {};
+        inCpuImageRegion.bufferOffset = 0u;
+        inCpuImageRegion.bufferRowLength = region.bufferRowLength;
+        inCpuImageRegion.bufferImageHeight = region.bufferImageHeight;
+        inCpuImageRegion.imageSubresource.aspectMask = region.imageSubresource.aspectMask;
+        inCpuImageRegion.imageSubresource.mipLevel = 0u;
+        inCpuImageRegion.imageSubresource.baseArrayLayer = 0u;
+        inCpuImageRegion.imageOffset.x = 0u;
+        inCpuImageRegion.imageOffset.y = 0u;
+        inCpuImageRegion.imageOffset.z = 0u;
+        inCpuImageRegion.imageExtent.width = region.imageExtent.width;
+        inCpuImageRegion.imageExtent.height = region.imageExtent.height;
+        inCpuImageRegion.imageExtent.depth = region.imageExtent.depth;
+        inCpuImageRegion.imageSubresource.layerCount = region.imageSubresource.layerCount;
+
+        uint64_t offsetInCPUBuffer = region.bufferOffset;
+        uint8_t* inCpuBufferPointer = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(srcBuffer->getPointer()) + offsetInCPUBuffer);
+        asset::ICPUImage::SCreationParams inCPUImageParams = dstImageParams;
+        inCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
+        inCPUImageParams.format = srcImageFormat;
+        inCPUImageParams.extent = region.imageExtent;
+        inCPUImageParams.arrayLayers = region.imageSubresource.layerCount;
+        inCPUImageParams.mipLevels = 1u; // since we copy one mip at a time to our dst image, it doesn't matter at the stage when we copy from cpu memory to staging memory
+        inCPUImage = asset::ICPUImage::create(std::move(inCPUImageParams));
+        assert(inCPUImage);
+        core::smart_refctd_ptr<asset::ICPUBuffer> inCPUBuffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(srcBuffer->getSize(), inCpuBufferPointer, core::adopt_memory);
+        inCPUImage->setBufferAndRegions(std::move(inCPUBuffer), inCpuImageRegionsDynArray);
+        assert(inCPUImage->getBuffer());
+        assert(inCPUImage->getRegions().size() > 0u);
+    }
 }
 
 size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
@@ -347,6 +397,8 @@ struct PromotionComponentSwizzle
 
 template<typename Filter>
 bool performCopyUsingImageFilter(
+    const core::vector4du32_SIMD& inOffsetBaseLayer,
+    const core::vector4du32_SIMD& ouOffsetBaseLayer,
     const core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage,
     const core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage,
     const asset::IImage::SBufferCopy& region)
@@ -357,7 +409,7 @@ bool performCopyUsingImageFilter(
     state.layerCount = region.imageSubresource.layerCount;
     state.inImage = inCPUImage.get();
     state.outImage = outCPUImage.get();
-    state.inOffsetBaseLayer = core::vectorSIMDu32(0u);
+    state.inOffsetBaseLayer = inOffsetBaseLayer;
     state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
     state.inMipLevel = 0u;
     state.outMipLevel = 0u;
@@ -368,9 +420,11 @@ bool performCopyUsingImageFilter(
         return false;
 }
 
-bool performCopy(
+bool performIntermediateCopy(
     asset::E_FORMAT srcImageFormat,
     asset::E_FORMAT dstImageFormat,
+    const core::vector4du32_SIMD& inOffsetBaseLayer,
+    const core::vector4du32_SIMD& outOffsetBaseLayer,
     const core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage,
     const core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage,
     const asset::IImage::SBufferCopy& region)
@@ -378,19 +432,19 @@ bool performCopy(
     // In = srcBuffer, Out = stagingBuffer
     if (srcImageFormat == dstImageFormat)
     {
-        return performCopyUsingImageFilter<asset::CCopyImageFilter>(inCPUImage, outCPUImage, region);
+        return performCopyUsingImageFilter<asset::CCopyImageFilter>(inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, region);
     }
     else
     {
         auto srcChannelCount = asset::getFormatChannelCount(srcImageFormat);
         if (srcChannelCount == 1u)
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<1u>>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<1u>>>(inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, region);
         else if (srcChannelCount == 2u)
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<2u>>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<2u>>>(inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, region);
         else if (srcChannelCount == 3u)
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<3u>>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<3u>>>(inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, region);
         else
-            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<4u>>>(inCPUImage, outCPUImage, region);
+            performCopyUsingImageFilter<asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN, PromotionComponentSwizzle<4u>>>(inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, region);
     }
 }
 
@@ -508,52 +562,15 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
 
     // ! Function to create mock cpu images that can go into image filters for copying/converting
     auto createMockInOutCPUImagesForFilter = [&](core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage, core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage, const size_t outCPUBufferSize) -> void
-    {        
-        /*
-            We have to first construct two `ICPUImage`s from each of those buffers `inCPUImage` and `outCPUImage`
-            Then we will create fake ICPUBuffers that point to srcBuffer and stagingBuffer with correct offsets
-            Then we have to set the buffer and regions for each one of those ICPUImages using setBufferAndRegions
-            Finally we fill the filter state and `execute` which require in/out CPUImages
-        */
-            
+    {
+        // this one is cached because we can 
+        inCPUImage = imageFilterInCPUImages[currentRegion];
         auto dstImageParams = dstImage->getCreationParameters();
 
-        // inCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u and the format being srcImageFormat
-        // the buffer of this image is set to (srcBuffer+Offset) and the related region is set to cover the whole copy region (offset from 0)
-        {
-            auto inCpuImageRegionsDynArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1);
-            auto& inCpuImageRegion = inCpuImageRegionsDynArray->front();
-            inCpuImageRegion = {};
-            inCpuImageRegion.bufferOffset = 0u;
-            inCpuImageRegion.bufferRowLength = mainRegion.bufferRowLength;
-            inCpuImageRegion.bufferImageHeight = mainRegion.bufferImageHeight;
-            inCpuImageRegion.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
-            inCpuImageRegion.imageSubresource.mipLevel = 0u;
-            inCpuImageRegion.imageSubresource.baseArrayLayer = 0u;
-            inCpuImageRegion.imageOffset.x = 0u;
-            inCpuImageRegion.imageOffset.y = 0u;
-            inCpuImageRegion.imageOffset.z = 0u;
-            inCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
-            inCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
-            inCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
-            inCpuImageRegion.imageSubresource.layerCount = core::max(regionToCopyNext.imageSubresource.layerCount, 1u);
-
-            auto localImageOffset = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
-            uint64_t offsetInCPUBuffer = mainRegion.bufferOffset + core::dot(localImageOffset, srcBufferByteStrides)[0];
-            uint8_t* inCpuBufferPointer = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(srcBuffer->getPointer()) + offsetInCPUBuffer);
-            asset::ICPUImage::SCreationParams inCPUImageParams = dstImageParams;
-            inCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
-            inCPUImageParams.format = srcImageFormat;
-            inCPUImageParams.extent = regionToCopyNext.imageExtent;
-            inCPUImageParams.arrayLayers = regionToCopyNext.imageSubresource.layerCount;
-            inCPUImageParams.mipLevels = 1u;
-            inCPUImage = asset::ICPUImage::create(std::move(inCPUImageParams));
-            assert(inCPUImage);
-            core::smart_refctd_ptr<asset::ICPUBuffer> inCPUBuffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(srcBuffer->getSize(), inCpuBufferPointer, core::adopt_memory);
-            inCPUImage->setBufferAndRegions(std::move(inCPUBuffer), inCpuImageRegionsDynArray);
-            assert(inCPUImage->getBuffer());
-            assert(inCPUImage->getRegions().size() > 0u);
-        }
+        // this one is not cached currently
+        // because image creation depends on creating it with a buffer pointing to stagingBuffer memory pointer which we do not have access to in initialization time
+        // [TODO] but maybe we could cache it by tricking the filtes to have the `stagingBufferOffset` with outOffsetBaseLayer 
+        // and we know we can because `stagingBufferOffset` is a multiple of block byte size, but range checks may fail?!
 
         // outCPUImage is an image matching the params of dstImage but with the extents and layer count of the current region being copied and mipLevel 1u
         // the buffer of this image is set to (stagingBufferPointer + stagingBufferOffset) and the related region is set to cover the whole copy region (offset from 0)
@@ -612,7 +629,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, layersToUploadMemorySize);
 
-        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
+        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        const auto outOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {
@@ -650,7 +669,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, slicesToUploadMemorySize);
 
-        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
+        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        const auto outOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {
@@ -688,7 +709,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, rowsToUploadMemorySize);
 
-        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
+        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        const auto outOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {
@@ -727,7 +750,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, blocksToUploadMemorySize);
 
-        bool copySuccess = performCopy(srcImageFormat, dstImageFormat, inCPUImage, outCPUImage, regionToCopyNext);
+        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        const auto outOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow, currentRowInSlice, currentSliceInLayer, currentLayerInRegion);
+        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, outOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
         {

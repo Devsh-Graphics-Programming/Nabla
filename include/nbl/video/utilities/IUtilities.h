@@ -1035,6 +1035,9 @@ public:
 private:
     core::SRange<const asset::IImage::SBufferCopy> regions;
 
+    // Mock CPU Images used to copy cpu buffer to staging buffer
+    std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterInCPUImages;
+
     bool canTransferMipLevelsPartially = false;
     asset::VkExtent3D minImageTransferGranularity = {};
     uint32_t bufferOffsetAlignment = 1u;
