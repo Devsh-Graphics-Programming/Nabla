@@ -43,29 +43,98 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
 
 		//!
-		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const IGPUBuffer* src) const
+		virtual bool validateCopies(const core::SRange<const SBufferCopy>& regions, const IGPUBuffer* src, const asset::VkExtent3D& minImageTransferGranularity = { 1,1,1 }) const
 		{
-			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
-				return false;
-			
-			#ifdef _NBL_DEBUG // TODO: When Vulkan comes
-			#endif
-			return true;
-		}
-			
-		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const IGPUImage* src) const
-		{
-			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
+			if (!validateCopies_template(regions.begin(), regions.end(), src))
 				return false;
 
-			#ifdef _NBL_DEBUG // TODO: When Vulkan comes
-				// image offset and extent must respect granularity requirements
-				// buffer has memory bound (with sparse exceptions)
-				// check buffer has transfer usage flag
-				// format features of dstImage contain transfer dst bit
-				// dst image not created subsampled
-				// etc.
-			#endif
+			const auto srcParams = src->getCreationParams();
+			if (!srcParams.usage.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
+				return false;
+
+			for (const auto region : regions)
+			{
+				auto subresourceSize = getMipSize(region.imageSubresource.mipLevel);
+				if (!validateCopyOffsetAndExtent(region.imageExtent, region.imageOffset, subresourceSize, minImageTransferGranularity))
+					return false;
+			}
+
+			// TODO:
+			// buffer has memory bound (with sparse exceptions)
+			// format features of dstImage contain transfer dst bit
+			// dst image not created subsampled
+			return true;
+		}
+		
+		//!
+		virtual bool validateCopies(const core::SRange<const SImageCopy>& regions, const IGPUImage* src, const asset::VkExtent3D& minImageTransferGranularity = {1,1,1}) const
+		{
+			if (!validateCopies_template(regions.begin(), regions.begin(), src))
+				return false;
+
+			const auto srcParams = src->getCreationParameters();
+			if (!srcParams.usage.hasFlags(asset::IImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
+				return false;
+
+			for (const auto region : regions)
+			{
+				auto srcSubresourceSize = src->getMipSize(region.srcSubresource.mipLevel);
+				if (!validateCopyOffsetAndExtent(region.extent, region.srcOffset, srcSubresourceSize, minImageTransferGranularity))
+					return false;
+				auto dstSubresourceSize = getMipSize(region.dstSubresource.mipLevel);
+				if (!validateCopyOffsetAndExtent(region.extent, region.dstOffset, dstSubresourceSize, minImageTransferGranularity))
+					return false;
+			}
+
+			// TODO:
+			// buffer has memory bound (with sparse exceptions)
+			// format features of dstImage contain transfer dst bit
+			// dst image not created subsampled
+			return true;
+		}
+
+		// ! See Vulkan Specification Notes on `VkQueueFamilyProperties::minImageTransferGranularity`
+		virtual bool validateCopyOffsetAndExtent(const asset::VkExtent3D& extent, const asset::VkOffset3D& offset, const core::vector3du32_SIMD& subresourceSize, const asset::VkExtent3D& minImageTransferGranularity) const
+		{
+			const bool canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
+			auto texelBlockDim = asset::getBlockDimensions(m_creationParams.format);
+
+			if (canTransferMipLevelsPartially)
+			{
+				// region's imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
+				bool isImageOffsetAlignmentValid =
+					(offset.x % (minImageTransferGranularity.width * texelBlockDim.x) == 0) &&
+					(offset.y % (minImageTransferGranularity.height * texelBlockDim.y) == 0) &&
+					(offset.z % (minImageTransferGranularity.depth * texelBlockDim.z) == 0);
+
+				if (!isImageOffsetAlignmentValid)
+					return false;
+
+				// region's imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
+				// OR ELSE (offset.{x/y/z} + extent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
+				bool isImageExtentAlignmentValid =
+					(extent.width % (minImageTransferGranularity.width * texelBlockDim.x) == 0 || (offset.x + extent.width == subresourceSize.x)) &&
+					(extent.height % (minImageTransferGranularity.height * texelBlockDim.y) == 0 || (offset.y + extent.height == subresourceSize.y)) &&
+					(extent.depth % (minImageTransferGranularity.depth * texelBlockDim.z) == 0 || (offset.z + extent.depth == subresourceSize.z));
+
+				if (!isImageExtentAlignmentValid)
+					return false;
+
+				bool isImageExtentAndOffsetValid =
+					(extent.width + offset.x <= subresourceSize.x) &&
+					(extent.height + offset.y <= subresourceSize.y) &&
+					(extent.depth + offset.z <= subresourceSize.z);
+
+				if (!isImageExtentAndOffsetValid)
+					return false;
+			}
+			else
+			{
+				if (!(offset.x == 0 && offset.y == 0 && offset.z == 0))
+					return false;
+				if (!(extent.width == subresourceSize.x && extent.height == subresourceSize.y && extent.depth == subresourceSize.z))
+					return false;
+			}
 			return true;
 		}
 
@@ -74,6 +143,7 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
+
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
 		//! constructor
