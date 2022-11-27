@@ -51,6 +51,22 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
         srcFormat = dstImage->getCreationParameters().format;
     }
 
+    // Validate Copies from srcBuffer to dstImage with these regions
+    // if the initial regions are valid then ImageRegionIterator will do it's job correctly breaking it down ;)
+    // note to future self: couldn't use dstImage->validateCopies because it doesn't consider that cpubuffer will be promoted and hence it will get a validation error about size of the buffer being smaller than max accessible offset.
+    bool regionsValid = true;
+    for (const auto region : regions)
+    {
+        auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
+        if (!dstImage->validateCopyOffsetAndExtent(region.imageExtent, region.imageOffset, subresourceSize, minImageTransferGranularity))
+            regionsValid = false;
+    }
+    if (!regionsValid)
+    {
+        assert(false);
+        return intendedNextSubmit;
+    }
+
     ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, srcFormat, dstImage);
 
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
@@ -231,7 +247,7 @@ ImageRegionIterator::ImageRegionIterator(
 size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
 {
     asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
-    assert(dstImageTexelBlockInfo.getBlockByteSize()>0u);
+    assert(dstImageTexelBlockInfo.getBlockByteSize() > 0u);
     auto texelBlockDim = dstImageTexelBlockInfo.getDimension();
     uint32_t memoryNeededForRemainingRegions = 0ull;
     
@@ -245,44 +261,6 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     for (uint32_t i = currentRegion; i < regions.size(); ++i)
     {
         const asset::IImage::SBufferCopy & region = regions[i];
-
-        auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
-
-        // Validate Region, TODO: move these to IGPUImage::validateCopies and call them on every region at the beginning
-
-        assert(static_cast<uint32_t>(region.imageSubresource.aspectMask) != 0u);
-        assert(core::isPoT(static_cast<uint32_t>(region.imageSubresource.aspectMask)) && "region.aspectMask should only have a single bit set.");
-        
-        // canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
-        if (canTransferMipLevelsPartially)
-        {
-            // region.imageOffset.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size
-            bool isImageOffsetAlignmentValid =
-                (region.imageOffset.x % (minImageTransferGranularity.width * texelBlockDim.x) == 0) &&
-                (region.imageOffset.y % (minImageTransferGranularity.height * texelBlockDim.y) == 0) &&
-                (region.imageOffset.z % (minImageTransferGranularity.depth * texelBlockDim.z) == 0);
-            assert(isImageOffsetAlignmentValid);
-
-            // region.imageExtent.{xyz} should be multiple of minImageTransferGranularity.{xyz} scaled up by block size,
-            // OR ELSE (region.imageOffset.{x/y/z} + region.imageExtent.{width/height/depth}) MUST be equal to subresource{Width,Height,Depth}
-            bool isImageExtentAlignmentValid = 
-                (region.imageExtent.width  % (minImageTransferGranularity.width  * texelBlockDim.x) == 0 || (region.imageOffset.x + region.imageExtent.width   == subresourceSize.x)) && 
-                (region.imageExtent.height % (minImageTransferGranularity.height * texelBlockDim.y) == 0 || (region.imageOffset.y + region.imageExtent.height  == subresourceSize.y)) &&
-                (region.imageExtent.depth  % (minImageTransferGranularity.depth  * texelBlockDim.z) == 0 || (region.imageOffset.z + region.imageExtent.depth   == subresourceSize.z));
-            assert(isImageExtentAlignmentValid);
-
-            bool isImageExtentAndOffsetValid = 
-                (region.imageExtent.width + region.imageOffset.x <= subresourceSize.x) &&
-                (region.imageExtent.height + region.imageOffset.y <= subresourceSize.y) &&
-                (region.imageExtent.depth + region.imageOffset.z <= subresourceSize.z);
-            assert(isImageExtentAndOffsetValid);
-        }
-        else
-        {
-            assert(region.imageOffset.x == 0 && region.imageOffset.y == 0 && region.imageOffset.z == 0);
-            assert(region.imageExtent.width == subresourceSize.x && region.imageExtent.height == subresourceSize.y && region.imageExtent.depth == subresourceSize.z);
-        }
-
 
         auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
         auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(imageExtent);
@@ -681,7 +659,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     }
     else if (currentBlockInRow == 0 && currentRowInSlice == 0 && canTransferMipLevelsPartially && uploadableSlices > 0)
     {
-        // tryFillLayer();
         uint32_t slicesToUploadMemorySize = eachSliceNeededMemory * uploadableSlices;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
@@ -720,7 +697,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     }
     else if (currentBlockInRow == 0 && canTransferMipLevelsPartially && uploadableRows > 0)
     {
-        // tryFillSlice();
         uint32_t rowsToUploadMemorySize = eachRowNeededMemory * uploadableRows;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;

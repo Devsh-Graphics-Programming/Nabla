@@ -43,19 +43,19 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
 
 		//!
-		virtual bool validateCopies(const core::SRange<const SBufferCopy>& regions, const IGPUBuffer* src, const asset::VkExtent3D& minImageTransferGranularity = { 1,1,1 }) const
+		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const IGPUBuffer* src, const asset::VkExtent3D& minImageTransferGranularity = { 1,1,1 }) const
 		{
-			if (!validateCopies_template(regions.begin(), regions.end(), src))
+			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
 				return false;
 
 			const auto srcParams = src->getCreationParams();
 			if (!srcParams.usage.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
 				return false;
 
-			for (const auto region : regions)
+			for (auto region = pRegionsBegin; region != pRegionsEnd; region++)
 			{
-				auto subresourceSize = getMipSize(region.imageSubresource.mipLevel);
-				if (!validateCopyOffsetAndExtent(region.imageExtent, region.imageOffset, subresourceSize, minImageTransferGranularity))
+				auto subresourceSize = getMipSize(region->imageSubresource.mipLevel);
+				if (!validateCopyOffsetAndExtent(region->imageExtent, region->imageOffset, subresourceSize, minImageTransferGranularity))
 					return false;
 			}
 
@@ -67,22 +67,22 @@ class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, publ
 		}
 		
 		//!
-		virtual bool validateCopies(const core::SRange<const SImageCopy>& regions, const IGPUImage* src, const asset::VkExtent3D& minImageTransferGranularity = {1,1,1}) const
+		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const IGPUImage* src, const asset::VkExtent3D& minImageTransferGranularity = { 1,1,1 }) const
 		{
-			if (!validateCopies_template(regions.begin(), regions.begin(), src))
+			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
 				return false;
 
 			const auto srcParams = src->getCreationParameters();
 			if (!srcParams.usage.hasFlags(asset::IImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
 				return false;
 
-			for (const auto region : regions)
+			for (auto region = pRegionsBegin; region != pRegionsEnd; region++)
 			{
-				auto srcSubresourceSize = src->getMipSize(region.srcSubresource.mipLevel);
-				if (!validateCopyOffsetAndExtent(region.extent, region.srcOffset, srcSubresourceSize, minImageTransferGranularity))
+				auto srcSubresourceSize = src->getMipSize(region->srcSubresource.mipLevel);
+				if (!validateCopyOffsetAndExtent(region->extent, region->srcOffset, srcSubresourceSize, minImageTransferGranularity))
 					return false;
-				auto dstSubresourceSize = getMipSize(region.dstSubresource.mipLevel);
-				if (!validateCopyOffsetAndExtent(region.extent, region.dstOffset, dstSubresourceSize, minImageTransferGranularity))
+				auto dstSubresourceSize = getMipSize(region->dstSubresource.mipLevel);
+				if (!validateCopyOffsetAndExtent(region->extent, region->dstOffset, dstSubresourceSize, minImageTransferGranularity))
 					return false;
 			}
 
