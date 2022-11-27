@@ -10,7 +10,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 {
     if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
     {
-        // TODO: log error -> intendedNextSubmit is invalid
+        m_logger.log("intendedNextSubmit is invalid.", nbl::system::ILogger::ELL_ERROR);
         assert(false);
         return intendedNextSubmit;
     }
@@ -169,7 +169,7 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 {
     if(!submitInfo.isValid())
     {
-        // TODO: log error
+        m_logger.log("submitInfo is invalid.", nbl::system::ILogger::ELL_ERROR);
         assert(false);
         return;
     }
@@ -190,7 +190,7 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 {
     if(!submitInfo.isValid())
     {
-        // TODO: log error
+        m_logger.log("submitInfo is invalid.", nbl::system::ILogger::ELL_ERROR);
         assert(false);
         return;
     }

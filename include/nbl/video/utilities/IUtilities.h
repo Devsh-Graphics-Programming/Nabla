@@ -24,8 +24,12 @@ class NBL_API IUtilities : public core::IReferenceCounted
         uint32_t m_allocationAlignment = 0u;
         uint32_t m_allocationAlignmentForBufferImageCopy = 0u;
 
+        nbl::system::logger_opt_smart_ptr m_logger;
+
     public:
-        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u) : m_device(std::move(device))
+        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger = nullptr, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u)
+            : m_device(std::move(device))
+            , m_logger(std::move(logger))
         {
             auto physicalDevice = m_device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();
