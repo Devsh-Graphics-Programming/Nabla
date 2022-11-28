@@ -506,8 +506,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     const auto imageOffsetInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(mainRegion.imageOffset.x, mainRegion.imageOffset.y, mainRegion.imageOffset.z));
     const auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(mainRegion.imageExtent.width, mainRegion.imageExtent.height, mainRegion.imageExtent.depth));
 
-    const auto copyTexelStrides = getOptimalCopyTexelStrides(mainRegion.imageExtent);
-    const core::vector4du32_SIMD copyByteStrides = dstImageTexelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides);
+    const auto copyBlockStrides = dstImageTexelBlockInfo.convertTexelsToBlocks(getOptimalCopyTexelStrides(mainRegion.imageExtent));
+    const core::vector4du32_SIMD copyByteStrides = dstImageTexelBlockInfo.convert3DBlockStridesTo1DByteStrides(copyBlockStrides);
 
     // region <-> region.imageSubresource.layerCount <-> imageExtentInBlocks.z <-> imageExtentInBlocks.y <-> imageExtentInBlocks.x
     auto updateCurrentOffsets = [&]() -> void
@@ -601,8 +601,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t layersToUploadMemorySize = eachLayerNeededMemory * uploadableArrayLayers;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
-        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
+        regionToCopyNext.bufferRowLength = copyBlockStrides.x * texelBlockDim.x;
+        regionToCopyNext.bufferImageHeight = copyBlockStrides.y * texelBlockDim.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;
@@ -640,8 +640,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t slicesToUploadMemorySize = eachSliceNeededMemory * uploadableSlices;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
-        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
+        regionToCopyNext.bufferRowLength = copyBlockStrides.x * texelBlockDim.x;
+        regionToCopyNext.bufferImageHeight = copyBlockStrides.y * texelBlockDim.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;
@@ -679,8 +679,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t rowsToUploadMemorySize = eachRowNeededMemory * uploadableRows;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
-        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
+        regionToCopyNext.bufferRowLength = copyBlockStrides.x * texelBlockDim.x;
+        regionToCopyNext.bufferImageHeight = copyBlockStrides.y * texelBlockDim.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;
@@ -719,8 +719,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t blocksToUploadMemorySize = eachBlockNeededMemory * uploadableBlocks;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
-        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
+        regionToCopyNext.bufferRowLength = copyBlockStrides.x * texelBlockDim.x;
+        regionToCopyNext.bufferImageHeight = copyBlockStrides.y * texelBlockDim.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;
