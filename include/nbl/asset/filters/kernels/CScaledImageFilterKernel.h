@@ -79,6 +79,13 @@ class NBL_API CScaledImageFilterKernel : //order of bases is important! do not c
 			return Kernel::validate(inImage, outImage);
 		}
 
+		inline float weight(const float x, const uint32_t channel) const
+		{
+			// This will breakdown if `negative_support` didn't start a negative value.
+			const bool inDomain = ((-x) < this->negative_support.x) && (x < this->positive_support.x);
+			return inDomain ? this->kernel.weight(x*this->rscale.x, channel) * this->rscale.x : 0.f;
+		}
+
 		// this is the only bit that differs
 		template<class PreFilter, class PostFilter>
 		struct sample_functor_t

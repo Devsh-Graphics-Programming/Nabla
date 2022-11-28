@@ -11,66 +11,131 @@
 #include "nbl/asset/filters/kernels/CKaiserImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CMitchellImageFilterKernel.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-//during implementation remember about composition instead of inheritance
-#if 0 // implementations are a TODO (we probably need a polyphase kernel to cache these results)
-// class for an image filter kernel which is a convolution of two image filter kernels
-template<class KernelA, class KernelB>
-class NBL_API CConvolutionImageFilterKernel;
-
-namespace impl
+// this is the horribly slow generic version that you should not use (only use the specializations)
+template<typename KernelA, typename KernelB>
+class NBL_API CConvolutionImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernel<KernelA, KernelB>>
 {
-	template<class KernelA, class KernelB, class CRTP>
-	class NBL_API CConvolutionImageFilterKernelBase : protected KernelA, protected KernelB, public CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernelBase<KernelA,KernelB,CRTP>>
+	using Base = CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernel<KernelA, KernelB>>;
+
+	static_assert(std::is_same_v<KernelA::value_type, KernelB::value_type>, "Both kernels must use the same value_type!");
+	static_assert(KernelA::is_separable && KernelB::is_separable, "Convolving Non-Separable Filters is a TODO!");
+
+public:
+	CConvolutionImageFilterKernel(KernelA&& kernelA, KernelB&& kernelB)
+		: Base(kernelA.negative_support.x + kernelB.negative_support.x, kernelA.positive_support.x + kernelB.positive_support.x),
+		m_kernelA(std::move(kernelA)), m_kernelB(std::move(kernelB))
+	{}
+
+	float weight(const float x, const uint32_t channel, const uint32_t sampleCount = 64u) const
 	{
-		// TODO: figure out what I meant to do here
-			//static_assert(std::is_same_v<typename KernelA::value_type,typename KernelB::value_type>::value, "Both kernels must use the same value_type!");
-			static_assert(
-				std::is_base_of<CFloatingPointIsotropicSeparableImageFilterKernelBase<KernelA>,typename KernelA>::value&&
-				std::is_base_of<CFloatingPointIsotropicSeparableImageFilterKernelBase<KernelB>,typename KernelB>::value,
-				"Both kernels must be derived from CFloatingPointIsotropicSeparableImageFilterKernelBase!"
-			);
+		auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
 
-		protected:
-			CConvolutionImageFilterKernelBase(KernelA&& a, KernelB&& b) : KernelA(std::move(a)), KernelB(std::move(b)),
-				CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernelBase<KernelA, KernelB, CRTP>>{
-						{
-							KernelA::positive_support[0]+KernelB::positive_support[0],
-							KernelA::positive_support[1]+KernelB::positive_support[1],
-							KernelA::positive_support[2]+KernelB::positive_support[2]
-						},
-						{
-							KernelA::negative_support[0]+KernelB::negative_support[0],
-							KernelA::negative_support[1]+KernelB::negative_support[1],
-							KernelA::negative_support[2]+KernelB::negative_support[2]
-						}
-					}
-			{
-			}
+		if (minIntegrationLimit == maxIntegrationLimit)
+			return 0.f;
 
-		public:
-			_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = KernelA::is_separable&&KernelB::is_separable;
+		const double dt = (maxIntegrationLimit-minIntegrationLimit)/sampleCount;
+		double result = 0.0;
+		for (uint32_t i = 0u; i < sampleCount; ++i)
+		{
+			const double t = minIntegrationLimit + i*dt;
+			result += m_kernelA.weight(t, channel) * m_kernelB.weight(x - t, channel) * dt;
+		}
 
-			static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
-			{
-				return KernelA::validate(inImage, outImage) && KernelB::validate(inImage, outImage);
-			}
+		return static_cast<float>(result);
+	}
 
-			static_assert(CConvolutionImageFilterKernelBase<KernelA, KernelB>::is_separable, "Convolving Non-Separable Filters is a TODO!");
-			// specialization defines this
-			inline float weight(float x, int32_t channel) const
-			{
-				return CRTP::weight(x,channel);
-			}
+	static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
+	{
+		return KernelA::validate(inImage, outImage) && KernelB::validate(inImage, outImage);
+	}
+
+private:
+	// TODO(achal): This is not really required right now, remove if its not required for the future specialzations as well.
+	enum class E_INTEGRATION_DOMAIN_TYPE
+	{
+		EIDT_LEFT,
+		EIDT_CENTER,
+		EIDT_RIGHT,
+		EIDT_COUNT
 	};
-}
+
+	std::tuple<double, double, E_INTEGRATION_DOMAIN_TYPE> getIntegrationDomain(const float x) const
+	{
+		// The following if-else checks to figure out integration domain assumes that the wider kernel
+		// is stationary while the narrow one is "moving".
+		// 
+		// Also take this opportunity to add negative signs back into the negative_support.
+
+		float kernelNarrowMinSupport = -m_kernelB.negative_support.x;
+		float kernelNarrowMaxSupport = m_kernelB.positive_support.x;
+
+		float kernelWideMinSupport = -m_kernelA.negative_support.x;
+		float kernelWideMaxSupport = m_kernelA.positive_support.x;
+
+		const float kernelAWidth = getKernelWidth(m_kernelA);
+		const float kernelBWidth = getKernelWidth(m_kernelB);
+
+		if (kernelAWidth < kernelBWidth)
+		{
+			std::swap(kernelNarrowMinSupport, kernelWideMinSupport);
+			std::swap(kernelNarrowMaxSupport, kernelWideMaxSupport);
+		}
+
+		E_INTEGRATION_DOMAIN_TYPE type = E_INTEGRATION_DOMAIN_TYPE::EIDT_COUNT;
+		double minIntegrationLimit = 0.0, maxIntegrationLimit = 0.0;
+		{
+			if ((x > (kernelWideMinSupport + kernelNarrowMinSupport)) && (x <= (kernelWideMinSupport + kernelNarrowMaxSupport)))
+			{
+				minIntegrationLimit = -m_kernelA.negative_support.x;
+				maxIntegrationLimit = x - (-m_kernelB.negative_support.x);
+
+				type = E_INTEGRATION_DOMAIN_TYPE::EIDT_LEFT;
+			}
+			else if ((x > (kernelWideMinSupport + kernelNarrowMaxSupport)) && (x <= (kernelWideMaxSupport + kernelNarrowMinSupport)))
+			{
+				if (kernelAWidth > kernelBWidth)
+				{
+					minIntegrationLimit = x - m_kernelB.positive_support.x;
+					maxIntegrationLimit = x - (-m_kernelB.negative_support.x);
+				}
+				else
+				{
+					minIntegrationLimit = -m_kernelA.negative_support.x;
+					maxIntegrationLimit = m_kernelA.positive_support.x;
+				}
+
+				type = E_INTEGRATION_DOMAIN_TYPE::EIDT_CENTER;
+			}
+			else if ((x > (kernelWideMaxSupport + kernelNarrowMinSupport)) && (x <= (kernelWideMaxSupport + kernelNarrowMaxSupport)))
+			{
+				minIntegrationLimit = x - m_kernelB.positive_support.x;
+				maxIntegrationLimit = m_kernelA.positive_support.x;
+
+				type = E_INTEGRATION_DOMAIN_TYPE::EIDT_RIGHT;
+			}
+		}
+		assert(minIntegrationLimit <= maxIntegrationLimit);
+		// assert(type != E_INTEGRATION_DOMAIN_TYPE::EIDT_COUNT);
+
+		return { minIntegrationLimit, maxIntegrationLimit, type};
+	}
+
+	static inline float getKernelWidth(const IImageFilterKernel& kernel)
+	{
+		return kernel.negative_support.x + kernel.positive_support.x;
+	};
+
+	const KernelA m_kernelA;
+	const KernelB m_kernelB;
+};
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKernel>, CScaledImageFilterKernel<CBoxImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t unused) const;
 
 /*
-
 TODO: Specializations of CConvolutionImageFilterKernel
 <A,B> -> <CScaledImageFilterKernel<A>,CScaledImageFilterKernel<B>>  but only if both A and B are derived from `CFloatingPointIsotropicSeparableImageFilterKernelBase`
 
@@ -86,32 +151,6 @@ TODO: Specializations of CConvolutionImageFilterKernel
 <CScaledImageFilterKernel<Kaiser>,CScaledImageFilterKernel<Gaussian>>
 */
 
-// this is the horribly slow generic version that you should not use (only use the specializations)
-template<class KernelA, class KernelB>
-class NBL_API CConvolutionImageFilterKernel : public impl::CConvolutionImageFilterKernelBase<KernelA,KernelB,CConvolutionImageFilterKernel<KernelA,KernelB> >
-{
-		using Base = CConvolutionImageFilterKernelBase<KernelA,KernelB,CConvolutionImageFilterKernel<KernelA,KernelB> >;
-
-	public:
-		using Base::Base;
-
-		// this is a special implementation for general 
-		inline float weight(const float x, int32_t channel, uint32_t iterations=64u)
-		{
-			static_assert(false,"Not Implemented Yet!");
-			const double dx = (positive_support[0]-negative_support[0])/double(iterations+1u);
-			double sum = 0.0;
-			for (uint32_t i=0u; i<iterations; i++)
-			{
-				auto fakePos = inPos;
-				sum += KernelA::evaluate(fakePos)*KernelB::evaluate(inPos-fakePos);
-			}
-			return sum/double(iterations);
-		}
-};
-#endif
-
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif
