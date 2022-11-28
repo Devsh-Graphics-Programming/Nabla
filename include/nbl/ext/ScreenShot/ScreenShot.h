@@ -93,7 +93,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::IImage::EL_TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
 
 		barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
-		barrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+		barrier.barrier.dstAccessMask = asset::EAF_NONE;
 		barrier.oldLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = imageLayout;
 		gpuCommandBuffer->pipelineBarrier(
@@ -132,16 +132,16 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 			logicalDevice->invalidateMappedMemoryRanges(1u,&mappedMemoryRange);
 
 		auto cpuNewImage = asset::ICPUImage::create(std::move(fetchedGpuImageParams));
-		auto texelBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedGpuImageParams.extent.width * asset::getBlockDimensions(fetchedGpuImageParams.format).X, asset::getTexelOrBlockBytesize(fetchedGpuImageParams.format));
 
 		auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
 		asset::ICPUImage::SBufferCopy& region = regions->front();
 
+		region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
 		region.imageSubresource.mipLevel = 0u;
 		region.imageSubresource.baseArrayLayer = 0u;
 		region.imageSubresource.layerCount = 1u;
 		region.bufferOffset = 0u;
-		region.bufferRowLength = texelBufferRowLength;
+		region.bufferRowLength = fetchedGpuImageParams.extent.width;
 		region.bufferImageHeight = 0u;
 		region.imageOffset = { 0u, 0u, 0u };
 		region.imageExtent = cpuNewImage->getCreationParameters().extent;

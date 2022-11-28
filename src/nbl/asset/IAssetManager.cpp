@@ -357,6 +357,7 @@ void IAssetManager::insertBuiltinAssets()
 
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
         asset::ICPUImage::SBufferCopy& region = regions->front();
+        region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
         region.imageSubresource.mipLevel = 0u;
         region.imageSubresource.baseArrayLayer = 0u;
         region.imageSubresource.layerCount = 1u;

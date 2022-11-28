@@ -106,6 +106,24 @@ public:
                 static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->waitForInitComplete();
             }
         }
+        
+        std::ostringstream pool;
+        const bool runningInRenderDoc = (m_glfeatures) ? m_glfeatures->runningInRenderDoc : false;
+        addCommonGLSLDefines(pool, runningInRenderDoc);
+        {
+            std::string define;
+            for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
+            {
+                auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
+                if (m_glfeatures && m_glfeatures->isFeatureAvailable(nativeGLExtension))
+                {
+                    define = "NBL_GLSL_IMPL_";
+                    define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
+                    addGLSLDefineToPool(pool,define.c_str());
+                }
+            }
+        }
+        finalizeGLSLDefinePool(std::move(pool));
 
         m_threadHandler.start();
         m_threadHandler.waitForInitComplete();
@@ -742,7 +760,7 @@ protected:
             auto end = begin + glUnspec->getSPVorGLSL()->getSize();
             std::string glsl(begin,end);
             asset::IShader::insertAfterVersionAndPragmaShaderStage(glsl,std::ostringstream()<<COpenGLShader::k_openGL2VulkanExtensionMap); // TODO: remove this eventually
-            asset::IShader::insertDefines(glsl,m_physicalDevice->getExtraGLSLDefines());
+            asset::IShader::insertDefines(glsl,getExtraGLSLDefines());
             auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, glUnspec->getFilepathHint().c_str(), 4u, getLogger());
             spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
@@ -771,7 +789,7 @@ protected:
 
         auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, std::string(_unspecialized->getFilepathHint()));
 
-        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines()};
+        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),getExtraGLSLDefines()};
         asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
         const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
         if (!introspection)
