@@ -67,7 +67,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
         return intendedNextSubmit;
     }
 
-    ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, srcFormat, dstImage, 64u/*limits.optimalBufferCopyRowPitchAlignment*/);
+    ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, srcFormat, dstImage, limits.optimalBufferCopyRowPitchAlignment);
 
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
     const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth); 
@@ -86,10 +86,9 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
         uint32_t memoryLowerBound = maxResidentImageTransferSize;
         {
             const asset::IImage::SBufferCopy & region = regions[regionIterator.getCurrentRegion()];
-            auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
-            auto imageExtentInBlocks = texelBlockInfo.convertTexelsToBlocks(imageExtent);
-            auto imageExtentBlockStridesInBytes = texelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
-            memoryLowerBound = core::max(memoryLowerBound, imageExtentBlockStridesInBytes[1]); // rowPitch = imageExtentBlockStridesInBytes[1]
+            const auto copyTexelStrides = regionIterator.getOptimalCopyTexelStrides(region.imageExtent);
+            const auto byteStrides = texelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides);
+            memoryLowerBound = core::max(memoryLowerBound, byteStrides[1]); // max of memoryLowerBound and copy rowPitch
         }
 
         uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;
@@ -218,6 +217,7 @@ ImageRegionIterator::ImageRegionIterator(
     , currentSliceInLayer(0u)
     , currentLayerInRegion(0u)
     , currentRegion(0u)
+    , optimalRowPitchAlignment(optimalRowPitchAlignment)
 {
     dstImageFormat = dstImage->getCreationParameters().format;
     if(srcImageFormat == asset::EF_UNKNOWN)
@@ -328,15 +328,12 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     {
         const asset::IImage::SBufferCopy & region = regions[i];
 
-        // auto optimalRegion = region;
-        // optimalRegion.bufferRowLength = core::alignUp(optimalRegion.bufferRowLength, optimalRowPitchAlignment);
-        auto imageExtent = core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth);
-        auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(imageExtent);
-        
-        // TODO: This needs to change with optimal rowpitch
-        auto imageExtentBlockStridesInBytes = dstImageTexelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
+        auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
 
-        if(i == currentRegion)
+        const auto copyTexelStrides = getOptimalCopyTexelStrides(region.imageExtent);
+        const core::vector4du32_SIMD copyByteStrides = dstImageTexelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides);
+
+        if (i == currentRegion)
         {
             auto remainingBlocksInRow = imageExtentInBlocks.x - currentBlockInRow;
             auto remainingRowsInSlice = imageExtentInBlocks.y - currentRowInSlice;
@@ -345,42 +342,42 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
 
             if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer == 0 && remainingLayersInRegion > 0)
             {
-                incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * remainingLayersInRegion);
+                incrementMemoryNeeded(copyByteStrides[3] * remainingLayersInRegion);
             }
             else if (currentBlockInRow == 0 && currentRowInSlice == 0 && currentSliceInLayer > 0)
             {
-                incrementMemoryNeeded(imageExtentBlockStridesInBytes[2] * remainingSlicesInLayer);
+                incrementMemoryNeeded(copyByteStrides[2] * remainingSlicesInLayer);
                 if (remainingLayersInRegion > 1u)
-                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u));
+                    incrementMemoryNeeded(copyByteStrides[3] * (remainingLayersInRegion - 1u));
             }
             else if (currentBlockInRow == 0 && currentRowInSlice > 0)
             {
-                incrementMemoryNeeded(imageExtentBlockStridesInBytes[1] * remainingRowsInSlice);
+                incrementMemoryNeeded(copyByteStrides[1] * remainingRowsInSlice);
 
-                if(remainingSlicesInLayer > 1u)
-                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u));
-                if(remainingLayersInRegion > 1u)
-                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u));
+                if (remainingSlicesInLayer > 1u)
+                    incrementMemoryNeeded(copyByteStrides[2] * (remainingSlicesInLayer - 1u));
+                if (remainingLayersInRegion > 1u)
+                    incrementMemoryNeeded(copyByteStrides[3] * (remainingLayersInRegion - 1u));
             }
             else if (currentBlockInRow > 0)
             {
                 // want to first fill the remaining blocks in current row
-                incrementMemoryNeeded(imageExtentBlockStridesInBytes[0] * remainingBlocksInRow);
+                incrementMemoryNeeded(copyByteStrides[0] * remainingBlocksInRow);
                 // then fill the remaining rows in current slice
-                if(remainingRowsInSlice > 1u)
-                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[1] * (remainingRowsInSlice - 1u));
+                if (remainingRowsInSlice > 1u)
+                    incrementMemoryNeeded(copyByteStrides[1] * (remainingRowsInSlice - 1u));
                 // then fill the remaining slices in current layer
-                if(remainingSlicesInLayer > 1u)
-                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[2] * (remainingSlicesInLayer - 1u));
+                if (remainingSlicesInLayer > 1u)
+                    incrementMemoryNeeded(copyByteStrides[2] * (remainingSlicesInLayer - 1u));
                 // then fill the remaining layers in current region
-                if(remainingLayersInRegion > 1u)
-                    incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * (remainingLayersInRegion - 1u));
+                if (remainingLayersInRegion > 1u)
+                    incrementMemoryNeeded(copyByteStrides[3] * (remainingLayersInRegion - 1u));
             }
         }
         else
         {
             // we want to fill the whole layers in the region
-            incrementMemoryNeeded(imageExtentBlockStridesInBytes[3] * region.imageSubresource.layerCount); // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
+            incrementMemoryNeeded(copyByteStrides[3] * region.imageSubresource.layerCount); // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z * region.imageSubresource.layerCount
         }
     }
     return memoryNeededForRemainingRegions;
@@ -495,11 +492,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     }
 
     const asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
-    const asset::TexelBlockInfo srcImageTexelBlockInfo(srcImageFormat);
 
     // ! Current Region that may break down into smaller regions (the first smaller region is nextRegionToCopy)
     const asset::IImage::SBufferCopy & mainRegion = regions[currentRegion];
-    const core::vector4du32_SIMD srcBufferByteStrides = mainRegion.getByteStrides(srcImageTexelBlockInfo);
 
     // ! We only need subresourceSize for validations and assertions about minImageTransferGranularity because granularity requirements can be ignored if region fits against the right corner of the subresource (described in more detail below)
     const auto subresourceSize = dstImage->getMipSize(mainRegion.imageSubresource.mipLevel);
@@ -511,9 +506,9 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     const auto imageOffsetInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(mainRegion.imageOffset.x, mainRegion.imageOffset.y, mainRegion.imageOffset.z));
     const auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(mainRegion.imageExtent.width, mainRegion.imageExtent.height, mainRegion.imageExtent.depth));
 
-    // TODO: This needs to change with optimal rowpitch
-    const core::vector4du32_SIMD imageExtentBlockStridesInBytes = dstImageTexelBlockInfo.convert3DBlockStridesTo1DByteStrides(imageExtentInBlocks);
-             
+    const auto copyTexelStrides = getOptimalCopyTexelStrides(mainRegion.imageExtent);
+    const core::vector4du32_SIMD copyByteStrides = dstImageTexelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides);
+
     // region <-> region.imageSubresource.layerCount <-> imageExtentInBlocks.z <-> imageExtentInBlocks.y <-> imageExtentInBlocks.x
     auto updateCurrentOffsets = [&]() -> void
     {
@@ -542,10 +537,10 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         }
     };
 
-    uint32_t eachBlockNeededMemory  = imageExtentBlockStridesInBytes[0];  // = blockByteSize
-    uint32_t eachRowNeededMemory    = imageExtentBlockStridesInBytes[1];  // = blockByteSize * imageExtentInBlocks.x
-    uint32_t eachSliceNeededMemory  = imageExtentBlockStridesInBytes[2];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y
-    uint32_t eachLayerNeededMemory  = imageExtentBlockStridesInBytes[3];  // = blockByteSize * imageExtentInBlocks.x * imageExtentInBlocks.y * imageExtentInBlocks.z
+    uint32_t eachBlockNeededMemory  = copyByteStrides[0];  // = blockByteSize
+    uint32_t eachRowNeededMemory    = copyByteStrides[1];  // = blockByteSize * copyBlockStrides.x
+    uint32_t eachSliceNeededMemory  = copyByteStrides[2];  // = blockByteSize * copyBlockStrides.x * copyBlockStrides.y
+    uint32_t eachLayerNeededMemory  = copyByteStrides[3];  // = blockByteSize * copyBlockStrides.x * copyBlockStrides.y * copyBlockStrides.z
 
     // There is remaining layers in region that needs copying
     uint32_t uploadableArrayLayers = availableMemory / eachLayerNeededMemory;
@@ -606,8 +601,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t layersToUploadMemorySize = eachLayerNeededMemory * uploadableArrayLayers;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
-        regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
+        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
+        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;
@@ -645,8 +640,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t slicesToUploadMemorySize = eachSliceNeededMemory * uploadableSlices;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
-        regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
+        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
+        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;
@@ -684,8 +679,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t rowsToUploadMemorySize = eachRowNeededMemory * uploadableRows;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
-        regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
+        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
+        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;
@@ -724,8 +719,8 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         uint32_t blocksToUploadMemorySize = eachBlockNeededMemory * uploadableBlocks;
 
         regionToCopyNext.bufferOffset = stagingBufferOffset;
-        regionToCopyNext.bufferRowLength = imageExtentInBlocks.x * texelBlockDim.x;
-        regionToCopyNext.bufferImageHeight = imageExtentInBlocks.y * texelBlockDim.y;
+        regionToCopyNext.bufferRowLength = copyTexelStrides.x;
+        regionToCopyNext.bufferImageHeight = copyTexelStrides.y;
         regionToCopyNext.imageSubresource.aspectMask = mainRegion.imageSubresource.aspectMask;
         regionToCopyNext.imageSubresource.mipLevel = mainRegion.imageSubresource.mipLevel;
         regionToCopyNext.imageSubresource.baseArrayLayer = mainRegion.imageSubresource.baseArrayLayer + currentLayerInRegion;

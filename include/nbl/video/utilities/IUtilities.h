@@ -1033,7 +1033,16 @@ public:
     uint32_t getCurrentLayerInRegion() const { return currentLayerInRegion; }
     uint32_t getCurrentRegion() const { return currentRegion; }
 
+    inline core::vector3du32_SIMD getOptimalCopyTexelStrides(const asset::VkExtent3D& copyExtents) const
+    {
+        return core::vector3du32_SIMD(
+            core::alignUp(copyExtents.width, optimalRowPitchAlignment),
+            copyExtents.height,
+            copyExtents.depth);
+    }
+
 private:
+
     core::SRange<const asset::IImage::SBufferCopy> regions;
 
     // Mock CPU Images used to copy cpu buffer to staging buffer
@@ -1041,7 +1050,7 @@ private:
     core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy> outCPUImageRegions; // needs to be updated before each upload
     std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterOutCPUImages;
 
-    uint32_t optimalRowPitchAlignment = 1u;
+    size_t optimalRowPitchAlignment = 1u;
     bool canTransferMipLevelsPartially = false;
     asset::VkExtent3D minImageTransferGranularity = {};
     uint32_t bufferOffsetAlignment = 1u;
