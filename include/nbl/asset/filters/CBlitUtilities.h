@@ -52,7 +52,7 @@ class CBlitUtilities : public IBlitUtilities
 public:
 	_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = std::max<decltype(KernelX::MaxChannels)>(std::max<decltype(KernelX::MaxChannels)>(KernelX::MaxChannels, KernelY::MaxChannels), KernelZ::MaxChannels);
 
-	template <typename lut_value_type = KernelX::value_type>
+	template <typename lut_value_type = typename KernelX::value_type>
 	static inline size_t getScaledKernelPhasedLUTSize(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ)
 	{
@@ -65,7 +65,7 @@ public:
 		return ((phaseCount[0] * scaledKernelX.getWindowSize().x) + (phaseCount[1] * scaledKernelY.getWindowSize().y) + (phaseCount[2] * scaledKernelZ.getWindowSize().z)) * sizeof(lut_value_type) * MaxChannels;
 	}
 
-	template <typename lut_value_type = KernelX::value_type>
+	template <typename lut_value_type = typename KernelX::value_type>
 	static bool computeScaledKernelPhasedLUT(void* outKernelWeights, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
 		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ)
 	{
@@ -181,7 +181,7 @@ public:
 		return last;
 	}
 
-	template <typename lut_value_type = KernelX::value_type>
+	template <typename lut_value_type = typename KernelX::value_type>
 	static inline core::vectorSIMDu32 getScaledKernelPhasedLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& real_window_size)
 	{
 		core::vectorSIMDu32 result;

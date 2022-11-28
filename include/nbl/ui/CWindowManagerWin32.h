@@ -62,8 +62,22 @@ class CWindowManagerWin32 : public IWindowManager
 
 		inline bool setWindowSize_impl(IWindow* window, const uint32_t width, const uint32_t height) override
 		{
+			// Calculate real window size based on client size
+			RECT clientSize;
+			clientSize.left = 0;
+			clientSize.top = 0;
+			clientSize.right = width;
+			clientSize.bottom = height;
+
+			DWORD style = IWindowWin32::getWindowStyle(window->getFlags().value);
+			bool res = AdjustWindowRect(&clientSize, style, false);
+			assert(res);
+
+			const int32_t realWidth = clientSize.right - clientSize.left;
+			const int32_t realHeight = clientSize.bottom - clientSize.top;
+
 			auto wnd = static_cast<IWindowWin32*>(window);
-			m_windowThreadManager.setWindowSize(wnd->getNativeHandle(), width, height);
+			m_windowThreadManager.setWindowSize(wnd->getNativeHandle(), realWidth, realHeight);
 			return true;
 		}
 		inline bool setWindowPosition_impl(IWindow* window, const int32_t x, const int32_t y) override
@@ -313,36 +327,7 @@ class CWindowManagerWin32 : public IWindowManager
 						clientSize.right = clientSize.left + params.width;
 						clientSize.bottom = clientSize.top + params.height;
 
-						DWORD style = WS_POPUP; // TODO why popup?
-
-						if ((params.flags & CWindowWin32::ECF_FULLSCREEN) == 0)
-						{
-							if ((params.flags & CWindowWin32::ECF_BORDERLESS) == 0)
-							{
-								style |= WS_BORDER;
-								style |= (WS_SYSMENU | WS_CAPTION);
-							}
-							// ? not sure about those below
-							style |= WS_CLIPCHILDREN;
-							style |= WS_CLIPSIBLINGS;
-						}
-						if (params.flags & CWindowWin32::ECF_MINIMIZED)
-						{
-							style |= WS_MINIMIZE;
-						}
-						if (params.flags & CWindowWin32::ECF_MAXIMIZED)
-						{
-							style |= WS_MAXIMIZE;
-						}
-						if (params.flags & CWindowWin32::ECF_ALWAYS_ON_TOP)
-						{
-							style |= WS_EX_TOPMOST;
-						}
-						if ((params.flags & CWindowWin32::ECF_HIDDEN) == 0)
-						{
-							style |= WS_VISIBLE;
-						}
-						style |= WS_OVERLAPPEDWINDOW;
+						DWORD style = IWindowWin32::getWindowStyle(params.flags);
 
 						// TODO:
 						// if (hasMouseCaptured())
