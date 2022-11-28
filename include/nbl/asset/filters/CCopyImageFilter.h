@@ -65,9 +65,8 @@ class NBL_API CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public C
 				const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
 				auto copy = [&commonExecuteData,&blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
-					const auto localOutPos = readBlockPos+commonExecuteData.offsetDifference;
-					const auto writeOffset = commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
-					memcpy(commonExecuteData.outData+writeOffset,commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
+					const auto localOutPos = readBlockPos + commonExecuteData.offsetDifference;
+					memcpy(commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos, commonExecuteData.outBlockByteStrides), commonExecuteData.inData + readBlockArrayOffset, commonExecuteData.outBlockByteSize);
 				};
 				CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy,commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
 

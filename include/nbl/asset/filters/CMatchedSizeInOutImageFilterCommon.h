@@ -160,7 +160,8 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 			const core::SRange<const IImage::SBufferCopy> inRegions;
 			const core::SRange<const IImage::SBufferCopy> outRegions;
 			const IImage::SBufferCopy* oit;									//!< oit is a current output handled region by commonExecute lambda. Notice that the lambda may execute executePerRegion a few times with different oits data since regions may overlap in a certain mipmap in an image!
-			core::vectorSIMDu32 offsetDifference, outByteStrides; 
+			core::vectorSIMDu32 offsetDifference;
+			core::vectorSIMDu32 outBlockByteStrides;
 		};
 		template<typename PerOutputFunctor>
 		static inline bool commonExecute(state_type* state, PerOutputFunctor& perOutput)
@@ -190,6 +191,9 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 				outRegions.begin(), {}, {}
 			};
 
+			const asset::TexelBlockInfo srcImageTexelBlockInfo(inParams.format);
+			const asset::TexelBlockInfo dstImageTexelBlockInfo(outParams.format);
+
 			// iterate over output regions, then input cause read cache miss is faster
 			for (; commonExecuteData.oit!=commonExecuteData.outRegions.end(); commonExecuteData.oit++)
 			{
@@ -197,10 +201,12 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 				state_type::TexelRange range = {state->inOffset,state->extent};
 				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.inFormat);
 				// setup convert state
-				// I know my two's complement wraparound well enough to make this work
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
-				commonExecuteData.offsetDifference = state->outOffsetBaseLayer - (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
-				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.outFormat));
+				const auto& inOffset = (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
+
+				// offsetDifference types are uint but I know my two's complement wraparound well enough to make this work
+				commonExecuteData.offsetDifference = dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - srcImageTexelBlockInfo.convertTexelsToBlocks(inOffset);
+				commonExecuteData.outBlockByteStrides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.outFormat));
 				if (!perOutput(commonExecuteData,clip))
 					return false;
 			}
