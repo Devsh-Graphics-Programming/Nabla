@@ -31,7 +31,7 @@ public:
 
 	float weight(const float x, const uint32_t channel, const uint32_t sampleCount = 64u) const
 	{
-		auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
+		auto [minIntegrationLimit, maxIntegrationLimit, domainType] = getIntegrationDomain(x);
 
 		if (minIntegrationLimit == maxIntegrationLimit)
 			return 0.f;
@@ -133,16 +133,16 @@ private:
 };
 
 template <>
-float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKernel>, CScaledImageFilterKernel<CBoxImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t unused) const;
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKernel>, CScaledImageFilterKernel<CBoxImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CKaiserImageFilterKernel<>>, CScaledImageFilterKernel<CKaiserImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const;
 
 /*
 TODO: Specializations of CConvolutionImageFilterKernel
 <A,B> -> <CScaledImageFilterKernel<A>,CScaledImageFilterKernel<B>>  but only if both A and B are derived from `CFloatingPointIsotropicSeparableImageFilterKernelBase`
 
-<CScaledImageFilterKernel<Kaiser>,CScaledImageFilterKernel<Kaiser>> = just pick the wider kaiser
 <CScaledImageFilterKernel<Gaussian>,CScaledImageFilterKernel<Gaussian>> = just add the stardard deviations together
-<CScaledImageFilterKernel<Box>,CScaledImageFilterKernel<Box>> = you need to find the area between both boxes
-
 <CScaledImageFilterKernel<Triangle>,CScaledImageFilterKernel<Triangle>> = this is tricky but feasible
 
 // these I eventually want for perfect mip-maps (probably only as tabulated polyphase stuff)

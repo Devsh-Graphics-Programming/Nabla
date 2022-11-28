@@ -79,6 +79,7 @@ class NBL_API CScaledImageFilterKernel : //order of bases is important! do not c
 			return Kernel::validate(inImage, outImage);
 		}
 
+		// TODO(achal): Make private.
 		inline float weight(const float x, const uint32_t channel) const
 		{
 			// This will breakdown if `negative_support` didn't start a negative value.
