@@ -568,7 +568,7 @@ struct NBL_API TexelBlockInfo
     public:
         TexelBlockInfo(E_FORMAT format) :
             dimension(getBlockDimensions(format)),
-            maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u)),
+            maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u, 1u)),
             blockByteSize(getTexelOrBlockBytesize(format))
         {}
             
