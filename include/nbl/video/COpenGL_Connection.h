@@ -27,7 +27,7 @@ class NBL_API2 COpenGL_Connection final : public IAPIConnection
         const egl::CEGL& getInternalObject() const;
 
     private:
-        inline COpenGL_Connection() : IAPIConnection()
+        inline COpenGL_Connection(const SFeatures& enabledFeatures, core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc) : IAPIConnection(enabledFeatures, std::move(glslc))
         {}
 };
 

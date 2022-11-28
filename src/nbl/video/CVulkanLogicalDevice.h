@@ -44,8 +44,7 @@ public:
     using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, true, uint32_t>;
 
     CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, renderdoc_api_t* rdoc, IPhysicalDevice* physicalDevice, VkDevice vkdev, VkInstance vkinst, const SCreationParams& params)
-        : ILogicalDevice(std::move(api)
-        , physicalDevice,params)
+        : ILogicalDevice(std::move(api), physicalDevice, params)
         , m_vkdev(vkdev)
         , m_devf(vkdev)
         , m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP * sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
@@ -69,6 +68,11 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
             }
         }
+        
+        std::ostringstream pool;
+        bool runningInRenderdoc = (rdoc != nullptr);
+        addCommonGLSLDefines(pool,runningInRenderdoc);
+        finalizeGLSLDefinePool(std::move(pool));
 
         m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
     }
@@ -533,7 +537,7 @@ public:
         commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
         if (cpushader->getContentType() != asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-            asset::IShader::insertDefines(code, m_physicalDevice->getExtraGLSLDefines());
+            asset::IShader::insertDefines(code, getExtraGLSLDefines());
 
         core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
 
@@ -795,7 +799,7 @@ public:
         vk_createInfo.mipLodBias = _params.LodBias;
         assert(_params.AnisotropicFilter <= m_physicalDevice->getLimits().maxSamplerAnisotropyLog2);
         vk_createInfo.maxAnisotropy = std::exp2(_params.AnisotropicFilter);
-        vk_createInfo.anisotropyEnable = m_physicalDevice->getFeatures().samplerAnisotropy;
+        vk_createInfo.anisotropyEnable = m_physicalDevice->getLimits().samplerAnisotropy;
         vk_createInfo.compareEnable = _params.CompareEnable;
         vk_createInfo.compareOp = static_cast<VkCompareOp>(_params.CompareFunc);
         vk_createInfo.minLod = _params.MinLod;
@@ -877,125 +881,6 @@ public:
     inline memory_pool_mt_t & getMemoryPoolForDeferredOperations()
     {
         return m_deferred_op_mempool;
-    }
-
-    // At the moment this NEEDS requiredCount to be zero for the root call. We can fix this
-    // by introducing a `offset` param which might make the code a little bit more verbose,
-    // since it the function is not used very frequently I think its fine.
-    static void getRequiredFeatures(const E_FEATURE feature, uint32_t& requiredCount, E_FEATURE* required)
-    {
-        switch (feature)
-        {
-        case EF_SWAPCHAIN:
-        {
-            required[requiredCount++] = EF_SWAPCHAIN;
-        } break;
-
-        case EF_DEFERRED_HOST_OPERATIONS:
-        {
-            required[requiredCount++] = EF_DEFERRED_HOST_OPERATIONS;
-        } break;
-
-        case EF_BUFFER_DEVICE_ADDRESS:
-        {
-            required[requiredCount++] = EF_BUFFER_DEVICE_ADDRESS;
-        } break;
-
-        case EF_DESCRIPTOR_INDEXING:
-        {
-            required[requiredCount++] = EF_DESCRIPTOR_INDEXING;
-        } break;
-
-        case EF_SHADER_FLOAT_CONTROLS:
-        {
-            required[requiredCount++] = EF_SHADER_FLOAT_CONTROLS;
-        } break;
-
-        case EF_SPIRV_1_4:
-        {
-            required[requiredCount++] = EF_SPIRV_1_4;
-
-            const uint32_t requiredForThisCount = 1u;
-            E_FEATURE requiredForThis[requiredForThisCount] = { EF_SHADER_FLOAT_CONTROLS };
-
-            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
-                getRequiredFeatures(requiredForThis[i], requiredCount, required);
-        } break;
-
-        case EF_ACCELERATION_STRUCTURE:
-        {
-            required[requiredCount++] = EF_ACCELERATION_STRUCTURE;
-
-            const uint32_t requiredForThisCount = 3u;
-            E_FEATURE requiredForThis[requiredForThisCount] = { EF_DESCRIPTOR_INDEXING,
-                EF_BUFFER_DEVICE_ADDRESS,
-                EF_DEFERRED_HOST_OPERATIONS
-            };
-
-            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
-                getRequiredFeatures(requiredForThis[i], requiredCount, required);
-        } break;
-
-        case EF_RAY_TRACING_PIPELINE:
-        {
-            required[requiredCount++] = EF_RAY_TRACING_PIPELINE;
-
-            const uint32_t requiredForThisCount = 2u;
-            E_FEATURE requiredForThis[requiredForThisCount] = { EF_ACCELERATION_STRUCTURE, EF_SPIRV_1_4 };
-
-            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
-                getRequiredFeatures(requiredForThis[i], requiredCount, required);
-        } break;
-
-        case EF_RAY_QUERY:
-        {
-            required[requiredCount++] = EF_RAY_QUERY;
-
-            const uint32_t requiredForThisCount = 2u;
-            E_FEATURE requiredForThis[requiredForThisCount] = { EF_ACCELERATION_STRUCTURE, EF_SPIRV_1_4 };
-
-            for (uint32_t i = 0u; i < requiredForThisCount; ++i)
-                getRequiredFeatures(requiredForThis[i], requiredCount, required);
-        } break;
-        
-        case EF_FRAGMENT_SHADER_INTERLOCK:
-        {
-            required[requiredCount++] = EF_FRAGMENT_SHADER_INTERLOCK;
-        } break;
-
-        default:
-            break;
-        }
-    };
-
-    static inline const char* getVulkanExtensionName(const E_FEATURE feature)
-    {
-        switch (feature)
-        {
-        case EF_SWAPCHAIN:
-            return VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-        case EF_DEFERRED_HOST_OPERATIONS:
-            return VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME;
-        case EF_BUFFER_DEVICE_ADDRESS:
-            return VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
-        case EF_DESCRIPTOR_INDEXING:
-            return VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
-        case EF_ACCELERATION_STRUCTURE:
-            return VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME;
-        case EF_SHADER_FLOAT_CONTROLS:
-            return VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME;
-        case EF_SPIRV_1_4:
-            return VK_KHR_SPIRV_1_4_EXTENSION_NAME;
-        case EF_RAY_TRACING_PIPELINE:
-            return VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME;
-        case EF_RAY_QUERY:
-            return VK_KHR_RAY_QUERY_EXTENSION_NAME;
-        case EF_FRAGMENT_SHADER_INTERLOCK:
-            return VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME;
-        default:
-            assert(!"Extension unknown");
-            return "";
-        }
     }
 
     const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
@@ -1155,7 +1040,8 @@ protected:
         vk_allocateInfo.pSetLayouts = &vk_dsLayout;
 
         VkDescriptorSet vk_descriptorSet;
-        if (m_devf.vk.vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
+        const auto vk_res = m_devf.vk.vkAllocateDescriptorSets(m_vkdev, &vk_allocateInfo, &vk_descriptorSet);
+        if (vk_res == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(layout),
@@ -1192,7 +1078,7 @@ protected:
             vkDescSetLayoutBinding.binding = binding->binding;
             vkDescSetLayoutBinding.descriptorType = static_cast<VkDescriptorType>(binding->type);
             vkDescSetLayoutBinding.descriptorCount = binding->count;
-            vkDescSetLayoutBinding.stageFlags = static_cast<VkShaderStageFlags>(binding->stageFlags);
+            vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding->stageFlags);
             vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
             if (binding->type==asset::ESRT_SAMPLED_IMAGE && binding->samplers && binding->count > 0u)
@@ -1272,7 +1158,7 @@ protected:
         {
             const auto pcRange = _pcRangesBegin + i;
 
-            vk_pushConstantRanges[i].stageFlags = static_cast<VkShaderStageFlags>(pcRange->stageFlags);
+            vk_pushConstantRanges[i].stageFlags = getVkShaderStageFlagsFromShaderStage(pcRange->stageFlags);
             vk_pushConstantRanges[i].offset = pcRange->offset;
             vk_pushConstantRanges[i].size = pcRange->size;
         }

@@ -184,6 +184,8 @@ class IWindow : public core::IReferenceCounted
         inline bool hasMouseFocus()       { return (m_flags.value & ECF_MOUSE_FOCUS); }
         inline bool isAlwaysOnTop()       { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
 
+        inline core::bitflag<E_CREATE_FLAGS> getFlags() { return m_flags; }
+
         inline uint32_t getWidth() const { return m_width; }
         inline uint32_t getHeight() const { return m_height; }
         inline int32_t getX() const { return m_x; }

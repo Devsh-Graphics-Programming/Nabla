@@ -19,9 +19,9 @@ inline IShader::E_SHADER_STAGE getShaderStageFromSPIRVCrossExecutionModel(spv::E
     case spv::ExecutionModelVertex:
         shaderStage = IShader::ESS_VERTEX; break;
     case spv::ExecutionModelTessellationControl:
-        shaderStage = IShader::ESS_TESSELATION_CONTROL; break;
+        shaderStage = IShader::ESS_TESSELLATION_CONTROL; break;
     case spv::ExecutionModelTessellationEvaluation:
-        shaderStage = IShader::ESS_TESSELATION_EVALUATION; break;
+        shaderStage = IShader::ESS_TESSELLATION_EVALUATION; break;
     case spv::ExecutionModelGeometry:
         shaderStage = IShader::ESS_GEOMETRY; break;
     case spv::ExecutionModelFragment:

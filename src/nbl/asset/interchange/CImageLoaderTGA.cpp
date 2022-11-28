@@ -155,15 +155,10 @@ bool CImageLoaderTGA::isALoadableFileFormat(system::IFile* _file, const system::
 	if not - do an OpenGL flip
 */
 
-template <E_FORMAT srcFormat, E_FORMAT destFormat>
-core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreationParams& imgInfo, core::smart_refctd_ptr<ICPUBuffer>&& texelBuffer, bool flip)
+core::smart_refctd_ptr<ICPUImage> createImage(ICPUImage::SCreationParams& imgInfo, core::smart_refctd_ptr<ICPUBuffer>&& texelBuffer, bool flip)
 {
-	static_assert((!asset::isBlockCompressionFormat<srcFormat>() || !asset::isBlockCompressionFormat<destFormat>()), "Only non BC formats supported!");
-
-	core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 	core::smart_refctd_ptr<ICPUImage> inputCreationImage;
 	{
-		imgInfo.format = srcFormat;
 		auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 		ICPUImage::SBufferCopy& region = regions->front();
 		
@@ -172,7 +167,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 		region.imageSubresource.baseArrayLayer = 0u;
 		region.imageSubresource.layerCount = 1u;
 		region.bufferOffset = 0u;
-		region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(imgInfo.extent.width, asset::getTexelOrBlockBytesize(srcFormat));
+		region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(imgInfo.extent.width, asset::getTexelOrBlockBytesize(imgInfo.format));
 		region.bufferImageHeight = 0u;
 		region.imageOffset = { 0u, 0u, 0u };
 		region.imageExtent = imgInfo.extent;
@@ -185,51 +180,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 			asset::IImageAssetHandlerBase::performImageFlip(inputCreationImage);
 	}
 
-	if (srcFormat == destFormat)
-		newConvertedImage = inputCreationImage;
-	else
-	{
-		using CONVERSION_FILTER = CConvertFormatImageFilter<srcFormat, destFormat>;
-		CONVERSION_FILTER convertFilter;
-		typename CONVERSION_FILTER::state_type state;
-		{
-			auto referenceImageParams = inputCreationImage->getCreationParameters();
-			auto referenceBuffer = inputCreationImage->getBuffer();
-			auto referenceRegions = inputCreationImage->getRegions();
-			auto referenceRegion = referenceRegions.begin();
-			const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(destFormat);
-
-			asset::TexelBlockInfo newBlockInfo(destFormat);
-			core::vector3du32_SIMD newTrueExtent = newBlockInfo.convertTexelsToBlocks(referenceRegion->getTexelStrides());
-
-			auto newImageParams = referenceImageParams;
-			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(newTrueExtent.X * newTrueExtent.Y * newTrueExtent.Z * newTexelOrBlockByteSize);
-			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
-			newRegions->front() = *referenceRegion;
-
-			newImageParams.format = destFormat;
-			newConvertedImage = ICPUImage::create(std::move(newImageParams));
-			newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-		}
-
-		auto attachedRegion = newConvertedImage->getRegions().begin();
-
-		state.inImage = inputCreationImage.get();
-		state.outImage = newConvertedImage.get();
-		state.inOffset = { 0, 0, 0 };
-		state.inBaseLayer = 0;
-		state.outOffset = { 0, 0, 0 };
-		state.outBaseLayer = 0;
-		state.extent = attachedRegion->getExtent();
-		state.layerCount = attachedRegion->imageSubresource.layerCount;
-		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
-		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
-
-		//if (!convertFilter.execute(core::execution::par_unseq,&state))
-		//	imgInfo.logger.log("Something went wrong while converting!", system::ILogger::ELL_WARNING);
-	}
-
-	return newConvertedImage;
+	return inputCreationImage;
 };
 
 //! creates a surface from the file
@@ -243,8 +194,6 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 			return {};
 	}
 
-
-	core::smart_refctd_ptr<ICPUBuffer> colorMap; // not used, but it's texel buffer may be useful in future
 	const auto bytesPerTexel = header.PixelDepth / 8;
 
 	size_t offset = sizeof header;
@@ -262,22 +211,6 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 				return {};
 		}
 		offset += header.ColorMapEntrySize / 8 * header.ColorMapLength;
-		
-		switch ( header.ColorMapEntrySize ) // convert to 32-bit color map since input is dependend to header.ColorMapEntrySize, so it may be 8, 16, 24 or 32 bits per entity
-		{
-			case STB_8_BITS:
-				colorMap = createSingleRowBufferFromRawData<EF_R8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
-				break;
-			case STB_16_BITS:
-				colorMap = createSingleRowBufferFromRawData<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
-				break;
-			case STB_24_BITS:
-				colorMap = createSingleRowBufferFromRawData<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
-				break;
-			case STB_32_BITS:
-				colorMap = createSingleRowBufferFromRawData<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
-				break;
-		}
 	}
 
 	ICPUImage::SCreationParams imgInfo;
@@ -294,7 +227,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	core::smart_refctd_ptr<ICPUBuffer> texelBuffer = nullptr;
 
 	ICPUImage::SBufferCopy& region = regions->front();
-
+	
+	region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0u;
 	region.imageSubresource.baseArrayLayer = 0u;
 	region.imageSubresource.layerCount = 1u;
@@ -353,25 +287,29 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 				if (header.ImageType != 3)
 				{
 					_params.logger.log("Loading 8-bit non-grayscale is NOT supported.", system::ILogger::ELL_ERROR);
-                    return {};
+					return {};
 				}
-
-				newConvertedImage = createAndconvertImageData<asset::EF_R8_SRGB, asset::EF_R8_SRGB>(imgInfo, std::move(texelBuffer), flip);
+				
+				imgInfo.format = asset::EF_R8_SRGB;
+				newConvertedImage = createImage(imgInfo, std::move(texelBuffer), flip);
 			}
 			break;
 		case 16:
 			{
-				newConvertedImage = createAndconvertImageData<asset::EF_A1R5G5B5_UNORM_PACK16, asset::EF_A1R5G5B5_UNORM_PACK16>(imgInfo, std::move(texelBuffer), flip);
+				imgInfo.format = asset::EF_A1R5G5B5_UNORM_PACK16;
+				newConvertedImage = createImage(imgInfo, std::move(texelBuffer), flip);
 			}
 			break;
 		case 24:
 			{
-				newConvertedImage = createAndconvertImageData<asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8_SRGB>(imgInfo, std::move(texelBuffer), flip);
+				imgInfo.format = asset::EF_R8G8B8_SRGB;
+				newConvertedImage = createImage(imgInfo, std::move(texelBuffer), flip);
 			}
 			break;
 		case 32:
 			{
-			newConvertedImage = createAndconvertImageData<asset::EF_R8G8B8A8_SRGB, asset::EF_R8G8B8A8_SRGB>(imgInfo, std::move(texelBuffer), flip);
+				imgInfo.format = asset::EF_R8G8B8A8_SRGB;
+				newConvertedImage = createImage(imgInfo, std::move(texelBuffer), flip);
 			}
 			break;
 		default:
@@ -380,8 +318,6 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	}
 
 	core::smart_refctd_ptr<ICPUImage> image = newConvertedImage;
-	if (newConvertedImage->getCreationParameters().format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(newConvertedImage, _params.logger);
 
 	if (!image)
 		return {};

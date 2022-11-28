@@ -5,6 +5,8 @@
 #define _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
 
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/numbers.hlsl>
+#include <nbl/builtin/hlsl/math/functions.glsl>
 
 namespace nbl
 {
@@ -186,11 +188,12 @@ struct LightSample
   float NdotL2;
 };
 
+
 //
 struct IsotropicMicrofacetCache
 {
   // always valid because its specialized for the reflective case
-  static IsotropicMicrofacetCache create(const float NdotV, const float NdotL, const float VdotL, out float LplusV_rcpLen)
+  static IsotropicMicrofacetCache createForReflection(const float NdotV, const float NdotL, const float VdotL, out float LplusV_rcpLen)
   {
     LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
 
@@ -203,10 +206,73 @@ struct IsotropicMicrofacetCache
     
     return retval;
   }
-  static IsotropicMicrofacetCache create(const float NdotV, const float NdotL, const float VdotL)
+  static IsotropicMicrofacetCache createForReflection(const float NdotV, const float NdotL, const float VdotL)
   {
     float dummy;
-    return create(NdotV,NdotL,VdotL,dummy);
+    return createForReflection(NdotV,NdotL,VdotL,dummy);
+  }
+  template<class ObserverRayDirInfo, class IncomingRayDirInfo>
+  static IsotropicMicrofacetCache createForReflection(
+    const surface_interactions::Isotropic<ObserverRayDirInfo> interaction, 
+    const LightSample<IncomingRayDirInfo> _sample)
+  {
+    return createForReflection(interaction.NdotV,_sample.NdotL,_sample.VdotL);
+  }
+  // transmissive cases need to be checked if the path is valid before usage
+  static bool compute(
+    out IsotropicMicrofacetCache retval,
+    const bool transmitted, const float3 V, const float3 L,
+    const float3 N, const float NdotL, const float VdotL,
+    const float orientedEta, const float rcpOrientedEta, out float3 H
+  )
+  {
+    // TODO: can we optimize?
+    H = computeMicrofacetNormal(transmitted,V,L,orientedEta);
+    retval.NdotH = dot(N,H);
+    
+    // not coming from the medium (reflected) OR
+    // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) ) 
+    const bool valid = !transmitted || (VdotL<=-min(orientedEta,rcpOrientedEta) && _cache.NdotH>nbl::hlsl::numeric_limits::min());
+    if (valid)
+    {
+      // TODO: can we optimize?
+      retval.VdotH = dot(V,H);
+      retval.LdotH = dot(L,H);
+      retval.NdotH2 = retval.NdotH*retval.NdotH;
+      return true;
+    }
+    return false;
+  }
+  template<class ObserverRayDirInfo, class IncomingRayDirInfo>
+  static bool compute(
+    out IsotropicMicrofacetCache retval,
+    const surface_interactions::Isotropic<ObserverRayDirInfo> interaction, 
+    const LightSample<IncomingRayDirInfo> _sample,
+    const float eta, out float3 H
+  )
+  {
+    const float NdotV = interaction.NdotV;
+    const float NdotL = _sample.NdotL;
+    const bool transmitted = nbl_glsl_isTransmissionPath(NdotV,NdotL);
+    
+    float orientedEta, rcpOrientedEta;
+    const bool backside = nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,NdotV,eta);
+
+    const vec3 V = interaction.V.getDirection();
+    const vec3 L = _sample.L;
+    const float VdotL = dot(V,L);
+    return nbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+  }
+  template<class ObserverRayDirInfo, class IncomingRayDirInfo>
+  static bool compute(
+    out IsotropicMicrofacetCache retval,
+    const surface_interactions::Isotropic<ObserverRayDirInfo> interaction, 
+    const LightSample<IncomingRayDirInfo> _sample,
+    const float eta
+  )
+  {
+    float3 dummy;
+    return nbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,dummy);
   }
 
   bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const float VdotL, const float eta, const float rcp_eta)
@@ -219,10 +285,97 @@ struct IsotropicMicrofacetCache
   float NdotH;
   float NdotH2;
 };
+
 struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 {
-    float TdotH;
-    float BdotH;
+  // always valid by construction
+  static AnisotropicMicrofacetCache create(const float3 tangentSpaceV, const float3 tangentSpaceH)
+  {
+    AnisotropicMicrofacetCache retval;
+    
+    retval.VdotH = dot(tangentSpaceV,tangentSpaceH);
+    retval.LdotH = retval.VdotH;
+    retval.NdotH = tangentSpaceH.z;
+    retval.NdotH2 = retval.NdotH*retval.NdotH;
+    retval.TdotH = tangentSpaceH.x;
+    retval.BdotH = tangentSpaceH.y;
+    
+    return retval;
+  }
+  static AnisotropicMicrofacetCache create(
+    const float3 tangentSpaceV, 
+    const float3 tangentSpaceH,
+    const bool transmitted,
+    const float rcpOrientedEta,
+    const float rcpOrientedEta2
+  )
+  {
+    AnisotropicMicrofacetCache retval = create(tangentSpaceV,tangentSpaceH);
+    if (transmitted)
+    {
+      const float VdotH = retval.VdotH;
+      LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2);
+    }
+    
+    return retval;
+  }
+  // always valid because its specialized for the reflective case
+  static AnisotropicMicrofacetCache createForReflection(const float3 tangentSpaceV, const float3 tangentSpaceL, const float VdotL)
+  {
+    AnisotropicMicrofacetCache retval;
+    
+    float LplusV_rcpLen;
+    retval = createForReflection(tangentSpaceV.z,tangentSpaceL.z,VdotL,LplusV_rcpLen);
+    retval.TdotH = (tangentSpaceV.x+tangentSpaceL.x)*LplusV_rcpLen;
+    retval.BdotH = (tangentSpaceV.y+tangentSpaceL.y)*LplusV_rcpLen;
+    
+    return retval;
+  }
+  template<class ObserverRayDirInfo, class IncomingRayDirInfo>
+  static AnisotropicMicrofacetCache createForReflection(
+    const surface_interactions::Anisotropic<ObserverRayDirInfo> interaction, 
+    const LightSample<IncomingRayDirInfo> _sample)
+  {
+    return createForReflection(interaction.getTangentSpaceV(),_sample.getTangentSpaceL(),_sample.VdotL);
+  }
+  // transmissive cases need to be checked if the path is valid before usage
+  static bool compute(
+    out AnisotropicMicrofacetCache retval,
+    const bool transmitted, const float3 V, const float3 L,
+    const float3 T, const float3 B, const float3 N,
+    const float NdotL, const float VdotL,
+    const float orientedEta, const float rcpOrientedEta, out float3 H
+  )
+  {
+    float3 H;
+    const bool valid = IsotropicMicrofacetCache::compute(retval,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+    if (valid)
+    {
+      retval.TdotH = dot(T,H);
+      retval.BdotH = dot(B,H);
+    }
+    return valid;
+  }
+  template<class ObserverRayDirInfo, class IncomingRayDirInfo>
+  static bool compute(
+    out AnisotropicMicrofacetCache retval,
+    const surface_interactions::Anisotropic<ObserverRayDirInfo> interaction, 
+    const LightSample<IncomingRayDirInfo> _sample,
+    const float eta
+  )
+  {
+    float3 H;
+    const bool valid = IsotropicMicrofacetCache::compute(retval,interaction,_sample,eta,H);
+    if (valid)
+    {
+      retval.TdotH = dot(interaction.T,H);
+      retval.BdotH = dot(interaction.B,H);
+    }
+    return valid;
+  }
+
+  float TdotH;
+  float BdotH;
 };
 
 

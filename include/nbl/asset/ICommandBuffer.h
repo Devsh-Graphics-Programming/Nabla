@@ -46,8 +46,8 @@ struct NBL_API SImageResolve
 
 struct NBL_API SMemoryBarrier
 {
-    core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
-    core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
+    core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask = asset::EAF_NONE;
+    core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask = asset::EAF_NONE;
 };
 
 union SClearColorValue
@@ -351,9 +351,6 @@ public:
         }
         return true;
     }
-
-    virtual bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) = 0;
-
 
 
 protected:

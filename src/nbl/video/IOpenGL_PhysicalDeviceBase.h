@@ -28,9 +28,9 @@ class IOpenGLPhysicalDeviceBase : public IPhysicalDevice
 
 		IOpenGLPhysicalDeviceBase(
 			core::smart_refctd_ptr<system::ISystem>&& s,
-			core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc,
+			IAPIConnection* api,
 			egl::CEGL&& _egl
-		) : IPhysicalDevice(std::move(s),std::move(glslc)), m_egl(std::move(_egl))
+		) : IPhysicalDevice(std::move(s), api), m_egl(std::move(_egl))
 		{}
 	
 		const egl::CEGL& getInternalObject() const {return m_egl;}
@@ -186,7 +186,7 @@ protected:
 
 public:
 	IOpenGL_PhysicalDeviceBase(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& _dbgCb, EGLConfig _config, EGLContext ctx, EGLint _major, EGLint _minor)
-		: IOpenGLPhysicalDeviceBase(std::move(s),core::make_smart_refctd_ptr<asset::CGLSLCompiler>(core::smart_refctd_ptr(m_system)),std::move(_egl)), m_api(api), m_rdoc_api(rdoc), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
+		: IOpenGLPhysicalDeviceBase(std::move(s), api, std::move(_egl)), m_rdoc_api(rdoc), m_dbgCb(std::move(_dbgCb)), m_config(_config), m_gl_major(_major), m_gl_minor(_minor)
 	{
 		// OpenGL backend emulates presence of just one queue family with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
 		SQueueFamilyProperties qprops;
@@ -622,7 +622,7 @@ public:
 				GetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropy);
 				if(maxAnisotropy)
 				{
-					m_features.samplerAnisotropy = true;
+					m_properties.limits.samplerAnisotropy = true;
 					m_properties.limits.maxSamplerAnisotropyLog2 = core::findMSB(static_cast<uint32_t>(maxAnisotropy));
 				}
 			}
@@ -680,24 +680,24 @@ public:
 
 			// [TODO] Work these out from limits -> set these after setting the limits below
 			// if any {vertex,control,eval,geom} stage has >0 allowable bindings for {ssbo,storageimage,storagebufferview}, then true
-			m_features.vertexPipelineStoresAndAtomics = false; 
-			m_features.fragmentStoresAndAtomics = false; 
+			m_properties.limits.vertexPipelineStoresAndAtomics = false; 
+			m_properties.limits.fragmentStoresAndAtomics = false; 
 
 			// An implementation supporting this feature must also support one or both of the [tessellationShader] or [geometryShader] features.
-			m_features.shaderTessellationAndGeometryPointSize = true;
+			m_properties.limits.shaderTessellationAndGeometryPointSize = true;
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_shader))
-			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_point_size);
+			   m_properties.limits.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_geometry_point_size);
 			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_shader))
-			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_point_size);
+			   m_properties.limits.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_geometry_point_size);
 			if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_shader))
-			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_point_size);
+			   m_properties.limits.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_tessellation_point_size);
 			else if (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_shader))
-			   m_features.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_point_size);
+			   m_properties.limits.shaderTessellationAndGeometryPointSize &= m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_tessellation_point_size);
 			else if (!m_features.geometryShader) // tessellation not supported,
-			   m_features.shaderTessellationAndGeometryPointSize = false;
+			   m_properties.limits.shaderTessellationAndGeometryPointSize = false;
 
 			m_features.shaderStorageImageMultisample = true; // true in our minimum supported GL and GLES
-			m_features.shaderImageGatherExtended = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5)) : true;
+			m_properties.limits.shaderImageGatherExtended = IsGLES ? (m_glfeatures.Version >= 320 || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_OES_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_gpu_shader5)) : true;
 			m_features.shaderStorageImageExtendedFormats = !IsGLES;
 			m_features.shaderStorageImageReadWithoutFormat = false;
 			m_features.shaderStorageImageWriteWithoutFormat = false;
@@ -731,8 +731,8 @@ public:
 		
 			m_features.vertexAttributeDouble = !IsGLES;
 
-			m_features.shaderInt64 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int64); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
-			m_features.shaderInt16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
+			m_properties.limits.shaderInt64 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int64); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
+			m_properties.limits.shaderInt16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849
 			m_features.shaderResourceResidency = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_sparse_texture);
 			m_features.shaderResourceMinLod = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_EXT_sparse_texture2) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_sparse_texture_clamp);
 
@@ -740,8 +740,8 @@ public:
 			m_features.inheritedQueries = true; // We emulate secondary command buffers so enable by default
 		
 			/* Vulkan 1.1 Core */
-			m_features.storageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
-			m_features.uniformAndStorageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_properties.limits.storageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_properties.limits.uniformAndStorageBuffer16BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16) && m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
 
 			m_features.shaderDrawParameters = IsGLES ? false : (m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_shader_draw_parameters) || m_glfeatures.Version >= 460u);
 			
@@ -767,17 +767,17 @@ public:
 
 			// [TODO]
 			// not sure if any OpenGL extension provides that, but if it exists it would be one of those that allows 16bit int/float to be used for UBO/SSBO
-			m_features.storagePushConstant8 = false;
-			m_features.storagePushConstant16 = false;
-			m_features.storageInputOutput16 = false;
+			m_properties.limits.storagePushConstant8 = false;
+			m_properties.limits.storagePushConstant16 = false;
+			m_properties.limits.storageInputOutput16 = false;
 			
-			m_features.shaderBufferInt64Atomics = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_atomic_int64);
-			m_features.shaderSharedInt64Atomics = false;
+			m_properties.limits.shaderBufferInt64Atomics = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_shader_atomic_int64);
+			m_properties.limits.shaderSharedInt64Atomics = false;
 			
-			m_features.shaderFloat16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
-			m_features.shaderInt8 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
-			m_features.storageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
-			m_features.uniformAndStorageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_properties.limits.shaderFloat16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_half_float);
+			m_properties.limits.shaderInt8 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_properties.limits.storageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
+			m_properties.limits.uniformAndStorageBuffer8BitAccess = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5);
 
 			m_features.descriptorIndexing = false;
 			m_features.shaderInputAttachmentArrayDynamicIndexing = false;
@@ -837,7 +837,7 @@ public:
 				m_features.rasterizationOrderStencilAttachmentAccess = true;
 			}
 
-            m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
+			m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_SURFACE);
 
 			// TODO: move this to IPhysicalDevice::SFeatures
 			const bool runningInRenderDoc = (m_rdoc_api != nullptr);
@@ -1222,9 +1222,9 @@ public:
 				if (subgroupOpsStages & GL_VERTEX_SHADER_BIT)
 					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_VERTEX;
 				if (subgroupOpsStages & GL_TESS_CONTROL_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_CONTROL;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELLATION_CONTROL;
 				if (subgroupOpsStages & GL_TESS_EVALUATION_SHADER_BIT)
-					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELATION_EVALUATION;
+					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_TESSELLATION_EVALUATION;
 				if (subgroupOpsStages & GL_GEOMETRY_SHADER_BIT)
 					m_properties.limits.subgroupOpsShaderStages |= asset::IShader::ESS_GEOMETRY;
 				if (subgroupOpsStages & GL_FRAGMENT_SHADER_BIT)
@@ -1356,23 +1356,6 @@ public:
 			m_properties.limits.spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6;
 		}
 
-		std::ostringstream pool;
-		addCommonGLSLDefines(pool,m_glfeatures.runningInRenderDoc);
-		{
-			std::string define;
-			for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
-			{
-				auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
-				if (m_glfeatures.isFeatureAvailable(nativeGLExtension))
-				{
-					define = "NBL_GLSL_IMPL_";
-					define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
-					addGLSLDefineToPool(pool,define.c_str());
-				}
-			}
-		}
-		finalizeGLSLDefinePool(std::move(pool));
-
 		// we dont need this context any more
 		m_egl.call.peglMakeCurrent(m_egl.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 		m_egl.call.peglDestroyContext(m_egl.display, ctx);
@@ -1384,10 +1367,7 @@ public:
 		return static_cast<IDebugCallback*>(&m_dbgCb);
 	}
 
-	bool isSwapchainSupported() const override { return true; }
-
 protected:
-	IAPIConnection* m_api; // dumb pointer to avoid circ ref
 	renderdoc_api_t* m_rdoc_api;
 	COpenGLDebugCallback m_dbgCb;
 

@@ -106,6 +106,24 @@ public:
                 static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->waitForInitComplete();
             }
         }
+        
+        std::ostringstream pool;
+        const bool runningInRenderDoc = (m_glfeatures) ? m_glfeatures->runningInRenderDoc : false;
+        addCommonGLSLDefines(pool, runningInRenderDoc);
+        {
+            std::string define;
+            for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
+            {
+                auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
+                if (m_glfeatures && m_glfeatures->isFeatureAvailable(nativeGLExtension))
+                {
+                    define = "NBL_GLSL_IMPL_";
+                    define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
+                    addGLSLDefineToPool(pool,define.c_str());
+                }
+            }
+        }
+        finalizeGLSLDefinePool(std::move(pool));
 
         m_threadHandler.start();
         m_threadHandler.waitForInitComplete();

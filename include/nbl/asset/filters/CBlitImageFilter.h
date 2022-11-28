@@ -391,7 +391,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 					};
 					std::for_each(policy, reinterpret_cast<DummyTexelType*>(intermediateStorage[axis]), reinterpret_cast<DummyTexelType*>(intermediateStorage[axis] + outputTexelCount*MaxChannels), [&sampler, outFormat, &histograms, &scratchHelper, alphaChannel, state](const DummyTexelType& dummyTexel)
 					{
-						const uint32_t index = scratchHelper.alloc<is_seq_policy_v>();
+						const uint32_t index = scratchHelper.template alloc<is_seq_policy_v>();
 
 						value_type texelAlpha = dummyTexel.texel[alphaChannel];
 						texelAlpha -= double(sampler.nextSample()) * (asset::getFormatPrecision<value_type>(outFormat, alphaChannel, texelAlpha) / double(~0u));
@@ -400,7 +400,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						assert(binIndex < state->alphaBinCount);
 						histograms[index*state->alphaBinCount+binIndex]++;
 
-						scratchHelper.free<is_seq_policy_v>(index);
+						scratchHelper.template free<is_seq_policy_v>(index);
 					});
 
 					uint32_t* mergedHistogram = histograms;
@@ -524,7 +524,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						else
 						{
 							const auto inputEnd = inExtent.width+real_window_size.x;
-							decode_offset = scratchHelper.alloc<is_seq_policy_v>();
+							decode_offset = scratchHelper.template alloc<is_seq_policy_v>();
 							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*inputEnd;
 							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
@@ -611,7 +611,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 								phaseIndex = 0;
 						}
 						if (axis == IImage::ET_1D)
-							scratchHelper.free<is_seq_policy_v>(decode_offset);
+							scratchHelper.template free<is_seq_policy_v>(decode_offset);
 							// free_decode_scratch(decode_offset);
 					});
 					// we'll only get here if we have to do coverage adjustment

@@ -105,11 +105,11 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 	
 	if (!fence)
 	{
-		utilities->updateBufferRangeViaStagingBuffer(queue, range, m_lines.data());
+		utilities->updateBufferRangeViaStagingBufferAutoSubmit(range, m_lines.data(), queue);
 	}
 	else
 	{
 		*fence = m_device->createFence(video::IGPUFence::ECF_UNSIGNALED);
-		utilities->updateBufferRangeViaStagingBuffer(fence->get(), queue, range, m_lines.data());
+		utilities->updateBufferRangeViaStagingBufferAutoSubmit(range, m_lines.data(), queue, fence->get());
 	}
 }

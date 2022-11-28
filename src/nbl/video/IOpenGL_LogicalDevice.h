@@ -588,7 +588,7 @@ protected:
                         gl.extGlCreateTextures(target, 1, &name);
                         break;
                     case IGPUImage::ET_2D:
-                        if (p.creationParams.flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT)
+                        if (p.creationParams.flags.hasFlags(asset::IImage::ECF_CUBE_COMPATIBLE_BIT))
                             target = GL_TEXTURE_CUBE_MAP_ARRAY;
                         else
                             target = samples>1 ? GL_TEXTURE_2D_MULTISAMPLE_ARRAY : GL_TEXTURE_2D_ARRAY;

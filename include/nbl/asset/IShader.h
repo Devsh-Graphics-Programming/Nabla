@@ -35,9 +35,10 @@ class NBL_API IShader : public virtual core::IReferenceCounted
 		// TODO: make this enum class
 		enum E_SHADER_STAGE : uint32_t
 		{
+			ESS_UNKNOWN = 0,
 			ESS_VERTEX = 1 << 0,
-			ESS_TESSELATION_CONTROL = 1 << 1,
-			ESS_TESSELATION_EVALUATION = 1 << 2,
+			ESS_TESSELLATION_CONTROL = 1 << 1,
+			ESS_TESSELLATION_EVALUATION = 1 << 2,
 			ESS_GEOMETRY = 1 << 3,
 			ESS_FRAGMENT = 1 << 4,
 			ESS_COMPUTE = 1 << 5,
@@ -49,9 +50,8 @@ class NBL_API IShader : public virtual core::IReferenceCounted
 			ESS_MISS = 1 << 11,
 			ESS_INTERSECTION = 1 << 12,
 			ESS_CALLABLE = 1 << 13,
-			ESS_UNKNOWN = 0,
-			ESS_ALL_GRAPHICS = 0x1f,
-			ESS_ALL = 0xffffffff
+			ESS_ALL_GRAPHICS = 0x0000001F,
+			ESS_ALL = 0x7fffffff
 		};
 
 		enum class E_CONTENT_TYPE : uint8_t

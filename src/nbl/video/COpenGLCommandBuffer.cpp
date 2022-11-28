@@ -143,7 +143,7 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
         ctxlocal->nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(srcBuffer));
         for (auto it = c.regions; it != c.regions + c.regionCount; it++)
         {
-            if(it->bufferOffset != core::alignUp(it->bufferOffset, blockByteSize))
+            if(it->bufferOffset != core::roundUp(it->bufferOffset, static_cast<size_t>(blockByteSize)))
             {
                 assert(false && "bufferOffset should be aligned to block/texel byte size.");
                 continue;
@@ -1301,14 +1301,6 @@ COpenGLCommandBuffer::~COpenGLCommandBuffer()
                     assert(inheritanceInfo.occlusionQueryEnable);
                 }
                 static_cast<COpenGLCommandBuffer*>(c.cmdbuf.get())->executeAll(gl, ctxlocal, ctxid);
-            }
-            break;
-            case impl::ECT_REGENERATE_MIPMAPS:
-            {
-                auto& c = cmd.get<impl::ECT_REGENERATE_MIPMAPS>();
-                auto* glimg = static_cast<COpenGLImage*>(c.imgview.get());
-
-                gl->extGlGenerateTextureMipmap(glimg->getOpenGLName(), glimg->getOpenGLTarget());
             }
             break;
             }
