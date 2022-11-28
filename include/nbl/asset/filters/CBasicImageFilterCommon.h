@@ -278,7 +278,7 @@ class NBL_API CBasicImageFilterCommon
 				// compute new offset
 				{
 					const auto strides = referenceRegion->getByteStrides(blockInfo);
-					const core::vector3du32_SIMD offsetInOffset = offset-resultOffset;
+					const core::vector3du32_SIMD offsetInOffset = blockInfo.convertTexelsToBlocks(offset-resultOffset);
 					newRegion.bufferOffset += referenceRegion->getLocalByteOffset(offsetInOffset,strides);
 				}
 
