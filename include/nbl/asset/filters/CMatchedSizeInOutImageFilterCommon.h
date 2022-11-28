@@ -161,7 +161,7 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 			const core::SRange<const IImage::SBufferCopy> outRegions;
 			const IImage::SBufferCopy* oit;									//!< oit is a current output handled region by commonExecute lambda. Notice that the lambda may execute executePerRegion a few times with different oits data since regions may overlap in a certain mipmap in an image!
 			core::vectorSIMDu32 offsetDifference;
-			core::vectorSIMDu32 outBlockByteStrides;
+			core::vectorSIMDu32 outByteStrides;
 		};
 		template<typename PerOutputFunctor>
 		static inline bool commonExecute(state_type* state, PerOutputFunctor& perOutput)
@@ -191,8 +191,8 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 				outRegions.begin(), {}, {}
 			};
 
-			const asset::TexelBlockInfo srcImageTexelBlockInfo(inParams.format);
-			const asset::TexelBlockInfo dstImageTexelBlockInfo(outParams.format);
+			const asset::TexelBlockInfo srcImageTexelBlockInfo(commonExecuteData.inFormat);
+			const asset::TexelBlockInfo dstImageTexelBlockInfo(commonExecuteData.outFormat);
 
 			// iterate over output regions, then input cause read cache miss is faster
 			for (; commonExecuteData.oit!=commonExecuteData.outRegions.end(); commonExecuteData.oit++)
@@ -203,10 +203,11 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 				// setup convert state
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
 				const auto& inOffset = (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
-
+				const auto& inOffsetInBlocks = srcImageTexelBlockInfo.convertTexelsToBlocks(inOffset);
 				// offsetDifference types are uint but I know my two's complement wraparound well enough to make this work
-				commonExecuteData.offsetDifference = dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - srcImageTexelBlockInfo.convertTexelsToBlocks(inOffset);
-				commonExecuteData.outBlockByteStrides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.outFormat));
+				// TODO: this needs to be in block dimensions for copy filter but probably needs to be in texel dimensions for convert filter
+				commonExecuteData.offsetDifference = dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - inOffsetInBlocks;
+				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(dstImageTexelBlockInfo);
 				if (!perOutput(commonExecuteData,clip))
 					return false;
 			}
