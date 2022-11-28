@@ -1010,7 +1010,8 @@ public:
         IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
         asset::ICPUBuffer const* srcBuffer,
         asset::E_FORMAT srcImageFormat,
-        video::IGPUImage* const dstImage
+        video::IGPUImage* const dstImage,
+        size_t optimalRowPitchAlignment
     );
     
     // ! Memory you need to allocate to transfer the remaining regions in one submit.
@@ -1037,9 +1038,10 @@ private:
 
     // Mock CPU Images used to copy cpu buffer to staging buffer
     std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterInCPUImages;
-    core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy> outCPUImageRegions; // Because this needs to update before each upload
+    core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy> outCPUImageRegions; // needs to be updated before each upload
     std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterOutCPUImages;
 
+    uint32_t optimalRowPitchAlignment = 1u;
     bool canTransferMipLevelsPartially = false;
     asset::VkExtent3D minImageTransferGranularity = {};
     uint32_t bufferOffsetAlignment = 1u;
