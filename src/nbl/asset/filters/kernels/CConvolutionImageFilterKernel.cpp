@@ -6,7 +6,7 @@ namespace nbl::asset
 template <>
 float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKernel>, CScaledImageFilterKernel<CBoxImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t unused) const
 {
-	const auto [minIntegrationLimit, maxIntegrationLimit, domainType] = getIntegrationDomain(x);
+	const auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
 	return (maxIntegrationLimit - minIntegrationLimit) / (getKernelWidth(m_kernelA)*getKernelWidth(m_kernelB));
 }
 

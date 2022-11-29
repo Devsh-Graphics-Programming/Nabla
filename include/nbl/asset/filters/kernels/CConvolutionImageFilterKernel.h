@@ -54,16 +54,7 @@ public:
 	}
 
 private:
-	// TODO(achal): This is not really required right now, remove if its not required for the future specialzations as well.
-	enum class E_INTEGRATION_DOMAIN_TYPE
-	{
-		EIDT_LEFT,
-		EIDT_CENTER,
-		EIDT_RIGHT,
-		EIDT_COUNT
-	};
-
-	std::tuple<double, double, E_INTEGRATION_DOMAIN_TYPE> getIntegrationDomain(const float x) const
+	std::pair<double, double> getIntegrationDomain(const float x) const
 	{
 		// The following if-else checks to figure out integration domain assumes that the wider kernel
 		// is stationary while the narrow one is "moving".
@@ -85,15 +76,12 @@ private:
 			std::swap(kernelNarrowMaxSupport, kernelWideMaxSupport);
 		}
 
-		E_INTEGRATION_DOMAIN_TYPE type = E_INTEGRATION_DOMAIN_TYPE::EIDT_COUNT;
 		double minIntegrationLimit = 0.0, maxIntegrationLimit = 0.0;
 		{
 			if ((x > (kernelWideMinSupport + kernelNarrowMinSupport)) && (x <= (kernelWideMinSupport + kernelNarrowMaxSupport)))
 			{
 				minIntegrationLimit = -m_kernelA.negative_support.x;
 				maxIntegrationLimit = x - (-m_kernelB.negative_support.x);
-
-				type = E_INTEGRATION_DOMAIN_TYPE::EIDT_LEFT;
 			}
 			else if ((x > (kernelWideMinSupport + kernelNarrowMaxSupport)) && (x <= (kernelWideMaxSupport + kernelNarrowMinSupport)))
 			{
@@ -107,21 +95,16 @@ private:
 					minIntegrationLimit = -m_kernelA.negative_support.x;
 					maxIntegrationLimit = m_kernelA.positive_support.x;
 				}
-
-				type = E_INTEGRATION_DOMAIN_TYPE::EIDT_CENTER;
 			}
 			else if ((x > (kernelWideMaxSupport + kernelNarrowMinSupport)) && (x <= (kernelWideMaxSupport + kernelNarrowMaxSupport)))
 			{
 				minIntegrationLimit = x - m_kernelB.positive_support.x;
 				maxIntegrationLimit = m_kernelA.positive_support.x;
-
-				type = E_INTEGRATION_DOMAIN_TYPE::EIDT_RIGHT;
 			}
 		}
 		assert(minIntegrationLimit <= maxIntegrationLimit);
-		// assert(type != E_INTEGRATION_DOMAIN_TYPE::EIDT_COUNT);
 
-		return { minIntegrationLimit, maxIntegrationLimit, type};
+		return { minIntegrationLimit, maxIntegrationLimit};
 	}
 
 	static inline float getKernelWidth(const IImageFilterKernel& kernel)
