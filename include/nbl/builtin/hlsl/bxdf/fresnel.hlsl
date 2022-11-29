@@ -35,10 +35,10 @@ float3 conductor(float3 Eta, float3 Etak, float CosTheta)
    const float3 EtaLen2 = Eta*Eta+Etak*Etak;
    const float3 etaCosTwice = Eta*CosTheta*2.0;
 
-   const float3 rs_common = EtaLen2+float3(CosTheta2);
+   const float3 rs_common = EtaLen2 + (CosTheta2).xxx;
    const float3 rs2 = (rs_common - etaCosTwice)/(rs_common + etaCosTwice);
 
-   const float3 rp_common = EtaLen2*CosTheta2+float3(1.0);
+   const float3 rp_common = EtaLen2*CosTheta2 + (1.0).xxx;
    const float3 rp2 = (rp_common - etaCosTwice)/(rp_common + etaCosTwice);
    
    return (rs2 + rp2)*0.5;
@@ -51,10 +51,10 @@ float3 conductor_impl(float3 Eta, float3 EtaLen2, float CosTheta)
 
    const float3 etaCosTwice = Eta*CosTheta*2.0;
 
-   const float3 rs_common = EtaLen2+float3(CosTheta2);
+   const float3 rs_common = EtaLen2 + (CosTheta2).xxx;
    const float3 rs2 = (rs_common - etaCosTwice)/(rs_common + etaCosTwice);
 
-   const float3 rp_common = EtaLen2*CosTheta2+float3(1.0);
+   const float3 rp_common = EtaLen2*CosTheta2 + (1.0).xxx;
    const float3 rp2 = (rp_common - etaCosTwice)/(rp_common + etaCosTwice);
    
    return (rs2 + rp2)*0.5;
@@ -81,8 +81,8 @@ float3 dielectric_common(in float3 orientedEta2, in float AbsCosTheta)
    const float SinTheta2 = 1.0-AbsCosTheta*AbsCosTheta;
 
    // the max() clamping can handle TIR when orientedEta2<1.0
-   const float3 t0 = sqrt(max(float3(orientedEta2)-SinTheta2,float3(0.0)));
-   const float3 rs = (float3(AbsCosTheta) - t0) / (float3(AbsCosTheta) + t0);
+   const float3 t0 = sqrt(max(float3(orientedEta2)-SinTheta2, (0.0).xxx));
+   const float3 rs = ((AbsCosTheta).xxx - t0) / ((AbsCosTheta).xxx + t0);
 
    const float3 t2 = orientedEta2*AbsCosTheta;
    const float3 rp = (t0 - t2) / (t0 + t2);
@@ -98,7 +98,7 @@ float3 dielectric_frontface_only(in float3 Eta, in float CosTheta)
 float3 dielectric(float3 Eta, in float CosTheta)
 {
     float3 orientedEta,rcpOrientedEta;
-    nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,CosTheta,Eta);
+    getOrientedEtas(orientedEta,rcpOrientedEta,CosTheta,Eta);
     return dielectric_common(orientedEta*orientedEta,abs(CosTheta));
 }
 

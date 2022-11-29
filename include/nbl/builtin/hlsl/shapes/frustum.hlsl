@@ -50,13 +50,9 @@ Frustum_t extract(in float4x4 proj, in AABB_t bounds)
 {
     const float4x4 pTpose = transpose(proj);
 
-	float3x4 pTpose3x4;
-	for (int i = 0; i < 12; i++)
-		pTpose3x4[i] = proj[i];
-
     Frustum_t frust;
-    frust.minPlanes = pTpose3x4-float3x4(pTpose[3]*bounds.minVx[0],pTpose[3]*bounds.minVx[1],pTpose[3]*bounds.minVx[2]);
-    frust.maxPlanes = float3x4(pTpose[3]*bounds.maxVx[0],pTpose[3]*bounds.maxVx[1],pTpose[3]*bounds.maxVx[2])-pTpose3x4;
+    frust.minPlanes = (float3x4)(pTpose) - float3x4(pTpose[3]*bounds.minVx[0], pTpose[3]*bounds.minVx[1], pTpose[3]*bounds.minVx[2]);
+    frust.maxPlanes = float3x4(pTpose[3]*bounds.maxVx[0], pTpose[3]*bounds.maxVx[1], pTpose[3]*bounds.maxVx[2]) - (float3x4)(pTpose);
     return frust;
 }
 

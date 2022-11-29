@@ -35,6 +35,15 @@ set file_path[20]=shapes/rectangle
 set file_path[21]=shapes/triangle
 set file_path[22]=shapes/frustum
 
+set file_path[23]=random/xoroshiro
+
+set file_path[24]=utils/compressed_normal_matrix_t
+set file_path[25]=utils/acceleration_structures
+set file_path[26]=utils/common
+
+
+rem set file_path[23]=bxdf/fresnel
+
 
 
 
