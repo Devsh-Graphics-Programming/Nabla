@@ -66,6 +66,7 @@ inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t
 #include "nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CConvolutionImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CDiracImageFilterKernel.h"
 
 
 #endif

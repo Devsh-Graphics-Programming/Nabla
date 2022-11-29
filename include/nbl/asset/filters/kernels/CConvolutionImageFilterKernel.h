@@ -10,6 +10,7 @@
 #include "nbl/asset/filters/kernels/CGaussianImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CKaiserImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CMitchellImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/CDiracImageFilterKernel.h"
 
 namespace nbl::asset
 {
@@ -142,6 +143,46 @@ template <>
 float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CGaussianImageFilterKernel<>>, CScaledImageFilterKernel<CGaussianImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const;
 
 // TODO: Specializations of CConvolutionImageFilterKernel for <CScaledImageFilterKernel<Triangle>,CScaledImageFilterKernel<Triangle>> = this is tricky but feasible
+
+// Dirac with Box
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CDiracImageFilterKernel>, CScaledImageFilterKernel<CBoxImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKernel>, CScaledImageFilterKernel<CDiracImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+// Dirac with Triangle
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CDiracImageFilterKernel>, CScaledImageFilterKernel<CTriangleImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CTriangleImageFilterKernel>, CScaledImageFilterKernel<CDiracImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+// Dirac with Gaussian
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CDiracImageFilterKernel>, CScaledImageFilterKernel<CGaussianImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CGaussianImageFilterKernel<>>, CScaledImageFilterKernel<CDiracImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+// Dirac with Mitchell
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CDiracImageFilterKernel>, CScaledImageFilterKernel<CMitchellImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CMitchellImageFilterKernel<>>, CScaledImageFilterKernel<CDiracImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+// Dirac with Kaiser
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CDiracImageFilterKernel>, CScaledImageFilterKernel<CKaiserImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const;
+
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CKaiserImageFilterKernel<>>, CScaledImageFilterKernel<CDiracImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t) const;
 
 } // end namespace nbl::asset
 
