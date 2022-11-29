@@ -662,7 +662,7 @@ public:
 	//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
 	inline asset::E_FORMAT getOutImageViewFormat(const asset::E_FORMAT format)
 	{
-		const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
+		const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[format];
 
 		if (formatUsages.storageImage)
 		{
@@ -672,7 +672,7 @@ public:
 		{
 			const asset::E_FORMAT compatFormat = getCompatClassFormat(format);
 
-			const auto& compatClassFormatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimal(compatFormat);
+			const auto& compatClassFormatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[compatFormat];
 			if (!compatClassFormatUsages.storageImage)
 				return asset::EF_UNKNOWN;
 			else

@@ -225,8 +225,9 @@ enum E_FORMAT : uint8_t
     EF_G8_B8R8_2PLANE_422_UNORM,
     EF_G8_B8_R8_3PLANE_444_UNORM,
 
-	//! Unknown color format:
-	EF_UNKNOWN
+    //! Unknown color format:
+    EF_UNKNOWN,
+    EF_COUNT = EF_UNKNOWN
 };
 
 enum E_FORMAT_CLASS : uint8_t
@@ -240,8 +241,39 @@ enum E_FORMAT_CLASS : uint8_t
     EFC_96_BIT,
     EFC_128_BIT,
     EFC_192_BIT,
-    EFC_256_BIT
-    // TODO: and many more for block compression and planar formats... but dont want to waste time on it now
+    EFC_256_BIT,
+
+    EFC_BC1_RGB,
+    EFC_BC1_RGBA,
+    EFC_BC2,
+    EFC_BC3,
+    EFC_BC4,
+    EFC_BC5,
+    EFC_BC6,
+    EFC_BC7,
+
+    EFC_ETC2_RGB,
+    EFC_ETC2_RGBA,
+    EFC_ETC2_EAC_RGBA,
+    EFC_ETC2_EAC_R,
+    EFC_ETC2_EAC_RG,
+
+    EFC_ASTC_4X4,
+    EFC_ASTC_5X4,
+    EFC_ASTC_5X5,
+    EFC_ASTC_6X5,
+    EFC_ASTC_6X6,
+    EFC_ASTC_8X5,
+    EFC_ASTC_8X6,
+    EFC_ASTC_8X8,
+    EFC_ASTC_10X5,
+    EFC_ASTC_10X6,
+    EFC_ASTC_10X8,
+    EFC_ASTC_10X10,
+    EFC_ASTC_12X10,
+    EFC_ASTC_12X12,
+
+    // [TODO] there are still more format classes; https://registry.khronos.org/vulkan/specs/1.2-extensions/html/chap43.html#formats-compatibility-classes
 };
 
 enum E_FORMAT_FEATURE : uint32_t
@@ -536,7 +568,7 @@ struct NBL_API TexelBlockInfo
     public:
         TexelBlockInfo(E_FORMAT format) :
             dimension(getBlockDimensions(format)),
-            maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u)),
+            maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u, 1u)),
             blockByteSize(getTexelOrBlockBytesize(format))
         {}
             
@@ -562,10 +594,10 @@ struct NBL_API TexelBlockInfo
             @see convertTexelsToBlocks
         */
 
-		inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
-		{
-			return (coord+maxCoord)/dimension;
-		}
+        inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+        {
+            return (coord+maxCoord)/dimension;
+        }
 
         //! It converts input texels strides to compute multiples of block sizes
         /*
@@ -589,10 +621,10 @@ struct NBL_API TexelBlockInfo
         }
 
 
-        inline auto	convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
+        inline core::vector4du32_SIMD convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
         {
             // shuffle and put a 1 in the first element
-            auto& retval = blockStrides;
+            core::vector4du32_SIMD retval = blockStrides;
             retval = retval.wxyz();
             // byte stride for x+ step
             retval[0] = blockByteSize;
@@ -605,7 +637,7 @@ struct NBL_API TexelBlockInfo
             return retval;
         }
 
-        inline auto	convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
+        inline core::vector4du32_SIMD convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
         {
             return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
         }
@@ -622,8 +654,8 @@ struct NBL_API TexelBlockInfo
 
 inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
 {
-	auto dims = getBlockDimensions(_fmt);
-	return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
+    auto dims = getBlockDimensions(_fmt);
+    return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
 }
 
 

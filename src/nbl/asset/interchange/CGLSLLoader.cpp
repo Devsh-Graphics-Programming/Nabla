@@ -32,8 +32,8 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 
 	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
 																							{".vert",IShader::ESS_VERTEX},
-																							{".tesc",IShader::ESS_TESSELATION_CONTROL},
-																							{".tese",IShader::ESS_TESSELATION_EVALUATION},
+																							{".tesc",IShader::ESS_TESSELLATION_CONTROL},
+																							{".tese",IShader::ESS_TESSELLATION_EVALUATION},
 																							{".geom",IShader::ESS_GEOMETRY},
 																							{".frag",IShader::ESS_FRAGMENT},
 																							{".comp",IShader::ESS_COMPUTE}
