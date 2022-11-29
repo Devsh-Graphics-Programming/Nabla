@@ -202,12 +202,8 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.inFormat);
 				// setup convert state
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
-				const auto& inOffset = (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
-				const auto& inOffsetInBlocks = srcImageTexelBlockInfo.convertTexelsToBlocks(inOffset);
-				// offsetDifference types are uint but I know my two's complement wraparound well enough to make this work
-				// TODO: this needs to be in block dimensions for copy filter but probably needs to be in texel dimensions for convert filter
-				commonExecuteData.offsetDifference = dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - inOffsetInBlocks;
-				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(dstImageTexelBlockInfo);
+				commonExecuteData.offsetDifference = state->outOffsetBaseLayer - (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
+				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.outFormat));
 				if (!perOutput(commonExecuteData,clip))
 					return false;
 			}
