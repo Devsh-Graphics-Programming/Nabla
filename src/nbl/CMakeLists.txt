@@ -591,6 +591,8 @@ target_include_directories(Nabla PRIVATE
 	"${DXC_SOURCE_DIR}/include"
 	"${DXC_BINARY_DIR_GE}/include/dxc/Tracing"
 	"${DXC_BINARY_DIR_GE}/utils/version"
+	"${DXC_SOURCE_DIR}/external/SPIRV-Tools/include"
+	"${DXC_SOURCE_DIR}/external/SPIRV-Headers/include"
 )
 target_link_libraries(Nabla INTERFACE "${DXC_DXCOMPILER_LIB}")
 
