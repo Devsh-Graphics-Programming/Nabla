@@ -138,18 +138,10 @@ float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKern
 template <>
 float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CKaiserImageFilterKernel<>>, CScaledImageFilterKernel<CKaiserImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const;
 
-/*
-TODO: Specializations of CConvolutionImageFilterKernel
-<A,B> -> <CScaledImageFilterKernel<A>,CScaledImageFilterKernel<B>>  but only if both A and B are derived from `CFloatingPointIsotropicSeparableImageFilterKernelBase`
+template <>
+float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CGaussianImageFilterKernel<>>, CScaledImageFilterKernel<CGaussianImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const;
 
-<CScaledImageFilterKernel<Gaussian>,CScaledImageFilterKernel<Gaussian>> = just add the stardard deviations together
-<CScaledImageFilterKernel<Triangle>,CScaledImageFilterKernel<Triangle>> = this is tricky but feasible
-
-// these I eventually want for perfect mip-maps (probably only as tabulated polyphase stuff)
-<CScaledImageFilterKernel<Kaiser>,CScaledImageFilterKernel<Mitchell>>
-<CScaledImageFilterKernel<Gaussian>,CScaledImageFilterKernel<Mitchell>>
-<CScaledImageFilterKernel<Kaiser>,CScaledImageFilterKernel<Gaussian>>
-*/
+// TODO: Specializations of CConvolutionImageFilterKernel for <CScaledImageFilterKernel<Triangle>,CScaledImageFilterKernel<Triangle>> = this is tricky but feasible
 
 } // end namespace nbl::asset
 
