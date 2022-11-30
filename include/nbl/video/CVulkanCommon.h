@@ -336,6 +336,28 @@ static inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPres
     }
 }
 
+static inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
+{
+    VkShaderStageFlags ret = 0u;
+    if(in.hasFlags(asset::IShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(in.hasFlags(asset::IShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(in.hasFlags(asset::IShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(in.hasFlags(asset::IShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(in.hasFlags(asset::IShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    return ret;
+}
+
 static inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
 {
     switch (in)
@@ -788,6 +810,33 @@ static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(c
         return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
 }
+static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
+{
+    if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;
+    if (in == VK_DRIVER_ID_AMD_OPEN_SOURCE) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
+    if (in == VK_DRIVER_ID_MESA_RADV) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_RADV;
+    if (in == VK_DRIVER_ID_NVIDIA_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY;
+    if (in == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) return IPhysicalDevice::E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS;
+    if (in == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA) return IPhysicalDevice::E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA;
+    if (in == VK_DRIVER_ID_IMAGINATION_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_IMAGINATION_PROPRIETARY;
+    if (in == VK_DRIVER_ID_QUALCOMM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_QUALCOMM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_ARM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_ARM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_GOOGLE_SWIFTSHADER) return IPhysicalDevice::E_DRIVER_ID::EDI_GOOGLE_SWIFTSHADER;
+    if (in == VK_DRIVER_ID_GGP_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_GGP_PROPRIETARY;
+    if (in == VK_DRIVER_ID_BROADCOM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_BROADCOM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_LLVMPIPE) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_LLVMPIPE;
+    if (in == VK_DRIVER_ID_MOLTENVK) return IPhysicalDevice::E_DRIVER_ID::EDI_MOLTENVK;                  
+    if (in == VK_DRIVER_ID_COREAVI_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_COREAVI_PROPRIETARY;
+    if (in == VK_DRIVER_ID_JUICE_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_JUICE_PROPRIETARY;         
+    if (in == VK_DRIVER_ID_VERISILICON_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_VERISILICON_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_TURNIP) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_TURNIP;
+    if (in == VK_DRIVER_ID_MESA_V3DV) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_V3DV;
+    if (in == VK_DRIVER_ID_MESA_PANVK) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_PANVK;                
+    if (in == VK_DRIVER_ID_SAMSUNG_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_SAMSUNG_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_VENUS) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_VENUS; 
+    return IPhysicalDevice::E_DRIVER_ID::EDI_UNKNOWN;
+}
+
 }
 
 #define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__

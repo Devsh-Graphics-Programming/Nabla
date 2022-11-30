@@ -61,6 +61,7 @@ class NBL_API IImage : public IDescriptor
 	public:
 		enum E_ASPECT_FLAGS : uint16_t
 		{
+			EAF_NONE				= 0u,
 			EAF_COLOR_BIT			= 0x1u << 0u,
 			EAF_DEPTH_BIT			= 0x1u << 1u,
 			EAF_STENCIL_BIT			= 0x1u << 2u,
@@ -121,7 +122,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		enum E_USAGE_FLAGS : uint16_t
 		{
-            EUF_NONE = 0x00000000,
+			EUF_NONE = 0x00000000,
 			EUF_TRANSFER_SRC_BIT = 0x00000001,
 			EUF_TRANSFER_DST_BIT = 0x00000002,
 			EUF_SAMPLED_BIT = 0x00000004,
@@ -135,7 +136,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceRange
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		baseMipLevel = 0u;
 			uint32_t		levelCount = 0u;
 			uint32_t		baseArrayLayer = 0u;
@@ -143,7 +144,7 @@ class NBL_API IImage : public IDescriptor
 		};
 		struct SSubresourceLayers
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		mipLevel = 0u;
 			uint32_t		baseArrayLayer = 0u;
 			uint32_t		layerCount = 0u;
@@ -156,7 +157,7 @@ class NBL_API IImage : public IDescriptor
 			{
 				// TODO: more complex check of compatible aspects
 				// Image Extent must be a mutiple of texel block dims OR offset + extent = image subresourceDims
- 				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
+				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
 				// If planar subresource aspectMask should be PLANE_{0,1,2}
 				if (false)
 					return false;
@@ -188,7 +189,7 @@ class NBL_API IImage : public IDescriptor
 			{
 				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
 			}
-			static inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
+			static inline uint64_t		getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
 			{
 				return core::dot(localXYZLayerOffset,byteStrides)[0];
 			}
@@ -196,7 +197,6 @@ class NBL_API IImage : public IDescriptor
 			{
 				return bufferOffset+getLocalByteOffset(localXYZLayerOffset,byteStrides);
 			}
-
 
 			size_t				bufferOffset = 0ull;
 			// setting this to different from 0 can fail an image copy on OpenGL
@@ -241,7 +241,7 @@ class NBL_API IImage : public IDescriptor
 			VkExtent3D									extent;
 			uint32_t									mipLevels;
 			uint32_t									arrayLayers;
-			E_CREATE_FLAGS								flags = ECF_NONE;
+			core::bitflag<E_CREATE_FLAGS>				flags = ECF_NONE;
 			core::bitflag<E_USAGE_FLAGS>				usage = EUF_NONE;
 
 			inline bool operator==(const SCreationParams& rhs) const
@@ -256,7 +256,7 @@ class NBL_API IImage : public IDescriptor
 					extent!=rhs.extent ||
 					mipLevels!=rhs.mipLevels ||
 					arrayLayers!=rhs.arrayLayers ||
-					flags!=rhs.flags ||
+					flags.value!=rhs.flags.value ||
 					usage.value!=rhs.usage.value;
 			}
 		};
@@ -282,7 +282,12 @@ class NBL_API IImage : public IDescriptor
 				default:
 					break;
 			}
-			return 1u + uint32_t(floorf(log2(float(maxSideLen))));
+			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
+			return core::findLSB(round);
+		}
+		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
+		{
+			return calculateMaxMipLevel(extent,type)+1u;
 		}
 
 		//!
@@ -318,7 +323,7 @@ class NBL_API IImage : public IDescriptor
 			if (core::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
 				return false;
 
-			if (_params.flags & ECF_CUBE_COMPATIBLE_BIT)
+			if (_params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT))
 			{
 				if (_params.type != ET_2D)
 					return false;
@@ -329,28 +334,28 @@ class NBL_API IImage : public IDescriptor
 				if (_params.samples != ESCF_1_BIT)
 					return false;
 			}
-			if ((_params.flags & ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
+			if (_params.flags.hasFlags(ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
 				return false;
-			if ((_params.flags & ECF_SPARSE_RESIDENCY_BIT) || (_params.flags & ECF_SPARSE_ALIASED_BIT))
+			if (_params.flags.hasFlags(ECF_SPARSE_RESIDENCY_BIT) || _params.flags.hasFlags(ECF_SPARSE_ALIASED_BIT))
 			{
-				if (!(_params.flags & ECF_SPARSE_BINDING_BIT))
+				if (!_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT))
 					return false;
-				if (_params.flags & ECF_PROTECTED_BIT)
+				if (_params.flags.hasFlags(ECF_PROTECTED_BIT))
 					return false;
 			}
-			if ((_params.flags & ECF_SPARSE_BINDING_BIT) && (_params.flags & ECF_PROTECTED_BIT))
+			if (_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT) && _params.flags.hasFlags(ECF_PROTECTED_BIT))
 				return false;
-			if (_params.flags & ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
+			if (_params.flags.hasFlags(ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT))
 			{
 				if (_params.mipLevels > 1u || _params.arrayLayers > 1u || _params.type != ET_2D)
 					return false;
 			}
-			if (_params.flags & ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
+			if (_params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT))
 			{
-				if (!isBlockCompressionFormat(_params.format) || !(_params.flags & ECF_MUTABLE_FORMAT_BIT))
+				if (!isBlockCompressionFormat(_params.format) || !_params.flags.hasFlags(ECF_MUTABLE_FORMAT_BIT))
 					return false;
 			}
-			if ((_params.flags & ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
+			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
 				return false;
 
 			if (_params.samples != ESCF_1_BIT && _params.type != ET_2D)
@@ -379,11 +384,11 @@ class NBL_API IImage : public IDescriptor
 			}
 			else
 			{
-				if (!(_params.flags & ECF_ALIAS_BIT) && (_params.flags & ECF_DISJOINT_BIT))
+				if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
 					return false;
 			}
 
-			if (_params.mipLevels > calculateMaxMipLevel(_params.extent, _params.type))
+			if (_params.mipLevels > calculateFullMipPyramidLevelCount(_params.extent, _params.type))
 				return false;
 
 			return true;
@@ -537,7 +542,7 @@ class NBL_API IImage : public IDescriptor
 			EL_SHADING_RATE_OPTIMAL_NV = 1000164003,
 			EL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
 		};
-    protected:
+	protected:
 		IImage(const SCreationParams& _params) : m_creationParams(_params), info(_params.format) {}
 
 		virtual ~IImage() {}
@@ -581,6 +586,9 @@ class NBL_API IImage : public IDescriptor
 				const auto& subresource = it->getDstSubresource();
 				//if (!formatHasAspects(m_creationParams.format,subresource.aspectMask))
 					//return false;
+				// The aspectMask member of imageSubresource must only have a single bit set
+				if (!core::bitCount(static_cast<uint32_t>(subresource.aspectMask)) == 1u)
+					return false;
 				if (subresource.mipLevel >= m_creationParams.mipLevels)
 					return false;
 				if (subresource.baseArrayLayer+subresource.layerCount > m_creationParams.arrayLayers)

@@ -28,6 +28,8 @@
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IDeviceMemoryAllocator.h"
 
+#include "nbl/video/SPhysicalDeviceFeatures.h"
+
 namespace nbl::video
 {
 
@@ -37,21 +39,6 @@ class IPhysicalDevice;
 class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
-        enum E_FEATURE
-        {
-            EF_SWAPCHAIN = 0,
-            EF_DEFERRED_HOST_OPERATIONS,
-            EF_BUFFER_DEVICE_ADDRESS,
-            EF_DESCRIPTOR_INDEXING,
-            EF_ACCELERATION_STRUCTURE,
-            EF_SHADER_FLOAT_CONTROLS,
-            EF_SPIRV_1_4,
-            EF_RAY_TRACING_PIPELINE,
-            EF_RAY_QUERY,
-            EF_FRAGMENT_SHADER_INTERLOCK,
-            EF_COUNT
-        };
-
         struct SQueueCreationParams
         {
             IGPUQueue::E_CREATE_FLAGS flags;
@@ -63,10 +50,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         {
             uint32_t queueParamsCount;
             const SQueueCreationParams* queueParams;
-            uint32_t requiredFeatureCount;
-            E_FEATURE* requiredFeatures;
-            uint32_t optionalFeatureCount;
-            E_FEATURE* optionalFeatures;
+            SPhysicalDeviceFeatures featuresToEnable;
         };
 
         struct SDescriptorSetCreationParams
@@ -99,6 +83,8 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         }
 
         inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
+
+        inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
 
         E_API_TYPE getAPIType() const;
 
@@ -514,10 +500,17 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;
+        
+        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
+        inline core::SRange<const char* const> getExtraGLSLDefines() const
+        {
+            const char* const* begin = m_extraGLSLDefines.data();
+            return {begin,begin+m_extraGLSLDefines.size()};
+        }
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
-            : m_api(api), m_physicalDevice(physicalDevice)
+            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable)
         {
             uint32_t qcnt = 0u;
             uint32_t greatestFamNum = 0u;
@@ -593,8 +586,41 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         ) = 0;
         virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
         virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+        
+        void addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderDoc);
+
+        template<typename... Args>
+        inline void addGLSLDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
+        {
+            const ptrdiff_t pos = pool.tellp();
+            m_extraGLSLDefines.push_back(reinterpret_cast<const char*>(pos));
+            pool << define << " ";
+            ((pool << std::forward<Args>(args)), ...);
+        }
+        inline void finalizeGLSLDefinePool(std::ostringstream&& pool)
+        {
+            m_GLSLDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraGLSLDefines.size());
+            const auto data = ptrdiff_t(m_GLSLDefineStringPool.data());
+
+            const auto str = pool.str();
+            size_t nullCharsWritten = 0u;
+            for (auto i=0u; i<m_extraGLSLDefines.size(); i++)
+            {
+                auto& dst = m_extraGLSLDefines[i];
+                const auto len = (i!=(m_extraGLSLDefines.size()-1u) ? ptrdiff_t(m_extraGLSLDefines[i+1]):str.length())-ptrdiff_t(dst);
+                const char* src = str.data()+ptrdiff_t(dst);
+                dst += data+(nullCharsWritten++);
+                memcpy(const_cast<char*>(dst),src,len);
+                const_cast<char*>(dst)[len] = 0;
+            }
+        }
+
+        core::vector<char> m_GLSLDefineStringPool;
+        core::vector<const char*> m_extraGLSLDefines;
+
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
+        SPhysicalDeviceFeatures m_enabledFeatures;
         IPhysicalDevice* m_physicalDevice;
 
         using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;

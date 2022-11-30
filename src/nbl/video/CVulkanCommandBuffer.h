@@ -307,7 +307,7 @@ public:
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
         vk->vk.vkCmdPushConstants(m_cmdbuf,
             IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject(),
-            static_cast<VkShaderStageFlags>(stageFlags.value),
+            getVkShaderStageFlagsFromShaderStage(stageFlags),
             offset,
             size,
             pValues);

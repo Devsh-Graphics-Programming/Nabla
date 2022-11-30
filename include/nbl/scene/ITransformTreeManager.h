@@ -102,8 +102,8 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
-        {
+		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
+		{
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
 			auto createShader = [&system,&device](auto uniqueString, asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
@@ -175,7 +175,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			
 			video::IGPUBuffer::SCreationParams debugIndexBufferCreationParams = {};
 			debugIndexBufferCreationParams.size = tmp.size();
-			debugIndexBufferCreationParams.usage = core::bitflag<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT);
+			debugIndexBufferCreationParams.usage = core::bitflag(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT) | video::IGPUBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT;
 			auto debugIndexBuffer = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(debugIndexBufferCreationParams),fillData);
 
 			auto updateLocalDsLayout = createUpdateLocalTransformsDescriptorSetLayout(device);
@@ -200,8 +200,8 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 				std::move(pipelinesWithoutNormalMatrices),std::move(pipelinesWithNormalMatrices),
 				std::move(defaultFillValues),std::move(debugIndexBuffer)
 			);
-            return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
-        }
+			return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
+		}
 
 		static inline constexpr uint32_t TransferCount = 4u;
 		struct RequestBase

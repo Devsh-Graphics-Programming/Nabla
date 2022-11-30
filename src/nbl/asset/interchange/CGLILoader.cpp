@@ -203,9 +203,6 @@ namespace nbl
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-			if (imageInfo.format == asset::EF_R8_SRGB)
-				image = IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
-
 			ICPUImageView::SCreationParams imageViewInfo;
 			imageViewInfo.image = std::move(image);
 			imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
