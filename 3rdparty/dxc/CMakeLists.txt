@@ -39,6 +39,22 @@ set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build"
 
 add_subdirectory(dxc dxc)
 
+set(_NBL_DXC_TARGETS_WITH_FORCED_LOW_STANDARD_
+	dxcompiler
+	LLVMSupport
+	llvm-tblgen
+	clangCodeGen
+	LLVMDxilDia
+	LLVMAnalysis
+	LLVMTransformUtils
+	LLVMScalarOpts
+)
+
+foreach(_NBL_DXC_TARGET_WITH_FORCED_LOW_STANDARD_ IN LISTS _NBL_DXC_TARGETS_WITH_FORCED_LOW_STANDARD_)
+	set_property(TARGET ${_NBL_DXC_TARGET_WITH_FORCED_LOW_STANDARD_} PROPERTY CXX_STANDARD 11)
+endforeach()
+
+
 # TODO: change them
 #set(_DXC_CURRENT_CONFIG_ "$<IF:$<CONFIG:Debug>,Debug,Release>")
 #set(DXC_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc" CACHE INTERNAL "")
