@@ -45,15 +45,12 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; };
 
-        inline asset::CGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
-
     protected:
-        IAPIConnection(const SFeatures& enabledFeatures, core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc);
+        IAPIConnection(const SFeatures& enabledFeatures);
 
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
         renderdoc_api_t* m_rdoc_api;
         SFeatures m_enabledFeatures = {};
-        core::smart_refctd_ptr<asset::CGLSLCompiler> m_glslCompiler;
 };
 
 }

@@ -2268,7 +2268,10 @@ protected:
 
         vk_createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStrings.size());
         vk_createInfo.ppEnabledExtensionNames = extensionStrings.data();
-        
+
+        if (!params.compilerSet)
+            params.compilerSet = core::make_smart_refctd_ptr<asset::CCompilerSet>(core::smart_refctd_ptr(m_system));
+
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
         {
@@ -2291,7 +2294,7 @@ private:
     VkPhysicalDevice m_vkPhysicalDevice;
     core::unordered_set<std::string> m_availableFeatureSet;
 };
-        
+
 }
 
 #endif

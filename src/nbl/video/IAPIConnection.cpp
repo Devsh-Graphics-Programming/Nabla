@@ -15,11 +15,10 @@ core::SRange<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
         reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data()) + m_physicalDevices.size());
 }
 
-IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures, core::smart_refctd_ptr<asset::CGLSLCompiler>&& glslc) 
+IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures) 
     : m_physicalDevices()
     , m_rdoc_api(nullptr)
     , m_enabledFeatures(enabledFeatures)
-    , m_glslCompiler(std::move(glslc))
 {
 #ifdef _NBL_PLATFORM_WINDOWS_
     if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))

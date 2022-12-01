@@ -109,7 +109,7 @@ public:
         
         std::ostringstream pool;
         const bool runningInRenderDoc = (m_glfeatures) ? m_glfeatures->runningInRenderDoc : false;
-        addCommonGLSLDefines(pool, runningInRenderDoc);
+        addCommonShaderDefines(pool, runningInRenderDoc);
         {
             std::string define;
             for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
@@ -119,11 +119,11 @@ public:
                 {
                     define = "NBL_GLSL_IMPL_";
                     define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
-                    addGLSLDefineToPool(pool,define.c_str());
+                    addShaderDefineToPool(pool,define.c_str());
                 }
             }
         }
-        finalizeGLSLDefinePool(std::move(pool));
+        finalizeShaderDefinePool(std::move(pool));
 
         m_threadHandler.start();
         m_threadHandler.waitForInitComplete();

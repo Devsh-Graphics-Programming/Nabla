@@ -125,8 +125,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
-			std::string_view entryPoint = nullptr;
-			std::string_view sourceIdentifier = nullptr;
+			std::string_view entryPoint = "";
+			std::string_view sourceIdentifier = "";
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;

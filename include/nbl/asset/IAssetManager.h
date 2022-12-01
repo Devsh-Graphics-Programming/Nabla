@@ -17,7 +17,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 
-#include "nbl/asset/utils/CGLSLCompiler.h"
+#include "nbl/asset/utils/CCompilerSet.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
 
 
@@ -119,14 +119,15 @@ class NBL_API IAssetManager : public core::IReferenceCounted, public core::QuitS
 
         core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
         core::smart_refctd_ptr<IMeshManipulator> m_meshManipulator;
-        core::smart_refctd_ptr<CGLSLCompiler> m_glslCompiler;
+        core::smart_refctd_ptr<CCompilerSet> m_compilerSet;
         // called as a part of constructor only
         void initializeMeshTools();
 
     public:
         //! Constructor
-        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s) :
-            m_system(std::move(_s)),
+        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& system, core::smart_refctd_ptr<CCompilerSet>&& compilerSet = nullptr) :
+            m_system(std::move(system)),
+            m_compilerSet(std::move(compilerSet)),
             m_defaultLoaderOverride(this)
         {
             initializeMeshTools();
@@ -144,7 +145,7 @@ class NBL_API IAssetManager : public core::IReferenceCounted, public core::QuitS
 
         const IGeometryCreator* getGeometryCreator() const;
         IMeshManipulator* getMeshManipulator();
-        CGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
+        CCompilerSet* getCompilerSet() const { return m_compilerSet.get(); }
 
     protected:
 		virtual ~IAssetManager()

@@ -613,13 +613,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
         
-        inline asset::CGLSLCompiler* getGLSLCompiler() const 
-        {
-            if (m_api)
-                return m_api->getGLSLCompiler();
-            return nullptr;
-        }
-
         virtual IDebugCallback* getDebugCallback() = 0;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
@@ -699,7 +692,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         
         IAPIConnection* m_api; // dumb pointer to avoid circ ref
         core::smart_refctd_ptr<system::ISystem> m_system;
-        core::smart_refctd_ptr<asset::CGLSLCompiler> m_GLSLCompiler;
 
         SProperties m_properties = {};
         SFeatures m_features = {};

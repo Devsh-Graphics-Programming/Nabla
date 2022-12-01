@@ -71,8 +71,8 @@ public:
         
         std::ostringstream pool;
         bool runningInRenderdoc = (rdoc != nullptr);
-        addCommonGLSLDefines(pool,runningInRenderdoc);
-        finalizeGLSLDefinePool(std::move(pool));
+        addCommonShaderDefines(pool,runningInRenderdoc);
+        finalizeShaderDefinePool(std::move(pool));
 
         m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
     }
@@ -518,41 +518,45 @@ public:
 
         const asset::ICPUBuffer* source = cpushader->getContent();
 
-        // TODO:
-        core::smart_refctd_ptr<asset::CCompilerSet> compilerSet;
-
-        const char* begin = static_cast<const char*>(source->getPointer());
-        const char* end = begin + source->getSize();
-        std::string code(begin, end);
-
-        auto compiler = compilerSet->getShaderCompiler(cpushader->getContentType());
-        asset::IShaderCompiler::SOptions commonCompileOptions = {};
-        commonCompileOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-        commonCompileOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
-        commonCompileOptions.stage = shaderStage;
-        commonCompileOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
-        commonCompileOptions.entryPoint = entryPoint;
-        commonCompileOptions.genDebugInfo = true;
-        commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
-        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
-
-        if (cpushader->getContentType() != asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-            asset::IShader::insertDefines(code, getExtraGLSLDefines());
-
         core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
 
-        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
         {
-            // TODO: add specific HLSLCompiler::SOption params
-            spirvShader = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-        }
-        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
-        {
-            spirvShader = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+            spirvShader = cpushader;
         }
         else
         {
-            spirvShader = compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+            asset::IShaderCompiler::SOptions commonCompileOptions = {};
+            const char* begin = static_cast<const char*>(source->getPointer());
+            const char* end = begin + source->getSize();
+            std::string code(begin, end);
+
+            auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
+            commonCompileOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+            commonCompileOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+            commonCompileOptions.stage = shaderStage;
+            commonCompileOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
+            commonCompileOptions.entryPoint = entryPoint;
+            commonCompileOptions.genDebugInfo = true;
+            commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
+            commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+            asset::IShader::insertDefines(code, getExtraShaderDefines());
+
+            auto newCodeBuffer = core::make_smart_refctd_ptr<asset::CDummyCPUBuffer>(code.size() + 1u, code.data(), core::adopt_memory);
+            auto newCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(newCodeBuffer), cpushader->getStage(), cpushader->getContentType(), std::string(cpushader->getFilepathHint()));
+
+            if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+            {
+                // TODO: add specific HLSLCompiler::SOption params
+                spirvShader = m_compilerSet->compileToSPIRV(newCPUShader.get(), commonCompileOptions);
+            }
+            else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+            {
+                spirvShader = m_compilerSet->compileToSPIRV(newCPUShader.get(), commonCompileOptions);
+            }
+            else
+                spirvShader = m_compilerSet->compileToSPIRV(newCPUShader.get(), commonCompileOptions);
+
         }
 
         if (!spirvShader || !spirvShader->getContent())
