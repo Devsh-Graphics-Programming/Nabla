@@ -581,20 +581,13 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 else()
 	add_dependencies(Nabla dxcompiler)
 endif()
-target_include_directories(Nabla PRIVATE 
-	"${DXC_BINARY_DIR_GE}/tools/clang/tools/dxcompiler"
-	"${DXC_SOURCE_DIR}/tools/clang/tools/dxcompiler"
-	"${DXC_SOURCE_DIR}/tools/clang/include"
-	"${DXC_BINARY_DIR_GE}/tools/clang/include"
-	"${DXC_SOURCE_DIR}/include/llvm/llvm_assert"
-	"${DXC_BINARY_DIR_GE}/include"
-	"${DXC_SOURCE_DIR}/include"
-	"${DXC_BINARY_DIR_GE}/include/dxc/Tracing"
-	"${DXC_BINARY_DIR_GE}/utils/version"
-	"${DXC_SOURCE_DIR}/external/SPIRV-Tools/include"
-	"${DXC_SOURCE_DIR}/external/SPIRV-Headers/include"
-)
-target_link_libraries(Nabla INTERFACE "${DXC_DXCOMPILER_LIB}")
+
+target_include_directories(Nabla PRIVATE $<TARGET_PROPERTY:dxcompiler,INCLUDE_DIRECTORIES>)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE dxcompiler)
+else()
+	target_link_libraries(Nabla PRIVATE dxcompiler)
+endif()
 
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
