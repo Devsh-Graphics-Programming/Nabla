@@ -18,24 +18,26 @@ CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 {
 }
 
-core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* code, const CGLSLCompiler::SOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SOptions& options) const
 {
+    auto glslOptions = option_cast(options);
+
     if (!code)
     {
-        options.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
+        glslOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
-    if (options.entryPoint.compare("main") != 0)
+    if (glslOptions.entryPoint.compare("main") != 0)
     {
-        options.logger.log("shaderc requires entry point to be \"main\" in GLSL", system::ILogger::ELL_ERROR);
+        glslOptions.logger.log("shaderc requires entry point to be \"main\" in GLSL", system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
     core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
-    if (options.includeFinder != nullptr)
+    if (glslOptions.includeFinder != nullptr)
     {
-        cpuShader = resolveIncludeDirectives(code, options.stage, options.sourceIdentifier.data(), options.maxSelfInclusionCount, options.logger);
+        cpuShader = resolveIncludeDirectives(code, glslOptions.stage, glslOptions.sourceIdentifier.data(), glslOptions.maxSelfInclusionCount, glslOptions.logger);
         if (cpuShader)
         {
             code = reinterpret_cast<const char*>(cpuShader->getContent()->getPointer());
@@ -44,39 +46,26 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
 
     shaderc::Compiler comp;
     shaderc::CompileOptions shadercOptions; //default options
-    shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(options.targetSpirvVersion));
-    const shaderc_shader_kind stage = options.stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(options.stage);
+    shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.targetSpirvVersion));
+    const shaderc_shader_kind stage = glslOptions.stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
     const size_t glsl_len = strlen(code);
-    if (options.genDebugInfo)
+    if (glslOptions.genDebugInfo)
         shadercOptions.SetGenerateDebugInfo();
 
-    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(code, glsl_len, stage, options.sourceIdentifier.data() ? options.sourceIdentifier.data() : "", options.entryPoint.data(), shadercOptions);
+    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(code, glsl_len, stage, glslOptions.sourceIdentifier.data() ? glslOptions.sourceIdentifier.data() : "", glslOptions.entryPoint.data(), shadercOptions);
 
     if (bin_res.GetCompilationStatus() == shaderc_compilation_status_success)
     {
         auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(std::distance(bin_res.cbegin(), bin_res.cend()) * sizeof(uint32_t));
         memcpy(outSpirv->getPointer(), bin_res.cbegin(), outSpirv->getSize());
 
-        if (options.spirvOptimizer)
-            outSpirv = options.spirvOptimizer->optimize(outSpirv.get(), options.logger);
-        return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), options.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, options.sourceIdentifier.data());
+        if (glslOptions.spirvOptimizer)
+            outSpirv = glslOptions.spirvOptimizer->optimize(outSpirv.get(), glslOptions.logger);
+        return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), glslOptions.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, glslOptions.sourceIdentifier.data());
     }
     else
     {
-        options.logger.log(bin_res.GetErrorMessage(), system::ILogger::ELL_ERROR);
+        glslOptions.logger.log(bin_res.GetErrorMessage(), system::ILogger::ELL_ERROR);
         return nullptr;
     }
-}
-
-core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(system::IFile* sourceFile, const CGLSLCompiler::SOptions& options) const
-{
-    size_t fileSize = sourceFile->getSize();
-    std::string code(fileSize, '\0');
-
-    system::IFile::success_t success;
-    sourceFile->read(success, code.data(), 0, fileSize);
-    if (success)
-        return compileToSPIRV(code.c_str(), options);
-    else
-        return nullptr;
 }

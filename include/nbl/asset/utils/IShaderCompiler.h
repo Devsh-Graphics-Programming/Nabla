@@ -141,6 +141,21 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };
 		};
 
+		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SOptions& options) const = 0;
+
+		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const SOptions& options) const
+		{
+			size_t fileSize = sourceFile->getSize();
+			std::string code(fileSize, '\0');
+
+			system::IFile::success_t success;
+			sourceFile->read(success, code.data(), 0, fileSize);
+			if (success)
+				return compileToSPIRV(code.c_str(), options);
+			else
+				return nullptr;
+		}
+
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
 		This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such ICPUShader (mostly High Level source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.

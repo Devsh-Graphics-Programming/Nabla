@@ -43,9 +43,7 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 		@returns Shader containing SPIR-V bytecode.
 		*/
 
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const CGLSLCompiler::SOptions& options) const;
-
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const CGLSLCompiler::SOptions& options) const;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const IShaderCompiler::SOptions& options) const override;
 
 		/*
 		 If original code contains #version specifier,
@@ -126,6 +124,19 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 				return "";
 			}
 		}
+
+	protected:
+
+		static CGLSLCompiler::SOptions option_cast(const IShaderCompiler::SOptions& options)
+		{
+			CGLSLCompiler::SOptions ret = {};
+			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_GLSL)
+				ret = static_cast<const CGLSLCompiler::SOptions&>(options);
+			else
+				ret.setCommonData(options);
+			return ret;
+		}
+
 };
 
 }
