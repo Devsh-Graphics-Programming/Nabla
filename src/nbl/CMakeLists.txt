@@ -235,7 +235,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGLSLCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CHLSLCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CCompilerSet.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CShaderIntrospector.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSPIRVIntrospector.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSPVLoader.cpp
 	

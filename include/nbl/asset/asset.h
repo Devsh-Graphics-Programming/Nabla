@@ -44,7 +44,7 @@
 #include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
-#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/CSPIRVIntrospector.h"
 
 // pipelines
 

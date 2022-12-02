@@ -12,7 +12,7 @@
 
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
-#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/CSPIRVIntrospector.h"
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"

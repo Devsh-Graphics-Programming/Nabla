@@ -29,7 +29,7 @@
 #include "nbl/asset/interchange/CGLIWriter.h"
 
 // shaders
-#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/CSPIRVIntrospector.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
 // builtins/headers
