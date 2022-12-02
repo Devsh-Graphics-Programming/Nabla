@@ -37,53 +37,15 @@ set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
 set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
 
+set(CMAKE_CXX_STANDARD 11)
+if(NBL_DYNAMIC_MSVC_RUNTIME)
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+else()
+	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")		
+endif()
+
 add_subdirectory(dxc dxc)
-
-set(_NBL_DXC_TARGETS_WITH_FORCED_LOW_STANDARD_
-	dxcompiler
-	LLVMSupport
-	llvm-tblgen
-	clangCodeGen
-	LLVMDxilDia
-	LLVMAnalysis
-	LLVMTransformUtils
-	LLVMScalarOpts
-)
-
-foreach(_NBL_DXC_TARGET_WITH_FORCED_LOW_STANDARD_ IN LISTS _NBL_DXC_TARGETS_WITH_FORCED_LOW_STANDARD_)
-	set_property(TARGET ${_NBL_DXC_TARGET_WITH_FORCED_LOW_STANDARD_} PROPERTY CXX_STANDARD 11)
-endforeach()
-
-
-# TODO: change them
-#set(_DXC_CURRENT_CONFIG_ "$<IF:$<CONFIG:Debug>,Debug,Release>")
-#set(DXC_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc" CACHE INTERNAL "")
-#set(DXC_BINARY_DIR_EP "${CMAKE_CURRENT_BINARY_DIR}/external/dxc" CACHE INTERNAL "")
-#set(DXC_BINARY_DIR_GE "${DXC_BINARY_DIR_EP}/build" CACHE INTERNAL "")
-#set(DXC_BIN_DIR "${DXC_BINARY_DIR_GE}/Release/bin" CACHE INTERNAL "") # hardcoded
-#set(DXC_LIB_DIR "${DXC_BINARY_DIR_GE}/${_DXC_CURRENT_CONFIG_}/lib" CACHE INTERNAL "") # library path depends on the configuration
-#set(DXC_EXECUTABLE "${DXC_BIN_DIR}/dxc.exe" CACHE INTERNAL "")
-#set(DXC_DXCOMPILER_LIB "${DXC_LIB_DIR}/dxcompiler.lib" CACHE INTERNAL "")
-
-# DXC External Project
-# builds DXC executable target and dxcompiler library target
-# we cannot include it to Nabla's BS because DXC's BS isn't supposed to be added via submodule 
-# - there are troubles with linker input paths and include/link search directory paths
-
-#ExternalProject_Add(dxc
-#	DOWNLOAD_COMMAND  ""
-#	SOURCE_DIR        "${DXC_SOURCE_DIR}"
-#	BINARY_DIR        "${DXC_BINARY_DIR_EP}"
-#	BUILD_COMMAND     "${CMAKE_COMMAND}" --build "${DXC_BINARY_DIR_GE}" --config Release --target dxc -v # DXC executable will be compiled always in Release mode
-#	COMMAND			  "${CMAKE_COMMAND}" --build "${DXC_BINARY_DIR_GE}" --config ${_DXC_CURRENT_CONFIG_} --target dxcompiler -v
-#	CONFIGURE_COMMAND "${CMAKE_COMMAND}" -S "${DXC_SOURCE_DIR}" -B "${DXC_BINARY_DIR_GE}" -G "${CMAKE_GENERATOR}" "-Ax64" -T "${CMAKE_GENERATOR_TOOLSET}" ${DXC_CMAKE_ARGS}
-#	INSTALL_COMMAND	  ""
-#	TEST_COMMAND      ""
-#	LOG_INSTALL		  1
-#)
-
-unset(DXC_CMAKE_ARGS)
-unset(_DXC_CURRENT_CONFIG_)
+set(CMAKE_CXX_STANDARD 20) # it's mandatory
 
 #if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 #	add_subdirectory(CT CT)
