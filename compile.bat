@@ -40,6 +40,7 @@ set file_path[23]=random/xoroshiro
 set file_path[24]=utils/compressed_normal_matrix_t
 set file_path[25]=utils/acceleration_structures
 set file_path[26]=utils/common
+set file_path[27]=utils/culling
 
 
 rem set file_path[23]=bxdf/fresnel

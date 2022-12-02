@@ -24,14 +24,14 @@ float3 identity(in float3 _linear)
 
 float3 impl_shared_2_4(in float3 _linear, in float vertex)
 {
-    bool3 right = greaterThan(_linear, vertex.xxx);
+    bool3 right = (_linear > vertex.xxx);
     return lerp(_linear * 12.92, pow(_linear, (1.0 / 2.4).xxx) * 1.055 - (0.055).xxx, right);
 }
 
 // compatible with scRGB as well
 float3 sRGB(in float3 _linear)
 {
-    bool3 negatif = lessThan(_linear, (0.0).xxx);
+    bool3 negatif = (_linear < (0.0).xxx);
     float3 absVal = impl_shared_2_4(abs(_linear), 0.0031308);
     return lerp(absVal, -absVal, negatif);
 }
@@ -53,7 +53,7 @@ float3 SMPTE_170M(in float3 _linear)
     // because HDR swapchains often employ the RGBA16_SFLOAT format, this would become apparent because its higher precision than 8,10,12 bits
     const float alpha = 1.099296826809443; // 1.099 for all ITU but the BT.2020 12 bit encoding, 1.0993 otherwise
     const float3 beta = (0.018053968510808).xxx; // 0.0181 for all ITU but the BT.2020 12 bit encoding, 0.18 otherwise
-    return lerp(_linear * 4.5, pow(_linear, (0.45).xxx) * alpha - (alpha - 1.0).xxx, greaterThanEqual(_linear, beta));
+    return lerp(_linear * 4.5, pow(_linear, (0.45).xxx) * alpha - (alpha - 1.0).xxx, (_linear >= beta));
 }
 
 float3 SMPTE_ST2084(in float3 _linear)
@@ -75,7 +75,7 @@ float3 HDR10_HLG(in float3 _linear)
     const float a = 0.1239574303172;
     const float3 b = (0.02372241).xxx;
     const float3 c = (1.0042934693729).xxx;
-    bool3 right = greaterThan(_linear, (1.0 / 12.0).xxx);
+    bool3 right = (_linear > (1.0 / 12.0).xxx);
     return lerp(sqrt(_linear * 3.0), log2(_linear - b) * a + c, right);
 }
 
@@ -91,14 +91,14 @@ float3 Gamma_2_2(in float3 _linear)
 
 float3 ACEScc(in float3 _linear)
 {
-    bool3 mid = greaterThanEqual(_linear, (0.0).xxx);
-    bool3 right = greaterThanEqual(_linear, (0.000030517578125).xxx);
+    bool3 mid = (_linear >= (0.0).xxx);
+    bool3 right = (_linear >= (0.000030517578125).xxx);
     return (log2(lerp((0.0000152587890625).xxx, (0.0).xxx, right) + _linear * lerp((0.0).xxx, lerp((0.5).xxx, (1.0).xxx, right), mid)) + (9.72).xxx) / 17.52;
 }
 
 float3 ACEScct(in float3 _linear)
 {
-    bool3 right = greaterThan(_linear, (0.0078125).xxx);
+    bool3 right = (_linear > (0.0078125).xxx);
     return lerp(10.5402377416545 * _linear + 0.0729055341958355, (log2(_linear) + (9.72).xxx) / 17.52, right);
 }
 

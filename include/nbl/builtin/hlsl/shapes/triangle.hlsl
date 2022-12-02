@@ -34,7 +34,7 @@ bool SphericalTrianglePyramidAngles(in float3x3 sphericalVertices, out float3 co
     				   dot(tp_sphericalVertices[2],tp_sphericalVertices[0]),
     				   dot(tp_sphericalVertices[0],tp_sphericalVertices[1]));
     csc_sides = rsqrt(float3(1.f,1.f,1.f)-cos_sides*cos_sides);
-    return any(greaterThanEqual(csc_sides, float3(FLT_MAX,FLT_MAX,FLT_MAX)));
+    return any((csc_sides >= float3(FLT_MAX,FLT_MAX,FLT_MAX)));
 }
 
 // returns solid angle of a spherical triangle, this function is beyond optimized.

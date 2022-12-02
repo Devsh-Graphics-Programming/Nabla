@@ -12,49 +12,6 @@ namespace hlsl
 {
 
 
-bool3 greaterThanEqual(float3 x, float3 y)
-{
-    bool3 ret;
-    for(int i=0; i<3; i++)
-    {
-        ret[i] = x[i] >= y[i] ? true : false;
-    }
-    return ret;
-}
-
-bool3 lessThanEqual(float3 x, float3 y)
-{
-    bool3 ret;
-    for(int i=0; i<3; i++)
-    {
-        ret[i] = x[i] <= y[i] ? true : false;
-    }
-    return ret;
-}
-
-bool3 greaterThan(float3 x, float3 y)
-{
-    bool3 ret;
-    for(int i=0; i<3; i++)
-    {
-        ret[i] = x[i] > y[i] ? true : false;
-    }
-    return ret;
-}
-
-bool3 lessThan(float3 x, float3 y)
-{
-    bool3 ret;
-    for(int i=0; i<3; i++)
-    {
-        ret[i] = x[i] < y[i] ? true : false;
-    }
-    return ret;
-}
-
-
-
-
 uint bitfieldExtract(uint value, int offset, int bits)
 {
     uint mask = uint((1L << bits) - 1);

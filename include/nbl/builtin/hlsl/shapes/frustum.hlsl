@@ -24,7 +24,7 @@ struct Frustum_t
 
 
 	// gives false negatives
-	bool fastestDoesNotIntersectAABB(in Frustum_t frust, in AABB_t aabb)
+	static bool fastestDoesNotIntersectAABB(in Frustum_t frust, in AABB_t aabb)
 	{
 	#define getClosestDP(R) (dot(aabb.getFarthestPointInFront(R.xyz), R.xyz) + R.w)
 	    if (getClosestDP(frust.minPlanes[0])<=0.f)
@@ -42,28 +42,29 @@ struct Frustum_t
 	    return getClosestDP(frust.maxPlanes[2])<=0.f;
 	#undef getClosestDP
 	}
+
+
+
+	// will place planes which correspond to the bounds in NDC
+	static Frustum_t extract(in float4x4 proj, in AABB_t bounds)
+	{
+	    const float4x4 pTpose = transpose(proj);
+
+	    Frustum_t frust;
+	    frust.minPlanes = (float3x4)(pTpose) - float3x4(pTpose[3]*bounds.minVx[0], pTpose[3]*bounds.minVx[1], pTpose[3]*bounds.minVx[2]);
+	    frust.maxPlanes = float3x4(pTpose[3]*bounds.maxVx[0], pTpose[3]*bounds.maxVx[1], pTpose[3]*bounds.maxVx[2]) - (float3x4)(pTpose);
+	    return frust;
+	}
+
+	// assuming an NDC of [-1,1]^2 x [0,1]
+	static Frustum_t extract(in float4x4 proj)
+	{
+	    AABB_t bounds;
+	    bounds.minVx = float3(-1.f,-1.f,0.f);
+	    bounds.maxVx = float3(1.f,1.f,1.f);
+	    return extract(proj, bounds);
+	}
 };
-
-
-// will place planes which correspond to the bounds in NDC
-Frustum_t extract(in float4x4 proj, in AABB_t bounds)
-{
-    const float4x4 pTpose = transpose(proj);
-
-    Frustum_t frust;
-    frust.minPlanes = (float3x4)(pTpose) - float3x4(pTpose[3]*bounds.minVx[0], pTpose[3]*bounds.minVx[1], pTpose[3]*bounds.minVx[2]);
-    frust.maxPlanes = float3x4(pTpose[3]*bounds.maxVx[0], pTpose[3]*bounds.maxVx[1], pTpose[3]*bounds.maxVx[2]) - (float3x4)(pTpose);
-    return frust;
-}
-
-// assuming an NDC of [-1,1]^2 x [0,1]
-Frustum_t extract(in float4x4 proj)
-{
-    AABB_t bounds;
-    bounds.minVx = float3(-1.f,-1.f,0.f);
-    bounds.maxVx = float3(1.f,1.f,1.f);
-    return extract(proj, bounds);
-}
 
 
 }
