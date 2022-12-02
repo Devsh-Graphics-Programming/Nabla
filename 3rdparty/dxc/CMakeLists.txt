@@ -29,7 +29,6 @@ set(LLVM_REQUIRES_RTTI ON CACHE BOOL "")
 set(CLANG_CL OFF CACHE BOOL "")
 set(LLVM_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
 set(SPIRV_WERROR OFF CACHE BOOL "" FORCE)
-#set(CMAKE_SYSTEM_VERSION=10.0.17763.0")
 set(DXC_BUILD_ARCH x64 CACHE STRING "")
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
@@ -44,8 +43,10 @@ else()
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")		
 endif()
 
-add_subdirectory(dxc dxc)
+add_subdirectory(dxc dxc) # for dxcompiler target
 set(CMAKE_CXX_STANDARD 20) # it's mandatory
+
+add_subdirectory(exe exe) # for dxc executable
 
 #if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 #	add_subdirectory(CT CT)
