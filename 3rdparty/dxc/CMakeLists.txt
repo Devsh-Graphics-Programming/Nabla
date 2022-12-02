@@ -46,8 +46,38 @@ endif()
 add_subdirectory(dxc dxc) # for dxcompiler target
 set(CMAKE_CXX_STANDARD 20) # it's mandatory
 
-add_subdirectory(exe exe) # for dxc executable
+include(FetchContent)
+set(FC_EXTERNAL_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/external")
 
-#if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
-#	add_subdirectory(CT CT)
-#endif()
+set(DXC_BINARY_DIR "${FC_EXTERNAL_BINARY_DIR}/dxc" CACHE INTERNAL "")
+set(DXC_DOWNLOAD_DIR "${DXC_BINARY_DIR}/download" CACHE INTERNAL "")
+set(DXC_UNPACK_DIR "${DXC_BINARY_DIR}/unpack" CACHE INTERNAL "")
+
+FetchContent_Declare(
+	FC_DXC
+	URL 			  "${CMAKE_CURRENT_SOURCE_DIR}/exe/bin.tar.bz2"
+	DOWNLOAD_DIR      "${DXC_DOWNLOAD_DIR}"
+	SOURCE_DIR		  "${DXC_UNPACK_DIR}"
+	BINARY_DIR        "${DXC_BINARY_DIR}"
+)
+
+if(NOT DEFINED FC_DXC_POPULATED OR NOT ${FC_DXC_POPULATED})
+	message(STATUS "Populating DXC executable...")
+	
+	FetchContent_MakeAvailable(FC_DXC)
+	FetchContent_GetProperties(FC_DXC POPULATED _FC_DXC_POPULATED_)
+	
+	if(${_FC_DXC_POPULATED_})
+		set(FC_DXC_POPULATED ON CACHE INTERNAL "")
+	else()
+		set(FC_DXC_POPULATED OFF CACHE INTERNAL "")
+	endif()
+	
+	unset(_FC_DXC_POPULATED_)
+endif()
+
+set(DXC_EXT_EXECUTABLE "${DXC_UNPACK_DIR}/dxc.exe" CACHE STRING "" FORCE)
+
+if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+	add_subdirectory(CT CT)
+endif()

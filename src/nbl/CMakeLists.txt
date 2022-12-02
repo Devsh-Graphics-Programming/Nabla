@@ -583,7 +583,7 @@ endif()
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 else()
-	add_dependencies(Nabla dxcompiler build_dxc_exe)
+	add_dependencies(Nabla dxcompiler)
 endif()
 target_include_directories(Nabla PRIVATE 
 	"${DXC_BINARY_DIR_GE}/tools/clang/tools/dxcompiler"
