@@ -37,15 +37,32 @@ set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
 set(HLSL_ENABLE_DEBUG_ITERATORS ON CACHE BOOL "Enable Debug iterators" FORCE)
 
-set(CMAKE_CXX_STANDARD 11)
+nbl_adjust_flags()
+
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 11) # compiler must support exactly c++11 or c++14 standard in order to be able to build DXC libraries
 if(NBL_DYNAMIC_MSVC_RUNTIME)
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 else()
 	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")		
 endif()
 
-add_subdirectory(dxc dxc) # for dxcompiler target
+try_compile(DXC_COMPILE_TEST_PASSED
+	SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test/test.cpp"
+	OUTPUT_VARIABLE DXC_COMPILE_RET_VAL
+	CXX_STANDARD ${CMAKE_CXX_STANDARD}
+	CXX_STANDARD_REQUIRED ON
+)
+
+if(DXC_COMPILE_TEST_PASSED)
+	set(DXC_COMPILE_TEST_DONE ON CACHE BOOL "")
+else()
+	message(FATAL_ERROR "${DXC_COMPILE_RET_VAL}")
+endif()
+
+add_subdirectory(dxc dxc)
 set(CMAKE_CXX_STANDARD 20) # it's mandatory
+unset(CMAKE_CXX_STANDARD_REQUIRED)
 
 include(FetchContent)
 set(FC_EXTERNAL_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/external")

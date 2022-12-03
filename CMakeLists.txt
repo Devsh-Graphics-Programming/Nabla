@@ -2,7 +2,7 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 #policies
 cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
 set(OpenGL_GL_PREFERENCE LEGACY)
