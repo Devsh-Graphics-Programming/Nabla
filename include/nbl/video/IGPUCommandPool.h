@@ -155,10 +155,9 @@ public:
         void wipeNextCommandSize()
         {
             const auto cursor = header.m_commandAllocator.get_allocated_size();
-            // This also wipes the vtable ptr.
             const uint32_t wipeSize = offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
             if (cursor + wipeSize < header.m_commandAllocator.get_total_size())
-                memset(m_data + cursor, 0, wipeSize);
+                memset(m_data + cursor + offsetof(IGPUCommandPool::ICommand, m_size), 0, sizeof(IGPUCommandPool::ICommand::m_size));
         }
     };
     static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
@@ -414,7 +413,8 @@ public:
     CPipelineBarrierCmd(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
         : ICommand(calc_size(bufferCount, buffers, imageCount, images)), m_resourceCount(bufferCount+imageCount)
     {
-        m_barrierResources = new (this + sizeof(CPipelineBarrierCmd)) core::smart_refctd_ptr<const core::IReferenceCounted>[m_resourceCount];
+        m_barrierResources = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(reinterpret_cast<uint8_t*>(this) + sizeof(CPipelineBarrierCmd));
+        std::uninitialized_default_construct_n(m_barrierResources, m_resourceCount);
 
         uint32_t k = 0;
 
@@ -611,7 +611,8 @@ class IGPUCommandPool::CExecuteCommandsCmd : public IGPUCommandPool::ICommand
 public:
     CExecuteCommandsCmd(const uint32_t count, IGPUCommandBuffer* const* const commandBuffers) : ICommand(calc_size(count, commandBuffers)), m_count(count)
     {
-        m_commandBuffers = new (this + sizeof(CExecuteCommandsCmd)) core::smart_refctd_ptr<const IGPUCommandBuffer>[count];
+        auto dataPtr = reinterpret_cast<core::smart_refctd_ptr<const IGPUCommandBuffer>*>(reinterpret_cast<uint8_t*>(this) + sizeof(CExecuteCommandsCmd));
+        m_commandBuffers = new (dataPtr) core::smart_refctd_ptr<const IGPUCommandBuffer>[count];
         for (auto i = 0; i < m_count; ++i)
             m_commandBuffers[i] = core::smart_refctd_ptr<const IGPUCommandBuffer>(commandBuffers[i]);
     }
@@ -647,7 +648,8 @@ public:
     CWaitEventsCmd(const uint32_t bufferCount, const IGPUBuffer *const *const buffers, const uint32_t imageCount, const IGPUImage *const *const images, const uint32_t eventCount, IGPUEvent *const *const events)
         : ICommand(calc_size(bufferCount, buffers, imageCount, images, eventCount, events)), m_resourceCount(bufferCount + imageCount + eventCount)
     {
-        m_resources = new (this + sizeof(CWaitEventsCmd)) core::smart_refctd_ptr<const IReferenceCounted>[m_resourceCount];
+        auto dataPtr = reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(reinterpret_cast<uint8_t*>(this) + sizeof(CWaitEventsCmd));
+        m_resources = new (dataPtr) core::smart_refctd_ptr<const IReferenceCounted>[m_resourceCount];
 
         uint32_t k = 0u;
         for (auto i = 0; i < bufferCount; ++i)
@@ -751,7 +753,8 @@ public:
     CWriteAccelerationStructurePropertiesCmd(const IQueryPool* queryPool, const uint32_t accelerationStructureCount, IGPUAccelerationStructure const *const *const accelerationStructures)
         : ICommand(calc_size(queryPool, accelerationStructureCount, accelerationStructures)), m_queryPool(core::smart_refctd_ptr<const IQueryPool>(queryPool)), m_accelerationStructureCount(accelerationStructureCount)
     {
-        m_accelerationStructures = new (this + sizeof(CWriteAccelerationStructurePropertiesCmd)) core::smart_refctd_ptr<const IGPUAccelerationStructure>[m_accelerationStructureCount];
+        auto dataPtr = reinterpret_cast<core::smart_refctd_ptr<const IGPUAccelerationStructure>*>(reinterpret_cast<uint8_t*>(this) + sizeof(CWriteAccelerationStructurePropertiesCmd));
+        m_accelerationStructures = new (dataPtr) core::smart_refctd_ptr<const IGPUAccelerationStructure>[m_accelerationStructureCount];
 
         for (auto i = 0; i < m_accelerationStructureCount; ++i)
             m_accelerationStructures[i] = core::smart_refctd_ptr<const IGPUAccelerationStructure>(accelerationStructures[i]);
@@ -780,7 +783,8 @@ public:
     CBuildAccelerationStructuresCmd(const uint32_t accelerationStructureCount, core::smart_refctd_ptr<const IGPUAccelerationStructure>* accelerationStructures, const uint32_t bufferCount, core::smart_refctd_ptr<const IGPUBuffer>* buffers)
         : ICommand(calc_size(accelerationStructureCount, accelerationStructures, bufferCount, buffers)), m_resourceCount(accelerationStructureCount + bufferCount)
     {
-        m_resources = new (this + sizeof(CBuildAccelerationStructuresCmd)) core::smart_refctd_ptr<const IReferenceCounted>[m_resourceCount];
+        auto dataPtr = reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(reinterpret_cast<uint8_t*>(this) + sizeof(CBuildAccelerationStructuresCmd));
+        m_resources = new (dataPtr) core::smart_refctd_ptr<const IReferenceCounted>[m_resourceCount];
 
         uint32_t k = 0u;
         for (auto i = 0; i < accelerationStructureCount; ++i)
