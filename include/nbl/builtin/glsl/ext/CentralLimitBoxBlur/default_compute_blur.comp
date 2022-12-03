@@ -1,0 +1,75 @@
+layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
+
+#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/descriptors.glsl"
+#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/parameters.glsl"
+
+#ifndef _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_PUSH_CONSTANTS_DEFINED_
+
+layout (push_constant) uniform PushConstants
+{
+	layout (offset = 0) nbl_glsl_ext_Blur_Parameters_t params;
+} pc;
+
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_GET_PARAMETERS_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_GET_PARAMETERS_DEFINED_
+
+nbl_glsl_ext_Blur_Parameters_t nbl_glsl_ext_Blur_getParameters()
+{
+	return pc.params;
+}
+
+#endif
+
+#include <nbl/builtin/glsl/math/functions.glsl>
+
+#ifndef _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_GET_PADDED_DATA_DEFINED_
+
+float nbl_glsl_ext_Blur_getPaddedData(in uvec3 coordinate, in uint channel)
+{
+	const uint channel_count = nbl_glsl_ext_Blur_Parameters_t_getChannelCount();
+	const uvec3 dims = nbl_glsl_ext_Blur_Parameters_t_getDimensions();
+
+	const uint strided_idx = nbl_glsl_dot(uvec4(coordinate, channel), nbl_glsl_ext_Blur_Parameters_t_getInputStrides());
+
+	float data = 0.f;
+	if (all(lessThan(coordinate, dims)))
+		data = in_values[strided_idx];
+
+	return data;
+}
+
+#endif
+
+#ifndef _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_SET_DATA_DEFINED_
+
+void nbl_glsl_ext_Blur_setData(in uvec3 coordinate, in uint channel, in float val)
+{
+	const uint channel_count = nbl_glsl_ext_Blur_Parameters_t_getChannelCount();
+	const uvec3 dims = nbl_glsl_ext_Blur_Parameters_t_getDimensions();
+
+	if (all(lessThan(coordinate, dims)))
+	{
+		const uint strided_idx = nbl_glsl_dot(uvec4(coordinate, channel), nbl_glsl_ext_Blur_Parameters_t_getOutputStrides());
+		out_values[strided_idx] = val;
+	}
+}
+
+#endif
+
+#include "nbl/builtin/glsl/ext/CentralLimitBoxBlur/blur.glsl"
+
+#ifndef _NBL_GLSL_EXT_BLUR_MAIN_DEFINED_
+#define _NBL_GLSL_EXT_BLUR_MAIN_DEFINED_
+
+void main()
+{
+	for (uint ch = 0; ch < nbl_glsl_ext_Blur_Parameters_t_getChannelCount(); ++ch)
+		nbl_glsl_ext_Blur(ch);
+}
+
+#endif

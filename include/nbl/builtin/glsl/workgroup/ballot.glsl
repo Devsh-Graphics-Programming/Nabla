@@ -153,6 +153,7 @@ uint nbl_glsl_workgroupBroadcastFirst_noBarriers(in uint val)
 	barrier();
 	return _NBL_GLSL_SCRATCH_SHARED_DEFINED_[nbl_glsl_workgroupBallot_impl_BitfieldDWORDs];
 }
+
 uint nbl_glsl_workgroupBroadcastFirst(in uint val)
 {
 	barrier();
@@ -160,7 +161,6 @@ uint nbl_glsl_workgroupBroadcastFirst(in uint val)
 	barrier();
 	return retval;
 }
-
 
 bool nbl_glsl_workgroupBroadcastFirst(in bool val) {return nbl_glsl_workgroupBroadcast(val,0u);}
 float nbl_glsl_workgroupBroadcastFirst(in float val) {return nbl_glsl_workgroupBroadcast(val,0u);}
