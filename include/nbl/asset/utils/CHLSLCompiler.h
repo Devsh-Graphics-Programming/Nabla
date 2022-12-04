@@ -20,6 +20,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 
 		CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
+		~CHLSLCompiler();
 
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
@@ -61,7 +62,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		class DxcCompilationResult
 		{
-			public:
+		public:
 			std::unique_ptr<IDxcBlobEncoding> errorMessages;
 			std::unique_ptr<IDxcBlob> objectBlob;
 			std::unique_ptr<IDxcResult> compileResult;
