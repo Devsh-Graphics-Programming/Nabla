@@ -8,6 +8,9 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
+#include <dxc/dxcapi.h>
+#include <combaseapi.h>
+
 namespace nbl::asset
 {
 
@@ -42,6 +45,10 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		void insertExtraDefines(std::string& str, const core::SRange<const char* const>& defines) const override;
 
+		// TODO do we want to use ComPtr? 
+		std::unique_ptr<IDxcUtils> m_dxcUtils;
+		std::unique_ptr<IDxcCompiler3> m_dxcCompiler;
+
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
 			CHLSLCompiler::SOptions ret = {};
@@ -51,6 +58,21 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 				ret.setCommonData(options);
 			return ret;
 		}
+
+		class DxcCompilationResult
+		{
+			public:
+			std::unique_ptr<IDxcBlobEncoding> errorMessages;
+			std::unique_ptr<IDxcBlob> objectBlob;
+			std::unique_ptr<IDxcResult> compileResult;
+			
+			char* GetErrorMessagesString()
+			{
+				return reinterpret_cast<char*>(errorMessages->GetBufferPointer());
+			}
+		};
+
+		DxcCompilationResult dxcCompile(asset::ICPUShader* source, LPCWSTR* args, uint32_t argCount, const SOptions& options);
 };
 
 }
