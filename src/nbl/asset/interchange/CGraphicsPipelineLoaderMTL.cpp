@@ -4,7 +4,6 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
-#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include <utility>
@@ -32,15 +31,18 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     auto registerShader = [&](auto constexprStringType, ICPUShader::E_SHADER_STAGE stage) -> void
     {
         core::smart_refctd_ptr<const system::IFile> data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
-        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
-        memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
+        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize()+1u);
+        char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
+        memcpy(bufferPtr, data->getMappedPointer(), data->getSize());
+        bufferPtr[data->getSize()] = '\0';
+
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
             std::move(buffer),
-            asset::IShader::buffer_contains_glsl_t{},
             stage,
+            asset::IShader::E_CONTENT_TYPE::ECT_GLSL,
             stage != ICPUShader::ESS_VERTEX
-            ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?"
-            : "?IrrlichtBAW PipelineLoaderMTL VertexShader?");
+            ? "?Nabla PipelineLoaderMTL FragmentShader?"
+            : "?Nabla PipelineLoaderMTL VertexShader?");
         
         ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main");
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));

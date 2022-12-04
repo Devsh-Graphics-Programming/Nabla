@@ -8,7 +8,7 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
-// TODO: deduce the following in COpenGLPhysicalDevice from the OpenGL extension presence, and then add the defines as standardy from IPhysicalDevice : addCommonGLSLDefines() instead
+// TODO: deduce the following in COpenGLPhysicalDevice from the OpenGL extension presence, and then add the defines as standardy from IPhysicalDevice : addCommonShaderDefines() instead
 // The subgroup stuff is a bit hard cause we made up "extra" extensions such as `NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot_bit_count` (probably best to expose as extra features)
 // [TODO] Clean this up with new define injection https://github.com/Devsh-Graphics-Programming/Nabla/pull/394 and redo prefix sum sample/workgroup ops example
 const char* COpenGLShader::k_openGL2VulkanExtensionMap = R"(

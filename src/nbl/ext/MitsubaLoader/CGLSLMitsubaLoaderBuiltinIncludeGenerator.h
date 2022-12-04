@@ -5,7 +5,7 @@
 #ifndef __C_GLSL_MITSUBA_LOADER_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 #define __C_GLSL_MITSUBA_LOADER_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 
-#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
+#include "nbl/asset/utils/IShaderCompiler.h"
 
 
 namespace nbl
@@ -15,12 +15,13 @@ namespace ext
 namespace MitsubaLoader
 {
 
-class CGLSLMitsubaLoaderBuiltinIncludeLoader : public asset::IGLSLEmbeddedIncludeLoader
+class CGLSLMitsubaLoaderBuiltinIncludeGenerator : public IShaderCompiler::IIncludeGenerator
 {
     public:
-		using asset::IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
+		using Base = IShaderCompiler::IIncludeGenerator;
+		using Base::Base;
 
-        const char* getVirtualDirectoryName() const override { return "glsl/ext/MitsubaLoader/"; }
+		std::string_view getPrefix() const override { return "nbl/builtin/glsl/ext/MitsubaLoader"; };
 
     private:
 		static std::string getMaterialCompilerStuff(const std::string& _path)
@@ -36,7 +37,7 @@ class CGLSLMitsubaLoaderBuiltinIncludeLoader : public asset::IGLSLEmbeddedInclud
 	protected:
 		core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
 		{
-			auto retval = IGLSLEmbeddedIncludeLoader::getBuiltinNamesToFunctionMapping();
+			core::vector<std::pair<std::regex, HandleFunc_t>> retval;
 
 			const std::string num = "[0-9]+";
 			retval.insert(retval.begin(),

@@ -70,6 +70,17 @@
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+#define _NBL_EG_PRFNT_LEVEL @_NBL_EG_PRFNT_LEVEL@
+#if _NBL_EG_PRFNT_LEVEL == 1
+#define _NBL_EG_OP_LNK(_x) ShellExecuteA(NULL, "open", "https://www.youtube.com/watch?v=4HXeL_yimMs", NULL, NULL, SW_SHOWNORMAL)
+#elif _NBL_EG_PRFNT_LEVEL == 2
+#define _NBL_EG_OP_LNK(_x) ShellExecuteA(NULL, "open", "https://www.youtube.com/watch?v=4HXeL_yimMs", NULL, NULL, SW_SHOWNORMAL)
+#elif _NBL_EG_PRFNT_LEVEL >= 3
+#define _NBL_EG_OP_LNK(_x) ShellExecuteA(NULL, "open", "https://www.youtube.com/watch?v=4HXeL_yimMs", NULL, NULL, SW_SHOWNORMAL)
+#endif
+#endif
+
 // DDL exports
 #cmakedefine _NBL_SHARED_BUILD_
 #ifdef _NBL_SHARED_BUILD_

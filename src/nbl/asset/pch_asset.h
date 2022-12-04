@@ -29,13 +29,11 @@
 #include "nbl/asset/interchange/CGLIWriter.h"
 
 // shaders
-#include "nbl/asset/utils/CShaderIntrospector.h"
-#include "nbl/asset/utils/CIncludeHandler.h"
-#include "nbl/asset/utils/CBuiltinIncluder.h"
-#include "nbl/asset/utils/CFilesystemIncluder.h"
+#include "nbl/asset/utils/CSPIRVIntrospector.h"
+#include "nbl/asset/utils/IShaderCompiler.h"
 
 // builtins/headers
-#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
+#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
 
 
 // mesh
