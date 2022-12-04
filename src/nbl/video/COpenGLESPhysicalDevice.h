@@ -33,75 +33,8 @@ public:
 
 	E_API_TYPE getAPIType() const override { return EAT_OPENGL_ES; }
 
-	const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
-	{
-		if (m_linearTilingUsages[format].isInitialized)
-			return m_linearTilingUsages[format];
-
-		_NBL_DEBUG_BREAK_IF("We don't support linear tiling at the moment!");
-		return SFormatImageUsage();
-	}
-
-	const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
-	{
-		if (m_optimalTilingUsages[format].isInitialized)
-			return m_optimalTilingUsages[format];
-
-		m_optimalTilingUsages[format].sampledImage = isAllowedTextureFormat(format) ? 1 : 0;
-		m_optimalTilingUsages[format].storageImage = isAllowedImageStoreFormat(format) ? 1 : 0;
-		m_optimalTilingUsages[format].storageImageAtomic = isAllowedImageStoreAtomicFormat(format) ? 1 : 0;
-		m_optimalTilingUsages[format].attachment = isRenderableFormat(format) ? 1 : 0;
-		m_optimalTilingUsages[format].attachmentBlend = (isRenderableFormat(format) && !isIntegerFormat(format)) ? 1 : 0;
-		m_optimalTilingUsages[format].blitSrc = isRenderableFormat(format) ? 1 : 0;
-		m_optimalTilingUsages[format].blitDst = isRenderableFormat(format) ? 1 : 0;
-		const bool anyUsageFlagSet =
-			m_optimalTilingUsages[format].sampledImage |
-			m_optimalTilingUsages[format].storageImage |
-			m_optimalTilingUsages[format].storageImageAtomic |
-			m_optimalTilingUsages[format].attachment |
-			m_optimalTilingUsages[format].attachmentBlend |
-			m_optimalTilingUsages[format].blitSrc |
-			m_optimalTilingUsages[format].blitDst;
-		m_optimalTilingUsages[format].transferSrc = anyUsageFlagSet ? 1 : 0;
-		m_optimalTilingUsages[format].transferDst = anyUsageFlagSet ? 1 : 0;
-#if 0
-		{
-			auto GetInternalFormativ = reinterpret_cast<PFNGLGETINTERNALFORMATIVPROC>(m_egl.call.peglGetProcAddress("glGetInternalformativ"));
-
-			GLint maxSamples;
-			GetInternalFormativ(
-				GL_TEXTURE_2D_MULTISAMPLE,
-				getSizedOpenGLFormatFromOurFormat(nullptr, format),
-				GL_SAMPLES, 1, &maxSamples); // probably should take function table from outside?
-			assert(maxSamples <= 8);
-
-			m_optimalTilingUsages[format].log2MaxSamples = maxSamples ? std::log2(maxSamples) : 0;
-		}
-#endif
-
-		m_optimalTilingUsages[format].isInitialized = 1;
-
-		return m_optimalTilingUsages[format];
-	}
-
-	const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
-	{
-		if (m_bufferUsages[format].isInitialized)
-			return m_bufferUsages[format];
-
-		m_bufferUsages[format].vertexAttribute = isAllowedVertexAttribFormat(format) ? 1 : 0;
-		m_bufferUsages[format].bufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
-		m_bufferUsages[format].storageBufferView = (isAllowedBufferViewFormat(format) && isAllowedImageStoreFormat(format)) ? 1 : 0;
-		m_bufferUsages[format].storageBufferViewAtomic = (isAllowedBufferViewFormat(format) && isAllowedImageStoreAtomicFormat(format)) ? 1 : 0;
-		m_bufferUsages[format].accelerationStructureVertex = false;
-
-		m_bufferUsages[format].isInitialized = 1;
-
-		return m_bufferUsages[format];
-	}
-
 protected:
-	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
+	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) final override
 	{
 		return core::make_smart_refctd_ptr<COpenGLESLogicalDevice>(core::smart_refctd_ptr<IAPIConnection>(m_api),this,m_rdoc_api,params,&m_egl,&m_glfeatures,m_config,m_gl_major,m_gl_minor);
 	}
@@ -465,6 +398,64 @@ private:
 		EGLConfig config, EGLContext ctx, EGLint major, EGLint minor
 	) : base_t(api,rdoc,std::move(s),std::move(_egl),std::move(dbgCb), config,ctx,major,minor)
     {
+		// Set Format Usages
+		for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
+		{
+			const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(i);
+			
+			// We don't support linear tiling at the moment!
+			m_linearTilingUsages[format] = {};
+			m_linearTilingUsages[format].sampledImage = 0;
+			m_linearTilingUsages[format].storageImage = 0;
+			m_linearTilingUsages[format].storageImageAtomic = 0;
+			m_linearTilingUsages[format].attachment = 0;
+			m_linearTilingUsages[format].attachmentBlend = 0;
+			m_linearTilingUsages[format].blitSrc = 0;
+			m_linearTilingUsages[format].blitDst = 0;
+			m_linearTilingUsages[format].transferSrc = 0;
+			m_linearTilingUsages[format].transferDst = 0;
+			m_linearTilingUsages[format].log2MaxSamples = 0u;
+			
+			m_optimalTilingUsages[format] = {};
+ 			m_optimalTilingUsages[format].sampledImage = isAllowedTextureFormat(format) ? 1 : 0;
+ 			m_optimalTilingUsages[format].storageImage = isAllowedImageStoreFormat(format) ? 1 : 0;
+ 			m_optimalTilingUsages[format].storageImageAtomic = isAllowedImageStoreAtomicFormat(format) ? 1 : 0;
+ 			m_optimalTilingUsages[format].attachment = isRenderableFormat(format) ? 1 : 0;
+ 			m_optimalTilingUsages[format].attachmentBlend = (isRenderableFormat(format) && !isIntegerFormat(format)) ? 1 : 0;
+ 			m_optimalTilingUsages[format].blitSrc = isRenderableFormat(format) ? 1 : 0;
+ 			m_optimalTilingUsages[format].blitDst = isRenderableFormat(format) ? 1 : 0;
+ 			const bool anyUsageFlagSet =
+ 				m_optimalTilingUsages[format].sampledImage |
+ 				m_optimalTilingUsages[format].storageImage |
+ 				m_optimalTilingUsages[format].storageImageAtomic |
+ 				m_optimalTilingUsages[format].attachment |
+ 				m_optimalTilingUsages[format].attachmentBlend |
+ 				m_optimalTilingUsages[format].blitSrc |
+ 				m_optimalTilingUsages[format].blitDst;
+ 			m_optimalTilingUsages[format].transferSrc = anyUsageFlagSet ? 1 : 0;
+ 			m_optimalTilingUsages[format].transferDst = anyUsageFlagSet ? 1 : 0;
+#if 0
+ 		{
+ 			auto GetInternalFormativ = reinterpret_cast<PFNGLGETINTERNALFORMATIVPROC>(m_egl.call.peglGetProcAddress("glGetInternalformativ"));
+
+ 			GLint maxSamples;
+ 			GetInternalFormativ(
+ 				GL_TEXTURE_2D_MULTISAMPLE,
+ 				getSizedOpenGLFormatFromOurFormat(nullptr, format),
+ 				GL_SAMPLES, 1, &maxSamples); // probably should take function table from outside?
+ 			assert(maxSamples <= 8);
+
+ 			m_optimalTilingUsages[format].log2MaxSamples = maxSamples ? std::log2(maxSamples) : 0;
+ 		}
+#endif
+
+			m_bufferUsages[format] = {};
+			m_bufferUsages[format].vertexAttribute = isAllowedVertexAttribFormat(format) ? 1 : 0;
+			m_bufferUsages[format].bufferView = isAllowedBufferViewFormat(format) ? 1 : 0;
+			m_bufferUsages[format].storageBufferView = (isAllowedBufferViewFormat(format) && isAllowedImageStoreFormat(format)) ? 1 : 0;
+			m_bufferUsages[format].storageBufferViewAtomic = (isAllowedBufferViewFormat(format) && isAllowedImageStoreAtomicFormat(format)) ? 1 : 0;
+			m_bufferUsages[format].accelerationStructureVertex = false;
+		}
     }
 };
 

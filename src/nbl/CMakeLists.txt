@@ -122,6 +122,7 @@ option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
 option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
+set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
 if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
@@ -230,8 +231,11 @@ set(NBL_ASSET_SOURCES
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/IGLSLCompiler.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CShaderIntrospector.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/IShaderCompiler.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGLSLCompiler.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CHLSLCompiler.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CCompilerSet.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSPIRVIntrospector.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSPVLoader.cpp
 	
@@ -576,9 +580,17 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 
 # DXC
-if(_NBL_COMPILE_WITH_DXC_)
-	add_dependencies(Nabla dxc)
-	# TODO
+if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
+else()
+	add_dependencies(Nabla dxcompiler)
+endif()
+
+target_include_directories(Nabla PRIVATE $<TARGET_PROPERTY:dxcompiler,INCLUDE_DIRECTORIES>)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE dxcompiler)
+else()
+	target_link_libraries(Nabla PRIVATE dxcompiler)
 endif()
 
 # Linux Display Systems
