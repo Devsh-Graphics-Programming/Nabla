@@ -30,6 +30,12 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     m_dxcCompiler = std::unique_ptr<IDxcCompiler3>(compiler);
 }
 
+CHLSLCompiler::~CHLSLCompiler()
+{
+    m_dxcUtils->Release();
+    m_dxcCompiler->Release();
+}
+
 CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(asset::ICPUShader* source, LPCWSTR* args, uint32_t argCount, const SOptions& options)
 {
     DxcBuffer sourceBuffer;
@@ -93,13 +99,14 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     LPCWSTR arguments[] = {
         // These will always be present
         L"-spirv",
+        L"-HLSL2021",
 
         // These are debug only
         L"-DPARTI",
         L"-DBOY"
     };
-    const uint32_t allArgs = 3;
-    const uint32_t nonDebugArgs = 1;
+    const uint32_t nonDebugArgs = 2;
+    const uint32_t allArgs = nonDebugArgs + 2;
 
     DxcCompilationResult compileResult = dxcCompile(includesResolved.get(), &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
