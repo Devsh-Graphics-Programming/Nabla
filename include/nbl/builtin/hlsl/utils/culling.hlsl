@@ -3,8 +3,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
-#define _NBL_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_UTILS_CULLING_INCLUDED_
+#define _NBL_BUILTIN_HLSL_UTILS_CULLING_INCLUDED_
 
 #include <nbl/builtin/hlsl/shapes/aabb.hlsl>
 #include <nbl/builtin/hlsl/shapes/frustum.hlsl>

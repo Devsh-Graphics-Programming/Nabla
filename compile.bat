@@ -41,6 +41,10 @@ set file_path[24]=utils/compressed_normal_matrix_t
 set file_path[25]=utils/acceleration_structures
 set file_path[26]=utils/common
 set file_path[27]=utils/culling
+set file_path[28]=utils/morton
+set file_path[29]=utils/normal_decode
+set file_path[30]=utils/normal_encode
+
 
 
 rem set file_path[23]=bxdf/fresnel
