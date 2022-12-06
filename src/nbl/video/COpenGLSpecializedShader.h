@@ -43,7 +43,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			SMember m;
 		};
 
-		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CIntrospectionData* _introspection, system::ILogger* logger)
+		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CSPIRVIntrospector::CIntrospectionData* _introspection, system::ILogger* logger)
 		{
 			assert(_introspection);
 			const auto& pc = _introspection->pushConstant;

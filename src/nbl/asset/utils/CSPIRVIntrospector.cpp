@@ -66,7 +66,7 @@ E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
 }
 }//anonymous ns
 
-const core::smart_refctd_ptr<CIntrospectionData> CSPIRVIntrospector::introspect(const SIntrospectionParams& params, bool insertToCache)
+core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntrospector::introspect(const SIntrospectionParams& params, bool insertToCache)
 {
     if (!params.cpuShader)
         return nullptr;
@@ -88,7 +88,7 @@ const core::smart_refctd_ptr<CIntrospectionData> CSPIRVIntrospector::introspect(
     return introspection;
 }
 
-bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<CIntrospectionData>* outIntrospections, const core::SRange<const ICPUSpecializedShader* const>& _shaders)
+bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* outIntrospections, const core::SRange<const ICPUSpecializedShader* const>& _shaders)
 {
     auto it = outIntrospections;
     for (auto shader : _shaders)
@@ -140,7 +140,7 @@ std::pair<bool, IImageView<ICPUImage>::E_TYPE> CSPIRVIntrospector::getImageInfoF
 {
     std::pair<bool, IImageView<ICPUImage>::E_TYPE> fail = { false, IImageView<ICPUImage>::ET_COUNT };
 
-    core::smart_refctd_ptr<CIntrospectionData> introspections[MAX_STAGE_COUNT] = {nullptr};
+    core::smart_refctd_ptr<const CIntrospectionData> introspections[MAX_STAGE_COUNT] = {nullptr};
     if (!introspectAllShaders(introspections,_shaders))
         return fail;
 
@@ -156,7 +156,7 @@ std::pair<bool, IImageView<ICPUImage>::E_TYPE> CSPIRVIntrospector::getImageInfoF
     return fail;
 }
 
-core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::createPushConstantRangesFromIntrospection_impl(core::smart_refctd_ptr<CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
+core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::createPushConstantRangesFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
 {
     core::vector<SPushConstantRange> ranges[MAX_STAGE_COUNT];
     {
@@ -233,7 +233,7 @@ core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::createP
     return rngsArray;
 }
 
-core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, core::smart_refctd_ptr<CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
+core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
 {
     uint32_t checkedDescsCnt[MAX_STAGE_COUNT]{};
 
@@ -263,7 +263,7 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::createApprox
 
         const ICPUSpecializedShader* refShader = nullptr;
         uint32_t refIndex = ~0u;
-        core::smart_refctd_ptr<CIntrospectionData> refIntro = nullptr;
+        core::smart_refctd_ptr<const CIntrospectionData> refIntro = nullptr;
         {
             auto checkedDescsCntIt = checkedDescsCnt;
             auto introspectionIt = introspections;
@@ -306,7 +306,7 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::createApprox
     return nullptr; //returns nullptr if no descriptors are bound in set number `_set`
 }
 
-core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::createApproximatePipelineLayoutFromIntrospection_impl(core::smart_refctd_ptr<CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
+core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::createApproximatePipelineLayoutFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
 {
     core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
@@ -337,7 +337,7 @@ static E_FORMAT glslType2E_FORMAT(E_GLSL_VAR_TYPE _t, uint32_t _e)
 
 core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CSPIRVIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(const core::SRange<ICPUSpecializedShader* const>& _shaders)
 {
-    core::smart_refctd_ptr<CIntrospectionData> introspections[MAX_STAGE_COUNT] = { nullptr };
+    core::smart_refctd_ptr<const CIntrospectionData> introspections[MAX_STAGE_COUNT] = { nullptr };
     if (!introspectAllShaders(introspections,{_shaders.begin(),_shaders.end()}))
         return nullptr;
 
@@ -428,7 +428,7 @@ static IImageView<ICPUImage>::E_TYPE spvcrossImageType2ImageView(const spirv_cro
     return viewType[_type.dim*2u + _type.arrayed];
 }
 
-core::smart_refctd_ptr<CIntrospectionData> CSPIRVIntrospector::doIntrospection(
+core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntrospector::doIntrospection(
     spirv_cross::Compiler& _comp, const std::string& entryPoint, const IShader::E_SHADER_STAGE shaderStage) const
 {
     spv::ExecutionModel stage = ESS2spvExecModel(shaderStage);
@@ -625,7 +625,7 @@ namespace {
         const spirv_cross::SPIRType& parentType;
         uint32_t baseOffset;
     };
-    using mapId2SpecConst_t = core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>;
+    using mapId2SpecConst_t = core::unordered_map<uint32_t, const CSPIRVIntrospector::CIntrospectionData::SSpecConstant*>;
 }
 static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<spirv_cross::TypeID>& _allMembersTypes, uint32_t _baseOffset, const mapId2SpecConst_t& _mapId2sconst, core::stack<StackElement>& _pushStack) {
     using MembT = impl::SShaderMemoryBlock::SMember;
@@ -784,7 +784,7 @@ static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
     }
 }
 
-static void deinitIntrospectionData(CIntrospectionData* _data)
+static void deinitIntrospectionData(CSPIRVIntrospector::CIntrospectionData* _data)
 {
     for (auto& descSet : _data->descriptorSetBindings)
         for (auto& res : descSet)
@@ -804,7 +804,7 @@ static void deinitIntrospectionData(CIntrospectionData* _data)
         deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(_data->pushConstant.info));
 }
 
-CIntrospectionData::~CIntrospectionData()
+CSPIRVIntrospector::CIntrospectionData::~CIntrospectionData()
 {
     deinitIntrospectionData(this);
 }
