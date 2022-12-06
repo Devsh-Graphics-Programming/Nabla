@@ -1051,12 +1051,6 @@ public:
                 m_features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
             }
 
-            /* VkPhysicalDeviceMaintenance4Features */
-            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
-            {
-                m_features.maintenance4 = maintenance4Features.maintenance4;
-            }
-
             /* VkPhysicalDeviceCoherentMemoryFeaturesAMD */
             if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
             {
@@ -1139,6 +1133,11 @@ public:
             if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             {
                 m_properties.limits.shaderSMBuiltins = shaderSMBuiltinsFeatures.shaderSMBuiltins;
+            }
+
+            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                m_properties.limits.workgroupSizeFromSpecConstant = maintenance4Features.maintenance4;
             }
 
             m_properties.limits.shaderSubgroupPartitioned = isExtensionSupported(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME);
@@ -1643,6 +1642,13 @@ protected:
                 addFeatureToChain(&shaderSMBuiltinsFeatures);
             }
 
+            if (insertExtensionIfAvailable(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                // No Extension Requirements
+                maintenance4Features.maintenance4 = m_properties.limits.workgroupSizeFromSpecConstant;
+                addFeatureToChain(&maintenance4Features);
+            }
+
             insertExtensionIfAvailable(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_AMD_GCN_SHADER_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME); // No Extension Requirements
@@ -1661,6 +1667,8 @@ protected:
             insertExtensionIfAvailable(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME); // No Extension Requirements
+
+
         }
 
         // B. FeaturesToEnable: add names to strings and structs to feature chain
@@ -2213,9 +2221,7 @@ protected:
         }
 
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(pipelineExecutableInfo, VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME, pipelineExecutablePropertiesFeatures);
-            
-        CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(maintenance4, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, maintenance4Features)
-            
+        
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(deviceCoherentMemory, VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME, coherentMemoryFeatures);
             
         if (enabledFeatures.bufferMarkerAMD)

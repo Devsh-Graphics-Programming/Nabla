@@ -550,10 +550,6 @@ struct SPhysicalDeviceFeatures
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
     bool pipelineExecutableInfo = false;
 
-    // [TODO] Always Enable, Report as limit: Use multiple booleans that represent what `VK_KHR_maintenance4` adds support for, instead of single bool; see description in https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_maintenance4.html
-    /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
-    bool maintenance4 = false;
-
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
     bool deviceCoherentMemory = false;
 
@@ -1185,7 +1181,6 @@ struct SPhysicalDeviceFeatures
         if (performanceCounterQueryPools && !_rhs.performanceCounterQueryPools) return false;
         if (performanceCounterMultipleQueryPools && !_rhs.performanceCounterMultipleQueryPools) return false;
         if (pipelineExecutableInfo && !_rhs.pipelineExecutableInfo) return false;
-        if (maintenance4 && !_rhs.maintenance4) return false;
         if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
         if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
         if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
