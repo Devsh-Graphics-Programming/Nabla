@@ -1,25 +1,13 @@
 #ifndef _NBL_VIDEO_S_PHYSICAL_DEVICE_FEATURES_H_INCLUDED_
 #define _NBL_VIDEO_S_PHYSICAL_DEVICE_FEATURES_H_INCLUDED_
 
+#include "nbl/video/ECommonEnums.h"
+
 namespace nbl::video
 {
-    
-enum E_SWAPCHAIN_MODE : uint32_t
-{
-    ESM_NONE = 0,
-    ESM_SURFACE = 0x01,
-    // ESM_DISPLAY = 0x02 TODO, as we won't write the API interfaces to deal with direct-to-display swapchains yet.,
-    /* TODO: KHR_swapchain if SURFACE or DISPLAY flag present & KHR_display_swapchain if DISPLAY flag present */
-};
-
-//! [TODOS]:
-//! 
+//! Usage of feature API
 //! ## LogicalDevice creation enabled features shouldn't necessarily equal the ones it reports as enabled (superset)
-//! 
-//! Basically what I'd imagine the usage of the API to be like.
-//! 
 //! **RARE: Creating a physical device with all advertised features/extensions:**
-//! ```cpp
 //! auto features = physicalDevice->getFeatures();
 //! 
 //! ILogicalDevice::SCreationParams params = {};
@@ -27,14 +15,11 @@ enum E_SWAPCHAIN_MODE : uint32_t
 //! params.queueParams = ; // set queue stuff
 //! params.enabledFeatures = features;
 //! auto device = physicalDevice->createLogicalDevice(params);
-//! ```
-//! 
 //! **FREQUENT: Choosing a physical device with the features**
-//! ```cpp
 //! IPhysicalDevice::SRequiredProperties props = {}; // default initializes to apiVersion=1.1, deviceType = ET_UNKNOWN, pipelineCacheUUID = '\0', device UUID=`\0`, driverUUID=`\0`, deviceLUID=`\0`, deviceNodeMask= ~0u, driverID=UNKNOWN
 //! // example of particular config
 //! props.apiVersion = 1.2;
-//! props.deviceTypeMask = ~IPhysicalDevice::ET_CPU; // would be good to turn the enum into a mask
+//! props.deviceTypeMask = ~IPhysicalDevice::ET_CPU;
 //! props.driverIDMask = ~(EDI_AMD_PROPRIETARY|EDI_INTEL_PROPRIETARY_WINDOWS); // would be goot to turn the enum into a mask
 //! props.conformanceVersion = 1.2;
 //! 
@@ -42,45 +27,7 @@ enum E_SWAPCHAIN_MODE : uint32_t
 //! requiredFeatures.rayQuery = true;
 //! 
 //! SDeviceLimits minimumLimits = {}; // would default initialize to worst possible values (small values for maximum sizes, large values for alignments, etc.)
-//! 
-//! // TODO: later add some stuff for requiring queue families, formats and minimum memory heap sizes
-//! 
-//! auto physicalDeviceCandidates = api->getCompatiblePhysicalDevices(props,requiredFeatures,minimumLimits,numSwapchains,supportedSwapchains,/*optional: would enforce tighter checks to actually accept compatibility, like formats, present modes and surface caps*/swapchainSupportDecider);
-//! if (physicalDeviceCandidates.empty())
-//! {
-//!     logError();
-//!     exit();
-//! }
-//! 
-//! // TODO: later iterate through candidate devices (fulfilling all the required criteria) to find the "best" one
-//! // std::sort(physicalDeviceCandidates.begin(),physicalDeviceCandidates.end(),SDefaultPhysicalDeviceOrder());
-//! auto physicalDevice = physicalDeviceCandidates.begin();
-//! assert(requiredFeatures < physicalDevice->getFeatures());
-//! assert(minimumLimits < physicalDevice->getLimits());
-//! 
-//! ILogicalDevice::SCreationParams params = {};
-//! params.queueParamsCount = ; // set queue stuff
-//! params.queueParams = ; // set queue stuff
-//! params.enabledFeatures = requiredFeatures;
-//! auto device = physicalDevice->createLogicalDevice(params);
-//! // this would be wrong, because during device creation we would enable additional features either due to:
-//! // - dependencies (like buffer address for raytracing)
-//! // - backend force-enabling them (like in OpenGL, where extensions are just enabled, you have no choice)
-//! // assert(requiredFeatures != device->getEnabledFeatures());
-//! assert(requiredFeatures < device->getEnabledFeatures());
-//! ```
-//! 
-//! ### `SDeviceFeatures` and `SDeviceLimits` should have a `operator<`
-//! 
-//! Basically to let us establish if features or limits are a superset of the requested.
-//! 
-//! If you need a `! = ` operator then define it as
-//! ```cpp
-//! inline bool operator!=(const& other) const
-//! {
-//!     return *this < other || other < *this;
-//! }
-//! ```
+
 struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
@@ -103,7 +50,6 @@ struct SPhysicalDeviceFeatures
     bool largePoints = false;
     bool alphaToOne = false;
     bool multiViewport = false;
-    bool samplerAnisotropy = false;
 
     // [DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool    textureCompressionETC2;
@@ -113,11 +59,11 @@ struct SPhysicalDeviceFeatures
     bool occlusionQueryPrecise = false;
     bool pipelineStatisticsQuery = false;
 
-    // [TODO] Always enable ones below, report as limit
-    bool vertexPipelineStoresAndAtomics = false;
-    bool fragmentStoresAndAtomics = false;
-    bool shaderTessellationAndGeometryPointSize = false;
-    bool shaderImageGatherExtended = false;
+    // Enabled by Default, Moved to Limits
+    //bool vertexPipelineStoresAndAtomics = false;
+    //bool fragmentStoresAndAtomics = false;
+    //bool shaderTessellationAndGeometryPointSize = false;
+    //bool shaderImageGatherExtended = false;
 
     bool shaderStorageImageExtendedFormats = false;
     bool shaderStorageImageMultisample = false;
@@ -130,10 +76,10 @@ struct SPhysicalDeviceFeatures
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
     bool vertexAttributeDouble = false; // shaderFloat64
-
-    // [TODO] Always enable ones below, report as limit
-    bool shaderInt64 = false;
-    bool shaderInt16 = false;
+    
+    // Enabled by Default, Moved to Limits
+    //bool shaderInt64 = false;
+    //bool shaderInt16 = false;
 
     bool shaderResourceResidency = false;
     bool shaderResourceMinLod = false;
@@ -154,22 +100,26 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.1 Core */
 
-    // [TODO] Always enable ones below, report as limit
-    bool storageBuffer16BitAccess = false;
-    bool uniformAndStorageBuffer16BitAccess = false;
-    bool storagePushConstant16 = false;
-    bool storageInputOutput16 = false;
+    // Enabled by Default, Moved to Limits
+    /* VK_KHR_16bit_storage */
+    //bool storageBuffer16BitAccess = false;
+    //bool uniformAndStorageBuffer16BitAccess = false;
+    //bool storagePushConstant16 = false;
+    //bool storageInputOutput16 = false;
     
     // [TODO LATER] do not expose multiview yet
+    /* VK_KHR_multiview */
     //bool           multiview;
     //bool           multiviewGeometryShader;
     //bool           multiviewTessellationShader;
     
+    /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
     //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
  
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion;
-    bool shaderDrawParameters = false;
+
+    bool shaderDrawParameters = false;  /* ALIAS: VK_KHR_shader_draw_parameters */
 
 
 
@@ -179,19 +129,21 @@ struct SPhysicalDeviceFeatures
     bool samplerMirrorClampToEdge = false;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
     bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
-    // [TODO] Always enable VK_KHR_8bit_storage, VK_KHR_shader_atomic_int64 & VK_KHR_shader_float16_int8; report as limit
+    // Enabled by Default, Moved to Limits
     // or VK_KHR_8bit_storage:
-    bool storageBuffer8BitAccess = false;
-    bool uniformAndStorageBuffer8BitAccess = false;
-    bool storagePushConstant8 = false;
-    
+    //bool storageBuffer8BitAccess = false;
+    //bool uniformAndStorageBuffer8BitAccess = false;
+    //bool storagePushConstant8 = false;
+ 
+    // Enabled by Default, Moved to Limits
     // or VK_KHR_shader_atomic_int64:
-    bool shaderBufferInt64Atomics = false;
-    bool shaderSharedInt64Atomics = false;
-   
+    //bool shaderBufferInt64Atomics = false;
+    //bool shaderSharedInt64Atomics = false;
+
+    // Enabled by Default, Moved to Limits
     // or VK_KHR_shader_float16_int8:
-    bool shaderFloat16 = false;
-    bool shaderInt8 = false;
+    //bool shaderFloat16 = false;
+    //bool shaderInt8 = false;
     
     // or VK_EXT_descriptor_indexing
     bool descriptorIndexing = false;
@@ -413,7 +365,6 @@ struct SPhysicalDeviceFeatures
 
     /* AccelerationStructureFeaturesKHR *//* VK_KHR_acceleration_structure */
     bool accelerationStructure = false;
-    bool accelerationStructureCaptureReplay = false;
     bool accelerationStructureIndirectBuild = false;
     bool accelerationStructureHostCommands = false;
     bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
@@ -452,6 +403,7 @@ struct SPhysicalDeviceFeatures
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
     bool shaderDeviceClock = false;
+    //bool shaderSubgroupClock; // Enabled by Default, Moved to Limits 
 
     /* VK_KHR_shader_draw_parameters *//* MOVED TO Vulkan 1.1 Core */
     /* VK_KHR_shader_float16_int8 *//* MOVED TO Vulkan 1.2 Core */
@@ -554,6 +506,13 @@ struct SPhysicalDeviceFeatures
     //bool           image2DViewOf3D;
     //bool           sampler2DViewOf3D;
 
+    /*
+        This feature adds stricter requirements for how out of bounds reads from images are handled. 
+        Rather than returning undefined values,
+        most out of bounds reads return R, G, and B values of zero and alpha values of either zero or one.
+        Components not present in the image format may be set to zero 
+        or to values based on the format as described in Conversion to RGBA in vulkan specification.
+    */
     bool robustImageAccess = false;                 //  or VK_EXT_image_robustness
 
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
@@ -575,8 +534,13 @@ struct SPhysicalDeviceFeatures
     bool memoryPriority = false;
 
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
+    // [TODO] Better descriptive name for the Vulkan robustBufferAccess2, robustImageAccess2 features
     bool robustBufferAccess2 = false;
     bool robustImageAccess2 = false;
+    /*
+        ! nullDescriptor: you can use `nullptr` for writing descriptors to sets and Accesses to null descriptors have well-defined behavior.
+        [TODO] Handle `nullDescriptor` feature in the engine.
+    */
     bool nullDescriptor = false;
 
     /* PerformanceQueryFeaturesKHR *//* VK_KHR_performance_query */
@@ -585,9 +549,6 @@ struct SPhysicalDeviceFeatures
 
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
     bool pipelineExecutableInfo = false;
-
-    /* Maintenance4FeaturesKHR *//* VK_KHR_maintenance4 *//* MOVED TO Vulkan 1.3 Core */
-    bool maintenance4 = false;
 
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
     bool deviceCoherentMemory = false;
@@ -699,10 +660,6 @@ struct SPhysicalDeviceFeatures
     //bool           shaderIntegerFunctions2 = false;
 
     // Enabled by Default, Moved to Limits 
-    /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    //bool           shaderSubgroupClock;
-
-    // Enabled by Default, Moved to Limits 
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
     //bool           imageFootprint;
 
@@ -796,9 +753,10 @@ struct SPhysicalDeviceFeatures
     /* Extensions Exposed as Features: */
 
     /* VK_KHR_swapchain */
+    /* Dependant on `IAPIConnection::SFeatures::swapchainMode` enabled on apiConnection Creation */
     core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
 
-    // [TODO] Always enable, expose as limit
+    // Enabled when possible, exposed as limit in as spirvVersion
     /* VK_KHR_spirv_1_4 */
 
     // [TODO] handle with a single num
@@ -954,8 +912,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to VK1.3 core, migrate to it when/if we need it
     /* VK_KHR_copy_commands2 */
 
-    // [DO NOT EXPOSE] required for acceleration_structure and only that extension, do not expose until another comes that actually makes use of it
     /* VK_KHR_deferred_host_operations */
+    bool deferredHostOperations = false;
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_device_group */
@@ -1054,7 +1012,7 @@ struct SPhysicalDeviceFeatures
     /* Nabla */
     // No Nabla Specific Features for now
 				
-    inline bool operator<(const SPhysicalDeviceFeatures& _rhs) const
+    inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
         if (fullDrawIndexUint32 && !_rhs.fullDrawIndexUint32) return false;
@@ -1075,13 +1033,8 @@ struct SPhysicalDeviceFeatures
         if (largePoints && !_rhs.largePoints) return false;
         if (alphaToOne && !_rhs.alphaToOne) return false;
         if (multiViewport && !_rhs.multiViewport) return false;
-        if (samplerAnisotropy && !_rhs.samplerAnisotropy) return false;
         if (occlusionQueryPrecise && !_rhs.occlusionQueryPrecise) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
-        if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
-        if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
-        if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
-        if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
         if (shaderStorageImageExtendedFormats && !_rhs.shaderStorageImageExtendedFormats) return false;
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
@@ -1093,26 +1046,13 @@ struct SPhysicalDeviceFeatures
         if (shaderClipDistance && !_rhs.shaderClipDistance) return false;
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
         if (vertexAttributeDouble && !_rhs.vertexAttributeDouble) return false;
-        if (shaderInt64 && !_rhs.shaderInt64) return false;
-        if (shaderInt16 && !_rhs.shaderInt16) return false;
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
         if (inheritedQueries && !_rhs.inheritedQueries) return false;
-        if (storageBuffer16BitAccess && !_rhs.storageBuffer16BitAccess) return false;
-        if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
-        if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
-        if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
         if (shaderDrawParameters && !_rhs.shaderDrawParameters) return false;
         if (samplerMirrorClampToEdge && !_rhs.samplerMirrorClampToEdge) return false;
         if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
-        if (storageBuffer8BitAccess && !_rhs.storageBuffer8BitAccess) return false;
-        if (uniformAndStorageBuffer8BitAccess && !_rhs.uniformAndStorageBuffer8BitAccess) return false;
-        if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;
-        if (shaderBufferInt64Atomics && !_rhs.shaderBufferInt64Atomics) return false;
-        if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
-        if (shaderFloat16 && !_rhs.shaderFloat16) return false;
-        if (shaderInt8 && !_rhs.shaderInt8) return false;
         if (descriptorIndexing && !_rhs.descriptorIndexing) return false;
         if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
         if (shaderUniformTexelBufferArrayDynamicIndexing && !_rhs.shaderUniformTexelBufferArrayDynamicIndexing) return false;
@@ -1184,7 +1124,6 @@ struct SPhysicalDeviceFeatures
         if (shaderImageInt64Atomics && !_rhs.shaderImageInt64Atomics) return false;
         if (sparseImageInt64Atomics && !_rhs.sparseImageInt64Atomics) return false;
         if (accelerationStructure && !_rhs.accelerationStructure) return false;
-        if (accelerationStructureCaptureReplay && !_rhs.accelerationStructureCaptureReplay) return false;
         if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
         if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
         if (descriptorBindingAccelerationStructureUpdateAfterBind && !_rhs.descriptorBindingAccelerationStructureUpdateAfterBind) return false;
@@ -1234,6 +1173,7 @@ struct SPhysicalDeviceFeatures
         if (stippledRectangularLines && !_rhs.stippledRectangularLines) return false;
         if (stippledBresenhamLines && !_rhs.stippledBresenhamLines) return false;
         if (stippledSmoothLines && !_rhs.stippledSmoothLines) return false;
+        if (stippledSmoothLines && !_rhs.stippledSmoothLines) return false;
         if (memoryPriority && !_rhs.memoryPriority) return false;
         if (robustBufferAccess2 && !_rhs.robustBufferAccess2) return false;
         if (robustImageAccess2 && !_rhs.robustImageAccess2) return false;
@@ -1241,14 +1181,19 @@ struct SPhysicalDeviceFeatures
         if (performanceCounterQueryPools && !_rhs.performanceCounterQueryPools) return false;
         if (performanceCounterMultipleQueryPools && !_rhs.performanceCounterMultipleQueryPools) return false;
         if (pipelineExecutableInfo && !_rhs.pipelineExecutableInfo) return false;
-        if (maintenance4 && !_rhs.maintenance4) return false;
         if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
         if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
-        if ((swapchainMode.value & _rhs.swapchainMode.value) != swapchainMode.value) return false;
+        if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
+        if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
         return true;
     }
 };
 
-} // nbl::video
+template<typename T>
+concept DeviceFeatureDependantClass = requires(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& features) { 
+    T::enableRequiredFeautres(features);
+    T::enablePreferredFeatures(availableFeatures, features);
+};
 
+} // nbl::video
 #endif

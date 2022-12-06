@@ -6,6 +6,8 @@
 #include "nbl/video/EApiType.h"
 #include "nbl/video/debug/IDebugCallback.h"
 #include "nbl/video/utilities/renderdoc.h"
+#include "nbl/video/ECommonEnums.h"
+#include "nbl/asset/utils/CGLSLCompiler.h"
 
 namespace nbl::video
 {
@@ -15,11 +17,24 @@ class IPhysicalDevice;
 class NBL_API2 IAPIConnection : public core::IReferenceCounted
 {
     public:
-        // TODO: are these "instance features" ?
-        enum E_FEATURE
+
+        // Equivalent to Instance Extensions and Layers
+        // Any device feature that has an api connection feature dependency that is not enabled is considered to be unsupported,
+        //  for example you need to enable E_SWAPCHAIN_MODE::ESM_SURFACE in order for the physical device to report support in SPhysicalDeviceFeatures::swapchainMode
+        struct SFeatures
         {
-            EF_SURFACE = 0,
-            EF_COUNT
+            // VK_KHR_surface, VK_KHR_win32_surface, VK_KHR_display(TODO)
+            core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
+            
+            // VK_LAYER_KHRONOS_validation (instance layer) 
+            bool validations = false;
+
+            // VK_EXT_debug_utils
+            // When combined with validation layers, even more detailed feedback on the application�s use of Vulkan will be provided.
+            //  The ability to create a debug messenger which will pass along debug messages to an application supplied callback.
+            //  The ability to identify specific Vulkan objects using a name or tag to improve tracking.
+            //  The ability to identify specific sections within a VkQueue or VkCommandBuffer using labels to aid organization and offline analysis in external tools.
+            bool debugUtils = false;
         };
 
         virtual E_API_TYPE getAPIType() const = 0;
@@ -28,13 +43,14 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
 
-        static core::SRange<const E_FEATURE> getDependentFeatures(const E_FEATURE feature);
+        const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; };
 
     protected:
-        IAPIConnection();
+        IAPIConnection(const SFeatures& enabledFeatures);
 
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
         renderdoc_api_t* m_rdoc_api;
+        SFeatures m_enabledFeatures = {};
 };
 
 }

@@ -19,9 +19,9 @@ inline IShader::E_SHADER_STAGE getShaderStageFromSPIRVCrossExecutionModel(spv::E
     case spv::ExecutionModelVertex:
         shaderStage = IShader::ESS_VERTEX; break;
     case spv::ExecutionModelTessellationControl:
-        shaderStage = IShader::ESS_TESSELATION_CONTROL; break;
+        shaderStage = IShader::ESS_TESSELLATION_CONTROL; break;
     case spv::ExecutionModelTessellationEvaluation:
-        shaderStage = IShader::ESS_TESSELATION_EVALUATION; break;
+        shaderStage = IShader::ESS_TESSELLATION_EVALUATION; break;
     case spv::ExecutionModelGeometry:
         shaderStage = IShader::ESS_GEOMETRY; break;
     case spv::ExecutionModelFragment:
@@ -75,5 +75,5 @@ SAssetBundle CSPVLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAs
 	const SPIRV_CROSS_NAMESPACE::ParsedIR& parsedIR = parser.get_parsed_ir();
 	SPIRV_CROSS_NAMESPACE::SPIREntryPoint defaultEntryPoint = parsedIR.entry_points.at(parsedIR.default_entry_point);
 
-    return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<ICPUShader>(std::move(buffer), getShaderStageFromSPIRVCrossExecutionModel(defaultEntryPoint.model), _file->getFileName().string())});
+    return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<ICPUShader>(std::move(buffer), getShaderStageFromSPIRVCrossExecutionModel(defaultEntryPoint.model), asset::IShader::E_CONTENT_TYPE::ECT_SPIRV, _file->getFileName().string())});
 }

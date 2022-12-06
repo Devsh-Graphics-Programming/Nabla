@@ -176,7 +176,10 @@ class NBL_API ICPUImage final : public IImage, public IAsset
 			assert(!isImmutable_debug());
 
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
+			{
+				assert(false);
 				return false;
+			}
 		
 			buffer = std::move(_buffer);
 			regions = _regions;

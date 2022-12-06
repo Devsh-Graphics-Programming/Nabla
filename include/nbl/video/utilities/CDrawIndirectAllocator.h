@@ -18,13 +18,23 @@ class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
         using this_t = CDrawIndirectAllocator<allocator>;
 
     public:
+
+        static void enableRequiredFeautres(SPhysicalDeviceFeatures& featuresToEnable)
+        {
+        }
+
+        static void enablePreferredFeatures(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& featuresToEnable)
+        {
+            featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
+        }
+
         // easy dont care creation
         static inline core::smart_refctd_ptr<this_t> create(ImplicitBufferCreationParameters&& params, allocator<uint8_t>&& alloc=allocator<uint8_t>())
         {
             if (!params.device || params.drawCommandCapacity==0u)
                 return nullptr;
 
-            const auto& features = params.device->getPhysicalDevice()->getFeatures();
+            const auto& features = params.device->getEnabledFeatures();
             if (!features.drawIndirectCount)
                 params.drawCountCapacity = 0;
             const auto& limits = params.device->getPhysicalDevice()->getLimits();

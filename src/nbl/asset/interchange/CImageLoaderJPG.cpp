@@ -328,9 +328,6 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
 	image->setBufferAndRegions(std::move(buffer), regions);
 
-	if (image->getCreationParameters().format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
-	
     return SAssetBundle(nullptr,{image});
 
 #endif

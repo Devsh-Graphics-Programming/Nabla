@@ -83,7 +83,7 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 		"STRETCH_MIN", "PAD_MAX"
 	};
 
-	// TODO: use `IGLSLCompiler::createOverridenCopy` after #68 PR merge
+	// TODO: use `CGLSLCompiler::createOverridenCopy` after #68 PR merge
 
 	const char* mipScaling = config.roundUpToPoTWithPadding ? mipScalingOptions[1] : mipScalingOptions[0];
 
