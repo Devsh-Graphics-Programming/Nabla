@@ -8,8 +8,8 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
-#include <dxc/dxcapi.h>
 #include <combaseapi.h>
+#include <dxc/dxc/include/dxc/dxcapi.h>
 
 namespace nbl::asset
 {
@@ -73,7 +73,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			}
 		};
 
-		DxcCompilationResult dxcCompile(asset::ICPUShader* source, LPCWSTR* args, uint32_t argCount, const SOptions& options);
+		DxcCompilationResult dxcCompile(asset::ICPUShader* source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const;
 };
 
 }
