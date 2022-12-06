@@ -61,7 +61,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
     }
 }
 
-static void insertAfterVersionAndPragmaShaderStage(std::string& code, std::ostringstream&& ins)
+void CGLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins) const
 {
     auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&code]() -> size_t
     {
@@ -93,17 +93,4 @@ static void insertAfterVersionAndPragmaShaderStage(std::string& code, std::ostri
 
     ins << "#line " << std::to_string(ln) << "\n";
     code.insert(pos, ins.str());
-}
-
-void CGLSLCompiler::insertExtraDefines(std::string& str, const core::SRange<const char* const>& defines) const
-{
-    if (defines.empty())
-        return;
-
-    std::ostringstream insertion;
-    for (auto def : defines)
-    {
-        insertion << "#define " << def << "\n";
-    }
-    insertAfterVersionAndPragmaShaderStage(str, std::move(insertion));
 }

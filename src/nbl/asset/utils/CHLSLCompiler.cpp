@@ -36,11 +36,11 @@ CHLSLCompiler::~CHLSLCompiler()
     m_dxcCompiler->Release();
 }
 
-CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(asset::ICPUShader* source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const
+CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(const std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const
 {
     DxcBuffer sourceBuffer;
-    sourceBuffer.Ptr = source->getContent()->getPointer();
-    sourceBuffer.Size = source->getContent()->getSize();
+    sourceBuffer.Ptr = source.data();
+    sourceBuffer.Size = source.size();
     sourceBuffer.Encoding = 0;
 
     IDxcResult* compileResult;
@@ -63,7 +63,7 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(asset::ICPUShader*
 
     if (!SUCCEEDED(compilationStatus))
     {
-        options.logger.log(result.GetErrorMessagesString(), system::ILogger::ELL_ERROR);
+        options.preprocessorOptions.logger.log(result.GetErrorMessagesString(), system::ILogger::ELL_ERROR);
         return result;
     }
 
@@ -82,19 +82,11 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     if (!code)
     {
-        options.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
+        hlslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
-    core::smart_refctd_ptr<asset::ICPUShader> includesResolved;
-    if (hlslOptions.includeFinder != nullptr)
-    {
-        includesResolved = resolveIncludeDirectives(code, hlslOptions.stage, hlslOptions.sourceIdentifier.data(), hlslOptions.maxSelfInclusionCount, hlslOptions.logger);
-        if (includesResolved)
-        {
-            code = reinterpret_cast<const char*>(includesResolved->getContent()->getPointer());
-        }
-    }
+    auto newCode = preprocessShader(code, hlslOptions.stage, hlslOptions.preprocessorOptions);
 
     LPCWSTR arguments[] = {
         // These will always be present
@@ -102,13 +94,28 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-HLSL2021",
 
         // These are debug only
-        L"-DPARTI",
-        L"-DBOY"
+        L"-Qembed_debug"
     };
-    const uint32_t nonDebugArgs = 2;
-    const uint32_t allArgs = nonDebugArgs + 2;
+    if (hlslOptions.genDebugInfo)
+    {
+        std::ostringstream insertion;
+        insertion << "// commandline compiler options : ";
 
-    DxcCompilationResult compileResult = dxcCompile(includesResolved.get(), &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
+        std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
+        for (auto arg : arguments)
+        {
+            auto str = conv.to_bytes(arg);
+            insertion << str.c_str() << " ";
+        }
+
+        insertion << "\n";
+        insertIntoStart(newCode, std::move(insertion));
+    }
+
+    const uint32_t nonDebugArgs = 2;
+    const uint32_t allArgs = nonDebugArgs + 0;
+
+    DxcCompilationResult compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
     if (!compileResult.objectBlob)
     {
@@ -118,18 +125,10 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
 
-    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), hlslOptions.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.sourceIdentifier.data());
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), hlslOptions.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
 
-void CHLSLCompiler::insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const
+void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins) const
 {
-    if (defines.empty())
-        return;
-
-    std::ostringstream insertion;
-    for (auto def : defines)
-    {
-        insertion << "#define " << def << "\n";
-    }
-    code.insert(0u, insertion.str());
+    code.insert(0u, ins.str());
 }

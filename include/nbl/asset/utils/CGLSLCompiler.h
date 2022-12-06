@@ -127,7 +127,7 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 	protected:
 
-		void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const override;
+		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
 		static CGLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
