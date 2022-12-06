@@ -519,22 +519,22 @@ public:
                 A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
             */
 
-            m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+            m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_3;
 
             switch (VK_API_VERSION_MINOR(apiVersion))
             {
             case 0:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; 
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_0; 
                 assert(false);
                 break;
             case 1:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_3;
                 break;
             case 2:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5;
                 break;
             case 3:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5; //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
@@ -1051,12 +1051,6 @@ public:
                 m_features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
             }
 
-            /* VkPhysicalDeviceMaintenance4Features */
-            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
-            {
-                m_features.maintenance4 = maintenance4Features.maintenance4;
-            }
-
             /* VkPhysicalDeviceCoherentMemoryFeaturesAMD */
             if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
             {
@@ -1139,6 +1133,11 @@ public:
             if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             {
                 m_properties.limits.shaderSMBuiltins = shaderSMBuiltinsFeatures.shaderSMBuiltins;
+            }
+
+            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                m_properties.limits.workgroupSizeFromSpecConstant = maintenance4Features.maintenance4;
             }
 
             m_properties.limits.shaderSubgroupPartitioned = isExtensionSupported(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME);
@@ -1643,6 +1642,13 @@ protected:
                 addFeatureToChain(&shaderSMBuiltinsFeatures);
             }
 
+            if (insertExtensionIfAvailable(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                // No Extension Requirements
+                maintenance4Features.maintenance4 = m_properties.limits.workgroupSizeFromSpecConstant;
+                addFeatureToChain(&maintenance4Features);
+            }
+
             insertExtensionIfAvailable(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_AMD_GCN_SHADER_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME); // No Extension Requirements
@@ -1661,6 +1667,8 @@ protected:
             insertExtensionIfAvailable(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME); // No Extension Requirements
+
+
         }
 
         // B. FeaturesToEnable: add names to strings and structs to feature chain
@@ -2213,9 +2221,7 @@ protected:
         }
 
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(pipelineExecutableInfo, VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME, pipelineExecutablePropertiesFeatures);
-            
-        CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(maintenance4, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, maintenance4Features)
-            
+        
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(deviceCoherentMemory, VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME, coherentMemoryFeatures);
             
         if (enabledFeatures.bufferMarkerAMD)
@@ -2268,7 +2274,10 @@ protected:
 
         vk_createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStrings.size());
         vk_createInfo.ppEnabledExtensionNames = extensionStrings.data();
-        
+
+        if (!params.compilerSet)
+            params.compilerSet = core::make_smart_refctd_ptr<asset::CCompilerSet>(core::smart_refctd_ptr(m_system));
+
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
         {
@@ -2291,7 +2300,7 @@ private:
     VkPhysicalDevice m_vkPhysicalDevice;
     core::unordered_set<std::string> m_availableFeatureSet;
 };
-        
+
 }
 
 #endif

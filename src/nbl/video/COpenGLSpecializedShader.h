@@ -12,7 +12,7 @@
 
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
-#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/CSPIRVIntrospector.h"
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/COpenGLPipelineLayout.h"
@@ -43,7 +43,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			SMember m;
 		};
 
-		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CIntrospectionData* _introspection, system::ILogger* logger)
+		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CSPIRVIntrospector::CIntrospectionData* _introspection, system::ILogger* logger)
 		{
 			assert(_introspection);
 			const auto& pc = _introspection->pushConstant;

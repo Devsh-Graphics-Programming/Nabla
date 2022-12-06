@@ -1235,7 +1235,7 @@ public:
 				// From https://github.com/KhronosGroup/GLSL/blob/master/extensions/khr/GL_KHR_shader_subgroup.txt:
 				// <id> must be an integral constant expression when targeting SPIR - V 1.4 and below, otherwise it must
 				// be dynamically uniform within the subgroup.
-				// Since `m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;`, this is always true in GL.
+				// Since `m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;`, this is always true in GL.
 				m_features.subgroupBroadcastDynamicId = true;
 			}
 			// TODO: Use ARB_shader_ballot to perform runtime test for more specific subgroup min & max
@@ -1353,7 +1353,7 @@ public:
 			constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
 			m_properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*m_properties.limits.maxOptimallyResidentWorkgroupInvocations;
 
-			m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_6;
+			m_properties.limits.spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6;
 		}
 
 		// we dont need this context any more

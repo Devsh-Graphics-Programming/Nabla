@@ -121,7 +121,8 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-    m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
+    if (!m_compilerSet)
+        m_compilerSet = core::make_smart_refctd_ptr<CCompilerSet>(core::smart_refctd_ptr(m_system));
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
@@ -226,7 +227,7 @@ void IAssetManager::insertBuiltinAssets()
 		{
             auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
             memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
-            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, type, paths.begin()[0]);
+            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
 			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);

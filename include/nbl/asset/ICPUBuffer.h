@@ -125,6 +125,8 @@ template<
 >
 class NBL_API CCustomAllocatorCPUBuffer;
 
+using CDummyCPUBuffer = CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true>;
+
 //! Specialization of ICPUBuffer capable of taking custom allocators
 /*
     Take a look that with this usage you have to specify custom alloctor
