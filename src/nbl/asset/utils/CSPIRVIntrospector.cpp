@@ -72,11 +72,11 @@ core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntro
         return nullptr;
     if (params.cpuShader->getContentType() != IShader::E_CONTENT_TYPE::ECT_SPIRV)
         return nullptr;
-    // auto introspectionData = m_introspectionCache.find(params);
-    // if (introspectionData != m_introspectionCache.end())
-    // {
-    //     return introspectionData->second;
-    // }
+    auto introspectionData = m_introspectionCache.find(params);
+    if (introspectionData != m_introspectionCache.end())
+    {
+        return introspectionData->second;
+    }
 
     const ICPUBuffer* spv = params.cpuShader->getContent();
     spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);

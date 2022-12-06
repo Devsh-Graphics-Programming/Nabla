@@ -84,7 +84,20 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			std::string entryPoint;
 			core::smart_refctd_ptr<const ICPUShader> cpuShader;
 
-			bool operator==(const SIntrospectionParams& rhs) const { return true; /*TODO*/ }
+			bool operator==(const SIntrospectionParams& rhs) const
+			{
+				if (entryPoint != rhs.entryPoint)
+					return false;
+				if (!rhs.cpuShader)
+					return false;
+				if (cpuShader->getStage() != rhs.cpuShader->getStage())
+					return false;
+				if (cpuShader->getContentType() != rhs.cpuShader->getContentType())
+					return false;
+				if (cpuShader->getContent()->getSize() != rhs.cpuShader->getContent()->getSize())
+					return false;
+				return memcmp(cpuShader->getContent()->getPointer(), rhs.cpuShader->getContent()->getPointer(), cpuShader->getContent()->getSize()) == 0;;
+			}
 		};
 
 		//In the future there's also going list of enabled extensions
