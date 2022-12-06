@@ -36,7 +36,7 @@ CHLSLCompiler::~CHLSLCompiler()
     m_dxcCompiler->Release();
 }
 
-CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(asset::ICPUShader* source, LPCWSTR* args, uint32_t argCount, const SOptions& options)
+CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(asset::ICPUShader* source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const
 {
     DxcBuffer sourceBuffer;
     sourceBuffer.Ptr = source->getContent()->getPointer();
