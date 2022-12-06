@@ -107,33 +107,41 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
+		struct SPreprocessorOptions
+		{
+			std::string_view sourceIdentifier = "";
+			system::logger_opt_ptr logger = nullptr;
+			const CIncludeFinder* includeFinder = nullptr;
+			uint32_t maxSelfInclusionCount = 4u;
+			core::SRange<const char* const> extraDefines = {nullptr, nullptr};
+		};
+
 		/*
 			@stage shaderStage
 			@targetSpirvVersion spirv version
 			@entryPoint entryPoint
-			@sourceIdentifier String that will be printed along with possible errors as source identifier, and used as include's requestingSrc
 			@outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
 			@spirvOptimizer Optional parameter;
-			@logger Optional parameter; used for logging errors/info
-			@includeFinder Optional parameter; if not nullptr, it will resolve the includes in the code
-			@maxSelfInclusionCount used only when includeFinder is not nullptr
 			@genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
 				Anything non-vulkan, basically you can't recover the names of original variables with CSPIRVIntrospector without debug info
 				By variables we mean names of PC/SSBO/UBO blocks, as they're essentially instantiations of structs with custom packing.
+			@preprocessorOptions
+				@sourceIdentifier String that will be printed along with possible errors as source identifier, and used as include's requestingSrc
+				@logger Optional parameter; used for logging errors/info
+				@includeFinder Optional parameter; if not nullptr, it will resolve the includes in the code
+				@maxSelfInclusionCount used only when includeFinder is not nullptr
+				@extraDefines adds extra defines to the shader before compilation
 		*/
-		struct SOptions
+		struct SCompilerOptions
 		{
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			std::string_view entryPoint = "";
-			std::string_view sourceIdentifier = "";
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
-			system::logger_opt_ptr logger = nullptr;
-			const CIncludeFinder* includeFinder = nullptr;
-			uint32_t maxSelfInclusionCount = 4u;
 			bool genDebugInfo = true;
+			SPreprocessorOptions preprocessorOptions = {};
 
-			void setCommonData(const SOptions& opt)
+			void setCommonData(const SCompilerOptions& opt)
 			{
 				(*this) = opt;
 			}
@@ -141,9 +149,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };
 		};
 
-		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SOptions& options) const = 0;
+		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const = 0;
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const SOptions& options) const
+		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const SCompilerOptions& options) const
 		{
 			size_t fileSize = sourceFile->getSize();
 			std::string code(fileSize, '\0');
@@ -161,28 +169,18 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such ICPUShader (mostly High Level source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.
 
 		Internally function "disables" all preprocessor directives (so that they're not processed by preprocessor) except `#include` (and also `#version` and `#pragma shader_stage`).
-		Note that among the directives there may be include guards. Because of that, _maxSelfInclusionCnt parameter is provided.
-
-		@param _maxSelfInclusionCnt Max self-inclusion count of possible file being #include'd. If no self-inclusions are allowed, should be set to 0.
-
-		@param _originFilepath Path to not necesarilly existing file whose directory will be base for relative (""-type) top-level #include's resolution.
-			If _originFilepath is non-path-like string (e.g. "whatever" - no slashes), the base directory is assumed to be "." (working directory of your executable). It's important for it to be unique.
+		Note that among the directives there may be include guards. Because of that, maxSelfInclusionCount parameter is provided.
+		
+		@param preprocessOptions
+		@maxSelfInclusionCount Max self-inclusion count of possible file being #include'd. If no self-inclusions are allowed, should be set to 0.
+		@sourceIdentifier Path to not necesarilly existing file whose directory will be base for relative (""-type) top-level #include's resolution.
+			If sourceIdentifier is non-path-like string (e.g. "whatever" - no slashes), the base directory is assumed to be "." (working directory of your executable). It's important for it to be unique.
 
 		@returns Shader containing logically same High Level code as input but with #include directives resolved.
 		*/
-		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(
-			std::string&& _code,
-			IShader::E_SHADER_STAGE _stage,
-			const char* _originFilepath,
-			uint32_t _maxSelfInclusionCnt = 4u,
-			system::logger_opt_ptr logger = nullptr) const;
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const;
 
-		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(
-			system::IFile* _sourcefile,
-			IShader::E_SHADER_STAGE _stage,
-			const char* _originFilepath,
-			uint32_t _maxSelfInclusionCnt = 4u,
-			system::logger_opt_ptr logger = nullptr) const;
+		std::string preprocessShader(system::IFile* sourcefile, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const;
 		
 		/*
 			Creates a formatted copy of the original
@@ -262,6 +260,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		CIncludeFinder* getDefaultIncludeFinder() { return m_defaultIncludeFinder.get(); }
 
 		const CIncludeFinder* getDefaultIncludeFinder() const { return m_defaultIncludeFinder.get(); }
+
+	protected:
+
+		virtual void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const = 0;
 
 	private:
 		core::smart_refctd_ptr<system::ISystem> m_system;

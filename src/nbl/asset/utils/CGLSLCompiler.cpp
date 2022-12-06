@@ -18,41 +18,32 @@ CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 {
 }
 
-core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
     auto glslOptions = option_cast(options);
 
     if (!code)
     {
-        glslOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
+        glslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
     if (glslOptions.entryPoint.compare("main") != 0)
     {
-        glslOptions.logger.log("shaderc requires entry point to be \"main\" in GLSL", system::ILogger::ELL_ERROR);
+        glslOptions.preprocessorOptions.logger.log("shaderc requires entry point to be \"main\" in GLSL", system::ILogger::ELL_ERROR);
         return nullptr;
     }
 
-    core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
-    if (glslOptions.includeFinder != nullptr)
-    {
-        cpuShader = resolveIncludeDirectives(code, glslOptions.stage, glslOptions.sourceIdentifier.data(), glslOptions.maxSelfInclusionCount, glslOptions.logger);
-        if (cpuShader)
-        {
-            code = reinterpret_cast<const char*>(cpuShader->getContent()->getPointer());
-        }
-    }
+    auto newCode = preprocessShader(code, glslOptions.stage, glslOptions.preprocessorOptions);
 
     shaderc::Compiler comp;
     shaderc::CompileOptions shadercOptions; //default options
     shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.targetSpirvVersion));
     const shaderc_shader_kind stage = glslOptions.stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
-    const size_t glsl_len = strlen(code);
     if (glslOptions.genDebugInfo)
         shadercOptions.SetGenerateDebugInfo();
 
-    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(code, glsl_len, stage, glslOptions.sourceIdentifier.data() ? glslOptions.sourceIdentifier.data() : "", glslOptions.entryPoint.data(), shadercOptions);
+    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", glslOptions.entryPoint.data(), shadercOptions);
 
     if (bin_res.GetCompilationStatus() == shaderc_compilation_status_success)
     {
@@ -60,12 +51,59 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
         memcpy(outSpirv->getPointer(), bin_res.cbegin(), outSpirv->getSize());
 
         if (glslOptions.spirvOptimizer)
-            outSpirv = glslOptions.spirvOptimizer->optimize(outSpirv.get(), glslOptions.logger);
-        return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), glslOptions.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, glslOptions.sourceIdentifier.data());
+            outSpirv = glslOptions.spirvOptimizer->optimize(outSpirv.get(), glslOptions.preprocessorOptions.logger);
+        return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), glslOptions.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, glslOptions.preprocessorOptions.sourceIdentifier.data());
     }
     else
     {
-        glslOptions.logger.log(bin_res.GetErrorMessage(), system::ILogger::ELL_ERROR);
+        glslOptions.preprocessorOptions.logger.log(bin_res.GetErrorMessage(), system::ILogger::ELL_ERROR);
         return nullptr;
     }
+}
+
+static void insertAfterVersionAndPragmaShaderStage(std::string& code, std::ostringstream&& ins)
+{
+    auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&code]() -> size_t
+    {
+        size_t hashPos = code.find_first_of('#');
+        if (hashPos >= code.length())
+            return code.npos;
+        if (code.compare(hashPos, 8, "#version"))
+            return code.npos;
+
+        size_t searchPos = hashPos + 8ull;
+
+        size_t hashPos2 = code.find_first_of('#', hashPos + 8ull);
+        if (hashPos2 < code.length())
+        {
+            char pragma_stage_str[] = "#pragma shader_stage";
+            if (code.compare(hashPos2, sizeof(pragma_stage_str) - 1ull, pragma_stage_str) == 0)
+                searchPos = hashPos2 + sizeof(pragma_stage_str) - 1ull;
+        }
+        size_t nlPos = code.find_first_of('\n', searchPos);
+
+        return (nlPos >= code.length()) ? code.npos : nlPos + 1ull;
+    };
+
+    const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();
+    if (pos == code.npos)
+        return;
+
+    const size_t ln = std::count(code.begin(), code.begin() + pos, '\n') + 1;//+1 to count from 1
+
+    ins << "#line " << std::to_string(ln) << "\n";
+    code.insert(pos, ins.str());
+}
+
+void CGLSLCompiler::insertExtraDefines(std::string& str, const core::SRange<const char* const>& defines) const
+{
+    if (defines.empty())
+        return;
+
+    std::ostringstream insertion;
+    for (auto def : defines)
+    {
+        insertion << "#define " << def << "\n";
+    }
+    insertAfterVersionAndPragmaShaderStage(str, std::move(insertion));
 }

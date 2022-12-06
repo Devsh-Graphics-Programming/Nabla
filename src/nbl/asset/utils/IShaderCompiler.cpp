@@ -169,47 +169,54 @@ namespace nbl::asset::impl
     };
 }
 
-core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
-    std::string&& _code,
-    IShader::E_SHADER_STAGE _stage,
-    const char* _originFilepath,
-    uint32_t _maxSelfInclusionCnt,
-    system::logger_opt_ptr logger) const
+std::string IShaderCompiler::preprocessShader(
+    std::string&& code,
+    IShader::E_SHADER_STAGE stage,
+    const SPreprocessorOptions& preprocessOptions) const
 {
-    impl::disableAllDirectivesExceptIncludes(_code);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
-    shaderc::Compiler comp;
-    shaderc::CompileOptions options;
-    options.SetTargetSpirv(shaderc_spirv_version_1_6);
-    options.SetIncluder(std::make_unique<impl::Includer>(m_defaultIncludeFinder.get(), m_system.get(), _maxSelfInclusionCnt + 1u));//custom #include handler
-    const shaderc_shader_kind stage = _stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
-    auto res = comp.PreprocessGlsl(_code, stage, _originFilepath, options);
-
-    if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
-        return nullptr;
+    if (preprocessOptions.extraDefines.size())
+    {
+        insertExtraDefines(code, preprocessOptions.extraDefines);
     }
+    if (preprocessOptions.includeFinder != nullptr)
+    {
+        impl::disableAllDirectivesExceptIncludes(code);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
+        shaderc::Compiler comp;
+        shaderc::CompileOptions options;
+        options.SetTargetSpirv(shaderc_spirv_version_1_6);
 
-    std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
-    impl::reenableDirectives(res_str);
+        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u));//custom #include handler
+        const shaderc_shader_kind scstage = stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
+        auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
 
-    return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str(), _stage, getCodeContentType(), std::string(_originFilepath));
+        if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
+            preprocessOptions.logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
+            return nullptr;
+        }
+
+        auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(),res.cend()));
+        impl::reenableDirectives(resolvedString);
+        return resolvedString;
+    }
+    else
+    {
+        return code;
+    }
 }
 
-core::smart_refctd_ptr<ICPUShader> IShaderCompiler::resolveIncludeDirectives(
-    system::IFile* _sourcefile,
-    IShader::E_SHADER_STAGE _stage,
-    const char* _originFilepath,
-    uint32_t _maxSelfInclusionCnt,
-    system::logger_opt_ptr logger) const
+std::string IShaderCompiler::preprocessShader(
+    system::IFile* sourcefile,
+    IShader::E_SHADER_STAGE stage,
+    const SPreprocessorOptions& preprocessOptions) const
 {
-    std::string code(_sourcefile->getSize(), '\0');
+    std::string code(sourcefile->getSize(), '\0');
 
     system::IFile::success_t success;
-    _sourcefile->read(success, code.data(), 0, _sourcefile->getSize());
+    sourcefile->read(success, code.data(), 0, sourcefile->getSize());
     if (!success)
         return nullptr;
 
-    return resolveIncludeDirectives(std::move(code), _stage, _originFilepath, _maxSelfInclusionCnt, logger);
+    return preprocessShader(std::move(code), stage, preprocessOptions);
 }
 
 std::string IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const

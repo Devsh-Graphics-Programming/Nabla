@@ -19,7 +19,7 @@ namespace nbl::asset
 			, m_GLSLCompiler(core::make_smart_refctd_ptr<CGLSLCompiler>(core::smart_refctd_ptr(sys)))
 		{}
 
-		core::smart_refctd_ptr<const ICPUShader> compileToSPIRV(const asset::ICPUShader* shader, const IShaderCompiler::SOptions& options);
+		core::smart_refctd_ptr<const ICPUShader> compileToSPIRV(const asset::ICPUShader* shader, const IShaderCompiler::SCompilerOptions& options);
 
 		inline core::smart_refctd_ptr<IShaderCompiler> getShaderCompiler(IShader::E_CONTENT_TYPE contentType) const
 		{

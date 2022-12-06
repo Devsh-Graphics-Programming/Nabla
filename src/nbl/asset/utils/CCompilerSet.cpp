@@ -6,7 +6,7 @@
 using namespace nbl;
 using namespace nbl::asset;
 
-core::smart_refctd_ptr<const ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader* shader, const IShaderCompiler::SOptions& options)
+core::smart_refctd_ptr<const ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader* shader, const IShaderCompiler::SCompilerOptions& options)
 {
 	core::smart_refctd_ptr<const ICPUShader> outSpirvShader = nullptr;
 	if (shader)

@@ -18,7 +18,7 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 		CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
-		struct SOptions : IShaderCompiler::SOptions
+		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL; };
 		};
@@ -34,16 +34,16 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 		Such annotation should be placed right after #version directive.
 
-		This function does NOT process #include directives! Use resolveIncludeDirectives() first.
+		This function does NOT process #include directives! Use preprocessShader() first.
 
 		@params code high level code
-		@params options see IShaderCompiler::SOptions
+		@params options see IShaderCompiler::SCompilerOptions
 			- entryPoint Must be "main" since shaderc does not allow other entry points for GLSL. Kept with hope that shaderc will drop that requirement.
 
 		@returns Shader containing SPIR-V bytecode.
 		*/
 
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const IShaderCompiler::SOptions& options) const override;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const override;
 
 		/*
 		 If original code contains #version specifier,
@@ -127,7 +127,9 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 	protected:
 
-		static CGLSLCompiler::SOptions option_cast(const IShaderCompiler::SOptions& options)
+		void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const override;
+
+		static CGLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
 			CGLSLCompiler::SOptions ret = {};
 			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_GLSL)

@@ -18,13 +18,13 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 
-		struct SOptions : IShaderCompiler::SOptions
+		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
 			// TODO: Add extra dxc options
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const IShaderCompiler::SOptions& options) const override;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const override;
 
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
@@ -40,7 +40,9 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 	protected:
 
-		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SOptions& options)
+		void insertExtraDefines(std::string& str, const core::SRange<const char* const>& defines) const override;
+
+		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
 			CHLSLCompiler::SOptions ret = {};
 			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_GLSL)
