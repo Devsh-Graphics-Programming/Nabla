@@ -16,31 +16,13 @@ core::smart_refctd_ptr<const ICPUShader> CCompilerSet::compileToSPIRV(const ICPU
 		case IShader::E_CONTENT_TYPE::ECT_HLSL:
 		{
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
-			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_HLSL)
-			{
-				outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, static_cast<const CHLSLCompiler::SOptions&>(options));
-			}
-			else
-			{
-				CHLSLCompiler::SOptions hlslCompilerOptions = {};
-				hlslCompilerOptions.setCommonData(options);
-				outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, hlslCompilerOptions);
-			}
+			outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, options);
 		}
 		break;
 		case IShader::E_CONTENT_TYPE::ECT_GLSL:
 		{
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
-			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_GLSL)
-			{
-				outSpirvShader = m_GLSLCompiler->compileToSPIRV(code, static_cast<const CGLSLCompiler::SOptions&>(options));
-			}
-			else
-			{
-				CGLSLCompiler::SOptions glslCompilerOptions = {};
-				glslCompilerOptions.setCommonData(options);
-				outSpirvShader = m_GLSLCompiler->compileToSPIRV(code, glslCompilerOptions);
-			}
+			outSpirvShader = m_GLSLCompiler->compileToSPIRV(code, options);
 		}
 		break;
 		case IShader::E_CONTENT_TYPE::ECT_SPIRV:
