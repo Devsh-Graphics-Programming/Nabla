@@ -174,7 +174,18 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 		struct KeyHasher
 		{
-			std::size_t operator()(const SIntrospectionParams& t) const { return 0; /*TODO*/ }
+			size_t operator()(const SIntrospectionParams& param) const 
+			{
+				auto stringViewHasher = std::hash<std::string_view>();
+
+				auto code = std::string_view(reinterpret_cast<const char*>(param.cpuShader->getContent()->getPointer()), param.cpuShader->getContent()->getSize());
+				size_t hash = stringViewHasher(code);
+
+				core::hash_combine<std::string_view>(hash, std::string_view(param.entryPoint));
+				core::hash_combine<uint32_t>(hash, static_cast<uint32_t>(param.cpuShader->getStage()));
+
+				return hash;
+			}
 		};
 
 		using ParamsToDataMap = core::unordered_map<SIntrospectionParams,core::smart_refctd_ptr<const CIntrospectionData>, KeyHasher>;
