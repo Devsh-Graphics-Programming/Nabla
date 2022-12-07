@@ -192,7 +192,7 @@ struct reduction<binops::bitwise_max>
 
 namespace portability
 {
-
+// REVIEW: This seems like generic code, unrelated to subgroups. Should we move it to different module?
 template<class NumberScratchAccessor>
 struct ScratchAccessorAdaptor {
 	NumberScratchAccessor accessor;
