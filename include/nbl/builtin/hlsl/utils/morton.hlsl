@@ -11,8 +11,6 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace utils
-{
 namespace morton
 {
 
@@ -48,7 +46,5 @@ uint2 decode2d8b(in uint x)
 }
 }
 }
-}
-
 
 #endif

@@ -15,11 +15,11 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace utils
+namespace normal_decode
 {
 
 
-float3 NormalDecode_signedSpherical(in float2 enc)
+float3 signedSpherical(in float2 enc)
 {
 	float ang = enc.x * math::PI;
     return float3(float2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
