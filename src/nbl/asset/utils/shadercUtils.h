@@ -21,8 +21,8 @@ inline shaderc_shader_kind ESStoShadercEnum(IShader::E_SHADER_STAGE _ss)
 
     shaderc_shader_kind convert[6];
     convert[core::findLSB<uint32_t>(IShader::ESS_VERTEX)] = shaderc_vertex_shader;
-    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELATION_CONTROL)] = shaderc_tess_control_shader;
-    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELATION_EVALUATION)] = shaderc_tess_evaluation_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELLATION_CONTROL)] = shaderc_tess_control_shader;
+    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELLATION_EVALUATION)] = shaderc_tess_evaluation_shader;
     convert[core::findLSB<uint32_t>(IShader::ESS_GEOMETRY)] = shaderc_geometry_shader;
     convert[core::findLSB<uint32_t>(IShader::ESS_FRAGMENT)] = shaderc_fragment_shader;
     convert[core::findLSB<uint32_t>(IShader::ESS_COMPUTE)] = shaderc_compute_shader;

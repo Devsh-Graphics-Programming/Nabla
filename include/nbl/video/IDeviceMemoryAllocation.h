@@ -78,7 +78,7 @@ class NBL_API IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         
         enum E_MEMORY_PROPERTY_FLAGS : uint32_t
         {
-            EMPF_NONE               = 0x00000000,
+            EMPF_NONE               = 0,
             EMPF_DEVICE_LOCAL_BIT   = 0x00000001,
             EMPF_HOST_READABLE_BIT  = 0x00000002, 
             EMPF_HOST_WRITABLE_BIT  = 0x00000004, 
@@ -93,7 +93,8 @@ class NBL_API IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         
         enum E_MEMORY_HEAP_FLAGS : uint32_t
         {
-            EMHF_DEVICE_LOCAL_BIT = 0x00000001,
+            EMHF_NONE               = 0,
+            EMHF_DEVICE_LOCAL_BIT   = 0x00000001,
             EMHF_MULTI_INSTANCE_BIT = 0x00000002,
         };
 

@@ -7,8 +7,7 @@
 
 
 #include "nbl/asset/utils/ICPUVirtualTexture.h"
-
-#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
+#include "nbl/asset/utils/IShaderCompiler.h"
 
 
 namespace nbl
@@ -16,14 +15,15 @@ namespace nbl
 namespace asset
 {
 
-class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
+class CGLSLVirtualTexturingBuiltinIncludeGenerator : public IShaderCompiler::IIncludeGenerator
 {
-    public:
-		using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
+	public:
+		using Base = IShaderCompiler::IIncludeGenerator;
+		using Base::Base;
 
-        const char* getVirtualDirectoryName() const override { return "glsl/virtual_texturing/"; }
+		std::string_view getPrefix() const override { return "nbl/builtin/glsl/virtual_texturing"; };
 
-    private:
+	private:
 		static std::string getVTfunctions(const std::string& _path)
 		{
 			auto args = parseArgumentsFromPath(_path.substr(_path.rfind(".glsl")+6, _path.npos));
@@ -69,7 +69,7 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
 	protected:
 		core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
 		{
-			auto retval = IGLSLEmbeddedIncludeLoader::getBuiltinNamesToFunctionMapping();
+			core::vector<std::pair<std::regex, HandleFunc_t>> retval;
 
 			const std::string num = "[0-9]+";
 			retval.insert(retval.begin(),

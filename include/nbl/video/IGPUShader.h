@@ -8,8 +8,6 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-#include "nbl/asset/ISPIR_VProgram.h"
-
 #include "nbl/video/decl/IBackendObject.h"
 
 
