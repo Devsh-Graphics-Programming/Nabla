@@ -86,7 +86,6 @@ public:
 
     class alignas(COMMAND_SEGMENT_ALIGNMENT) CCommandSegment
     {
-    private:
         struct header_t
         {
             core::LinearAddressAllocator<uint32_t> m_commandAllocator;
@@ -113,7 +112,7 @@ public:
 
         CCommandSegment()
         {
-            header.m_commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, COMMAND_SEGMENT_ALIGNMENT, STORAGE_SIZE);
+            header.m_commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE);
             header.m_next = nullptr;
 
             wipeNextCommandSize();
