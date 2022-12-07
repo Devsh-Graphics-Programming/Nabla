@@ -5,6 +5,7 @@
 #include "nbl/asset/asset.h"
 
 #include "nbl/asset/interchange/CGLSLLoader.h"
+#include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
 
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
@@ -172,6 +173,7 @@ void IAssetManager::addLoadersAndWriters()
 #endif
     addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CHLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_

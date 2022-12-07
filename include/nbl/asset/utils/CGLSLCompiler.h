@@ -127,7 +127,7 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 	protected:
 
-		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
+		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
 		static CGLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
