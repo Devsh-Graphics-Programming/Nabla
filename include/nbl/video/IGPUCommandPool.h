@@ -40,6 +40,8 @@ public:
 
     class alignas(COMMAND_ALIGNMENT) ICommand
     {
+        friend class CCommandSegment;
+
     public:
         virtual ~ICommand() {}
 
@@ -65,7 +67,7 @@ public:
     private:
         friend CCommandSegment;
 
-        const uint32_t m_size;
+        uint32_t m_size;
     };
 
     template <class CRTP>
@@ -154,10 +156,10 @@ public:
 
         void wipeNextCommandSize()
         {
-            const auto cursor = header.m_commandAllocator.get_allocated_size();
-            const uint32_t wipeSize = offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
-            if (cursor + wipeSize < header.m_commandAllocator.get_total_size())
-                memset(m_data + cursor + offsetof(IGPUCommandPool::ICommand, m_size), 0, sizeof(IGPUCommandPool::ICommand::m_size));
+            const auto nextCmdOffset = header.m_commandAllocator.get_allocated_size();
+            const auto wipeEnd = nextCmdOffset + offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
+            if (wipeEnd < header.m_commandAllocator.get_total_size())
+                reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size = 0;
         }
     };
     static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
