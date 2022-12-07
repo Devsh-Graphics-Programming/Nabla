@@ -530,9 +530,9 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
-								core::vectorSIMDu32 inBlockCoord(0u);
+								core::vectorSIMDu32 blockLocalTexelCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
-									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),inBlockCoord),
+									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),blockLocalTexelCoord),
 									nullptr,
 									nullptr,
 									nullptr
@@ -544,7 +544,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 								value_type swizzledSample[MaxChannels];
 
 								// TODO: make sure there is no leak due to MaxChannels!
-								base_t::template onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
+								base_t::template onDecode(inFormat, state, srcPix, sample, swizzledSample, blockLocalTexelCoord.x, blockLocalTexelCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
@@ -612,7 +612,6 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						}
 						if (axis == IImage::ET_1D)
 							scratchHelper.template free<is_seq_policy_v>(decode_offset);
-							// free_decode_scratch(decode_offset);
 					});
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)

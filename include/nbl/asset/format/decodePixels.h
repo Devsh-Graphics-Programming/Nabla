@@ -1360,6 +1360,7 @@ namespace asset
         impl::SRGB2lin(_output);
     }
 
+    // TODO(achal): This needs fixing. All that is required to make the CBlitImageFilter work with BC input.
     template<>
     inline void decodePixels<asset::EF_BC3_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
@@ -1369,6 +1370,10 @@ namespace asset
         decodePixels<asset::EF_BC1_RGBA_UNORM_BLOCK, double>(pix, _output, _x, _y);
         impl::decodeBC4(_pix, _output, 3, _x, _y);
         _output[3] /= 255.;
+
+        // TODO(achal): Remove.
+        std::swap(_output[0], _output[2]);
+        _output[3] = 1.0;
     }
 
     template<>

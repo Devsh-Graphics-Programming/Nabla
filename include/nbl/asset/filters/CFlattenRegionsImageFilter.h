@@ -46,8 +46,11 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 				return false;
 
 			// TODO: remove this later when we can actually write/encode to block formats
-			if (isBlockCompressionFormat(inParams.format))
-				return false;
+			// TODO(achal): Should this be here?
+			// if (isBlockCompressionFormat(inParams.format))
+			// 	return false;
+
+			// TODO(achal): Add a validation which rejects formats that can have more than one valid aspect masks.
 
 			return true;
 		}
@@ -62,6 +65,9 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 			const auto& inParams = inImg->getCreationParameters();
 			auto respecifyRegions = [&state,&inImg,&inParams]() -> void
 			{
+				// Currently, we reject formats that can have more than one valid aspect masks.
+				const auto aspectMask = inImg->getRegions().begin()[0].imageSubresource.aspectMask;
+
 				state->outImage = ICPUImage::create(IImage::SCreationParams(inParams));
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(inParams.mipLevels);
 				size_t bufferSize = 0ull;
@@ -74,7 +80,7 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 					rit->bufferOffset = bufferSize;
 					rit->bufferRowLength = localExtent.x; // could round up to multiple of 8 bytes in the future
 					rit->bufferImageHeight = localExtent.y;
-					rit->imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+					rit->imageSubresource.aspectMask = aspectMask;
 					rit->imageSubresource.mipLevel = mipLevel;
 					rit->imageSubresource.baseArrayLayer = 0u;
 					rit->imageSubresource.layerCount = inParams.arrayLayers;
