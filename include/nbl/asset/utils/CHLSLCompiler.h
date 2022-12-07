@@ -44,7 +44,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 	protected:
 
-		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
+		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
 		// TODO do we want to use ComPtr? 
 		std::unique_ptr<IDxcUtils> m_dxcUtils;
@@ -73,7 +73,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			}
 		};
 
-		DxcCompilationResult dxcCompile(const std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const;
+		DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const;
 };
 
 }

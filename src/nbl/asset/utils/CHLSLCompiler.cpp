@@ -36,8 +36,24 @@ CHLSLCompiler::~CHLSLCompiler()
     m_dxcCompiler->Release();
 }
 
-CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(const std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const
+CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const
 {
+    if (options.genDebugInfo)
+    {
+        std::ostringstream insertion;
+        insertion << "// commandline compiler options : ";
+
+        std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
+        for (uint32_t arg = 0; arg < argCount; arg ++)
+        {
+            auto str = conv.to_bytes(args[arg]);
+            insertion << str.c_str() << " ";
+        }
+
+        insertion << "\n";
+        insertIntoStart(source, std::move(insertion));
+    }
+
     DxcBuffer sourceBuffer;
     sourceBuffer.Ptr = source.data();
     sourceBuffer.Size = source.size();
@@ -96,21 +112,6 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         // These are debug only
         L"-Qembed_debug"
     };
-    if (hlslOptions.genDebugInfo)
-    {
-        std::ostringstream insertion;
-        insertion << "// commandline compiler options : ";
-
-        std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
-        for (auto arg : arguments)
-        {
-            auto str = conv.to_bytes(arg);
-            insertion << str.c_str() << " ";
-        }
-
-        insertion << "\n";
-        insertIntoStart(newCode, std::move(insertion));
-    }
 
     const uint32_t nonDebugArgs = 2;
     const uint32_t allArgs = nonDebugArgs + 0;
