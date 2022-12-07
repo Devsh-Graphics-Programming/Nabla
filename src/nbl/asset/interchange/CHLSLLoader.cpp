@@ -26,26 +26,24 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 
 
 	const auto filename = _file->getFileName();
-	//! TODO: Actually invoke the GLSL compiler to decode our type from any `#pragma`s
 	std::filesystem::path extension = filename.extension();
 
+	//core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
+	//																						{".vert",IShader::ESS_VERTEX},
+	//																						{".tesc",IShader::ESS_TESSELLATION_CONTROL},
+	//																						{".tese",IShader::ESS_TESSELLATION_EVALUATION},
+	//																						{".geom",IShader::ESS_GEOMETRY},
+	//																						{".frag",IShader::ESS_FRAGMENT},
+	//																						{".comp",IShader::ESS_COMPUTE}
+	//																					};
+	//auto found = typeFromExt.find(extension.string());
+	//if (found == typeFromExt.end())
+	//{
+	//	_NBL_ALIGNED_FREE(source);
+	//	return {};
+	//}
 
-	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
-																							{".vert",IShader::ESS_VERTEX},
-																							{".tesc",IShader::ESS_TESSELLATION_CONTROL},
-																							{".tese",IShader::ESS_TESSELLATION_EVALUATION},
-																							{".geom",IShader::ESS_GEOMETRY},
-																							{".frag",IShader::ESS_FRAGMENT},
-																							{".comp",IShader::ESS_COMPUTE}
-																						};
-	auto found = typeFromExt.find(extension.string());
-	if (found == typeFromExt.end())
-	{
-		_NBL_ALIGNED_FREE(source);
-		return {};
-	}
-
-	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), found->second, IShader::E_CONTENT_TYPE::ECT_GLSL, filename.string());
+	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), IShader::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
 	_NBL_ALIGNED_FREE(source);
 
 	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });
