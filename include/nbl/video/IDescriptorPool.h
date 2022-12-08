@@ -38,22 +38,6 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             uint32_t count;
         };
 
-        struct SDescriptorOffsets
-        {
-            SDescriptorOffsets()
-            {
-                // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
-                // know which descriptors are present in the set and hence should be destroyed.
-                std::fill_n(data, asset::EDT_COUNT+1, ~0u);
-            }
-
-            uint32_t data[asset::EDT_COUNT+1];
-        };
-
-        // Returns the offset into the pool's descriptor storage. These offsets will be combined
-        // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
-        SDescriptorOffsets allocateDescriptors(const IGPUDescriptorSetLayout* layout);
-
         bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
 
         inline uint32_t getCapacity() const { return m_maxSets; }

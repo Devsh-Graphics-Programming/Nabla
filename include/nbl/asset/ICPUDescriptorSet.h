@@ -310,6 +310,8 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 		virtual ~ICPUDescriptorSet() = default;
 
 		private:
+			void allocateDescriptors() override { assert(!"Invalid code path."); }
+
 			// Mutable samplers are NOT stored in this array (in SDescriptorInfo::SImageInfo::sampler member), but in IEmulatedDescriptorSet::m_mutableSamplers.
 			core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo::SBufferImageInfo> m_descriptorInfos[EDT_COUNT];
 };

@@ -28,9 +28,11 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
 
 	public:
-		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& descriptorStorageOffsets)
-			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_version(0ull), m_pool(std::move(pool)), m_descriptorStorageOffsets(std::move(descriptorStorageOffsets))
+		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool)
+			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_version(0ull), m_pool(std::move(pool))
 		{
+            allocateDescriptors();
+
             for (auto i = 0u; i < asset::EDT_COUNT; ++i)
             {
                 // There is no descriptor of such type in the set.
@@ -128,6 +130,22 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		}
 
 	private:
+        struct SDescriptorOffsets
+        {
+            SDescriptorOffsets()
+            {
+                // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
+                // know which descriptors are present in the set and hence should be destroyed.
+                std::fill_n(data, asset::EDT_COUNT + 1, ~0u);
+            }
+
+            uint32_t data[asset::EDT_COUNT + 1];
+        };
+
+        // Returns the offset into the pool's descriptor storage. These offsets will be combined
+        // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
+        void allocateDescriptors() override;
+
 		inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const
 		{
             core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
@@ -175,7 +193,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 
         std::atomic_uint64_t m_version;
 		core::smart_refctd_ptr<IDescriptorPool> m_pool;
-		IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
+		SDescriptorOffsets m_descriptorStorageOffsets;
 };
 
 }

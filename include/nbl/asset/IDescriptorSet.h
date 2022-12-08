@@ -165,8 +165,9 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 
 	protected:
 		IDescriptorSet(core::smart_refctd_ptr<layout_t>&& _layout) : m_layout(std::move(_layout)) {}
-
 		virtual ~IDescriptorSet() {}
+
+		virtual void allocateDescriptors() = 0;
 
 		core::smart_refctd_ptr<layout_t> m_layout;
 };
