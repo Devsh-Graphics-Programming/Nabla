@@ -91,11 +91,7 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
     protected:
         uint32_t m_maxSets;
 
-        // TODO(achal): Make this pure virtual after GL is removed.
-        virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
-        {
-            return true;
-        };
+        virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) = 0;
 
     private:
         const IDescriptorPool::E_CREATE_FLAGS m_flags;

@@ -67,7 +67,7 @@ public:
     private:
         friend CCommandSegment;
 
-        uint32_t m_size;
+        const uint32_t m_size;
     };
 
     template <class CRTP>
@@ -180,7 +180,7 @@ public:
             const auto nextCmdOffset = m_header.commandAllocator.get_allocated_size();
             const auto wipeEnd = nextCmdOffset + offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
             if (wipeEnd < m_header.commandAllocator.get_total_size())
-                reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size = 0;
+                *(const_cast<uint32_t*>(&(reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size))) = 0;
         }
     };
     static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
