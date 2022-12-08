@@ -257,8 +257,8 @@ private:
         m_resetCheckedStamp = m_cmdpool->getResetCounter();
         m_state = ES_INITIAL;
 
-        m_segmentListHeadItr.m_cmd = nullptr;
-        m_segmentListHeadItr.m_segment = nullptr;
+        m_segmentListHeadItr.cmd = nullptr;
+        m_segmentListHeadItr.segment = nullptr;
         m_segmentListTail = nullptr;
 
         return true;

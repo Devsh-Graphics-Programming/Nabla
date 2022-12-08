@@ -19,8 +19,8 @@ COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogical
 
 bool COpenGLCommandBuffer::begin_impl(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo)
 {
-    m_GLSegmentListHeadItr.m_segment = nullptr;
-    m_GLSegmentListHeadItr.m_cmd = nullptr;
+    m_GLSegmentListHeadItr.segment = nullptr;
+    m_GLSegmentListHeadItr.cmd = nullptr;
     m_GLSegmentListTail = nullptr;
 
     return true;
@@ -145,31 +145,31 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextD
 {
     IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
 
-    if (itr.m_segment && itr.m_cmd)
+    if (itr.segment && itr.cmd)
     {
-        while (itr.m_cmd->getSize() != 0u)
+        while (itr.cmd->getSize() != 0u)
         {
-            auto* glcmd = static_cast<COpenGLCommandPool::IOpenGLCommand*>(itr.m_cmd);
+            auto* glcmd = static_cast<COpenGLCommandPool::IOpenGLCommand*>(itr.cmd);
             glcmd->operator()(gl, queueLocal, ctxid, m_logger.getOptRawPtr());
 
-            itr.m_cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.m_cmd) + itr.m_cmd->getSize());
+            itr.cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.cmd) + itr.cmd->getSize());
 
             // We potentially continue to the next command segment under any one of the two conditions:
             const bool potentiallyContinueToNextSegment =
                 // 1. If the we run past the storage of the current segment.
-                ((reinterpret_cast<uint8_t*>(itr.m_cmd) - itr.m_segment->getData()) >= IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
+                ((reinterpret_cast<uint8_t*>(itr.cmd) - itr.segment->getData()) >= IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
                 ||
                 // 2. If we encounter a 0-sized command (terminating command) before running out of the current segment. This case will arise when the current
                 // segment doesn't have enough storage to hold the next command.
-                (itr.m_cmd->getSize() == 0);
+                (itr.cmd->getSize() == 0);
             if (potentiallyContinueToNextSegment)
             {
-                IGPUCommandPool::CCommandSegment* nextSegment = itr.m_segment->getNext();
+                IGPUCommandPool::CCommandSegment* nextSegment = itr.segment->getNext();
                 if (!nextSegment)
                     break;
 
-                itr.m_segment = nextSegment;
-                itr.m_cmd = itr.m_segment->getFirstCommand();
+                itr.segment = nextSegment;
+                itr.cmd = itr.segment->getFirstCommand();
             }
         }
     }
