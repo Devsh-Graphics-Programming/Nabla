@@ -108,27 +108,99 @@ int2 transformedExtents(in uint swapchainTransform, in int2 screenSize)
 
 float2 transformedDerivatives(in uint swapchainTransform, in float2 ddxDdy)
 {
-    #define OUTPUT_TYPE float2
-    #include "nbl/builtin/hlsl/utils/surface_transform_transformedDerivatives.hlsl"
-    #undef OUTPUT_TYPE
+    switch (swapchainTransform) 
+    {
+        case IDENTITY:
+            return ddxDdy;
+        case HORIZONTAL_MIRROR:
+            return float2(-ddxDdy[0], ddxDdy[1]);
+        case HORIZONTAL_MIRROR_ROTATE_180:
+            return float2(ddxDdy[0], -ddxDdy[1]);
+        case ROTATE_180:
+            return float2(-ddxDdy[0], -ddxDdy[1]);
+        case ROTATE_90:
+            return float2(ddxDdy[1], -ddxDdy[0]);
+        case ROTATE_270:
+            return float2(-ddxDdy[1], ddxDdy[0]);
+        case HORIZONTAL_MIRROR_ROTATE_90:
+            return float2(ddxDdy[1], ddxDdy[0]);
+        case HORIZONTAL_MIRROR_ROTATE_270:
+            return float2(-ddxDdy[1], -ddxDdy[0]);
+        default:
+            return (0);
+    }
 }
 float2x2 transformedDerivatives(in uint swapchainTransform, in float2x2 ddxDdy)
 {
-    #define OUTPUT_TYPE mat2
-    #include "nbl/builtin/hlsl/utils/surface_transform_transformedDerivatives.hlsl"
-    #undef OUTPUT_TYPE
+    switch (swapchainTransform) 
+    {
+        case IDENTITY:
+            return ddxDdy;
+        case HORIZONTAL_MIRROR:
+            return float2x2(-ddxDdy._11_12, ddxDdy._21_22);
+        case HORIZONTAL_MIRROR_ROTATE_180:
+            return float2x2(ddxDdy._11_12, -ddxDdy._21_22);
+        case ROTATE_180:
+            return float2x2(-ddxDdy._11_12, -ddxDdy._21_22);
+        case ROTATE_90:
+            return float2x2(ddxDdy._21_22, -ddxDdy._11_12);
+        case ROTATE_270:
+            return float2x2(-ddxDdy._21_22, ddxDdy._11_12);
+        case HORIZONTAL_MIRROR_ROTATE_90:
+            return float2x2(ddxDdy._21_22, ddxDdy._11_12);
+        case HORIZONTAL_MIRROR_ROTATE_270:
+            return float2x2(-ddxDdy._21_22, -ddxDdy._11_12);
+        default:
+            return (0);
+    }
 }
 float2x3 transformedDerivatives(in uint swapchainTransform, in float2x3 ddxDdy)
 {
-    #define OUTPUT_TYPE float2x3
-    #include "nbl/builtin/hlsl/utils/surface_transform_transformedDerivatives.hlsl"
-    #undef OUTPUT_TYPE
+    switch (swapchainTransform) 
+    {
+        case IDENTITY:
+            return ddxDdy;
+        case HORIZONTAL_MIRROR:
+            return float2x3(-ddxDdy._11_12_13, ddxDdy._21_22_23);
+        case HORIZONTAL_MIRROR_ROTATE_180:
+            return float2x3(ddxDdy._11_12_13, -ddxDdy._21_22_23);
+        case ROTATE_180:
+            return float2x3(-ddxDdy._11_12_13, -ddxDdy._21_22_23);
+        case ROTATE_90:
+            return float2x3(ddxDdy._21_22_23, -ddxDdy._11_12_13);
+        case ROTATE_270:
+            return float2x3(-ddxDdy._21_22_23, ddxDdy._11_12_13);
+        case HORIZONTAL_MIRROR_ROTATE_90:
+            return float2x3(ddxDdy._21_22_23, ddxDdy._11_12_13);
+        case HORIZONTAL_MIRROR_ROTATE_270:
+            return float2x3(-ddxDdy._21_22_23, -ddxDdy._11_12_13);
+        default:
+            return (0);
+    }
 }
 float2x4 transformedDerivatives(in uint swapchainTransform, in float2x4 ddxDdy)
 {
-    #define OUTPUT_TYPE float2x4
-    #include "nbl/builtin/hlsl/utils/surface_transform_transformedDerivatives.hlsl"
-    #undef OUTPUT_TYPE
+    switch (swapchainTransform) 
+    {
+        case IDENTITY:
+            return ddxDdy;
+        case HORIZONTAL_MIRROR:
+            return float2x4(-ddxDdy._11_12_13_14, ddxDdy._21_22_23_24);
+        case HORIZONTAL_MIRROR_ROTATE_180:
+            return float2x4(ddxDdy._11_12_13_14, -ddxDdy._21_22_23_24);
+        case ROTATE_180:
+            return float2x4(-ddxDdy._11_12_13_14, -ddxDdy._21_22_23_24);
+        case ROTATE_90:
+            return float2x4(ddxDdy._21_22_23_24, -ddxDdy._11_12_13_14);
+        case ROTATE_270:
+            return float2x4(-ddxDdy._21_22_23_24, ddxDdy._11_12_13_14);
+        case HORIZONTAL_MIRROR_ROTATE_90:
+            return float2x4(ddxDdy._21_22_23_24, ddxDdy._11_12_13_14);
+        case HORIZONTAL_MIRROR_ROTATE_270:
+            return float2x4(-ddxDdy._21_22_23_24, -ddxDdy._11_12_13_14);
+        default:
+            return (0);
+    }
 }
 
 //! Same as `surface_transform::applyToScreenSpaceCoordinate` but in NDC space
@@ -142,29 +214,29 @@ float2 applyToNDC(in uint swapchainTransform, in float2 ndc)
         sin270 = -1.0, cos270 = 0.0;
     switch (swapchainTransform) 
     {
-    case ROTATE_90:
-        return ndc * mat2(float2(cos90, -sin90),
-                          float2(sin90, cos90));
-    case ROTATE_180:
-        return ndc * mat2(float2(cos180, -sin180),
-                          float2(sin180, cos180));
-    case ROTATE_270:
-        return ndc * mat2(float2(cos270, -sin270),
-                          float2(sin270, cos270));
-    case HORIZONTAL_MIRROR:
-        return ndc * mat2(float2(-1, 0),
-                          float2(0, 1));
-    case HORIZONTAL_MIRROR_ROTATE_90:
-        return ndc * mat2(float2(-cos90, sin90),
-                          float2(sin90, cos90));
-    case HORIZONTAL_MIRROR_ROTATE_180:
-        return ndc * mat2(float2(-cos180, sin180),
-                          float2(sin180, cos180));
-    case HORIZONTAL_MIRROR_ROTATE_270:
-        return ndc * mat2(float2(-cos270, sin270),
-                          float2(sin270, cos270));
-    default:
-        return ndc;
+        case ROTATE_90:
+            return mul(ndc, float2x2(cos90, -sin90, sin90,  cos90));
+
+        case ROTATE_180:
+            return mul(ndc, float2x2(cos180, -sin180, sin180,  cos180));
+
+        case ROTATE_270:
+            return mul(ndc, float2x2(cos270, -sin270, sin270,  cos270));
+
+        case HORIZONTAL_MIRROR:
+            return mul(ndc, float2x2(-1, 0, 0, 1));
+
+        case HORIZONTAL_MIRROR_ROTATE_90:
+            return mul(ndc, float2x2(-cos90, sin90, sin90, cos90));
+
+        case HORIZONTAL_MIRROR_ROTATE_180:
+            return mul(ndc, float2x2(-cos180, sin180, sin180, cos180));
+
+        case HORIZONTAL_MIRROR_ROTATE_270:
+            return mul(ndc, float2x2(-cos270, sin270, sin270, cos270));
+
+        default:
+            return ndc;
     }
 }
 
