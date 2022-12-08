@@ -21,6 +21,8 @@ class IGPUDescriptorSet;
 
 class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
+    friend class IGPUDescriptorSet;
+
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
@@ -48,9 +50,15 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             uint32_t data[asset::EDT_COUNT+1];
         };
 
-    friend class IGPUDescriptorSet;
+        // Returns the offset into the pool's descriptor storage. These offsets will be combined
+        // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
+        SDescriptorOffsets allocateDescriptors(const IGPUDescriptorSetLayout* layout);
 
-    public:
+        bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
+
+        inline uint32_t getCapacity() const { return m_maxSets; }
+
+    protected:
         explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDescriptorPool::E_CREATE_FLAGS flags, uint32_t _maxSets, const uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) : IBackendObject(std::move(dev)), m_maxSets(_maxSets), m_flags(flags)
         {
             std::fill_n(m_maxDescriptorCount, asset::EDT_COUNT, 0u);
@@ -94,15 +102,7 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             m_accelerationStructureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]>(m_maxDescriptorCount[asset::EDT_ACCELERATION_STRUCTURE]);
         }
 
-        ~IDescriptorPool() {}
-
-        // Returns the offset into the pool's descriptor storage. These offsets will be combined
-        // later with base memory addresses to get the actual memory adress where we put the core::smart_refctd_ptr<const IDescriptor>.
-        SDescriptorOffsets allocateDescriptors(const IGPUDescriptorSetLayout* layout);
-
-        bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
-
-        inline uint32_t getCapacity() const { return m_maxSets; }
+        virtual ~IDescriptorPool() {}
 
     protected:
         uint32_t m_maxSets;

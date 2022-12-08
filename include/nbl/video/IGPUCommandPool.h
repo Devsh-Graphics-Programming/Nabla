@@ -123,6 +123,7 @@ public:
 
         CCommandSegment()
         {
+            static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
             m_header.commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE);
             m_header.next = nullptr;
 
@@ -288,8 +289,11 @@ public:
 
             auto freeSegment = [this](CCommandSegment* segment)
             {
-                segment->~CCommandSegment();
-                m_commandSegmentPool.deallocate(segment, COMMAND_SEGMENT_SIZE);
+                if (segment)
+                {
+                    segment->~CCommandSegment();
+                    m_commandSegmentPool.deallocate(segment, COMMAND_SEGMENT_SIZE);
+                }
             };
 
             CCommandSegment* prevSegment = nullptr;

@@ -193,7 +193,8 @@ public:
 
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
     {
-        return core::make_smart_refctd_ptr<IDescriptorPool>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this),flags, maxSets, poolSizeCount, poolSizes);
+        assert(!"Deprecated");
+        return nullptr;
     }
     
     SMemoryOffset allocate(const SAllocateInfo& info) override
