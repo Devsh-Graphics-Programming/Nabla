@@ -27,4 +27,5 @@ static const uint HORIZONTAL_MIRROR_ROTATE_270 = 0x00000080;
 }
 }
 }
+
 #endif
