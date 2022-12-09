@@ -63,7 +63,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
-			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
+			set->getPool()->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
 		}
 	public:
 		struct RelativeTransformModificationRequest : nbl_glsl_transform_tree_relative_transform_modification_t
@@ -788,9 +788,9 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+3u);
 
 			DescriptorSets descSets;
-			descSets.updateLocal = device->createDescriptorSet(pool.get(),std::move(layouts[0]));
-			descSets.recomputeGlobal = device->createDescriptorSet(pool.get(),std::move(layouts[1]));
-			descSets.debugDraw = device->createDescriptorSet(pool.get(),std::move(layouts[2]));
+			descSets.updateLocal = pool->createDescriptorSet(std::move(layouts[0]));
+			descSets.recomputeGlobal = pool->createDescriptorSet(std::move(layouts[1]));
+			descSets.debugDraw = pool->createDescriptorSet(std::move(layouts[2]));
 			return descSets;
 		}
 	protected:

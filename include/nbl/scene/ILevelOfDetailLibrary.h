@@ -240,7 +240,7 @@ class NBL_API ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		{
 			auto layout = createDescriptorSetLayout(device);
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
-			m_ds = device->createDescriptorSet(pool.get(),std::move(layout));
+			m_ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[DescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[DescriptorBindingCount] =
@@ -257,7 +257,7 @@ class NBL_API ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
-				device->updateDescriptorSets(DescriptorBindingCount,writes,0u,nullptr);
+				pool->updateDescriptorSets(DescriptorBindingCount,writes,0u,nullptr);
 			}
 		}
 		~ILevelOfDetailLibrary()

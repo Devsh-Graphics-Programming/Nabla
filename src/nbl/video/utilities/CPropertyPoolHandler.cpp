@@ -579,7 +579,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	writes[2].info = inDescInfo;
 	writes[3].count = maxPropertiesPerPass;
 	writes[3].info = outDescInfo;
-	device->updateDescriptorSets(4u,writes,0u,nullptr);
+	set->getPool()->updateDescriptorSets(4u, writes, 0u, nullptr);
 
 	return retval;
 }

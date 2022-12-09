@@ -18,6 +18,8 @@
 namespace nbl::video
 {
 
+class IDescriptorPool;
+
 //! GPU Version of Descriptor Set
 /*
 	@see IDescriptorSet
@@ -54,6 +56,8 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
         inline uint64_t getVersion() const { return m_version.load(); }
 
         inline void incrementVersion() { m_version.fetch_add(1ull); }
+
+        inline IDescriptorPool* getPool() const { return m_pool.get(); }
 
         inline core::smart_refctd_ptr<asset::IDescriptor>* getAllDescriptors(const asset::E_DESCRIPTOR_TYPE type) const
         {
@@ -145,51 +149,8 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
         // Returns the offset into the pool's descriptor storage. These offsets will be combined
         // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
         void allocateDescriptors() override;
-
-		inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const
-		{
-            core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
-            switch (type)
-            {
-            case asset::EDT_COMBINED_IMAGE_SAMPLER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_textureStorage.get());
-                break;
-            case asset::EDT_STORAGE_IMAGE:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get());
-                break;
-            case asset::EDT_UNIFORM_TEXEL_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get());
-                break;
-            case asset::EDT_STORAGE_TEXEL_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER];
-                break;
-            case asset::EDT_UNIFORM_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get());
-                break;
-            case asset::EDT_STORAGE_BUFFER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER];
-                break;
-            case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER]);
-                break;
-            case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC]);
-                break;
-            case asset::EDT_INPUT_ATTACHMENT:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE];
-                break;
-            case asset::EDT_ACCELERATION_STRUCTURE:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_accelerationStructureStorage.get());
-                break;
-            default:
-                assert(!"Invalid code path.");
-                return nullptr;
-            }
-
-            return baseAddress;
-		}
-
-        inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const { return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_pool->m_mutableSamplerStorage.get()); }
+        core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const;
+        core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const;
 
         std::atomic_uint64_t m_version;
 		core::smart_refctd_ptr<IDescriptorPool> m_pool;

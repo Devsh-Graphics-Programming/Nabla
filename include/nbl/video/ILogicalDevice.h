@@ -232,16 +232,6 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             return createAccelerationStructure_impl(std::move(params));
         }
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
-        {
-            if (!pool->wasCreatedBy(this))
-                return nullptr;
-            if (!layout->wasCreatedBy(this))
-                return nullptr;
-
-            return createDescriptorSet_impl(pool, std::move(layout));
-        }
-
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
         {
             uint32_t totalSetCount = 0;
@@ -271,24 +261,6 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(flags, totalSetCount, poolSizes.size(), poolSizes.data());
             return dsPool;
         }
-
-        void createDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
-        {
-            core::SRange<const IGPUDescriptorSetLayout* const> layouts{ _layouts, _layouts + count };
-            createDescriptorSets(pool, layouts, output);
-        }
-        void createDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
-        {
-            uint32_t i = 0u;
-            for (const IGPUDescriptorSetLayout* layout_ : layouts)
-            {
-                auto layout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layout_);
-                output[i++] = createDescriptorSet(pool, std::move(layout));
-            }
-        }
-
-        //! Fill out the descriptor sets with descriptors
-        bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
         //! Create a sampler object to use with images
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
@@ -550,8 +522,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
-        virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
+        
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
         virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
@@ -616,7 +587,6 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
         core::vector<char> m_GLSLDefineStringPool;
         core::vector<const char*> m_extraGLSLDefines;
-
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
         SPhysicalDeviceFeatures m_enabledFeatures;

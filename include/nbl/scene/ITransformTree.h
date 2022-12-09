@@ -160,8 +160,8 @@ class NBL_API ITransformTree : public virtual core::IReferenceCounted
 			if (!poolLayout || !renderLayout)
 				return false;
 
-			outPoolDS = device->createDescriptorSet(dsp.get(),std::move(poolLayout));
-			outRenderDS = device->createDescriptorSet(dsp.get(),std::move(renderLayout));
+			outPoolDS = dsp->createDescriptorSet(std::move(poolLayout));
+			outRenderDS = dsp->createDescriptorSet(std::move(renderLayout));
 			if (!outPoolDS || !outRenderDS)
 				return false;
 
@@ -175,13 +175,13 @@ class NBL_API ITransformTree : public virtual core::IReferenceCounted
 
 				infos[i] = DescriptorInfo(outPool->getPropertyMemoryBlock(i));
 			}
-			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
+			dsp->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 				writes[i].dstSet = outRenderDS.get();
 			infos[0] = DescriptorInfo(outPool->getPropertyMemoryBlock(global_transform_prop_ix));
 			if (TransformTree::HasNormalMatrices)
 				infos[1] = DescriptorInfo(outPool->getPropertyMemoryBlock(TransformTree::normal_matrix_prop_ix));
-			device->updateDescriptorSets(TransformTree::RenderDescriptorSetBindingCount,writes,0u,nullptr);
+			dsp->updateDescriptorSets(TransformTree::RenderDescriptorSetBindingCount,writes,0u,nullptr);
 			return true;
 		}
 

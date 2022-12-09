@@ -1690,7 +1690,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		for (ptrdiff_t i = 0u; i < assetCount; i++)
 		{
 			IGPUDescriptorSetLayout* gpulayout = gpuLayouts->operator[](layoutRedirs[i]).get();
-			res->operator[](i) = _params.device->createDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
+			res->operator[](i) = dsPool->createDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
 			auto gpuds = res->operator[](i).get();
 
             const asset::ICPUDescriptorSet* cpuds = _begin[i];
@@ -1781,7 +1781,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		}
 	}
 
-	_params.device->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
+	dsPool->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
 
     return res;
 }

@@ -8,6 +8,7 @@
 #include "nbl/asset/IDescriptorSetLayout.h"
 
 #include "nbl/video/decl/IBackendObject.h"
+#include "nbl/video/IGPUDescriptorSet.h"
 
 
 namespace nbl::video
@@ -17,7 +18,6 @@ class IGPUImageView;
 class IGPUSampler;
 class IGPUBufferView;
 class IGPUDescriptorSetLayout;
-class IGPUDescriptorSet;
 
 class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
@@ -38,6 +38,17 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             uint32_t count;
         };
 
+        inline void createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        {
+            for (uint32_t i = 0u; i < count; ++i)
+            {
+                auto layout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layouts[i]);
+                output[i++] = createDescriptorSet(std::move(layout));
+            }
+        }
+        
+        core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout);
+        bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
         bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
 
         inline uint32_t getCapacity() const { return m_maxSets; }
@@ -88,10 +99,11 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
 
         virtual ~IDescriptorPool() {}
 
-    protected:
-        uint32_t m_maxSets;
-
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+        virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
         virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) = 0;
+
+        uint32_t m_maxSets;
 
     private:
         const IDescriptorPool::E_CREATE_FLAGS m_flags;

@@ -338,14 +338,6 @@ public:
         return retval;
     }
 
-    void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override final
-    {
-        for (uint32_t i = 0u; i < descriptorWriteCount; i++)
-            static_cast<COpenGLDescriptorSet*>(pDescriptorWrites[i].dstSet)->writeDescriptorSet(pDescriptorWrites[i]);
-        for (uint32_t i = 0u; i < descriptorCopyCount; i++)
-            static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
-    }
-
     void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override final
     {
         SRequestFlushMappedMemoryRanges req_params{ ranges };
@@ -844,10 +836,6 @@ protected:
         m_threadHandler.template waitForRequestCompletion<SRequestImageViewCreate>(req);
 
         return retval;
-    }
-    core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) override final
-    {
-        return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(layout), core::smart_refctd_ptr<IDescriptorPool>(pool));
     }
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override final
     {

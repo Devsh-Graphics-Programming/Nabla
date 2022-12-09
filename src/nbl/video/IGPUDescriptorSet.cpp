@@ -1,5 +1,7 @@
 #include "nbl/video/IGPUDescriptorSet.h"
 
+#include "nbl/video/IDescriptorPool.h"
+
 namespace nbl::video
 {
 
@@ -30,6 +32,54 @@ void IGPUDescriptorSet::allocateDescriptors()
         else
             offsets.data[asset::EDT_COUNT] = m_pool->m_linearAllocators[asset::EDT_COUNT].alloc_addr(mutableSamplerCount, 1u);
     }
+}
+
+core::smart_refctd_ptr<asset::IDescriptor>* IGPUDescriptorSet::getDescriptorStorage(const asset::E_DESCRIPTOR_TYPE type) const
+{
+    core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
+    switch (type)
+    {
+    case asset::EDT_COMBINED_IMAGE_SAMPLER:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_textureStorage.get());
+        break;
+    case asset::EDT_STORAGE_IMAGE:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get());
+        break;
+    case asset::EDT_UNIFORM_TEXEL_BUFFER:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get());
+        break;
+    case asset::EDT_STORAGE_TEXEL_BUFFER:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UTB_STBStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_TEXEL_BUFFER];
+        break;
+    case asset::EDT_UNIFORM_BUFFER:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get());
+        break;
+    case asset::EDT_STORAGE_BUFFER:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER];
+        break;
+    case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER]);
+        break;
+    case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_UBO_SSBOStorage.get()) + (m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_BUFFER] + m_pool->m_maxDescriptorCount[asset::EDT_UNIFORM_BUFFER_DYNAMIC]);
+        break;
+    case asset::EDT_INPUT_ATTACHMENT:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_storageImageStorage.get()) + m_pool->m_maxDescriptorCount[asset::EDT_STORAGE_IMAGE];
+        break;
+    case asset::EDT_ACCELERATION_STRUCTURE:
+        baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_pool->m_accelerationStructureStorage.get());
+        break;
+    default:
+        assert(!"Invalid code path.");
+        return nullptr;
+    }
+
+    return baseAddress;
+}
+
+core::smart_refctd_ptr<IGPUSampler>* IGPUDescriptorSet::getMutableSamplerStorage() const
+{
+    return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_pool->m_mutableSamplerStorage.get());
 }
 
 }

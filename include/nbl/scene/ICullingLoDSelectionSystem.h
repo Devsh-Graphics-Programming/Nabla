@@ -214,7 +214,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createDescriptorSet(pool,std::move(layout));
+			auto ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[InputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[InputDescriptorBindingCount] =
@@ -244,7 +244,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				}
 				else
 					count--;
-				device->updateDescriptorSets(count,writes,0u,nullptr);
+				pool->updateDescriptorSets(count,writes,0u,nullptr);
 			}
 			return ds;
 		}
@@ -259,7 +259,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createDescriptorSet(pool,std::move(layout));
+			auto ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[OutputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[OutputDescriptorBindingCount] =
@@ -285,7 +285,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				}
 				else
 					count--;
-				device->updateDescriptorSets(count,writes,0u,nullptr);
+				pool->updateDescriptorSets(count,writes,0u,nullptr);
 			}
 			return ds;
 		}

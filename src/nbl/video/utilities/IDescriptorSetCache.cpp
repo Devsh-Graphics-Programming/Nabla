@@ -19,9 +19,5 @@ IDescriptorSetCache::IDescriptorSetCache(ILogicalDevice* device, core::smart_ref
 	m_descPool = std::move(_descPool);
 	m_canonicalLayout = std::move(_canonicalLayout);
 	for (auto i=0u; i<getCapacity(); i++)
-	{
-		m_cache[i] = device->createDescriptorSet(
-			m_descPool.get(),core::smart_refctd_ptr(m_canonicalLayout)
-		);
-	}
+		m_cache[i] = m_descPool->createDescriptorSet(core::smart_refctd_ptr(m_canonicalLayout));
 }

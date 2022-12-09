@@ -112,7 +112,7 @@ public:
                     // If `cmd` was "one past the end" then the size was wiped to 0 and it won't move.
                     cmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
 
-                    if (cmd == segment->getLastCommand())
+                    if (cmd == segment->segment_end())
                         *this = segment->end();
                 }
                 return old;
@@ -163,11 +163,11 @@ public:
             }
             else
             {
-                return { getLastCommand(), this};
+                return { segment_end(), this};
             }
         }
 
-        inline ICommand* getLastCommand()
+        inline ICommand* segment_end()
         {
             return reinterpret_cast<ICommand*>(m_data + m_header.commandAllocator.get_allocated_size());
         }
