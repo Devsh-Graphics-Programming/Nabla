@@ -45,6 +45,7 @@ float3x3 mul_with_bounds(out float3x3 error, in float3x3 a, in float3x3 b, in fl
 }
 
 
+/*
 float4 pseudoMul4x4with3x1(in float4x4 m, in float3 v)
 {
     return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
@@ -69,6 +70,8 @@ float4 pseudoMul4x4with4x3(in float4 proj, in float4x3 tform)
     result[3] += proj[3];
     return result;
 }
+*/
+
 
 // useful for fast computation of a Normal Matrix (you just need to remember to normalize the transformed normal because of the missing divide by the determinant)
 float3x3 sub3x3TransposeCofactors_fn(in float3x3 sub3x3)
