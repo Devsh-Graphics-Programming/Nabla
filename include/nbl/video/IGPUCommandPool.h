@@ -98,32 +98,6 @@ public:
     public:
         static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
 
-        struct Iterator
-        {
-            ICommand* cmd = nullptr;
-            CCommandSegment* segment = nullptr;
-
-            inline bool operator!=(const Iterator& other) const { return cmd != other.cmd; }
-
-            inline Iterator operator++(int)
-            {
-                Iterator old = *this;
-                if (cmd)
-                {
-                    assert(segment);
-
-                    // If `cmd` was "one past the end" then the size was wiped to 0 and it won't move.
-                    cmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
-
-                    if (cmd == segment->segment_end())
-                        *this = segment->end();
-                }
-                return old;
-            }
-
-            inline ICommand* operator*() { return cmd; }
-        };
-
         CCommandSegment()
         {
             static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
@@ -166,24 +140,6 @@ public:
 
         inline void setPrevHead(CCommandSegment* segment) { m_header.prevHead = segment; }
         inline CCommandSegment* getPrevHead() const { return m_header.prevHead; }
-
-        inline CCommandSegment::Iterator begin()
-        {
-            ICommand* cmd = reinterpret_cast<ICommand*>(m_data);
-            return { cmd, this };
-        }
-
-        inline CCommandSegment::Iterator end()
-        {
-            if (m_header.next)
-            {
-                return m_header.next->begin();
-            }
-            else
-            {
-                return { segment_end(), this};
-            }
-        }
 
         inline ICommand* segment_end()
         {
@@ -249,12 +205,12 @@ public:
     virtual const void* getNativeHandle() const = 0;
 
     template <typename Cmd, typename... Args>
-    Cmd* emplace(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail, Args&&... args)
+    Cmd* emplace(CCommandSegment*& segmentListHead, CCommandSegment*& segmentListTail, Args&&... args)
     {
         if (!segmentListTail)
         {
             // This will get called on a CCommandSegmentList instance, and this will move to IGPUCommandBuffer::emplace
-            if (m_commandSegmentPool.appendToList(segmentListHeadItr, segmentListTail))
+            if (m_commandSegmentPool.appendToList(segmentListHead, segmentListTail))
             {
                 // Add to the HEAD list
 #if 0
@@ -285,7 +241,7 @@ public:
         auto cmd = newCmd();
         if (!cmd)
         {
-            if (!m_commandSegmentPool.appendToList(segmentListHeadItr, segmentListTail))
+            if (!m_commandSegmentPool.appendToList(segmentListHead, segmentListTail))
                 return nullptr;
 
             cmd = newCmd();
@@ -299,7 +255,7 @@ public:
         return cmd;
     }
 
-    void deleteCommandSegmentList(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail)
+    void deleteCommandSegmentList(CCommandSegment*& segmentListHead, CCommandSegment*& segmentListTail)
     {
 #if 0
         // Step #1: Disown the child.
@@ -324,7 +280,7 @@ public:
 #endif
 
         // Step #2: Kill the child.
-        m_commandSegmentPool.deleteList(segmentListHeadItr);
+        m_commandSegmentPool.deleteList(segmentListHead);
         segmentListTail = nullptr;
     }
 
@@ -359,7 +315,7 @@ private:
     public:
         CCommandSegmentPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
 
-        bool appendToList(CCommandSegment::Iterator& listHeadItr, CCommandSegment*& listTail)
+        bool appendToList(CCommandSegment*& head, CCommandSegment*& tail)
         {
             auto segment = m_pool.emplace<CCommandSegment>();
             if (!segment)
@@ -368,45 +324,44 @@ private:
                 return false;
             }
 
-            if (listTail)
+            if (tail)
             {
-                listTail->setNext(segment);
-                listTail = listTail->getNext();
+                tail->setNext(segment);
+                tail = tail->getNext();
             }
             else
             {
-                assert(!listHeadItr.cmd && !listHeadItr.segment && "List should've been empty.");
+                assert(!head && "List should've been empty.");
 
-                listTail = segment;
-                listHeadItr = segment->begin();
+                tail = segment;
+                head = segment;
             }
 
             return bool(segment);
         }
 
-        void deleteList(CCommandSegment::Iterator& headItr)
+        void deleteList(CCommandSegment*& head)
         {
-            if (!headItr.segment)
+            if (!head)
                 return;
 
             auto freeSegment = [this](CCommandSegment* segment)
             {
                 if (segment)
                 {
-                    segment->~CCommandSegment(); // This should call the dtors of every command in the segment
+                    segment->~CCommandSegment();
                     m_pool.deallocate(segment, COMMAND_SEGMENT_SIZE);
                 }
             };
 
-            for (auto* segment = headItr.segment; segment;)
+            for (auto* segment = head; segment;)
             {
                 auto* nextSegment = segment->getNext();
                 freeSegment(segment);
                 segment = nextSegment;
             }
 
-            headItr.cmd = nullptr;
-            headItr.segment = nullptr;
+            head = nullptr;
         }
 
         void clear(CCommandSegment*& head, CCommandSegment*& tail)

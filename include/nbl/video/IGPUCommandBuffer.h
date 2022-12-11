@@ -257,8 +257,7 @@ private:
         m_resetCheckedStamp = m_cmdpool->getResetCounter();
         m_state = ES_INITIAL;
 
-        m_segmentListHeadItr.cmd = nullptr;
-        m_segmentListHeadItr.segment = nullptr;
+        m_segmentListHead = nullptr;
         m_segmentListTail = nullptr;
 
         return true;
@@ -266,7 +265,7 @@ private:
 
     inline void releaseResourcesBackToPool()
     {
-        m_cmdpool->deleteCommandSegmentList(m_segmentListHeadItr, m_segmentListTail);
+        m_cmdpool->deleteCommandSegmentList(m_segmentListHead, m_segmentListTail);
         releaseResourcesBackToPool_impl();
     }
 
@@ -277,7 +276,7 @@ private:
     // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
     core::unordered_map<const IGPUDescriptorSet*, uint64_t> m_boundDescriptorSetsRecord;
     
-    IGPUCommandPool::CCommandSegment::Iterator m_segmentListHeadItr = {};
+    IGPUCommandPool::CCommandSegment* m_segmentListHead = nullptr;
     IGPUCommandPool::CCommandSegment* m_segmentListTail = nullptr;
 };
 

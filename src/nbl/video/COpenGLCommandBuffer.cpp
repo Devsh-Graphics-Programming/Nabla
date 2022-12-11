@@ -19,8 +19,7 @@ COpenGLCommandBuffer::COpenGLCommandBuffer(core::smart_refctd_ptr<const ILogical
 
 bool COpenGLCommandBuffer::begin_impl(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo)
 {
-    m_GLSegmentListHeadItr.segment = nullptr;
-    m_GLSegmentListHeadItr.cmd = nullptr;
+    m_GLSegmentListHead= nullptr;
     m_GLSegmentListTail = nullptr;
 
     return true;
@@ -28,10 +27,10 @@ bool COpenGLCommandBuffer::begin_impl(core::bitflag<E_USAGE> flags, const SInher
 
 void COpenGLCommandBuffer::releaseResourcesBackToPool_impl()
 {
-    m_cmdpool->deleteCommandSegmentList(m_GLSegmentListHeadItr, m_GLSegmentListTail);
+    m_cmdpool->deleteCommandSegmentList(m_GLSegmentListHead, m_GLSegmentListTail);
 }
 
-bool COpenGLCommandBuffer::beginRenderpass_clearAttachments(SOpenGLContextIndependentCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+bool COpenGLCommandBuffer::beginRenderpass_clearAttachments(SOpenGLContextIndependentCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
 {
     auto& rp = info.framebuffer->getCreationParameters().renderpass;
     auto& sub = rp->getSubpasses().begin()[0];
@@ -48,7 +47,7 @@ bool COpenGLCommandBuffer::beginRenderpass_clearAttachments(SOpenGLContextIndepe
             if (a < info.clearValueCount)
             {
                 asset::E_FORMAT fmt = descriptions[a].format;
-                if (!cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(segmentListHeadItr, segmentListTail, stateCache->currentState.framebuffer.hash, fmt, GL_COLOR, info.clearValues[a], i))
+                if (!cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(segmentListHead, segmentListTail, stateCache->currentState.framebuffer.hash, fmt, GL_COLOR, info.clearValues[a], i))
                     return false;
             }
             else
@@ -83,8 +82,8 @@ bool COpenGLCommandBuffer::beginRenderpass_clearAttachments(SOpenGLContextIndepe
                         bufferType = GL_DEPTH_STENCIL;
                 }
 
-                const auto stateBackup = stateCache->backupAndFlushStateClear(cmdpool, segmentListHeadItr, segmentListTail, false, (is_depth || is_depth_stencil), (is_stencil || is_depth_stencil), apiType, features);
-                const bool cmdEmplaceFailed = !cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(segmentListHeadItr, segmentListTail, stateCache->currentState.framebuffer.hash, fmt, bufferType, info.clearValues[depthstencil->attachment], 0);
+                const auto stateBackup = stateCache->backupAndFlushStateClear(cmdpool, segmentListHead, segmentListTail, false, (is_depth || is_depth_stencil), (is_stencil || is_depth_stencil), apiType, features);
+                const bool cmdEmplaceFailed = !cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(segmentListHead, segmentListTail, stateCache->currentState.framebuffer.hash, fmt, bufferType, info.clearValues[depthstencil->attachment], 0);
                 stateCache->restoreStateAfterClear(stateBackup);
 
                 if (cmdEmplaceFailed)
@@ -148,7 +147,7 @@ void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextD
 
 bool COpenGLCommandBuffer::bindGraphicsPipeline_impl(const graphics_pipeline_t* pipeline)
 {
-    m_stateCache.updateNextState_pipelineAndRaster(pipeline, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail);
+    m_stateCache.updateNextState_pipelineAndRaster(pipeline, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail);
 
     auto* rpindependent = pipeline->getRenderpassIndependentPipeline();
     auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(rpindependent);
@@ -165,7 +164,7 @@ void COpenGLCommandBuffer::bindComputePipeline_impl(const compute_pipeline_t* pi
 bool COpenGLCommandBuffer::resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
 {
     auto* gl_queryPool = static_cast<COpenGLQueryPool*>(queryPool);
-    gl_queryPool->resetQueries(firstQuery, queryCount, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail);
+    gl_queryPool->resetQueries(firstQuery, queryCount, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail);
 
     return true;
 }
@@ -176,7 +175,7 @@ bool COpenGLCommandBuffer::beginQuery_impl(IQueryPool* queryPool, uint32_t query
     auto currentQuery = core::bitflag(qp->getCreationParameters().queryType);
     if (!queriesActive.hasFlags(currentQuery))
     {
-        if (!qp->beginQuery(query, flags.value, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+        if (!qp->beginQuery(query, flags.value, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail))
             return false;
 
         queriesActive |= currentQuery;
@@ -196,7 +195,7 @@ bool COpenGLCommandBuffer::beginQuery_impl(IQueryPool* queryPool, uint32_t query
 bool COpenGLCommandBuffer::writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
 {
     auto* gl_queryPool = static_cast<COpenGLQueryPool*>(queryPool);
-    if (!gl_queryPool->writeTimestamp(query, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+    if (!gl_queryPool->writeTimestamp(query, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail))
         return false;
 
     return true;
@@ -226,7 +225,7 @@ bool COpenGLCommandBuffer::endQuery_impl(IQueryPool* queryPool, uint32_t query)
         }
 
         // currentlyRecordingQuery assert tuple -> same query index and query pool -> same renderpass
-        if (!qp->endQuery(query, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail))
+        if (!qp->endQuery(query, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail))
             return false;
 
         queriesActive &= ~currentQuery;
@@ -335,16 +334,16 @@ bool COpenGLCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint
 
             if (availabilityFlag && !waitForAllResults && (q == glQueriesPerQuery - 1))
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHead, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
                     return false;
             }
 
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, pname, subQueryDataOffset))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHead, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, pname, subQueryDataOffset))
                 return false;
 
             if (availabilityFlag && waitForAllResults && (q == glQueriesPerQuery - 1))
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetQueryBufferObjectUICmd>(m_GLSegmentListHead, m_GLSegmentListTail, qp, queryIdx, use64Version, bufferId, GL_QUERY_RESULT_AVAILABLE, availabilityDataOffset))
                     return false;
             }
         }
@@ -451,13 +450,13 @@ bool COpenGLCommandBuffer::pushConstants_impl(const pipeline_layout_t* layout, c
 
         if (stageFlags.value & asset::IShader::ESS_ALL_GRAPHICS)
         {
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CPushConstantsCmd<asset::EPBP_GRAPHICS>>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_pipelineLayout, stageFlags, offset, size, pValues))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CPushConstantsCmd<asset::EPBP_GRAPHICS>>(m_GLSegmentListHead, m_GLSegmentListTail, gl_pipelineLayout, stageFlags, offset, size, pValues))
                 return false;
         }
 
         if (stageFlags.value & asset::IShader::ESS_COMPUTE)
         {
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CPushConstantsCmd<asset::EPBP_COMPUTE>>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_pipelineLayout, stageFlags, offset, size, pValues))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CPushConstantsCmd<asset::EPBP_COMPUTE>>(m_GLSegmentListHead, m_GLSegmentListTail, gl_pipelineLayout, stageFlags, offset, size, pValues))
                 return false;
         }
     }
@@ -467,7 +466,7 @@ bool COpenGLCommandBuffer::pushConstants_impl(const pipeline_layout_t* layout, c
 
 bool COpenGLCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
 {
-    const auto state_backup = m_stateCache.backupAndFlushStateClear(m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, true, false, false, getAPIType(), m_features);
+    const auto state_backup = m_stateCache.backupAndFlushStateClear(m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, true, false, false, getAPIType(), m_features);
 
     bool anyFailed = false;
     for (uint32_t i = 0u; i < rangeCount; ++i)
@@ -478,7 +477,7 @@ bool COpenGLCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::E
         {
             for (uint32_t l = 0u; l < info.layerCount; ++l)
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CClearColorImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<const COpenGLImage*>(image), info.baseMipLevel + m, info.baseArrayLayer + l, *pColor))
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CClearColorImageCmd>(m_GLSegmentListHead, m_GLSegmentListTail, static_cast<const COpenGLImage*>(image), info.baseMipLevel + m, info.baseArrayLayer + l, *pColor))
                     anyFailed = true;
             }
         }
@@ -503,7 +502,7 @@ bool COpenGLCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::II
             is_depth_stencil = asset::isDepthOrStencilFormat(fmt);
     }
 
-    const auto state_backup = m_stateCache.backupAndFlushStateClear(m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, false, (is_depth || is_depth_stencil), (is_stencil || is_depth_stencil), getAPIType(), m_features);
+    const auto state_backup = m_stateCache.backupAndFlushStateClear(m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, false, (is_depth || is_depth_stencil), (is_stencil || is_depth_stencil), getAPIType(), m_features);
 
     bool anyFailed = false;
     for (uint32_t i = 0u; i < rangeCount; ++i)
@@ -514,7 +513,7 @@ bool COpenGLCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::II
         {
             for (uint32_t l = 0u; l < info.layerCount; ++l)
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CClearDepthStencilImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<const COpenGLImage*>(image), info.baseMipLevel + m, info.baseArrayLayer + l, *pDepthStencil))
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CClearDepthStencilImageCmd>(m_GLSegmentListHead, m_GLSegmentListTail, static_cast<const COpenGLImage*>(image), info.baseMipLevel + m, info.baseArrayLayer + l, *pDepthStencil))
                     anyFailed = true;
             }
         }
@@ -550,7 +549,7 @@ bool COpenGLCommandBuffer::clearAttachments(uint32_t attachmentCount, const asse
             uint32_t a = color[num].attachment;
             asset::E_FORMAT fmt = descriptions[a].format;
 
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, m_stateCache.currentState.framebuffer.hash, fmt, GL_COLOR, attachment.clearValue, num))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(m_GLSegmentListHead, m_GLSegmentListTail, m_stateCache.currentState.framebuffer.hash, fmt, GL_COLOR, attachment.clearValue, num))
                 anyFailed = true;
         }
         else if (attachment.aspectMask & (asset::IImage::EAF_DEPTH_BIT | asset::IImage::EAF_STENCIL_BIT))
@@ -566,7 +565,7 @@ bool COpenGLCommandBuffer::clearAttachments(uint32_t attachmentCount, const asse
                     bufferType = GL_STENCIL;
             }
 
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, m_stateCache.currentState.framebuffer.hash, asset::EF_UNKNOWN, bufferType, attachment.clearValue, 0))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedFramebufferCmd>(m_GLSegmentListHead, m_GLSegmentListTail, m_stateCache.currentState.framebuffer.hash, asset::EF_UNKNOWN, bufferType, attachment.clearValue, 0))
                 anyFailed = true;
         }
     }
@@ -578,7 +577,7 @@ bool COpenGLCommandBuffer::fillBuffer_impl(buffer_t* dstBuffer, size_t dstOffset
 {
     GLuint buf = static_cast<const COpenGLBuffer*>(dstBuffer)->getOpenGLName();
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, buf, GL_R32UI, dstOffset, size, GL_RED, GL_UNSIGNED_INT, data))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CClearNamedBufferSubDataCmd>(m_GLSegmentListHead, m_GLSegmentListTail, buf, GL_R32UI, dstOffset, size, GL_RED, GL_UNSIGNED_INT, data))
         return false;
 
     return true;
@@ -588,7 +587,7 @@ bool COpenGLCommandBuffer::updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffs
 {
     GLuint buf = static_cast<const COpenGLBuffer*>(dstBuffer)->getOpenGLName();
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, buf, dstOffset, dataSize, pData))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CNamedBufferSubDataCmd>(m_GLSegmentListHead, m_GLSegmentListTail, buf, dstOffset, dataSize, pData))
         return false;
 
     return true;
@@ -648,10 +647,10 @@ bool COpenGLCommandBuffer::setStencilReference(asset::E_STENCIL_FACE_FLAGS faceM
 
 bool COpenGLCommandBuffer::dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ)
 {
-    if (!m_stateCache.flushStateCompute(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, m_features))
+    if (!m_stateCache.flushStateCompute(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, m_features))
         return false;
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, groupCountX, groupCountY, groupCountZ))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeCmd>(m_GLSegmentListHead, m_GLSegmentListTail, groupCountX, groupCountY, groupCountZ))
         return false;
 
     return true;
@@ -661,10 +660,10 @@ bool COpenGLCommandBuffer::dispatchIndirect_impl(const buffer_t* buffer, size_t 
 {
     m_stateCache.nextState.dispatchIndirect.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(buffer));
 
-    if (!m_stateCache.flushStateCompute(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, m_features))
+    if (!m_stateCache.flushStateCompute(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, m_features))
         return false;
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeIndirectCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<GLintptr>(offset)))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CDispatchComputeIndirectCmd>(m_GLSegmentListHead, m_GLSegmentListTail, static_cast<GLintptr>(offset)))
         return false;
 
     return true;
@@ -699,7 +698,7 @@ bool COpenGLCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
         barrier |= barriersToMemBarrierBits(SOpenGLBarrierHelper(m_features), dep.memBarrierCount, dep.memBarriers, dep.bufBarrierCount, dep.bufBarriers, dep.imgBarrierCount, dep.imgBarriers);
     }
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CMemoryBarrierCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, barrier))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CMemoryBarrierCmd>(m_GLSegmentListHead, m_GLSegmentListTail, barrier))
         return false;
 
     return true;
@@ -712,7 +711,7 @@ bool COpenGLCommandBuffer::copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* 
     for (uint32_t i = 0u; i < regionCount; ++i)
     {
         const asset::SBufferCopy& cp = pRegions[i];
-        if (!m_cmdpool->emplace<COpenGLCommandPool::CCopyNamedBufferSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, readb, writeb, cp.srcOffset, cp.dstOffset, cp.size))
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CCopyNamedBufferSubDataCmd>(m_GLSegmentListHead, m_GLSegmentListTail, readb, writeb, cp.srcOffset, cp.dstOffset, cp.size))
             return false;
     }
 
@@ -731,7 +730,7 @@ bool COpenGLCommandBuffer::copyImage_impl(const image_t* srcImage, asset::IImage
 
     for (auto it = pRegions; it != pRegions + regionCount; it++)
     {
-        if (!m_cmdpool->emplace<COpenGLCommandPool::CCopyImageSubDataCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CCopyImageSubDataCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
             src->getOpenGLName(),
             type2Target[srcType],
             it->srcSubresource.mipLevel,
@@ -798,7 +797,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
             m_stateCache.nextState.pixelUnpack.BCheight = blockDims[1];
             m_stateCache.nextState.pixelUnpack.BCdepth = blockDims[2];
 
-            if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+            if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
                 success = false;
 
             uint32_t imageSize = pitch;
@@ -808,7 +807,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
             {
                 imageSize *= it->imageSubresource.layerCount;
 
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage2DCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_1D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -827,7 +826,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                 imageSize *= (it->bufferImageHeight ? it->bufferImageHeight : it->imageExtent.height);
                 imageSize *= it->imageSubresource.layerCount;
 
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_2D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -848,7 +847,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
                 imageSize *= (it->bufferImageHeight ? it->bufferImageHeight : it->imageExtent.height);
                 imageSize *= it->imageExtent.depth;
 
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CCompressedTextureSubImage3DCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_3D,
                     it->imageSubresource.mipLevel,
@@ -873,14 +872,14 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
         }
         else
         {
-            if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+            if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
                 success = false;
 
             switch (type)
             {
             case IGPUImage::ET_1D:
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage2DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage2DCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_1D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -896,7 +895,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
 
             case IGPUImage::ET_2D:
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_2D_ARRAY,
                     it->imageSubresource.mipLevel,
@@ -914,7 +913,7 @@ bool COpenGLCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
 
             case IGPUImage::ET_3D:
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CTextureSubImage3DCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     dst,
                     GL_TEXTURE_3D,
                     it->imageSubresource.mipLevel,
@@ -1006,12 +1005,12 @@ bool COpenGLCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
                 m_stateCache.nextState.pixelPack.BCdepth = blockDims[2];
             }
 
-            if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+            if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
                 success = false;
 
             if (compressed)
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetCompressedTextureSubImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetCompressedTextureSubImageCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     src,
                     it->imageSubresource.mipLevel,
                     it->imageOffset.x,
@@ -1026,7 +1025,7 @@ bool COpenGLCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
             }
             else
             {
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetTextureSubImageCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CGetTextureSubImageCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     src,
                     it->imageSubresource.mipLevel,
                     it->imageOffset.x,
@@ -1044,14 +1043,14 @@ bool COpenGLCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
         }
         else
         {
-            success = m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features);
+            success = m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_PIXEL_PACK_UNPACK, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features);
 
             const size_t bytesPerLayer = eachLayerNeededMemory;
             for (uint32_t z = 0u; z < zRange; ++z)
             {
                 size_t bufOffset = it->bufferOffset + z * bytesPerLayer;
                 bufOffset = core::alignUp(bufOffset, alignment); // ??? am i doing it right?
-                if (!m_cmdpool->emplace<COpenGLCommandPool::CReadPixelsCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail,
+                if (!m_cmdpool->emplace<COpenGLCommandPool::CReadPixelsCmd>(m_GLSegmentListHead, m_GLSegmentListTail,
                     glimg,
                     it->imageSubresource.mipLevel,
                     it->imageSubresource.baseArrayLayer + z,
@@ -1085,7 +1084,7 @@ bool COpenGLCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage
 
         for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
         {
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, gl_srcImage, gl_dstImage, info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer+l, info.dstSubresource.baseArrayLayer+l, info.srcOffsets, info.dstOffsets, filter))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHead, m_GLSegmentListTail, gl_srcImage, gl_dstImage, info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer+l, info.dstSubresource.baseArrayLayer+l, info.srcOffsets, info.dstOffsets, filter))
                 return false;
         }
     }
@@ -1112,7 +1111,7 @@ bool COpenGLCommandBuffer::resolveImage_impl(const image_t* srcImage, asset::IIm
 
         for (uint32_t l = 0u; l < info.dstSubresource.layerCount; ++l)
         {
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, static_cast<const COpenGLImage*>(srcImage), static_cast<const COpenGLImage*>(dstImage), info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer + l, info.dstSubresource.baseArrayLayer + l, srcoffsets, dstoffsets, asset::ISampler::ETF_NEAREST))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CBlitNamedFramebufferCmd>(m_GLSegmentListHead, m_GLSegmentListTail, static_cast<const COpenGLImage*>(srcImage), static_cast<const COpenGLImage*>(dstImage), info.srcSubresource.mipLevel, info.dstSubresource.mipLevel, info.srcSubresource.baseArrayLayer + l, info.dstSubresource.baseArrayLayer + l, srcoffsets, dstoffsets, asset::ISampler::ETF_NEAREST))
                 return false;
         }
     }
@@ -1125,13 +1124,13 @@ bool COpenGLCommandBuffer::drawIndirect_impl(const buffer_t* buffer, size_t offs
     m_stateCache.nextState.vertexInputParams.indirectDrawBuf = static_cast<const COpenGLBuffer*>(buffer);
     m_stateCache.nextState.vertexInputParams.parameterBuf = nullptr;
 
-    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
         return false;
 
     const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
     GLenum glpt = getGLprimitiveType(primType);
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawArraysIndirectCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, (GLuint64)offset, drawCount, stride))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawArraysIndirectCmd>(m_GLSegmentListHead, m_GLSegmentListTail, glpt, (GLuint64)offset, drawCount, stride))
         return false;
 
     return true;
@@ -1142,7 +1141,7 @@ bool COpenGLCommandBuffer::drawIndexedIndirect_impl(const buffer_t* buffer, size
     m_stateCache.nextState.vertexInputParams.indirectDrawBuf = static_cast<const COpenGLBuffer*>(buffer);
     m_stateCache.nextState.vertexInputParams.parameterBuf = nullptr;
 
-    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
         return false;
 
     GLenum idxType = GL_INVALID_ENUM;
@@ -1162,7 +1161,7 @@ bool COpenGLCommandBuffer::drawIndexedIndirect_impl(const buffer_t* buffer, size
     const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
     GLenum glpt = getGLprimitiveType(primType);
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawElementsIndirectCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, idxType, (GLuint64)offset, drawCount, stride))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawElementsIndirectCmd>(m_GLSegmentListHead, m_GLSegmentListTail, glpt, idxType, (GLuint64)offset, drawCount, stride))
         return false;
 
     return true;
@@ -1173,13 +1172,13 @@ bool COpenGLCommandBuffer::drawIndirectCount_impl(const buffer_t* buffer, size_t
     m_stateCache.nextState.vertexInputParams.indirectDrawBuf = static_cast<const COpenGLBuffer*>(buffer);
     m_stateCache.nextState.vertexInputParams.parameterBuf = static_cast<const COpenGLBuffer*>(countBuffer);
 
-    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
         return false;
 
     const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
     GLenum glpt = getGLprimitiveType(primType);
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawArraysIndirectCountCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, (GLuint64)offset, countBufferOffset, maxDrawCount, stride))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawArraysIndirectCountCmd>(m_GLSegmentListHead, m_GLSegmentListTail, glpt, (GLuint64)offset, countBufferOffset, maxDrawCount, stride))
         return false;
 
     return true;
@@ -1190,7 +1189,7 @@ bool COpenGLCommandBuffer::drawIndexedIndirectCount_impl(const buffer_t* buffer,
     m_stateCache.nextState.vertexInputParams.indirectDrawBuf = static_cast<const COpenGLBuffer*>(buffer);
     m_stateCache.nextState.vertexInputParams.parameterBuf = static_cast<const COpenGLBuffer*>(countBuffer);
 
-    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+    if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
         return false;
 
     GLenum idxType = GL_INVALID_ENUM;
@@ -1209,7 +1208,7 @@ bool COpenGLCommandBuffer::drawIndexedIndirectCount_impl(const buffer_t* buffer,
     const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
     GLenum glpt = getGLprimitiveType(primType);
 
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, idxType, (GLuint64)offset, countBufferOffset, maxDrawCount, stride))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CMultiDrawElementsIndirectCountCmd>(m_GLSegmentListHead, m_GLSegmentListTail, glpt, idxType, (GLuint64)offset, countBufferOffset, maxDrawCount, stride))
         return false;
 
     return true;
@@ -1267,7 +1266,7 @@ bool COpenGLCommandBuffer::setBlendConstants(const float blendConstants[4])
 
 bool COpenGLCommandBuffer::executeCommands_impl(uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CExecuteCommandsCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, count, cmdbufs))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CExecuteCommandsCmd>(m_GLSegmentListHead, m_GLSegmentListTail, count, cmdbufs))
         return false;
 
     return true;
@@ -1276,7 +1275,7 @@ bool COpenGLCommandBuffer::executeCommands_impl(uint32_t count, IGPUCommandBuffe
 bool COpenGLCommandBuffer::regenerateMipmaps_impl(image_t* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect)
 {
     auto* glimg = static_cast<COpenGLImage*>(img);
-    if (!m_cmdpool->emplace<COpenGLCommandPool::CGenerateTextureMipmapCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glimg->getOpenGLName(), glimg->getOpenGLTarget()))
+    if (!m_cmdpool->emplace<COpenGLCommandPool::CGenerateTextureMipmapCmd>(m_GLSegmentListHead, m_GLSegmentListTail, glimg->getOpenGLName(), glimg->getOpenGLTarget()))
         return false;
 
     return true;
