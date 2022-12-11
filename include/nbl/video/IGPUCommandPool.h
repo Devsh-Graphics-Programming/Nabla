@@ -133,6 +133,17 @@ public:
             wipeNextCommandSize();
         }
 
+        ~CCommandSegment()
+        {
+            auto* cmd = reinterpret_cast<ICommand*>(m_data);
+            while ((cmd != segment_end()) || (cmd->getSize() != 0))
+            {
+                auto* nextCmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
+                cmd->~ICommand();
+                cmd = nextCmd;
+            }
+        }
+
         template <typename Cmd, typename... Args>
         void* allocate(const Args&... args)
         {
@@ -242,10 +253,11 @@ public:
     {
         if (!segmentListTail)
         {
+            // This will get called on a CCommandSegmentList instance, and this will move to IGPUCommandBuffer::emplace
             if (m_commandSegmentPool.appendToList(segmentListHeadItr, segmentListTail))
             {
                 // Add to the HEAD list
-
+#if 0
                 if (!m_segmentLOLHead && !m_segmentLOLTail)
                 {
                     m_segmentLOLHead = segmentListHeadItr.segment;
@@ -257,6 +269,7 @@ public:
                     m_segmentLOLTail->setNextHead(segmentListHeadItr.segment);
                     m_segmentLOLTail = m_segmentLOLTail->getNextHead();
                 }
+#endif
             }
         }
 
@@ -288,6 +301,7 @@ public:
 
     void deleteCommandSegmentList(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail)
     {
+#if 0
         // Step #1: Disown the child.
         if (m_segmentLOLHead && m_segmentLOLTail)
         {
@@ -307,15 +321,17 @@ public:
                 m_segmentLOLTail = nullptr;
             }
         }
+#endif
 
         // Step #2: Kill the child.
-        m_commandSegmentPool.deleteList(segmentListHeadItr, segmentListTail);
+        m_commandSegmentPool.deleteList(segmentListHeadItr);
+        segmentListTail = nullptr;
     }
 
     bool reset()
     {
         m_resetCount.fetch_add(1);
-        m_commandSegmentPool.clear(m_segmentLOLHead, m_segmentLOLTail);
+        // m_commandSegmentPool.clear(m_segmentLOLHead, m_segmentLOLTail);
         return reset_impl();
     }
 
@@ -334,8 +350,8 @@ protected:
     uint32_t m_familyIx;
 
 private:
-    CCommandSegment* m_segmentLOLHead = nullptr;
-    CCommandSegment* m_segmentLOLTail = nullptr;
+    // CCommandSegment* m_segmentLOLHead = nullptr;
+    // CCommandSegment* m_segmentLOLTail = nullptr;
     std::atomic_uint64_t m_resetCount = 0;
 
     class CCommandSegmentPool
@@ -368,52 +384,29 @@ private:
             return bool(segment);
         }
 
-        void deleteList(CCommandSegment::Iterator& headItr, CCommandSegment*& tail)
+        void deleteList(CCommandSegment::Iterator& headItr)
         {
-            if (tail)
+            if (!headItr.segment)
+                return;
+
+            auto freeSegment = [this](CCommandSegment* segment)
             {
-                assert(headItr.segment && headItr.cmd);
-
-                auto freeSegment = [this](CCommandSegment* segment)
+                if (segment)
                 {
-                    if (segment)
-                    {
-                        segment->~CCommandSegment();
-                        m_pool.deallocate(segment, COMMAND_SEGMENT_SIZE);
-                    }
-                };
-
-                CCommandSegment* prevSegment = nullptr;
-                for (auto& itr = headItr; itr != tail->end();)
-                {
-                    prevSegment = itr.segment;
-                    auto prevCmd = *(itr++);
-
-                    prevCmd->~ICommand();
-
-                    // No need to deallocate prevCmd because:
-                    // - it has been allocated from the LinearAddressAllocator where deallocate is a No-OP
-                    // - the memory will get reclaimed in `~LinearAddressAllocator` when whole segment is destroyed
-
-                    if (itr.segment == prevSegment)
-                        continue;
-
-                    // Segment has changed, we need to free the previous one.
-                    freeSegment(prevSegment);
+                    segment->~CCommandSegment(); // This should call the dtors of every command in the segment
+                    m_pool.deallocate(segment, COMMAND_SEGMENT_SIZE);
                 }
+            };
 
-                // The last segment is always freed outside the loop.
-                assert(tail == prevSegment);
-                freeSegment(tail);
-
-                headItr.cmd = nullptr;
-                headItr.segment = nullptr;
-                tail = nullptr;
-            }
-            else
+            for (auto* segment = headItr.segment; segment;)
             {
-                assert(!headItr.segment && !headItr.cmd);
+                auto* nextSegment = segment->getNext();
+                freeSegment(segment);
+                segment = nextSegment;
             }
+
+            headItr.cmd = nullptr;
+            headItr.segment = nullptr;
         }
 
         void clear(CCommandSegment*& head, CCommandSegment*& tail)
