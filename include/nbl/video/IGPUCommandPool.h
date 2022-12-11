@@ -146,8 +146,6 @@ public:
 
         inline void setNext(CCommandSegment* segment) { m_header.next = segment; }
         inline CCommandSegment* getNext() const { return m_header.next; }
-        inline ICommand* getFirstCommand() { return reinterpret_cast<ICommand*>(m_data); } // TODO(achal): Probably remove?
-        inline uint8_t* getData() { return m_data; }
 
         inline CCommandSegment::Iterator begin()
         {
@@ -223,10 +221,6 @@ public:
     class CCopyAccelerationStructureCmd;
     class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
 
-    IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
-        : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
-        m_flags(_flags), m_familyIx(_familyIx)
-    {}
 
     inline core::bitflag<E_CREATE_FLAGS> getCreationFlags() const { return m_flags; }
     inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
@@ -238,30 +232,40 @@ public:
     template <typename Cmd, typename... Args>
     Cmd* emplace(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail, Args&&... args)
     {
-        if (segmentListTail == nullptr)
+        auto newSegment = [&]() -> CCommandSegment*
         {
-            void* cmdSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CCommandSegment));
-            if (!cmdSegmentMem)
+            auto segment = m_commandSegmentPool.emplace<CCommandSegment>();
+            if (segment)
+            {
+                if (segmentListTail)
+                {
+                    segmentListTail->setNext(segment);
+                    segmentListTail = segmentListTail->getNext();
+                }
+                else
+                {
+                    assert(!segmentListHeadItr.cmd && !segmentListHeadItr.segment && "List should've been empty.");
+
+                    segmentListTail = segment;
+                    segmentListHeadItr = segment->begin();
+                }
+            }
+            else
             {
                 assert(false);
-                return nullptr;
             }
+            return segment;
+        };
 
-            segmentListTail = new (cmdSegmentMem) CCommandSegment;
-            segmentListHeadItr.segment = segmentListTail;
-        }
+        if (!segmentListTail && !newSegment())
+            return nullptr;
 
         void* cmdMem = segmentListTail->allocate<Cmd>(args...);
         if (!cmdMem)
         {
-            void* nextSegmentMem = m_commandSegmentPool.allocate(COMMAND_SEGMENT_SIZE, alignof(CCommandSegment));
-            if (nextSegmentMem == nullptr)
-            {
-                assert(false);
+            auto nextSegment = newSegment();
+            if (!nextSegment)
                 return nullptr;
-            }
-
-            CCommandSegment* nextSegment = new (nextSegmentMem) CCommandSegment;
 
             cmdMem = nextSegment->allocate<Cmd>(args...);
             if (!cmdMem)
@@ -269,14 +273,8 @@ public:
                 assert(false);
                 return nullptr;
             }
-
-            segmentListTail->setNext(nextSegment);
-            segmentListTail = segmentListTail->getNext();
         }
         Cmd* cmd = new (cmdMem) Cmd(std::forward<Args>(args)...);
-
-        if (segmentListHeadItr.cmd == nullptr)
-            segmentListHeadItr.cmd = cmd;
 
         return cmd;
     }
@@ -339,6 +337,11 @@ public:
     inline uint32_t getResetCounter() { return m_resetCount.load(); }
 
 protected:
+    IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
+        : IBackendObject(std::move(dev)), m_commandSegmentPool(COMMAND_SEGMENTS_PER_BLOCK* COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE),
+        m_flags(_flags), m_familyIx(_familyIx)
+    {}
+
     virtual ~IGPUCommandPool() = default;
 
     virtual bool reset_impl() { return true; };

@@ -143,36 +143,7 @@ bool COpenGLCommandBuffer::pushConstants_validate(const IGPUPipelineLayout* _lay
 
 void COpenGLCommandBuffer::executeAll(IOpenGL_FunctionTable* gl, SOpenGLContextDependentCache& queueLocal, uint32_t ctxid) const
 {
-    IGPUCommandPool::CCommandSegment::Iterator itr = m_GLSegmentListHeadItr;
-
-    if (itr.segment && itr.cmd)
-    {
-        while (itr.cmd->getSize() != 0u)
-        {
-            auto* glcmd = static_cast<COpenGLCommandPool::IOpenGLCommand*>(itr.cmd);
-            glcmd->operator()(gl, queueLocal, ctxid, m_logger.getOptRawPtr());
-
-            itr.cmd = reinterpret_cast<IGPUCommandPool::ICommand*>(reinterpret_cast<uint8_t*>(itr.cmd) + itr.cmd->getSize());
-
-            // We potentially continue to the next command segment under any one of the two conditions:
-            const bool potentiallyContinueToNextSegment =
-                // 1. If the we run past the storage of the current segment.
-                ((reinterpret_cast<uint8_t*>(itr.cmd) - itr.segment->getData()) >= IGPUCommandPool::CCommandSegment::STORAGE_SIZE)
-                ||
-                // 2. If we encounter a 0-sized command (terminating command) before running out of the current segment. This case will arise when the current
-                // segment doesn't have enough storage to hold the next command.
-                (itr.cmd->getSize() == 0);
-            if (potentiallyContinueToNextSegment)
-            {
-                IGPUCommandPool::CCommandSegment* nextSegment = itr.segment->getNext();
-                if (!nextSegment)
-                    break;
-
-                itr.segment = nextSegment;
-                itr.cmd = itr.segment->getFirstCommand();
-            }
-        }
-    }
+    assert(!"Deprecated");
 }
 
 bool COpenGLCommandBuffer::bindGraphicsPipeline_impl(const graphics_pipeline_t* pipeline)
