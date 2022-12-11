@@ -90,6 +90,9 @@ public:
         {
             core::LinearAddressAllocator<uint32_t> commandAllocator;
             CCommandSegment* next = nullptr;
+
+            CCommandSegment* nextHead = nullptr;
+            CCommandSegment* prevHead = nullptr;
         } m_header;
 
     public:
@@ -147,8 +150,11 @@ public:
         inline void setNext(CCommandSegment* segment) { m_header.next = segment; }
         inline CCommandSegment* getNext() const { return m_header.next; }
 
-        // inline void setNextHead(CCommandSegment* segment) { m_header.nextHead = segment; }
-        // inline CCommandSegment* getNextHead() const { return m_header.nextHead; }
+        inline void setNextHead(CCommandSegment* segment) { m_header.nextHead = segment; }
+        inline CCommandSegment* getNextHead() const { return m_header.nextHead; }
+
+        inline void setPrevHead(CCommandSegment* segment) { m_header.prevHead = segment; }
+        inline CCommandSegment* getPrevHead() const { return m_header.prevHead; }
 
         inline CCommandSegment::Iterator begin()
         {
@@ -234,23 +240,26 @@ public:
     template <typename Cmd, typename... Args>
     Cmd* emplace(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail, Args&&... args)
     {
-        if (!segmentListTail && !m_commandSegmentPool.appendToList(segmentListHeadItr, segmentListTail))
-            return nullptr;
+        if (!segmentListTail)
+        {
+            if (m_commandSegmentPool.appendToList(segmentListHeadItr, segmentListTail))
+            {
+                // Add to the HEAD list
 
-        // Check if the head list exists
-#if 0
-        if (!m_segmentLOLHead && !m_segmentLOLTail)
-        {
-            m_segmentLOLHead = segmentListHeadItr.segment;
-            m_segmentLOLTail = segmentListHeadItr.segment;
+                if (!m_segmentLOLHead && !m_segmentLOLTail)
+                {
+                    m_segmentLOLHead = segmentListHeadItr.segment;
+                    m_segmentLOLTail = segmentListHeadItr.segment;
+                }
+                else
+                {
+                    assert(m_segmentLOLHead && m_segmentLOLTail);
+                    m_segmentLOLTail->setNextHead(segmentListHeadItr.segment);
+                    m_segmentLOLTail = m_segmentLOLTail->getNextHead();
+                }
+            }
         }
-        else
-        {
-            assert(m_segmentLOLHead && m_segmentLOLTail);
-            m_segmentLOLTail->setNextHead(segmentListHeadItr.segment);
-            m_segmentLOLTail = m_segmentLOLTail->getNextHead();
-        }
-#endif
+
         auto newCmd = [&]() -> Cmd*
         {
             void* cmdMem = segmentListTail->allocate<Cmd>(args...);
@@ -279,26 +288,34 @@ public:
 
     void deleteCommandSegmentList(CCommandSegment::Iterator& segmentListHeadItr, CCommandSegment*& segmentListTail)
     {
+        // Step #1: Disown the child.
+        if (m_segmentLOLHead && m_segmentLOLTail)
+        {
+            auto current = segmentListHeadItr.segment;
+            auto oneBefore = current->getPrevHead();
+            auto oneAfter = current->getNextHead();
+
+            if (oneAfter)
+                oneAfter->setPrevHead(oneBefore);
+
+            if (oneBefore)
+                oneBefore->setNextHead(oneAfter);
+
+            if (!oneBefore && !oneAfter)
+            {
+                m_segmentLOLHead = nullptr;
+                m_segmentLOLTail = nullptr;
+            }
+        }
+
+        // Step #2: Kill the child.
         m_commandSegmentPool.deleteList(segmentListHeadItr, segmentListTail);
     }
-
-#if 0
-    void deleteAll()
-    {
-        if (!m_segmentLOLHeadItr.cmd && !m_segmentLOLHeadItr.segment && !m_segmentLOLTail)
-            return;
-
-        assert(m_segmentLOLHeadItr.cmd && m_segmentLOLHeadItr.segment && m_segmentLOLTail);
-
-        for (auto segmentItr = m_segmentLOLHeadItr; segmentItr; segmentItr++)
-            deleteCommandSegmentList(segmentItr, );
-    }
-#endif
 
     bool reset()
     {
         m_resetCount.fetch_add(1);
-        // m_commandSegmentPool.clear();
+        m_commandSegmentPool.clear(m_segmentLOLHead, m_segmentLOLTail);
         return reset_impl();
     }
 
@@ -317,8 +334,8 @@ protected:
     uint32_t m_familyIx;
 
 private:
-    // CCommandSegment::Iterator m_segmentLOLHeadItr;
-    // CCommandSegment* m_segmentLOLTail = nullptr;
+    CCommandSegment* m_segmentLOLHead = nullptr;
+    CCommandSegment* m_segmentLOLTail = nullptr;
     std::atomic_uint64_t m_resetCount = 0;
 
     class CCommandSegmentPool
@@ -399,18 +416,16 @@ private:
             }
         }
 
-        void clear()
+        void clear(CCommandSegment*& head, CCommandSegment*& tail)
         {
-
+            // The way deleteList is implemented, we also need to keep the tail pointer of each child command segment list.
+            
+            // for (auto& segment = head; segment; segment = segment->getNextHead())
+            //     deleteList({}, );
         }
 
     private:
         core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> m_pool;
-    };
-
-    class CCommandSegmentList
-    {
-
     };
 
     CCommandSegmentPool m_commandSegmentPool;
