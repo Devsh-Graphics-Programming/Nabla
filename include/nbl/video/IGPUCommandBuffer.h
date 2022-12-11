@@ -270,7 +270,7 @@ private:
         releaseResourcesBackToPool_impl();
     }
 
-    uint32_t m_resetCheckedStamp = 0;
+    uint64_t m_resetCheckedStamp = 0;
 
     // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
     // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
