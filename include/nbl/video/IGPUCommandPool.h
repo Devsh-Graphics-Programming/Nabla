@@ -204,30 +204,12 @@ public:
     // Vulkan: const VkCommandPool*
     virtual const void* getNativeHandle() const = 0;
 
+    // Move to IGPUCommandBuffer
     template <typename Cmd, typename... Args>
     Cmd* emplace(CCommandSegment*& segmentListHead, CCommandSegment*& segmentListTail, Args&&... args)
     {
-        if (!segmentListTail)
-        {
-            // This will get called on a CCommandSegmentList instance, and this will move to IGPUCommandBuffer::emplace
-            if (m_commandSegmentPool.appendToList(segmentListHead, segmentListTail))
-            {
-                // Add to the HEAD list
-#if 0
-                if (!m_segmentLOLHead && !m_segmentLOLTail)
-                {
-                    m_segmentLOLHead = segmentListHeadItr.segment;
-                    m_segmentLOLTail = segmentListHeadItr.segment;
-                }
-                else
-                {
-                    assert(m_segmentLOLHead && m_segmentLOLTail);
-                    m_segmentLOLTail->setNextHead(segmentListHeadItr.segment);
-                    m_segmentLOLTail = m_segmentLOLTail->getNextHead();
-                }
-#endif
-            }
-        }
+        if (!segmentListTail && !m_commandListPool.appendToList(segmentListHead, segmentListTail))
+            return nullptr;
 
         auto newCmd = [&]() -> Cmd*
         {
@@ -241,7 +223,7 @@ public:
         auto cmd = newCmd();
         if (!cmd)
         {
-            if (!m_commandSegmentPool.appendToList(segmentListHead, segmentListTail))
+            if (!m_commandListPool.appendToList(segmentListHead, segmentListTail))
                 return nullptr;
 
             cmd = newCmd();
@@ -257,37 +239,13 @@ public:
 
     void deleteCommandSegmentList(CCommandSegment*& segmentListHead, CCommandSegment*& segmentListTail)
     {
-#if 0
-        // Step #1: Disown the child.
-        if (m_segmentLOLHead && m_segmentLOLTail)
-        {
-            auto current = segmentListHeadItr.segment;
-            auto oneBefore = current->getPrevHead();
-            auto oneAfter = current->getNextHead();
-
-            if (oneAfter)
-                oneAfter->setPrevHead(oneBefore);
-
-            if (oneBefore)
-                oneBefore->setNextHead(oneAfter);
-
-            if (!oneBefore && !oneAfter)
-            {
-                m_segmentLOLHead = nullptr;
-                m_segmentLOLTail = nullptr;
-            }
-        }
-#endif
-
-        // Step #2: Kill the child.
-        m_commandSegmentPool.deleteList(segmentListHead);
-        segmentListTail = nullptr;
+        m_commandListPool.deleteList(segmentListHead, segmentListTail);
     }
 
     bool reset()
     {
         m_resetCount.fetch_add(1);
-        // m_commandSegmentPool.clear(m_segmentLOLHead, m_segmentLOLTail);
+        m_commandListPool.clear();
         return reset_impl();
     }
 
@@ -306,14 +264,12 @@ protected:
     uint32_t m_familyIx;
 
 private:
-    // CCommandSegment* m_segmentLOLHead = nullptr;
-    // CCommandSegment* m_segmentLOLTail = nullptr;
     std::atomic_uint64_t m_resetCount = 0;
 
-    class CCommandSegmentPool
+    class CCommandListPool
     {
     public:
-        CCommandSegmentPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
+        CCommandListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
 
         bool appendToList(CCommandSegment*& head, CCommandSegment*& tail)
         {
@@ -335,48 +291,98 @@ private:
 
                 tail = segment;
                 head = segment;
+
+                // Add to the list to pool of lists.
+                {
+                    if (!m_head && !m_tail)
+                    {
+                        m_head = segment;
+                        m_tail = segment;
+                    }
+                    else
+                    {
+                        assert(m_head && m_tail);
+
+                        m_tail->setNextHead(segment);
+                        segment->setPrevHead(m_tail);
+                        m_tail = m_tail->getNextHead();
+                    }
+                }
             }
 
             return bool(segment);
         }
 
-        void deleteList(CCommandSegment*& head)
+        void deleteList(CCommandSegment*& head, CCommandSegment*& tail)
         {
             if (!head)
                 return;
 
-            auto freeSegment = [this](CCommandSegment* segment)
+            // Remove the list from pool of lists.
+            {
+                assert(m_head && m_tail && "Cannot have a freely dangling command list.");
+
+                auto oneBefore = head->getPrevHead();
+                auto oneAfter = head->getNextHead();
+
+                if (oneAfter)
+                    oneAfter->setPrevHead(oneBefore);
+
+                if (oneBefore)
+                    oneBefore->setNextHead(oneAfter);
+
+                if (!oneBefore && !oneAfter)
+                {
+                    m_head = nullptr;
+                    m_tail = nullptr;
+                }
+            }
+
+            auto freeSegment = [this](CCommandSegment*& segment)
             {
                 if (segment)
                 {
                     segment->~CCommandSegment();
                     m_pool.deallocate(segment, COMMAND_SEGMENT_SIZE);
+                    segment = nullptr;
                 }
             };
 
-            for (auto* segment = head; segment;)
+            for (auto& segment = head; segment;)
             {
-                auto* nextSegment = segment->getNext();
+                auto nextSegment = segment->getNext();
                 freeSegment(segment);
                 segment = nextSegment;
             }
 
-            head = nullptr;
+            // No need to nullify head.
+            if (tail)
+                tail = nullptr;
         }
 
-        void clear(CCommandSegment*& head, CCommandSegment*& tail)
+        void clear()
         {
-            // The way deleteList is implemented, we also need to keep the tail pointer of each child command segment list.
-            
-            // for (auto& segment = head; segment; segment = segment->getNextHead())
-            //     deleteList({}, );
+            CCommandSegment* dummy = nullptr;
+            for (auto* currHead = m_head; currHead;)
+            {
+                auto* nextHead = currHead->getNextHead();
+                // We don't (and also can't) nullify the tail here because when the command buffer detects that its parent pool has been resetted
+                // it nullifies both head and tail itself.
+                deleteList(currHead, dummy);
+                currHead = nextHead;
+            }
+
+            m_head = nullptr;
+            m_tail = nullptr;
         }
 
     private:
+        CCommandSegment* m_head = nullptr;
+        CCommandSegment* m_tail = nullptr;
         core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> m_pool;
     };
 
-    CCommandSegmentPool m_commandSegmentPool;
+    CCommandListPool m_commandListPool;
 };
 
 class IGPUCommandPool::CBeginCmd : public IGPUCommandPool::IFixedSizeCommand<CBeginCmd>
