@@ -268,7 +268,6 @@ public:
     bool fillBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override;
     bool updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override;
     bool executeCommands_impl(uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;
-    bool regenerateMipmaps_impl(image_t* img, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override;
 
     inline const void* getNativeHandle() const override {return nullptr;}
 
