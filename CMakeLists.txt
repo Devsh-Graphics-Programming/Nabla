@@ -4,9 +4,9 @@
 
 cmake_minimum_required(VERSION 3.25)
 #policies
-cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
+cmake_policy(SET CMP0072 OLD) # not yet, would need to get pointers to all OpenGL functions
+cmake_policy(SET CMP0112 NEW)
 set(OpenGL_GL_PREFERENCE LEGACY)
-#cmake_policy(SET CMP )
 
 set(NBL_BUILD_ANDROID OFF)
 
