@@ -220,9 +220,7 @@ void CVulkanDescriptorPool::updateDescriptorSets_impl(uint32_t descriptorWriteCo
 
 bool CVulkanDescriptorPool::freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
 {
-    constexpr auto MaxDescriptorSetCount = 4u;
-    assert(descriptorSetCount <= MaxDescriptorSetCount);
-    VkDescriptorSet vk_descriptorSets[MaxDescriptorSetCount];
+    core::vector<VkDescriptorSet> vk_descriptorSets(descriptorSetCount, VK_NULL_HANDLE);
 
     for (auto i = 0; i < descriptorSetCount; ++i)
     {
@@ -234,7 +232,7 @@ bool CVulkanDescriptorPool::freeDescriptorSets_impl(const uint32_t descriptorSet
 
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();
-    return vk->vk.vkFreeDescriptorSets(vulkanDevice->getInternalObject(), m_descriptorPool, descriptorSetCount, vk_descriptorSets) == VK_SUCCESS;
+    return vk->vk.vkFreeDescriptorSets(vulkanDevice->getInternalObject(), m_descriptorPool, descriptorSetCount, vk_descriptorSets.data()) == VK_SUCCESS;
 }
 
 }

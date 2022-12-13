@@ -112,6 +112,8 @@ public:
 
     void releaseResourcesBackToPool_impl() override final;
 
+    inline void checkForParentPoolReset_impl() const override { assert(!"Deprecated"); }
+
     inline void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override
     {
         auto* glbuffer = static_cast<const COpenGLBuffer*>(buffer);

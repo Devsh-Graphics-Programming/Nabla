@@ -419,7 +419,9 @@ private:
         void clear(CCommandSegment*& head, CCommandSegment*& tail)
         {
             // The way deleteList is implemented, we also need to keep the tail pointer of each child command segment list.
-            
+            // See my comment for one possible way to solve this:
+            // https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#issuecomment-1345979974
+
             // for (auto& segment = head; segment; segment = segment->getNextHead())
             //     deleteList({}, );
         }

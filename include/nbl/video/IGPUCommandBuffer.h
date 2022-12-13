@@ -197,6 +197,7 @@ protected:
     virtual bool end_impl() = 0;
 
     virtual void releaseResourcesBackToPool_impl() {}
+    virtual void checkForParentPoolReset_impl() const = 0;
 
     virtual void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
     virtual bool drawIndirect_impl(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
@@ -260,6 +261,8 @@ private:
         m_segmentListHeadItr.cmd = nullptr;
         m_segmentListHeadItr.segment = nullptr;
         m_segmentListTail = nullptr;
+
+        checkForParentPoolReset_impl();
 
         return true;
     }

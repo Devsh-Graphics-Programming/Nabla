@@ -42,6 +42,8 @@ public:
         return result == VK_SUCCESS;
     }
 
+    inline void checkForParentPoolReset_impl() const override {}
+
     inline void bindIndexBuffer_impl(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType) override final
     {
         assert(indexType < asset::EIT_UNKNOWN);
