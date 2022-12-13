@@ -1,7 +1,7 @@
-#ifndef _NBL_GLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
-#define _NBL_GLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
+#ifndef _NBL_HLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
+#define _NBL_HLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
 
-#include <nbl/builtin/glsl/scan/parameters_struct.hlsl>
+#include <nbl/builtin/hlsl/scan/parameters_struct.hlsl>
 
 #ifdef __cplusplus
 #define uint uint32_t
@@ -139,7 +139,7 @@ namespace scheduler
 		if(gl_LocalInvocationIndex == 0u) 
 		{
 			uint64_t original;
-			InterlockedAdd(scanScratch.workgroupsStarted, 1u, original); // TODO (PentaKon): Refactor this when the ScanScratch descriptor set is declared
+			InterlockedAdd(scanScratch.workgroupsStarted, 1u, original); // REVIEW: Refactor InterlockedAdd with GLSL terminology? // TODO (PentaKon): Refactor this when the ScanScratch descriptor set is declared
 			sharedScratch.set(gl_LocalInvocationIndex, original);
 		}
 		else if (gl_LocalInvocationIndex == 1u) 
@@ -189,16 +189,16 @@ namespace scheduler
 					dependentsFinishedFlagOffset /= _NBL_HLSL_WORKGROUP_SIZE_;
 				dependentsFinishedFlagOffset += params.finishedFlagOffset[prevLevel];
 				while (scanScratch.data[dependentsFinishedFlagOffset]!=dependentsCount) // TODO (PentaKon): Refactor this when the ScanScratch descriptor set is declared
-					GroupMemoryBarrierWithGroupSync();
+					GroupMemoryBarrierWithGroupSync(); // TODO (PentaKon): Possibly refactor?
 			}
 		}
-		GroupMemoryBarrierWithGroupSync();
+		GroupMemoryBarrierWithGroupSync(); // TODO (PentaKon): Possibly refactor?
 		return false;
 	}
 	
 	void markComplete(in DefaultSchedulerParameters_t params, in uint topLevel, in uint treeLevel, in uint localWorkgroupIndex)
 	{
-		GroupMemoryBarrierWithGroupSync(); // must complete writing the data before flags itself as complete
+		GroupMemoryBarrierWithGroupSync(); // must complete writing the data before flags itself as complete  // TODO (PentaKon): Possibly refactor?
 		if (gl_LocalInvocationIndex==0u)
 		{
 			uint finishedFlagOffset = params.finishedFlagOffset[treeLevel];
