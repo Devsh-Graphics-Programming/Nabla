@@ -63,7 +63,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
-			set->getPool()->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
+			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
 		}
 	public:
 		struct RelativeTransformModificationRequest : nbl_glsl_transform_tree_relative_transform_modification_t

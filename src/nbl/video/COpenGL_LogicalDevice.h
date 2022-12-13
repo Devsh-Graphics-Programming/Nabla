@@ -338,6 +338,14 @@ public:
         return retval;
     }
 
+    void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override final
+    {
+        for (uint32_t i = 0u; i < descriptorWriteCount; i++)
+            static_cast<COpenGLDescriptorSet*>(pDescriptorWrites[i].dstSet)->writeDescriptorSet(pDescriptorWrites[i]);
+        for (uint32_t i = 0u; i < descriptorCopyCount; i++)
+            static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
+    }
+
     void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override final
     {
         SRequestFlushMappedMemoryRanges req_params{ ranges };

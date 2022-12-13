@@ -244,7 +244,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				}
 				else
 					count--;
-				pool->updateDescriptorSets(count,writes,0u,nullptr);
+				device->updateDescriptorSets(count,writes,0u,nullptr);
 			}
 			return ds;
 		}
@@ -285,7 +285,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				}
 				else
 					count--;
-				pool->updateDescriptorSets(count,writes,0u,nullptr);
+				device->updateDescriptorSets(count,writes,0u,nullptr);
 			}
 			return ds;
 		}

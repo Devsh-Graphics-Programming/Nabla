@@ -257,7 +257,7 @@ class NBL_API ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
-				pool->updateDescriptorSets(DescriptorBindingCount,writes,0u,nullptr);
+				device->updateDescriptorSets(DescriptorBindingCount,writes,0u,nullptr);
 			}
 		}
 		~ILevelOfDetailLibrary()

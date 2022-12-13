@@ -48,7 +48,6 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         }
         
         core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout);
-        bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
         bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
 
         inline uint32_t getCapacity() const { return m_maxSets; }
@@ -100,7 +99,6 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         virtual ~IDescriptorPool() {}
 
         virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
-        virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
         virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) = 0;
 
         uint32_t m_maxSets;

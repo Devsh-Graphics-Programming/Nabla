@@ -339,7 +339,7 @@ class NBL_API CScanner final : public core::IReferenceCounted
 		}
 
 		//
-		static inline void updateDescriptorSet(IGPUDescriptorSet* set, const asset::SBufferRange<IGPUBuffer>& input_range, const asset::SBufferRange<IGPUBuffer>& scratch_range)
+		static inline void updateDescriptorSet(ILogicalDevice* device, IGPUDescriptorSet* set, const asset::SBufferRange<IGPUBuffer>& input_range, const asset::SBufferRange<IGPUBuffer>& scratch_range)
 		{
 			IGPUDescriptorSet::SDescriptorInfo infos[2];
 			infos[0].desc = input_range.buffer;
@@ -358,7 +358,7 @@ class NBL_API CScanner final : public core::IReferenceCounted
 				writes[i].info = infos+i;
 			}
 
-			set->getPool()->updateDescriptorSets(2, writes, 0u, nullptr);
+			device->updateDescriptorSets(2, writes, 0u, nullptr);
 		}
 
 		// Half and sizeof(uint32_t) of the scratch buffer need to be cleared to 0s

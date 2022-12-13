@@ -483,7 +483,7 @@ public:
 				writes[i].descriptorType = bindings.begin()[i].type;
 			}
 
-			ds->getPool()->updateDescriptorSets(bindings.size(), writes, 0u, nullptr);
+			m_device->updateDescriptorSets(bindings.size(), writes, 0u, nullptr);
 
 			return true;
 		};

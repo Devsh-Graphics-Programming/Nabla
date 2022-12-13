@@ -1781,7 +1781,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		}
 	}
 
-	dsPool->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
+    _params.device->updateDescriptorSets(write_it - writes.begin(), writes.data(), 0u, nullptr);
 
     return res;
 }
