@@ -581,18 +581,26 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 
 # DXC
-#if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
-#	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
-#else()
-#	add_dependencies(Nabla dxcompiler)
-#endif()
+if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
+endif()
 
-#target_include_directories(Nabla PRIVATE $<TARGET_PROPERTY:dxcompiler,INCLUDE_DIRECTORIES>)
-#if(NBL_STATIC_BUILD)
-#	target_link_libraries(Nabla INTERFACE dxcompiler)
-#else()
-#	target_link_libraries(Nabla PRIVATE dxcompiler)
-#endif()
+add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
+	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v --clean-first
+	VERBATIM
+	COMMAND_EXPAND_LISTS
+)
+
+add_custom_target(dxcompiler DEPENDS "${DXC_LIB}" "${DXC_DLL}")
+add_dependencies(Nabla dxcompiler)
+
+target_include_directories(Nabla PRIVATE "${DXC_INCLUDE_DIRECTORIES}")
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")
+else()
+	target_link_libraries(Nabla PRIVATE "${DXC_LIB}")
+endif()
+	
 
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)

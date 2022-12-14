@@ -129,8 +129,6 @@ add_custom_target(HLSL_NABLA_COMPILE_TEST DEPENDS ${_NBL_DXC_CT_BIN_OUTPUTS_}
 	COMMENT "${CMAKE_COMMAND}" -E echo "Launching Nabla HLSL compile test..."
 )
 
-add_dependencies(HLSL_NABLA_COMPILE_TEST dxcompiler)
-
 unset(_NBL_DXC_CT_BIN_OUTPUTS_)
 unset(_NBL_DXC_CT_BINARY_BIN_)
 unset(_NBL_DXC_CT_INCLUDE_ROOT_)
