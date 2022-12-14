@@ -245,6 +245,7 @@ protected:
     virtual bool executeCommands_impl(uint32_t count, cmdbuf_t* const* const cmdbufs) = 0;
 
 private:
+    // everything here is private on purpose so that derived class can't mess with these basic states
     inline bool checkForParentPoolReset()
     {
         if (m_cmdpool->getResetCounter() <= m_resetCheckedStamp)
