@@ -175,13 +175,13 @@ class NBL_API ITransformTree : public virtual core::IReferenceCounted
 
 				infos[i] = DescriptorInfo(outPool->getPropertyMemoryBlock(i));
 			}
-			dsp->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
+			device->updateDescriptorSets(property_pool_t::PropertyCount,writes,0u,nullptr);
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 				writes[i].dstSet = outRenderDS.get();
 			infos[0] = DescriptorInfo(outPool->getPropertyMemoryBlock(global_transform_prop_ix));
 			if (TransformTree::HasNormalMatrices)
 				infos[1] = DescriptorInfo(outPool->getPropertyMemoryBlock(TransformTree::normal_matrix_prop_ix));
-			dsp->updateDescriptorSets(TransformTree::RenderDescriptorSetBindingCount,writes,0u,nullptr);
+			device->updateDescriptorSets(TransformTree::RenderDescriptorSetBindingCount,writes,0u,nullptr);
 			return true;
 		}
 
