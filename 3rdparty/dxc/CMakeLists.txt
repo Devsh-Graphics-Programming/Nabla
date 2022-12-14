@@ -36,14 +36,15 @@ list(APPEND NBL_DXC_CMAKE_OPTIONS "-DSPIRV_SKIP_TESTS:BOOL=ON")
 list(APPEND NBL_DXC_CMAKE_OPTIONS "-DSPIRV_SKIP_EXECUTABLES:BOOL=ON")
 list(APPEND NBL_DXC_CMAKE_OPTIONS "-DHLSL_ENABLE_DEBUG_ITERATORS:BOOL=ON")
 
+if(NBL_DYNAMIC_MSVC_RUNTIME)
+	list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+else()
+	list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>")		
+endif()
+
 # perform DXC compile standard requirement test
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 11) # compiler must support exactly c++11 or c++14 standard in order to be able to build DXC libraries
-if(NBL_DYNAMIC_MSVC_RUNTIME)
-	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-else()
-	set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")		
-endif()
 
 try_compile(DXC_COMPILE_TEST_PASSED
 	SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/test/test.cpp"
