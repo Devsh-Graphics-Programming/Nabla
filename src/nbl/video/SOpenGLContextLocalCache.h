@@ -45,13 +45,13 @@ struct SOpenGLContextIndependentCache
         core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
     } effectivelyBoundDescriptors;
 
-    void updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* pipeline, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail);
+    void updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* pipeline, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail);
 
     // state flushing 
-    bool flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
-    bool flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
+    bool flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
+    bool flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
 
-    inline SBeforeClearStateBackup backupAndFlushStateClear(IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const bool color, const bool depth, const bool stencil, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+    inline SBeforeClearStateBackup backupAndFlushStateClear(IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const bool color, const bool depth, const bool stencil, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
     {
         SBeforeClearStateBackup backup;
         memcpy(backup.colorWrite, currentState.rasterParams.drawbufferBlend[0].colorMask.colorWritemask, 4);
@@ -71,7 +71,7 @@ struct SOpenGLContextIndependentCache
             nextState.rasterParams.stencilFunc_front.mask = ~0u;
         }
 
-        flushStateGraphics(GSB_RASTER_PARAMETERS, cmdpool, segmentListHeadItr, segmentListTail, apiType, features);
+        flushStateGraphics(GSB_RASTER_PARAMETERS, cmdpool, segmentListHead, segmentListTail, apiType, features);
 
         return backup;
     }
@@ -86,7 +86,7 @@ struct SOpenGLContextIndependentCache
 private:
     uint64_t m_timestampCounter = 0u;
 
-    bool flushState_descriptors(asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
+    bool flushState_descriptors(asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features);
 
     static inline GLenum getGLpolygonMode(asset::E_POLYGON_MODE pm)
     {

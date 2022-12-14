@@ -103,11 +103,11 @@ class COpenGLQueryPool final : public IQueryPool
 
 		inline uint32_t getGLQueriesPerQuery() const { return m_glQueriesPerQuery; }
 
-		inline bool beginQuery(uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail) const
+		inline bool beginQuery(uint32_t queryIndex, E_QUERY_CONTROL_FLAGS flags, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail) const
 		{
 			if (params.queryType == EQT_OCCLUSION)
 			{
-				if (!cmdpool->emplace<COpenGLCommandPool::CBeginQueryCmd>(segmentListHeadItr, segmentListTail, queryIndex, GL_SAMPLES_PASSED, core::smart_refctd_ptr<const COpenGLQueryPool>(this)))
+				if (!cmdpool->emplace<COpenGLCommandPool::CBeginQueryCmd>(segmentListHead, segmentListTail, queryIndex, GL_SAMPLES_PASSED, core::smart_refctd_ptr<const COpenGLQueryPool>(this)))
 					return false;
 			}
 			else if (params.queryType == EQT_TIMESTAMP)
@@ -124,15 +124,15 @@ class COpenGLQueryPool final : public IQueryPool
 			return true;
 		}
 
-		inline bool endQuery(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+		inline bool endQuery(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail)
 		{
 			if (params.queryType == EQT_OCCLUSION)
 			{
 				// End Function doesn't use queryIndex
-				if (!cmdpool->emplace<COpenGLCommandPool::CEndQueryCmd>(segmentListHeadItr, segmentListTail, GL_SAMPLES_PASSED))
+				if (!cmdpool->emplace<COpenGLCommandPool::CEndQueryCmd>(segmentListHead, segmentListTail, GL_SAMPLES_PASSED))
 					return false;
 
-				if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), queryIndex))
+				if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHead, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), queryIndex))
 					return false;
 			}
 			else if (params.queryType == EQT_TIMESTAMP)
@@ -149,14 +149,14 @@ class COpenGLQueryPool final : public IQueryPool
 			return true;
 		}
 
-		inline bool writeTimestamp(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+		inline bool writeTimestamp(uint32_t queryIndex, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail)
 		{
 			if (params.queryType == EQT_TIMESTAMP)
 			{
-				if (!cmdpool->emplace<COpenGLCommandPool::CQueryCounterCmd>(segmentListHeadItr, segmentListTail, queryIndex, GL_TIMESTAMP, core::smart_refctd_ptr<COpenGLQueryPool>(this)))
+				if (!cmdpool->emplace<COpenGLCommandPool::CQueryCounterCmd>(segmentListHead, segmentListTail, queryIndex, GL_TIMESTAMP, core::smart_refctd_ptr<COpenGLQueryPool>(this)))
 					return false;
 
-				if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), queryIndex))
+				if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHead, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), queryIndex))
 					return false;
 			}
 			else
@@ -168,7 +168,7 @@ class COpenGLQueryPool final : public IQueryPool
 			return true;
 		}
 
-		inline bool resetQueries(uint32_t query, uint32_t queryCount, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+		inline bool resetQueries(uint32_t query, uint32_t queryCount, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail)
 		{
 			// NOTE: There is no Reset Queries on OpenGL
 			// NOOP, ONLY set last queue used.
@@ -177,7 +177,7 @@ class COpenGLQueryPool final : public IQueryPool
 			{
 				for (uint32_t i = 0; i < queryCount; ++i)
 				{
-					if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHeadItr, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), query+i))
+					if (!cmdpool->emplace<COpenGLCommandPool::CResetQueryCmd>(segmentListHead, segmentListTail, core::smart_refctd_ptr<COpenGLQueryPool>(this), query+i))
 						return false;
 				}
 				return true;

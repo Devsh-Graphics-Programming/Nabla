@@ -211,7 +211,7 @@ public:
 
     E_LEVEL getLevel() const { return m_level; }
 
-    // hm now i think having begin(), reset() and end() as command buffer API is a little weird
+    // hm now i think having an ICPUCommandBuffer is weird, maybe we should have a rendergraph
 
     virtual bool begin(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo = nullptr) = 0;
     virtual bool reset(core::bitflag<E_RESET_FLAGS> flags) = 0;

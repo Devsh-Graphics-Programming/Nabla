@@ -256,9 +256,8 @@ private:
         m_resetCheckedStamp = m_cmdpool->getResetCounter();
         m_state = ES_INITIAL;
 
-        m_segmentListHeadItr.cmd = nullptr;
-        m_segmentListHeadItr.segment = nullptr;
-        m_segmentListTail = nullptr;
+        m_commandList.head = nullptr;
+        m_commandList.tail = nullptr;
 
         checkForParentPoolReset_impl();
 
@@ -267,8 +266,15 @@ private:
 
     inline void releaseResourcesBackToPool()
     {
-        m_cmdpool->deleteCommandSegmentList(m_segmentListHeadItr, m_segmentListTail);
+        deleteCommandList();
         releaseResourcesBackToPool_impl();
+    }
+
+    inline void deleteCommandList()
+    {
+        m_cmdpool->m_commandListPool.deleteList(m_commandList.head);
+        m_commandList.head = nullptr;
+        m_commandList.tail = nullptr;
     }
 
     uint64_t m_resetCheckedStamp = 0;
@@ -278,8 +284,7 @@ private:
     // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
     core::unordered_map<const IGPUDescriptorSet*, uint64_t> m_boundDescriptorSetsRecord;
     
-    IGPUCommandPool::CCommandSegment::Iterator m_segmentListHeadItr = {};
-    IGPUCommandPool::CCommandSegment* m_segmentListTail = nullptr;
+    IGPUCommandPool::CCommandSegmentListPool::SCommandSegmentList m_commandList;
 };
 
 }

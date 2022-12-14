@@ -55,7 +55,7 @@ bool IGPUCommandBuffer::begin(core::bitflag<E_USAGE> flags, const SInheritanceIn
         if (inheritanceInfo->framebuffer && (inheritanceInfo->framebuffer->getAPIType() != getAPIType() || !inheritanceInfo->framebuffer->isCompatibleDevicewise(this)))
             return false;
 
-        if (!m_cmdpool->emplace<IGPUCommandPool::CBeginCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass.get()), core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer.get())))
+        if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginCmd>(m_commandList, core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass.get()), core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer.get())))
             return false;
     }
 
@@ -100,7 +100,7 @@ bool IGPUCommandBuffer::bindIndexBuffer(const buffer_t* buffer, size_t offset, a
     if (!this->isCompatibleDevicewise(buffer))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
         return false;
 
     bindIndexBuffer_impl(buffer, offset, indexType);
@@ -116,7 +116,7 @@ bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint
     if (drawCount == 0u)
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
         return false;
 
     return drawIndirect_impl(buffer, offset, drawCount, stride);
@@ -130,7 +130,7 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offse
     if (drawCount == 0u)
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer)))
         return false;
 
     drawIndexedIndirect_impl(buffer, offset, drawCount, stride);
@@ -149,7 +149,7 @@ bool IGPUCommandBuffer::drawIndirectCount(const buffer_t* buffer, size_t offset,
     if (maxDrawCount == 0u)
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
         return false;
 
     return drawIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
@@ -166,7 +166,7 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t 
     if (maxDrawCount == 0u)
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
         return false;
 
     return drawIndexedIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);}
@@ -180,7 +180,7 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* pRenderPassB
     if (!this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPURenderpass>(pRenderPassBegin->renderpass), core::smart_refctd_ptr<const IGPUFramebuffer>(pRenderPassBegin->framebuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList, core::smart_refctd_ptr<const IGPURenderpass>(pRenderPassBegin->renderpass), core::smart_refctd_ptr<const IGPUFramebuffer>(pRenderPassBegin->framebuffer)))
         return false;
 
     return beginRenderPass_impl(pRenderPassBegin, content);
@@ -206,7 +206,7 @@ bool IGPUCommandBuffer::pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FL
     for (auto i = 0; i < imageMemoryBarrierCount; ++i)
         imageResources[i] = pImageMemoryBarriers[i].image;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_segmentListHeadItr, m_segmentListTail, bufferMemoryBarrierCount, bufferResources, imageMemoryBarrierCount, imageResources))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList, bufferMemoryBarrierCount, bufferResources, imageMemoryBarrierCount, imageResources))
         return false;
 
     pipelineBarrier_impl(srcStageMask, dstStageMask, dependencyFlags, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
@@ -247,7 +247,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipeline
         descriptorSets_refctd[i] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(pDescriptorSets[i]);
     }
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout), descriptorSetCount, descriptorSets_refctd))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout), descriptorSetCount, descriptorSets_refctd))
         return false;
 
     for (uint32_t i = 0u; i < descriptorSetCount; ++i)
@@ -285,7 +285,7 @@ bool IGPUCommandBuffer::bindComputePipeline(const compute_pipeline_t* pipeline)
     if (pipeline->getAPIType() != getAPIType())
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
         return false;
 
     bindComputePipeline_impl(pipeline);
@@ -301,7 +301,7 @@ bool IGPUCommandBuffer::updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size
     if (!validate_updateBuffer(dstBuffer, dstOffset, dataSize, pData))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CUpdateBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
 
     return updateBuffer_impl(dstBuffer, dstOffset, dataSize, pData);
@@ -374,7 +374,7 @@ bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<video::IG
     core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
     getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_segmentListHeadItr, m_segmentListTail, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
         return false;
     
     return buildAccelerationStructures_impl(pInfos, ppBuildRangeInfos);
@@ -389,7 +389,7 @@ bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<v
     core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
     getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_segmentListHeadItr, m_segmentListTail, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
         return false;
 
     return buildAccelerationStructuresIndirect_impl(pInfos, pIndirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
@@ -403,7 +403,7 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const video::IGPUAccelerationS
     if (!copyInfo.dst || copyInfo.dst->getAPIType() != getAPIType())
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyAccelerationStructureCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst)))
         return false;
 
     return copyAccelerationStructure_impl(copyInfo);
@@ -417,7 +417,7 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const video::IGPUAccel
     if (!copyInfo.dst.buffer || copyInfo.dst.buffer->getAPIType() != getAPIType())
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
         return false;
 
     return copyAccelerationStructureToMemory_impl(copyInfo);
@@ -431,7 +431,7 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const video::IGPUAcc
     if (!copyInfo.dst || copyInfo.dst->getAPIType() != getAPIType())
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.src.buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.src.buffer)))
         return false;
 
     return copyAccelerationStructureFromMemory_impl(copyInfo);
@@ -442,7 +442,7 @@ bool IGPUCommandBuffer::resetQueryPool(video::IQueryPool* queryPool, uint32_t fi
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
     return resetQueryPool_impl(queryPool, firstQuery, queryCount);
@@ -455,7 +455,7 @@ bool IGPUCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineSta
 
     assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CWriteTimestampCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteTimestampCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
     return writeTimestamp_impl(pipelineStage, queryPool, query);
@@ -475,7 +475,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<
     for (auto i = 0; i < asCount; ++i)
         accelerationStructures[i] = &pAccelerationStructures.begin()[i];
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd>(m_segmentListHeadItr, m_segmentListTail, queryPool, asCount, accelerationStructures))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd>(m_commandList, queryPool, asCount, accelerationStructures))
         return false;
 
     return writeAccelerationStructureProperties_impl(pAccelerationStructures, queryType, queryPool, firstQuery);
@@ -486,7 +486,7 @@ bool IGPUCommandBuffer::beginQuery(video::IQueryPool* queryPool, uint32_t query,
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBeginQueryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
     return beginQuery_impl(queryPool, query, flags);
@@ -497,7 +497,7 @@ bool IGPUCommandBuffer::endQuery(video::IQueryPool* queryPool, uint32_t query)
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CEndQueryCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CEndQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
     return endQuery_impl(queryPool, query);
@@ -511,7 +511,7 @@ bool IGPUCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint3
     if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyQueryPoolResultsCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IQueryPool>(queryPool), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyQueryPoolResultsCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
 
     return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
@@ -531,7 +531,7 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const graphics_pipeline_t* pipeline
     if (!this->isCompatibleDevicewise(pipeline))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
         return false;
 
     return bindGraphicsPipeline_impl(pipeline);
@@ -542,7 +542,7 @@ bool IGPUCommandBuffer::pushConstants(const pipeline_layout_t* layout, core::bit
     if (layout->getAPIType() != getAPIType())
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CPushConstantsCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPushConstantsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
         return false;
 
     pushConstants_impl(layout, stageFlags, offset, size, pValues);
@@ -558,7 +558,7 @@ bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::E_LAYOUT 
     if (!this->isCompatibleDevicewise(image))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CClearColorImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(image)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearColorImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(image)))
         return false;
 
     return clearColorImage_impl(image, imageLayout, pColor, rangeCount, pRanges);
@@ -572,7 +572,7 @@ bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::E_
     if (!this->isCompatibleDevicewise(image))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(image)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(image)))
         return false;
 
     return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
@@ -586,7 +586,7 @@ bool IGPUCommandBuffer::fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t
     if (!this->isCompatibleDevicewise(dstBuffer))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CFillBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CFillBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
 
     return fillBuffer_impl(dstBuffer, dstOffset, size, data);
@@ -600,7 +600,7 @@ bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindin
             return false;
     }
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_segmentListHeadItr, m_segmentListTail, firstBinding, bindingCount, pBuffers))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList, firstBinding, bindingCount, pBuffers))
         return false;
 
     bindVertexBuffers_impl(firstBinding, bindingCount, pBuffers, pOffsets);
@@ -616,7 +616,7 @@ bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
     if (!this->isCompatibleDevicewise(buffer))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CDispatchIndirectCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDispatchIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
         return false;
 
     return dispatchIndirect_impl(buffer, offset);
@@ -630,7 +630,7 @@ bool IGPUCommandBuffer::setEvent(event_t* _event, const SDependencyInfo& depInfo
     if (!this->isCompatibleDevicewise(_event))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CSetEventCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUEvent>(_event)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CSetEventCmd>(m_commandList, core::smart_refctd_ptr<const IGPUEvent>(_event)))
         return false;
 
     return setEvent_impl(_event, depInfo);
@@ -644,7 +644,7 @@ bool IGPUCommandBuffer::resetEvent(event_t* _event, asset::E_PIPELINE_STAGE_FLAG
     if (!this->isCompatibleDevicewise(_event))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CResetEventCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUEvent>(_event)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetEventCmd>(m_commandList, core::smart_refctd_ptr<const IGPUEvent>(_event)))
         return false;
 
     return resetEvent_impl(_event, stageMask);
@@ -674,7 +674,7 @@ bool IGPUCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pE
     for (auto i = 0; i < depInfo->imgBarrierCount; ++i)
         images_raw[i] = depInfo->imgBarriers[i].image.get();
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CWaitEventsCmd>(m_segmentListHeadItr, m_segmentListTail, depInfo->bufBarrierCount, buffers_raw, depInfo->imgBarrierCount, images_raw, eventCount, pEvents))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList, depInfo->bufBarrierCount, buffers_raw, depInfo->imgBarrierCount, images_raw, eventCount, pEvents))
         return false;
 
     return waitEvents_impl(eventCount, pEvents, depInfo);
@@ -745,7 +745,7 @@ bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffe
     if (regionCount == 0u)
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
 
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
@@ -768,7 +768,7 @@ bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::E_LAYO
     if (!dstImage->validateCopies(pRegions, pRegions + regionCount, srcImage))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
     return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
@@ -788,7 +788,7 @@ bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* ds
     if (!this->isCompatibleDevicewise(dstImage))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
     return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
@@ -816,7 +816,7 @@ bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYO
             return false;
     }
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CBlitImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBlitImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
     return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
@@ -836,7 +836,7 @@ bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage
     if (!this->isCompatibleDevicewise(dstBuffer))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
 
     return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
@@ -856,7 +856,7 @@ bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::E_L
     if (!this->isCompatibleDevicewise(dstImage))
         return false;
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CResolveImageCmd>(m_segmentListHeadItr, m_segmentListTail, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResolveImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
@@ -873,7 +873,7 @@ bool IGPUCommandBuffer::executeCommands(uint32_t count, cmdbuf_t* const* const c
             return false;
     }
 
-    if (!m_cmdpool->emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_segmentListHeadItr, m_segmentListTail, count, cmdbufs))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_commandList, count, cmdbufs))
         return false;
 
     return executeCommands_impl(count, cmdbufs);

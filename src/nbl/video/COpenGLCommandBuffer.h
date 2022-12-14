@@ -62,7 +62,7 @@ protected:
     mutable std::tuple<IQueryPool const *,uint32_t/*query ix*/,renderpass_t const *,uint32_t/*subpass ix*/> currentlyRecordingQueries[IQueryPool::EQT_COUNT];
 
 public:
-    static bool beginRenderpass_clearAttachments(SOpenGLContextIndependentCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
+    static bool beginRenderpass_clearAttachments(SOpenGLContextIndependentCache* stateCache, const SRenderpassBeginInfo& info, const system::logger_opt_ptr logger, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features);
 
     static inline GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
     {
@@ -123,13 +123,13 @@ public:
 
     bool draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) override
     {
-        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
 
         const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
         GLenum glpt = getGLprimitiveType(primType);
 
-        if (!m_cmdpool->emplace<COpenGLCommandPool::CDrawArraysInstancedBaseInstanceCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, firstVertex, vertexCount, instanceCount, firstInstance))
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CDrawArraysInstancedBaseInstanceCmd>(m_GLSegmentListHead, m_GLSegmentListTail, glpt, firstVertex, vertexCount, instanceCount, firstInstance))
             return false;
 
         return true;
@@ -137,7 +137,7 @@ public:
 
     bool drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) override
     {
-        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_ALL, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
 
         const asset::E_PRIMITIVE_TOPOLOGY primType = m_stateCache.currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getPrimitiveAssemblyParams().primitiveType;
@@ -160,7 +160,7 @@ public:
 
             GLuint64 idxBufOffset = m_stateCache.currentState.vertexInputParams.vaoval.idxBinding.offset + ixsz * firstIndex;
             static_assert(sizeof(idxBufOffset) == sizeof(void*), "Bad reinterpret_cast");
-            if (!m_cmdpool->emplace<COpenGLCommandPool::CDrawElementsInstancedBaseVertexBaseInstanceCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, glpt, indexCount, idxType, idxBufOffset, instanceCount, vertexOffset, firstInstance))
+            if (!m_cmdpool->emplace<COpenGLCommandPool::CDrawElementsInstancedBaseVertexBaseInstanceCmd>(m_GLSegmentListHead, m_GLSegmentListTail, glpt, indexCount, idxType, idxBufOffset, instanceCount, vertexOffset, firstInstance))
                 return false;
         }
 
@@ -210,7 +210,7 @@ public:
         GLbitfield barrier = helper.pipelineStageFlagsToMemoryBarrierBits(srcStageMask.value, dstStageMask.value);
         barrier &= barriersToMemBarrierBits(helper,memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
 
-        if (!m_cmdpool->emplace<COpenGLCommandPool::CMemoryBarrierCmd>(m_GLSegmentListHeadItr, m_GLSegmentListTail, barrier))
+        if (!m_cmdpool->emplace<COpenGLCommandPool::CMemoryBarrierCmd>(m_GLSegmentListHead, m_GLSegmentListTail, barrier))
             return false;
 
         return true;
@@ -221,10 +221,10 @@ public:
         const auto* glfb = static_cast<const COpenGLFramebuffer*>(pRenderPassBegin->framebuffer.get());
         m_stateCache.nextState.framebuffer.hash = glfb->getHashValue();
         m_stateCache.nextState.framebuffer.fbo = glfb;
-        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_FRAMEBUFFER, m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        if (!m_stateCache.flushStateGraphics(SOpenGLContextIndependentCache::GSB_FRAMEBUFFER, m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
 
-        if (!beginRenderpass_clearAttachments(&m_stateCache, *pRenderPassBegin, m_logger.getOptRawPtr(), m_cmdpool.get(), m_GLSegmentListHeadItr, m_GLSegmentListTail, getAPIType(), m_features))
+        if (!beginRenderpass_clearAttachments(&m_stateCache, *pRenderPassBegin, m_logger.getOptRawPtr(), m_cmdpool.get(), m_GLSegmentListHead, m_GLSegmentListTail, getAPIType(), m_features))
             return false;
 
         currentlyRecordingRenderPass = pRenderPassBegin->renderpass.get();
@@ -273,7 +273,7 @@ public:
 
 private:
     SOpenGLContextIndependentCache m_stateCache;
-    IGPUCommandPool::CCommandSegment::Iterator m_GLSegmentListHeadItr = {};
+    IGPUCommandPool::CCommandSegment* m_GLSegmentListHead = {};
     IGPUCommandPool::CCommandSegment* m_GLSegmentListTail = nullptr;
 };
 

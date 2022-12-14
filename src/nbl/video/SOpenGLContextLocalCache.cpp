@@ -8,7 +8,7 @@
 namespace nbl::video
 {
 
-void SOpenGLContextIndependentCache::updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* pipeline, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail)
+void SOpenGLContextIndependentCache::updateNextState_pipelineAndRaster(const IGPUGraphicsPipeline* pipeline, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail)
 {
     nextState.pipeline.graphics.pipeline = pipeline;
 
@@ -95,7 +95,7 @@ void SOpenGLContextIndependentCache::updateNextState_pipelineAndRaster(const IGP
     }
 }
 
-bool SOpenGLContextIndependentCache::flushState_descriptors(asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features)
+bool SOpenGLContextIndependentCache::flushState_descriptors(asset::E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features)
 {
     const COpenGLPipelineLayout* prevLayout = effectivelyBoundDescriptors.layout.get();
     //bind new descriptor sets
@@ -149,7 +149,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             {
                 assert(multibind_params.textureImages.textures);
                 //formats must be provided since we dont have ARB_multi_bind on ES
-                if (!cmdpool->emplace<COpenGLCommandPool::CBindImageTexturesCmd>(segmentListHeadItr, segmentListTail, first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, multibind_params.textureImages.formats))
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindImageTexturesCmd>(segmentListHead, segmentListTail, first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, multibind_params.textureImages.formats))
                     return false;
             }
 
@@ -158,10 +158,10 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             {
                 assert(multibind_params.textures.textures && multibind_params.textures.samplers);
                 //targets must be provided since we dont have ARB_multi_bind on ES
-                if (!cmdpool->emplace<COpenGLCommandPool::CBindTexturesCmd>(segmentListHeadItr, segmentListTail, first_count.textures.first, localTextureCount, multibind_params.textures.textures, multibind_params.textures.targets))
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindTexturesCmd>(segmentListHead, segmentListTail, first_count.textures.first, localTextureCount, multibind_params.textures.textures, multibind_params.textures.targets))
                     return false;
 
-                if (!cmdpool->emplace<COpenGLCommandPool::CBindSamplersCmd>(segmentListHeadItr, segmentListTail, first_count.textures.first, localTextureCount, multibind_params.textures.samplers))
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindSamplersCmd>(segmentListHead, segmentListTail, first_count.textures.first, localTextureCount, multibind_params.textures.samplers))
                     return false;
             }
 
@@ -188,7 +188,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                             sizesArray[s] = nextSet->getSSBO(s)->getSize() - offsetsArray[s];
                     }
                 assert(multibind_params.ssbos.buffers);
-                if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr))
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHead, segmentListTail, GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr))
                     return false;
             }
 
@@ -208,7 +208,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                             sizesArray[s] = nextSet->getUBO(s)->getSize() - offsetsArray[s];
                     }
                 assert(multibind_params.ubos.buffers);
-                if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr))
+                if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHead, segmentListTail, GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nextSet ? offsetsArray : nullptr, nextSet ? sizesArray : nullptr))
                     return false;
             }
 
@@ -229,25 +229,25 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
         int64_t diff = 0LL;
         if ((diff = prevUboCount - newUboCount) > 0LL)
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_UNIFORM_BUFFER, newUboCount, diff, nullptr, nullptr, nullptr))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHead, segmentListTail, GL_UNIFORM_BUFFER, newUboCount, diff, nullptr, nullptr, nullptr))
                 return false;
         }
         if ((diff = prevSsboCount - newSsboCount) > 0LL)
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHeadItr, segmentListTail, GL_SHADER_STORAGE_BUFFER, newSsboCount, diff, nullptr, nullptr, nullptr))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBuffersRangeCmd>(segmentListHead, segmentListTail, GL_SHADER_STORAGE_BUFFER, newSsboCount, diff, nullptr, nullptr, nullptr))
                 return false;
         }
         if ((diff = prevTexCount - newTexCount) > 0LL)
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindTexturesCmd>(segmentListHeadItr, segmentListTail, newTexCount, diff, nullptr, nullptr))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindTexturesCmd>(segmentListHead, segmentListTail, newTexCount, diff, nullptr, nullptr))
                 return false;
 
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindSamplersCmd>(segmentListHeadItr, segmentListTail, newTexCount, diff, nullptr))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindSamplersCmd>(segmentListHead, segmentListTail, newTexCount, diff, nullptr))
                 return false;
         }
         if ((diff = prevImgCount - newImgCount) > 0LL)
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindImageTexturesCmd>(segmentListHeadItr, segmentListTail, newImgCount, diff, nullptr, nullptr))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindImageTexturesCmd>(segmentListHead, segmentListTail, newImgCount, diff, nullptr, nullptr))
                 return false;
         }
     }
@@ -263,14 +263,14 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
     return true;
 }
 
-bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
+bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const E_API_TYPE apiType, const COpenGLFeatureMap* features)
 {
     if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
         {
             const auto* ppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(nextState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindPipelineGraphicsCmd>(segmentListHeadItr, segmentListTail, ppln))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindPipelineGraphicsCmd>(segmentListHead, segmentListTail, ppln))
                 return false;
 
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
@@ -286,7 +286,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
             UPDATE_STATE(framebuffer.hash);
             UPDATE_STATE(framebuffer.fbo);
 
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindFramebufferCmd>(segmentListHeadItr, segmentListTail, currentState.framebuffer.hash, currentState.framebuffer.fbo))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindFramebufferCmd>(segmentListHead, segmentListTail, currentState.framebuffer.hash, currentState.framebuffer.fbo))
                 return false;
         }
     }
@@ -297,12 +297,12 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
     {\
         if (able)\
         {\
-            if (!cmdpool->emplace<COpenGLCommandPool::CEnableCmd>(segmentListHeadItr, segmentListTail, what))\
+            if (!cmdpool->emplace<COpenGLCommandPool::CEnableCmd>(segmentListHead, segmentListTail, what))\
                 return false;\
         }\
         else\
         {\
-            if (!cmdpool->emplace<COpenGLCommandPool::CDisableCmd>(segmentListHeadItr, segmentListTail, what))\
+            if (!cmdpool->emplace<COpenGLCommandPool::CDisableCmd>(segmentListHead, segmentListTail, what))\
                 return false;\
         }\
     }
@@ -339,7 +339,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
                     }
                     else if (count)
                     {
-                        if (!cmdpool->emplace<COpenGLCommandPool::CViewportArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpparams + (4u * first)))
+                        if (!cmdpool->emplace<COpenGLCommandPool::CViewportArrayVCmd>(segmentListHead, segmentListTail, first, count, vpparams + (4u * first)))
                             return false;
 
                         count = 0;
@@ -347,7 +347,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
                 }
                 if (count)
                 {
-                    if (!cmdpool->emplace<COpenGLCommandPool::CViewportArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpparams + (4u * first)))
+                    if (!cmdpool->emplace<COpenGLCommandPool::CViewportArrayVCmd>(segmentListHead, segmentListTail, first, count, vpparams + (4u * first)))
                         return false;
                 }
             }
@@ -364,14 +364,14 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
                     }
                     else if (count)
                     {
-                        if (!cmdpool->emplace<COpenGLCommandPool::CDepthRangeArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpdparams + (2u * first)))
+                        if (!cmdpool->emplace<COpenGLCommandPool::CDepthRangeArrayVCmd>(segmentListHead, segmentListTail, first, count, vpdparams + (2u * first)))
                             return false;
                         count = 0u;
                     }
                 }
                 if (count)
                 {
-                    if (!cmdpool->emplace<COpenGLCommandPool::CDepthRangeArrayVCmd>(segmentListHeadItr, segmentListTail, first, count, vpdparams + (2u * first)))
+                    if (!cmdpool->emplace<COpenGLCommandPool::CDepthRangeArrayVCmd>(segmentListHead, segmentListTail, first, count, vpdparams + (2u * first)))
                         return false;
                 }
             }
@@ -389,7 +389,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
         {
             if (apiType != EAT_OPENGL_ES)
             {
-                if (!cmdpool->emplace<COpenGLCommandPool::CPolygonModeCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.polygonMode))
+                if (!cmdpool->emplace<COpenGLCommandPool::CPolygonModeCmd>(segmentListHead, segmentListTail, nextState.rasterParams.polygonMode))
                     return false;
 
                 UPDATE_STATE(rasterParams.polygonMode);
@@ -404,7 +404,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (STATE_NEQ(rasterParams.cullFace))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CCullFaceCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.cullFace))
+            if (!cmdpool->emplace<COpenGLCommandPool::CCullFaceCmd>(segmentListHead, segmentListTail, nextState.rasterParams.cullFace))
                 return false;
 
             UPDATE_STATE(rasterParams.cullFace);
@@ -418,7 +418,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilOp_front))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CStencilOpSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilOp_front.sfail, nextState.rasterParams.stencilOp_front.dpfail, nextState.rasterParams.stencilOp_front.dppass))
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilOpSeparateCmd>(segmentListHead, segmentListTail, GL_FRONT, nextState.rasterParams.stencilOp_front.sfail, nextState.rasterParams.stencilOp_front.dpfail, nextState.rasterParams.stencilOp_front.dppass))
                 return false;
 
             UPDATE_STATE(rasterParams.stencilOp_front);
@@ -426,7 +426,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilOp_back))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CStencilOpSeparateCmd>(segmentListHeadItr, segmentListTail, GL_BACK, nextState.rasterParams.stencilOp_back.sfail, nextState.rasterParams.stencilOp_back.dpfail, nextState.rasterParams.stencilOp_back.dppass))
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilOpSeparateCmd>(segmentListHead, segmentListTail, GL_BACK, nextState.rasterParams.stencilOp_back.sfail, nextState.rasterParams.stencilOp_back.dpfail, nextState.rasterParams.stencilOp_back.dppass))
                 return false;
 
             UPDATE_STATE(rasterParams.stencilOp_back);
@@ -434,7 +434,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilFunc_front))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CStencilFuncSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilFunc_front.func, nextState.rasterParams.stencilFunc_front.ref, nextState.rasterParams.stencilFunc_front.mask))
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilFuncSeparateCmd>(segmentListHead, segmentListTail, GL_FRONT, nextState.rasterParams.stencilFunc_front.func, nextState.rasterParams.stencilFunc_front.ref, nextState.rasterParams.stencilFunc_front.mask))
                 return false;
 
             UPDATE_STATE(rasterParams.stencilFunc_front);
@@ -442,7 +442,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (STATE_NEQ(rasterParams.stencilWriteMask_front))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CStencilMaskSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilWriteMask_front))
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilMaskSeparateCmd>(segmentListHead, segmentListTail, GL_FRONT, nextState.rasterParams.stencilWriteMask_front))
                 return false;
 
             UPDATE_STATE(rasterParams.stencilWriteMask_front);
@@ -450,7 +450,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (STATE_NEQ(rasterParams.stencilWriteMask_back))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CStencilMaskSeparateCmd>(segmentListHeadItr, segmentListTail, GL_BACK, nextState.rasterParams.stencilWriteMask_back))
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilMaskSeparateCmd>(segmentListHead, segmentListTail, GL_BACK, nextState.rasterParams.stencilWriteMask_back))
                 return false;
 
             UPDATE_STATE(rasterParams.stencilWriteMask_back);
@@ -458,7 +458,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilFunc_back))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CStencilFuncSeparateCmd>(segmentListHeadItr, segmentListTail, GL_FRONT, nextState.rasterParams.stencilFunc_back.func, nextState.rasterParams.stencilFunc_back.ref, nextState.rasterParams.stencilFunc_back.mask))
+            if (!cmdpool->emplace<COpenGLCommandPool::CStencilFuncSeparateCmd>(segmentListHead, segmentListTail, GL_FRONT, nextState.rasterParams.stencilFunc_back.func, nextState.rasterParams.stencilFunc_back.ref, nextState.rasterParams.stencilFunc_back.mask))
                 return false;
 
             UPDATE_STATE(rasterParams.stencilFunc_back);
@@ -472,7 +472,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.depthTestEnable && STATE_NEQ(rasterParams.depthFunc))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CDepthFuncCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.depthFunc))
+            if (!cmdpool->emplace<COpenGLCommandPool::CDepthFuncCmd>(segmentListHead, segmentListTail, nextState.rasterParams.depthFunc))
                 return false;
 
             UPDATE_STATE(rasterParams.depthFunc);
@@ -480,7 +480,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (STATE_NEQ(rasterParams.frontFace))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CFrontFaceCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.frontFace))
+            if (!cmdpool->emplace<COpenGLCommandPool::CFrontFaceCmd>(segmentListHead, segmentListTail, nextState.rasterParams.frontFace))
                 return false;
 
             UPDATE_STATE(rasterParams.frontFace);
@@ -521,7 +521,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (STATE_NEQ(rasterParams.polygonOffset))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CPolygonOffsetCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.polygonOffset.factor, nextState.rasterParams.polygonOffset.units))
+            if (!cmdpool->emplace<COpenGLCommandPool::CPolygonOffsetCmd>(segmentListHead, segmentListTail, nextState.rasterParams.polygonOffset.factor, nextState.rasterParams.polygonOffset.units))
                 return false;
 
             UPDATE_STATE(rasterParams.polygonOffset);
@@ -529,7 +529,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (STATE_NEQ(rasterParams.lineWidth))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CLineWidthCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.lineWidth))
+            if (!cmdpool->emplace<COpenGLCommandPool::CLineWidthCmd>(segmentListHead, segmentListTail, nextState.rasterParams.lineWidth))
                 return false;
 
             UPDATE_STATE(rasterParams.lineWidth);
@@ -543,7 +543,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.sampleShadingEnable && STATE_NEQ(rasterParams.minSampleShading))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CMinSampleShadingCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.minSampleShading))
+            if (!cmdpool->emplace<COpenGLCommandPool::CMinSampleShadingCmd>(segmentListHead, segmentListTail, nextState.rasterParams.minSampleShading))
                 return false;
 
             UPDATE_STATE(rasterParams.minSampleShading);
@@ -557,7 +557,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.sampleMaskEnable && STATE_NEQ(rasterParams.sampleMask[0]))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CSampleMaskICmd>(segmentListHeadItr, segmentListTail, 0u, nextState.rasterParams.sampleMask[0]))
+            if (!cmdpool->emplace<COpenGLCommandPool::CSampleMaskICmd>(segmentListHead, segmentListTail, 0u, nextState.rasterParams.sampleMask[0]))
                 return false;
 
             UPDATE_STATE(rasterParams.sampleMask[0]);
@@ -565,7 +565,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (nextState.rasterParams.sampleMaskEnable && STATE_NEQ(rasterParams.sampleMask[1]))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CSampleMaskICmd>(segmentListHeadItr, segmentListTail, 1u, nextState.rasterParams.sampleMask[1]))
+            if (!cmdpool->emplace<COpenGLCommandPool::CSampleMaskICmd>(segmentListHead, segmentListTail, 1u, nextState.rasterParams.sampleMask[1]))
                 return false;
 
             UPDATE_STATE(rasterParams.sampleMask[1]);
@@ -573,7 +573,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if (STATE_NEQ(rasterParams.depthWriteEnable))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CDepthMaskCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.depthWriteEnable))
+            if (!cmdpool->emplace<COpenGLCommandPool::CDepthMaskCmd>(segmentListHead, segmentListTail, nextState.rasterParams.depthWriteEnable))
                 return false;
 
             UPDATE_STATE(rasterParams.depthWriteEnable);
@@ -599,7 +599,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
         if ((apiType != EAT_OPENGL_ES) && STATE_NEQ(rasterParams.logicOp))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CLogicOpCmd>(segmentListHeadItr, segmentListTail, nextState.rasterParams.logicOp))
+            if (!cmdpool->emplace<COpenGLCommandPool::CLogicOpCmd>(segmentListHead, segmentListTail, nextState.rasterParams.logicOp))
                 return false;
 
             UPDATE_STATE(rasterParams.logicOp);
@@ -612,12 +612,12 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
                 bool enable = nextState.rasterParams.drawbufferBlend[i].blendEnable;
                 if (enable)
                 {
-                    if (!cmdpool->emplace<COpenGLCommandPool::CEnableICmd>(segmentListHeadItr, segmentListTail, GL_BLEND, i))
+                    if (!cmdpool->emplace<COpenGLCommandPool::CEnableICmd>(segmentListHead, segmentListTail, GL_BLEND, i))
                         return false;
                 }
                 else
                 {
-                    if (!cmdpool->emplace<COpenGLCommandPool::CDisableICmd>(segmentListHeadItr, segmentListTail, GL_BLEND, i))
+                    if (!cmdpool->emplace<COpenGLCommandPool::CDisableICmd>(segmentListHead, segmentListTail, GL_BLEND, i))
                         return false;
                 }
                 UPDATE_STATE(rasterParams.drawbufferBlend[i].blendEnable);
@@ -625,7 +625,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
             if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendFunc))
             {
-                if (!cmdpool->emplace<COpenGLCommandPool::CBlendFuncSeparateICmd>(segmentListHeadItr, segmentListTail, i, nextState.rasterParams.drawbufferBlend[i].blendFunc.srcRGB, nextState.rasterParams.drawbufferBlend[i].blendFunc.dstRGB, nextState.rasterParams.drawbufferBlend[i].blendFunc.srcAlpha, nextState.rasterParams.drawbufferBlend[i].blendFunc.dstAlpha))
+                if (!cmdpool->emplace<COpenGLCommandPool::CBlendFuncSeparateICmd>(segmentListHead, segmentListTail, i, nextState.rasterParams.drawbufferBlend[i].blendFunc.srcRGB, nextState.rasterParams.drawbufferBlend[i].blendFunc.dstRGB, nextState.rasterParams.drawbufferBlend[i].blendFunc.srcAlpha, nextState.rasterParams.drawbufferBlend[i].blendFunc.dstAlpha))
                     return false;
 
                 UPDATE_STATE(rasterParams.drawbufferBlend[i].blendFunc);
@@ -633,7 +633,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 
             if (STATE_NEQ(rasterParams.drawbufferBlend[i].colorMask))
             {
-                if (!cmdpool->emplace<COpenGLCommandPool::CColorMaskICmd>(segmentListHeadItr, segmentListTail, i, nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[0], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[1], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[2], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[3]))
+                if (!cmdpool->emplace<COpenGLCommandPool::CColorMaskICmd>(segmentListHead, segmentListTail, i, nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[0], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[1], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[2], nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[3]))
                     return false;
 
                 UPDATE_STATE(rasterParams.drawbufferBlend[i].colorMask);
@@ -645,7 +645,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
         const COpenGLPipelineLayout* currLayout = currentState.pipeline.graphics.pipeline ? static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline()->getLayout()) : nullptr;
-        if (!flushState_descriptors(asset::EPBP_GRAPHICS, currLayout, cmdpool, segmentListHeadItr, segmentListTail, features))
+        if (!flushState_descriptors(asset::EPBP_GRAPHICS, currLayout, cmdpool, segmentListHead, segmentListTail, features))
             return false;
     }
 
@@ -654,7 +654,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
         if (STATE_NEQ(vertexInputParams.vaokey))
         {
             auto hashVal = nextState.vertexInputParams.vaokey;
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindVertexArrayCmd>(segmentListHeadItr, segmentListTail, hashVal))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindVertexArrayCmd>(segmentListHead, segmentListTail, hashVal))
                 return false;
 
             currentState.vertexInputParams.vaokey = hashVal;
@@ -677,27 +677,27 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
                 assert(nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer);//something went wrong
                 uint32_t stride = hash.getStrideForBinding(bnd);
                 assert(stride != 0u);
-                if (!cmdpool->emplace<COpenGLCommandPool::CVertexArrayVertexBufferCmd>(segmentListHeadItr, segmentListTail, hash, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, stride))
+                if (!cmdpool->emplace<COpenGLCommandPool::CVertexArrayVertexBufferCmd>(segmentListHead, segmentListTail, hash, bnd, nextState.vertexInputParams.vaoval.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vaoval.vtxBindings[bnd].offset, stride))
                     return false;
                 UPDATE_STATE(vertexInputParams.vaoval.vtxBindings[bnd]);
             }
 
             GLuint GLidxbuf = nextState.vertexInputParams.vaoval.idxBinding.buffer ? nextState.vertexInputParams.vaoval.idxBinding.buffer->getOpenGLName() : 0u;
-            if (!cmdpool->emplace<COpenGLCommandPool::CVertexArrayElementBufferCmd>(segmentListHeadItr, segmentListTail, hash, GLidxbuf))
+            if (!cmdpool->emplace<COpenGLCommandPool::CVertexArrayElementBufferCmd>(segmentListHead, segmentListTail, hash, GLidxbuf))
                 return false;
             UPDATE_STATE(vertexInputParams.vaoval.idxBinding);
         }
 
         if (STATE_NEQ(vertexInputParams.indirectDrawBuf))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_DRAW_INDIRECT_BUFFER, nextState.vertexInputParams.indirectDrawBuf ? nextState.vertexInputParams.indirectDrawBuf->getOpenGLName() : 0u))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHead, segmentListTail, GL_DRAW_INDIRECT_BUFFER, nextState.vertexInputParams.indirectDrawBuf ? nextState.vertexInputParams.indirectDrawBuf->getOpenGLName() : 0u))
                 return false;
             UPDATE_STATE(vertexInputParams.indirectDrawBuf);
         }
 
         if (STATE_NEQ(vertexInputParams.parameterBuf))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_PARAMETER_BUFFER, nextState.vertexInputParams.parameterBuf ? nextState.vertexInputParams.parameterBuf->getOpenGLName() : 0u))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHead, segmentListTail, GL_PARAMETER_BUFFER, nextState.vertexInputParams.parameterBuf ? nextState.vertexInputParams.parameterBuf->getOpenGLName() : 0u))
                 return false;
             UPDATE_STATE(vertexInputParams.parameterBuf);
         }
@@ -707,7 +707,7 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
     {
         const auto* glppln = static_cast<const COpenGLRenderpassIndependentPipeline*>(currentState.pipeline.graphics.pipeline->getRenderpassIndependentPipeline());
 
-        if (!cmdpool->emplace<COpenGLCommandPool::CSetUniformsImitatingPushConstantsGraphicsCmd>(segmentListHeadItr, segmentListTail, glppln))
+        if (!cmdpool->emplace<COpenGLCommandPool::CSetUniformsImitatingPushConstantsGraphicsCmd>(segmentListHead, segmentListTail, glppln))
             return false;
     }
 
@@ -716,43 +716,43 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
         //PACK
         if (STATE_NEQ(pixelPack.buffer))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_PIXEL_PACK_BUFFER, nextState.pixelPack.buffer ? nextState.pixelPack.buffer->getOpenGLName() : 0u))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHead, segmentListTail, GL_PIXEL_PACK_BUFFER, nextState.pixelPack.buffer ? nextState.pixelPack.buffer->getOpenGLName() : 0u))
                 return false;
             UPDATE_STATE(pixelPack.buffer);
         }
         if (STATE_NEQ(pixelPack.alignment))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_ALIGNMENT, nextState.pixelPack.alignment))
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_PACK_ALIGNMENT, nextState.pixelPack.alignment))
                 return false;
             UPDATE_STATE(pixelPack.alignment);
         }
         if (STATE_NEQ(pixelPack.rowLength))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_ROW_LENGTH, nextState.pixelPack.rowLength))
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_PACK_ROW_LENGTH, nextState.pixelPack.rowLength))
                 return false;
             UPDATE_STATE(pixelPack.rowLength);
         }
         if (STATE_NEQ(pixelPack.imgHeight))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_IMAGE_HEIGHT, nextState.pixelPack.imgHeight))
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_PACK_IMAGE_HEIGHT, nextState.pixelPack.imgHeight))
                 return false;
             UPDATE_STATE(pixelPack.imgHeight);
         }
         if (STATE_NEQ(pixelPack.BCwidth))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelPack.BCwidth))
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_PACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelPack.BCwidth))
                 return false;
             UPDATE_STATE(pixelPack.BCwidth);
         }
         if (STATE_NEQ(pixelPack.BCheight))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelPack.BCheight))
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_PACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelPack.BCheight))
                 return false;
             UPDATE_STATE(pixelPack.BCheight);
         }
         if (STATE_NEQ(pixelPack.BCdepth))
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_PACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelPack.BCdepth))
+            if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_PACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelPack.BCdepth))
                 return false;
             UPDATE_STATE(pixelPack.BCdepth);
         }
@@ -761,43 +761,43 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
     //UNPACK
     if (STATE_NEQ(pixelUnpack.buffer))
     {
-        if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_PIXEL_UNPACK_BUFFER, nextState.pixelUnpack.buffer ? nextState.pixelUnpack.buffer->getOpenGLName() : 0u))
+        if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHead, segmentListTail, GL_PIXEL_UNPACK_BUFFER, nextState.pixelUnpack.buffer ? nextState.pixelUnpack.buffer->getOpenGLName() : 0u))
             return false;
         UPDATE_STATE(pixelUnpack.buffer);
     }
     if (STATE_NEQ(pixelUnpack.alignment))
     {
-        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_ALIGNMENT, nextState.pixelUnpack.alignment))
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_UNPACK_ALIGNMENT, nextState.pixelUnpack.alignment))
             return false;
         UPDATE_STATE(pixelUnpack.alignment);
     }
     if (STATE_NEQ(pixelUnpack.rowLength))
     {
-        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_ROW_LENGTH, nextState.pixelUnpack.rowLength))
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_UNPACK_ROW_LENGTH, nextState.pixelUnpack.rowLength))
             return false;
         UPDATE_STATE(pixelUnpack.rowLength);
     }
     if (STATE_NEQ(pixelUnpack.imgHeight))
     {
-        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_IMAGE_HEIGHT, nextState.pixelUnpack.imgHeight))
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_UNPACK_IMAGE_HEIGHT, nextState.pixelUnpack.imgHeight))
             return false;
         UPDATE_STATE(pixelUnpack.imgHeight);
     }
     if (STATE_NEQ(pixelUnpack.BCwidth))
     {
-        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelUnpack.BCwidth))
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelUnpack.BCwidth))
             return false;
         UPDATE_STATE(pixelUnpack.BCwidth);
     }
     if (STATE_NEQ(pixelUnpack.BCheight))
     {
-        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelUnpack.BCheight))
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelUnpack.BCheight))
             return false;
         UPDATE_STATE(pixelUnpack.BCheight);
     }
     if (STATE_NEQ(pixelUnpack.BCdepth))
     {
-        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHeadItr, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelUnpack.BCdepth))
+        if (!cmdpool->emplace<COpenGLCommandPool::CPixelStoreICmd>(segmentListHead, segmentListTail, GL_UNPACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelUnpack.BCdepth))
             return false;
         UPDATE_STATE(pixelUnpack.BCdepth);
     }
@@ -807,13 +807,13 @@ bool SOpenGLContextIndependentCache::flushStateGraphics(const uint32_t stateBits
 #undef STATE_NEQ
 #undef UPDATE_STATE
 
-bool SOpenGLContextIndependentCache::flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment::Iterator& segmentListHeadItr, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features)
+bool SOpenGLContextIndependentCache::flushStateCompute(uint32_t stateBits, IGPUCommandPool* cmdpool, IGPUCommandPool::CCommandSegment*& segmentListHead, IGPUCommandPool::CCommandSegment*& segmentListTail, const COpenGLFeatureMap* features)
 {
     if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.compute.pipeline != currentState.pipeline.compute.pipeline)
         {
-            if (!cmdpool->emplace<COpenGLCommandPool::CBindPipelineComputeCmd>(segmentListHeadItr, segmentListTail, nextState.pipeline.compute.pipeline))
+            if (!cmdpool->emplace<COpenGLCommandPool::CBindPipelineComputeCmd>(segmentListHead, segmentListTail, nextState.pipeline.compute.pipeline))
                 return false;
 
             currentState.pipeline.compute.pipeline = nextState.pipeline.compute.pipeline;
@@ -823,14 +823,14 @@ bool SOpenGLContextIndependentCache::flushStateCompute(uint32_t stateBits, IGPUC
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
     {
         assert(currentState.pipeline.compute.pipeline->containsShader());
-        if (!cmdpool->emplace<COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd>(segmentListHeadItr, segmentListTail, currentState.pipeline.compute.pipeline))
+        if (!cmdpool->emplace<COpenGLCommandPool::CSetUniformsImitatingPushConstantsComputeCmd>(segmentListHead, segmentListTail, currentState.pipeline.compute.pipeline))
             return false;
     }
 
     if (stateBits & GSB_DISPATCH_INDIRECT)
     {
         const GLuint GLname = nextState.dispatchIndirect.buffer ? nextState.dispatchIndirect.buffer->getOpenGLName() : 0u;
-        if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHeadItr, segmentListTail, GL_DISPATCH_INDIRECT_BUFFER, GLname))
+        if (!cmdpool->emplace<COpenGLCommandPool::CBindBufferCmd>(segmentListHead, segmentListTail, GL_DISPATCH_INDIRECT_BUFFER, GLname))
             return false;
         currentState.dispatchIndirect.buffer = nextState.dispatchIndirect.buffer;
     }
@@ -838,7 +838,7 @@ bool SOpenGLContextIndependentCache::flushStateCompute(uint32_t stateBits, IGPUC
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
         const COpenGLPipelineLayout* currLayout = currentState.pipeline.compute.pipeline ? static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout()) : nullptr;
-        if (!flushState_descriptors(asset::EPBP_COMPUTE, currLayout, cmdpool, segmentListHeadItr, segmentListTail, features))
+        if (!flushState_descriptors(asset::EPBP_COMPUTE, currLayout, cmdpool, segmentListHead, segmentListTail, features))
             return false;
     }
 
