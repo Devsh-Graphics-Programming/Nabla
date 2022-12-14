@@ -195,18 +195,7 @@ bool IGPUCommandBuffer::pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FL
     if ((memoryBarrierCount == 0u) && (bufferMemoryBarrierCount == 0u) && (imageMemoryBarrierCount == 0u))
         return false;
 
-    constexpr auto MaxBarrierResourceCount = (1 << 12) / sizeof(void*);
-    assert(bufferMemoryBarrierCount + imageMemoryBarrierCount <= MaxBarrierResourceCount);
-
-    core::smart_refctd_ptr<const IGPUBuffer> bufferResources[MaxBarrierResourceCount];
-    for (auto i = 0; i < bufferMemoryBarrierCount; ++i)
-        bufferResources[i] = pBufferMemoryBarriers[i].buffer;
-
-    core::smart_refctd_ptr<const IGPUImage> imageResources[MaxBarrierResourceCount];
-    for (auto i = 0; i < imageMemoryBarrierCount; ++i)
-        imageResources[i] = pImageMemoryBarriers[i].image;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList, bufferMemoryBarrierCount, bufferResources, imageMemoryBarrierCount, imageResources))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers))
         return false;
 
     pipelineBarrier_impl(srcStageMask, dstStageMask, dependencyFlags, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
@@ -240,14 +229,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipeline
         }
     }
 
-    core::smart_refctd_ptr<const video::IGPUDescriptorSet> descriptorSets_refctd[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = { nullptr };
-    for (auto i = 0; i < descriptorSetCount; ++i)
-    {
-        assert(i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
-        descriptorSets_refctd[i] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(pDescriptorSets[i]);
-    }
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout), descriptorSetCount, descriptorSets_refctd))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout), descriptorSetCount, pDescriptorSets))
         return false;
 
     for (uint32_t i = 0u; i < descriptorSetCount; ++i)

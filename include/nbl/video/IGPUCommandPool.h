@@ -9,6 +9,8 @@
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IGPUPipelineLayout.h"
 
+#include "nbl/asset/ICPUCommandBuffer.h"
+
 namespace nbl::video
 {
 class IGPUCommandBuffer;
@@ -425,8 +427,8 @@ private:
 class IGPUCommandPool::CPipelineBarrierCmd : public IGPUCommandPool::ICommand
 {
 public:
-    CPipelineBarrierCmd(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
-        : ICommand(calc_size(bufferCount, buffers, imageCount, images)), m_resourceCount(bufferCount+imageCount)
+    CPipelineBarrierCmd(const uint32_t bufferCount, const asset::ICPUCommandBuffer::SBufferMemoryBarrier* bufferMemoryBarriers, const uint32_t imageCount, const asset::ICPUCommandBuffer::SImageMemoryBarrier* imageMemoryBarriers)
+        : ICommand(calc_size(bufferCount, bufferMemoryBarriers, imageCount, imageMemoryBarriers)), m_resourceCount(bufferCount+imageCount)
     {
         auto barrierResources = getBarrierResources();
         std::uninitialized_default_construct_n(barrierResources, m_resourceCount);
@@ -434,10 +436,10 @@ public:
         uint32_t k = 0;
 
         for (auto i = 0; i < bufferCount; ++i)
-            barrierResources[k++] = buffers[i];
+            barrierResources[k++] = bufferMemoryBarriers[i].buffer;
 
         for (auto i = 0; i < imageCount; ++i)
-            barrierResources[k++] = images[i];
+            barrierResources[k++] = imageMemoryBarriers[i].image;
     }
 
     ~CPipelineBarrierCmd()
@@ -447,7 +449,7 @@ public:
             barrierResources[i].~smart_refctd_ptr();
     }
 
-    static uint32_t calc_size(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
+    static uint32_t calc_size(const uint32_t bufferCount, const asset::ICPUCommandBuffer::SBufferMemoryBarrier* bufferMemoryBarriers, const uint32_t imageCount, const asset::ICPUCommandBuffer::SImageMemoryBarrier* imageMemoryBarriers)
     {
         return core::alignUp(sizeof(CPipelineBarrierCmd) + (bufferCount+imageCount)*sizeof(core::smart_refctd_ptr<const core::IReferenceCounted>), alignof(CPipelineBarrierCmd));
     }
@@ -461,11 +463,14 @@ private:
 class IGPUCommandPool::CBindDescriptorSetsCmd : public IGPUCommandPool::IFixedSizeCommand<CBindDescriptorSetsCmd>
 {
 public:
-    CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const core::smart_refctd_ptr<const IGPUDescriptorSet>* sets)
+    CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const IGPUDescriptorSet* const* const sets)
         : m_layout(std::move(pipelineLayout))
     {
         for (auto i = 0; i < setCount; ++i)
-            m_sets[i] = sets[i];
+        {
+            assert(i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
+            m_sets[i] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(sets[i]);
+        }
     }
 
 private:
