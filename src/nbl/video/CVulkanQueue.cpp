@@ -108,8 +108,6 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
             return false;
 
-        IGPUQueue::clearBoundDescriptorSetsRecord(_count, _submits);
-
         return true;
     }
 

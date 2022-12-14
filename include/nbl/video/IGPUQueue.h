@@ -106,19 +106,6 @@ class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
             return true;
         }
 
-        inline void clearBoundDescriptorSetsRecord(uint32_t _count, const SSubmitInfo* _submits)
-        {
-            for (uint32_t i = 0u; i < _count; ++i)
-            {
-                for (uint32_t c = 0u; c < _submits[i].commandBufferCount; ++c)
-                {
-                    auto* cmdbuf = _submits[i].commandBuffers[c];
-                    if (cmdbuf)
-                        cmdbuf->clearBoundDescriptorSetsRecord();
-                }
-            }
-        }
-
         const uint32_t m_familyIndex;
         const E_CREATE_FLAGS m_flags;
         const float m_priority;

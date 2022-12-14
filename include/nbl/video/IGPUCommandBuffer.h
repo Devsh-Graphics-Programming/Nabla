@@ -130,8 +130,6 @@ public:
 
     inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
 
-    inline void clearBoundDescriptorSetsRecord() { m_boundDescriptorSetsRecord.clear(); }
-
 protected: 
     friend class IGPUQueue;
 
@@ -247,7 +245,6 @@ protected:
     virtual bool executeCommands_impl(uint32_t count, cmdbuf_t* const* const cmdbufs) = 0;
 
 private:
-    // Be wary of making it protected/calling it in the derived classes because it sets state which will overwrite the state set in base class methods.
     inline bool checkForParentPoolReset()
     {
         if (m_cmdpool->getResetCounter() <= m_resetCheckedStamp)
@@ -255,6 +252,8 @@ private:
 
         m_resetCheckedStamp = m_cmdpool->getResetCounter();
         m_state = ES_INITIAL;
+
+        m_boundDescriptorSetsRecord.clear();
 
         m_commandList.head = nullptr;
         m_commandList.tail = nullptr;
@@ -267,6 +266,7 @@ private:
     inline void releaseResourcesBackToPool()
     {
         deleteCommandList();
+        m_boundDescriptorSetsRecord.clear();
         releaseResourcesBackToPool_impl();
     }
 
@@ -275,6 +275,21 @@ private:
         m_cmdpool->m_commandListPool.deleteList(m_commandList.head);
         m_commandList.head = nullptr;
         m_commandList.tail = nullptr;
+    }
+
+    inline bool checkStateBeforeRecording()
+    {
+        if (m_state != ES_RECORDING)
+        {
+            m_logger.log("Failed to record into command buffer: not in RECORDING state.", system::ILogger::ELL_ERROR);
+            return false;
+        }
+        if (checkForParentPoolReset())
+        {
+            m_logger.log("Failed to record into command buffer: pool was reset since the recording begin() call.", system::ILogger::ELL_ERROR);
+            return false;
+        }
+        return true;
     }
 
     uint64_t m_resetCheckedStamp = 0;

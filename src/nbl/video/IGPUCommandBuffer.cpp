@@ -24,11 +24,11 @@ bool IGPUCommandBuffer::begin(core::bitflag<E_USAGE> flags, const SInheritanceIn
     }
 
     checkForParentPoolReset();
+    m_resetCheckedStamp = m_cmdpool->getResetCounter();
 
     if (m_state != ES_INITIAL)
     {
         releaseResourcesBackToPool();
-
         if (!canReset())
         {
             m_logger.log("Failed to begin command buffer: command buffer allocated from a command pool with ECF_RESET_COMMAND_BUFFER_BIT flag not set cannot be reset, and command buffer not in INITIAL state.", system::ILogger::ELL_ERROR);
@@ -82,11 +82,8 @@ bool IGPUCommandBuffer::reset(core::bitflag<E_RESET_FLAGS> flags)
 
 bool IGPUCommandBuffer::end()
 {
-    if (m_state != ES_RECORDING)
-    {
-        m_logger.log("Failed to end command buffer: not in RECORDING state.", system::ILogger::ELL_ERROR);
+    if (!checkStateBeforeRecording())
         return false;
-    }
 
     m_state = ES_EXECUTABLE;
     return end_impl();
@@ -94,6 +91,9 @@ bool IGPUCommandBuffer::end()
 
 bool IGPUCommandBuffer::bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!buffer || (buffer->getAPIType() != getAPIType()))
         return false;
 
@@ -110,6 +110,9 @@ bool IGPUCommandBuffer::bindIndexBuffer(const buffer_t* buffer, size_t offset, a
 
 bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!buffer || (buffer->getAPIType() != getAPIType()))
         return false;
 
@@ -124,6 +127,9 @@ bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint
 
 bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
@@ -140,6 +146,9 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offse
 
 bool IGPUCommandBuffer::drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
@@ -157,6 +166,9 @@ bool IGPUCommandBuffer::drawIndirectCount(const buffer_t* buffer, size_t offset,
 
 bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
@@ -173,6 +185,9 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t 
 
 bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     const auto apiType = getAPIType();
     if ((apiType != pRenderPassBegin->renderpass->getAPIType()) || (apiType != pRenderPassBegin->framebuffer->getAPIType()))
         return false;
@@ -192,10 +207,24 @@ bool IGPUCommandBuffer::pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FL
     uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
     uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if ((memoryBarrierCount == 0u) && (bufferMemoryBarrierCount == 0u) && (imageMemoryBarrierCount == 0u))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers))
+    constexpr auto MaxBarrierResourceCount = (1 << 12) / sizeof(void*);
+    assert(bufferMemoryBarrierCount + imageMemoryBarrierCount <= MaxBarrierResourceCount);
+
+    core::smart_refctd_ptr<const IGPUBuffer> bufferResources[MaxBarrierResourceCount];
+    for (auto i = 0; i < bufferMemoryBarrierCount; ++i)
+        bufferResources[i] = pBufferMemoryBarriers[i].buffer;
+
+    core::smart_refctd_ptr<const IGPUImage> imageResources[MaxBarrierResourceCount];
+    for (auto i = 0; i < imageMemoryBarrierCount; ++i)
+        imageResources[i] = pImageMemoryBarriers[i].image;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList, bufferMemoryBarrierCount, bufferResources, imageMemoryBarrierCount, imageResources))
         return false;
 
     pipelineBarrier_impl(srcStageMask, dstStageMask, dependencyFlags, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, pImageMemoryBarriers);
@@ -206,6 +235,9 @@ bool IGPUCommandBuffer::pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FL
 bool IGPUCommandBuffer::bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, const uint32_t descriptorSetCount,
     const descriptor_set_t* const* const pDescriptorSets, const uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!this->isCompatibleDevicewise(layout))
         return false;
 
@@ -261,6 +293,9 @@ bool IGPUCommandBuffer::bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipeline
 
 bool IGPUCommandBuffer::bindComputePipeline(const compute_pipeline_t* pipeline)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!this->isCompatibleDevicewise(pipeline))
         return false;
 
@@ -277,6 +312,9 @@ bool IGPUCommandBuffer::bindComputePipeline(const compute_pipeline_t* pipeline)
 
 bool IGPUCommandBuffer::updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
         return false;
 
@@ -349,6 +387,9 @@ static void getResourcesFromBuildGeometryInfos(const core::SRange<video::IGPUAcc
 
 bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (pInfos.empty())
         return false;
 
@@ -364,6 +405,9 @@ bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<video::IG
 
 bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (pInfos.empty())
         return false;
 
@@ -379,6 +423,9 @@ bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<v
 
 bool IGPUCommandBuffer::copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!copyInfo.src || copyInfo.src->getAPIType() != getAPIType())
         return false;
 
@@ -393,6 +440,9 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const video::IGPUAccelerationS
 
 bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!copyInfo.src || copyInfo.src->getAPIType() != getAPIType())
         return false;
 
@@ -407,6 +457,9 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const video::IGPUAccel
 
 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!copyInfo.src.buffer || copyInfo.src.buffer->getAPIType() != getAPIType())
         return false;
 
@@ -421,6 +474,9 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const video::IGPUAcc
 
 bool IGPUCommandBuffer::resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
@@ -432,6 +488,9 @@ bool IGPUCommandBuffer::resetQueryPool(video::IQueryPool* queryPool, uint32_t fi
 
 bool IGPUCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
@@ -445,6 +504,9 @@ bool IGPUCommandBuffer::writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineSta
 
 bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!queryPool || pAccelerationStructures.empty())
         return false;
 
@@ -465,6 +527,9 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<
 
 bool IGPUCommandBuffer::beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
@@ -476,6 +541,9 @@ bool IGPUCommandBuffer::beginQuery(video::IQueryPool* queryPool, uint32_t query,
 
 bool IGPUCommandBuffer::endQuery(video::IQueryPool* queryPool, uint32_t query)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
@@ -487,6 +555,9 @@ bool IGPUCommandBuffer::endQuery(video::IQueryPool* queryPool, uint32_t query)
 
 bool IGPUCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
         return false;
 
@@ -501,12 +572,18 @@ bool IGPUCommandBuffer::copyQueryPoolResults(video::IQueryPool* queryPool, uint3
 
 bool IGPUCommandBuffer::setDeviceMask(uint32_t deviceMask)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     m_deviceMask = deviceMask;
     return setDeviceMask_impl(deviceMask);
 }
 
 bool IGPUCommandBuffer::bindGraphicsPipeline(const graphics_pipeline_t* pipeline)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!pipeline || pipeline->getAPIType() != getAPIType())
         return false;
 
@@ -521,6 +598,9 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const graphics_pipeline_t* pipeline
 
 bool IGPUCommandBuffer::pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (layout->getAPIType() != getAPIType())
         return false;
 
@@ -534,6 +614,9 @@ bool IGPUCommandBuffer::pushConstants(const pipeline_layout_t* layout, core::bit
 
 bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!image || image->getAPIType() != getAPIType())
         return false;
 
@@ -548,6 +631,9 @@ bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::E_LAYOUT 
 
 bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!image || image->getAPIType() != getAPIType())
         return false;
 
@@ -562,6 +648,9 @@ bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::E_
 
 bool IGPUCommandBuffer::fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
         return false;
 
@@ -576,6 +665,9 @@ bool IGPUCommandBuffer::fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t
 
 bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     for (uint32_t i = 0u; i < bindingCount; ++i)
     {
         if (pBuffers[i] && !this->isCompatibleDevicewise(pBuffers[i]))
@@ -592,6 +684,9 @@ bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindin
 
 bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!buffer || buffer->getAPIType() != getAPIType())
         return false;
 
@@ -606,6 +701,9 @@ bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
 
 bool IGPUCommandBuffer::setEvent(event_t* _event, const SDependencyInfo& depInfo)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!_event || _event->getAPIType() != getAPIType())
         return false;
 
@@ -620,6 +718,9 @@ bool IGPUCommandBuffer::setEvent(event_t* _event, const SDependencyInfo& depInfo
 
 bool IGPUCommandBuffer::resetEvent(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!_event || _event->getAPIType() != getAPIType())
         return false;
 
@@ -634,6 +735,9 @@ bool IGPUCommandBuffer::resetEvent(event_t* _event, asset::E_PIPELINE_STAGE_FLAG
 
 bool IGPUCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (eventCount == 0u)
         return false;
 
@@ -664,6 +768,9 @@ bool IGPUCommandBuffer::waitEvents(uint32_t eventCount, event_t* const* const pE
 
 bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (meshBuffer && !meshBuffer->getInstanceCount())
         return false;
 
@@ -712,6 +819,9 @@ bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
 
 bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!srcBuffer || srcBuffer->getAPIType() != getAPIType())
         return false;
 
@@ -735,6 +845,9 @@ bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffe
 
 bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!srcImage || srcImage->getAPIType() != getAPIType())
         return false;
 
@@ -758,6 +871,9 @@ bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::E_LAYO
 
 bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!srcBuffer || srcBuffer->getAPIType() != getAPIType())
         return false;
 
@@ -778,6 +894,9 @@ bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* ds
 
 bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!srcImage || (srcImage->getAPIType() != getAPIType()))
         return false;
 
@@ -806,6 +925,9 @@ bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYO
 
 bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!srcImage || (srcImage->getAPIType() != getAPIType()))
         return false;
 
@@ -826,6 +948,9 @@ bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage
 
 bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     if (!srcImage || srcImage->getAPIType() != getAPIType())
         return false;
 
@@ -846,6 +971,9 @@ bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::E_L
 
 bool IGPUCommandBuffer::executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs)
 {
+    if (!checkStateBeforeRecording())
+        return false;
+
     for (uint32_t i = 0u; i < count; ++i)
     {
         if (!cmdbufs[i] || (cmdbufs[i]->getLevel() != EL_SECONDARY))

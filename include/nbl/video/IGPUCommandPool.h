@@ -9,8 +9,6 @@
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IGPUPipelineLayout.h"
 
-#include "nbl/asset/ICPUCommandBuffer.h"
-
 namespace nbl::video
 {
 class IGPUCommandBuffer;
@@ -104,20 +102,25 @@ public:
     public:
         static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
 
-        CCommandSegment()
+        CCommandSegment(CCommandSegment* prev)
         {
             static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
             m_header.commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE);
             m_header.next = nullptr;
 
             wipeNextCommandSize();
+
+            if (prev)
+                prev->m_header.next = this;
         }
 
         ~CCommandSegment()
         {
-            auto* cmd = reinterpret_cast<ICommand*>(m_data);
-            while ((cmd != segment_end()) || (cmd->getSize() != 0))
+            for (ICommand* cmd = begin(); cmd != end();)
             {
+                if (cmd->getSize() == 0)
+                    break;
+
                 auto* nextCmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
                 cmd->~ICommand();
                 cmd = nextCmd;
@@ -142,7 +145,12 @@ public:
         inline CCommandSegment* getNextHead() const { return m_header.nextHead; }
         inline CCommandSegment* getPrevHead() const { return m_header.prevHead; }
 
-        inline ICommand* segment_end()
+        inline ICommand* begin()
+        {
+            return reinterpret_cast<ICommand*>(m_data);
+        }
+
+        inline ICommand* end()
         {
             return reinterpret_cast<ICommand*>(m_data + m_header.commandAllocator.get_allocated_size());
         }
@@ -255,6 +263,7 @@ private:
             if (!list.tail && !appendToList(list))
                 return nullptr;
 
+            // not forwarding twice because newCmd() will never be called the second time
             auto newCmd = [&]() -> Cmd*
             {
                 auto cmdMem = list.tail->allocate<Cmd>(args...);
@@ -290,12 +299,7 @@ private:
             if (head == m_head)
                 m_head = head->getNextHead();
 
-            auto oneBefore = head->getPrevHead();
-            auto oneAfter = head->getNextHead();
-            CCommandSegment::linkHeads(oneBefore, oneAfter);
-
-            if (!oneBefore && !oneAfter)
-                m_head = nullptr;
+            CCommandSegment::linkHeads(head->getPrevHead(), head->getNextHead());
 
             for (auto& segment = head; segment;)
             {
@@ -323,7 +327,7 @@ private:
     private:
         inline bool appendToList(SCommandSegmentList& list)
         {
-            auto segment = m_pool.emplace<CCommandSegment>();
+            auto segment = m_pool.emplace<CCommandSegment>(list.tail);
             if (!segment)
             {
                 assert(false);
@@ -427,8 +431,8 @@ private:
 class IGPUCommandPool::CPipelineBarrierCmd : public IGPUCommandPool::ICommand
 {
 public:
-    CPipelineBarrierCmd(const uint32_t bufferCount, const asset::ICPUCommandBuffer::SBufferMemoryBarrier* bufferMemoryBarriers, const uint32_t imageCount, const asset::ICPUCommandBuffer::SImageMemoryBarrier* imageMemoryBarriers)
-        : ICommand(calc_size(bufferCount, bufferMemoryBarriers, imageCount, imageMemoryBarriers)), m_resourceCount(bufferCount+imageCount)
+    CPipelineBarrierCmd(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
+        : ICommand(calc_size(bufferCount, buffers, imageCount, images)), m_resourceCount(bufferCount + imageCount)
     {
         auto barrierResources = getBarrierResources();
         std::uninitialized_default_construct_n(barrierResources, m_resourceCount);
@@ -436,10 +440,10 @@ public:
         uint32_t k = 0;
 
         for (auto i = 0; i < bufferCount; ++i)
-            barrierResources[k++] = bufferMemoryBarriers[i].buffer;
+            barrierResources[k++] = buffers[i];
 
         for (auto i = 0; i < imageCount; ++i)
-            barrierResources[k++] = imageMemoryBarriers[i].image;
+            barrierResources[k++] = images[i];
     }
 
     ~CPipelineBarrierCmd()
@@ -449,9 +453,9 @@ public:
             barrierResources[i].~smart_refctd_ptr();
     }
 
-    static uint32_t calc_size(const uint32_t bufferCount, const asset::ICPUCommandBuffer::SBufferMemoryBarrier* bufferMemoryBarriers, const uint32_t imageCount, const asset::ICPUCommandBuffer::SImageMemoryBarrier* imageMemoryBarriers)
+    static uint32_t calc_size(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
     {
-        return core::alignUp(sizeof(CPipelineBarrierCmd) + (bufferCount+imageCount)*sizeof(core::smart_refctd_ptr<const core::IReferenceCounted>), alignof(CPipelineBarrierCmd));
+        return core::alignUp(sizeof(CPipelineBarrierCmd) + (bufferCount + imageCount) * sizeof(core::smart_refctd_ptr<const core::IReferenceCounted>), alignof(CPipelineBarrierCmd));
     }
 
 private:
