@@ -106,3 +106,18 @@ set(DXC_EXT_EXECUTABLE "${DXC_UNPACK_DIR}/dxc.exe" CACHE STRING "" FORCE)
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_subdirectory(CT CT)
 endif()
+
+include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/debug.cmake")
+include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/release.cmake")
+
+set(DXC_INCLUDE_DIRECTORIES
+	$<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_INCLUDE_DIRECTORIES},${NBL_DXC_RELEASE_INCLUDE_DIRECTORIES}>
+CACHE INTERNAL "")
+
+set(DXC_LIB
+	$<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_LIB},${NBL_DXC_RELEASE_LIB}>
+CACHE INTERNAL "")
+
+set(DXC_DLL 
+	$<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_DLL},${NBL_DXC_RELEASE_DLL}>
+CACHE INTERNAL "")
