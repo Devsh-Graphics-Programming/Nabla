@@ -101,20 +101,56 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         hlslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
+    
+    auto newCode = std::string(code);//preprocessShader(code, hlslOptions.stage, hlslOptions.preprocessorOptions);
 
-    auto newCode = preprocessShader(code, hlslOptions.stage, hlslOptions.preprocessorOptions);
+    // Suffix is the shader model version
+    std::wstring targetProfile(L"XX_6_2");
+
+    // Set profile two letter prefix based on stage
+    switch (options.stage) {
+    case asset::IShader::ESS_VERTEX:
+        targetProfile.replace(0, 2, L"vs");
+        break;
+    case asset::IShader::ESS_TESSELLATION_CONTROL:
+        targetProfile.replace(0, 2, L"ds");
+        break;
+    case asset::IShader::ESS_TESSELLATION_EVALUATION:
+        targetProfile.replace(0, 2, L"hs");
+        break;
+    case asset::IShader::ESS_GEOMETRY:
+        targetProfile.replace(0, 2, L"gs");
+        break;
+    case asset::IShader::ESS_FRAGMENT:
+        targetProfile.replace(0, 2, L"ps");
+        break;
+    case asset::IShader::ESS_COMPUTE:
+        targetProfile.replace(0, 2, L"cs");
+        break;
+    case asset::IShader::ESS_TASK:
+        targetProfile.replace(0, 2, L"as");
+        break;
+    case asset::IShader::ESS_MESH:
+        targetProfile.replace(0, 2, L"ms");
+        break;
+    default:
+        hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, options.stage);
+        return nullptr;
+    };
 
     LPCWSTR arguments[] = {
         // These will always be present
         L"-spirv",
-        L"-HLSL2021",
+        L"-HV", L"2021",
+        L"-T", targetProfile.c_str(),
 
         // These are debug only
-        L"-Qembed_debug"
+        L"-Zi", // Enables debug information
+        L"-Qembed_debug" //Embeds debug information
     };
 
-    const uint32_t nonDebugArgs = 2;
-    const uint32_t allArgs = nonDebugArgs + 0;
+    const uint32_t nonDebugArgs = 3;
+    const uint32_t allArgs = nonDebugArgs + 1;
 
     DxcCompilationResult compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
