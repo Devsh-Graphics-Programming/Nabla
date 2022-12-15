@@ -43,7 +43,7 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	//	return {};
 	//}
 
-	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), IShader::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
+	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), IShader::ESS_COMPUTE, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
 	_NBL_ALIGNED_FREE(source);
 
 	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });

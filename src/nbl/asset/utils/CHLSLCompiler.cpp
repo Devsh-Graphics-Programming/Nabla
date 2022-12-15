@@ -53,14 +53,18 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
         insertion << "\n";
         insertIntoStart(source, std::move(insertion));
     }
+    
+    IDxcBlobEncoding* src;
+    auto res = m_dxcUtils->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
+    assert(SUCCEEDED(res));
 
     DxcBuffer sourceBuffer;
-    sourceBuffer.Ptr = source.data();
-    sourceBuffer.Size = source.size();
+    sourceBuffer.Ptr = src->GetBufferPointer();
+    sourceBuffer.Size = src->GetBufferSize();
     sourceBuffer.Encoding = 0;
 
     IDxcResult* compileResult;
-    auto res = m_dxcCompiler->Compile(&sourceBuffer, args, argCount, nullptr, IID_PPV_ARGS(&compileResult));
+    res = m_dxcCompiler->Compile(&sourceBuffer, args, argCount, nullptr, IID_PPV_ARGS(&compileResult));
     // If the compilation failed, this should still be a successful result
     assert(SUCCEEDED(res));
 
@@ -149,8 +153,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-Qembed_debug" //Embeds debug information
     };
 
-    const uint32_t nonDebugArgs = 3;
-    const uint32_t allArgs = nonDebugArgs + 1;
+    const uint32_t nonDebugArgs = 5;
+    const uint32_t allArgs = nonDebugArgs + 2;
 
     DxcCompilationResult compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
