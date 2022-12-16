@@ -141,7 +141,7 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			core::bitflag<E_CREATE_FLAGS> createFlags;
-			IShader::E_SHADER_STAGE stageFlags; // TODO(achal): Should make a core::bitflag out of this as well?
+			core::bitflag<IShader::E_SHADER_STAGE> stageFlags;
 			uint32_t count;
 			// Use this if you want an immutable sampler that is baked into the DS layout itself.
 			// If its `nullptr` then the sampler used is mutable and can be specified while writing the image descriptor to a binding while updating the DS.
@@ -156,7 +156,7 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 					{
 						if (count==rhs.count)
 						{
-							if (stageFlags==rhs.stageFlags)
+							if (stageFlags.value==rhs.stageFlags.value)
 							{
 								if (createFlags.value == rhs.createFlags.value)
 								{
@@ -170,7 +170,7 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 								}
 								return createFlags.value < rhs.createFlags.value;
 							}
-							return stageFlags<rhs.stageFlags;
+							return stageFlags.value<rhs.stageFlags.value;
 						}
 						return count<rhs.count;
 					}
@@ -186,7 +186,7 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 					return false;
 				if (count != rhs.count)
 					return false;
-				if (stageFlags != rhs.stageFlags)
+				if (stageFlags.value != rhs.stageFlags.value)
 					return false;
 				if (createFlags.value != rhs.createFlags.value)
 					return false;
