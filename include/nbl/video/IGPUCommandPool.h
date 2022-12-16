@@ -255,6 +255,32 @@ private:
             CCommandSegment* tail = nullptr;
         };
 
+        struct Iterator
+        {
+            ICommand* cmd = nullptr;
+            CCommandSegment* segment = nullptr;
+
+            inline bool operator!=(const Iterator& other) const { return cmd != other.cmd; }
+
+            inline Iterator operator++(int)
+            {
+                Iterator old = *this;
+                if (cmd)
+                {
+                    assert(segment);
+
+                    // If `cmd` was "one past the end" then the size was wiped to 0 and it won't move.
+                    cmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
+
+                    if (cmd == segment->segment_end())
+                        *this = segment->end();
+                }
+                return old;
+            }
+
+            inline ICommand* operator*() { return cmd; }
+        };
+
         CCommandSegmentListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
 
         template <typename Cmd, typename... Args>
