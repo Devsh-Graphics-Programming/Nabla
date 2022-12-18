@@ -238,7 +238,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					writes[i].info = infos+i;
 				}
 				uint32_t count = InputDescriptorBindingCount;
-				if (_layout->getBindings().size()==InputDescriptorBindingCount)
+				if (_layout->getTotalBindingCount()==InputDescriptorBindingCount)
 				{
 					assert(drawCountsToScan.buffer && drawCountsToScan.size!=0ull);
 				}
@@ -279,7 +279,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					writes[i].info = infos+i;
 				}
 				uint32_t count = OutputDescriptorBindingCount;
-				if (_layout->getBindings().size()==OutputDescriptorBindingCount)
+				if (_layout->getTotalBindingCount()==OutputDescriptorBindingCount)
 				{
 					assert(drawCallCounts.buffer && drawCallCounts.size!=0ull);
 				}
@@ -430,7 +430,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 
 #			if 0
 			// drawcall compaction
-			if (params.transientOutputDS->getLayout()->getBindings().size()==OutputDescriptorBindingCount)
+			if (params.transientOutputDS->getLayout()->getTotalBindingCount()==OutputDescriptorBindingCount)
 			{
 				cmdbuf->bindComputePipeline(drawCompact.get());
 				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,drawCompact));

@@ -322,7 +322,7 @@ using namespace nbl::asset;
 				auto defaultSampler = _override->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",context.loadContext,0u).first;
 				for (uint16_t i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
 				{
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(i);
+					auto [descriptor, info] = material.descriptorSet->getDescriptors(i, EDT_COMBINED_IMAGE_SAMPLER);
 					descriptor.begin()[0] = defaultImageView;
 					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
@@ -333,9 +333,9 @@ using namespace nbl::asset;
 				{
 					const auto& [imageView,sampler] = cpuTextures[globalTextureIndex];
 
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(localTextureIndex);
+					auto [descriptor, info] = material.descriptorSet->getDescriptors(localTextureIndex, EDT_COMBINED_IMAGE_SAMPLER);
 					descriptor.begin()[0] = imageView;
-					// info.begin()[0].image.imageLayout = ???
+					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
 					auto samplers = material.descriptorSet->getMutableSamplers(localTextureIndex);
 					samplers.begin()[0] = sampler;
@@ -377,9 +377,9 @@ using namespace nbl::asset;
 					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<false>(cpuTextures[normalTextureID].first->getCreationParameters().image.get(), scales);
 					auto& sampler = cpuTextures[normalTextureID].second;
 
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE);
+					auto [descriptor, info] = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, EDT_COMBINED_IMAGE_SAMPLER);
 					descriptor.begin()[0] = imageView;
-					// info.begin()[0].image.imageLayout = ???
+					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
 					auto samplers = material.descriptorSet->getMutableSamplers(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE);
 					samplers.begin()[0] = sampler;

@@ -73,8 +73,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         if (!dstDescriptors)
             return false;
 
-        // TODO(achal): Use copy_n.
-        memcpy(dstDescriptors, srcDescriptors, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const asset::IDescriptor>));
+        std::copy_n(srcDescriptors, pDescriptorCopies[i].count, dstDescriptors);
 
         if (srcSamplers && dstSamplers)
             memcpy(dstSamplers, srcSamplers, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const IGPUSampler>));

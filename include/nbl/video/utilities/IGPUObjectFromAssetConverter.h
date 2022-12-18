@@ -1585,7 +1585,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
             
             // Since one binding can have multiple descriptors which will all be updated with a single SWriteDescriptorSet,
             // we add the binding count here not the descriptor count.
-            maxWriteCount += cpuds->getLayout()->getBindingCount(type);
+            maxWriteCount += cpuds->getLayout()->getDescriptorRedirect(type).getBindingCount();
 
             const auto count = cpuds->getLayout()->getTotalDescriptorCount(type);
             descCount += count;
@@ -1698,26 +1698,20 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
             for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
             {
                 const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
-                const auto activeBindingCount = cpuds->getLayout()->getBindingCount(type);
+                const auto activeBindingCount = cpuds->getLayout()->getDescriptorRedirect(type).getBindingCount();
 
                 for (uint32_t b = 0u; b < activeBindingCount; ++b)
                 {
-                    uint32_t descriptorCount;
-                    {
-                        if (b + 1u < activeBindingCount)
-                            descriptorCount = cpuds->getLayout()->getBindingOffsetStorage(type)[b + 1] - cpuds->getLayout()->getBindingOffsetStorage(type)[b];
-                        else
-                            descriptorCount = cpuds->getLayout()->getTotalDescriptorCount(type) - cpuds->getLayout()->getBindingOffsetStorage(type)[b];
-                    }
-                    
                     write_it->dstSet = gpuds;
-                    write_it->binding = cpuds->getLayout()->getBindingStorage(type)[b];
+                    write_it->binding = cpuds->getLayout()->getDescriptorRedirect(type).getBindingNumbers()[b].data;
                     write_it->arrayElement = 0u;
+
+                    uint32_t descriptorCount = cpuds->getLayout()->getDescriptorRedirect(type).getDescriptorCount(write_it->binding, b);
                     write_it->count = descriptorCount;
                     write_it->descriptorType = type;
                     write_it->info = &(*info);
 
-                    const uint32_t offset = cpuds->getLayout()->getBindingOffsetStorage(type)[b];
+                    const uint32_t offset = cpuds->getLayout()->getDescriptorRedirect(type).getStorageOffsets()[b].data;
 
                     auto descriptorInfos = cpuds->getDescriptorInfoStorage(type);
                     auto samplers = cpuds->getMutableSamplers(write_it->binding);

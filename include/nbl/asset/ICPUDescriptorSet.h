@@ -171,31 +171,54 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 		}
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
-		std::pair<core::SRange<core::smart_refctd_ptr<IDescriptor>>, core::SRange<SDescriptorInfo::SBufferImageInfo>> getDescriptors(const uint32_t binding)
+		std::pair<core::SRange<core::smart_refctd_ptr<IDescriptor>>, core::SRange<SDescriptorInfo::SBufferImageInfo>> getDescriptors(const uint32_t binding, E_DESCRIPTOR_TYPE type = EDT_COUNT)
 		{
-			const auto bindingInfo = std::lower_bound(getLayout()->getBindings().begin(), getLayout()->getBindings().end(), ICPUDescriptorSetLayout::SBinding{binding});
-			assert(bindingInfo->binding == binding && "binding is not in the descriptor set!");
+			if (type == EDT_COUNT)
+			{
+				for (uint32_t t = 0; t < EDT_COUNT; ++t)
+				{
+					const auto possibleType = static_cast<E_DESCRIPTOR_TYPE>(t);
+					const auto& redirect = getLayout()->getDescriptorRedirect(possibleType);
+					if (redirect.searchForBinding(binding) != redirect.Invalid)
+					{
+						type = possibleType;
+						break;
+					}
+				}
 
-			const uint32_t descriptorOffset = getLayout()->getDescriptorOffset(bindingInfo->type, binding);
-			const uint32_t descriptorCount = bindingInfo->count;
+				if (type == EDT_COUNT)
+					return { {nullptr, nullptr}, {nullptr, nullptr} };
+			}
 
-			auto descriptorsBegin = m_descriptors[bindingInfo->type]->begin() + descriptorOffset;
-			auto descriptorInfosBegin = m_descriptorInfos[bindingInfo->type]->begin() + descriptorOffset;
+			const auto& redirect = getLayout()->getDescriptorRedirect(type);
+			const auto bindingNumberIndex = redirect.searchForBinding(binding);
+			if (bindingNumberIndex == redirect.Invalid)
+				return { {nullptr, nullptr}, {nullptr, nullptr} };
+
+			const auto descriptorOffset = redirect.getStorageOffset(binding, bindingNumberIndex).data;
+			const auto descriptorCount = redirect.getDescriptorCount(binding, bindingNumberIndex);
+
+			auto descriptorsBegin = m_descriptors[type]->begin() + descriptorOffset;
+			auto descriptorInfosBegin = m_descriptorInfos[type]->begin() + descriptorOffset;
 
 			return { {descriptorsBegin, descriptorsBegin+descriptorCount}, {descriptorInfosBegin, descriptorInfosBegin+descriptorCount} };
 		}
 
 		core::SRange<core::smart_refctd_ptr<ICPUSampler>> getMutableSamplers(const uint32_t binding) const
 		{
-			const uint32_t offset = getLayout()->getMutableSamplerOffset(binding);
-			if (offset == ~0u)
+			const auto& redirect = getLayout()->getSamplerRedirect();
+
+			const auto bindingNumberIndex = redirect.searchForBinding(binding);
+			if (bindingNumberIndex == redirect.Invalid)
 				return { nullptr, nullptr };
 
-			const auto bindingInfo = std::lower_bound(getLayout()->getBindings().begin(), getLayout()->getBindings().end(), ICPUDescriptorSetLayout::SBinding{ binding });
-			assert(bindingInfo->binding == binding && "binding is not in the descriptor set!");
+			const auto offset = redirect.getStorageOffset(binding, bindingNumberIndex).data;
+			assert(offset != redirect.Invalid);
+
+			const auto count = redirect.getDescriptorCount(binding, bindingNumberIndex);
 
 			auto samplersBegin = m_mutableSamplers->begin() + offset;
-			return { samplersBegin, samplersBegin + bindingInfo->count };
+			return { samplersBegin, samplersBegin + count };
 		}
 
 		inline core::smart_refctd_ptr<IDescriptor>* getDescriptorStorage(const E_DESCRIPTOR_TYPE type) const { return m_descriptors[type]->begin(); }
