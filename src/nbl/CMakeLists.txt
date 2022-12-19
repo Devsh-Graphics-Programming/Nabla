@@ -470,6 +470,8 @@ endif()
 ## Set up 3rdparty deps
 # Parallel Hashmap
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
+# TCPP
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/tcpp)
 # oneDPL for clang C++17 parallelism
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_dependencies(Nabla oneDPL)

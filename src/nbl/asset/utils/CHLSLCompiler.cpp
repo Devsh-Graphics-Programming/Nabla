@@ -11,6 +11,10 @@
 #include <dxc/dxcapi.h>
 #include <combaseapi.h>
 
+#define TCPP_IMPLEMENTATION
+#include <tcpp/source/tcppLibrary.hpp>
+#undef TCPP_IMPLEMENTATION
+
 using namespace nbl;
 using namespace nbl::asset;
 
@@ -34,6 +38,49 @@ CHLSLCompiler::~CHLSLCompiler()
 {
     m_dxcUtils->Release();
     m_dxcCompiler->Release();
+}
+
+static tcpp::IInputStream* getInputStreamInclude(
+    const IShaderCompiler::CIncludeFinder* _inclFinder,
+    const system::ISystem* _fs,
+    uint32_t _maxInclCnt,
+    const char* _requesting_source,
+    bool _type // true for #include "string"; false for #include <string>
+)
+{
+    std::string res_str;
+
+    std::filesystem::path relDir;
+    const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
+    const bool reqBuiltin = builtin::hasPathPrefix(_requesting_source);
+    if (!reqFromBuiltin && !reqBuiltin)
+    {
+        //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
+        //  This rule applies also while a builtin is #includ`ing another builtin.
+        //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
+        //  or path relative to executable's working directory (""-type).
+        relDir = std::filesystem::path(_requesting_source).parent_path();
+    }
+    std::filesystem::path name = _type ? (relDir / _requesting_source) : (_requesting_source);
+
+    if (std::filesystem::exists(name) && !reqBuiltin)
+        name = std::filesystem::absolute(name);
+
+    if (_type)
+        res_str = _inclFinder->getIncludeRelative(relDir, _requesting_source);
+    else //shaderc_include_type_standard
+        res_str = _inclFinder->getIncludeStandard(relDir, _requesting_source);
+
+    if (!res_str.size()) {
+        return nullptr;
+    }
+    else {
+        //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
+        IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
+        res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
+    }
+
+    return new tcpp::StringInputStream(std::move(res_str));
 }
 
 CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const
@@ -77,8 +124,8 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
     assert(SUCCEEDED(res));
 
     DxcCompilationResult result;
-    result.errorMessages = std::unique_ptr<IDxcBlobEncoding>(errorBuffer);
-    result.compileResult = std::unique_ptr<IDxcResult>(compileResult);
+    result.errorMessages = errorBuffer;
+    result.compileResult = compileResult;
     result.objectBlob = nullptr;
 
     if (!SUCCEEDED(compilationStatus))
@@ -91,9 +138,40 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
     res = compileResult->GetResult(&resultingBlob);
     assert(SUCCEEDED(res));
 
-    result.objectBlob = std::unique_ptr<IDxcBlob>(resultingBlob);
+    result.objectBlob = resultingBlob;
 
     return result;
+}
+
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const
+{
+    if (preprocessOptions.extraDefines.size())
+    {
+        insertExtraDefines(code, preprocessOptions.extraDefines);
+    }
+    if (preprocessOptions.includeFinder != nullptr)
+    {
+        tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
+        tcpp::Lexer lexer(codeIs);
+        tcpp::Preprocessor proc(
+            lexer,
+            [](auto errorInfo) {
+
+            },
+            [&](auto path, auto isSystemPath) {
+                return getInputStreamInclude(
+                    preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount,
+                    path.c_str(), !isSystemPath
+                );
+            }
+        );
+
+        return proc.Process();
+    }
+    else
+    {
+        return code;
+    }
 }
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
@@ -105,8 +183,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         hlslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
-    
-    auto newCode = std::string(code);//preprocessShader(code, hlslOptions.stage, hlslOptions.preprocessorOptions);
+
+    auto newCode = preprocessShader(code, hlslOptions.stage, hlslOptions.preprocessorOptions);
 
     // Suffix is the shader model version
     std::wstring targetProfile(L"XX_6_2");
@@ -156,7 +234,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     const uint32_t nonDebugArgs = 5;
     const uint32_t allArgs = nonDebugArgs + 2;
 
-    DxcCompilationResult compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
+    auto compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
     if (!compileResult.objectBlob)
     {
