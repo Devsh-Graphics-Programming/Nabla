@@ -73,6 +73,14 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			{
 				return reinterpret_cast<char*>(errorMessages->GetBufferPointer());
 			}
+
+			// TODO figure out why this is crashing when done as part of the destructor
+			void release()
+			{
+				errorMessages->Release();
+				objectBlob->Release();
+				compileResult->Release();
+			}
 		};
 
 		CHLSLCompiler::DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const;
