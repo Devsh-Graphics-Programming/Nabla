@@ -155,12 +155,12 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         tcpp::Lexer lexer(codeIs);
         tcpp::Preprocessor proc(
             lexer,
-            [](auto errorInfo) {
-
+            [&](auto errorInfo) {
+                preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
             },
             [&](auto path, auto isSystemPath) {
                 return getInputStreamInclude(
-                    preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount,
+                    preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u,
                     path.c_str(), !isSystemPath
                 );
             }
@@ -243,6 +243,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
+
+    compileResult.release();
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), hlslOptions.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
