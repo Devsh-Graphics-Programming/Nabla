@@ -13,9 +13,10 @@ namespace hlsl
 {
 namespace scan
 {
+	// REVIEW: Putting topLevel second allows better alignment for packing of constant variables, assuming lastElement has length 4. (https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-packing-rules)
 	struct Parameters_t {
-		uint topLevel;
 		uint lastElement[NBL_BUILTIN_MAX_SCAN_LEVELS/2+1];
+		uint topLevel;
 		uint temporaryStorageOffset[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
 	}
 }

@@ -318,7 +318,7 @@ struct inclusive_scan : scan_base
 			// additionally, the first half invocations initialize the padding slots
 			// with identity values
 			if (scan_base::pseudoSubgroupInvocation<scan_base::HalfSubgroupSize)
-				scratchAccessor.set(lastLoadOffset,op::identity());
+				scratchAccessor.set(lastLoadOffset,op.identity());
 		}
 		nbl::hlsl::subgroup::Barrier();
 		nbl::hlsl::subgroup::MemoryBarrierShared();

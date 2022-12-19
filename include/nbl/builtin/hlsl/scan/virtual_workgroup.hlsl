@@ -30,7 +30,7 @@ namespace scan
 		
 		const bool inRange = levelInvocationIndex <= params.lastElement[pseudoLevel];
 		
-		Storage_t data = binop::identity();
+		Storage_t data = binop.identity();
 		if(inRange)
 		{
 			getData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel);
