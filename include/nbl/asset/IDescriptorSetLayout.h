@@ -58,23 +58,6 @@ enum E_DESCRIPTOR_TYPE : uint8_t
 	layout(set = N, binding = M) TYPE name[K];
 	\code
 
-	The following example shows how to set up one SBinding to create
-	a basic DescriptorSetLayout with above formula:
-
-	\code{.cpp}
-	// We will use set N, binding M and count K and descriptor type X
-
-	asset::ICPUDescriptorSetLayout::SBinding binding;
-	binding.count = K;
-	binding.binding = M;
-	binding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
-	binding.type = X; // It might be an asset::EDT_UNIFORM_BUFFER for instance
-	auto descriptorSetLayout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding, &binding + 1);
-
-	// Assuming that set N = 1, you execute std::move() one second constructor's field of available descriptor set layouts
-	auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(descriptorSetLayout), nullptr, nullptr);
-	\code
-
 	@see IReferenceCounted
 */
 
