@@ -26,7 +26,7 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 
 
 	const auto filename = _file->getFileName();
-	std::filesystem::path extension = filename.extension();
+	auto filenameEnding = filename.filename().string();
 
 	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
 		{".vert.hlsl",IShader::ESS_VERTEX},
@@ -36,11 +36,15 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 		{".frag.hlsl",IShader::ESS_FRAGMENT},
 		{".comp.hlsl",IShader::ESS_COMPUTE}
 	};
-	auto found = typeFromExt.find(extension.string());
 	auto shaderStage = IShader::ESS_UNKNOWN;
-	if (found != typeFromExt.end())
-	{
-		shaderStage = found->second;
+	for (auto& it : typeFromExt) {
+		if (filenameEnding.size() <= it.first.size()) continue;
+		auto stringPart = filenameEnding.substr(filenameEnding.size() - it.first.size());
+		if (stringPart  == it.first)
+		{
+			shaderStage = it.second;
+			break;
+		}
 	}
 
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), shaderStage, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
