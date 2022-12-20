@@ -42,7 +42,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//	return "";
 		//}
 
-		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const override;
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
 
 	protected:
 
