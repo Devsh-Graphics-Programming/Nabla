@@ -153,49 +153,49 @@ public:
 			uint32_t data;
 		};
 
-		inline uint32_t getBindingCount() const { return count; }
+		inline uint32_t getBindingCount() const { return m_count; }
 
-		// Returns index into the binding property arrays below (including `storageOffsets`), for the given binding number `binding`.
-		// Assumes `bindingNumbers` is sorted and that there are no duplicate values in it.
+		// Returns index into the binding property arrays below (including `m_storageOffsets`), for the given binding number `binding`.
+		// Assumes `m_bindingNumbers` is sorted and that there are no duplicate values in it.
 		inline uint32_t searchForBinding(const binding_number_t binding) const
 		{
-			if (!bindingNumbers)
+			if (!m_bindingNumbers)
 				return Invalid;
 
-			assert(storageOffsets && (count != 0u));
+			assert(m_storageOffsets && (m_count != 0u));
 
-			auto found = std::lower_bound(bindingNumbers, bindingNumbers + count, binding, [](binding_number_t a, binding_number_t b) -> bool {return a.data < b.data; });
+			auto found = std::lower_bound(m_bindingNumbers, m_bindingNumbers + m_count, binding, [](binding_number_t a, binding_number_t b) -> bool {return a.data < b.data; });
 
-			if ((found >= bindingNumbers + count) || (found->data != binding.data))
+			if ((found >= m_bindingNumbers + m_count) || (found->data != binding.data))
 				return Invalid;
 
-			const uint32_t foundIndex = found - bindingNumbers;
-			assert(foundIndex < count);
+			const uint32_t foundIndex = found - m_bindingNumbers;
+			assert(foundIndex < m_count);
 			return foundIndex;
 		}
 
 		inline binding_number_t getBindingNumber(const uint32_t index) const
 		{
-			assert(index < count);
-			return bindingNumbers[index];
+			assert(index < m_count);
+			return m_bindingNumbers[index];
 		}
 
 		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const uint32_t index) const
 		{
-			assert(index < count);
-			return stageFlags[index];
+			assert(index < m_count);
+			return m_stageFlags[index];
 		}
 
 		inline uint32_t getCount(const uint32_t index) const
 		{
-			assert(index < count);
-			return (index == 0u) ? storageOffsets[index].data : storageOffsets[index].data - storageOffsets[index - 1].data;
+			assert(index < m_count);
+			return (index == 0u) ? m_storageOffsets[index].data : m_storageOffsets[index].data - m_storageOffsets[index - 1].data;
 		}
 
 		inline storage_offset_t getStorageOffset(const uint32_t index) const
 		{
-			assert(index < count);
-			return (index == 0u) ? 0u : storageOffsets[index - 1];
+			assert(index < m_count);
+			return (index == 0u) ? 0u : m_storageOffsets[index - 1];
 		}
 
 
@@ -229,7 +229,7 @@ public:
 			return getStorageOffset(index);
 		}
 
-		inline uint32_t getTotalCount() const { return (count == 0ull) ? 0u : storageOffsets[count - 1].data; }
+		inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
 
 	private:
 		friend class IDescriptorSetLayout;
@@ -245,81 +245,87 @@ public:
 
 		inline CBindingRedirect() = default;
 
-		CBindingRedirect(core::vector<SBuildInfo>&& info) : count(static_cast<uint32_t>(info.size()))
+		CBindingRedirect(core::vector<SBuildInfo>&& info) : m_count(static_cast<uint32_t>(info.size()))
 		{
-			if (count <= 0)
+			if (m_count <= 0)
 				return;
 
-			const size_t requiredMemSize = count * (
-				sizeof(binding_number_t) +
-				sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>) +
-				sizeof(core::bitflag<IShader::E_SHADER_STAGE>) +
-				sizeof(storage_offset_t));
-
-			data = std::make_unique<uint8_t[]>(requiredMemSize);
-			{
-				uint64_t offset = 0ull;
-
-				bindingNumbers = reinterpret_cast<binding_number_t*>(data.get() + offset);
-				offset += count * sizeof(binding_number_t);
-
-				createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(data.get() + offset);
-				offset += count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>);
-
-				stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(data.get() + offset);
-				offset += count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>);
-
-				storageOffsets = reinterpret_cast<storage_offset_t*>(data.get() + offset);
-				offset += count * sizeof(storage_offset_t);
-
-				assert(offset == requiredMemSize);
-			}
+			init();
 
 			std::sort(info.begin(), info.end());
 
 			for (size_t i = 0; i < info.size(); ++i)
 			{
-				bindingNumbers[i].data = info[i].binding;
-				createFlags[i] = info[i].createFlags;
-				stageFlags[i] = info[i].stageFlags;
-				storageOffsets[i].data = info[i].count;
+				m_bindingNumbers[i].data = info[i].binding;
+				m_createFlags[i] = info[i].createFlags;
+				m_stageFlags[i] = info[i].stageFlags;
+				m_storageOffsets[i].data = info[i].count;
 			}
 
-			std::inclusive_scan(storageOffsets, storageOffsets + count, storageOffsets,
+			std::inclusive_scan(m_storageOffsets, m_storageOffsets + m_count, m_storageOffsets,
 				[](storage_offset_t a, storage_offset_t b) -> storage_offset_t { return storage_offset_t{ a.data + b.data }; }, storage_offset_t{ 0u });
 		}
 
+		inline void init()
+		{
+			const size_t requiredMemSize = getRequiredMemorySize();
+			m_data = std::make_unique<uint8_t[]>(requiredMemSize);
+			{
+				assert(m_count > 0);
+
+				uint64_t offset = 0ull;
+
+				m_bindingNumbers = reinterpret_cast<binding_number_t*>(m_data.get() + offset);
+				offset += m_count * sizeof(binding_number_t);
+
+				m_createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(m_data.get() + offset);
+				offset += m_count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>);
+
+				m_stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(m_data.get() + offset);
+				offset += m_count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>);
+
+				m_storageOffsets = reinterpret_cast<storage_offset_t*>(m_data.get() + offset);
+				offset += m_count * sizeof(storage_offset_t);
+
+				assert(offset == requiredMemSize);
+			}
+		}
+
+		inline size_t getRequiredMemorySize() const
+		{
+			const size_t result = m_count * (
+				sizeof(binding_number_t) +
+				sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>) +
+				sizeof(core::bitflag<IShader::E_SHADER_STAGE>) +
+				sizeof(storage_offset_t));
+			return result;
+		}
+
 		friend class ICPUDescriptorSetLayout;
-#if 0
 		inline CBindingRedirect clone() const
 		{
 			CBindingRedirect result;
-			result.count = count;
+			result.m_count = m_count;
 
-			const size_t requiredMemSize = dataAllocator.get_total_size();
-			assert(requiredMemSize == dataAllocator.get_allocated_size());
-			result.data = std::make_unique<uint8_t[]>(requiredMemSize);
-			result.dataAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, requiredMemSize);
-
-			memcpy(result.data.get(), data.get(), requiredMemSize);
-
-			result.bindingNumbers = reinterpret_cast<binding_number_t*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(binding_number_t), 1u));
-			result.createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>), 1u));
-			result.stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>), 1u));
-			result.storageOffsets = reinterpret_cast<storage_offset_t*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(storage_offset_t), 1u));
+			if (result.m_count > 0)
+			{
+				result.init();
+				memcpy(result.m_data.get(), m_data.get(), getRequiredMemorySize());
+			}
 
 			return result;
 		}
-#endif
 
-		uint32_t count = 0u;
+		inline size_t conservativeSizeEstimate() const { return getRequiredMemorySize() + sizeof(*this); }
 
-		binding_number_t* bindingNumbers = nullptr;
-		core::bitflag<typename SBinding::E_CREATE_FLAGS>* createFlags = nullptr;
-		core::bitflag<IShader::E_SHADER_STAGE>* stageFlags = nullptr;
-		storage_offset_t* storageOffsets = nullptr;
+		uint32_t m_count = 0u;
 
-		std::unique_ptr<uint8_t[]> data = nullptr;
+		binding_number_t* m_bindingNumbers = nullptr;
+		core::bitflag<typename SBinding::E_CREATE_FLAGS>* m_createFlags = nullptr;
+		core::bitflag<IShader::E_SHADER_STAGE>* m_stageFlags = nullptr;
+		storage_offset_t* m_storageOffsets = nullptr;
+
+		std::unique_ptr<uint8_t[]> m_data = nullptr;
 	};
 
 	// utility functions
@@ -335,8 +341,7 @@ public:
 		}
 	}
 
-	IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : 
-		m_bindings((_end-_begin) ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin) : nullptr)
+	IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end)
 	{
 		core::vector<CBindingRedirect::SBuildInfo> buildInfo_descriptors[asset::EDT_COUNT];
 		core::vector<CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
@@ -364,6 +369,18 @@ public:
 		const uint32_t immutableSamplerCount = m_immutableSamplerRedirect.getTotalCount();
 		m_samplers = immutableSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>>>(immutableSamplerCount) : nullptr;
 
+		for (auto b = _begin; b != _end; ++b)
+		{
+			if (b->type == EDT_COMBINED_IMAGE_SAMPLER && b->samplers)
+			{
+				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(CBindingRedirect::binding_number_t(b->binding)).data;
+				assert(localOffset != m_immutableSamplerRedirect.Invalid);
+
+				auto* dst = m_samplers->begin() + localOffset;
+				std::copy_n(b->samplers, b->count, dst);
+			}
+		}
+#if 0
 		size_t bndCount = _end-_begin;
 		size_t immSamplersOffset = 0u;
 		for (size_t i = 0ull; i < bndCount; ++i)
@@ -402,12 +419,12 @@ public:
             // TODO: check for overlapping bindings (bad `SBinding` definitions)
             std::sort(m_bindings->begin(), m_bindings->end());
         }
+#endif
 	}
 
 	virtual ~IDescriptorSetLayout() = default;
 
-	core::smart_refctd_dynamic_array<SBinding> m_bindings; // TODO(achal): Shoudn't need this anymore.
-	core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>> m_samplers;
+	core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>> m_samplers = nullptr;
 
 public:
 	bool isIdenticallyDefined(const IDescriptorSetLayout<sampler_type>* _other) const
@@ -425,7 +442,7 @@ public:
 
 			for (uint32_t i = 0u; i < bindingCount; ++i)
 			{
-				const bool equal = (lhs.bindingNumbers[i].data == rhs.bindingNumbers[i].data) && (lhs.createFlags[i].value == rhs.createFlags[i].value) && (lhs.stageFlags[i].value == rhs.stageFlags[i].value) && (lhs.getCount(i) == rhs.getCount(i));
+				const bool equal = (lhs.m_bindingNumbers[i].data == rhs.m_bindingNumbers[i].data) && (lhs.m_createFlags[i].value == rhs.m_createFlags[i].value) && (lhs.m_stageFlags[i].value == rhs.m_stageFlags[i].value) && (lhs.getCount(i) == rhs.getCount(i));
 				if (!equal)
 					return false;
 			}
