@@ -1331,7 +1331,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUDescriptorSetLayout> >(assetCount);
 
     // This is a descriptor set layout function, we only care about immutable samplers here.
-    core::vector<asset::ICPUSampler*> cpuSamplers;
+    core::vector<const asset::ICPUSampler*> cpuSamplers;
     size_t maxSamplers = 0ull;
     size_t maxBindingsPerLayout = 0ull;
     size_t maxSamplersPerLayout = 0ull;
@@ -1347,9 +1347,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
 
     for (auto dsl : core::SRange<const asset::ICPUDescriptorSetLayout*>(_begin, _end))
     {
-        if (dsl->m_samplers)
+        const auto& samplers = dsl->getImmutableSamplers();
+        if (!samplers.empty())
         {
-            for (auto& sampler : *dsl->m_samplers)
+            for (auto& sampler : samplers)
                 cpuSamplers.push_back(sampler.get());
         }
     }

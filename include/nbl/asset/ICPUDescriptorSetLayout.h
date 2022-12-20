@@ -22,10 +22,12 @@ namespace asset
 
 class NBL_API ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
+    using base_t = asset::IDescriptorSetLayout<ICPUSampler>;
+
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u;
 
-		using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
+        ICPUDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : base_t(_begin, _end) {}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
