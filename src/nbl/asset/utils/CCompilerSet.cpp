@@ -44,15 +44,17 @@ core::smart_refctd_ptr<ICPUShader> CCompilerSet::preprocessShader(const ICPUShad
 		case IShader::E_CONTENT_TYPE::ECT_HLSL:
 		{
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
-			auto resolvedCode = m_HLSLCompiler->preprocessShader(code, shader->getStage(), preprocessOptions);
-			return core::make_smart_refctd_ptr<ICPUShader>(resolvedCode.c_str(), shader->getStage(), IShader::E_CONTENT_TYPE::ECT_HLSL, std::string(shader->getFilepathHint()));
+			auto stage = shader->getStage();
+			auto resolvedCode = m_HLSLCompiler->preprocessShader(code, stage, preprocessOptions);
+			return core::make_smart_refctd_ptr<ICPUShader>(resolvedCode.c_str(), stage, IShader::E_CONTENT_TYPE::ECT_HLSL, std::string(shader->getFilepathHint()));
 		}
 		break;
 		case IShader::E_CONTENT_TYPE::ECT_GLSL:
 		{
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
-			auto resolvedCode = m_GLSLCompiler->preprocessShader(code, shader->getStage(), preprocessOptions);
-			return core::make_smart_refctd_ptr<ICPUShader>(resolvedCode.c_str(), shader->getStage(), IShader::E_CONTENT_TYPE::ECT_GLSL, std::string(shader->getFilepathHint()));
+			auto stage = shader->getStage();
+			auto resolvedCode = m_GLSLCompiler->preprocessShader(code, stage, preprocessOptions);
+			return core::make_smart_refctd_ptr<ICPUShader>(resolvedCode.c_str(), stage, IShader::E_CONTENT_TYPE::ECT_GLSL, std::string(shader->getFilepathHint()));
 		}
 		break;
 		default:

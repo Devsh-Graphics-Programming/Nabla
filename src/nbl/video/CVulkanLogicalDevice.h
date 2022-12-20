@@ -570,7 +570,7 @@ public:
         if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), spirvShader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
         }
         else
         {

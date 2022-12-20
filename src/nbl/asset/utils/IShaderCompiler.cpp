@@ -101,7 +101,7 @@ namespace nbl::asset::impl
 
 std::string IShaderCompiler::preprocessShader(
     std::string&& code,
-    IShader::E_SHADER_STAGE stage,
+    IShader::E_SHADER_STAGE& stage,
     const SPreprocessorOptions& preprocessOptions) const
 {
     if (preprocessOptions.extraDefines.size())

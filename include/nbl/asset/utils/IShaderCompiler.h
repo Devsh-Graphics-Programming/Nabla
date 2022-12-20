@@ -178,7 +178,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		@returns Shader containing logically same High Level code as input but with #include directives resolved.
 		*/
-		virtual std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const;
+		virtual std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const;
 
 		std::string preprocessShader(system::IFile* sourcefile, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const;
 		
