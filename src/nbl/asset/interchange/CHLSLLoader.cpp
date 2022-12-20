@@ -26,24 +26,28 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 
 
 	const auto filename = _file->getFileName();
-	std::filesystem::path extension = filename.extension();
+	auto filenameEnding = filename.filename().string();
 
-	//core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
-	//																						{".vert",IShader::ESS_VERTEX},
-	//																						{".tesc",IShader::ESS_TESSELLATION_CONTROL},
-	//																						{".tese",IShader::ESS_TESSELLATION_EVALUATION},
-	//																						{".geom",IShader::ESS_GEOMETRY},
-	//																						{".frag",IShader::ESS_FRAGMENT},
-	//																						{".comp",IShader::ESS_COMPUTE}
-	//																					};
-	//auto found = typeFromExt.find(extension.string());
-	//if (found == typeFromExt.end())
-	//{
-	//	_NBL_ALIGNED_FREE(source);
-	//	return {};
-	//}
+	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
+		{".vert.hlsl",IShader::ESS_VERTEX},
+		{".tesc.hlsl",IShader::ESS_TESSELLATION_CONTROL},
+		{".tese.hlsl",IShader::ESS_TESSELLATION_EVALUATION},
+		{".geom.hlsl",IShader::ESS_GEOMETRY},
+		{".frag.hlsl",IShader::ESS_FRAGMENT},
+		{".comp.hlsl",IShader::ESS_COMPUTE}
+	};
+	auto shaderStage = IShader::ESS_UNKNOWN;
+	for (auto& it : typeFromExt) {
+		if (filenameEnding.size() <= it.first.size()) continue;
+		auto stringPart = filenameEnding.substr(filenameEnding.size() - it.first.size());
+		if (stringPart  == it.first)
+		{
+			shaderStage = it.second;
+			break;
+		}
+	}
 
-	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), IShader::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
+	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), shaderStage, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
 	_NBL_ALIGNED_FREE(source);
 
 	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });

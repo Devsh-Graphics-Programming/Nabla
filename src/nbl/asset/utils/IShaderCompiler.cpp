@@ -9,7 +9,6 @@
 #include <regex>
 #include <iterator>
 
-
 using namespace nbl;
 using namespace nbl::asset;
 
@@ -24,75 +23,6 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
 
 namespace nbl::asset::impl
 {
-    //string to be replaced with all "#" except those in "#include"
-    static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
-    static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
-    static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
-    static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
-    static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
-    static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
-    static void disableAllDirectivesExceptIncludes(std::string& _glslCode)
-    {
-        // TODO: replace this with a proper-ish proprocessor and includer one day
-        std::regex directive("#(?!(include|version|pragma shader_stage|line))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
-        //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
-        auto result = std::regex_replace(_glslCode,directive,PREPROC_DIRECTIVE_DISABLER);
-        std::regex glMacro("[ \t\r\n\v\f]GL_");
-        result = std::regex_replace(result, glMacro, PREPROC_GL__DISABLER);
-        std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
-        _glslCode = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
-    }
-    static void reenableDirectives(std::string& _glslCode)
-    {
-        std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
-        auto result = std::regex_replace(_glslCode, lineContinuation, " \\");
-        std::regex glMacro(PREPROC_GL__ENABLER);
-        result = std::regex_replace(result,glMacro," GL_");
-        std::regex directive(PREPROC_DIRECTIVE_ENABLER);
-        _glslCode = std::regex_replace(result, directive, "#");
-    }
-    static std::string encloseWithinExtraInclGuards(std::string&& _glslCode, uint32_t _maxInclusions, const char* _identifier)
-    {
-        assert(_maxInclusions!=0u);
-
-        using namespace std::string_literals;
-        std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
-        std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
-
-        auto genDefs = [&defBase_, _maxInclusions, _identifier] {
-            auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
-            std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
-            for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
-                const std::string defname = defBase(i);
-                defs += "#elif !defined(" + defname + ")\n\t#define " + defname + "\n";
-            }
-            defs += "#endif\n";
-            return defs;
-        };
-        auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
-            auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
-            std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
-            for (int32_t i = _maxInclusions-1; i >= 0; --i) {
-                const std::string defname = defBase(i);
-                undefs += "#elif defined(" + defname + ")\n\t#undef " + defname + "\n";
-            }
-            undefs += "#endif\n";
-            return undefs;
-        };
-        
-        return
-            genDefs() +
-            "\n"
-            "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
-            "\n" +
-            "#line 1 \"" + _identifier + "\"\n" +
-            _glslCode +
-            "\n"
-            "#endif"
-            "\n\n" +
-            genUndefs();
-    }
-
     class Includer : public shaderc::CompileOptions::IncluderInterface
     {
         const IShaderCompiler::CIncludeFinder* m_defaultIncludeFinder;
@@ -144,8 +74,8 @@ namespace nbl::asset::impl
             }
             else {
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
-                disableAllDirectivesExceptIncludes(res_str);
-                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, name.string().c_str() );
+                IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
+                res_str = IShaderCompiler::encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, name.string().c_str() );
 
                 res->content_length = res_str.size();
                 res->content = new char[res_str.size()+1u];
@@ -171,7 +101,7 @@ namespace nbl::asset::impl
 
 std::string IShaderCompiler::preprocessShader(
     std::string&& code,
-    IShader::E_SHADER_STAGE stage,
+    IShader::E_SHADER_STAGE& stage,
     const SPreprocessorOptions& preprocessOptions) const
 {
     if (preprocessOptions.extraDefines.size())
@@ -180,22 +110,22 @@ std::string IShaderCompiler::preprocessShader(
     }
     if (preprocessOptions.includeFinder != nullptr)
     {
-        impl::disableAllDirectivesExceptIncludes(code);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
+        IShaderCompiler::disableAllDirectivesExceptIncludes(code);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
         shaderc::Compiler comp;
         shaderc::CompileOptions options;
         options.SetTargetSpirv(shaderc_spirv_version_1_6);
-
+        
         options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u));//custom #include handler
         const shaderc_shader_kind scstage = stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
         auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
-
+        
         if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
             preprocessOptions.logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
             return nullptr;
         }
-
+        
         auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(),res.cend()));
-        impl::reenableDirectives(resolvedString);
+        IShaderCompiler::reenableDirectives(resolvedString);
         return resolvedString;
     }
     else

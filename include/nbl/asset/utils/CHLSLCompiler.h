@@ -42,6 +42,8 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//	return "";
 		//}
 
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
+
 	protected:
 
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
@@ -63,17 +65,25 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		class DxcCompilationResult
 		{
 		public:
-			std::unique_ptr<IDxcBlobEncoding> errorMessages;
-			std::unique_ptr<IDxcBlob> objectBlob;
-			std::unique_ptr<IDxcResult> compileResult;
+			IDxcBlobEncoding* errorMessages;
+			IDxcBlob* objectBlob;
+			IDxcResult* compileResult;
 			
 			char* GetErrorMessagesString()
 			{
 				return reinterpret_cast<char*>(errorMessages->GetBufferPointer());
 			}
+
+			// TODO figure out why this is crashing when done as part of the destructor
+			void release()
+			{
+				errorMessages->Release();
+				objectBlob->Release();
+				compileResult->Release();
+			}
 		};
 
-		DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const;
+		CHLSLCompiler::DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const;
 };
 
 }

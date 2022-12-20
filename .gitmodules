@@ -87,3 +87,6 @@
 [submodule "3rdparty/dxc/dxc"]
 	path = 3rdparty/dxc/dxc
 	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
+[submodule "3rdparty/tcpp"]
+	path = 3rdparty/tcpp
+	url = git@github.com:bnoazx005/tcpp
