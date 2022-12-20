@@ -52,31 +52,22 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         const auto* srcDS = static_cast<const IGPUDescriptorSet*>(pDescriptorCopies[i].srcSet);
         auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
 
-        auto foundBindingInfo = std::lower_bound(srcDS->getLayout()->getBindings().begin(), srcDS->getLayout()->getBindings().end(), pDescriptorCopies[i].srcBinding,
-            [](const IGPUDescriptorSetLayout::SBinding& a, const uint32_t b) -> bool
-            {
-                return a.binding < b;
-            });
+        for (uint32_t t = 0; t < asset::EDT_COUNT; ++t)
+        {
+            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
 
-        if (foundBindingInfo->binding != pDescriptorCopies[i].srcBinding)
-            return false;
+            auto* srcDescriptors = srcDS->getDescriptors(type, pDescriptorCopies[i].srcBinding);
+            auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);
 
-        const asset::E_DESCRIPTOR_TYPE descriptorType = foundBindingInfo->type;
+            auto* dstDescriptors = dstDS->getDescriptors(type, pDescriptorCopies[i].dstBinding);
+            auto* dstSamplers = dstDS->getMutableSamplers(pDescriptorCopies[i].dstBinding);
 
-        auto* srcDescriptors = srcDS->getDescriptors(descriptorType, pDescriptorCopies[i].srcBinding);
-        auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);
-        if (!srcDescriptors)
-            return false;
+            if (srcDescriptors && dstDescriptors)
+                std::copy_n(srcDescriptors, pDescriptorCopies[i].count, dstDescriptors);
 
-        auto* dstDescriptors = dstDS->getDescriptors(descriptorType, pDescriptorCopies[i].dstBinding);
-        auto* dstSamplers = dstDS->getMutableSamplers(pDescriptorCopies[i].dstBinding);
-        if (!dstDescriptors)
-            return false;
-
-        std::copy_n(srcDescriptors, pDescriptorCopies[i].count, dstDescriptors);
-
-        if (srcSamplers && dstSamplers)
-            memcpy(dstSamplers, srcSamplers, pDescriptorCopies[i].count * sizeof(core::smart_refctd_ptr<const IGPUSampler>));
+            if (srcSamplers && dstSamplers)
+                std::copy_n(srcSamplers, pDescriptorCopies[i].count, dstSamplers);
+        }
     }
 
     updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);

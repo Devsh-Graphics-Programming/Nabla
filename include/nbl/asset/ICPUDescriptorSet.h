@@ -195,8 +195,8 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			if (bindingNumberIndex == redirect.Invalid)
 				return { {nullptr, nullptr}, {nullptr, nullptr} };
 
-			const auto descriptorOffset = redirect.getStorageOffset(binding, bindingNumberIndex).data;
-			const auto descriptorCount = redirect.getDescriptorCount(binding, bindingNumberIndex);
+			const auto descriptorOffset = redirect.getStorageOffset(bindingNumberIndex).data;
+			const auto descriptorCount = redirect.getCount(bindingNumberIndex);
 
 			auto descriptorsBegin = m_descriptors[type]->begin() + descriptorOffset;
 			auto descriptorInfosBegin = m_descriptorInfos[type]->begin() + descriptorOffset;
@@ -206,16 +206,16 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 
 		core::SRange<core::smart_refctd_ptr<ICPUSampler>> getMutableSamplers(const uint32_t binding) const
 		{
-			const auto& redirect = getLayout()->getSamplerRedirect();
+			const auto& redirect = getLayout()->getMutableSamplerRedirect();
 
 			const auto bindingNumberIndex = redirect.searchForBinding(binding);
 			if (bindingNumberIndex == redirect.Invalid)
 				return { nullptr, nullptr };
 
-			const auto offset = redirect.getStorageOffset(binding, bindingNumberIndex).data;
+			const auto offset = redirect.getStorageOffset(bindingNumberIndex).data;
 			assert(offset != redirect.Invalid);
 
-			const auto count = redirect.getDescriptorCount(binding, bindingNumberIndex);
+			const auto count = redirect.getCount(bindingNumberIndex);
 
 			auto samplersBegin = m_mutableSamplers->begin() + offset;
 			return { samplersBegin, samplersBegin + count };

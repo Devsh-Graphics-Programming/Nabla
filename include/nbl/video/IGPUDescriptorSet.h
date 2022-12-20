@@ -88,7 +88,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::E_DESCRIPTOR_TYPE type, const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getDescriptorOffset(type, binding);
+            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ binding }).data;
             if (localOffset == ~0)
                 return nullptr;
 
@@ -101,8 +101,8 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 
         inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplers(const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getMutableSamplerOffset(binding);
-            if (localOffset == ~0u)
+            const auto localOffset = getLayout()->getMutableSamplerRedirect().getStorageOffset(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ binding }).data;
+            if (localOffset == getLayout()->getMutableSamplerRedirect().Invalid)
                 return nullptr;
 
             auto* samplers = getAllMutableSamplers();

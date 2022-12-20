@@ -242,39 +242,22 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
                 const auto setCount = setCounts ? (*setCountsIt):1u;
                 totalSetCount += setCount;
 
-#if 0
                 for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
                 {
                     const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
-                    const auto declaredBindingCount = (*curLayout)->getDescriptorRedirect(type).getBindingCount();
+                    const auto& redirect = (*curLayout)->getDescriptorRedirect(type);
+                    const auto declaredBindingCount = redirect.getBindingCount();
+
                     auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == type; });
-                    for (uint32_t i = 0; i < declaredBindingCount; ++i)
-                    {
-
-                    }
-
                     if (ps != poolSizes.end())
                     {
-                        ps->count += setCount * binding.count;
+                        for (uint32_t i = 0; i < declaredBindingCount; ++i)
+                            ps->count += setCount * redirect.getCount(i);
                     }
                     else
                     {
-                        poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize{ type, setCount * binding.count });
-                    }
-                }
-#endif
-
-                auto bindings = (*curLayout)->getBindings();
-                for (const auto& binding : bindings)
-                {
-                    auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
-                    if (ps != poolSizes.end())
-                    {
-                        ps->count += setCount*binding.count;
-                    }
-                    else
-                    {
-                        poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, setCount*binding.count });
+                        for (uint32_t i = 0; i < declaredBindingCount; ++i)
+                            poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize{ type, setCount * redirect.getCount(i)});
                     }
                 }
 

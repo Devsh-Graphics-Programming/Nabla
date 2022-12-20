@@ -1330,32 +1330,27 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUDescriptorSetLayout> >(assetCount);
 
-    core::vector<asset::ICPUSampler*> cpuSamplers;//immutable samplers
+    // This is a descriptor set layout function, we only care about immutable samplers here.
+    core::vector<asset::ICPUSampler*> cpuSamplers;
     size_t maxSamplers = 0ull;
-    size_t maxBindingsPerDescSet = 0ull;
-    size_t maxSamplersPerDescSet = 0u;
+    size_t maxBindingsPerLayout = 0ull;
+    size_t maxSamplersPerLayout = 0ull;
     for (auto dsl : core::SRange<const asset::ICPUDescriptorSetLayout*>(_begin, _end))
     {
-        size_t samplersInDS = 0u;
-        for (const auto& bnd : dsl->getBindings()) {
-            const uint32_t samplerCnt = bnd.samplers ? bnd.count : 0u;
-            maxSamplers += samplerCnt;
-            samplersInDS += samplerCnt;
-        }
-        maxBindingsPerDescSet = core::max<size_t>(maxBindingsPerDescSet, dsl->getBindings().size());
-        maxSamplersPerDescSet = core::max<size_t>(maxSamplersPerDescSet, samplersInDS);
+        const auto samplerCount = dsl->getImmutableSamplerRedirect().getTotalCount();
+        maxSamplers += samplerCount;
+
+        maxBindingsPerLayout = core::max<size_t>(maxBindingsPerLayout, dsl->getTotalBindingCount());
+        maxSamplersPerLayout = core::max<size_t>(maxSamplersPerLayout, samplerCount);
     }
     cpuSamplers.reserve(maxSamplers);
 
     for (auto dsl : core::SRange<const asset::ICPUDescriptorSetLayout*>(_begin, _end))
     {
-        for (const auto& bnd : dsl->getBindings())
+        if (dsl->m_samplers)
         {
-            if (bnd.samplers)
-            {
-                for (uint32_t i = 0u; i < bnd.count; ++i)
-                    cpuSamplers.push_back(bnd.samplers[i].get());
-            }
+            for (auto& sampler : *dsl->m_samplers)
+                cpuSamplers.push_back(sampler.get());
         }
     }
 
@@ -1364,33 +1359,53 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
     size_t gpuSmplrIter = 0ull;
 
     using gpu_bindings_array_t = core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout::SBinding>;
-    auto tmpBindings = core::make_refctd_dynamic_array<gpu_bindings_array_t>(maxBindingsPerDescSet);
+    auto tmpBindings = core::make_refctd_dynamic_array<gpu_bindings_array_t>(maxBindingsPerLayout);
+
     using samplers_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUSampler>>;
-    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerDescSet * maxBindingsPerDescSet);
+    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerLayout);
+
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         core::smart_refctd_ptr<IGPUSampler>* smplr_ptr = tmpSamplers->data();
         const asset::ICPUDescriptorSetLayout* cpudsl = _begin[i];
-        size_t bndIter = 0ull;
-        for (const auto& bnd : cpudsl->getBindings())
-        {
-            IGPUDescriptorSetLayout::SBinding gpubnd;
-            gpubnd.binding = bnd.binding;
-            gpubnd.type = bnd.type;
-            gpubnd.count = bnd.count;
-            gpubnd.stageFlags = bnd.stageFlags;
-            gpubnd.samplers = nullptr;
 
-            if (bnd.samplers)
+        size_t gpuBindingCount = 0ull;
+        const auto& samplerBindingRedirect = cpudsl->getImmutableSamplerRedirect();
+        const auto samplerBindingCount = samplerBindingRedirect.getBindingCount();
+        for (uint32_t t = 0; t < asset::EDT_COUNT; ++t)
+        {
+            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+            const auto& descriptorBindingRedirect = cpudsl->getDescriptorRedirect(type);
+            const auto declaredBindingCount = descriptorBindingRedirect.getBindingCount();
+
+            for (uint32_t b = 0; b < declaredBindingCount; ++b)
             {
-                for (uint32_t s = 0u; s < gpubnd.count; ++s)
-                    smplr_ptr[s] = (*gpuSamplers)[redirs[gpuSmplrIter++]];
-                gpubnd.samplers = smplr_ptr;
-                smplr_ptr += gpubnd.count;
+                auto& gpuBinding = tmpBindings->begin()[gpuBindingCount++];
+                gpuBinding.binding = descriptorBindingRedirect.getBindingNumber(b).data;
+                gpuBinding.type = type;
+                gpuBinding.count = descriptorBindingRedirect.getCount(b);
+                gpuBinding.stageFlags = descriptorBindingRedirect.getStageFlags(b);
+                gpuBinding.samplers = nullptr;
+
+                // If this DS layout has any immutable samplers..
+                if ((gpuBinding.type == asset::EDT_COMBINED_IMAGE_SAMPLER) && (samplerBindingCount > 0))
+                {
+                    // If this binding number has any immutable samplers..
+                    if (samplerBindingRedirect.searchForBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ gpuBinding.binding }) == samplerBindingRedirect.Invalid)
+                        continue;
+
+                    // Copy in tmpSamplers.
+                    for (uint32_t s = 0; s < gpuBinding.count; ++s)
+                        smplr_ptr[s] = (*gpuSamplers)[redirs[gpuSmplrIter++]];
+
+                    gpuBinding.samplers = smplr_ptr;
+                    smplr_ptr += gpuBinding.count;
+                }
             }
-            (*tmpBindings)[bndIter++] = gpubnd;
         }
-        (*res)[i] = _params.device->createDescriptorSetLayout((*tmpBindings).data(), (*tmpBindings).data() + bndIter);
+        assert(gpuBindingCount == cpudsl->getTotalBindingCount());
+
+        (*res)[i] = _params.device->createDescriptorSetLayout(tmpBindings->begin(), tmpBindings->begin() + gpuBindingCount);
     }
 
     return res;
@@ -1703,15 +1718,15 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 for (uint32_t b = 0u; b < activeBindingCount; ++b)
                 {
                     write_it->dstSet = gpuds;
-                    write_it->binding = cpuds->getLayout()->getDescriptorRedirect(type).getBindingNumbers()[b].data;
+                    write_it->binding = cpuds->getLayout()->getDescriptorRedirect(type).getBindingNumber(b).data;
                     write_it->arrayElement = 0u;
 
-                    uint32_t descriptorCount = cpuds->getLayout()->getDescriptorRedirect(type).getDescriptorCount(write_it->binding, b);
+                    uint32_t descriptorCount = cpuds->getLayout()->getDescriptorRedirect(type).getCount(b);
                     write_it->count = descriptorCount;
                     write_it->descriptorType = type;
                     write_it->info = &(*info);
 
-                    const uint32_t offset = cpuds->getLayout()->getDescriptorRedirect(type).getStorageOffsets()[b].data;
+                    const uint32_t offset = cpuds->getLayout()->getDescriptorRedirect(type).getStorageOffset(b).data;
 
                     auto descriptorInfos = cpuds->getDescriptorInfoStorage(type);
                     auto samplers = cpuds->getMutableSamplers(write_it->binding);

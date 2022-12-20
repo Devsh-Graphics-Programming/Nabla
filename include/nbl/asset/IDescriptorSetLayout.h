@@ -155,36 +155,6 @@ public:
 
 		inline uint32_t getBindingCount() const { return count; }
 
-		inline storage_offset_t getStorageOffset(const binding_number_t binding, uint32_t index = Invalid) const
-		{
-			if (index == Invalid)
-			{
-				index = searchForBinding(binding);
-				if (index == Invalid)
-					return Invalid;
-			}
-
-			return (index == 0u) ? 0u : storageOffsets[index - 1];
-		}
-
-		inline uint32_t getDescriptorCount(const binding_number_t binding, uint32_t index = Invalid) const
-		{
-			if (index == Invalid)
-			{
-				index = searchForBinding(binding);
-				if (index == Invalid)
-					return Invalid;
-			}
-
-			return (index == 0u) ? storageOffsets[index].data : storageOffsets[index].data - storageOffsets[index - 1].data;
-		}
-
-		inline uint32_t getTotalDescriptorCount() const { return (count == 0ull) ? 0u : storageOffsets[count - 1].data; }
-
-		// TODO(achal): I shouldn't be needing these anymore.
-		inline const binding_number_t* getBindingNumbers() const { return bindingNumbers; }
-		inline const storage_offset_t* getStorageOffsets() const { return storageOffsets; }
-
 		// Returns index into the binding property arrays below (including `storageOffsets`), for the given binding number `binding`.
 		// Assumes `bindingNumbers` is sorted and that there are no duplicate values in it.
 		inline uint32_t searchForBinding(const binding_number_t binding) const
@@ -203,6 +173,63 @@ public:
 			assert(foundIndex < count);
 			return foundIndex;
 		}
+
+		inline binding_number_t getBindingNumber(const uint32_t index) const
+		{
+			assert(index < count);
+			return bindingNumbers[index];
+		}
+
+		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const uint32_t index) const
+		{
+			assert(index < count);
+			return stageFlags[index];
+		}
+
+		inline uint32_t getCount(const uint32_t index) const
+		{
+			assert(index < count);
+			return (index == 0u) ? storageOffsets[index].data : storageOffsets[index].data - storageOffsets[index - 1].data;
+		}
+
+		inline storage_offset_t getStorageOffset(const uint32_t index) const
+		{
+			assert(index < count);
+			return (index == 0u) ? 0u : storageOffsets[index - 1];
+		}
+
+
+		// The follwoing are merely convienience functions for one off use.
+		// If you already have an index (the result of `searchForBinding`) lying around use the above functions for quick lookups.
+
+		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const binding_number_t binding) const
+		{
+			const auto index = searchForBinding(binding);
+			if (index == Invalid)
+				return Invalid;
+
+			return getStageFlags(index);
+		}
+
+		inline uint32_t getCount(const binding_number_t binding) const
+		{
+			const auto index = searchForBinding(binding);
+			if (index == Invalid)
+				return Invalid;
+
+			return getDescriptorCount(index);
+		}
+
+		inline storage_offset_t getStorageOffset(const binding_number_t binding) const
+		{
+			const auto index = searchForBinding(binding);
+			if (index == Invalid)
+				return Invalid;
+
+			return getStorageOffset(index);
+		}
+
+		inline uint32_t getTotalCount() const { return (count == 0ull) ? 0u : storageOffsets[count - 1].data; }
 
 	private:
 		friend class IDescriptorSetLayout;
@@ -230,12 +257,23 @@ public:
 				sizeof(storage_offset_t));
 
 			data = std::make_unique<uint8_t[]>(requiredMemSize);
-			dataAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, requiredMemSize);
+			{
+				uint64_t offset = 0ull;
 
-			bindingNumbers = reinterpret_cast<binding_number_t*>(data.get() + dataAllocator.alloc_addr(count * sizeof(binding_number_t), 1u));
-			createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(data.get() + dataAllocator.alloc_addr(count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>), 1u));
-			stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(data.get() + dataAllocator.alloc_addr(count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>), 1u));
-			storageOffsets = reinterpret_cast<storage_offset_t*>(data.get() + dataAllocator.alloc_addr(count * sizeof(storage_offset_t), 1u));
+				bindingNumbers = reinterpret_cast<binding_number_t*>(data.get() + offset);
+				offset += count * sizeof(binding_number_t);
+
+				createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(data.get() + offset);
+				offset += count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>);
+
+				stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(data.get() + offset);
+				offset += count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>);
+
+				storageOffsets = reinterpret_cast<storage_offset_t*>(data.get() + offset);
+				offset += count * sizeof(storage_offset_t);
+
+				assert(offset == requiredMemSize);
+			}
 
 			std::sort(info.begin(), info.end());
 
@@ -251,6 +289,29 @@ public:
 				[](storage_offset_t a, storage_offset_t b) -> storage_offset_t { return storage_offset_t{ a.data + b.data }; }, storage_offset_t{ 0u });
 		}
 
+		friend class ICPUDescriptorSetLayout;
+#if 0
+		inline CBindingRedirect clone() const
+		{
+			CBindingRedirect result;
+			result.count = count;
+
+			const size_t requiredMemSize = dataAllocator.get_total_size();
+			assert(requiredMemSize == dataAllocator.get_allocated_size());
+			result.data = std::make_unique<uint8_t[]>(requiredMemSize);
+			result.dataAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, requiredMemSize);
+
+			memcpy(result.data.get(), data.get(), requiredMemSize);
+
+			result.bindingNumbers = reinterpret_cast<binding_number_t*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(binding_number_t), 1u));
+			result.createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>), 1u));
+			result.stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>), 1u));
+			result.storageOffsets = reinterpret_cast<storage_offset_t*>(result.data.get() + result.dataAllocator.alloc_addr(result.count * sizeof(storage_offset_t), 1u));
+
+			return result;
+		}
+#endif
+
 		uint32_t count = 0u;
 
 		binding_number_t* bindingNumbers = nullptr;
@@ -259,7 +320,6 @@ public:
 		storage_offset_t* storageOffsets = nullptr;
 
 		std::unique_ptr<uint8_t[]> data = nullptr;
-		core::LinearAddressAllocator<uint32_t> dataAllocator;
 	};
 
 	// utility functions
@@ -279,26 +339,32 @@ public:
 		m_bindings((_end-_begin) ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin) : nullptr)
 	{
 		core::vector<CBindingRedirect::SBuildInfo> buildInfo_descriptors[asset::EDT_COUNT];
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_samplers;
+		core::vector<CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
+		core::vector<CBindingRedirect::SBuildInfo> buildInfo_mutableSamplers;
 
 		for (auto b = _begin; b != _end; ++b)
 		{
 			buildInfo_descriptors[b->type].emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
-			if (b->type == EDT_COMBINED_IMAGE_SAMPLER && b->samplers == nullptr)
-				buildInfo_samplers.emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
+
+			if (b->type == EDT_COMBINED_IMAGE_SAMPLER)
+			{
+				if (b->samplers)
+					buildInfo_immutableSamplers.emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
+				else
+					buildInfo_mutableSamplers.emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
+			}
 		}
 
 		for (auto type = 0u; type < asset::EDT_COUNT; ++type)
 			m_descriptorRedirects[type] = CBindingRedirect(std::move(buildInfo_descriptors[type]));
-		m_samplerRedirects = CBindingRedirect(std::move(buildInfo_samplers));
 
-		const uint32_t immutableSamplerCount = m_descriptorRedirects[EDT_COMBINED_IMAGE_SAMPLER].getTotalDescriptorCount() - m_samplerRedirects.getTotalDescriptorCount();
-		assert(static_cast<int32_t>(immutableSamplerCount) >= 0);
+		m_immutableSamplerRedirect = CBindingRedirect(std::move(buildInfo_immutableSamplers));
+		m_mutableSamplerRedirect = CBindingRedirect(std::move(buildInfo_mutableSamplers));
 
+		const uint32_t immutableSamplerCount = m_immutableSamplerRedirect.getTotalCount();
 		m_samplers = immutableSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>>>(immutableSamplerCount) : nullptr;
 
 		size_t bndCount = _end-_begin;
-
 		size_t immSamplersOffset = 0u;
 		for (size_t i = 0ull; i < bndCount; ++i)
 		{
@@ -359,7 +425,7 @@ public:
 
 			for (uint32_t i = 0u; i < bindingCount; ++i)
 			{
-				const bool equal = (lhs.bindingNumbers[i].data == rhs.bindingNumbers[i].data) && (lhs.createFlags[i].value == rhs.createFlags[i].value) && (lhs.stageFlags[i].value == rhs.stageFlags[i].value) && (lhs.getDescriptorCount(lhs.bindingNumbers[i], i) == rhs.getDescriptorCount(rhs.bindingNumbers[i], i));
+				const bool equal = (lhs.bindingNumbers[i].data == rhs.bindingNumbers[i].data) && (lhs.createFlags[i].value == rhs.createFlags[i].value) && (lhs.stageFlags[i].value == rhs.stageFlags[i].value) && (lhs.getCount(i) == rhs.getCount(i));
 				if (!equal)
 					return false;
 			}
@@ -387,11 +453,9 @@ public:
 		}
 	}
 
-	// TODO(achal): I shouldn't be needing these anymore.
-	inline size_t getTotalMutableSamplerCount() const { return m_samplerRedirects.getTotalDescriptorCount(); }
-	inline size_t getTotalDescriptorCount(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type].getTotalDescriptorCount(); }
-
-	core::SRange<const SBinding> getBindings() const { return {m_bindings->data(), m_bindings->data()+m_bindings->size()}; }
+	// TODO(achal): I'm not sure, should I keep these around?
+	inline uint32_t getTotalMutableSamplerCount() const { return m_mutableSamplerRedirect.getTotalCount(); }
+	inline uint32_t getTotalDescriptorCount(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type].getTotalCount(); }
 
 	inline uint32_t getTotalBindingCount() const
 	{
@@ -403,16 +467,14 @@ public:
 	}
 
 	inline const CBindingRedirect& getDescriptorRedirect(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type]; }
-	inline const CBindingRedirect& getSamplerRedirect() const { return m_samplerRedirects; }
-
-	// TODO(achal): I shouldn't be needing these anymore.
-	inline uint32_t getDescriptorOffset(const E_DESCRIPTOR_TYPE type, const uint32_t binding) const { return m_descriptorRedirects[type].getStorageOffset(binding).data; }
-	inline uint32_t getMutableSamplerOffset(const uint32_t binding) const { return m_samplerRedirects.getStorageOffset(binding).data; }
+	inline const CBindingRedirect& getImmutableSamplerRedirect() const { return m_immutableSamplerRedirect; }
+	inline const CBindingRedirect& getMutableSamplerRedirect() const { return m_mutableSamplerRedirect; }
 
 protected:
 	// Maps a binding number to a local (to descriptor set layout) offset, for a given descriptor type.
 	CBindingRedirect m_descriptorRedirects[asset::EDT_COUNT];
-	CBindingRedirect m_samplerRedirects;
+	CBindingRedirect m_immutableSamplerRedirect;
+	CBindingRedirect m_mutableSamplerRedirect;
 };
 
 }

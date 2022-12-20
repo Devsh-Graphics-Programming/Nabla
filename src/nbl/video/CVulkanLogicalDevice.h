@@ -472,7 +472,7 @@ public:
         core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(descriptorWriteCount);
 
         uint32_t bufferInfoOffset = 0u;
-        core::vector<VkDescriptorBufferInfo >vk_bufferInfos(descriptorWriteCount * MAX_DESCRIPTOR_ARRAY_COUNT);
+        core::vector<VkDescriptorBufferInfo>vk_bufferInfos(descriptorWriteCount * MAX_DESCRIPTOR_ARRAY_COUNT);
 
         uint32_t imageInfoOffset = 0u;
         core::vector<VkDescriptorImageInfo> vk_imageInfos(descriptorWriteCount * MAX_DESCRIPTOR_ARRAY_COUNT);

@@ -467,23 +467,32 @@ public:
 
 		auto updateDS = [this, coverageAdjustmentScratchBuffer](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos) -> bool
 		{
-			const auto& bindings = ds->getLayout()->getBindings();
-			if ((bindings.size() == 3) && !coverageAdjustmentScratchBuffer)
+			const auto bindingCount = ds->getLayout()->getTotalBindingCount();
+			if ((bindingCount == 3) && !coverageAdjustmentScratchBuffer)
 				return false;
 
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
 
-			for (auto i = 0; i < bindings.size(); ++i)
+			uint32_t writeCount = 0;
+			for (uint32_t t = 0; t < asset::EDT_COUNT; ++t)
 			{
-				writes[i].dstSet = ds;
-				writes[i].binding = i;
-				writes[i].arrayElement = 0u;
-				writes[i].count = 1u;
-				writes[i].info = &infos[i];
-				writes[i].descriptorType = bindings.begin()[i].type;
-			}
+				const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+				const auto& redirect = ds->getLayout()->getDescriptorRedirect(type);
+				const auto declaredBindingCount = redirect.getBindingCount();
 
-			m_device->updateDescriptorSets(bindings.size(), writes, 0u, nullptr);
+				for (uint32_t i = 0; i < declaredBindingCount; ++i)
+				{
+					auto& write = writes[writeCount++];
+					write.dstSet = ds;
+					write.binding = redirect.getBindingNumber(i).data;
+					write.arrayElement = 0u;
+					write.count = redirect.getCount(i);
+					write.info = &infos[i];
+					write.descriptorType = type;
+				}
+			}
+			assert(writeCount == bindingCount);
+			m_device->updateDescriptorSets(writeCount, writes, 0u, nullptr);
 
 			return true;
 		};
