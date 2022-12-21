@@ -322,23 +322,19 @@ using namespace nbl::asset;
 				auto defaultSampler = _override->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",context.loadContext,0u).first;
 				for (uint16_t i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
 				{
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
-					descriptor.begin()[0] = defaultImageView;
-					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-
-					auto samplers = material.descriptorSet->getMutableSamplers(i);
-					samplers.begin()[0] = defaultSampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = defaultImageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = defaultSampler;
 				}
 				auto setImage = [&cpuTextures,&material](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
 				{
 					const auto& [imageView,sampler] = cpuTextures[globalTextureIndex];
 
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(localTextureIndex, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
-					descriptor.begin()[0] = imageView;
-					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-
-					auto samplers = material.descriptorSet->getMutableSamplers(localTextureIndex);
-					samplers.begin()[0] = sampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(localTextureIndex, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = imageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				};
 
 				auto& pushConstants = material.pushConstants;
@@ -377,12 +373,10 @@ using namespace nbl::asset;
 					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<false>(cpuTextures[normalTextureID].first->getCreationParameters().image.get(), scales);
 					auto& sampler = cpuTextures[normalTextureID].second;
 
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
-					descriptor.begin()[0] = imageView;
-					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-
-					auto samplers = material.descriptorSet->getMutableSamplers(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE);
-					samplers.begin()[0] = sampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = imageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				}
 				if (glTFMaterial.occlusionTexture.has_value() && glTFMaterial.occlusionTexture.value().index.has_value())
 				{

@@ -1632,12 +1632,13 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
         for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {
             const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-            if (!cpuds->getDescriptorStorage(type))
+            if (!cpuds->getDescriptorInfoStorage(type))
                 continue;
 
             for (uint32_t d = 0u; d < cpuds->getLayout()->getTotalDescriptorCount(type); ++d)
             {
-                auto descriptor = cpuds->getDescriptorStorage(type)[d].get();
+                auto* info = cpuds->getDescriptorInfoStorage(type) + d;
+                auto descriptor = info->desc.get();
                 if (isBufferDesc(type))
                 {
                     auto cpuBuf = static_cast<asset::ICPUBuffer*>(descriptor);
@@ -1664,6 +1665,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                     if (cpuImg)
                         cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
                     cpuImgViews.push_back(cpuImgView);
+                    if (info->info.image.sampler)
+                        cpuSamplers.push_back(info->info.image.sampler.get());
                 }
                 else if (isStorageImgDesc(type))
                 {
@@ -1675,9 +1678,6 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 }
             }
         }
-
-        for (uint32_t s = 0u; s < cpuds->getLayout()->getTotalMutableSamplerCount(); ++s)
-            cpuSamplers.push_back(cpuds->getMutableSamplerStorage()[s].get());
     }
 
 	using redirs_t = core::vector<size_t>;
@@ -1730,7 +1730,6 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                     const uint32_t offset = cpuds->getLayout()->getDescriptorRedirect(type).getStorageOffset(b).data;
 
                     auto descriptorInfos = cpuds->getDescriptorInfoStorage(type);
-                    auto samplers = cpuds->getMutableSamplers(write_it->binding);
 
                     // Iterate through each descriptor in this binding to fill the info structs
                     bool allDescriptorsPresent = true;
@@ -1742,8 +1741,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                             if (buffer)
                             {
                                 info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
-                                info->info.buffer.offset = descriptorInfos[offset + d].buffer.offset + buffer->getOffset();
-                                info->info.buffer.size = descriptorInfos[offset+d].buffer.size;
+                                info->info.buffer.offset = descriptorInfos[offset + d].info.buffer.offset + buffer->getOffset();
+                                info->info.buffer.size = descriptorInfos[offset+d].info.buffer.size;
                             }
                             else
                             {
@@ -1775,7 +1774,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                                     const auto imageFormat = static_cast<asset::ICPUImageView*>(info->desc.get())->getCreationParameters().format;
                                     info->info.image.imageLayout = isDepthOrStencilFormat(imageFormat) ? asset::IImage::EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL : asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
-                                    if (samplers.size() != 0ull)
+                                    if (descriptorInfos[offset + d].info.image.sampler)
                                         info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
                                 }
                             }

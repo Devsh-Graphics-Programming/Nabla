@@ -409,10 +409,10 @@ void IAssetManager::insertBuiltinAssets()
             //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
 
-            auto [descriptor, info] = ds1->getDescriptors(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
-            descriptor.begin()[0] = std::move(ubo);
-            info.begin()[0].buffer.offset = 0ull;
-            info.begin()[0].buffer.size = UBO_SZ;
+            auto descriptorInfos = ds1->getDescriptorInfos(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+            descriptorInfos.begin()[0].desc = std::move(ubo);
+            descriptorInfos.begin()[0].info.buffer.offset = 0ull;
+            descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
         }
         addBuiltInToCaches(ds1, "nbl/builtin/descriptor_set/basic_view_parameters");
         addBuiltInToCaches(defaultDs1Layout, "nbl/builtin/descriptor_set_layout/basic_view_parameters");

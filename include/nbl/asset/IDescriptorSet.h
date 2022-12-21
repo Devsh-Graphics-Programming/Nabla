@@ -54,7 +54,6 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
                 {
 					// This will be ignored if the DS layout already has an immutable sampler specified for the binding.
                     core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
-                    //! Irrelevant in OpenGL backend
                     IImage::E_LAYOUT imageLayout;
                 };
                     
@@ -171,47 +170,6 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 
 		core::smart_refctd_ptr<layout_t> m_layout;
 };
-
-
-
-namespace impl
-{
-	
-//! Only reason this class exists is because OpenGL back-end implements a similar interface
-template<typename LayoutType>
-class NBL_API IEmulatedDescriptorSet
-{
-	public:
-		//! Contructor computes the flattened out array of descriptors
-		IEmulatedDescriptorSet(LayoutType* _layout)
-		{
-			if (!_layout)
-				return;
-
-			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
-			{
-				const auto type = static_cast<IDescriptor::E_TYPE>(t);
-				const uint32_t count = _layout->getTotalDescriptorCount(type);
-				if (count == 0u)
-					continue;
-
-				m_descriptors[t] = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>>>(count);
-			}
-
-			const uint32_t mutableSamplerCount = _layout->getTotalMutableSamplerCount();
-			if (mutableSamplerCount > 0u)
-				m_mutableSamplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<ICPUSampler>>>(mutableSamplerCount);
-		}
-
-	protected:
-		virtual ~IEmulatedDescriptorSet() = default;
-
-	protected:
-		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>> m_descriptors[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
-		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<ICPUSampler>> m_mutableSamplers = nullptr;
-};
-
-}
 
 }
 
