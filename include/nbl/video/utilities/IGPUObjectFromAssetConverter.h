@@ -1632,12 +1632,12 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
         for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {
             const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-            if (!cpuds->getDescriptorInfoStorage(type))
+            if (cpuds->getDescriptorInfoStorage(type).empty())
                 continue;
 
             for (uint32_t d = 0u; d < cpuds->getLayout()->getTotalDescriptorCount(type); ++d)
             {
-                auto* info = cpuds->getDescriptorInfoStorage(type) + d;
+                auto* info = cpuds->getDescriptorInfoStorage(type).begin() + d;
                 auto descriptor = info->desc.get();
                 if (isBufferDesc(type))
                 {
@@ -1722,13 +1722,16 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                     write_it->binding = cpuds->getLayout()->getDescriptorRedirect(type).getBindingNumber(b).data;
                     write_it->arrayElement = 0u;
 
-                    uint32_t descriptorCount = cpuds->getLayout()->getDescriptorRedirect(type).getCount(b);
+                    const uint32_t descriptorCount = cpuds->getLayout()->getDescriptorRedirect(type).getCount(b);
                     write_it->count = descriptorCount;
                     write_it->descriptorType = type;
                     write_it->info = &(*info);
 
                     const uint32_t offset = cpuds->getLayout()->getDescriptorRedirect(type).getStorageOffset(b).data;
 
+                    // It is better to use getDescriptorInfoStorage over getDescriptorInfos, because the latter does a binary search
+                    // over the bindings, which is not really required given we have the index of binding number (since we're iterating
+                    // over all the declared bindings).
                     auto descriptorInfos = cpuds->getDescriptorInfoStorage(type);
 
                     // Iterate through each descriptor in this binding to fill the info structs
@@ -1741,8 +1744,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                             if (buffer)
                             {
                                 info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
-                                info->info.buffer.offset = descriptorInfos[offset + d].info.buffer.offset + buffer->getOffset();
-                                info->info.buffer.size = descriptorInfos[offset+d].info.buffer.size;
+                                info->info.buffer.offset = descriptorInfos.begin()[offset+d].info.buffer.offset + buffer->getOffset();
+                                info->info.buffer.size = descriptorInfos.begin()[offset+d].info.buffer.size;
                             }
                             else
                             {
@@ -1774,7 +1777,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                                     const auto imageFormat = static_cast<asset::ICPUImageView*>(info->desc.get())->getCreationParameters().format;
                                     info->info.image.imageLayout = isDepthOrStencilFormat(imageFormat) ? asset::IImage::EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL : asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
-                                    if (descriptorInfos[offset + d].info.image.sampler)
+                                    if (descriptorInfos.begin()[offset + d].info.image.sampler)
                                         info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
                                 }
                             }

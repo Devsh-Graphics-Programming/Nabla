@@ -68,9 +68,15 @@ public:
 		return 0xdeadbeefull;
 	}
 
-	inline SDescriptorInfo* getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const { return m_descriptorInfos[static_cast<uint32_t>(type)]->begin(); }
+	inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
+	{
+		if (!m_descriptorInfos[static_cast<uint32_t>(type)])
+			return { nullptr, nullptr };
+		else
+			return { m_descriptorInfos[static_cast<uint32_t>(type)]->begin(), m_descriptorInfos[static_cast<uint32_t>(type)]->end() };
+	}
 
-	core::SRange<SDescriptorInfo> getDescriptorInfos(const uint32_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
+	core::SRange<SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
 
 	core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 

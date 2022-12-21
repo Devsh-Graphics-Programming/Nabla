@@ -3,7 +3,7 @@
 namespace nbl::asset
 {
 
-core::SRange<ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const uint32_t binding, IDescriptor::E_TYPE type)
+core::SRange<ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type)
 {
 	if (type == IDescriptor::E_TYPE::ET_COUNT)
 	{
