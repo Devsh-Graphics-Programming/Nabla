@@ -167,7 +167,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
 			{
 				bindings[i].binding = i;
-				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
@@ -189,7 +189,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)
 			{
 				bindings[i].binding = i;
-				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
@@ -234,7 +234,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				uint32_t count = InputDescriptorBindingCount;
@@ -275,7 +275,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				uint32_t count = OutputDescriptorBindingCount;

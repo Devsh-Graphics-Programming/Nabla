@@ -156,7 +156,7 @@ class NBL_API CToneMapper : public core::IReferenceCounted, public core::Interfa
 				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t<MeterMode>);
 
 				pWrites[0].binding = lumaUniformsBinding;
-				pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
+				pWrites[0].descriptorType = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC;
 			}
 			else
 				outputImageIx = 0u;
@@ -167,11 +167,11 @@ class NBL_API CToneMapper : public core::IReferenceCounted, public core::Interfa
 
 
 			pWrites[1].binding = inputParameterBinding;
-			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER_DYNAMIC;
+			pWrites[1].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC;
 			pWrites[2].binding = inputImageBinding;
-			pWrites[2].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+			pWrites[2].descriptorType = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
 			pWrites[outputImageIx].binding = outputImageBinding;
-			pWrites[outputImageIx].descriptorType = asset::EDT_STORAGE_IMAGE;
+			pWrites[outputImageIx].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
 
 			driver->updateDescriptorSets(lumaUniformsDescriptor ? 4u:3u, pWrites, 0u, nullptr);
 		}

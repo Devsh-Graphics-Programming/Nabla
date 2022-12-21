@@ -242,9 +242,9 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
                 const auto setCount = setCounts ? (*setCountsIt):1u;
                 totalSetCount += setCount;
 
-                for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
+                for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 {
-                    const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+                    const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
                     const auto& redirect = (*curLayout)->getDescriptorRedirect(type);
                     const auto declaredBindingCount = redirect.getBindingCount();
 

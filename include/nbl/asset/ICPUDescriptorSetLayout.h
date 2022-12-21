@@ -34,7 +34,7 @@ class NBL_API ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>
             auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr, nullptr);
             clone_common(cp.get());
 
-            for (uint32_t t = 0; t < asset::EDT_COUNT; ++t)
+            for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 cp->m_descriptorRedirects[t] = m_descriptorRedirects[t].clone();
             cp->m_immutableSamplerRedirect = m_immutableSamplerRedirect.clone();
             cp->m_mutableSamplerRedirect = m_mutableSamplerRedirect.clone();
@@ -60,7 +60,7 @@ class NBL_API ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>
 		size_t conservativeSizeEstimate() const override
         {
             size_t result = 0ull;
-            for (uint32_t t = 0; t < asset::EDT_COUNT; ++t)
+            for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 result += m_descriptorRedirects[t].conservativeSizeEstimate();
             result += m_immutableSamplerRedirect.conservativeSizeEstimate();
             result += m_mutableSamplerRedirect.conservativeSizeEstimate();

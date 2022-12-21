@@ -236,7 +236,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
                     ICPUDescriptorSetLayout::SBinding bnd;
                     bnd.count = 1u;
                     bnd.stageFlags = ICPUShader::ESS_FRAGMENT;
-                    bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
+                    bnd.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
                     bnd.binding = 0u;
                     std::fill(bindings->begin(), bindings->end(), bnd);
 
@@ -707,7 +707,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     auto dummy2d = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW).first;
     for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
     {
-        auto [descriptor, info] = ds->getDescriptors(i, EDT_COMBINED_IMAGE_SAMPLER);
+        auto [descriptor, info] = ds->getDescriptors(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
         descriptor.begin()[0] = _views[i] ? std::move(_views[i]) : dummy2d;
         info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
     }

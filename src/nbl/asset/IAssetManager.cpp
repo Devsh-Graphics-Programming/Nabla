@@ -280,7 +280,7 @@ void IAssetManager::insertBuiltinAssets()
     binding1.count = 1u;
     binding1.binding = 0u;
     binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-    binding1.type = asset::EDT_UNIFORM_BUFFER;
+    binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
     addBuiltInToCaches(ds1Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/1");
@@ -291,7 +291,7 @@ void IAssetManager::insertBuiltinAssets()
 
     asset::ICPUDescriptorSetLayout::SBinding binding3;
     binding3.binding = 0u;
-    binding3.type = EDT_COMBINED_IMAGE_SAMPLER;
+    binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
     binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
     binding3.samplers = nullptr;
@@ -395,7 +395,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
     }
@@ -409,7 +409,7 @@ void IAssetManager::insertBuiltinAssets()
             //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
 
-            auto [descriptor, info] = ds1->getDescriptors(0u, EDT_UNIFORM_BUFFER);
+            auto [descriptor, info] = ds1->getDescriptors(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
             descriptor.begin()[0] = std::move(ubo);
             info.begin()[0].buffer.offset = 0ull;
             info.begin()[0].buffer.size = UBO_SZ;
@@ -425,7 +425,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);

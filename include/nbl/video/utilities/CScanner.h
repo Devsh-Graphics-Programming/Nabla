@@ -271,8 +271,8 @@ class NBL_API CScanner final : public core::IReferenceCounted
 
 			const asset::SPushConstantRange pc_range = { asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
 			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
-				{ 0u, asset::EDT_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr }, // main buffer
-				{ 1u, asset::EDT_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr } // scratch
+				{ 0u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr }, // main buffer
+				{ 1u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr } // scratch
 			};
 
 			m_ds_layout = m_device->createDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
@@ -354,7 +354,7 @@ class NBL_API CScanner final : public core::IReferenceCounted
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 

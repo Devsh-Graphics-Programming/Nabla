@@ -70,7 +70,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
-        inline E_TYPE getAssetType() const override { return AssetType; }
+        inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
 

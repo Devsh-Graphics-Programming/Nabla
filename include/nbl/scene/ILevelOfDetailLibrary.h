@@ -210,7 +210,7 @@ class NBL_API ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			for (auto i=0u; i<DescriptorBindingCount; i++)
 			{
 				bindings[i].binding = i;
-				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
@@ -254,7 +254,7 @@ class NBL_API ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				device->updateDescriptorSets(DescriptorBindingCount,writes,0u,nullptr);

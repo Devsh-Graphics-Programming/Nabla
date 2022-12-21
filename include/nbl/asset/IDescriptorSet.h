@@ -13,7 +13,7 @@
 
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IDescriptor.h"
-#include "nbl/asset/IDescriptorSetLayout.h" //for E_DESCRIPTOR_TYPE
+#include "nbl/asset/IDescriptorSetLayout.h" //for IDescriptor::E_TYPE
 #include "nbl/core/SRange.h"
 
 namespace nbl::asset
@@ -145,7 +145,7 @@ class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
 			uint32_t binding;
 			uint32_t arrayElement;
 			uint32_t count;
-			E_DESCRIPTOR_TYPE descriptorType;
+			IDescriptor::E_TYPE descriptorType;
 			SDescriptorInfo* info;
 		};
 
@@ -188,14 +188,14 @@ class NBL_API IEmulatedDescriptorSet
 			if (!_layout)
 				return;
 
-			for (uint32_t t = 0u; t < EDT_COUNT; ++t)
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 			{
-				const auto type = static_cast<E_DESCRIPTOR_TYPE>(t);
+				const auto type = static_cast<IDescriptor::E_TYPE>(t);
 				const uint32_t count = _layout->getTotalDescriptorCount(type);
 				if (count == 0u)
 					continue;
 
-				m_descriptors[type] = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>>>(count);
+				m_descriptors[t] = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>>>(count);
 			}
 
 			const uint32_t mutableSamplerCount = _layout->getTotalMutableSamplerCount();
@@ -207,7 +207,7 @@ class NBL_API IEmulatedDescriptorSet
 		virtual ~IEmulatedDescriptorSet() = default;
 
 	protected:
-		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>> m_descriptors[EDT_COUNT];
+		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IDescriptor>> m_descriptors[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<ICPUSampler>> m_mutableSamplers = nullptr;
 };
 

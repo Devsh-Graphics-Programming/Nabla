@@ -11,11 +11,11 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
     for (auto b=_begin; b!=_end; ++b)
     {
-        if (b->type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
+        if (b->type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
             dynamicSSBOCount++;
-        else if (b->type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+        else if (b->type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
             dynamicUBOCount++;
-        else if (b->type == asset::EDT_COMBINED_IMAGE_SAMPLER && b->samplers)
+        else if (b->type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b->samplers)
         {
             auto* samplers = b->samplers;
             for (uint32_t i = 0u; i < b->count; ++i)
@@ -52,9 +52,9 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         const auto* srcDS = static_cast<const IGPUDescriptorSet*>(pDescriptorCopies[i].srcSet);
         auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
 
-        for (uint32_t t = 0; t < asset::EDT_COUNT; ++t)
+        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {
-            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
 
             auto* srcDescriptors = srcDS->getDescriptors(type, pDescriptorCopies[i].srcBinding);
             auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);

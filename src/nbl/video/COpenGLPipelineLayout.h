@@ -49,13 +49,13 @@ public:
 
             auto bindings = descSetLayout ? descSetLayout->getBindings() : core::SRange<const IGPUDescriptorSetLayout::SBinding>(nullptr, nullptr);
             for (const auto& bnd : bindings) {
-                if (bnd.type == asset::EDT_UNIFORM_BUFFER || bnd.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+                if (bnd.type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER || bnd.type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
                     params.ubos.count += bnd.count;
-                else if (bnd.type == asset::EDT_STORAGE_BUFFER || bnd.type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
+                else if (bnd.type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER || bnd.type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
                     params.ssbos.count += bnd.count;
-                else if (bnd.type == asset::EDT_COMBINED_IMAGE_SAMPLER || bnd.type == asset::EDT_UNIFORM_TEXEL_BUFFER)
+                else if (bnd.type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER || bnd.type == asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)
                     params.textures.count += bnd.count;
-                else if (bnd.type == asset::EDT_STORAGE_IMAGE || bnd.type == asset::EDT_STORAGE_TEXEL_BUFFER)
+                else if (bnd.type == asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE || bnd.type == asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER)
                     params.textureImages.count += bnd.count;
             }
             m_multibindParams[i] = params;

@@ -14,32 +14,6 @@ namespace nbl
 namespace asset
 {
 
-// TODO: move this to appropriate class
-enum E_DESCRIPTOR_TYPE : uint8_t
-{
-    EDT_COMBINED_IMAGE_SAMPLER = 0,
-    EDT_STORAGE_IMAGE,
-    EDT_UNIFORM_TEXEL_BUFFER,
-    EDT_STORAGE_TEXEL_BUFFER,
-    EDT_UNIFORM_BUFFER,
-    EDT_STORAGE_BUFFER,
-    EDT_UNIFORM_BUFFER_DYNAMIC,
-    EDT_STORAGE_BUFFER_DYNAMIC,
-    EDT_INPUT_ATTACHMENT,
-	// Provided by VK_KHR_acceleration_structure
-	EDT_ACCELERATION_STRUCTURE,
-
-	// Support for the following is not available:
-	// Provided by VK_EXT_inline_uniform_block
-	// EDT_INLINE_UNIFORM_BLOCK_EXT,
-	// Provided by VK_NV_ray_tracing
-	// EDT_ACCELERATION_STRUCTURE_NV = 1000165000,
-	// Provided by VK_VALVE_mutable_descriptor_type
-	// EDT_MUTABLE_VALVE = 1000351000,
-
-	EDT_COUNT
-};
-
 //! Interface class for Descriptor Set Layouts
 /*
 	The descriptor set layout specifies the bindings (in the shader GLSL
@@ -78,7 +52,7 @@ public:
 		};
 
 		uint32_t binding;
-		E_DESCRIPTOR_TYPE type;
+		IDescriptor::E_TYPE type;
 		core::bitflag<E_CREATE_FLAGS> createFlags;
 		core::bitflag<IShader::E_SHADER_STAGE> stageFlags;
 		uint32_t count;
@@ -280,7 +254,7 @@ public:
 	};
 
 	// utility functions
-	static inline void fillBindingsSameType(SBinding* bindings, uint32_t count, E_DESCRIPTOR_TYPE type, const uint32_t* counts=nullptr, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
+	static inline void fillBindingsSameType(SBinding* bindings, uint32_t count, IDescriptor::E_TYPE type, const uint32_t* counts=nullptr, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 	{
 		for (auto i=0u; i<count; i++)
 		{
@@ -297,7 +271,7 @@ public:
 		if (!_other || getTotalBindingCount() != _other->getTotalBindingCount())
 			return false;
 
-		for (uint32_t t = 0u; t < EDT_COUNT; ++t)
+		for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 		{
 			const auto& lhs = m_descriptorRedirects[t];
 			const auto& rhs = _other->m_descriptorRedirects[t];
@@ -336,18 +310,18 @@ public:
 	}
 
 	inline uint32_t getTotalMutableSamplerCount() const { return m_mutableSamplerRedirect.getTotalCount(); }
-	inline uint32_t getTotalDescriptorCount(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type].getTotalCount(); }
+	inline uint32_t getTotalDescriptorCount(const IDescriptor::E_TYPE type) const { return m_descriptorRedirects[static_cast<uint32_t>(type)].getTotalCount(); }
 
 	inline uint32_t getTotalBindingCount() const
 	{
 		uint32_t result = 0u;
-		for (uint32_t t = 0; t < EDT_COUNT; ++t)
+		for (uint32_t t = 0; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 			result += m_descriptorRedirects[t].getBindingCount();
 
 		return result;
 	}
 
-	inline const CBindingRedirect& getDescriptorRedirect(const E_DESCRIPTOR_TYPE type) const { return m_descriptorRedirects[type]; }
+	inline const CBindingRedirect& getDescriptorRedirect(const IDescriptor::E_TYPE type) const { return m_descriptorRedirects[static_cast<uint32_t>(type)]; }
 	inline const CBindingRedirect& getImmutableSamplerRedirect() const { return m_immutableSamplerRedirect; }
 	inline const CBindingRedirect& getMutableSamplerRedirect() const { return m_mutableSamplerRedirect; }
 
@@ -362,15 +336,15 @@ public:
 protected:
 	IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end)
 	{
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_descriptors[asset::EDT_COUNT];
+		core::vector<CBindingRedirect::SBuildInfo> buildInfo_descriptors[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 		core::vector<CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
 		core::vector<CBindingRedirect::SBuildInfo> buildInfo_mutableSamplers;
 
 		for (auto b = _begin; b != _end; ++b)
 		{
-			buildInfo_descriptors[b->type].emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
+			buildInfo_descriptors[static_cast<uint32_t>(b->type)].emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
 
-			if (b->type == EDT_COMBINED_IMAGE_SAMPLER)
+			if (b->type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
 			{
 				if (b->samplers)
 					buildInfo_immutableSamplers.emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
@@ -379,7 +353,7 @@ protected:
 			}
 		}
 
-		for (auto type = 0u; type < asset::EDT_COUNT; ++type)
+		for (auto type = 0u; type < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++type)
 			m_descriptorRedirects[type] = CBindingRedirect(std::move(buildInfo_descriptors[type]));
 
 		m_immutableSamplerRedirect = CBindingRedirect(std::move(buildInfo_immutableSamplers));
@@ -390,7 +364,7 @@ protected:
 
 		for (auto b = _begin; b != _end; ++b)
 		{
-			if (b->type == EDT_COMBINED_IMAGE_SAMPLER && b->samplers)
+			if (b->type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b->samplers)
 			{
 				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(CBindingRedirect::binding_number_t(b->binding)).data;
 				assert(localOffset != m_immutableSamplerRedirect.Invalid);
@@ -403,7 +377,7 @@ protected:
 
 	virtual ~IDescriptorSetLayout() = default;
 
-	CBindingRedirect m_descriptorRedirects[asset::EDT_COUNT];
+	CBindingRedirect m_descriptorRedirects[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 	CBindingRedirect m_immutableSamplerRedirect;
 	CBindingRedirect m_mutableSamplerRedirect;
 

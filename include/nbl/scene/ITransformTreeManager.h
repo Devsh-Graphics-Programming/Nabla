@@ -33,7 +33,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUDescriptorSetLayout::SBinding bnd[BindingCount];
 			bnd[0].binding = 0u;
 			bnd[0].count = 1u;
-			bnd[0].type = asset::EDT_STORAGE_BUFFER;
+			bnd[0].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			bnd[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bnd[0].samplers = nullptr;
 			for (auto i = 1u; i < BindingCount; i++)
@@ -60,7 +60,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);

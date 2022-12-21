@@ -36,7 +36,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 		//! @see getDescriptors()
 		ICPUDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout) : base_t(std::move(_layout)), IAsset(), impl_t(m_layout.get())
 		{
-			for (uint32_t t = 0u; t < EDT_COUNT; ++t)
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 			{
 				if (m_descriptors[t])
 					m_descriptorInfos[t] = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo::SBufferImageInfo>>(m_descriptors[t]->size());
@@ -85,11 +85,11 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 				return nullptr;
 			};
 
-			for (uint32_t t = 0u; t < EDT_COUNT; ++t)
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 			{
-				const auto type = static_cast<E_DESCRIPTOR_TYPE>(t);
+				const auto type = static_cast<IDescriptor::E_TYPE>(t);
 
-				for (uint32_t i = 0u; i < m_descriptors[type]->size(); ++i)
+				for (uint32_t i = 0u; i < m_descriptors[t]->size(); ++i)
 				{
 					const auto& srcDescriptor = getDescriptorStorage(type)[i];
 					const auto& srcDescriptorInfo = getDescriptorInfoStorage(type)[i];
@@ -123,14 +123,14 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
                 --referenceLevelsBelowToConvert;
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 
-				for (uint32_t t = 0u; t < EDT_COUNT; ++t)
+				for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 				{
-					const auto type = static_cast<E_DESCRIPTOR_TYPE>(t);
+					const auto type = static_cast<IDescriptor::E_TYPE>(t);
 					const auto descriptorCount = m_layout->getTotalDescriptorCount(type);
 					if (descriptorCount == 0ull)
 						continue;
 
-					auto descriptors = m_descriptors[type]->begin();
+					auto descriptors = m_descriptors[t]->begin();
 					assert(descriptors);
 
 					for (uint32_t i = 0u; i < descriptorCount; ++i)
@@ -171,13 +171,13 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 		}
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
-		std::pair<core::SRange<core::smart_refctd_ptr<IDescriptor>>, core::SRange<SDescriptorInfo::SBufferImageInfo>> getDescriptors(const uint32_t binding, E_DESCRIPTOR_TYPE type = EDT_COUNT)
+		std::pair<core::SRange<core::smart_refctd_ptr<IDescriptor>>, core::SRange<SDescriptorInfo::SBufferImageInfo>> getDescriptors(const uint32_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT)
 		{
-			if (type == EDT_COUNT)
+			if (type == IDescriptor::E_TYPE::ET_COUNT)
 			{
-				for (uint32_t t = 0; t < EDT_COUNT; ++t)
+				for (uint32_t t = 0; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 				{
-					const auto possibleType = static_cast<E_DESCRIPTOR_TYPE>(t);
+					const auto possibleType = static_cast<IDescriptor::E_TYPE>(t);
 					const auto& redirect = getLayout()->getDescriptorRedirect(possibleType);
 					if (redirect.searchForBinding(binding) != redirect.Invalid)
 					{
@@ -186,7 +186,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 					}
 				}
 
-				if (type == EDT_COUNT)
+				if (type == IDescriptor::E_TYPE::ET_COUNT)
 					return { {nullptr, nullptr}, {nullptr, nullptr} };
 			}
 
@@ -198,8 +198,8 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			const auto descriptorOffset = redirect.getStorageOffset(bindingNumberIndex).data;
 			const auto descriptorCount = redirect.getCount(bindingNumberIndex);
 
-			auto descriptorsBegin = m_descriptors[type]->begin() + descriptorOffset;
-			auto descriptorInfosBegin = m_descriptorInfos[type]->begin() + descriptorOffset;
+			auto descriptorsBegin = m_descriptors[static_cast<uint32_t>(type)]->begin() + descriptorOffset;
+			auto descriptorInfosBegin = m_descriptorInfos[static_cast<uint32_t>(type)]->begin() + descriptorOffset;
 
 			return { {descriptorsBegin, descriptorsBegin+descriptorCount}, {descriptorInfosBegin, descriptorInfosBegin+descriptorCount} };
 		}
@@ -221,8 +221,8 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			return { samplersBegin, samplersBegin + count };
 		}
 
-		inline core::smart_refctd_ptr<IDescriptor>* getDescriptorStorage(const E_DESCRIPTOR_TYPE type) const { return m_descriptors[type]->begin(); }
-		inline SDescriptorInfo::SBufferImageInfo* getDescriptorInfoStorage(const E_DESCRIPTOR_TYPE type) const { return m_descriptorInfos[type]->begin(); }
+		inline core::smart_refctd_ptr<IDescriptor>* getDescriptorStorage(const IDescriptor::E_TYPE type) const { return m_descriptors[static_cast<uint32_t>(type)]->begin(); }
+		inline SDescriptorInfo::SBufferImageInfo* getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const { return m_descriptorInfos[static_cast<uint32_t>(type)]->begin(); }
 		inline core::smart_refctd_ptr<ICPUSampler>* getMutableSamplerStorage() const { return m_mutableSamplers->begin(); }
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
@@ -241,17 +241,17 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 				--_levelsBelow;
 				restoreFromDummy_impl_call(m_layout.get(), other->getLayout(), _levelsBelow);
 
-				for (uint32_t t = 0u; t < EDT_COUNT; ++t)
+				for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 				{
-					const auto type = static_cast<E_DESCRIPTOR_TYPE>(t);
+					const auto type = static_cast<IDescriptor::E_TYPE>(t);
 					const auto descriptorCount = m_layout->getTotalDescriptorCount(type);
 					if (descriptorCount == 0ull)
 						continue;
 
-					auto descriptors = m_descriptors[type]->begin();
+					auto descriptors = m_descriptors[t]->begin();
 					assert(descriptors);
 
-					auto otherDescriptors = other->m_descriptors[type]->begin();
+					auto otherDescriptors = other->m_descriptors[t]->begin();
 
 					for (uint32_t i = 0u; i < descriptorCount; ++i)
 					{
@@ -286,14 +286,14 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			if (m_layout->isAnyDependencyDummy(_levelsBelow))
 				return true;
 
-			for (uint32_t t = 0u; t < EDT_COUNT; ++t)
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 			{
-				const auto type = static_cast<E_DESCRIPTOR_TYPE>(t);
+				const auto type = static_cast<IDescriptor::E_TYPE>(t);
 				const auto descriptorCount = m_layout->getTotalDescriptorCount(type);
 				if (descriptorCount == 0ull)
 					continue;
 
-				auto descriptors = m_descriptors[type]->begin();
+				auto descriptors = m_descriptors[t]->begin();
 				assert(descriptors);
 
 				for (uint32_t i = 0u; i < descriptorCount; ++i)
@@ -336,7 +336,7 @@ class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetL
 			void allocateDescriptors() override { assert(!"Invalid code path."); }
 
 			// Mutable samplers are NOT stored in this array (in SDescriptorInfo::SImageInfo::sampler member), but in IEmulatedDescriptorSet::m_mutableSamplers.
-			core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo::SBufferImageInfo> m_descriptorInfos[EDT_COUNT];
+			core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo::SBufferImageInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 };
 
 }

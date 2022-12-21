@@ -486,8 +486,8 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT 
                         dynamicOffsetCountPerSet[i] += descriptorBindingRedirect.getCount(b);
                 };
 
-                addDynamicOffsetCount(pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::EDT_STORAGE_BUFFER_DYNAMIC));
-                addDynamicOffsetCount(pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::EDT_UNIFORM_BUFFER_DYNAMIC));
+                addDynamicOffsetCount(pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC));
+                addDynamicOffsetCount(pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC));
             }
         }
     }

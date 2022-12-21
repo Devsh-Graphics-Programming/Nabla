@@ -44,13 +44,13 @@ class NBL_API ISkinInstanceCache : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createCacheDescriptorSetLayout(asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			asset::ICPUDescriptorSetLayout::SBinding bindings[CacheDescriptorSetBindingCount];
-            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheDescriptorSetBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+CacheDescriptorSetBindingCount);
 		}
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createCacheDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[CacheDescriptorSetBindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheDescriptorSetBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createDescriptorSetLayout(bindings,bindings+CacheDescriptorSetBindingCount);
 		}
 		//
@@ -59,7 +59,7 @@ class NBL_API ISkinInstanceCache : public virtual core::IReferenceCounted
 		{
 			constexpr auto BindingCount = TransformTree::RenderDescriptorSetBindingCount+1u;
 			asset::ICPUDescriptorSetLayout::SBinding bindings[BindingCount];
-            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,BindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,BindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+BindingCount);
 		}
 		template<class TransformTree>
@@ -67,7 +67,7 @@ class NBL_API ISkinInstanceCache : public virtual core::IReferenceCounted
 		{
 			constexpr auto BindingCount = TransformTree::RenderDescriptorSetBindingCount+1u;
 			video::IGPUDescriptorSetLayout::SBinding bindings[BindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,BindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,BindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createDescriptorSetLayout(bindings,bindings+BindingCount);
 		}
 

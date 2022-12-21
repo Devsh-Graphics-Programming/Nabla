@@ -1373,9 +1373,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
         size_t gpuBindingCount = 0ull;
         const auto& samplerBindingRedirect = cpudsl->getImmutableSamplerRedirect();
         const auto samplerBindingCount = samplerBindingRedirect.getBindingCount();
-        for (uint32_t t = 0; t < asset::EDT_COUNT; ++t)
+        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {
-            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
             const auto& descriptorBindingRedirect = cpudsl->getDescriptorRedirect(type);
             const auto declaredBindingCount = descriptorBindingRedirect.getBindingCount();
 
@@ -1389,7 +1389,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
                 gpuBinding.samplers = nullptr;
 
                 // If this DS layout has any immutable samplers..
-                if ((gpuBinding.type == asset::EDT_COMBINED_IMAGE_SAMPLER) && (samplerBindingCount > 0))
+                if ((gpuBinding.type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && (samplerBindingCount > 0))
                 {
                     // If this binding number has any immutable samplers..
                     if (samplerBindingRedirect.searchForBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ gpuBinding.binding }) == samplerBindingRedirect.Invalid)
@@ -1553,16 +1553,16 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 
     struct BindingDescTypePair_t{
         uint32_t binding;
-        asset::E_DESCRIPTOR_TYPE descType;
+        asset::IDescriptor::E_TYPE descType;
         size_t count;
     };
-    auto isBufferDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isBufferDesc = [](asset::IDescriptor::E_TYPE t) {
         using namespace asset;
         switch (t) {
-        case EDT_UNIFORM_BUFFER: [[fallthrough]];
-        case EDT_STORAGE_BUFFER: [[fallthrough]];
-        case EDT_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
-        case EDT_STORAGE_BUFFER_DYNAMIC:
+        case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_STORAGE_BUFFER: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
             return true;
             break;
         default:
@@ -1570,15 +1570,15 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
             break;
         }
     };
-    auto isBufviewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isBufviewDesc = [](asset::IDescriptor::E_TYPE t) {
         using namespace asset;
-        return t==EDT_STORAGE_TEXEL_BUFFER || t==EDT_UNIFORM_TEXEL_BUFFER;
+        return t==IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER || t==IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
     };
-    auto isSampledImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
-        return t==asset::EDT_COMBINED_IMAGE_SAMPLER;
+    auto isSampledImgViewDesc = [](asset::IDescriptor::E_TYPE t) {
+        return t==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     };
-    auto isStorageImgDesc = [](asset::E_DESCRIPTOR_TYPE t) {
-        return t==asset::EDT_STORAGE_IMAGE;
+    auto isStorageImgDesc = [](asset::IDescriptor::E_TYPE t) {
+        return t==asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
     };
 
 	// TODO: Deal with duplication of layouts and any other resource that can be present at different resource tree levels
@@ -1595,9 +1595,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
 		cpuLayouts.push_back(cpuds->getLayout());
 
-        for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
+        for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {
-            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
             
             // Since one binding can have multiple descriptors which will all be updated with a single SWriteDescriptorSet,
             // we add the binding count here not the descriptor count.
@@ -1629,9 +1629,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     {
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
 
-        for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
+        for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {
-            const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
             if (!cpuds->getDescriptorStorage(type))
                 continue;
 
@@ -1641,9 +1641,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 if (isBufferDesc(type))
                 {
                     auto cpuBuf = static_cast<asset::ICPUBuffer*>(descriptor);
-                    if (type == asset::EDT_UNIFORM_BUFFER || type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+                    if (type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER || type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
                         cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
-                    else if (type == asset::EDT_STORAGE_BUFFER || type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
+                    else if (type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER || type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
                         cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
                     cpuBuffers.push_back(cpuBuf);
                 }
@@ -1651,9 +1651,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 {
                     auto cpuBufView = static_cast<asset::ICPUBufferView*>(descriptor);
                     auto cpuBuf = cpuBufView->getUnderlyingBuffer();
-                    if (cpuBuf && type == asset::EDT_UNIFORM_TEXEL_BUFFER)
+                    if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)
                         cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-                    else if (cpuBuf && type == asset::EDT_STORAGE_TEXEL_BUFFER)
+                    else if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER)
                         cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
                     cpuBufviews.push_back(cpuBufView);
                 }
@@ -1711,9 +1711,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 
             const asset::ICPUDescriptorSet* cpuds = _begin[i];
 
-            for (uint32_t t = 0u; t < asset::EDT_COUNT; ++t)
+            for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
             {
-                const auto type = static_cast<asset::E_DESCRIPTOR_TYPE>(t);
+                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
                 const auto activeBindingCount = cpuds->getLayout()->getDescriptorRedirect(type).getBindingCount();
 
                 for (uint32_t b = 0u; b < activeBindingCount; ++b)

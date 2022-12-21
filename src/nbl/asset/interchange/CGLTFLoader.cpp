@@ -83,7 +83,7 @@ using namespace nbl::asset;
 			for (auto i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; i++)
 			{
 				combinedSamplerBindings[i].binding = i;
-				combinedSamplerBindings[i].type = EDT_COMBINED_IMAGE_SAMPLER;
+				combinedSamplerBindings[i].type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
 				combinedSamplerBindings[i].count = 1u;
 				combinedSamplerBindings[i].stageFlags = IShader::ESS_FRAGMENT;
 				combinedSamplerBindings[i].samplers = nullptr;
@@ -322,7 +322,7 @@ using namespace nbl::asset;
 				auto defaultSampler = _override->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",context.loadContext,0u).first;
 				for (uint16_t i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
 				{
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(i, EDT_COMBINED_IMAGE_SAMPLER);
+					auto [descriptor, info] = material.descriptorSet->getDescriptors(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 					descriptor.begin()[0] = defaultImageView;
 					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
@@ -333,7 +333,7 @@ using namespace nbl::asset;
 				{
 					const auto& [imageView,sampler] = cpuTextures[globalTextureIndex];
 
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(localTextureIndex, EDT_COMBINED_IMAGE_SAMPLER);
+					auto [descriptor, info] = material.descriptorSet->getDescriptors(localTextureIndex, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 					descriptor.begin()[0] = imageView;
 					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 
@@ -377,7 +377,7 @@ using namespace nbl::asset;
 					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<false>(cpuTextures[normalTextureID].first->getCreationParameters().image.get(), scales);
 					auto& sampler = cpuTextures[normalTextureID].second;
 
-					auto [descriptor, info] = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, EDT_COMBINED_IMAGE_SAMPLER);
+					auto [descriptor, info] = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 					descriptor.begin()[0] = imageView;
 					info.begin()[0].image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 

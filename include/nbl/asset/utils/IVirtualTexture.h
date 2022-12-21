@@ -1046,7 +1046,7 @@ protected:
             bnd.binding = _binding;
             bnd.count = _count;
             bnd.stageFlags = asset::IShader::ESS_ALL;
-            bnd.type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+            bnd.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             bnd.samplers = _samplers;
         };
 
@@ -1086,7 +1086,7 @@ protected:
         writes[0].binding = _pgtBinding;
         writes[0].arrayElement = 0u;
         writes[0].count = 1u;
-        writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+        writes[0].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
         writes[0].dstSet = _dstSet;
         writes[0].info = info;
         info[0].desc = core::smart_refctd_ptr<image_view_t>(getPageTableView());
@@ -1099,7 +1099,7 @@ protected:
             writes[i].binding = _fsamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getFloatViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
@@ -1115,7 +1115,7 @@ protected:
             writes[i].binding = _isamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getIntViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
@@ -1131,7 +1131,7 @@ protected:
             writes[i].binding = _usamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getUintViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)

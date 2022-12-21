@@ -34,20 +34,20 @@ struct SPhysicalDeviceLimits
     //size_t            sparseAddressSpaceSize;         // [TODO LATER] when we support sparse
     //uint32_t          maxBoundDescriptorSets;         // [DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently
 
-    uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
+    uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxPerStageDescriptorUBOs = 0u;
     uint32_t maxPerStageDescriptorSSBOs = 0u;
-    uint32_t maxPerStageDescriptorImages = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER, EDT_UNIFORM_TEXEL_BUFFER count against this limit.
+    uint32_t maxPerStageDescriptorImages = 0u; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER count against this limit.
     uint32_t maxPerStageDescriptorStorageImages = 0u;
     uint32_t maxPerStageDescriptorInputAttachments = 0u;
     uint32_t maxPerStageResources = 0u;
 
-    uint32_t maxDescriptorSetSamplers = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
+    uint32_t maxDescriptorSetSamplers = 0u; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxDescriptorSetUBOs = 0u;
     uint32_t maxDescriptorSetDynamicOffsetUBOs = 0u;
     uint32_t maxDescriptorSetSSBOs = 0u;
     uint32_t maxDescriptorSetDynamicOffsetSSBOs = 0u;
-    uint32_t maxDescriptorSetImages = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER, EDT_UNIFORM_TEXEL_BUFFER count against this limit.
+    uint32_t maxDescriptorSetImages = 0u; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER count against this limit.
     uint32_t maxDescriptorSetStorageImages = 0u;
     uint32_t maxDescriptorSetInputAttachments = 0u;
 

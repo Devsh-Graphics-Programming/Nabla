@@ -31,7 +31,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	for (auto j=0; j<4; j++)
 	{
 		bindings[j].binding = j;
-		bindings[j].type = asset::EDT_STORAGE_BUFFER;
+		bindings[j].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		bindings[j].count = j<2u ? 1u:m_maxPropertiesPerPass;
 		bindings[j].stageFlags = asset::IShader::ESS_COMPUTE;
 		bindings[j].samplers = nullptr;
@@ -98,7 +98,7 @@ bool CPropertyPoolHandler::transferProperties(
 		
 		// update desc sets (TODO: handle acquire failure, by using push descriptors!)
 		// TODO: acquire the set just once for all streaming chunked dispatches (scratch, addresses, and destinations dont change)
-		// however this will require the usage of EDT_STORAGE_BUFFER_DYNAMIC for the source data bindings
+		// however this will require the usage of IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC for the source data bindings
 		auto setIx = m_dsCache->acquireSet(this,scratch,addresses,localRequests,propertiesThisPass);
 		if (setIx==IDescriptorSetCache::invalid_index)
 		{
@@ -569,7 +569,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 		writes[i].dstSet = set;
 		writes[i].binding = i;
 		writes[i].arrayElement = 0u;
-		writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 	}
 	writes[0].count = 1u;
 	writes[0].info = infos;
