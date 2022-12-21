@@ -30,7 +30,12 @@ bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* 
                 const auto& [ds, cachedDSVersion] = dsRecord;
                 if (ds->getVersion() > cachedDSVersion)
                 {
-                    m_originDevice->getPhysicalDevice()->getDebugCallback()->getLogger()->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer..", system::ILogger::ELL_ERROR);
+                    const char* commandBufferDebugName = submit.commandBuffers[j]->getDebugName();
+                    if (commandBufferDebugName)
+                        m_originDevice->getPhysicalDevice()->getDebugCallback()->getLogger()->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", system::ILogger::ELL_ERROR, commandBufferDebugName, submit.commandBuffers[i]);
+                    else
+                        m_originDevice->getPhysicalDevice()->getDebugCallback()->getLogger()->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%p)..", system::ILogger::ELL_ERROR, submit.commandBuffers[i]);
+
                     submit.commandBuffers[j]->setState(IGPUCommandBuffer::ES_INVALID);
                     return false;
                 }

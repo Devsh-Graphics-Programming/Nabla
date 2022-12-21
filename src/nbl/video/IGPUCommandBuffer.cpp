@@ -276,7 +276,12 @@ bool IGPUCommandBuffer::bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipeline
             {
                 if (found->second != currentVersion)
                 {
-                    m_logger.log("Descriptor set #%u version does not match that of the command buffer's bound descriptor set.", system::ILogger::ELL_ERROR, i);
+                    const char* debugName = pDescriptorSets[i]->getDebugName();
+                    if (debugName)
+                        m_logger.log("Descriptor set (%s, %p) was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, debugName, pDescriptorSets[i]);
+                    else
+                        m_logger.log("Descriptor set (%p)  was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, pDescriptorSets[i]);
+
                     m_state = ES_INVALID;
                     return false;
                 }
