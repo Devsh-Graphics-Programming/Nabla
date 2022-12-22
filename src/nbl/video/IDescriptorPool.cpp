@@ -19,6 +19,25 @@ bool IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescriptorS
     return createDescriptorSets_impl(count, layouts, descriptorOffsets.data(), output);
 }
 
+bool IDescriptorPool::reset()
+{
+    const bool allowsFreeing = m_flags & ECF_FREE_DESCRIPTOR_SET_BIT;
+    for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+    {
+        if (!m_descriptorAllocators[t])
+            continue;
+
+        const uint32_t allocatedCount = m_descriptorAllocators[t]->getAllocatedDescriptorCount(allowsFreeing);
+        std::destroy_n(getDescriptorStorage(static_cast<asset::IDescriptor::E_TYPE>(t)), allocatedCount);
+
+        m_descriptorAllocators[t]->reset(m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
+    }
+
+    m_version.fetch_add(1u);
+
+    return reset_impl();
+}
+
 IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout)
 {
     SDescriptorOffsets offsets;
@@ -40,54 +59,6 @@ IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptorOffsets(c
         offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]->allocate(mutableSamplerCount, m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
 
     return offsets;
-}
-
-bool IDescriptorPool::freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
-{
-    const bool allowsFreeing = m_flags & ECF_FREE_DESCRIPTOR_SET_BIT;
-    if (!allowsFreeing)
-        return false;
-
-    for (auto i = 0u; i < descriptorSetCount; ++i)
-    {
-        for (auto t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
-        {
-            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-
-            const uint32_t allocatedOffset = descriptorSets[i]->getDescriptorStorageOffset(type);
-            if (allocatedOffset == ~0u)
-                continue;
-
-            const uint32_t count = descriptorSets[i]->getLayout()->getTotalDescriptorCount(type);
-            assert(count != 0u);
-
-            auto* descriptors = descriptorSets[i]->getAllDescriptors(type);
-            assert(descriptors);
-
-            for (auto c = 0u; c < count; ++c)
-                descriptors[c].~smart_refctd_ptr();
-
-            m_descriptorAllocators[t]->free(allocatedOffset, count);
-        }
-
-        const uint32_t count = descriptorSets[i]->getLayout()->getTotalMutableSamplerCount();
-        if (count > 0)
-        {
-            const uint32_t allocatedOffset = descriptorSets[i]->getMutableSamplerStorageOffset();
-            if (allocatedOffset == ~0u)
-                continue;
-
-            auto* samplers = descriptorSets[i]->getAllMutableSamplers();
-            assert(samplers);
-
-            for (auto c = 0u; c < count; ++c)
-                samplers[c].~smart_refctd_ptr();
-
-            m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]->free(allocatedOffset, count);
-        }
-    }
-
-    return freeDescriptorSets_impl(descriptorSetCount, descriptorSets);
 }
 
 }

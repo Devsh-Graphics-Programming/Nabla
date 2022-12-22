@@ -157,6 +157,8 @@ public:
 		inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
 
 	private:
+		// error C2248 : 'nbl::asset::IDescriptorSetLayout<nbl::video::IGPUSampler>::CBindingRedirect::CBindingRedirect'
+		// : cannot access private member declared in class 'nbl::asset::IDescriptorSetLayout<nbl::video::IGPUSampler>::CBindingRedirect'
 		friend class IDescriptorSetLayout;
 		struct SBuildInfo
 		{

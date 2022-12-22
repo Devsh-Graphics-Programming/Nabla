@@ -24,7 +24,7 @@ public:
 
 private:
     bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets *const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) override;
-    bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) final override;
+    bool reset_impl() override;
 
     VkDescriptorPool m_descriptorPool;
 };

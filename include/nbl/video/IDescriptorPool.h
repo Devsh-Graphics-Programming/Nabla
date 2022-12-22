@@ -21,8 +21,6 @@ class IGPUDescriptorSetLayout;
 
 class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
-    friend class IGPUDescriptorSet;
-
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
@@ -61,14 +59,15 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         }
 
         bool createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
-        
-        // TODO(achal): Remove.
-        bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
+
+        bool reset();
 
         inline uint32_t getCapacity() const { return m_maxSets; }
 
     protected:
-        explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDescriptorPool::E_CREATE_FLAGS flags, uint32_t _maxSets, const uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) : IBackendObject(std::move(dev)), m_maxSets(_maxSets), m_flags(flags)
+        explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDescriptorPool::E_CREATE_FLAGS flags, uint32_t _maxSets,
+            const uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes)
+            : IBackendObject(std::move(dev)), m_maxSets(_maxSets), m_flags(flags), m_version(0u)
         {
             std::fill_n(m_maxDescriptorCount, static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT), 0u);
 
@@ -79,7 +78,7 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_maxDescriptorCount[i], m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
 
             // For (possibly) mutable samplers.
-            m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = std::make_unique<allocator_state_t>(m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)], m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
+            m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = std::make_unique<allocator_state_t>(m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)], m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
 
             // Initialize the storages.
             m_textureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]>(m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]);
@@ -93,18 +92,64 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         virtual ~IDescriptorPool() {}
 
         virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
-        virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) = 0;
+
+        virtual bool reset_impl() = 0;
 
         uint32_t m_maxSets;
 
     private:
+        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::IDescriptor::E_TYPE type) const
+        {
+            core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
+            switch (type)
+            {
+            case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get());
+                break;
+            case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get());
+                break;
+            case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UTB_STBStorage.get());
+                break;
+            case asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UTB_STBStorage.get()) + m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)];
+                break;
+            case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get());
+                break;
+            case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)];
+                break;
+            case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)]);
+                break;
+            case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] + m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)]);
+                break;
+            case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get()) + m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE)];
+                break;
+            case asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_accelerationStructureStorage.get());
+                break;
+            default:
+                assert(!"Invalid code path.");
+                return nullptr;
+            }
+
+            return baseAddress;
+        }
+
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const
+        {
+            return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_mutableSamplerStorage.get());
+        }
+
+        friend class IGPUDescriptorSet;
         // Returns the offset into the pool's descriptor storage. These offsets will be combined
         // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
         SDescriptorOffsets allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout);
-
-        const IDescriptorPool::E_CREATE_FLAGS m_flags;
-
-        uint32_t m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 
         struct allocator_state_t
         {
@@ -145,6 +190,22 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 generalAllocator.free_addr(allocatedOffset, count);
             }
 
+            inline void reset(const bool allowsFreeing)
+            {
+                if (!allowsFreeing)
+                    linearAllocator.reset();
+                else
+                    generalAllocator.reset();
+            }
+
+            inline uint32_t getAllocatedDescriptorCount(const bool allowsFreeing) const
+            {
+                if (!allowsFreeing)
+                    return linearAllocator.get_allocated_size();
+                else
+                    return generalAllocator.get_allocated_size();
+            }
+
             union
             {
                 core::LinearAddressAllocator<uint32_t> linearAllocator;
@@ -153,6 +214,10 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             std::unique_ptr<uint8_t[]> generalAllocatorReservedSpace = nullptr;
         };
         std::unique_ptr<allocator_state_t> m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
+
+        const IDescriptorPool::E_CREATE_FLAGS m_flags;
+        uint32_t m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
+        std::atomic_uint32_t m_version;
 
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableSamplerStorage;

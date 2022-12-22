@@ -60,21 +60,12 @@ bool CVulkanDescriptorPool::createDescriptorSets_impl(uint32_t count, const IGPU
     return false;
 }
 
-bool CVulkanDescriptorPool::freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
+bool CVulkanDescriptorPool::reset_impl()
 {
-    core::vector<VkDescriptorSet> vk_descriptorSets(descriptorSetCount, VK_NULL_HANDLE);
-
-    for (auto i = 0; i < descriptorSetCount; ++i)
-    {
-        if (descriptorSets[i]->getAPIType() != EAT_VULKAN)
-            return false;
-
-        vk_descriptorSets[i] = static_cast<CVulkanDescriptorSet*>(descriptorSets[i])->getInternalObject();
-    }
-
-    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();
-    return vk->vk.vkFreeDescriptorSets(vulkanDevice->getInternalObject(), m_descriptorPool, descriptorSetCount, vk_descriptorSets.data()) == VK_SUCCESS;
+    const bool success = (vk->vk.vkResetDescriptorPool(vulkanDevice->getInternalObject(), m_descriptorPool, 0) == VK_SUCCESS);
+    return success;
 }
 
 }
