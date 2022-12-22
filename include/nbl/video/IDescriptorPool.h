@@ -50,20 +50,19 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             uint32_t data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
         };
 
-        inline void createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        inline core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
         {
-            for (uint32_t i = 0u; i < count; ++i)
-            {
-                auto layout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layouts[i]);
-                output[i++] = createDescriptorSet(std::move(layout));
-            }
+            core::smart_refctd_ptr<IGPUDescriptorSet> set;
+            const bool result = createDescriptorSets(1, &layout.get(), &set);
+            if (result)
+                return set;
+            else
+                return nullptr;
         }
 
-        // Returns the offset into the pool's descriptor storage. These offsets will be combined
-        // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
-        SDescriptorOffsets allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout);
+        bool createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
         
-        core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout);
+        // TODO(achal): Remove.
         bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
 
         inline uint32_t getCapacity() const { return m_maxSets; }
@@ -114,12 +113,16 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
 
         virtual ~IDescriptorPool() {}
 
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, SDescriptorOffsets&& offsets) = 0;
+        virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
         virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) = 0;
 
         uint32_t m_maxSets;
 
     private:
+        // Returns the offset into the pool's descriptor storage. These offsets will be combined
+        // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
+        SDescriptorOffsets allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout);
+
         const IDescriptorPool::E_CREATE_FLAGS m_flags;
         uint32_t m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
         union

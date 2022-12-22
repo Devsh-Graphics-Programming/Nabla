@@ -26,28 +26,38 @@ void CVulkanDescriptorPool::setObjectDebugName(const char* label) const
 	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSet> CVulkanDescriptorPool::createDescriptorSet_impl(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, SDescriptorOffsets&& offsets)
+bool CVulkanDescriptorPool::createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
 {
-    if (layout->getAPIType() != EAT_VULKAN)
-        return nullptr;
-
     VkDescriptorSetAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
     vk_allocateInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDescriptorSetVariableDescriptorCountAllocateInfo
 
     vk_allocateInfo.descriptorPool = m_descriptorPool;
-    vk_allocateInfo.descriptorSetCount = 1u;
+    vk_allocateInfo.descriptorSetCount = count;
 
-    VkDescriptorSetLayout vk_dsLayout = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(layout.get(), getOriginDevice())->getInternalObject();
-    vk_allocateInfo.pSetLayouts = &vk_dsLayout;
+    core::vector<VkDescriptorSetLayout> vk_dsLayouts(count);
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        if (layouts[i]->getAPIType() != EAT_VULKAN)
+            return false;
 
-    VkDescriptorSet vk_descriptorSet;
+        vk_dsLayouts[i] = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(layouts[i], getOriginDevice())->getInternalObject();
+    }
+
+    vk_allocateInfo.pSetLayouts = vk_dsLayouts.data();
+
+    core::vector<VkDescriptorSet> vk_descriptorSets(count);
 
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();
-    if (vk->vk.vkAllocateDescriptorSets(vulkanDevice->getInternalObject(), &vk_allocateInfo, &vk_descriptorSet) == VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanDescriptorSet>(std::move(layout), core::smart_refctd_ptr<IDescriptorPool>(this), std::move(offsets), vk_descriptorSet);
+    if (vk->vk.vkAllocateDescriptorSets(vulkanDevice->getInternalObject(), &vk_allocateInfo, vk_descriptorSets.data()) == VK_SUCCESS)
+    {
+        for (uint32_t i = 0; i < count; ++i)
+            output[i] = core::make_smart_refctd_ptr<CVulkanDescriptorSet>(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layouts[i]), core::smart_refctd_ptr<IDescriptorPool>(this), std::move(offsets[i]), vk_descriptorSets[i]);
 
-    return nullptr;
+        return true;
+    }
+
+    return false;
 }
 
 bool CVulkanDescriptorPool::freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)

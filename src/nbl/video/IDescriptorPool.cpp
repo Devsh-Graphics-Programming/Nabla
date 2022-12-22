@@ -4,14 +4,19 @@
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<IGPUDescriptorSet> IDescriptorPool::createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
+bool IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
 {
-    if (!isCompatibleDevicewise(layout.get()))
-        return nullptr;
+    core::vector<SDescriptorOffsets> descriptorOffsets(count);
 
-    auto offsets = allocateDescriptorOffsets(layout.get());
+    for (uint32_t i = 0u; i < count; ++i)
+    {
+        if (!isCompatibleDevicewise(layouts[i]))
+            return false;
+        
+        descriptorOffsets[i] = allocateDescriptorOffsets(layouts[i]);
+    }
 
-    return createDescriptorSet_impl(std::move(layout), std::move(offsets));
+    return createDescriptorSets_impl(count, layouts, descriptorOffsets.data(), output);
 }
 
 IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout)
