@@ -123,9 +123,6 @@ private:
 		return category;
 	}
 
-	// TODO(achal): Remove.
-	void allocateDescriptors() override { assert(!"Invalid code path."); }
-
 	core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 };
 

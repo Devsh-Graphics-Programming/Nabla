@@ -5,33 +5,25 @@
 namespace nbl::video
 {
 
-void IGPUDescriptorSet::allocateDescriptors()
+IGPUDescriptorSet::IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& offsets)
+    : base_t(std::move(layout)), IBackendObject(std::move(core::smart_refctd_ptr<const ILogicalDevice>(pool->getOriginDevice()))), m_version(0ull), m_pool(std::move(pool)), m_descriptorStorageOffsets(std::move(offsets))
 {
-    auto& offsets = m_descriptorStorageOffsets;
-
-    for (uint32_t i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
+    for (auto i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
     {
-        const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
-        const auto count = getLayout()->getTotalDescriptorCount(type);
-        if (count == 0ull)
+        // There is no descriptor of such type in the set.
+        if (m_descriptorStorageOffsets.data[i] == ~0u)
             continue;
 
-        if (m_pool->m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT)
-            offsets.data[i] = m_pool->m_generalAllocators[i].alloc_addr(count, 1u);
-        else
-            offsets.data[i] = m_pool->m_linearAllocators[i].alloc_addr(count, 1u);
+        const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
 
-        assert((offsets.data[i] < m_pool->m_maxDescriptorCount[i]) && "PANIC: Allocation failed. This shoudn't have happened! Check your descriptor pool.");
+        // Default-construct the core::smart_refctd_ptr<IDescriptor>s because even if the user didn't update the descriptor set with ILogicalDevice::updateDescriptorSet we
+        // won't have uninitialized memory and destruction wouldn't crash in ~IGPUDescriptorSet.
+        std::uninitialized_default_construct_n(getDescriptorStorage(type) + m_descriptorStorageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
     }
 
-    const auto mutableSamplerCount = getLayout()->getTotalMutableSamplerCount();
-    if (mutableSamplerCount != 0ull)
-    {
-        if (m_pool->m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT)
-            offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_pool->m_generalAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].alloc_addr(mutableSamplerCount, 1u);
-        else
-            offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_pool->m_linearAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].alloc_addr(mutableSamplerCount, 1u);
-    }
+    const auto mutableSamplerCount = m_layout->getTotalMutableSamplerCount();
+    if (mutableSamplerCount > 0)
+        std::uninitialized_default_construct_n(getMutableSamplerStorage() + m_descriptorStorageOffsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)], mutableSamplerCount);
 }
 
 core::smart_refctd_ptr<asset::IDescriptor>* IGPUDescriptorSet::getDescriptorStorage(const asset::IDescriptor::E_TYPE type) const

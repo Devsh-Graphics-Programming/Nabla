@@ -9,7 +9,40 @@ core::smart_refctd_ptr<IGPUDescriptorSet> IDescriptorPool::createDescriptorSet(c
     if (!isCompatibleDevicewise(layout.get()))
         return nullptr;
 
-    return createDescriptorSet_impl(std::move(layout));
+    auto offsets = allocateDescriptorOffsets(layout.get());
+
+    return createDescriptorSet_impl(std::move(layout), std::move(offsets));
+}
+
+IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout)
+{
+    SDescriptorOffsets offsets;
+
+    for (uint32_t i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
+    {
+        const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
+        const auto count = layout->getTotalDescriptorCount(type);
+        if (count == 0ull)
+            continue;
+
+        if (m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT)
+            offsets.data[i] = m_generalAllocators[i].alloc_addr(count, 1u);
+        else
+            offsets.data[i] = m_linearAllocators[i].alloc_addr(count, 1u);
+
+        assert((offsets.data[i] < m_maxDescriptorCount[i]) && "PANIC: Allocation failed. This shoudn't have happened! Check your descriptor pool.");
+    }
+
+    const auto mutableSamplerCount = layout->getTotalMutableSamplerCount();
+    if (mutableSamplerCount != 0ull)
+    {
+        if (m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT)
+            offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_generalAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].alloc_addr(mutableSamplerCount, 1u);
+        else
+            offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_linearAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].alloc_addr(mutableSamplerCount, 1u);
+    }
+
+    return offsets;
 }
 
 bool IDescriptorPool::freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)

@@ -8,7 +8,6 @@
 #include "nbl/asset/IDescriptorSetLayout.h"
 
 #include "nbl/video/decl/IBackendObject.h"
-#include "nbl/video/IGPUDescriptorSet.h"
 
 
 namespace nbl::video
@@ -17,6 +16,7 @@ namespace nbl::video
 class IGPUImageView;
 class IGPUSampler;
 class IGPUBufferView;
+class IGPUDescriptorSet;
 class IGPUDescriptorSetLayout;
 
 class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
@@ -38,6 +38,18 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
             uint32_t count;
         };
 
+        struct SDescriptorOffsets
+        {
+            SDescriptorOffsets()
+            {
+                // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
+                // know which descriptors are present in the set and hence should be destroyed.
+                std::fill_n(data, static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1, ~0u);
+            }
+
+            uint32_t data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
+        };
+
         inline void createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
         {
             for (uint32_t i = 0u; i < count; ++i)
@@ -46,6 +58,10 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 output[i++] = createDescriptorSet(std::move(layout));
             }
         }
+
+        // Returns the offset into the pool's descriptor storage. These offsets will be combined
+        // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
+        SDescriptorOffsets allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout);
         
         core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout);
         bool freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets);
@@ -98,7 +114,7 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
 
         virtual ~IDescriptorPool() {}
 
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, SDescriptorOffsets&& offsets) = 0;
         virtual bool freeDescriptorSets_impl(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets) = 0;
 
         uint32_t m_maxSets;

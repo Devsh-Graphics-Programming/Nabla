@@ -14,11 +14,10 @@
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 
+#include "nbl/video/IDescriptorPool.h"
 
 namespace nbl::video
 {
-
-class IDescriptorPool;
 
 //! GPU Version of Descriptor Set
 /*
@@ -30,28 +29,7 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
 
 	public:
-		IGPUDescriptorSet(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool)
-			: base_t(std::move(_layout)), IBackendObject(std::move(dev)), m_version(0ull), m_pool(std::move(pool))
-		{
-            allocateDescriptors();
-
-            for (auto i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
-            {
-                // There is no descriptor of such type in the set.
-                if (m_descriptorStorageOffsets.data[i] == ~0u)
-                    continue;
-
-                const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
-
-                // Default-construct the core::smart_refctd_ptr<IDescriptor>s because even if the user didn't update the descriptor set with ILogicalDevice::updateDescriptorSet we
-                // won't have uninitialized memory and destruction wouldn't crash in ~IGPUDescriptorSet.
-                std::uninitialized_default_construct_n(getDescriptorStorage(type) + m_descriptorStorageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
-            }
-
-            const auto mutableSamplerCount = m_layout->getTotalMutableSamplerCount();
-            if (mutableSamplerCount > 0)
-                std::uninitialized_default_construct_n(getMutableSamplerStorage() + m_descriptorStorageOffsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)], mutableSamplerCount);
-        }
+        IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& offsets);
 
         inline uint64_t getVersion() const { return m_version.load(); }
 
@@ -134,27 +112,12 @@ class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescrip
 		}
 
 	private:
-        struct SDescriptorOffsets
-        {
-            SDescriptorOffsets()
-            {
-                // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
-                // know which descriptors are present in the set and hence should be destroyed.
-                std::fill_n(data, static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1, ~0u);
-            }
-
-            uint32_t data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
-        };
-
-        // Returns the offset into the pool's descriptor storage. These offsets will be combined
-        // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
-        void allocateDescriptors() override;
         core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::IDescriptor::E_TYPE type) const;
         core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const;
 
         std::atomic_uint64_t m_version;
-		core::smart_refctd_ptr<IDescriptorPool> m_pool;
-		SDescriptorOffsets m_descriptorStorageOffsets;
+        core::smart_refctd_ptr<IDescriptorPool> m_pool;
+        IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
 };
 
 }
