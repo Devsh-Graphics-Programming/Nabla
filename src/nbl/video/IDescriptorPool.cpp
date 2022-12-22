@@ -30,30 +30,22 @@ IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptorOffsets(c
         if (count == 0ull)
             continue;
 
-        if (m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT)
-            offsets.data[i] = m_generalAllocators[i].alloc_addr(count, 1u);
-        else
-            offsets.data[i] = m_linearAllocators[i].alloc_addr(count, 1u);
+        offsets.data[i] = m_descriptorAllocators[i]->allocate(count, m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
 
         assert((offsets.data[i] < m_maxDescriptorCount[i]) && "PANIC: Allocation failed. This shoudn't have happened! Check your descriptor pool.");
     }
 
     const auto mutableSamplerCount = layout->getTotalMutableSamplerCount();
     if (mutableSamplerCount != 0ull)
-    {
-        if (m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT)
-            offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_generalAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].alloc_addr(mutableSamplerCount, 1u);
-        else
-            offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_linearAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].alloc_addr(mutableSamplerCount, 1u);
-    }
+        offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]->allocate(mutableSamplerCount, m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
 
     return offsets;
 }
 
 bool IDescriptorPool::freeDescriptorSets(const uint32_t descriptorSetCount, IGPUDescriptorSet* const* const descriptorSets)
 {
-    const bool allowsFreeingDescriptorSets = m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT;
-    if (!allowsFreeingDescriptorSets)
+    const bool allowsFreeing = m_flags & ECF_FREE_DESCRIPTOR_SET_BIT;
+    if (!allowsFreeing)
         return false;
 
     for (auto i = 0u; i < descriptorSetCount; ++i)
@@ -75,7 +67,7 @@ bool IDescriptorPool::freeDescriptorSets(const uint32_t descriptorSetCount, IGPU
             for (auto c = 0u; c < count; ++c)
                 descriptors[c].~smart_refctd_ptr();
 
-            m_generalAllocators[t].free_addr(allocatedOffset, count);
+            m_descriptorAllocators[t]->free(allocatedOffset, count);
         }
 
         const uint32_t count = descriptorSets[i]->getLayout()->getTotalMutableSamplerCount();
@@ -91,7 +83,7 @@ bool IDescriptorPool::freeDescriptorSets(const uint32_t descriptorSetCount, IGPU
             for (auto c = 0u; c < count; ++c)
                 samplers[c].~smart_refctd_ptr();
 
-            m_generalAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].free_addr(allocatedOffset, count);
+            m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]->free(allocatedOffset, count);
         }
     }
 

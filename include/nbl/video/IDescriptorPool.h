@@ -76,31 +76,10 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
                 m_maxDescriptorCount[static_cast<uint32_t>(poolSizes[i].type)] += poolSizes[i].count;
 
             for (auto i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
-            {
-                if (m_maxDescriptorCount[i] > 0)
-                {
-                    if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
-                    {
-                        m_generalAllocatorReservedSpace[i] = std::make_unique<uint8_t[]>(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, m_maxDescriptorCount[i], 1u));
-                        m_generalAllocators[i] = core::GeneralpurposeAddressAllocator<uint32_t>(m_generalAllocatorReservedSpace[i].get(), 0u, 0u, 1u, m_maxDescriptorCount[i], 1u);
-                    }
-                    else
-                    {
-                        m_linearAllocators[i] = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, m_maxDescriptorCount[i]);
-                    }
-                }
-            }
+                m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_maxDescriptorCount[i], m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
 
             // For (possibly) mutable samplers.
-            if (m_flags & ECF_FREE_DESCRIPTOR_SET_BIT)
-            {
-                m_generalAllocatorReservedSpace[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = std::make_unique<uint8_t[]>(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)], 1u));
-                m_generalAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = core::GeneralpurposeAddressAllocator<uint32_t>(m_generalAllocatorReservedSpace[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)].get(), 0u, 0u, 1u, m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)], 1u);
-            }
-            else
-            {
-                m_linearAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]);
-            }
+            m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = std::make_unique<allocator_state_t>(m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)], m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
 
             // Initialize the storages.
             m_textureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]>(m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]);
@@ -124,13 +103,56 @@ class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendO
         SDescriptorOffsets allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout);
 
         const IDescriptorPool::E_CREATE_FLAGS m_flags;
+
         uint32_t m_maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
-        union
+
+        struct allocator_state_t
         {
-            core::LinearAddressAllocator<uint32_t> m_linearAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)+1];
-            core::GeneralpurposeAddressAllocator<uint32_t> m_generalAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)+1];
+            allocator_state_t(const uint32_t maxDescriptorCount, const bool allowsFreeing)
+            {
+                if (maxDescriptorCount == 0)
+                    return;
+
+                if (allowsFreeing)
+                {
+                    generalAllocatorReservedSpace = std::make_unique<uint8_t[]>(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, maxDescriptorCount, 1u));
+                    generalAllocator = core::GeneralpurposeAddressAllocator<uint32_t>(generalAllocatorReservedSpace.get(), 0u, 0u, 1u, maxDescriptorCount, 1u);
+                }
+                else
+                {
+                    linearAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, 1u, maxDescriptorCount);
+                }
+            }
+
+            ~allocator_state_t() {}
+
+            inline uint32_t allocate(const uint32_t count, const bool allowsFreeing)
+            {
+                if (allowsFreeing)
+                {
+                    assert(generalAllocatorReservedSpace);
+                    return generalAllocator.alloc_addr(count, 1u);
+                }
+                else
+                {
+                    return linearAllocator.alloc_addr(count, 1u);
+                }
+            }
+
+            inline void free(const uint32_t allocatedOffset, const uint32_t count)
+            {
+                assert(generalAllocatorReservedSpace);
+                generalAllocator.free_addr(allocatedOffset, count);
+            }
+
+            union
+            {
+                core::LinearAddressAllocator<uint32_t> linearAllocator;
+                core::GeneralpurposeAddressAllocator<uint32_t> generalAllocator;
+            };
+            std::unique_ptr<uint8_t[]> generalAllocatorReservedSpace = nullptr;
         };
-        std::unique_ptr<uint8_t[]> m_generalAllocatorReservedSpace[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)+1];
+        std::unique_ptr<allocator_state_t> m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
 
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableSamplerStorage;

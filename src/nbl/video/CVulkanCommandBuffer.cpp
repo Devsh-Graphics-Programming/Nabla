@@ -62,6 +62,7 @@ bool CVulkanCommandBuffer::copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* 
     VkBuffer vk_dstBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
 
     constexpr uint32_t MAX_BUFFER_COPY_REGION_COUNT = 681u;
+    assert(regionCount <= MAX_BUFFER_COPY_REGION_COUNT);
     VkBufferCopy vk_bufferCopyRegions[MAX_BUFFER_COPY_REGION_COUNT];
     for (uint32_t i = 0u; i < regionCount; ++i)
     {
