@@ -34,23 +34,17 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
     for (auto i = 0; i < descriptorWriteCount; ++i)
     {
         auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
+
         ds->incrementVersion();
-
-        auto* descriptors = ds->getDescriptors(pDescriptorWrites[i].descriptorType, pDescriptorWrites[i].binding);
-        auto* samplers = ds->getMutableSamplers(pDescriptorWrites[i].binding);
-        for (auto j = 0; j < pDescriptorWrites[i].count; ++j)
-        {
-            descriptors[j] = pDescriptorWrites[i].info[j].desc;
-
-            if (samplers)
-                samplers[j] = pDescriptorWrites[i].info[j].info.image.sampler;
-        }
+        ds->processWrite(pDescriptorWrites[i]);
     }
 
     for (auto i = 0; i < descriptorCopyCount; ++i)
     {
         const auto* srcDS = static_cast<const IGPUDescriptorSet*>(pDescriptorCopies[i].srcSet);
         auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
+
+        // dstDS->processCopy(pDescriptorCopies[i]);
 
         for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {

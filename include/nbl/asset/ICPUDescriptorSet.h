@@ -78,6 +78,8 @@ public:
 
 	core::SRange<SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
 
+	core::SRange<const SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT) const;
+
 	core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
 	void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override;

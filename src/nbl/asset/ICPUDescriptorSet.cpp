@@ -5,6 +5,13 @@ namespace nbl::asset
 
 core::SRange<ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type)
 {
+	assert(!isImmutable_debug());
+	auto immutableResult = const_cast<const ICPUDescriptorSet*>(this)->getDescriptorInfos(binding, type);
+	return {const_cast<ICPUDescriptorSet::SDescriptorInfo*>(immutableResult.begin()), const_cast<ICPUDescriptorSet::SDescriptorInfo*>(immutableResult.end())};
+}
+
+core::SRange<const ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type) const
+{
 	if (type == IDescriptor::E_TYPE::ET_COUNT)
 	{
 		for (uint32_t t = 0; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
