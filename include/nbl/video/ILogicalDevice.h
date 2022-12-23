@@ -145,7 +145,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         
         virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
         virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
-        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
+        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) = 0;
 
         core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
@@ -234,36 +234,23 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
         {
-            uint32_t totalSetCount = 0;
-            std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes; // TODO: use a map
+            IDescriptorPool::SCreateInfo createInfo;
+
             auto setCountsIt = setCounts;
             for (auto* curLayout = begin; curLayout!=end; curLayout++,setCountsIt++)
             {
                 const auto setCount = setCounts ? (*setCountsIt):1u;
-                totalSetCount += setCount;
+                createInfo.maxSets += setCount;
 
                 for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 {
                     const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
                     const auto& redirect = (*curLayout)->getDescriptorRedirect(type);
-                    const auto declaredBindingCount = redirect.getBindingCount();
-
-                    auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == type; });
-                    if (ps != poolSizes.end())
-                    {
-                        for (uint32_t i = 0; i < declaredBindingCount; ++i)
-                            ps->count += setCount * redirect.getCount(i);
-                    }
-                    else
-                    {
-                        for (uint32_t i = 0; i < declaredBindingCount; ++i)
-                            poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize{ type, setCount * redirect.getCount(i)});
-                    }
+                    createInfo.maxDescriptorCount[t] += setCount * redirect.getTotalCount();
                 }
-
             }
         
-            core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(flags, totalSetCount, poolSizes.size(), poolSizes.data());
+            auto dsPool = createDescriptorPool(std::move(createInfo));
             return dsPool;
         }
 

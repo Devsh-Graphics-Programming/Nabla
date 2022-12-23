@@ -30,7 +30,7 @@ IGPUDescriptorSet::~IGPUDescriptorSet()
 {
     if (!isZombie())
     {
-        const bool allowsFreeing = m_pool->m_flags & IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT;
+        const bool allowsFreeing = m_pool->m_creationParameters.flags.hasFlags(IDescriptorPool::ECF_FREE_DESCRIPTOR_SET_BIT);
         for (auto i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
         {
             // There is no descriptor of such type in the set.

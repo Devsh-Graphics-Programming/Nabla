@@ -21,7 +21,7 @@ bool IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescriptorS
 
 bool IDescriptorPool::reset()
 {
-    const bool allowsFreeing = m_flags & ECF_FREE_DESCRIPTOR_SET_BIT;
+    const bool allowsFreeing = m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT);
     for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
     {
         if (!m_descriptorAllocators[t])
@@ -30,7 +30,7 @@ bool IDescriptorPool::reset()
         const uint32_t allocatedCount = m_descriptorAllocators[t]->getAllocatedDescriptorCount(allowsFreeing);
         std::destroy_n(getDescriptorStorage(static_cast<asset::IDescriptor::E_TYPE>(t)), allocatedCount);
 
-        m_descriptorAllocators[t]->reset(m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
+        m_descriptorAllocators[t]->reset(allowsFreeing);
     }
 
     m_version.fetch_add(1u);
@@ -42,6 +42,8 @@ IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptorOffsets(c
 {
     SDescriptorOffsets offsets;
 
+    const bool allowsFreeing = m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT);
+
     for (uint32_t i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
     {
         const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
@@ -49,14 +51,14 @@ IDescriptorPool::SDescriptorOffsets IDescriptorPool::allocateDescriptorOffsets(c
         if (count == 0ull)
             continue;
 
-        offsets.data[i] = m_descriptorAllocators[i]->allocate(count, m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
+        offsets.data[i] = m_descriptorAllocators[i]->allocate(count, allowsFreeing);
 
-        assert((offsets.data[i] < m_maxDescriptorCount[i]) && "PANIC: Allocation failed. This shoudn't have happened! Check your descriptor pool.");
+        assert((offsets.data[i] < m_creationParameters.maxDescriptorCount[i]) && "PANIC: Allocation failed. This shoudn't have happened! Check your descriptor pool.");
     }
 
     const auto mutableSamplerCount = layout->getTotalMutableSamplerCount();
     if (mutableSamplerCount != 0ull)
-        offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]->allocate(mutableSamplerCount, m_flags & ECF_FREE_DESCRIPTOR_SET_BIT);
+        offsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]->allocate(mutableSamplerCount, allowsFreeing);
 
     return offsets;
 }

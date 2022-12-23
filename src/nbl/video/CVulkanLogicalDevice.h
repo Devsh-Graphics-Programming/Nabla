@@ -223,33 +223,32 @@ public:
         }
     }
             
-    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(
-        IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount,
-        const IDescriptorPool::SDescriptorPoolSize* poolSizes) override
+    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) override
     {
-        constexpr uint32_t MAX_DESCRIPTOR_POOL_SIZE_COUNT = 100u;
+        uint32_t poolSizeCount = 0;
+        VkDescriptorPoolSize poolSizes[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 
-        assert(poolSizeCount <= MAX_DESCRIPTOR_POOL_SIZE_COUNT);
-
-        // I wonder if I can memcpy the entire array
-        VkDescriptorPoolSize vk_descriptorPoolSizes[MAX_DESCRIPTOR_POOL_SIZE_COUNT];
-        for (uint32_t i = 0u; i < poolSizeCount; ++i)
+        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
         {
-            vk_descriptorPoolSizes[i].type = getVkDescriptorTypeFromDescriptorType(poolSizes[i].type);
-            vk_descriptorPoolSizes[i].descriptorCount = poolSizes[i].count;
+            if (createInfo.maxDescriptorCount[t] == 0)
+                continue;
+
+            auto& poolSize = poolSizes[poolSizeCount++];
+            poolSize.type = getVkDescriptorTypeFromDescriptorType(static_cast<asset::IDescriptor::E_TYPE>(t));
+            poolSize.descriptorCount = createInfo.maxDescriptorCount[t];
         }
 
         VkDescriptorPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkDescriptorPoolInlineUniformBlockCreateInfoEXT or VkMutableDescriptorTypeCreateInfoVALVE
-        vk_createInfo.flags = static_cast<VkDescriptorPoolCreateFlags>(flags);
-        vk_createInfo.maxSets = maxSets;
+        vk_createInfo.flags = static_cast<VkDescriptorPoolCreateFlags>(createInfo.flags.value);
+        vk_createInfo.maxSets = createInfo.maxSets;
         vk_createInfo.poolSizeCount = poolSizeCount;
-        vk_createInfo.pPoolSizes = vk_descriptorPoolSizes;
+        vk_createInfo.pPoolSizes = poolSizes;
 
         VkDescriptorPool vk_descriptorPool;
         if (m_devf.vk.vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
         {
-            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, maxSets, poolSizeCount, poolSizes, vk_descriptorPool);
+            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(createInfo), vk_descriptorPool);
         }
         else
         {

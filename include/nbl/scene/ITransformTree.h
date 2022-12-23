@@ -142,8 +142,10 @@ class NBL_API ITransformTree : public virtual core::IReferenceCounted
 			if (!outPool)
 				return false;
 
-			video::IDescriptorPool::SDescriptorPoolSize size = {asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,property_pool_t::PropertyCount+TransformTree::RenderDescriptorSetBindingCount};
-			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,2u,1u,&size);
+			video::IDescriptorPool::SCreateInfo createInfo;
+			createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] = property_pool_t::PropertyCount + TransformTree::RenderDescriptorSetBindingCount;
+			createInfo.maxSets = 2;
+			auto dsp = device->createDescriptorPool(std::move(createInfo));
 			if (!dsp)
 				return false;
 
