@@ -482,7 +482,20 @@ public:
 
             const IGPUDescriptorSetLayout* layout = pDescriptorWrites[i].dstSet->getLayout();
             if (layout->getAPIType() != EAT_VULKAN)
+            {
+                auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+                if (logger)
+                {
+                    const char* dsDebugName = pDescriptorWrites[i].dstSet->getDebugName();
+                    const char* dsLayoutDebugName = pDescriptorWrites[i].dstSet->getDebugName();
+                    if (dsDebugName && dsLayoutDebugName)
+                        logger->log("Descriptor set layout (%s, %p) of the descriptor set (%s, %p) uses a different backend than the logical device it was created with. Skipping the descriptor set..", system::ILogger::ELL_ERROR, dsLayoutDebugName, layout, dsDebugName, pDescriptorWrites[i].dstSet);
+                    else
+                        logger->log("Descriptor set layout (%p) of the descriptor set (%p) uses a different backend than the logical device it was created with. Skipping the descriptor set..", system::ILogger::ELL_ERROR, layout, pDescriptorWrites[i].dstSet);
+
+                }
                 continue;
+            }
 
             const CVulkanDescriptorSet* vulkanDescriptorSet = static_cast<const CVulkanDescriptorSet*>(pDescriptorWrites[i].dstSet);
             vk_writeDescriptorSets[i].dstSet = vulkanDescriptorSet->getInternalObject();
