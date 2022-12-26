@@ -35,6 +35,15 @@ namespace asset
         _output[3] = pix >> 15;
     }
 
+    template<>
+    inline void decodePixels<asset::EF_R5G6B5_UNORM_PACK16, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
+        _output[2] = ((pix >> 0) & 0x1fULL);
+        _output[1] = ((pix >> 5) & 0x3fULL);
+        _output[0] = ((pix >> 11) & 0x1fULL);
+    }
+
 	template<>
     inline void decodePixels<asset::EF_B5G6R5_UNORM_PACK16, uint64_t>(const void* _pix[4], uint64_t* _output, uint32_t _blockX, uint32_t _blockY)
     {
@@ -1161,12 +1170,14 @@ namespace asset
             uint16_t r0, g0, b0, r1, g1, b1;
 
             const void* input = &col.c0;
-            decodePixels<asset::EF_B5G6R5_UNORM_PACK16, uint64_t>(&input, p[0].c, 0u, 0u);
+            decodePixels<asset::EF_R5G6B5_UNORM_PACK16, uint64_t>(&input, p[0].c, 0u, 0u);
+            p[0].a = 0xff;
 			r0 = static_cast<uint16_t>(p[0].r);
 			g0 = static_cast<uint16_t>(p[0].g);
 			b0 = static_cast<uint16_t>(p[0].b);
             input = &col.c1;
-            decodePixels<asset::EF_B5G6R5_UNORM_PACK16, uint64_t>(&input, p[1].c, 0u, 0u);
+            decodePixels<asset::EF_R5G6B5_UNORM_PACK16, uint64_t>(&input, p[1].c, 0u, 0u);
+            p[1].a = 0xff;
 			r1 = static_cast<uint16_t>(p[1].r);
 			g1 = static_cast<uint16_t>(p[1].g);
 			b1 = static_cast<uint16_t>(p[1].b);
@@ -1194,9 +1205,9 @@ namespace asset
             }
 
             const uint32_t idx = 4u*_y + _x;
-            const uint32_t cw = 3u & (col.lut >> (2u * idx));
+            const uint32_t controlCode = 3u & (col.lut >> (2u * idx));
             for (uint32_t i = 0u; i < (_alpha ? 4u : 3u); ++i)
-				_output[i] = p[cw].c[i];
+				_output[i] = p[controlCode].c[i];
         }
         template<typename T>
         inline void decodeBC2(const void* _pix, T* _output, uint32_t _x, uint32_t _y)
@@ -1256,7 +1267,7 @@ namespace asset
             else
             {
                 int lut = int(b.lut[3]) | int(b.lut[4] << 8) | int(b.lut[5] << 16);
-                int aw = 7 & (lut >> (3 * idx));
+                int aw = 7 & (lut >> (3 * (idx-8)));
                 _output[_offset] = a[aw];
             }
         }
@@ -1334,6 +1345,7 @@ namespace asset
         _output[0] /= 31.;
         _output[1] /= 63.;
         _output[2] /= 31.;
+        _output[3] /= 255.;
     }
 
     template<>
@@ -1360,20 +1372,19 @@ namespace asset
         impl::SRGB2lin(_output);
     }
 
-    // TODO(achal): This needs fixing. All that is required to make the CBlitImageFilter work with BC input.
     template<>
     inline void decodePixels<asset::EF_BC3_UNORM_BLOCK, double>(const void* _pix[4], double* _output, uint32_t _x, uint32_t _y)
     {
         const void* pix[4];
         memcpy(pix, _pix, sizeof(pix));
-        pix[0] = reinterpret_cast<const uint8_t*>(pix[0])+8;
-        decodePixels<asset::EF_BC1_RGBA_UNORM_BLOCK, double>(pix, _output, _x, _y);
-        impl::decodeBC4(_pix, _output, 3, _x, _y);
-        _output[3] /= 255.;
 
-        // TODO(achal): Remove.
-        std::swap(_output[0], _output[2]);
-        _output[3] = 1.0;
+        // Decode the RGB block.
+        pix[0] = reinterpret_cast<const uint8_t*>(pix[0])+8;
+        decodePixels<asset::EF_BC1_RGB_UNORM_BLOCK, double>(pix, _output, _x, _y);
+
+        // Decode the alpha block.
+        impl::decodeBC4(_pix[0], _output, 3, _x, _y);
+        _output[3] /= 255.;
     }
 
     template<>
