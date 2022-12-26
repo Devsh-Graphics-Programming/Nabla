@@ -273,21 +273,29 @@ public:
 		if (!_other || getTotalBindingCount() != _other->getTotalBindingCount())
 			return false;
 
+		auto areRedirectsEqual = [](const CBindingRedirect& lhs, const CBindingRedirect& rhs) -> bool
+		{
+			const auto memSize = lhs.getRequiredMemorySize();
+			if (memSize != rhs.getRequiredMemorySize())
+				return false;
+
+			if (std::memcmp(lhs.m_data.get(), rhs.m_data.get(), memSize) != 0)
+				return false;
+
+			return true;
+		};
+
 		for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 		{
-			const auto& lhs = m_descriptorRedirects[t];
-			const auto& rhs = _other->m_descriptorRedirects[t];
-
-			const auto bindingCount = lhs.getBindingCount();
-			assert(bindingCount==rhs.getBindingCount());
-
-			for (uint32_t i = 0u; i < bindingCount; ++i)
-			{
-				const bool equal = (lhs.m_bindingNumbers[i].data == rhs.m_bindingNumbers[i].data) && (lhs.m_createFlags[i].value == rhs.m_createFlags[i].value) && (lhs.m_stageFlags[i].value == rhs.m_stageFlags[i].value) && (lhs.getCount(i) == rhs.getCount(i));
-				if (!equal)
-					return false;
-			}
+			if (!areRedirectsEqual(m_descriptorRedirects[t], _other->m_descriptorRedirects[t]))
+				return false;
 		}
+
+		if (!areRedirectsEqual(m_immutableSamplerRedirect, _other->m_immutableSamplerRedirect))
+			return false;
+
+		if (!areRedirectsEqual(m_mutableSamplerRedirect, _other->m_mutableSamplerRedirect))
+			return false;
 
 		if (!m_samplers && !_other->m_samplers)
 		{
@@ -300,7 +308,8 @@ public:
 		else
 		{
 			const auto samplerCount = m_samplers->size();
-			assert(samplerCount == _other->m_samplers->size());
+			if (samplerCount != _other->m_samplers->size())
+				return false;
 
 			for (uint32_t i = 0u; i < samplerCount; ++i)
 			{

@@ -1714,20 +1714,22 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
             for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
             {
                 const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-                const auto activeBindingCount = cpuds->getLayout()->getDescriptorRedirect(type).getBindingCount();
 
-                for (uint32_t b = 0u; b < activeBindingCount; ++b)
+                const auto& descriptorBindingRedirect = cpuds->getLayout()->getDescriptorRedirect(type);
+                const auto& mutableSamplerBindingRedirect = cpuds->getLayout()->getMutableSamplerRedirect();
+
+                for (uint32_t b = 0u; b < descriptorBindingRedirect.getBindingCount(); ++b)
                 {
                     write_it->dstSet = gpuds;
-                    write_it->binding = cpuds->getLayout()->getDescriptorRedirect(type).getBindingNumber(b).data;
+                    write_it->binding = descriptorBindingRedirect.getBindingNumber(b).data;
                     write_it->arrayElement = 0u;
 
-                    const uint32_t descriptorCount = cpuds->getLayout()->getDescriptorRedirect(type).getCount(b);
+                    const uint32_t descriptorCount = descriptorBindingRedirect.getCount(b);
                     write_it->count = descriptorCount;
                     write_it->descriptorType = type;
                     write_it->info = &(*info);
 
-                    const uint32_t offset = cpuds->getLayout()->getDescriptorRedirect(type).getStorageOffset(b).data;
+                    const uint32_t offset = descriptorBindingRedirect.getStorageOffset(b).data;
 
                     // It is better to use getDescriptorInfoStorage over getDescriptorInfos, because the latter does a binary search
                     // over the bindings, which is not really required given we have the index of binding number (since we're iterating
@@ -1764,22 +1766,14 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                         {
                             info->desc = imgViewRedirs[ivi] >= gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
                             ++ivi;
-                            // TODO: This should be set in the loader (or whoever is creating
-                            // the descriptor)
-                            if (info->info.image.imageLayout == asset::IImage::EL_UNDEFINED)
-                            {
-                                if (isStorageImgDesc(type))
-                                {
-                                    info->info.image.imageLayout = asset::IImage::EL_GENERAL;
-                                }
-                                else
-                                {
-                                    const auto imageFormat = static_cast<asset::ICPUImageView*>(info->desc.get())->getCreationParameters().format;
-                                    info->info.image.imageLayout = isDepthOrStencilFormat(imageFormat) ? asset::IImage::EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL : asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+                            info->info.image.imageLayout = descriptorInfos[offset + d].info.image.imageLayout;
+                            assert(info->info.image.imageLayout != asset::IImage::EL_UNDEFINED);
 
-                                    if (descriptorInfos.begin()[offset + d].info.image.sampler)
-                                        info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
-                                }
+                            if (!isStorageImgDesc(type))
+                            {
+                                const bool isMutableSamplerBinding = (mutableSamplerBindingRedirect.searchForBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write_it->binding }) != mutableSamplerBindingRedirect.Invalid);
+                                if (descriptorInfos.begin()[offset + d].info.image.sampler && isMutableSamplerBinding)
+                                    info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
                             }
                         }
                         allDescriptorsPresent = allDescriptorsPresent && info->desc;

@@ -480,15 +480,8 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT 
 
             if (dynamicOffsets) // count dynamic offsets per set, if there are any
             {
-                auto addDynamicOffsetCount = [&dynamicOffsetCountPerSet, i](const IGPUDescriptorSetLayout::CBindingRedirect& descriptorBindingRedirect)
-                {
-                    const auto declaredBindingCount = descriptorBindingRedirect.getBindingCount();
-                    for (uint32_t b = 0; b < declaredBindingCount; ++b)
-                        dynamicOffsetCountPerSet[i] += descriptorBindingRedirect.getCount(b);
-                };
-
-                addDynamicOffsetCount(pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC));
-                addDynamicOffsetCount(pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC));
+                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC).getTotalCount();
+                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC).getTotalCount();
             }
         }
     }
