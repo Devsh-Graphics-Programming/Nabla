@@ -15,9 +15,16 @@ class IGPUCommandBuffer;
 
 class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
-public:
+    static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
+
+    static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
     static inline constexpr uint32_t COMMAND_SEGMENT_SIZE = 128u << 10u;
 
+    static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 16u;
+    static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 256u;
+    static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
+
+public:
     enum E_CREATE_FLAGS : uint32_t
     {
         ECF_NONE = 0x00,
@@ -26,18 +33,7 @@ public:
         ECF_PROTECTED_BIT = 0x04
     };
 
-private:
-    static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
-
-    static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
-
-    static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 16u;
-    static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 256u;
-    static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
-
-public:
     class CCommandSegment;
-
     class alignas(COMMAND_ALIGNMENT) ICommand
     {
         friend class CCommandSegment;
