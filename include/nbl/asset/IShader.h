@@ -75,6 +75,11 @@ protected:
 	std::string m_filepathHint;
 };
 
+inline IShader::E_SHADER_STAGE operator|(IShader::E_SHADER_STAGE lhs,
+                                         IShader::E_SHADER_STAGE rhs) {
+  return static_cast<IShader::E_SHADER_STAGE>(static_cast<uint32_t>(lhs) |
+                                     static_cast<uint32_t>(rhs));
+}
 }
 
 #endif
