@@ -46,6 +46,18 @@ set file_path[29]=utils/normal_decode
 set file_path[30]=utils/normal_encode
 set file_path[31]=utils/surface_transform
 set file_path[32]=utils/transform
+rem set file_path[33]=utils/indirect_commands
+
+set file_path[33]=loader/mtl/common
+
+set file_path[34]=lod_library/structs
+rem set file_path[36]=lod_library/descriptor_set
+
+set file_path[35]=property_pool/transfer
+
+set file_path[36]=blit/formats_encode
+rem set file_path[37]=blit/blit/descriptors
+
 
 
 
