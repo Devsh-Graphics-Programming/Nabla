@@ -45,12 +45,10 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 			if (inParams.samples!=IImage::ESCF_1_BIT)
 				return false;
 
-			// TODO: remove this later when we can actually write/encode to block formats
-			// TODO(achal): Should this be here?
-			// if (isBlockCompressionFormat(inParams.format))
-			// 	return false;
-
-			// TODO(achal): Add a validation which rejects formats that can have more than one valid aspect masks.
+			// Reject formats that can have more than one valid aspect masks, which are only depth-stencil formats.
+			const auto inFormat = state->inImage->getCreationParameters().format;
+			if (asset::isDepthOrStencilFormat(inFormat) && !asset::isDepthOnlyFormat(inFormat) && !asset::isStencilOnlyFormat(inFormat))
+				return false;
 
 			return true;
 		}
@@ -94,6 +92,7 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 				auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
 				state->outImage->setBufferAndRegions(std::move(buffer),std::move(regions));
 			};
+
 			auto* outImg = state->outImage.get();
 			if (outImg)
 			{

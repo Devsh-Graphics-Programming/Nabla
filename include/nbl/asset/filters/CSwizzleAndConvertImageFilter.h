@@ -77,7 +77,7 @@ class NBL_API CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherab
 								base_t::template onDecode<kInFormat,encodeBufferType>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
 							else
 								base_t::template onDecode<encodeBufferType>(rInFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-							state->normalization.prepass(encodeBuffer,readBlockPos*blockDims+commonExecuteData.offsetDifference,blockX,blockY,4u/*TODO: figure this out*/);
+							state->normalization.prepass(encodeBuffer,readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels,blockX,blockY,4u/*TODO: figure this out*/);
 						}
 					};
 					CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, normalizePrepass, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -146,7 +146,7 @@ class NBL_API CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndCon
 					for (auto blockY=0u; blockY<blockDims.y; blockY++)
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
-						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
+						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 						
 						constexpr auto maxChannels = 4;
@@ -212,7 +212,7 @@ class NBL_API CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither
 					for (auto blockY=0u; blockY<blockDims.y; blockY++)
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
-						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
+						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 				
 						constexpr auto maxChannels = 4;
@@ -287,7 +287,7 @@ class NBL_API CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,
 					for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 					for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 					{
-						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference;
+						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifferenceInTexels;
 						uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY), commonExecuteData.outByteStrides);
 
 						constexpr auto maxChannels = 4;
@@ -363,7 +363,7 @@ class NBL_API CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,N
 					for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 						for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 						{
-							auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference;
+							auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifferenceInTexels;
 							uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY), commonExecuteData.outByteStrides);
 
 							constexpr auto maxChannels = 4;
