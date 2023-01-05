@@ -45,7 +45,7 @@ class NBL_API CGlobalNormalizationState
 				const auto val = encodeBuffer[channel];
 				if constexpr (std::is_floating_point_v<Tenc>)
 				{
-					core::atomic_fetch_max(oldMinValue+channel,val);
+					core::atomic_fetch_min(oldMinValue+channel,val);
 					core::atomic_fetch_max(oldMaxValue+channel,val);
 				}
 			}
@@ -96,12 +96,17 @@ class NBL_API CGlobalNormalizationState
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Encode types must be double or float!");
 
+			constexpr float Threshold = 1e-6f;
 			if constexpr (isSignedFormat)
+			{
 				for (uint8_t channel = 0; channel < channels; ++channel)
-					encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
+					encodeBuffer[channel] = (oldMaxValue[channel] - oldMinValue[channel]) < Threshold ? 1.f : (2.0 * encodeBuffer[channel] - oldMaxValue[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
+			}
 			else
+			{
 				for (uint8_t channel = 0; channel < channels; ++channel)
-					encodeBuffer[channel] = (encodeBuffer[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
+					encodeBuffer[channel] = (oldMaxValue[channel] - oldMinValue[channel]) < Threshold ? 1.f : (encodeBuffer[channel] - oldMinValue[channel]) / (oldMaxValue[channel] - oldMinValue[channel]);
+			}
 		}
 };
 

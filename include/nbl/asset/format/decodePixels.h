@@ -1679,7 +1679,9 @@ namespace asset
             case asset::EF_G8_B8_R8_3PLANE_422_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
             case asset::EF_G8_B8R8_2PLANE_422_UNORM: decodePixels<asset::EF_G8_B8R8_2PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
             case asset::EF_G8_B8_R8_3PLANE_444_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_444_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-            default: return false;
+            default:
+                assert(!"Format decode not supported");
+                return false;
         }
     }
 
