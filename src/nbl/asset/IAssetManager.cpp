@@ -227,8 +227,11 @@ void IAssetManager::insertBuiltinAssets()
 									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{
-            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
+            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize() + 1u);
             memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
+            char* bufferAsChar = reinterpret_cast<char*>(buffer->getPointer());
+            bufferAsChar[data->getSize()] = '\0';
+
             auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
 			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
