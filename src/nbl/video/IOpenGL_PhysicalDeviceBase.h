@@ -729,7 +729,7 @@ public:
 				}
 			}
 		
-			m_features.vertexAttributeDouble = !IsGLES;
+			m_features.shaderFloat64 = !IsGLES;
 
 			m_properties.limits.shaderInt64 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_ARB_gpu_shader_int64) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int64); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L411
 			m_properties.limits.shaderInt16 = m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_NV_gpu_shader5) || m_glfeatures.isFeatureAvailable(COpenGLFeatureMap::NBL_AMD_gpu_shader_int16); // keep in sync with `GL_EXT_shader_explicit_arithmetic_types_int16` SPIRV-Cross Handling https://github.com/KhronosGroup/SPIRV-Cross/blob/master/spirv_glsl.cpp#L849

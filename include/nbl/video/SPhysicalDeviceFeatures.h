@@ -75,7 +75,7 @@ struct SPhysicalDeviceFeatures
     bool shaderStorageImageArrayDynamicIndexing = false;
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
-    bool vertexAttributeDouble = false; // shaderFloat64
+    bool shaderFloat64 = false; // shaderFloat64
     
     // Enabled by Default, Moved to Limits
     //bool shaderInt64 = false;
@@ -1045,7 +1045,7 @@ struct SPhysicalDeviceFeatures
         if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderClipDistance && !_rhs.shaderClipDistance) return false;
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
-        if (vertexAttributeDouble && !_rhs.vertexAttributeDouble) return false;
+        if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;

@@ -393,7 +393,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.shaderStorageImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_ARRAY_DYNAMIC_INDEXING");
     if (features.shaderClipDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CLIP_DISTANCE");
     if (features.shaderCullDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CULL_DISTANCE");
-    if (features.vertexAttributeDouble) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VERTEX_ATTRIBUTE_DOUBLE");
+    if (features.shaderFloat64) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_FLOAT64");
     if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_RESIDENCY");
     if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_MIN_LOD");
     if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VARIABLE_MULTISAMPLE_RATE");

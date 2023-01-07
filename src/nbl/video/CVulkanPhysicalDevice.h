@@ -662,7 +662,7 @@ public:
             m_features.shaderStorageImageArrayDynamicIndexing = features.shaderStorageImageArrayDynamicIndexing;
             m_features.shaderClipDistance = features.shaderClipDistance;
             m_features.shaderCullDistance = features.shaderCullDistance;
-            m_features.vertexAttributeDouble = features.shaderFloat64;
+            m_features.shaderFloat64 = features.shaderFloat64;
             m_features.shaderResourceResidency = features.shaderResourceResidency;
             m_features.shaderResourceMinLod = features.shaderResourceMinLod; 
             m_features.variableMultisampleRate = features.variableMultisampleRate;
@@ -1705,7 +1705,7 @@ protected:
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = enabledFeatures.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
-        vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.vertexAttributeDouble;
+        vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.shaderFloat64;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
         vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
         vk_deviceFeatures2.features.variableMultisampleRate = enabledFeatures.variableMultisampleRate;
