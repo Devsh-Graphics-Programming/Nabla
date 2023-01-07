@@ -1828,7 +1828,7 @@ protected:
             if(useVk12Struct)
             {
                 vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
-                vulkan12Features.bufferDeviceAddressCaptureReplay = false;
+                vulkan12Features.bufferDeviceAddressCaptureReplay = (m_rdoc_api != nullptr); // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
                 vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
             }
             else
