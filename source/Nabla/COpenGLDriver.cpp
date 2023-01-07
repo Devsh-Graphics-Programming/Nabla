@@ -1323,8 +1323,8 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 
 GLuint COpenGLDriver::SAuxContext::createGraphicsPipeline(const SOpenGLState::SGraphicsPipelineHash& _hash)
 {
-    constexpr size_t STAGE_CNT = COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT;
-    static_assert(STAGE_CNT == 5u, "SHADER_STAGE_COUNT is expected to be 5");
+    constexpr size_t STAGE_CNT = COpenGLRenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT;
+    static_assert(STAGE_CNT == 5u, "GRAPHICS_SHADER_STAGE_COUNT is expected to be 5");
     const GLenum stages[5]{ GL_VERTEX_SHADER, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_GEOMETRY_SHADER, GL_FRAGMENT_SHADER };
     const GLenum stageFlags[5]{ GL_VERTEX_SHADER_BIT, GL_TESS_CONTROL_SHADER_BIT, GL_TESS_EVALUATION_SHADER_BIT, GL_GEOMETRY_SHADER_BIT, GL_FRAGMENT_SHADER_BIT };
 
@@ -1354,7 +1354,7 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
         return;
     }
     SOpenGLState::SGraphicsPipelineHash hash;
-    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++i)
     {
         hash[i] = nextState.pipeline.graphics.pipeline->getShaderAtIndex(i) ?
             nextState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID) :

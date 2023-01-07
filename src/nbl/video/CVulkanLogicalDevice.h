@@ -1392,7 +1392,7 @@ protected:
                 continue;
 
             uint32_t shaderCount = 0u;
-            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
             {
                 auto shader = creationParams[i].shaders[ss];
                 if (shader)
