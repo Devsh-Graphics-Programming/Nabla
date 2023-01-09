@@ -71,6 +71,10 @@ static tcpp::IInputStream* getInputStreamInclude(
         return nullptr;
     }
 
+    IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
+    // TODO support this
+    //res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
+
     return new tcpp::StringInputStream(std::move(res_str));
 }
 
@@ -156,6 +160,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     }
     if (preprocessOptions.includeFinder != nullptr)
     {
+        IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+
         tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
         tcpp::Lexer lexer(codeIs);
         tcpp::Preprocessor proc(
@@ -217,7 +223,10 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             return std::string("");
         });
 
-        return proc.Process();
+        auto resolvedString = proc.Process();
+        IShaderCompiler::reenableDirectives(resolvedString);
+
+        return resolvedString;
     }
     else
     {
