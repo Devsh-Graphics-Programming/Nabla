@@ -8,8 +8,12 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
-#include <combaseapi.h>
-#include <dxc/dxc/include/dxc/dxcapi.h>
+#include <wrl.h>
+
+using Microsoft::WRL::ComPtr;
+
+class IDxcUtils;
+class IDxcCompiler3;
 
 namespace nbl::asset
 {
@@ -20,7 +24,6 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 
 		CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
-		~CHLSLCompiler();
 
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
@@ -44,13 +47,15 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
 
-	protected:
-
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
+		IDxcUtils* getDxcUtils() const { return m_dxcUtils.Get(); }
+		IDxcCompiler3* getDxcCompiler() const { return m_dxcCompiler.Get(); }
+	protected:
+
 		// TODO do we want to use ComPtr? 
-		std::unique_ptr<IDxcUtils> m_dxcUtils;
-		std::unique_ptr<IDxcCompiler3> m_dxcCompiler;
+		ComPtr<IDxcUtils> m_dxcUtils;
+		ComPtr<IDxcCompiler3> m_dxcCompiler;
 
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
@@ -61,29 +66,6 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 				ret.setCommonData(options);
 			return ret;
 		}
-
-		class DxcCompilationResult
-		{
-		public:
-			IDxcBlobEncoding* errorMessages;
-			IDxcBlob* objectBlob;
-			IDxcResult* compileResult;
-			
-			char* GetErrorMessagesString()
-			{
-				return reinterpret_cast<char*>(errorMessages->GetBufferPointer());
-			}
-
-			// TODO figure out why this is crashing when done as part of the destructor
-			void release()
-			{
-				errorMessages->Release();
-				objectBlob->Release();
-				compileResult->Release();
-			}
-		};
-
-		CHLSLCompiler::DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const;
 };
 
 }
