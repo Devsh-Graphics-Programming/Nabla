@@ -24,7 +24,7 @@ vec3 nbl_glsl_unpackPageID(in uint pageID)
 }
 uvec2 nbl_glsl_unpackWrapModes(in uvec2 texData)
 {
-    return (texData >> uvec2(28u, 30u))& uvec2(0x03u);
+    return (texData.yy >> uvec2(28u, 30u))& uvec2(0x03u);
 }
 uint nbl_glsl_unpackMaxMipInVT(in uvec2 texData)
 {
