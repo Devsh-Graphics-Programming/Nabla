@@ -136,7 +136,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
-			std::string_view entryPoint = "";
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			bool genDebugInfo = true;
 			SPreprocessorOptions preprocessorOptions = {};

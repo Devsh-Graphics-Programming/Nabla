@@ -536,7 +536,6 @@ public:
             commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
 
             commonCompileOptions.stage = shaderStage;
-            commonCompileOptions.entryPoint = entryPoint;
             commonCompileOptions.genDebugInfo = true;
             commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
             commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;

@@ -143,12 +143,6 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
         return nullptr;
     }
 
-    if (glslOptions.entryPoint.compare("main") != 0)
-    {
-        glslOptions.preprocessorOptions.logger.log("shaderc requires entry point to be \"main\" in GLSL", system::ILogger::ELL_ERROR);
-        return nullptr;
-    }
-
     auto newCode = preprocessShader(code, glslOptions.stage, glslOptions.preprocessorOptions);
 
     shaderc::Compiler comp;
@@ -158,7 +152,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
     if (glslOptions.genDebugInfo)
         shadercOptions.SetGenerateDebugInfo();
 
-    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", glslOptions.entryPoint.data(), shadercOptions);
+    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", "main", shadercOptions);
 
     if (bin_res.GetCompilationStatus() == shaderc_compilation_status_success)
     {

@@ -68,7 +68,7 @@ static tcpp::IInputStream* getInputStreamInclude(
         res_str = _inclFinder->getIncludeStandard(relDir, _requesting_source);
 
     if (!res_str.size()) {
-        return nullptr;
+        return new tcpp::StringInputStream("#error File not found");
     }
 
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
@@ -289,11 +289,12 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
         // These are debug only
         L"-Zi", // Enables debug information
-        L"-Qembed_debug" //Embeds debug information
+        L"-Qembed_debug", //Embeds debug information
+        L"-fspv-debug=file" // Embeds debug information
     };
 
     const uint32_t nonDebugArgs = 5;
-    const uint32_t allArgs = nonDebugArgs + 2;
+    const uint32_t allArgs = nonDebugArgs + 3;
 
     auto compileResult = dxcCompile(this, newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
