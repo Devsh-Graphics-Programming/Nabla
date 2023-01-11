@@ -288,13 +288,14 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-T", targetProfile.c_str(),
 
         // These are debug only
-        L"-Zi", // Enables debug information
-        L"-Qembed_debug", //Embeds debug information
-        L"-fspv-debug=file" // Embeds debug information
+        DXC_ARG_DEBUG,
+        L"-Qembed_debug",
+        L"-fspv-debug=vulkan-with-source",
+        L"-fspv-debug=file"
     };
 
     const uint32_t nonDebugArgs = 5;
-    const uint32_t allArgs = nonDebugArgs + 3;
+    const uint32_t allArgs = nonDebugArgs + 4;
 
     auto compileResult = dxcCompile(this, newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
