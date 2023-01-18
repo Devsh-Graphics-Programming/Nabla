@@ -15,7 +15,7 @@ namespace nbl
 namespace asset
 {
 
-// standard Box function, symmetric, value in the support is 1, integral is 1, so support must be [-1/2,1/2]
+// standard Box function, symmetric, value in the support is 1, integral is 1, so support must be [-1/2,1/2)
 // to get box filters of different widths we can use it in composition inside `CScaledImageFilterKernel`
 class NBL_API CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel,std::ratio<1,2> >
 {

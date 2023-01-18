@@ -100,9 +100,10 @@ class NBL_API IImageFilterKernel
 		// given an unnormalized (measured in pixels), center sampled coordinate (origin is at the center of the first pixel),
 		// return corner sampled coordinate (origin at the very edge of the first pixel) as well as the
 		// corner sampled coordinate of the first pixel that lays inside the kernel's support when centered on the given pixel
-		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCeterSampledCoord, core::vectorSIMDf& cornerSampledCoord) const
+		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCenterSampledCoord, core::vectorSIMDf& cornerSampledCoord) const
 		{
-			cornerSampledCoord = unnormCeterSampledCoord-core::vectorSIMDf(0.5f,0.5f,0.5f,0.f);
+			cornerSampledCoord = unnormCenterSampledCoord-core::vectorSIMDf(0.5f,0.5f,0.5f,0.f);
+			// We subtract negative_support here instead of adding because we store negative_support without sign, for example -0.5 will stored as 0.5.
 			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord-negative_support));
 		}
 		// overload that does not return the cornern sampled coordinate of the given center sampled coordinate
@@ -126,8 +127,16 @@ class NBL_API IImageFilterKernel
 	protected:
 		// derived classes need to let us know where the function starts and stops having non-zero values, this is measured in pixels
 		IImageFilterKernel(const float* _negative_support, const float* _positive_support) :
-			negative_support( _negative_support[0],_negative_support[1],_negative_support[2]),
-			positive_support( _positive_support[0],_positive_support[1],_positive_support[2]),
+			negative_support(_negative_support[0],_negative_support[1],_negative_support[2]),
+			positive_support(_positive_support[0],_positive_support[1],_positive_support[2]),
+			// The reason we use a ceil for window_size:
+			// For a convolution operation, depending upon where you place the kernel center in the output image it can encompass different number of input pixel centers.
+			// For example, assume you have a 1D kernel with supports [-3/4, 3/4) and you place this at x=0.5, then kernel weights will be
+			// non-zero in [-3/4 + 0.5, 3/4 + 0.5) so there will be only one pixel center (at x=0.5) in the non-zero kernel domain, hence window_size will be 1.
+			// But if you place the same kernel at x=0, then the non-zero kernel domain will become [-3/4, 3/4) which now encompasses two pixel centers
+			// (x=-0.5 and x=0.5), that is window_size will be 2.
+			// Note that the window_size can never exceed 2, in the above case, because for that to happen there should be more than 2 pixel centers in non-zero
+			// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
 			window_size(core::ceil<core::vectorSIMDf>(negative_support+positive_support)),
 			window_strides(1,window_size[0],window_size[0]*window_size[1])
 		{}

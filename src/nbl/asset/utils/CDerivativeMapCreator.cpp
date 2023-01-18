@@ -139,7 +139,8 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	<
 		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
 		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
-		XDerivKernel,YDerivKernel,CBoxImageFilterKernel
+		// TODO(achal): This might not be correct.
+		CBlitUtilities<ReconstructionKernel, XDerivKernel, ReconstructionKernel, YDerivKernel, ReconstructionKernel, CBoxImageFilterKernel>
 	>;
 
 	const auto extent = _inImg->getCreationParameters().extent;
@@ -148,7 +149,8 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
 
-	typename DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+	// TODO(achal): This might not be correct.
+	typename DerivativeMapFilter::state_type state(ReconstructionKernel(), std::move(xderiv), ReconstructionKernel(), std::move(yderiv), ReconstructionKernel(), CBoxImageFilterKernel());
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;

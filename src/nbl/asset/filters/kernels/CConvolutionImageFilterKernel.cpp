@@ -7,7 +7,7 @@ template <>
 float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKernel>, CScaledImageFilterKernel<CBoxImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t unused) const
 {
 	const auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
-	return (maxIntegrationLimit - minIntegrationLimit) / (getKernelWidth(m_kernelA)*getKernelWidth(m_kernelB));
+	return (maxIntegrationLimit - minIntegrationLimit) * m_kernelA.weight(x, channel) * m_kernelB.weight(x, channel);
 }
 
 template <>

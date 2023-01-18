@@ -32,7 +32,7 @@ public:
 
 	float weight(const float x, const uint32_t channel, const uint32_t sampleCount = 64u) const
 	{
-		auto [minIntegrationLimit, maxIntegrationLimit, domainType] = getIntegrationDomain(x);
+		auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
 
 		if (minIntegrationLimit == maxIntegrationLimit)
 			return 0.f;

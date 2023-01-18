@@ -132,7 +132,7 @@ public:
 
         upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
 
-        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false,asset::CMitchellImageFilterKernel<>>;
+        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false, asset::CBlitUtilities<asset::CMitchellImageFilterKernel<>>>;
         blit_filter_t::state_type blit;
         blit.inOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
         blit.inExtent = params.extent;
@@ -147,7 +147,7 @@ public:
 
         const core::vectorSIMDu32 inExtent(blit.inExtent.width, blit.inExtent.height, blit.inExtent.depth, 1);
         const core::vectorSIMDu32 outExtent(blit.outExtent.width, blit.outExtent.height, blit.outExtent.depth, 1);
-        if (!blit_filter_t::blit_utils_t::computeScaledKernelPhasedLUT(blit.scratchMemory + blit_filter_t::getScratchOffset(&blit, blit_filter_t::ESU_SCALED_KERNEL_PHASED_LUT), inExtent, outExtent, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ))
+        if (!blit_filter_t::blit_utils_t::computeScaledKernelPhasedLUT<blit_filter_t::lut_value_t>(blit.scratchMemory + blit_filter_t::getScratchOffset(&blit, blit_filter_t::ESU_SCALED_KERNEL_PHASED_LUT), inExtent, outExtent, blit.inImage->getCreationParameters().type, blit.reconstructionX, blit.resamplingX, blit.reconstructionY, blit.resamplingY, blit.reconstructionZ, blit.resamplingZ))
             return nullptr;
 
         const bool blit_succeeded = blit_filter_t::execute(&blit);
@@ -218,12 +218,7 @@ public:
 
         asset::CPaddedCopyImageFilter::execute(core::execution::par_unseq,&copy);
 
-        using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<
-            VoidSwizzle,IdentityDither,void/*TODO: whitenoise*/,false,
-            asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
-            asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
-            asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel
-        >;
+        using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<VoidSwizzle, IdentityDither, void/*TODO: whitenoise*/, false, asset::CBlitUtilities<>>;
         //generate all mip levels
         {
             mip_gen_filter_t::state_type genmips;

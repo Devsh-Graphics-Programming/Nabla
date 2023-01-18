@@ -9,6 +9,7 @@
 
 namespace nbl::asset
 {
+
 class IBlitUtilities
 {
 public:
@@ -44,30 +45,118 @@ public:
 	}
 };
 
-template <class KernelX = CBoxImageFilterKernel, class KernelY = KernelX, class KernelZ = KernelX>
+template <typename BlitUtilities>
+concept Blittable = requires(BlitUtilities utils)
+{
+	// All Kernel value_type need to be identical.
+	requires std::is_same_v<typename BlitUtilities::reconstruction_x_t::value_type, typename BlitUtilities::reconstruction_y_t::value_type> &&
+		std::is_same_v<typename BlitUtilities::reconstruction_z_t::value_type, typename BlitUtilities::reconstruction_y_t::value_type>;
+
+	requires std::is_same_v<typename BlitUtilities::resampling_x_t::value_type, typename BlitUtilities::resampling_y_t::value_type> &&
+		std::is_same_v<typename BlitUtilities::resampling_z_t::value_type, typename BlitUtilities::resampling_y_t::value_type>;
+
+	requires std::is_same_v<typename BlitUtilities::reconstruction_x_t::value_type, typename BlitUtilities::resampling_x_t::value_type>;
+
+	// Alpha Handling requires high precision and multipass filtering!
+	// We'll probably never remove this requirement.
+	requires BlitUtilities::reconstruction_x_t::is_separable && BlitUtilities::reconstruction_y_t::is_separable && BlitUtilities::reconstruction_z_t::is_separable;
+	requires BlitUtilities::resampling_x_t::is_separable && BlitUtilities::resampling_y_t::is_separable && BlitUtilities::resampling_z_t::is_separable;
+};
+
+template<
+	typename ReconstructionKernelX	= CBoxImageFilterKernel,
+	typename ResamplingKernelX		= ReconstructionKernelX,
+	typename ReconstructionKernelY	= ReconstructionKernelX,
+	typename ResamplingKernelY		= ResamplingKernelX,
+	typename ReconstructionKernelZ	= ReconstructionKernelX,
+	typename ResamplingKernelZ		= ResamplingKernelX>
 class CBlitUtilities : public IBlitUtilities
 {
-	static_assert(std::is_same<typename KernelX::value_type, typename KernelY::value_type>::value&& std::is_same<typename KernelZ::value_type, typename KernelY::value_type>::value, "Kernel value_type need to be identical");
+	using convolution_kernels_t = std::tuple<CConvolutionImageFilterKernel<CScaledImageFilterKernel<ReconstructionKernelX>, CScaledImageFilterKernel<ResamplingKernelX>>, CConvolutionImageFilterKernel<CScaledImageFilterKernel<ReconstructionKernelY>, CScaledImageFilterKernel<ResamplingKernelY>>, CConvolutionImageFilterKernel<CScaledImageFilterKernel<ReconstructionKernelZ>, CScaledImageFilterKernel<ResamplingKernelZ>>>;
 
 public:
-	_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = std::max<decltype(KernelX::MaxChannels)>(std::max<decltype(KernelX::MaxChannels)>(KernelX::MaxChannels, KernelY::MaxChannels), KernelZ::MaxChannels);
+	using reconstruction_x_t	= ReconstructionKernelX;
+	using resampling_x_t		= ResamplingKernelX;
+	using reconstruction_y_t	= ReconstructionKernelY;
+	using resampling_y_t		= ResamplingKernelY;
+	using reconstruction_z_t	= ReconstructionKernelZ;
+	using resampling_z_t		= ResamplingKernelZ;
 
-	template <typename lut_value_type = typename KernelX::value_type>
-	static inline size_t getScaledKernelPhasedLUTSize(const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
-		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ)
+	using value_t = reconstruction_x_t::value_type;
+
+	static inline constexpr auto MaxChannels = std::max<decltype(ReconstructionKernelX::MaxChannels)>(std::max<decltype(ReconstructionKernelX::MaxChannels)>(ReconstructionKernelX::MaxChannels, ReconstructionKernelY::MaxChannels), ReconstructionKernelZ::MaxChannels);
+
+	static inline convolution_kernels_t getConvolutionKernels(
+		const core::vectorSIMDu32&		inExtent,
+		const core::vectorSIMDu32&		outExtent,
+		const ReconstructionKernelX&	reconstructionX,
+		const ResamplingKernelX&		resamplingX,
+		const ReconstructionKernelY&	reconstructionY,
+		const ResamplingKernelY&		resamplingY,
+		const ReconstructionKernelZ&	reconstructionZ,
+		const ResamplingKernelZ&		resamplingZ)
 	{
-		const auto scaledKernelX = constructScaledKernel(kernelX, inExtent, outExtent);
-		const auto scaledKernelY = constructScaledKernel(kernelY, inExtent, outExtent);
-		const auto scaledKernelZ = constructScaledKernel(kernelZ, inExtent, outExtent);
+		// HACK: To not scale the reconstruction kernel and still get a CScaledImageFilterKernel, I pass the same extents for both input and output.
+		// I can remove this once I remove CScaledImageFilterKernel entirely from the system.
+		auto reconstructionX_Scaled = constructScaledKernel(reconstructionX, inExtent, inExtent);
+		auto resamplingX_Scaled = constructScaledKernel(resamplingX, inExtent, outExtent);
 
-		const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
+		auto reconstructionY_Scaled = constructScaledKernel(reconstructionY, inExtent, inExtent);
+		auto resamplingY_Scaled = constructScaledKernel(resamplingY, inExtent, outExtent);
 
-		return ((phaseCount[0] * scaledKernelX.getWindowSize().x) + (phaseCount[1] * scaledKernelY.getWindowSize().y) + (phaseCount[2] * scaledKernelZ.getWindowSize().z)) * sizeof(lut_value_type) * MaxChannels;
+		auto reconstructionZ_Scaled = constructScaledKernel(reconstructionZ, inExtent, inExtent);
+		auto resamplingZ_Scaled = constructScaledKernel(resamplingZ, inExtent, outExtent);
+
+		convolution_kernels_t kernels = std::make_tuple(asset::CConvolutionImageFilterKernel(std::move(reconstructionX_Scaled), std::move(resamplingX_Scaled)), asset::CConvolutionImageFilterKernel(std::move(reconstructionY_Scaled), std::move(resamplingY_Scaled)), asset::CConvolutionImageFilterKernel(std::move(reconstructionZ_Scaled), std::move(resamplingZ_Scaled)));
+
+		return kernels;
 	}
 
-	template <typename lut_value_type = typename KernelX::value_type>
-	static bool computeScaledKernelPhasedLUT(void* outKernelWeights, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent, const asset::IImage::E_TYPE inImageType,
-		const KernelX& kernelX, const KernelY& kernelY, const KernelZ& kernelZ)
+	template <typename LutDataType>
+	static inline size_t getScaledKernelPhasedLUTSize(
+		const core::vectorSIMDu32&		inExtent,
+		const core::vectorSIMDu32&		outExtent,
+		const asset::IImage::E_TYPE		inImageType,
+		const ReconstructionKernelX&	reconstructionX,
+		const ResamplingKernelX&		resamplingX,
+		const ReconstructionKernelY&	reconstructionY,
+		const ResamplingKernelY&		resamplingY,
+		const ReconstructionKernelZ&	reconstructionZ,
+		const ResamplingKernelZ&		resamplingZ)
+	{
+		auto [kernelX, kernelY, kernelZ] = getConvolutionKernels(inExtent, outExtent,
+			reconstructionX, resamplingX,
+			reconstructionY, resamplingY,
+			reconstructionZ, resamplingZ);
+
+		return getScaledKernelPhasedLUTSize<LutDataType>(inExtent, outExtent, inImageType, kernelX, kernelY, kernelZ);
+	}
+
+	template <typename LutDataType>
+	static inline size_t getScaledKernelPhasedLUTSize(
+		const core::vectorSIMDu32&								inExtent,
+		const core::vectorSIMDu32&								outExtent,
+		const asset::IImage::E_TYPE								inImageType,
+		const std::tuple_element_t<0, convolution_kernels_t>&	kernelX,
+		const std::tuple_element_t<1, convolution_kernels_t>&	kernelY,
+		const std::tuple_element_t<2, convolution_kernels_t>&	kernelZ)
+	{
+		const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
+		return ((phaseCount[0] * kernelX.getWindowSize().x) + (phaseCount[1] * kernelY.getWindowSize().y) + (phaseCount[2] * kernelZ.getWindowSize().z)) * sizeof(LutDataType) * MaxChannels;
+	}
+
+	template <typename LutDataType>
+	static bool computeScaledKernelPhasedLUT(
+		void*							outKernelWeights,
+		const core::vectorSIMDu32&		inExtent,
+		const core::vectorSIMDu32&		outExtent,
+		const asset::IImage::E_TYPE		inImageType,
+		const ReconstructionKernelX&	reconstructionX,
+		const ResamplingKernelX&		resamplingX,
+		const ReconstructionKernelY&	reconstructionY,
+		const ResamplingKernelY&		resamplingY,
+		const ReconstructionKernelZ&	reconstructionZ,
+		const ResamplingKernelZ&		resamplingZ)
 	{
 		const core::vectorSIMDu32 phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
 
@@ -77,16 +166,17 @@ public:
 				return false;
 		}
 
-		const auto scaledKernelX = constructScaledKernel(kernelX, inExtent, outExtent);
-		const auto scaledKernelY = constructScaledKernel(kernelY, inExtent, outExtent);
-		const auto scaledKernelZ = constructScaledKernel(kernelZ, inExtent, outExtent);
+		auto [kernelX, kernelY, kernelZ] = getConvolutionKernels(inExtent, outExtent,
+			reconstructionX, resamplingX,
+			reconstructionY, resamplingY,
+			reconstructionZ, resamplingZ);
 
-		const auto windowDims = getRealWindowSize(inImageType, scaledKernelX, scaledKernelY, scaledKernelZ);
-		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets<lut_value_type>(phaseCount, windowDims);
+		const auto windowSize = getRealWindowSize(inImageType, kernelX, kernelY, kernelZ);
+		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets<LutDataType>(phaseCount, windowSize);
 
-		const core::vectorSIMDf fInExtent(inExtent);
-		const core::vectorSIMDf fOutExtent(outExtent);
-		const auto fScale = fInExtent.preciseDivision(fOutExtent);
+		const core::vectorSIMDf inExtent_f32(inExtent);
+		const core::vectorSIMDf outExtent_f32(outExtent);
+		const auto implicitScale = inExtent_f32.preciseDivision(outExtent_f32);
 
 		// a dummy load functor
 		// does nothing but fills up the `windowSample` with 1s (identity) so we can preserve the value of kernel
@@ -112,37 +202,45 @@ public:
 			if (axis > inImageType)
 				return;
 
+			// TODO(achal): Why do we compute this again?! Don't we already have it.
 			const auto windowSize = scaledKernel.getWindowSize()[axis];
 
-			IImageFilterKernel::ScaleFactorUserData scale(1.f / fScale[axis]);
-			const IImageFilterKernel::ScaleFactorUserData* otherScale = nullptr;
-			switch (axis)
+			// Combine implicit and explicit scale to get the total scale
+			IImageFilterKernel::ScaleFactorUserData scale(1.f / implicitScale[axis]);
 			{
-			case IImage::ET_1D:
-				otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
-				break;
-			case IImage::ET_2D:
-				otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelY.getUserData());
-				break;
-			case IImage::ET_3D:
-				otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelZ.getUserData());
-				break;
-			}
-			if (otherScale)
-			{
-				for (auto k = 0; k < MaxChannels; k++)
-					scale.factor[k] *= otherScale->factor[k];
+				const IImageFilterKernel::ScaleFactorUserData* explicitScale = nullptr;
+				switch (axis)
+				{
+				case IImage::ET_1D:
+					explicitScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
+					break;
+				case IImage::ET_2D:
+					explicitScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelY.getUserData());
+					break;
+				case IImage::ET_3D:
+					explicitScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelZ.getUserData());
+					break;
+				}
+				if (explicitScale)
+				{
+					for (auto k = 0; k < MaxChannels; k++)
+						scale.factor[k] *= explicitScale->factor[k];
+				}
 			}
 
-			lut_value_type* outKernelWeightsPixel = reinterpret_cast<lut_value_type*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
+			LutDataType* outKernelWeightsPixel = reinterpret_cast<LutDataType*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
+
+			// One phase corresponds to one window (not to say that every window has a unique phase, many will share the same phase) and one window gets
+			// reduced to one output pixel, so this for loop will run exactly the number of times as there are output pixels with unique phases.
 			for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
 			{
-				core::vectorSIMDf tmp(0.f);
-				tmp[axis] = float(i) + 0.5f;
+				core::vectorSIMDf outPixelCenter(0.f);
+				outPixelCenter[axis] = float(i) + 0.5f; // output pixel center in output space
+				outPixelCenter *= implicitScale; // output pixel center in input space
 
-				const int32_t windowCoord = scaledKernel.getWindowMinCoord(tmp * fScale, tmp)[axis];
+				const int32_t windowCoord = scaledKernel.getWindowMinCoord(outPixelCenter, outPixelCenter)[axis];
 
-				float relativePos = tmp[axis] - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
+				float relativePos = outPixelCenter[axis] - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
 
 				for (int32_t j = 0; j < windowSize; ++j)
 				{
@@ -150,10 +248,10 @@ public:
 					scaledKernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), &scale);
 					for (uint32_t ch = 0; ch < MaxChannels; ++ch)
 					{
-						if constexpr (std::is_same_v<lut_value_type, uint16_t>)
+						if constexpr (std::is_same_v<LutDataType, uint16_t>)
 							outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = core::Float16Compressor::compress(float(kernelWeight[ch]));
 						else
-							outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = lut_value_type(kernelWeight[ch]);
+							outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = LutDataType(kernelWeight[ch]);
 
 					}
 					relativePos -= 1.f;
@@ -161,17 +259,17 @@ public:
 			}
 		};
 
-		computeForAxis(asset::IImage::ET_1D, scaledKernelX);
-		computeForAxis(asset::IImage::ET_2D, scaledKernelY);
-		computeForAxis(asset::IImage::ET_3D, scaledKernelZ);
+		computeForAxis(asset::IImage::ET_1D, kernelX);
+		computeForAxis(asset::IImage::ET_2D, kernelY);
+		computeForAxis(asset::IImage::ET_3D, kernelZ);
 
 		return true;
 	}
 
 	static inline core::vectorSIMDi32 getRealWindowSize(const IImage::E_TYPE inImageType,
-		const CScaledImageFilterKernel<KernelX>& kernelX,
-		const CScaledImageFilterKernel<KernelY>& kernelY,
-		const CScaledImageFilterKernel<KernelZ>& kernelZ)
+		const std::tuple_element_t<0, convolution_kernels_t>& kernelX,
+		const std::tuple_element_t<1, convolution_kernels_t>& kernelY,
+		const std::tuple_element_t<2, convolution_kernels_t>& kernelZ)
 	{
 		core::vectorSIMDi32 last(kernelX.getWindowSize().x, 0, 0, 0);
 		if (inImageType >= IImage::ET_2D)
@@ -181,16 +279,17 @@ public:
 		return last;
 	}
 
-	template <typename lut_value_type = typename KernelX::value_type>
-	static inline core::vectorSIMDu32 getScaledKernelPhasedLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& real_window_size)
+	template <typename LutDataType>
+	static inline core::vectorSIMDu32 getScaledKernelPhasedLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& windowSize)
 	{
 		core::vectorSIMDu32 result;
 		result.x = 0u;
-		result.y = (phaseCount[0] * real_window_size.x);
-		result.z = ((phaseCount[0] * real_window_size.x) + (phaseCount[1] * real_window_size.y));
-		return result * sizeof(lut_value_type) * MaxChannels;
+		result.y = (phaseCount[0] * windowSize.x);
+		result.z = ((phaseCount[0] * windowSize.x) + (phaseCount[1] * windowSize.y));
+		return result * sizeof(LutDataType) * MaxChannels;
 	}
 };
+
 }
 
 #endif

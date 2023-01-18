@@ -91,7 +91,7 @@ class NBL_API CFloatingPointSeparableImageFilterKernelBase : public CImageFilter
 		// utility function so we dont evaluate `weight` function in children outside the support and just are able to return 0.f
 		inline bool inDomain(float x) const
 		{
-			return (-x)<StaticPolymorphicBase::negative_support.x && x<StaticPolymorphicBase::positive_support.x;
+			return (-x)<=StaticPolymorphicBase::negative_support.x && x<StaticPolymorphicBase::positive_support.x;
 		}
 };
 
