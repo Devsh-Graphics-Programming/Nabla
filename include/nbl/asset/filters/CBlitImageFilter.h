@@ -86,14 +86,7 @@ template<
 	Blittable BlitUtilities			= CBlitUtilities<>,
 	typename LutDataType			= float>
 class NBL_API CBlitImageFilter :
-	public CImageFilter<
-				CBlitImageFilter<
-					Swizzle,
-					Dither,
-					Normalization,
-					Clamp,
-					BlitUtilities,
-					LutDataType>>,
+	public CImageFilter<CBlitImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities, LutDataType>>,
 	public CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>
 {
 	public:

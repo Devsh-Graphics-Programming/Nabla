@@ -62,7 +62,7 @@ class NBL_API IImageFilterKernel
 		};
 
 		// `evaluate` is actually implemented in a funny way, because a Kernel won't always be used as a convolution kernel (i.e. for implementing a Median filter)
-		// so the evaluation of a Kernel on an window grid relies of a PreFilter and PostFilter functor which are applied before the window of samples is treated with a kernel and after respectively
+		// so the evaluation of a Kernel on an window grid relies on a PreFilter and PostFilter functor which are applied before the window of samples is treated with a kernel and after respectively
 		// such functors will handle loading/writing the samples from/to a texture (or better, temporary memory)
 		// this is the default functor which does nothing
 		struct default_sample_functor_t
@@ -111,6 +111,17 @@ class NBL_API IImageFilterKernel
 		{
 			core::vectorSIMDf dummy;
 			return getWindowMinCoord(unnormCeterSampledCoord,dummy);
+		}
+
+		inline void scale(const core::vectorSIMDf& scale)
+		{
+			// Either adjust the kernels members:
+			// negative_support, positive_support, window_size, window_strides
+			// 
+			// or
+			// 
+			// Have new member `totalScale`
+			//
 		}
 
 		// get the kernel support (measured in pixels)

@@ -67,39 +67,34 @@ private:
 		float kernelWideMinSupport = -m_kernelA.negative_support.x;
 		float kernelWideMaxSupport = m_kernelA.positive_support.x;
 
-		const float kernelAWidth = getKernelWidth(m_kernelA);
-		const float kernelBWidth = getKernelWidth(m_kernelB);
+		float kernelWideWidth = getKernelWidth(m_kernelA);
+		float kernelNarrowWidth = getKernelWidth(m_kernelB);
 
-		if (kernelAWidth < kernelBWidth)
+		if (kernelWideWidth < kernelNarrowWidth)
 		{
 			std::swap(kernelNarrowMinSupport, kernelWideMinSupport);
 			std::swap(kernelNarrowMaxSupport, kernelWideMaxSupport);
+			std::swap(kernelNarrowWidth, kernelWideWidth);
 		}
+
+		const float kernelNarrowWidth_half = kernelNarrowWidth * 0.5;
 
 		double minIntegrationLimit = 0.0, maxIntegrationLimit = 0.0;
 		{
-			if ((x > (kernelWideMinSupport + kernelNarrowMinSupport)) && (x <= (kernelWideMinSupport + kernelNarrowMaxSupport)))
+			if ((x >= (kernelWideMinSupport - kernelNarrowWidth_half)) && (x <= (kernelWideMinSupport + kernelNarrowWidth_half)))
 			{
-				minIntegrationLimit = -m_kernelA.negative_support.x;
-				maxIntegrationLimit = x - (-m_kernelB.negative_support.x);
+				minIntegrationLimit = kernelWideMinSupport;
+				maxIntegrationLimit = x + kernelNarrowWidth_half;
 			}
-			else if ((x > (kernelWideMinSupport + kernelNarrowMaxSupport)) && (x <= (kernelWideMaxSupport + kernelNarrowMinSupport)))
+			else if ((x >= (kernelWideMinSupport + kernelNarrowWidth_half)) && (x <= (kernelWideMaxSupport - kernelNarrowWidth_half)))
 			{
-				if (kernelAWidth > kernelBWidth)
-				{
-					minIntegrationLimit = x - m_kernelB.positive_support.x;
-					maxIntegrationLimit = x - (-m_kernelB.negative_support.x);
-				}
-				else
-				{
-					minIntegrationLimit = -m_kernelA.negative_support.x;
-					maxIntegrationLimit = m_kernelA.positive_support.x;
-				}
+				minIntegrationLimit = x - kernelNarrowWidth_half;
+				maxIntegrationLimit = x + kernelNarrowWidth_half;
 			}
-			else if ((x > (kernelWideMaxSupport + kernelNarrowMinSupport)) && (x <= (kernelWideMaxSupport + kernelNarrowMaxSupport)))
+			else if ((x >= (kernelWideMaxSupport - kernelNarrowWidth_half)) && (x <= (kernelWideMaxSupport + kernelNarrowWidth_half)))
 			{
-				minIntegrationLimit = x - m_kernelB.positive_support.x;
-				maxIntegrationLimit = m_kernelA.positive_support.x;
+				minIntegrationLimit = x - kernelNarrowWidth_half;
+				maxIntegrationLimit = kernelWideMaxSupport;
 			}
 		}
 		assert(minIntegrationLimit <= maxIntegrationLimit);

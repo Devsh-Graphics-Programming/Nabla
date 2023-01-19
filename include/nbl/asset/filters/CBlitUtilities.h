@@ -245,7 +245,7 @@ public:
 				for (int32_t j = 0; j < windowSize; ++j)
 				{
 					core::vectorSIMDf tmp(relativePos, 0.f, 0.f);
-					scaledKernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), &scale);
+					scaledKernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), nullptr);
 					for (uint32_t ch = 0; ch < MaxChannels; ++ch)
 					{
 						if constexpr (std::is_same_v<LutDataType, uint16_t>)

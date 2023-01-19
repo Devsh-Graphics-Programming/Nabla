@@ -46,6 +46,7 @@ inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t
 	for (int32_t i=0; i<CRTP::MaxChannels; i++)
 	{
 		windowSample[i] *= _this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i);
+		
 		if (scale)
 			windowSample[i] *= scale->factor[i];
 	}
@@ -57,16 +58,18 @@ inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t
 } // end namespace asset
 } // end namespace nbl
 
+// Kernels
+#include "nbl/asset/filters/kernels/CDiracImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CBoxImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CTriangleImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CGaussianImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CKaiserImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CMitchellImageFilterKernel.h"
+
+// Kernel Modifiers
 #include "nbl/asset/filters/kernels/CScaledImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CConvolutionImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CDiracImageFilterKernel.h"
-
 
 #endif

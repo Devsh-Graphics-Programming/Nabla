@@ -7,7 +7,15 @@ template <>
 float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CBoxImageFilterKernel>, CScaledImageFilterKernel<CBoxImageFilterKernel>>::weight(const float x, const uint32_t channel, const uint32_t unused) const
 {
 	const auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
-	return (maxIntegrationLimit - minIntegrationLimit) * m_kernelA.weight(x, channel) * m_kernelB.weight(x, channel);
+
+	const float kernelAWidth = getKernelWidth(m_kernelA);
+	const float kernelBWidth = getKernelWidth(m_kernelB);
+
+	const auto& kernelNarrow = kernelAWidth < kernelBWidth ? m_kernelA : m_kernelB;
+	const auto& kernelWide = kernelAWidth > kernelBWidth ? m_kernelA : m_kernelB;
+
+	// We assume that the wider kernel is stationary (not shifting as `x` changes) while the narrower kernel is the one which shifts, such that it is always centered at x.
+	return (maxIntegrationLimit - minIntegrationLimit) * kernelWide.weight(x, channel) * kernelNarrow.weight(0.f, channel);
 }
 
 template <>
