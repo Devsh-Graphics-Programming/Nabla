@@ -27,8 +27,8 @@ float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CKaiserImageFilterK
 template <>
 float CConvolutionImageFilterKernel<CScaledImageFilterKernel<CGaussianImageFilterKernel<>>, CScaledImageFilterKernel<CGaussianImageFilterKernel<>>>::weight(const float x, const uint32_t channel, const uint32_t) const
 {
-	const float kernelA_stddev = IImageFilterKernel::ScaleFactorUserData::cast(m_kernelA.getUserData())->factor[channel];
-	const float kernelB_stddev = IImageFilterKernel::ScaleFactorUserData::cast(m_kernelB.getUserData())->factor[channel];
+	const float kernelA_stddev = m_kernelA.m_multipliedScale[channel];
+	const float kernelB_stddev = m_kernelB.m_multipliedScale[channel];
 	const float convolution_stddev = core::sqrt(kernelA_stddev * kernelA_stddev + kernelB_stddev * kernelB_stddev);
 
 	auto convolutionKernel = asset::CScaledImageFilterKernel<CGaussianImageFilterKernel<>>(core::vectorSIMDf(convolution_stddev, 0.f, 0.f, 0.f), asset::CGaussianImageFilterKernel<>());

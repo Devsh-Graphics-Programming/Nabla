@@ -9,9 +9,7 @@
 
 #include "nbl/asset/ICPUImage.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // TODO: do every member var in 4 copies, support, window sizes, etc. ?
@@ -21,45 +19,7 @@ class NBL_API IImageFilterKernel
 {
 	public:
 		// All kernels are by default, defined on max 4 channels
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
-
-		// some user data structs commonly used
-		struct UserData
-		{
-			enum E_USER_DATA_TYPE
-			{
-				EUDT_SCALE_FACTOR,
-				EUDT_COUNT_OR_UNKNOWN
-			};
-			E_USER_DATA_TYPE type = EUDT_COUNT_OR_UNKNOWN;
-			// idea: a pNext chain?
-		};
-		struct ScaleFactorUserData : UserData
-		{
-			_NBL_STATIC_INLINE_CONSTEXPR E_USER_DATA_TYPE Type = EUDT_SCALE_FACTOR;
-			ScaleFactorUserData(float _factor=1.f) : UserData{Type}, factor{_factor,_factor,_factor,_factor} {}
-
-			inline bool valid() const {return type==Type;}
-
-			static inline ScaleFactorUserData* cast(UserData* data)
-			{
-				if (!data)
-					return nullptr;
-
-				auto retval = static_cast<ScaleFactorUserData*>(data);
-				return retval->valid() ? retval:nullptr;
-			}
-			static inline const ScaleFactorUserData* cast(const UserData* data)
-			{
-				if (!data)
-					return nullptr;
-
-				auto retval = static_cast<const ScaleFactorUserData*>(data);
-				return retval->valid() ? retval:nullptr;
-			}
-
-			float factor[MaxChannels];
-		};
+		static inline constexpr auto MaxChannels = 4;
 
 		// `evaluate` is actually implemented in a funny way, because a Kernel won't always be used as a convolution kernel (i.e. for implementing a Median filter)
 		// so the evaluation of a Kernel on an window grid relies on a PreFilter and PostFilter functor which are applied before the window of samples is treated with a kernel and after respectively
@@ -71,19 +31,16 @@ class NBL_API IImageFilterKernel
 			// `relativePosAndFactor.xyz` holds the coordinate of the pixel relative to the window's center (can be fractional so its a float),
 			// `globalTexelCoord` is the unnormalized corner sampled coordinate of the pixel relative to the image origin,
 			// `userData` holds a pointer to a case-dependent type (usually its a scale factor for our kernel)
-			inline void operator()(void* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const UserData* userData)
+			inline void operator()(void* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale)
 			{
 			}
 		};
-		using sample_functor_operator_t = void(void*, core::vectorSIMDf&, const core::vectorSIMDi32&, const UserData* userData);
+		using sample_functor_operator_t = void(void*, core::vectorSIMDf&, const core::vectorSIMDi32&, const core::vectorSIMDf& multipliedScale);
 
 		// Whether we can break up the convolution in multiple dimensions as a separate convlution per dimension all followed after each other,this is very important for performance
 		// as it turns a convolution from a O(window_size.x*image_extent.x*window_size.y*image_extent.y...) to O(window_size.x*image_extent.x+window_size.y*image_extent.y+..)
 		virtual bool pIsSeparable() const = 0;
 		virtual bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const = 0;
-
-		// Returns a pointer to implementation defined metadata struct/class which is constant for the Kernel but not static (e.g. Kernel's scale)
-		virtual const UserData* pGetUserData() const = 0;
 
 		// function to evaluate the kernel at a pixel position
 		// `globalPos` is the unnormalized (measured in pixels) center sampled (origin is at the center of the first pixel) position 
@@ -113,15 +70,25 @@ class NBL_API IImageFilterKernel
 			return getWindowMinCoord(unnormCeterSampledCoord,dummy);
 		}
 
-		inline void scale(const core::vectorSIMDf& scale)
+		inline void stretch(const core::vectorSIMDf& s)
 		{
-			// Either adjust the kernels members:
-			// negative_support, positive_support, window_size, window_strides
-			// 
-			// or
-			// 
-			// Have new member `totalScale`
-			//
+			negative_support *= s;
+			positive_support *= s;
+
+			calculateWindowProperties();
+		}
+
+		inline void scale(const core::vectorSIMDf& s)
+		{
+			assert((s != core::vectorSIMDf(0.f, 0.f, 0.f, 0.f)).all());
+			m_multipliedScale *= s.x*s.y*s.z;
+		}
+
+		// This method will keep the integral of the kernel constant.
+		inline void stretchAndScale(const core::vectorSIMDf& stretchFactor)
+		{
+			stretch(stretchFactor);
+			scale(core::vectorSIMDf(1.f).preciseDivision(stretchFactor));
 		}
 
 		// get the kernel support (measured in pixels)
@@ -130,16 +97,31 @@ class NBL_API IImageFilterKernel
 			return window_size;
 		}
 
-		const core::vectorSIMDf		negative_support;
-		const core::vectorSIMDf		positive_support;
-		const core::vectorSIMDi32	window_size;
-		const core::vectorSIMDi32	window_strides;
+		core::vectorSIMDf		negative_support;
+		core::vectorSIMDf		positive_support;
+		core::vectorSIMDi32		window_size;
+		core::vectorSIMDi32		window_strides;
+
+		// We only need multiplied scale so only store that.
+		// Here by "multiplied" we mean that all channels are multiplied together to get a value
+		// which is then replicated across all channels.
+		core::vectorSIMDf		m_multipliedScale = core::vectorSIMDf(1.f);
 		
 	protected:
 		// derived classes need to let us know where the function starts and stops having non-zero values, this is measured in pixels
 		IImageFilterKernel(const float* _negative_support, const float* _positive_support) :
 			negative_support(_negative_support[0],_negative_support[1],_negative_support[2]),
-			positive_support(_positive_support[0],_positive_support[1],_positive_support[2]),
+			positive_support(_positive_support[0],_positive_support[1],_positive_support[2])
+		{
+			calculateWindowProperties();
+		}
+		IImageFilterKernel(const std::initializer_list<float>& _negative_support, const std::initializer_list<float>& _positive_support) :
+			IImageFilterKernel(_negative_support.begin(),_positive_support.begin())
+		{}
+
+	private:
+		inline void calculateWindowProperties()
+		{
 			// The reason we use a ceil for window_size:
 			// For a convolution operation, depending upon where you place the kernel center in the output image it can encompass different number of input pixel centers.
 			// For example, assume you have a 1D kernel with supports [-3/4, 3/4) and you place this at x=0.5, then kernel weights will be
@@ -148,12 +130,10 @@ class NBL_API IImageFilterKernel
 			// (x=-0.5 and x=0.5), that is window_size will be 2.
 			// Note that the window_size can never exceed 2, in the above case, because for that to happen there should be more than 2 pixel centers in non-zero
 			// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
-			window_size(core::ceil<core::vectorSIMDf>(negative_support+positive_support)),
-			window_strides(1,window_size[0],window_size[0]*window_size[1])
-		{}
-		IImageFilterKernel(const std::initializer_list<float>& _negative_support, const std::initializer_list<float>& _positive_support) :
-			IImageFilterKernel(_negative_support.begin(),_positive_support.begin())
-		{}
+			window_size = static_cast<core::vectorSIMDi32>(core::ceil<core::vectorSIMDf>(negative_support + positive_support));
+
+			window_strides = core::vectorSIMDi32(1, window_size[0], window_size[0] * window_size[1]);
+		}
 };
 
 // statically polymorphic version of the interface for a kernel
@@ -167,7 +147,7 @@ class NBL_API CImageFilterKernel : public IImageFilterKernel
 		{
 			// every functor is expected to have this function call operator with this particular signature (the const-ness of the arguments can vary).
 			// `windowSample` is adjusted to have the correct pointer type compared the the parent class' struct
-			inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+			inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale)
 			{
 			}
 		};
@@ -180,10 +160,6 @@ class NBL_API CImageFilterKernel : public IImageFilterKernel
 		inline bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const override
 		{
 			return CRTP::validate(inImage, outImage);
-		}
-		const UserData* pGetUserData() const override
-		{
-			return static_cast<const CRTP*>(this)->getUserData();
 		}
 		void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override
 		{
@@ -214,7 +190,7 @@ class NBL_API CImageFilterKernel : public IImageFilterKernel
 			{
 				// get position relative to kernel origin, note that it is in reverse (tau-x), in accordance with Mathematical Convolution notation
 				auto relativePos = offsetGlobalPos-core::vectorSIMDf(windowCoord);
-				evaluateImpl<PreFilter,PostFilter>(preFilter,postFilter,windowSample,relativePos,windowCoord,static_cast<const CRTP*>(this)->getUserData());
+				evaluateImpl<PreFilter,PostFilter>(preFilter,postFilter,windowSample,relativePos,windowCoord);
 			}
 		}
 
@@ -222,9 +198,8 @@ class NBL_API CImageFilterKernel : public IImageFilterKernel
 		// The `windowSample` holds the temporary storage (channels) for the current pixel, but at the time its passed to this function the contents are garbage.
 		// Its the `preFilter` and `postFilter` that deals with actually loading and saving the pixel's value.
 		// The `relativePosAndFactor.xyz` holds the NEGATIVE coordinate of the pixel relative to the window's center (can be fractional so its a float)
-		// `userData` is a mechanism to pass non-static variables from the derived class to this kernel inner loop
 		template<class PreFilter, class PostFilter>
-		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const UserData* userData) const;
+		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord) const;
 };
 
 //use this whenever you have diamond inheritance and ambiguous resolves
@@ -244,12 +219,11 @@ inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, P
 	BASENAME::evaluate(globalPos, preFilter, postFilter); \
 } \
 template<class PreFilter, class PostFilter> \
-inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const nbl::asset::IImageFilterKernel::UserData* userData) const \
+inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale) const \
 { \
-	BASENAME::evaluateImpl(preFilter, postFilter, windowSample, relativePos, globalTexelCoord, userData); \
+	BASENAME::evaluateImpl(preFilter, postFilter, windowSample, relativePos, globalTexelCoord, multipliedScale); \
 }
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

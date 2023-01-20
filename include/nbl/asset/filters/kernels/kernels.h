@@ -9,54 +9,44 @@
 #include "nbl/asset/filters/kernels/IImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CommonImageFilterKernels.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // to be inline this function relies on any kernel's `create_sample_functor_t` being defined
 template<class CRTP, typename value_type>
 template<class PreFilter, class PostFilter>
 inline void CImageFilterKernel<CRTP,value_type>::evaluateImpl(
-	PreFilter& preFilter,
-	PostFilter& postFilter,
-	value_type* windowSample,
-	core::vectorSIMDf& relativePos,
-	const core::vectorSIMDi32& globalTexelCoord,
-	const UserData* userData
-) const
+	PreFilter&					preFilter,
+	PostFilter&					postFilter,
+	value_type*					windowSample,
+	core::vectorSIMDf&			relativePos,
+	const core::vectorSIMDi32&	globalTexelCoord) const
 {
 	// static cast is because I'm calling a non-static but non-virtual function
-	static_cast<const CRTP*>(this)->create_sample_functor_t(preFilter,postFilter)(windowSample,relativePos,globalTexelCoord,userData);
+	static_cast<const CRTP*>(this)->create_sample_functor_t(preFilter,postFilter)(windowSample,relativePos,globalTexelCoord, m_multipliedScale);
 }
 
 // @see CImageFilterKernel::evaluate
 template<class CRTP>
 template<class PreFilter, class PostFilter>
 inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()(
-		value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData
-)
+		value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale)
 {
 	// this is programmable, but usually in the case of a convolution filter it would be loading the values from a temporary and decoded copy of the input image
-	preFilter(windowSample, relativePos, globalTexelCoord, userData);
+	preFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
 
 	// by default there's no optimization so operation is O(SupportExtent^3) even though the filter is separable
-	// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
-	auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
 	for (int32_t i=0; i<CRTP::MaxChannels; i++)
 	{
-		windowSample[i] *= _this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i);
-		
-		if (scale)
-			windowSample[i] *= scale->factor[i];
+		// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
+		windowSample[i] *= (_this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i))* multipliedScale[i];
 	}
 
 	// this is programmable, but usually in the case of a convolution filter it would be summing the values
-	postFilter(windowSample, relativePos, globalTexelCoord, userData);
+	postFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
 }
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 // Kernels
 #include "nbl/asset/filters/kernels/CDiracImageFilterKernel.h"

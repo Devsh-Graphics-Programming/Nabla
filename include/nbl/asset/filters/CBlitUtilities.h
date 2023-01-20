@@ -176,14 +176,14 @@ public:
 
 		const core::vectorSIMDf inExtent_f32(inExtent);
 		const core::vectorSIMDf outExtent_f32(outExtent);
-		const auto implicitScale = inExtent_f32.preciseDivision(outExtent_f32);
+		const auto scale = inExtent_f32.preciseDivision(outExtent_f32);
 
 		// a dummy load functor
 		// does nothing but fills up the `windowSample` with 1s (identity) so we can preserve the value of kernel
 		// weights when eventually `windowSample` gets multiplied by them later in
 		// `CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()`
 		// this exists only because `evaluateImpl` expects a pre filtering step.
-		auto dummyLoad = [](double* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
+		auto dummyLoad = [](double* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const core::vectorSIMDf&) -> void
 		{
 			for (auto h = 0; h < MaxChannels; h++)
 				windowSample[h] = 1.0;
@@ -191,42 +191,19 @@ public:
 
 		double kernelWeight[MaxChannels];
 		// actually used to put values in the LUT
-		auto dummyEvaluate = [&kernelWeight](const double* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const IImageFilterKernel::UserData*) -> void
+		auto dummyEvaluate = [&kernelWeight](const double* windowSample, const core::vectorSIMDf&, const core::vectorSIMDi32&, const core::vectorSIMDf&) -> void
 		{
 			for (auto h = 0; h < MaxChannels; h++)
 				kernelWeight[h] = windowSample[h];
 		};
 
-		auto computeForAxis = [&](const asset::IImage::E_TYPE axis, const auto& scaledKernel)
+		auto computeForAxis = [&](const asset::IImage::E_TYPE axis, const auto& kernel)
 		{
 			if (axis > inImageType)
 				return;
 
 			// TODO(achal): Why do we compute this again?! Don't we already have it.
-			const auto windowSize = scaledKernel.getWindowSize()[axis];
-
-			// Combine implicit and explicit scale to get the total scale
-			IImageFilterKernel::ScaleFactorUserData scale(1.f / implicitScale[axis]);
-			{
-				const IImageFilterKernel::ScaleFactorUserData* explicitScale = nullptr;
-				switch (axis)
-				{
-				case IImage::ET_1D:
-					explicitScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
-					break;
-				case IImage::ET_2D:
-					explicitScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelY.getUserData());
-					break;
-				case IImage::ET_3D:
-					explicitScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelZ.getUserData());
-					break;
-				}
-				if (explicitScale)
-				{
-					for (auto k = 0; k < MaxChannels; k++)
-						scale.factor[k] *= explicitScale->factor[k];
-				}
-			}
+			const auto windowSize = kernel.getWindowSize()[axis];
 
 			LutDataType* outKernelWeightsPixel = reinterpret_cast<LutDataType*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
 
@@ -236,16 +213,16 @@ public:
 			{
 				core::vectorSIMDf outPixelCenter(0.f);
 				outPixelCenter[axis] = float(i) + 0.5f; // output pixel center in output space
-				outPixelCenter *= implicitScale; // output pixel center in input space
+				outPixelCenter *= scale; // output pixel center in input space
 
-				const int32_t windowCoord = scaledKernel.getWindowMinCoord(outPixelCenter, outPixelCenter)[axis];
+				const int32_t windowCoord = kernel.getWindowMinCoord(outPixelCenter, outPixelCenter)[axis];
 
 				float relativePos = outPixelCenter[axis] - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
 
 				for (int32_t j = 0; j < windowSize; ++j)
 				{
 					core::vectorSIMDf tmp(relativePos, 0.f, 0.f);
-					scaledKernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32(), nullptr);
+					kernel.evaluateImpl(dummyLoad, dummyEvaluate, kernelWeight, tmp, core::vectorSIMDi32());
 					for (uint32_t ch = 0; ch < MaxChannels; ++ch)
 					{
 						if constexpr (std::is_same_v<LutDataType, uint16_t>)

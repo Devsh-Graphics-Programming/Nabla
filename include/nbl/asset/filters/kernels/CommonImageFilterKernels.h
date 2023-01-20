@@ -55,9 +55,6 @@ class NBL_API CFloatingPointSeparableImageFilterKernelBase : public CImageFilter
 
 	public:
 		CFloatingPointSeparableImageFilterKernelBase(float _negative_support, float _positive_support) : StaticPolymorphicBase({_negative_support,_negative_support,_negative_support},{_positive_support,_positive_support,_positive_support}) {}
-		
-		// no special user data by default
-		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
 
 		//
 		template<class PreFilter, class PostFilter>
@@ -66,7 +63,7 @@ class NBL_API CFloatingPointSeparableImageFilterKernelBase : public CImageFilter
 				sample_functor_t(const CRTP* __this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(__this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData);
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale);
 
 			private:
 				const CRTP* _this;

@@ -12,9 +12,7 @@
 #include <type_traits>
 #include <tuple>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 namespace impl
@@ -24,39 +22,24 @@ template <class... Kernels>
 class NBL_API CChannelIndependentImageFilterKernelBase
 {
 	protected:
-		const bool haveScale;
-		const IImageFilterKernel::ScaleFactorUserData scale;
+		const core::vectorSIMDf scale;
 
 		using kernels_t = std::tuple<Kernels...>;
 		kernels_t kernels;
 
-		static inline bool doesHaveScale(const Kernels&... kernels)
+		static inline core::vectorSIMDf computeScale(const Kernels&... kernels)
 		{
-			return (IImageFilterKernel::ScaleFactorUserData::cast(kernels.getUserData())&&...);
-		}
+			core::vectorSIMDf retval(1.f, 1.f, 1.f, 1.f);
 
+			std::array<core::vectorSIMDf,sizeof...(kernels)> scales = {kernels.m_multipliedScale...};
+			for (auto i=0; i<scales.size(); i++)
+				retval[i] = scales[i][i];
 
-		static inline IImageFilterKernel::ScaleFactorUserData computeScale(bool bother, const Kernels&... kernels)
-		{
-			IImageFilterKernel::ScaleFactorUserData retval(1.f);
-			if (bother)
-			{
-				std::array<const IImageFilterKernel::ScaleFactorUserData*,sizeof...(kernels)> userData = {IImageFilterKernel::ScaleFactorUserData::cast(kernels.getUserData())...};
-				for (auto i=0; i<userData.size(); i++)
-				{
-					retval.factor[i] = userData[i]->factor[i];
-				}
-			}
 			return retval;
 		}
 
 	public:
-		explicit CChannelIndependentImageFilterKernelBase(Kernels&&... kernels) : 
-			haveScale(doesHaveScale(kernels...)), scale(computeScale(haveScale,kernels...)),
-			kernels(std::move(kernels)...)
-		{
-		}
-		inline const IImageFilterKernel::ScaleFactorUserData* getScale() const { return haveScale? &scale : nullptr; }
+		explicit CChannelIndependentImageFilterKernelBase(Kernels&&... kernels) : scale(computeScale(kernels...)), kernels(std::move(kernels)...) {}
 };
 
 }
@@ -74,7 +57,7 @@ class NBL_API CChannelIndependentImageFilterKernel :
 	public:
 		using value_type = typename base_t::value_type;
 
-		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChannels = sizeof...(Kernels);
+		static inline constexpr size_t MaxChannels = sizeof...(Kernels);
 
 	private:
 		enum E_CHANNEL
@@ -85,9 +68,9 @@ class NBL_API CChannelIndependentImageFilterKernel :
 			E_A = 3
 		};
 		template <E_CHANNEL ch>
-		_NBL_STATIC_INLINE_CONSTEXPR bool has_kernel_v = ch < MaxChannels;
+		static inline constexpr bool has_kernel_v = ch < MaxChannels;
 
-		struct dummy_kernel_t { _NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false; };
+		struct dummy_kernel_t { static inline constexpr bool has_derivative = false; };
 		template <E_CHANNEL ch>
 		using kernel_t = std::conditional_t<has_kernel_v<ch>,
 			std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch),MaxChannels-1ull), typename channel_indep_base_t::kernels_t>,
@@ -122,9 +105,6 @@ class NBL_API CChannelIndependentImageFilterKernel :
 			base_t(getMaxNegSupport(kernels...), getMaxPosSupport(kernels...)),
 			channel_indep_base_t(std::move(kernels)...) 
 		{}
-
-		// pass on any scale
-		inline const IImageFilterKernel::UserData* getUserData() const { return channel_indep_base_t::getScale(); }
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -190,7 +170,6 @@ class NBL_API CChannelIndependentImageFilterKernel :
 		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

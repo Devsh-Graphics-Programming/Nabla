@@ -11,9 +11,7 @@
 
 #include <type_traits>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // A Kernel that's a derivative of another, `Kernel` must have a `d_weight` function
@@ -29,14 +27,9 @@ class NBL_API CDerivativeImageFilterKernel : public CFloatingPointSeparableImage
 
 		CDerivativeImageFilterKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
 
-		// no special user data by default
-		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
-
 		inline float weight(float x, int32_t channel) const
 		{
-			auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(kernel.getUserData());
-			if (scale)
-				x *= scale->factor[channel];
+			x *= kernel.m_multipliedScale[channel];
 			return kernel.d_weight(x,channel);
 		}
 
@@ -45,8 +38,6 @@ class NBL_API CDerivativeImageFilterKernel : public CFloatingPointSeparableImage
 		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 };
 
-
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

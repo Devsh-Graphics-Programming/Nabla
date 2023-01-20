@@ -30,15 +30,15 @@ class NBL_API CScaledImageFilterKernelBase
 		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
 
 		// constructor
-		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale, Kernel&& k) : kernel(std::move(k)), rscale(_rscale.x,_rscale.y,_rscale.z,1.f), userData(_rscale.x*_rscale.y*_rscale.z) {}
+		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale, Kernel&& k) : kernel(std::move(k)), rscale(_rscale.x,_rscale.y,_rscale.z,1.f)/*, userData(_rscale.x* _rscale.y* _rscale.z)*/ {}
 
 		Kernel kernel;
 		// reciprocal of the scale, the w component holds the scale that needs to be applied to the kernel values to preserve the integral
 		// 1/(A*B*C) InfiniteIntegral f(x/A,y/B,z/C) dx dy dz == InfiniteIntegral f(x,y,z) dx dy dz
 		const core::vectorSIMDf rscale;
 
-protected:
-	const IImageFilterKernel::ScaleFactorUserData userData;
+// protected:
+	// const IImageFilterKernel::ScaleFactorUserData userData;
 };
 
 }
@@ -69,9 +69,6 @@ class NBL_API CScaledImageFilterKernel : //order of bases is important! do not c
 		// overload for uniform scale in all dimensions
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, const Kernel& k=Kernel()) : CScaledImageFilterKernel(_scale,Kernel(k)) {}
 
-		// make sure we let everyone know we changed the domain of the function by stretching it
-		inline const IImageFilterKernel::UserData* getUserData() const { return &(Base::userData); }
-
 		// the validation usually is not support dependent, its usually about the input/output formats of an image, etc. so we use old Kernel validation
 		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
 		{
@@ -80,7 +77,7 @@ class NBL_API CScaledImageFilterKernel : //order of bases is important! do not c
 		}
 
 #if 1
-		// TODO(achal): Make private.
+		// TODO(achal): We won't be needing it anymore.
 		inline float weight(const float x, const uint32_t channel) const
 		{
 			// This will breakdown if `negative_support` didn't start a negative value.
@@ -97,16 +94,16 @@ class NBL_API CScaledImageFilterKernel : //order of bases is important! do not c
 					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
 				// so this functor wraps the original one of the unscaled in a peculiar way
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale)
 				{
 					// it actually injects an extra preFilter functor after the original to rescale the `relativePos`
-					auto wrap = [this](value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+					auto wrap = [this](value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale)
 					{
-						preFilter(windowSample,relativePos,globalTexelCoord,userData);
+						preFilter(windowSample,relativePos,globalTexelCoord, multipliedScale);
 						relativePos *= _this->rscale;
 					};
 					// inject the wrap as a pre-filter instead of the original in the non-scaled kernel functor
-					_this->kernel.create_sample_functor_t(wrap,postFilter)(windowSample,relativePos,globalTexelCoord,userData);
+					_this->kernel.create_sample_functor_t(wrap,postFilter)(windowSample,relativePos,globalTexelCoord, multipliedScale);
 				}
 
 			private:

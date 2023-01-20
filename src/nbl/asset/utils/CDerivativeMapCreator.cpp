@@ -28,9 +28,6 @@ class MyKernel : public CFloatingPointSeparableImageFilterKernelBase<MyKernel<Ke
 
 		MyKernel(Kernel&& k, uint32_t _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(float(_imgExtent)) {}
 
-		// no special user data by default
-		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
-
 		inline float weight(float x, int32_t channel) const
 		{
 			return kernel.weight(x, channel) * multiplier;
@@ -43,18 +40,16 @@ class MyKernel : public CFloatingPointSeparableImageFilterKernelBase<MyKernel<Ke
 				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale)
 				{
-					preFilter(windowSample, relativePos, globalTexelCoord, userData);
-					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					preFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
 					for (int32_t i=0; i< Kernel::MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
 						windowSample[i] *= _this->weight(relativePos.x, i);
-						if (scale)
-							windowSample[i] *= scale->factor[i];
+						windowSample[i] *= multipliedScale[i];
 					}
-					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+					postFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
 				}
 
 			private:
@@ -92,18 +87,16 @@ class SeparateOutXAxisKernel : public CFloatingPointSeparableImageFilterKernelBa
 				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale)
 				{
-					preFilter(windowSample, relativePos, globalTexelCoord, userData);
-					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					preFilter(windowSample, relativePos, globalTexelCoord, scale);
 					for (int32_t i=0; i<MaxChannels; i++)
 					{
 						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
 						windowSample[i] *= _this->kernel.weight(relativePos.x, i);
-						if (scale)
-							windowSample[i] *= scale->factor[i];
+						windowSample[i] *= scale[i];
 					}
-					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+					postFilter(windowSample, relativePos, globalTexelCoord, scale);
 				}
 
 			private:
