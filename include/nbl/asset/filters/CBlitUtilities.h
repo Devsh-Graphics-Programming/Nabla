@@ -32,17 +32,6 @@ public:
 			result[i] = outExtent[i] / std::gcd(inExtent[i], outExtent[i]);
 		return result;
 	}
-
-	// we'll need to rescale the kernel support to be relative to the output image but in the input image coordinate system
-	// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
-	template<class Kernel>
-	static inline auto constructScaledKernel(const Kernel& kernel, const core::vectorSIMDu32& inExtent, const core::vectorSIMDu32& outExtent)
-	{
-		const core::vectorSIMDf fInExtent(inExtent);
-		const core::vectorSIMDf fOutExtent(outExtent);
-		const auto fScale = fInExtent.preciseDivision(fOutExtent);
-		return CScaledImageFilterKernel<Kernel>(fScale, kernel);
-	}
 };
 
 template <typename BlitUtilities>
@@ -72,7 +61,7 @@ template<
 	typename ResamplingKernelZ		= ResamplingKernelX>
 class CBlitUtilities : public IBlitUtilities
 {
-	using convolution_kernels_t = std::tuple<CConvolutionImageFilterKernel<CScaledImageFilterKernel<ReconstructionKernelX>, CScaledImageFilterKernel<ResamplingKernelX>>, CConvolutionImageFilterKernel<CScaledImageFilterKernel<ReconstructionKernelY>, CScaledImageFilterKernel<ResamplingKernelY>>, CConvolutionImageFilterKernel<CScaledImageFilterKernel<ReconstructionKernelZ>, CScaledImageFilterKernel<ResamplingKernelZ>>>;
+	using convolution_kernels_t = std::tuple<CConvolutionImageFilterKernel<ReconstructionKernelX, ResamplingKernelX>, CConvolutionImageFilterKernel<ReconstructionKernelY, ResamplingKernelY>, CConvolutionImageFilterKernel<ReconstructionKernelZ, ResamplingKernelZ>>;
 
 public:
 	using reconstruction_x_t	= ReconstructionKernelX;
@@ -96,18 +85,24 @@ public:
 		const ReconstructionKernelZ&	reconstructionZ,
 		const ResamplingKernelZ&		resamplingZ)
 	{
-		// HACK: To not scale the reconstruction kernel and still get a CScaledImageFilterKernel, I pass the same extents for both input and output.
-		// I can remove this once I remove CScaledImageFilterKernel entirely from the system.
-		auto reconstructionX_Scaled = constructScaledKernel(reconstructionX, inExtent, inExtent);
-		auto resamplingX_Scaled = constructScaledKernel(resamplingX, inExtent, outExtent);
+		const auto stretchFactor = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
+		
+		// Stretch and scale the resampling kernels.
+		// we'll need to stretch the kernel support to be relative to the output image but in the input image coordinate system
+		// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
+		auto resamplingX_stretched = ResamplingKernelX(resamplingX);
+		resamplingX_stretched.stretchAndScale(stretchFactor);
 
-		auto reconstructionY_Scaled = constructScaledKernel(reconstructionY, inExtent, inExtent);
-		auto resamplingY_Scaled = constructScaledKernel(resamplingY, inExtent, outExtent);
+		auto resamplingY_stretched = ResamplingKernelY(resamplingY);
+		resamplingY_stretched.stretchAndScale(stretchFactor);
 
-		auto reconstructionZ_Scaled = constructScaledKernel(reconstructionZ, inExtent, inExtent);
-		auto resamplingZ_Scaled = constructScaledKernel(resamplingZ, inExtent, outExtent);
+		auto resamplingZ_stretched = ResamplingKernelZ(resamplingZ);
+		resamplingZ_stretched.stretchAndScale(stretchFactor);
 
-		convolution_kernels_t kernels = std::make_tuple(asset::CConvolutionImageFilterKernel(std::move(reconstructionX_Scaled), std::move(resamplingX_Scaled)), asset::CConvolutionImageFilterKernel(std::move(reconstructionY_Scaled), std::move(resamplingY_Scaled)), asset::CConvolutionImageFilterKernel(std::move(reconstructionZ_Scaled), std::move(resamplingZ_Scaled)));
+		convolution_kernels_t kernels = std::make_tuple(
+			asset::CConvolutionImageFilterKernel(ReconstructionKernelX(reconstructionX), std::move(resamplingX_stretched)),
+			asset::CConvolutionImageFilterKernel(ReconstructionKernelY(reconstructionY), std::move(resamplingY_stretched)),
+			asset::CConvolutionImageFilterKernel(ReconstructionKernelZ(reconstructionZ), std::move(resamplingZ_stretched)));
 
 		return kernels;
 	}
