@@ -18,26 +18,22 @@
 using namespace nbl;
 using namespace nbl::asset;
 
+#include <combaseapi.h>
+#include <dxc/dxc/include/dxc/dxcapi.h>
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
 {
-    IDxcUtils* utils;
-    auto res = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils));
+    ComPtr<IDxcUtils> utils;
+    auto res = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    IDxcCompiler3* compiler;
-    res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler));
+    ComPtr<IDxcCompiler3> compiler;
+    res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    m_dxcUtils = std::unique_ptr<IDxcUtils>(utils);
-    m_dxcCompiler = std::unique_ptr<IDxcCompiler3>(compiler);
-}
-
-CHLSLCompiler::~CHLSLCompiler()
-{
-    m_dxcUtils->Release();
-    m_dxcCompiler->Release();
+    m_dxcUtils = utils;
+    m_dxcCompiler = compiler;
 }
 
 static tcpp::IInputStream* getInputStreamInclude(
@@ -72,13 +68,30 @@ static tcpp::IInputStream* getInputStreamInclude(
         res_str = _inclFinder->getIncludeStandard(relDir, _requesting_source);
 
     if (!res_str.size()) {
-        return nullptr;
+        return new tcpp::StringInputStream("#error File not found");
     }
+
+    IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
+    // TODO support this
+    //res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
 
     return new tcpp::StringInputStream(std::move(res_str));
 }
 
-CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const SOptions& options) const
+class DxcCompilationResult
+{
+public:
+    ComPtr<IDxcBlobEncoding> errorMessages;
+    ComPtr<IDxcBlob> objectBlob;
+    ComPtr<IDxcResult> compileResult;
+
+    char* GetErrorMessagesString()
+    {
+        return reinterpret_cast<char*>(errorMessages->GetBufferPointer());
+    }
+};
+
+DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
     if (options.genDebugInfo)
     {
@@ -93,11 +106,11 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
         }
 
         insertion << "\n";
-        insertIntoStart(source, std::move(insertion));
+        compiler->insertIntoStart(source, std::move(insertion));
     }
     
-    IDxcBlobEncoding* src;
-    auto res = m_dxcUtils->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
+    ComPtr<IDxcBlobEncoding> src;
+    auto res = compiler->getDxcUtils()->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
     assert(SUCCEEDED(res));
 
     DxcBuffer sourceBuffer;
@@ -105,8 +118,8 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
     sourceBuffer.Size = src->GetBufferSize();
     sourceBuffer.Encoding = 0;
 
-    IDxcResult* compileResult;
-    res = m_dxcCompiler->Compile(&sourceBuffer, args, argCount, nullptr, IID_PPV_ARGS(&compileResult));
+    ComPtr<IDxcResult> compileResult;
+    res = compiler->getDxcCompiler()->Compile(&sourceBuffer, args, argCount, nullptr, IID_PPV_ARGS(compileResult.GetAddressOf()));
     // If the compilation failed, this should still be a successful result
     assert(SUCCEEDED(res));
 
@@ -114,8 +127,8 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
     res = compileResult->GetStatus(&compilationStatus);
     assert(SUCCEEDED(res));
 
-    IDxcBlobEncoding* errorBuffer;
-    res = compileResult->GetErrorBuffer(&errorBuffer);
+    ComPtr<IDxcBlobEncoding> errorBuffer;
+    res = compileResult->GetErrorBuffer(errorBuffer.GetAddressOf());
     assert(SUCCEEDED(res));
 
     DxcCompilationResult result;
@@ -129,14 +142,15 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
         return result;
     }
 
-    IDxcBlob* resultingBlob;
-    res = compileResult->GetResult(&resultingBlob);
+    ComPtr<IDxcBlob> resultingBlob;
+    res = compileResult->GetResult(resultingBlob.GetAddressOf());
     assert(SUCCEEDED(res));
 
     result.objectBlob = resultingBlob;
 
     return result;
 }
+
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
@@ -146,6 +160,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     }
     if (preprocessOptions.includeFinder != nullptr)
     {
+        IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+
         tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
         tcpp::Lexer lexer(codeIs);
         tcpp::Preprocessor proc(
@@ -207,7 +223,10 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             return std::string("");
         });
 
-        return proc.Process();
+        auto resolvedString = proc.Process();
+        IShaderCompiler::reenableDirectives(resolvedString);
+
+        return resolvedString;
     }
     else
     {
@@ -269,14 +288,16 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-T", targetProfile.c_str(),
 
         // These are debug only
-        L"-Zi", // Enables debug information
-        L"-Qembed_debug" //Embeds debug information
+        DXC_ARG_DEBUG,
+        L"-Qembed_debug",
+        L"-fspv-debug=vulkan-with-source",
+        L"-fspv-debug=file"
     };
 
     const uint32_t nonDebugArgs = 5;
-    const uint32_t allArgs = nonDebugArgs + 2;
+    const uint32_t allArgs = nonDebugArgs + 4;
 
-    auto compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
+    auto compileResult = dxcCompile(this, newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
     if (!compileResult.objectBlob)
     {
@@ -285,8 +306,6 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
-
-    compileResult.release();
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }

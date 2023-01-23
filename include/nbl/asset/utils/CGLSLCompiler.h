@@ -14,14 +14,6 @@ namespace nbl::asset
 class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 {
 	public:		
-		//string to be replaced with all "#" except those in "#include"
-		static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
-		static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
-		static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
-		static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
-		static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
-		static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
-
 
 		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL; };
 
@@ -134,69 +126,28 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 			}
 		}
 
-		static void disableAllDirectivesExceptIncludes(std::string& _code)
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
+
+		static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
+		static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
+		static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
+		static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
+
+		static void disableGlDirectives(std::string& _code)
 		{
-			// TODO: replace this with a proper-ish proprocessor and includer one day
-			std::regex directive("#(?!(include|version|pragma shader_stage|line))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
-			//`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
-			auto result = std::regex_replace(_code, directive, PREPROC_DIRECTIVE_DISABLER);
 			std::regex glMacro("[ \t\r\n\v\f]GL_");
-			result = std::regex_replace(result, glMacro, PREPROC_GL__DISABLER);
+			auto result = std::regex_replace(_code, glMacro, PREPROC_GL__DISABLER);
 			std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
 			_code = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
 		}
-		static void reenableDirectives(std::string& _code)
+
+		static void reenableGlDirectives(std::string& _code)
 		{
 			std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
 			auto result = std::regex_replace(_code, lineContinuation, " \\");
 			std::regex glMacro(PREPROC_GL__ENABLER);
-			result = std::regex_replace(result, glMacro, " GL_");
-			std::regex directive(PREPROC_DIRECTIVE_ENABLER);
-			_code = std::regex_replace(result, directive, "#");
+			_code = std::regex_replace(result, glMacro, " GL_");
 		}
-		static std::string encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier)
-		{
-			assert(_maxInclusions != 0u);
-
-			using namespace std::string_literals;
-			std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
-			std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
-
-			auto genDefs = [&defBase_, _maxInclusions, _identifier] {
-				auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
-				std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
-				for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
-					const std::string defname = defBase(i);
-					defs += "#elif !defined(" + defname + ")\n\t#define " + defname + "\n";
-				}
-				defs += "#endif\n";
-				return defs;
-			};
-			auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
-				auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
-				std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
-				for (int32_t i = _maxInclusions - 1; i >= 0; --i) {
-					const std::string defname = defBase(i);
-					undefs += "#elif defined(" + defname + ")\n\t#undef " + defname + "\n";
-				}
-				undefs += "#endif\n";
-				return undefs;
-			};
-
-			return
-				genDefs() +
-				"\n"
-				"#ifndef " + defBase_ + std::to_string(_maxInclusions) +
-				"\n" +
-				"#line 1 \"" + _identifier + "\"\n" +
-				_code +
-				"\n"
-				"#endif"
-				"\n\n" +
-				genUndefs();
-		}
-
-		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
 
 	protected:
 
