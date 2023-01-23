@@ -89,4 +89,4 @@
 	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
 [submodule "3rdparty/tcpp"]
 	path = 3rdparty/tcpp
-	url = git@github.com:bnoazx005/tcpp
+	url = git@github.com:Erfan-Ahmadi/tcpp.git
