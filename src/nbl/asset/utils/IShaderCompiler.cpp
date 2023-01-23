@@ -216,7 +216,7 @@ void IShaderCompiler::insertExtraDefines(std::string& code, const core::SRange<c
     std::ostringstream insertion;
     for (auto i = 0u; i < defines.size(); ++i)
     {
-        insertion << "#define " << defines[i] << "\r\n";
+        insertion << "#define " << defines[i] << "\n";
     }
     insertIntoStart(code, std::move(insertion));
 }
