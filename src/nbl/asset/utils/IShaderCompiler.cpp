@@ -207,3 +207,16 @@ std::string IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::str
 
     return "";
 }
+
+void IShaderCompiler::insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const
+{
+    if (defines.empty())
+        return;
+
+    std::ostringstream insertion;
+    for (auto i = 0u; i < defines.size(); ++i)
+    {
+        insertion << "#define " << defines[i] << "\r\n";
+    }
+    insertIntoStart(code, std::move(insertion));
+}

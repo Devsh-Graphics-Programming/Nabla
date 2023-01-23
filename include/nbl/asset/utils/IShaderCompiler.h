@@ -264,18 +264,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const = 0;
 
-		void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const
-		{
-			if (defines.empty())
-				return;
-
-			std::ostringstream insertion;
-			for (auto def : defines)
-			{
-				insertion << "#define " << def << "\n";
-			}
-			insertIntoStart(code, std::move(insertion));
-		}
+		void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const;
 
 		core::smart_refctd_ptr<system::ISystem> m_system;
 	private:
