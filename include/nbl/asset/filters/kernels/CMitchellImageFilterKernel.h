@@ -5,24 +5,22 @@
 #ifndef __NBL_ASSET_C_MITCHELL_IMAGE_FILTER_KERNEL_H_INCLUDED__
 #define __NBL_ASSET_C_MITCHELL_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
-
 #include "nbl/asset/filters/kernels/IImageFilterKernel.h"
 
 #include <ratio>
 
-namespace nbl
+namespace nbl::asset
 {
-namespace asset
-{
-
 
 // A standard Mitchell filter expressed as a convolution kernel, the standard has a support of [-2,2] the B and C template parameters are the same ones from the paper
-template<class B=std::ratio<1,3>, class C=std::ratio<1,3> >
-class NBL_API CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>,std::ratio<2,1> >
+template<class B=std::ratio<1,3>, class C=std::ratio<1,3>>
+class NBL_API CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>>
 {
-		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>,std::ratio<2,1> >;
+	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>>;
 
 	public:
+		CMitchellImageFilterKernel() : Base(2.f) {}
+
 		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
@@ -47,18 +45,17 @@ class NBL_API CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparab
 		}
 
 	protected:
-		_NBL_STATIC_INLINE_CONSTEXPR float b = float(B::num)/float(B::den);
-		_NBL_STATIC_INLINE_CONSTEXPR float c = float(C::num)/float(C::den);
-		_NBL_STATIC_INLINE_CONSTEXPR float p0 = (6.0f - 2.0f * b) / 6.0f;
-		_NBL_STATIC_INLINE_CONSTEXPR float p2 = (-18.0f + 12.0f * b + 6.0f * c) / 6.0f;
-		_NBL_STATIC_INLINE_CONSTEXPR float p3 = (12.0f - 9.0f * b - 6.0f * c) / 6.0f;
-		_NBL_STATIC_INLINE_CONSTEXPR float q0 = (8.0f * b + 24.0f * c) / 6.0f;
-		_NBL_STATIC_INLINE_CONSTEXPR float q1 = (-12.0f * b - 48.0f * c) / 6.0f;
-		_NBL_STATIC_INLINE_CONSTEXPR float q2 = (6.0f * b + 30.0f * c) / 6.0f;
-		_NBL_STATIC_INLINE_CONSTEXPR float q3 = (-b - 6.0f * c) / 6.0f;
+		static inline constexpr float b = float(B::num)/float(B::den);
+		static inline constexpr float c = float(C::num)/float(C::den);
+		static inline constexpr float p0 = (6.0f - 2.0f * b) / 6.0f;
+		static inline constexpr float p2 = (-18.0f + 12.0f * b + 6.0f * c) / 6.0f;
+		static inline constexpr float p3 = (12.0f - 9.0f * b - 6.0f * c) / 6.0f;
+		static inline constexpr float q0 = (8.0f * b + 24.0f * c) / 6.0f;
+		static inline constexpr float q1 = (-12.0f * b - 48.0f * c) / 6.0f;
+		static inline constexpr float q2 = (6.0f * b + 30.0f * c) / 6.0f;
+		static inline constexpr float q3 = (-b - 6.0f * c) / 6.0f;
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

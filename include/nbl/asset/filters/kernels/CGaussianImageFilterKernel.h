@@ -5,28 +5,24 @@
 #ifndef __NBL_ASSET_C_GAUSSIAN_IMAGE_FILTER_KERNEL_H_INCLUDED__
 #define __NBL_ASSET_C_GAUSSIAN_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
-
 #include "nbl/asset/filters/kernels/IImageFilterKernel.h"
 
-#include <ratio>
-
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // Truncated Gaussian filter, with stddev = 1.0, if you want a different stddev then you need to scale it.
-template<uint32_t support=3u>
-class NBL_API CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel<support>,std::ratio<support,1> >
+class NBL_API CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel>
 {
-		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel<support>,std::ratio<support,1> >;
+	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel>;
 
 	public:
+		CGaussianImageFilterKernel(const float isotropicSupport = 3.f) : Base(isotropicSupport) {}
+
 		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{
-				const float normalizationFactor = core::inversesqrt(2.f*core::PI<float>())/std::erff(core::sqrt<float>(2.f)*float(support));
+				const float normalizationFactor = core::inversesqrt(2.f*core::PI<float>())/std::erff(core::sqrt<float>(2.f)*float(negative_support.x));
 				return normalizationFactor*exp2f(-0.72134752f*x*x);
 			}
 			return 0.f;
@@ -36,12 +32,11 @@ class NBL_API CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparab
 		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
-				return -x*CGaussianImageFilterKernel<support>::weight(x,channel);
+				return -x*CGaussianImageFilterKernel::weight(x,channel);
 			return 0.f;
 		}
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

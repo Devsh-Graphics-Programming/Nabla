@@ -8,11 +8,7 @@
 
 #include "nbl/asset/filters/kernels/IImageFilterKernel.h"
 
-#include <ratio>
-
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // base class for all kernels that require the pixels and arithmetic to be done in precise floats
@@ -93,38 +89,22 @@ class NBL_API CFloatingPointSeparableImageFilterKernelBase : public CImageFilter
 };
 
 
-// base class for all kernels that have the same support in each dimension AND have a rational support
-// there's nothing special about having a rational support, we just use that type because there's no possibility of using `float` as a template parameter in C++
-template<class Support=std::ratio<1,1> >
-class NBL_API CIsotropicImageFilterKernelBase
-{
-	public:
-		using isotropic_support_as_ratio = Support;
-	protected:
-		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Support::num)/float(Support::den);
-};
-
 // same as CFloatingPointSeparableImageFilterKernelBase but with added constraint that support is symmetric around the orign
-template<class CRTP,class Support=std::ratio<1,1> >
-class NBL_API CFloatingPointIsotropicSeparableImageFilterKernelBase :	public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>,
-																public CIsotropicImageFilterKernelBase<Support>
+template<class CRTP>
+class NBL_API CFloatingPointIsotropicSeparableImageFilterKernelBase : public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP>>
 {
-		using Base =  CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>;
-		using Base2 = CIsotropicImageFilterKernelBase<Support>;
-	protected:
-		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = Base2::isotropic_support;
+	using Base = CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP>>;
 
-	public:
-		CFloatingPointIsotropicSeparableImageFilterKernelBase() : Base(isotropic_support,isotropic_support) {}
+public:
+	CFloatingPointIsotropicSeparableImageFilterKernelBase(const float isotropic_support) : Base(isotropic_support,isotropic_support) {}
 
-		// need this declared to forward
-		inline float weight(float x, int32_t channel) const
-		{
-			return static_cast<const CRTP*>(this)->weight(x, channel);
-		}
+	// need this declared to forward
+	inline float weight(float x, int32_t channel) const
+	{
+		return static_cast<const CRTP*>(this)->weight(x, channel);
+	}
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

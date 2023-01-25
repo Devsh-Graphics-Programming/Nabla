@@ -19,20 +19,20 @@ float CConvolutionImageFilterKernel<CBoxImageFilterKernel, CBoxImageFilterKernel
 }
 
 template <>
-float CConvolutionImageFilterKernel<CKaiserImageFilterKernel<>, CKaiserImageFilterKernel<>>::weight(const float x, const uint32_t channel, const uint32_t) const
+float CConvolutionImageFilterKernel<CKaiserImageFilterKernel, CKaiserImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
 {
 	return getKernelWidth(m_kernelA) > getKernelWidth(m_kernelB) ? m_kernelA.weight(x, channel) : m_kernelB.weight(x, channel);
 }
 
 template <>
-float CConvolutionImageFilterKernel<CGaussianImageFilterKernel<>, CGaussianImageFilterKernel<>>::weight(const float x, const uint32_t channel, const uint32_t) const
+float CConvolutionImageFilterKernel<CGaussianImageFilterKernel, CGaussianImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
 {
 	const float kernelA_stddev = m_kernelA.m_multipliedScale[channel];
 	const float kernelB_stddev = m_kernelB.m_multipliedScale[channel];
 	const float convolution_stddev = core::sqrt(kernelA_stddev * kernelA_stddev + kernelB_stddev * kernelB_stddev);
 
 	const auto stretchFactor = core::vectorSIMDf(convolution_stddev, 1.f, 1.f, 1.f);
-	auto convolutionKernel = asset::CGaussianImageFilterKernel<>();
+	auto convolutionKernel = asset::CGaussianImageFilterKernel();
 	convolutionKernel.stretchAndScale(stretchFactor);
 
 	return convolutionKernel.weight(x, channel);
@@ -69,13 +69,13 @@ float CConvolutionImageFilterKernel<CTriangleImageFilterKernel, CDiracImageFilte
 // Dirac with Gaussian
 
 template <>
-float CConvolutionImageFilterKernel<CDiracImageFilterKernel, CGaussianImageFilterKernel<>>::weight(const float x, const uint32_t channel, const uint32_t) const
+float CConvolutionImageFilterKernel<CDiracImageFilterKernel, CGaussianImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
 {
 	return m_kernelB.weight(x, channel);
 }
 
 template <>
-float CConvolutionImageFilterKernel<CGaussianImageFilterKernel<>, CDiracImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
+float CConvolutionImageFilterKernel<CGaussianImageFilterKernel, CDiracImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
 {
 	return m_kernelA.weight(x, channel);
 }
@@ -97,13 +97,13 @@ float CConvolutionImageFilterKernel<CMitchellImageFilterKernel<>, CDiracImageFil
 // Dirac with Kaiser
 
 template <>
-float CConvolutionImageFilterKernel<CDiracImageFilterKernel, CKaiserImageFilterKernel<>>::weight(const float x, const uint32_t channel, const uint32_t) const
+float CConvolutionImageFilterKernel<CDiracImageFilterKernel, CKaiserImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
 {
 	return m_kernelB.weight(x, channel);
 }
 
 template <>
-float CConvolutionImageFilterKernel<CKaiserImageFilterKernel<>, CDiracImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
+float CConvolutionImageFilterKernel<CKaiserImageFilterKernel, CDiracImageFilterKernel>::weight(const float x, const uint32_t channel, const uint32_t) const
 {
 	return m_kernelA.weight(x, channel);
 }

@@ -121,7 +121,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 {
 	using namespace asset;
 
-	using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
+	using ReconstructionKernel = CGaussianImageFilterKernel; // or Mitchell
 	using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
 	using DerivKernel = MyKernel<DerivKernel_>;
 	using XDerivKernel_ = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;

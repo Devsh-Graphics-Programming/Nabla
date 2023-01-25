@@ -638,13 +638,14 @@ class NBL_API CBlitImageFilter :
 					});
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
+					{
+						state->normalization.finalize<double>();
 						storeToImage(core::rational<int64_t>(cvg_num,cvg_den),axis,outOffsetLayer);
+					}
 				};
-				// filter in X-axis
+				
 				filterAxis(IImage::ET_1D,kernelX);
-				// filter in Y-axis
 				filterAxis(IImage::ET_2D,kernelY);
-				// filter in Z-axis
 				filterAxis(IImage::ET_3D,kernelZ);
 			}
 			return true;

@@ -188,7 +188,7 @@ class NBL_API CDerivativeMapNormalizationState : public impl::CDerivativeMapNorm
 			static_assert(std::is_floating_point_v<Tenc>, "Integer encode types not supported yet!");
 			if constexpr (isotropic)
 			{
-				const float isotropicMax = core::max(core::max(maxAbsPerChannel[0],maxAbsPerChannel[1]),core::max(maxAbsPerChannel[2],maxAbsPerChannel[3]));
+				const float isotropicMax = core::max(core::max(maxAbsPerChannel[0].load(), maxAbsPerChannel[1].load()), core::max(maxAbsPerChannel[2].load(), maxAbsPerChannel[3].load()));
 				for (auto i=0u; i<4u; i++)
 					maxAbsPerChannel[i] = isotropicMax;
 			}

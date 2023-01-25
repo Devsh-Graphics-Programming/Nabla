@@ -431,9 +431,9 @@ class NBL_API CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				//
 				const float maxDirectionComp = value[maxDirCompIndex];
 				//max component of 3d normal cannot be less than sqrt(1/D)
-				if (maxDirectionComp <= sqrtf(1.f/float(dimensions)))
+				if (maxDirectionComp < std::sqrtf(0.9998f / float(dimensions)))
 				{
-					//_NBL_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return core::vectorSIMDf(0.f);
 				}
 				fittingVector = value.preciseDivision(core::vectorSIMDf(maxDirectionComp));
