@@ -41,6 +41,7 @@ static tcpp::IInputStream* getInputStreamInclude(
     const system::ISystem* _fs,
     uint32_t _maxInclCnt,
     const char* _requesting_source,
+    const char* _requested_source,
     bool _type // true for #include "string"; false for #include <string>
 )
 {
@@ -57,15 +58,15 @@ static tcpp::IInputStream* getInputStreamInclude(
         //  or path relative to executable's working directory (""-type).
         relDir = std::filesystem::path(_requesting_source).parent_path();
     }
-    std::filesystem::path name = _type ? (relDir / _requesting_source) : (_requesting_source);
+    std::filesystem::path name = _type ? (relDir / _requested_source) : (_requested_source);
 
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
     if (_type)
-        res_str = _inclFinder->getIncludeRelative(relDir, _requesting_source);
+        res_str = _inclFinder->getIncludeRelative(relDir, _requested_source);
     else //shaderc_include_type_standard
-        res_str = _inclFinder->getIncludeStandard(relDir, _requesting_source);
+        res_str = _inclFinder->getIncludeStandard(relDir, _requested_source);
 
     if (!res_str.size()) {
         return new tcpp::StringInputStream("#error File not found");
@@ -172,7 +173,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             [&](auto path, auto isSystemPath) {
                 return getInputStreamInclude(
                     preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u,
-                    path.c_str(), !isSystemPath
+                    preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath
                 );
             }
         );
