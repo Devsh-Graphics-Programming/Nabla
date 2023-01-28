@@ -49,7 +49,7 @@ static tcpp::IInputStream* getInputStreamInclude(
 
     std::filesystem::path relDir;
     const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
-    const bool reqBuiltin = builtin::hasPathPrefix(_requesting_source);
+    const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
     if (!reqFromBuiltin && !reqBuiltin)
     {
         //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
