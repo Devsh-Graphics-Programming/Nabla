@@ -159,80 +159,74 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     {
         insertExtraDefines(code, preprocessOptions.extraDefines);
     }
-    if (preprocessOptions.includeFinder != nullptr)
-    {
-        IShaderCompiler::disableAllDirectivesExceptIncludes(code);
 
-        tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
-        tcpp::Lexer lexer(codeIs);
-        tcpp::Preprocessor proc(
-            lexer,
-            [&](auto errorInfo) {
-                preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
-            },
-            [&](auto path, auto isSystemPath) {
+    IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+
+    tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
+    tcpp::Lexer lexer(codeIs);
+    tcpp::Preprocessor proc(
+        lexer,
+        [&](auto errorInfo) {
+            preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
+        },
+        [&](auto path, auto isSystemPath) {
+            if (preprocessOptions.includeFinder)
+            {
                 return getInputStreamInclude(
                     preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u,
                     preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath
                 );
             }
-        );
+            else
+            {
+                return static_cast<tcpp::IInputStream*>(new tcpp::StringInputStream(std::string("#error No include handler")));
+            }
+        }
+    );
 
-        auto pragmaShaderStageCallback = [&](IShader::E_SHADER_STAGE _stage) {
-            return [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
-                stage = _stage;
-                return std::string("");
-            };
+    proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
+        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
+        auto token = lexer.GetNextToken();
+        if (token.mType != tcpp::E_TOKEN_TYPE::OPEN_BRACKET) return std::string("#error Malformed shader_stage pragma");
+
+        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
+        token = lexer.GetNextToken();
+        if (token.mType != tcpp::E_TOKEN_TYPE::IDENTIFIER) return std::string("#error Malformed shader_stage pragma");
+
+        auto& shaderStageIdentifier = token.mRawView;
+        core::unordered_map<std::string, IShader::E_SHADER_STAGE> stageFromIdent = {
+            { "vertex", IShader::ESS_VERTEX },
+            { "fragment", IShader::ESS_FRAGMENT },
+            { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
+            { "tesseval", IShader::ESS_TESSELLATION_EVALUATION },
+            { "geometry", IShader::ESS_GEOMETRY },
+            { "compute", IShader::ESS_COMPUTE }
         };
 
-        proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
-            if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
+        auto found = stageFromIdent.find(shaderStageIdentifier);
+        if (found == stageFromIdent.end())
+        {
+            return std::string("#error Malformed shader_stage pragma, unknown stage");
+        }
+        stage = found->second;
+
+        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
+        token = lexer.GetNextToken();
+        if (token.mType != tcpp::E_TOKEN_TYPE::CLOSE_BRACKET) return std::string("#error Malformed shader_stage pragma");
+
+        while (lexer.HasNextToken()) {
             auto token = lexer.GetNextToken();
-            if (token.mType != tcpp::E_TOKEN_TYPE::OPEN_BRACKET) return std::string("#error Malformed shader_stage pragma");
+            if (token.mType == tcpp::E_TOKEN_TYPE::NEWLINE) break;
+            if (token.mType != tcpp::E_TOKEN_TYPE::SPACE) return std::string("#error Malformed shader_stage pragma");
+        }
 
-            if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-            token = lexer.GetNextToken();
-            if (token.mType != tcpp::E_TOKEN_TYPE::IDENTIFIER) return std::string("#error Malformed shader_stage pragma");
+        return std::string("");
+    });
 
-            auto& shaderStageIdentifier = token.mRawView;
-            core::unordered_map<std::string, IShader::E_SHADER_STAGE> stageFromIdent = {
-                { "vertex", IShader::ESS_VERTEX },
-                { "fragment", IShader::ESS_FRAGMENT },
-                { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
-                { "tesseval", IShader::ESS_TESSELLATION_EVALUATION },
-                { "geometry", IShader::ESS_GEOMETRY },
-                { "compute", IShader::ESS_COMPUTE }
-            };
+    auto resolvedString = proc.Process();
+    IShaderCompiler::reenableDirectives(resolvedString);
 
-            auto found = stageFromIdent.find(shaderStageIdentifier);
-            if (found == stageFromIdent.end())
-            {
-                return std::string("#error Malformed shader_stage pragma, unknown stage");
-            }
-            stage = found->second;
-
-            if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-            token = lexer.GetNextToken();
-            if (token.mType != tcpp::E_TOKEN_TYPE::CLOSE_BRACKET) return std::string("#error Malformed shader_stage pragma");
-
-            while (lexer.HasNextToken()) {
-                auto token = lexer.GetNextToken();
-                if (token.mType == tcpp::E_TOKEN_TYPE::NEWLINE) break;
-                if (token.mType != tcpp::E_TOKEN_TYPE::SPACE) return std::string("#error Malformed shader_stage pragma");
-            }
-
-            return std::string("");
-        });
-
-        auto resolvedString = proc.Process();
-        IShaderCompiler::reenableDirectives(resolvedString);
-
-        return resolvedString;
-    }
-    else
-    {
-        return code;
-    }
+    return resolvedString;
 }
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
