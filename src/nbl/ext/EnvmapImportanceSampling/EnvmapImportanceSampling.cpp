@@ -11,19 +11,18 @@ using namespace nbl::asset;
 using namespace nbl::video;
 using namespace ext::EnvmapImportanceSampling;
 
-void getEnvmapResolutionFromMipLevel(uint32_t level, uint32_t& outWidth, uint32_t& outHeight)
+VkExtent3D getEnvmapResolutionFromMipLevel(uint32_t level)
 {
 	const uint32_t resolution = 0x1u<<(level);
-	outWidth = std::max(resolution, 1u);
-	outHeight = std::max(resolution/2u, 1u);
+	return {resolution,resolution>>1u,1u};
 }
 
-static core::smart_refctd_ptr<IGPUImageView> createTexture(nbl::video::IVideoDriver* _driver, uint32_t width, uint32_t height, E_FORMAT format, uint32_t mipLevels=1u, uint32_t layers=0u)
+static core::smart_refctd_ptr<IGPUImageView> createTexture(nbl::video::IVideoDriver* _driver, const VkExtent3D extent, E_FORMAT format, uint32_t mipLevels=1u, uint32_t layers=0u)
 {
 	const auto real_layers = layers ? layers:1u;
 
 	IGPUImage::SCreationParams imgparams;
-	imgparams.extent = {width, height, 1u};
+	imgparams.extent = extent;
 	imgparams.arrayLayers = real_layers;
 	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 	imgparams.format = format;
@@ -47,24 +46,19 @@ static core::smart_refctd_ptr<IGPUImageView> createTexture(nbl::video::IVideoDri
 
 void EnvmapImportanceSampling::initResources(core::smart_refctd_ptr<IGPUImageView> envmap, uint32_t lumaMipMapGenWorkgroupDimension, uint32_t warpMapGenWorkgroupDimension)
 {
-	const uint32_t MipCountEnvMap = envmap->getCreationParameters().subresourceRange.levelCount;
-	const uint32_t MipCountLuminance = MipCountEnvMap;
+	const auto EnvmapExtent = envmap->getCreationParameters().image->getCreationParameters().extent;
+	// we don't need the 1x1 mip for anything
+	const uint32_t MipCountLuminance = IImage::calculateFullMipPyramidLevelCount(EnvmapExtent,IImage::ET_2D)-1;
 	
 	m_lumaMipMapGenWorkgroupDimension = lumaMipMapGenWorkgroupDimension;
 	m_warpMapGenWorkgroupDimension = warpMapGenWorkgroupDimension;
-	m_mipCountLuminance = MipCountLuminance;
-	m_mipCountEnvmap = MipCountEnvMap;
 
 	{
-		uint32_t width, height = 0u;
-		getEnvmapResolutionFromMipLevel(MipCountLuminance - 1, width, height);
-		m_luminanceBaseImageView = createTexture(m_driver, width, height, EF_R32_SFLOAT, MipCountLuminance);
-		assert(m_luminanceBaseImageView);
-
-		m_luminanceMipMaps[0] = m_luminanceBaseImageView;
+		m_luminanceMipMaps[0] = createTexture(m_driver, getEnvmapResolutionFromMipLevel(MipCountLuminance), EF_R32_SFLOAT, MipCountLuminance);
+		assert(m_luminanceMipMaps[0]);
 		for(uint32_t i = 1; i < MipCountLuminance; ++i)
 		{
-			IGPUImageView::SCreationParams viewCreateParams = m_luminanceBaseImageView->getCreationParameters();
+			IGPUImageView::SCreationParams viewCreateParams = m_luminanceMipMaps[0]->getCreationParameters();
 			viewCreateParams.subresourceRange.baseMipLevel = i;
 			viewCreateParams.subresourceRange.levelCount = 1u;
 
@@ -72,11 +66,8 @@ void EnvmapImportanceSampling::initResources(core::smart_refctd_ptr<IGPUImageVie
 		}
 	}
 
-	{
-		uint32_t width, height = 0u;
-		getEnvmapResolutionFromMipLevel(m_mipCountEnvmap- 1, width, height);
-		m_warpMap = createTexture(m_driver, width, height, EF_R32G32_SFLOAT);
-	}
+	// default make the warp-map same resolution as input envmap
+	m_warpMap = createTexture(m_driver, getEnvmapResolutionFromMipLevel(MipCountLuminance+1), EF_R32G32_SFLOAT);
 
 	ISampler::SParams samplerParams;
 	samplerParams.TextureWrapU = samplerParams.TextureWrapV = samplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
@@ -202,7 +193,7 @@ void EnvmapImportanceSampling::initResources(core::smart_refctd_ptr<IGPUImageVie
 		 	m_warpDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_warpDSLayout));
 			
 			IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfo = {};
-			luminanceDescriptorInfo.desc = m_luminanceBaseImageView;
+			luminanceDescriptorInfo.desc = m_luminanceMipMaps[0];
 			luminanceDescriptorInfo.image.sampler = nullptr;
 			luminanceDescriptorInfo.image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 		
@@ -330,13 +321,10 @@ bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFa
 		pcData.calcLuma = 1;
 		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[0].get(),nullptr);
 
-		
-		uint32_t sourceMipWidth, sourceMipHeight = 0u;
-		getEnvmapResolutionFromMipLevel(m_mipCountLuminance - 1, sourceMipWidth, sourceMipHeight);
-		
+		const auto lumaExtent = m_luminanceMipMaps[0]->getCreationParameters().image->getCreationParameters().extent;
 		uint32_t workGroups[2] = {
-			(sourceMipWidth-1u)/m_lumaMipMapGenWorkgroupDimension+1u,
-			(sourceMipHeight-1u)/m_lumaMipMapGenWorkgroupDimension+1u
+			(lumaExtent.width-1u)/m_lumaMipMapGenWorkgroupDimension+1u,
+			(lumaExtent.height-1u)/m_lumaMipMapGenWorkgroupDimension+1u
 		};
 
 		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);

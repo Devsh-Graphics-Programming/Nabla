@@ -33,8 +33,7 @@ void main()
 		// envmap needs to be 2:1 ratio for this to work
 		//assert(warpMapSize.x==(warpMapSize.y<<1));
 		
-		// (skip 0 which is 1x1 and useless in warping)
-		const int lastMip = textureQueryLevels(luminance)-2;
+		const int lastMip = textureQueryLevels(luminance)-1;
 		// do one split in the X axis first cause second to last mip will be 2x1
 		p.x = choseSecond(xi.x,texelFetchOffset(luminance,ivec2(0,0),lastMip,ivec2(0,0)).r,texelFetchOffset(luminance,ivec2(0,0),lastMip,ivec2(1,0)).r) ? 1:0;
 		for (int i=lastMip-1; i>=0; --i)

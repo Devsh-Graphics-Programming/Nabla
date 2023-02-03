@@ -67,16 +67,13 @@ public:
 	}
 	bool computeWarpMap(const float envMapRegularizationFactor, float& maxEmittanceLuma);
 	
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getLuminanceImageView() { return m_luminanceBaseImageView; }
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getLuminanceImageView() { return m_luminanceMipMaps[0]; }
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getWarpMapImageView() { return m_warpMap; }
 
 private:
 	
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_luminanceBaseImageView;
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> m_warpMap; // Warps Sample based on EnvMap Luminance
 
-	uint32_t m_mipCountEnvmap;
-	uint32_t m_mipCountLuminance;
 	uint32_t m_lumaMipMapGenWorkgroupDimension;
 	uint32_t m_warpMapGenWorkgroupDimension;
 

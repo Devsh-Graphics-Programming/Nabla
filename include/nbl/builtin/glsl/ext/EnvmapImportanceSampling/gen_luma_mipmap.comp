@@ -22,13 +22,6 @@ void main()
 	const ivec2 envMapSize = textureSize(envMap, 0).xy;
 	if (all(lessThan(pixelCoord,envMapSize)))
 	{
-		// all this should have been validated in the C++, but eh, should have used pyramid mip-mapper anyway
-		const uint maxLevel = uint(log2(envMapSize.x));
-		if(maxLevel >= MAX_LUMINANCE_LEVELS)
-		{
-			imageStore(dstluminance, pixelCoord, vec4(0.f/0.f, 0.0, 0.0, 0.0)); // Error
-		}
-
 		// Copy EnvMap to Last Luma MipMap Level
 		{
 			const ivec2 dstMipLevelSize = imageSize(dstluminance).xy;
