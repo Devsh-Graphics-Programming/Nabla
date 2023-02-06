@@ -30,7 +30,7 @@ class NBL_API CDerivativeImageFilterKernel : public CFloatingPointSeparableImage
 		inline float weight(float x, int32_t channel) const
 		{
 			x *= kernel.m_multipliedScale[channel];
-			return kernel.d_weight(x,channel);
+			return kernel.weight<1>(x,channel);
 		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;

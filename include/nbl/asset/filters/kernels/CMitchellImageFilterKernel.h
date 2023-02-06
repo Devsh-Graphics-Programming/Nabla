@@ -21,28 +21,43 @@ class NBL_API CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparab
 	public:
 		CMitchellImageFilterKernel() : Base(2.f) {}
 
+		template <uint32_t derivative = 0>
 		inline float weight(float x, int32_t channel) const
-		{
-			if (Base::inDomain(x))
-			{
-				x = core::abs(x);
-				return core::mix(p0+x*x*(p2+x*p3),q0+x*(q1+x*(q2+x*q3)),x>=1.f);
-			}
-			return 0.f;
-		}
-
-		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
-		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{
 				bool neg = x < 0.f;
 				x = core::abs(x);
-				float retval = core::mix(x * (2.f * p2 + 3.f * x * p3), q1 + x * (2.f * q2 + 3.f * x * q3), x >= 1.f);
-				return neg ? (-retval) : retval;
+
+				float retval;
+				if constexpr (derivative == 0)
+				{
+					return core::mix(p0 + x * x * (p2 + x * p3), q0 + x * (q1 + x * (q2 + x * q3)), x >= 1.f);
+				}
+				else if constexpr (derivative == 1)
+				{
+					retval = core::mix(x * (2.f * p2 + 3.f * x * p3), q1 + x * (2.f * q2 + 3.f * x * q3), x >= 1.f);
+				}
+				else if constexpr (derivative == 2)
+				{
+					retval = core::mix(2.f * p2 + 6.f * p3 * x, 2.f * q2 + 6.f * q3 * x, x >= 1.f);
+				}
+				else if constexpr (derivative == 3)
+				{
+					retval = core::mix(6.f * p3, 6.f * q3, x >= 1.f);
+				}
+				else
+				{
+					static_assert(false);
+					return core::nan<float>();
+				}
+
+				return neg ? -retval : retval;
 			}
 			return 0.f;
 		}
+
+		static inline constexpr bool has_derivative = true;
 
 	protected:
 		static inline constexpr float b = float(B::num)/float(B::den);

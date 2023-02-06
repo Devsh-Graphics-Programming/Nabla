@@ -18,21 +18,26 @@ class NBL_API CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparab
 	public:
 		CTriangleImageFilterKernel() : Base(1.f) {}
 
+		template <uint32_t derivative = 0>
 		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
-				return 1.f-core::abs(x);
+			{
+				if constexpr (derivative == 0)
+				{
+					return 1.f-core::abs(x);
+				}
+				else
+				{
+					// Derivative at 0 not defined.
+					static_assert(false);
+					return core::nan<float>();
+				}
+			}
 			return 0.f;
 		}
 
 		static inline constexpr bool has_derivative = false;
-		/* Derivative at 0 not defined so we cannot use
-		inline float d_weight(float x) const
-		{
-			if (Base::inDomain(x))
-				return x<0.f ? 1.f:(x>0.f ? -1.f:0.f);
-			return 0.f;
-		}*/
 };
 
 } // end namespace nbl::asset

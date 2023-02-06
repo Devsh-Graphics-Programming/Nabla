@@ -16,9 +16,22 @@ class NBL_API CDiracImageFilterKernel : public CFloatingPointIsotropicSeparableI
 public:
 	CDiracImageFilterKernel() : Base(0.f) {}
 
+	template <uint32_t derivative = 0>
 	inline float weight(float x, int32_t channel) const
 	{
-		return (x==0.f) ? std::numeric_limits<float>::infinity() : 0.f;
+		if (x == 0.f)
+		{
+			if constexpr (derivative == 0)
+			{
+				std::numeric_limits<float>::infinity();
+			}
+			else
+			{
+				static_assert(false);
+				return core::nan<float>();
+			}
+		}
+		return 0.f;
 	}
 
 	static inline constexpr bool has_derivative = false;

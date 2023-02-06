@@ -19,9 +19,22 @@ class NBL_API CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableIma
 	public:
 		CBoxImageFilterKernel() : Base(0.5f) {}
 
+		template <uint32_t derivative = 0>
 		inline float weight(float x, int32_t channel) const
 		{
-			return Base::inDomain(x) ? 1.f:0.f;
+			if (Base::inDomain(x))
+			{
+				if constexpr (derivative == 0)
+				{
+					return 1.f;
+				}
+				else
+				{
+					static_assert(false);
+					return core::nan<float>();
+				}
+			}
+			return 0.f;
 		}
 
 		static inline constexpr bool has_derivative = false;

@@ -18,23 +18,38 @@ class NBL_API CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparab
 	public:
 		CGaussianImageFilterKernel(const float isotropicSupport = 3.f) : Base(isotropicSupport) {}
 
+		template <uint32_t derivative = 0>
 		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{
-				const float normalizationFactor = core::inversesqrt(2.f*core::PI<float>())/std::erff(core::sqrt<float>(2.f)*float(negative_support.x));
-				return normalizationFactor*exp2f(-0.72134752f*x*x);
+				if constexpr (derivative == 0)
+				{
+					const float normalizationFactor = core::inversesqrt(2.f*core::PI<float>())/std::erff(core::sqrt<float>(2.f)*float(negative_support.x));
+					return normalizationFactor*exp2f(-0.72134752f*x*x);
+				}
+				else if constexpr (derivative == 1)
+				{
+					return -x * CGaussianImageFilterKernel::weight(x, channel);
+				}
+				else if constexpr (derivative == 2)
+				{
+					return x * (x + 1.f) * CGaussianImageFilterKernel::weight(x, channel);
+				}
+				else if constexpr (derivative == 3)
+				{
+					return (1.f - (x - 1.f) * (x + 1.f) * (x + 1.f)) * CGaussianImageFilterKernel::weight(x, channel);
+				}
+				else
+				{
+					static_assert(false, "TODO");
+					return core::nan<float>();
+				}
 			}
 			return 0.f;
 		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
-		inline float d_weight(float x, int32_t channel) const
-		{
-			if (Base::inDomain(x))
-				return -x*CGaussianImageFilterKernel::weight(x,channel);
-			return 0.f;
-		}
 };
 
 } // end namespace nbl::asset
