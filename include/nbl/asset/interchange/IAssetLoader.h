@@ -58,7 +58,7 @@ class IMeshManipulator;
 	@see IAssetWriter
 */
 
-class NBL_API IAssetLoader : public virtual core::IReferenceCounted
+class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 {
 public:
     enum E_CACHING_FLAGS : uint64_t
@@ -171,7 +171,7 @@ public:
     }
 
     //! Override class to facilitate changing how assets are loaded
-    NBL_API2 class IAssetLoaderOverride
+	class IAssetLoaderOverride
     {
     protected:
 		_NBL_STATIC_INLINE_CONSTEXPR IAsset::E_MUTABILITY ASSET_MUTABILITY_ON_CACHE_INSERT = IAsset::EM_MUTABLE;
@@ -179,7 +179,7 @@ public:
         IAssetManager* m_manager;
 		system::ISystem* m_system;
     public:
-		IAssetLoaderOverride(IAssetManager* _manager);
+		NBL_API2 IAssetLoaderOverride(IAssetManager* _manager);
 
 		//!
 		template<class AssetT>
