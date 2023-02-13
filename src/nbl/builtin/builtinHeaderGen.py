@@ -29,12 +29,12 @@ else:
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
-    outp.write("#include <utility>\n#include <nbl/core/string/UniqueStringLiteralType.h>\n#include <nbl/builtin/common.h>\n")
+    outp.write("#include <utility>\n#include <nbl/core/string/StringLiteral.h>\n")
     outp.write("namespace nbl { \n\tnamespace builtin { \n")
 
     #Iterating through input list
     for x in resourcePaths:
-        outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
 
     outp.write("\n\t}\n}")
     outp.write("\n#endif")

@@ -1,7 +1,7 @@
 #ifndef __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
-#include "nbl/core/string/UniqueStringLiteralType.h"
+#include "nbl/core/string/StringLiteral.h"
 
 #include <atomic>
 

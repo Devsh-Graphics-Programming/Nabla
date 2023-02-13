@@ -385,10 +385,6 @@ if(MSVC)
 	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
 endif()
 
-if (NBL_EMBED_BUILTIN_RESOURCES)
-	list(APPEND NABLA_SRCS_COMMON "${NBL_BUILTIN_RESOURCES_SOURCE}")
-endif()
-
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
         ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
@@ -639,7 +635,9 @@ if(NBL_PCH)
 endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_dependencies(Nabla generateBuiltinResources)
+	add_dependencies(Nabla nblBuiltinResourceData)
+	target_link_libraries(Nabla PUBLIC nblBuiltinResourceData)
+	target_include_directories(Nabla PUBLIC "${NBL_BUILTIN_RESOURCES_HEADER}")
 endif()
 
 # extensions

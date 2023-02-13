@@ -14,10 +14,6 @@
 namespace nbl::builtin
 {
 
-// if you attempt to use this without `NBL_EMBED_BUILTIN_RESOURCES_` CMake option, you will get loads of undefined references
-template<nbl::core::StringLiteral Path>
-const std::pair<const uint8_t*,size_t> get_resource();
-
 // if you attempt to use this without `NBL_EMBED_BUILTIN_RESOURCES_` CMake option, this will always return `{nullptr,0ull}`
 std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
 

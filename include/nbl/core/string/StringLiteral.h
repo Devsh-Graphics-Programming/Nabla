@@ -22,3 +22,12 @@ struct StringLiteral
 
 // for compatibility's sake
 #define NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(STRING_LITERAL) nbl::core::StringLiteral(STRING_LITERAL)
+
+namespace nbl::builtin
+{
+    // if you attempt to use this without `NBL_EMBED_BUILTIN_RESOURCES_` CMake option, you will get loads of undefined references
+    template<nbl::core::StringLiteral Path>
+    const std::pair<const uint8_t*, size_t> get_resource();
+}
+
+#endif // _NBL_CORE_STRING_LITERAL_H_INCLUDED_

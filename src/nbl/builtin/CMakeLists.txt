@@ -255,18 +255,33 @@ function(NBL_ADD_BUILTIN_RESOURCES)
 	file(MAKE_DIRECTORY "${NBL_ROOT_PATH_BINARY}/include/nbl/builtin")
 	file(WRITE "${NBL_RESOURCES_LIST_FILE}" "${RESOURCES_ARGS}")
 
-	set(NBL_BUILTIN_RESOURCES_HEADER "${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" PARENT_SCOPE)
-	set(NBL_BUILTIN_RESOURCES_SOURCE "${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResourceData.cpp" PARENT_SCOPE)
+	set(NBL_BUILTIN_RESOURCES_HEADER "${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h")
+	set(NBL_BUILTIN_RESOURCE_DATA_SOURCE "${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResourceData.cpp")
+	
+	set(_NBL_SOURCES_
+		"${NBL_BUILTIN_RESOURCES_HEADER}"
+		"${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
+	)
 
 	add_custom_command(
-		OUTPUT "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_BUILTIN_RESOURCES_SOURCE}"
+		OUTPUT "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
 		COMMAND "${PYTHON_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_ROOT_PATH}/include" "${NBL_RESOURCES_LIST_FILE}"
-		COMMAND "${PYTHON_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCES_SOURCE}" "${NBL_ROOT_PATH}/include" "${NBL_RESOURCES_LIST_FILE}"
+		COMMAND "${PYTHON_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}" "${NBL_ROOT_PATH}/include" "${NBL_RESOURCES_LIST_FILE}"
 		COMMENT "Generating built-in resources"
 		DEPENDS ${NBL_DEPENDENCY_FILES}
 		VERBATIM  
 	)
 	
-	add_custom_target(generateBuiltinResources DEPENDS "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_BUILTIN_RESOURCES_SOURCE}")
+	add_library(nblBuiltinResourceData STATIC
+		${_NBL_SOURCES_}
+	)
+	
+	target_include_directories(nblBuiltinResourceData PUBLIC "${NBL_ROOT_PATH}/include")
+	
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set_property(TARGET nblBuiltinResourceData PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set_property(TARGET nblBuiltinResourceData PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
 endfunction()
 
