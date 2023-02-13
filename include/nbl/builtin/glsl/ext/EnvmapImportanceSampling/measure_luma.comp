@@ -1,0 +1,37 @@
+#ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_MEASURE_DIRECTIONALITY_INCLUDED_
+#define _NBL_GLSL_EXT_ENVMAP_SAMPLING_MEASURE_DIRECTIONALITY_INCLUDED_
+
+
+#include <nbl/builtin/glsl/sampling/envmap.glsl>
+#define _NBL_GLSL_WORKGROUP_SIZE_ (LUMA_MIP_MAP_GEN_WORKGROUP_DIM*LUMA_MIP_MAP_GEN_WORKGROUP_DIM)
+#include <nbl/builtin/glsl/workgroup/arithmetic.glsl>
+
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_luma_common.glsl>
+
+
+layout(set=0, binding=1, std430) writeonly buffer LumaMetrics
+{
+	nbl_glsl_ext_EnvmapSampling_LumaMeasurement_t data[];
+} lumaMetrics;
+
+void consume(in ivec2 pixelCoord, in vec2 uv, in float luma)
+{
+	nbl_glsl_ext_EnvmapSampling_LumaMeasurement_t measurement;
+	//
+	{
+		float dummy;
+		const vec3 weightedDir = nbl_glsl_sampling_envmap_directionFromUVCoord(uv,dummy)*luma;
+		measurement.xDirSum = nbl_glsl_workgroupAdd(weightedDir.x);
+		measurement.yDirSum = nbl_glsl_workgroupAdd(weightedDir.y);
+		measurement.zDirSum = nbl_glsl_workgroupAdd(weightedDir.z);
+		measurement.weightSum = nbl_glsl_workgroupAdd(luma);
+		measurement.maxLuma = nbl_glsl_workgroupMax(luma);
+	}
+	//
+	{
+		const uint workgroupIndex = nbl_glsl_dot(gl_WorkGroupID,gl_NumWorkGroups);
+		lumaMetrics.data[workgroupIndex] = measurement;
+	}
+}
+
+#endif

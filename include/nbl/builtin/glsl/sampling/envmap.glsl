@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_GLSL_SAMPLING_ENVMAP_INCLUDED_
 
 #include <nbl/builtin/glsl/math/constants.glsl>
+#include <nbl/builtin/glsl/math/functions.glsl>
 
 vec2 nbl_glsl_sampling_envmap_uvCoordFromDirection(vec3 v)
 {

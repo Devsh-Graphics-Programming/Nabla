@@ -132,6 +132,8 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 		}); \
 	}
 
+	auto setShiftX = SET_PROPERTY_TEMPLATE(shiftX,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
+	auto setShiftY = SET_PROPERTY_TEMPLATE(shiftY,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
 	auto setFov = SET_PROPERTY_TEMPLATE(fov,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
 	auto setFovAxis = [&]() -> void
 	{
@@ -175,6 +177,8 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		//{"focalLength",	noIdeaHowToProcessValue},
+		{"shiftX",			setShiftX},
+		{"shiftY",			setShiftY},
 		{"fov",				setFov},
 		{"fovAxis",			setFovAxis},
 		{"shutterOpen",		setShutterOpen},

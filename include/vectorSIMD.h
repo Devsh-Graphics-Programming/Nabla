@@ -672,9 +672,9 @@ namespace core
 		inline void makeSafe3D(void) {this->operator&=(_mm_set_epi32(0,-1,-1,-1));}
 
 		//! slightly faster than memcpy'ing into the pointers
-		inline vectorSIMDf& set(float* const &array) {_mm_store_ps(pointer,_mm_loadu_ps(array)); return *this;}
+		inline vectorSIMDf& set(const float* array) {_mm_store_ps(pointer,_mm_loadu_ps(array)); return *this;}
 		//! FASTEST WAY TO SET VALUES, Address has to be aligned to 16bytes OR WILL CRASH
-		inline vectorSIMDf& set(float* const &array, bool ALIGNED) {_mm_store_ps(pointer,_mm_load_ps(array)); return *this;}
+		inline vectorSIMDf& set(const float* array, bool ALIGNED) {_mm_store_ps(pointer,_mm_load_ps(array)); return *this;}
 		//! normal set() like vector3df's, but for different dimensional vectors
 		inline vectorSIMDf& set(float nx, float ny, float nz, float nw) {_mm_store_ps(pointer,_mm_set_ps(nw,nz,ny,nx)); return *this;}
 		inline vectorSIMDf& set(float nx, float ny, float nz) {_mm_store_ps(pointer,_mm_set_ps(0.f,nz,ny,nx)); return *this;}

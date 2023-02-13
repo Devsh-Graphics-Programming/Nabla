@@ -147,9 +147,11 @@ set(nbl_resources_to_embed
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
   "nbl/builtin/glsl/ext/EnvmapImportanceSampling/functions.glsl"
-  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_luma_mipmap.comp"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_luma.comp"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_luma_common.glsl"
   "nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_warpmap.comp"
-  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/measure_luma.comp"
+  "nbl/builtin/glsl/ext/EnvmapImportanceSampling/structs.glsl"
   "nbl/builtin/glsl/ext/FFT/default_compute_fft.comp"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/FFT/parameters_struct.glsl"

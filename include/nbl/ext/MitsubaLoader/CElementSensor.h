@@ -65,6 +65,8 @@ class CElementSensor : public IElement
 				_NBL_DEBUG_BREAK_IF(true); // TODO
 			}
 
+			float shiftX = 0.f;
+			float shiftY = 0.f;
 			float fov = 53.2f;
 			FOVAxis fovAxis = FOVAxis::X;
 		};
