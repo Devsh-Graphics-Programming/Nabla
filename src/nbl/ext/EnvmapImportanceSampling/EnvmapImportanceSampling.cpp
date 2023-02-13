@@ -49,22 +49,22 @@ void EnvmapImportanceSampling::initResources(core::smart_refctd_ptr<IGPUImageVie
 		const uint32_t width = 0x1u<<MipCountLuminance;
 		return { width,width>>1u,1u };
 	}();
-	auto calcWorkgroups = [EnvMapPoTExtent](uint32_t* workGroups, const uint32_t workgroupDimension)
+	auto calcWorkgroups = [](uint32_t* workGroups, const VkExtent3D extent, const uint32_t workgroupDimension)
 	{
 		for (auto i=0; i<2; i++)
-			workGroups[i] = ((&EnvMapPoTExtent.width)[i]-1u)/workgroupDimension+1u;
+			workGroups[i] = ((&extent.width)[i]-1u)/workgroupDimension+1u;
 	};
 
 	// TODO: Can we get away with R16_SFLOAT for the probabilities?
 	m_luminance = createTexture(m_driver,EnvMapPoTExtent,EF_R32_SFLOAT,MipCountLuminance);
-	calcWorkgroups(m_lumaWorkgroups,lumaGenWorkgroupDimension);
+	calcWorkgroups(m_lumaWorkgroups,EnvMapPoTExtent,lumaGenWorkgroupDimension);
 
 	// default make the warp-map same resolution as input envmap
 	// Format needs to be 32bit full precision float, because the Jacobian needs to accurately match PDF
-	// TODO: Can we do a skip-map/tree accelerator?
-	// IDEA: Take RNG extent, check both Lo and Hi and stop traversing tree
-	m_warpMap = createTexture(m_driver,EnvMapPoTExtent,EF_R32G32_SFLOAT);
-	calcWorkgroups(m_warpWorkgroups,warpMapGenWorkgroupDimension);
+	const uint32_t upscale = 0;
+	const VkExtent3D WarpMapExtent = {EnvMapPoTExtent.width<<upscale,EnvMapPoTExtent.height<<upscale,EnvMapPoTExtent.depth};
+	m_warpMap = createTexture(m_driver,WarpMapExtent,EF_R32G32_SFLOAT);
+	calcWorkgroups(m_warpWorkgroups,WarpMapExtent,warpMapGenWorkgroupDimension);
 	
 	//
 	auto genPipeline = [=](const char* shaderPath, core::smart_refctd_ptr<IGPUPipelineLayout>&& pipelineLayout) -> core::smart_refctd_ptr<video::IGPUComputePipeline>
