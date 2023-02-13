@@ -1,0 +1,15 @@
+#ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
+#define _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
+
+
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/gen_luma_common.glsl>
+
+
+layout(set = 0, binding = 2, r32f) uniform image2D lumaMap;
+
+void consume(in ivec2 pixelCoord, in vec2 uv, in float luma)
+{
+	imageStore(lumaMap,pixelCoord,vec4(luma,0.f,0.f,0.f));
+}
+
+#endif

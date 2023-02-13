@@ -1,7 +1,6 @@
 #ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_FUNCTIONS_INCLUDED_
 #define _NBL_GLSL_EXT_ENVMAP_SAMPLING_FUNCTIONS_INCLUDED_
 
-#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl>
 #include <nbl/builtin/glsl/sampling/envmap.glsl>
 #include <nbl/builtin/glsl/math/functions.glsl>
 #include <nbl/builtin/glsl/bxdf/common.glsl>
