@@ -233,7 +233,7 @@ void EnvmapImportanceSampling::deinitResources()
 	m_luminance = nullptr;
 }
 
-bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFactor, float& maxEmittanceLuma)
+bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFactor, float& pdfNormalizationFactor, float& maxEmittanceLuma)
 {
 	bool enableRIS = false;
 	//
@@ -315,6 +315,7 @@ bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFa
 					return lhs;
 				}
 			);
+			pdfNormalizationFactor = double(pcData.lumaMapResolution.x*pcData.lumaMapResolution.y)/(2.0*core::PI<double>()*core::PI<double>()*reduction.weightSum);
 			avgDir.set(&reduction.xDirSum);
 			maxEmittanceLuma = reduction.maxLuma;
 			downloadStagingArea->multi_free(1u,&address,&size,nullptr);

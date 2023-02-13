@@ -31,12 +31,12 @@ class EnvmapImportanceSampling
 		void deinitResources();
 
 		// returns if RIS should be enabled based on variance calculations
-		inline bool computeWarpMap(const float envMapRegularizationFactor)
+		inline bool computeWarpMap(const float envMapRegularizationFactor, float& pdfNormalizationFactor)
 		{
 			[[maybe_unused]] float dummy;
-			return computeWarpMap(envMapRegularizationFactor,dummy);
+			return computeWarpMap(envMapRegularizationFactor,pdfNormalizationFactor,dummy);
 		}
-		bool computeWarpMap(const float envMapRegularizationFactor, float& maxEmittanceLuma);
+		bool computeWarpMap(const float envMapRegularizationFactor, float& pdfNormalizationFactor, float& maxEmittanceLuma);
 	
 		core::smart_refctd_ptr<video::IGPUImageView> getLuminanceImageView() { return m_luminance; }
 		core::smart_refctd_ptr<video::IGPUImageView> getWarpMapImageView() { return m_warpMap; }
