@@ -9,11 +9,10 @@
 #include "nbl/asset/utils/IShaderCompiler.h"
 
 #include <wrl.h>
+#include <combaseapi.h>
+#include <dxc/dxc/include/dxc/dxcapi.h>
 
 using Microsoft::WRL::ComPtr;
-
-class IDxcUtils;
-class IDxcCompiler3;
 
 namespace nbl::asset
 {
