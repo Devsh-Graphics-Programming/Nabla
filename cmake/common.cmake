@@ -32,7 +32,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	string(REGEX REPLACE "^[0-9]+\." "" EXECUTABLE_NAME ${EXECUTABLE_NAME})
 	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
 	string(MAKE_C_IDENTIFIER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
-
+	
 	project(${EXECUTABLE_NAME})
 
 	if(ANDROID)
@@ -669,7 +669,7 @@ function(NBL_UPDATE_SUBMODULES)
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
 		set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
 		set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
-		message(STATUS "test")
+		
 		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
 			NBL_WRAPPER_COMMAND("" "" TRUE)
 		else()

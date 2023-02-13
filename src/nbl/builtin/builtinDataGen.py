@@ -1,6 +1,5 @@
 # Creates a c++ file for builtin resources that contains binary data of all resources
 
-
 # parameters are
 #0 - path to the .py file
 #1 - output file path

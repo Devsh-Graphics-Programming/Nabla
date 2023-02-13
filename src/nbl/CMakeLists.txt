@@ -133,7 +133,7 @@ nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
 if(NBL_EMBED_BUILTIN_RESOURCES)	
 	add_subdirectory(builtin)
-	nbl_add_builtin_resources("${nbl_resources_to_embed}")
+	NBL_ADD_BUILTIN_RESOURCES()
 endif()
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
@@ -386,7 +386,7 @@ if(MSVC)
 endif()
 
 if (NBL_EMBED_BUILTIN_RESOURCES)
-	list(APPEND NABLA_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/nbl/builtin/builtinResourceData.cpp")
+	list(APPEND NABLA_SRCS_COMMON "${NBL_BUILTIN_RESOURCES_SOURCE}")
 endif()
 
 set(COMMON_INCLUDE_DIRS
@@ -404,8 +404,8 @@ file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
 #always install builtins (some may be included in cpp regardless if embedded or not)
-foreach(X IN LISTS nbl_resources_to_embed)
-	list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC ${NBL_ROOT_PATH}/include/${X})
+foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
+	list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${X}")
 endforeach()
 list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
@@ -639,8 +639,7 @@ if(NBL_PCH)
 endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_custom_target(builtin_resources DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
-	add_dependencies(Nabla builtin_resources)
+	add_dependencies(Nabla generateBuiltinResources)
 endif()
 
 # extensions
