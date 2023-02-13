@@ -526,6 +526,13 @@ public:
         }
         else
         {
+            const char* begin = static_cast<const char*>(source->getPointer());
+            const char* end = begin + source->getSize();
+            std::string code(begin, end);
+
+            auto newCodeBuffer = core::make_smart_refctd_ptr<asset::CDummyCPUBuffer>(code.size() + 1u, code.data(), core::adopt_memory);
+            auto newCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(newCodeBuffer), cpushader->getStage(), cpushader->getContentType(), std::string(cpushader->getFilepathHint()));
+
             auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
 
             asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
@@ -543,14 +550,14 @@ public:
             if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
             {
                 // TODO: add specific HLSLCompiler::SOption params
-                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+                spirvShader = m_compilerSet->compileToSPIRV(newCPUShader.get(), commonCompileOptions);
             }
             else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
             {
-                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+                spirvShader = m_compilerSet->compileToSPIRV(newCPUShader.get(), commonCompileOptions);
             }
             else
-                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+                spirvShader = m_compilerSet->compileToSPIRV(newCPUShader.get(), commonCompileOptions);
 
         }
 
