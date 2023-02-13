@@ -143,7 +143,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
         return nullptr;
     }
 
-    auto newCode = preprocessShader(code, glslOptions.stage, glslOptions.preprocessorOptions);
+    auto newCode = preprocessShader(std::string(code), glslOptions.stage, glslOptions.preprocessorOptions);
 
     shaderc::Compiler comp;
     shaderc::CompileOptions shadercOptions; //default options
