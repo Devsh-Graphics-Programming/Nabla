@@ -29,7 +29,7 @@ void consume(in ivec2 pixelCoord, in vec2 uv, in float luma)
 	}
 	//
 	{
-		const uint workgroupIndex = nbl_glsl_dot(gl_WorkGroupID,gl_NumWorkGroups);
+		const uint workgroupIndex = (gl_WorkGroupID.z*gl_NumWorkGroups.y+gl_WorkGroupID.y)*gl_NumWorkGroups.x+gl_WorkGroupID.x;
 		lumaMetrics.data[workgroupIndex] = measurement;
 	}
 }
