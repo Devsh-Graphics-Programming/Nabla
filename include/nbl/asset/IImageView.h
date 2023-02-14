@@ -97,7 +97,7 @@ class NBL_API IImageView : public IDescriptor
 				return false;
 
 			const auto& imgParams = _params.image->getCreationParameters();
-			bool mutableFormat = imgParams.flags&IImage::ECF_MUTABLE_FORMAT_BIT;
+			bool mutableFormat = imgParams.flags.hasFlags(IImage::ECF_MUTABLE_FORMAT_BIT);
 			if (mutableFormat)
 			{
 				//if (!isFormatCompatible(_params.format,imgParams.format))
@@ -114,7 +114,7 @@ class NBL_API IImageView : public IDescriptor
 
 			const auto& subresourceRange = _params.subresourceRange;
 
-			if (imgParams.flags&IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
+			if (imgParams.flags.hasFlags(IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT))
 			{
 				/*
 				TODO: format must be compatible with, or must be an uncompressed format that is size-compatible with,
@@ -163,13 +163,13 @@ class NBL_API IImageView : public IDescriptor
 				return false;
 
 			bool sourceIs3D = imgParams.type==IImage::ET_3D;
-			bool sourceIs2DCompat = (imgParams.flags&IImage::ECF_2D_ARRAY_COMPATIBLE_BIT) && (_params.viewType==ET_2D||_params.viewType==ET_2D_ARRAY);
+			bool sourceIs2DCompat = imgParams.flags.hasFlags(IImage::ECF_2D_ARRAY_COMPATIBLE_BIT) && (_params.viewType==ET_2D||_params.viewType==ET_2D_ARRAY);
 			auto actualLayerCount = subresourceRange.layerCount!=remaining_array_layers ? subresourceRange.layerCount:
 										((sourceIs3D&&sourceIs2DCompat ? mipExtent.z:imgParams.arrayLayers)-subresourceRange.baseArrayLayer);
 			bool checkLayers = true;
 			auto hasCubemapProporties = [&](bool isItACubemapArray = false)
 			{
-				if (!(imgParams.flags & IImage::ECF_CUBE_COMPATIBLE_BIT))
+				if (!imgParams.flags.hasFlags(IImage::ECF_CUBE_COMPATIBLE_BIT))
 					return false;
 				if (imgParams.samples > 1u)
 					return false;
@@ -219,7 +219,7 @@ class NBL_API IImageView : public IDescriptor
 							return false;
 						checkLayers = false; // has compatible flag
 
-						if (imgParams.flags&(IImage::ECF_SPARSE_BINDING_BIT|IImage::ECF_SPARSE_RESIDENCY_BIT|IImage::ECF_SPARSE_ALIASED_BIT))
+						if (imgParams.flags.value&(IImage::ECF_SPARSE_BINDING_BIT|IImage::ECF_SPARSE_RESIDENCY_BIT|IImage::ECF_SPARSE_ALIASED_BIT))
 							return false;
 
 						if (subresourceRange.levelCount>1u)

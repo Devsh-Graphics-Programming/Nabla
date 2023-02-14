@@ -340,9 +340,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 
 	image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-	if (imgInfo.format == asset::EF_R8_SRGB)
-		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image, _params.logger);
-
     return SAssetBundle(nullptr,{image});
 }
 

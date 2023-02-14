@@ -106,6 +106,24 @@ public:
                 static_cast<QueueType*>((*m_queues)[ix]->getUnderlyingQueue())->waitForInitComplete();
             }
         }
+        
+        std::ostringstream pool;
+        const bool runningInRenderDoc = (m_glfeatures) ? m_glfeatures->runningInRenderDoc : false;
+        addCommonShaderDefines(pool, runningInRenderDoc);
+        {
+            std::string define;
+            for (size_t j=0ull; j<std::extent<decltype(COpenGLFeatureMap::m_GLSLExtensions)>::value; ++j)
+            {
+                auto nativeGLExtension = COpenGLFeatureMap::m_GLSLExtensions[j];
+                if (m_glfeatures && m_glfeatures->isFeatureAvailable(nativeGLExtension))
+                {
+                    define = "NBL_GLSL_IMPL_";
+                    define += COpenGLFeatureMap::OpenGLFeatureStrings[nativeGLExtension];
+                    addShaderDefineToPool(pool,define.c_str());
+                }
+            }
+        }
+        finalizeShaderDefinePool(std::move(pool));
 
         m_threadHandler.start();
         m_threadHandler.waitForInitComplete();
@@ -149,12 +167,8 @@ public:
 
     core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override final
     {
-        auto source = cpushader->getSPVorGLSL();
-        auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
-        if (cpushader->containsGLSL())
-            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), IGPUShader::buffer_contains_glsl, cpushader->getStage(), std::string(cpushader->getFilepathHint()));
-        else
-            return core::make_smart_refctd_ptr<COpenGLShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(clone), cpushader->getStage(), std::string(cpushader->getFilepathHint()));
+	    assert(false); // OpenGL backend officially killed
+        return nullptr;
     }
 
     core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override final
@@ -728,68 +742,10 @@ protected:
 
         return core::make_smart_refctd_ptr<COpenGLFramebuffer>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), std::move(params));
     }
-    core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr) override final
+    core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) override final
     {
-        const COpenGLShader* glUnspec = IBackendObject::device_compatibility_cast<const COpenGLShader*>(_unspecialized, this);
-
-        const std::string& EP = _specInfo.entryPoint;
-        const asset::IShader::E_SHADER_STAGE stage = _unspecialized->getStage();
-
-        core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
-        if (glUnspec->containsGLSL())
-        {
-            auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
-            auto end = begin + glUnspec->getSPVorGLSL()->getSize();
-            std::string glsl(begin,end);
-            asset::IShader::insertAfterVersionAndPragmaShaderStage(glsl,std::ostringstream()<<COpenGLShader::k_openGL2VulkanExtensionMap); // TODO: remove this eventually
-            asset::IShader::insertDefines(glsl,m_physicalDevice->getExtraGLSLDefines());
-            auto glslShader_woIncludes = m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(), stage, glUnspec->getFilepathHint().c_str(), 4u, getLogger());
-            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
-                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
-                stage,
-                EP.c_str(),
-                glUnspec->getFilepathHint().c_str(),
-                true,
-                nullptr,
-                getLogger(),
-                m_physicalDevice->getLimits().spirvVersion
-            );
-
-            if (!spirv)
-                return nullptr;
-        }
-        else
-        {
-            spirv = glUnspec->getSPVorGLSL_refctd();
-        }
-
-        if (_spvopt)                                                      
-            spirv = _spvopt->optimize(spirv.get(),getLogger());
-
-        if (!spirv)
-            return nullptr;
-
-        auto spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv), stage, std::string(_unspecialized->getFilepathHint()));
-
-        asset::CShaderIntrospector::SIntrospectionParams introspectionParams{_specInfo.entryPoint.c_str(),m_physicalDevice->getExtraGLSLDefines()};
-        asset::CShaderIntrospector introspector(m_physicalDevice->getGLSLCompiler()); // TODO: shouldn't the introspection be cached for all calls to `createSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
-        const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
-        if (!introspection)
-        {
-            _NBL_DEBUG_BREAK_IF(true);
-            getLogger().log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", system::ILogger::ELL_ERROR);
-            return nullptr;
-        }
-
-        core::vector<COpenGLSpecializedShader::SUniform> uniformList;
-        if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection,getLogger().get()))
-        {
-            _NBL_DEBUG_BREAK_IF(true);
-            getLogger().log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", system::ILogger::ELL_ERROR);
-            return nullptr;
-        }
-
-        return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(core::smart_refctd_ptr<IOpenGL_LogicalDevice>(this), m_glfeatures->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList), stage);
+	    assert(false); // OpenGL backend officially killed
+        return nullptr;
     }
     core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override final
     {

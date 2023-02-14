@@ -6,6 +6,11 @@
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
+#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_EG_OP_LNK)
+#include <windows.h>
+#include <shellapi.h>
+#endif
+
 namespace nbl::video
 {
 
@@ -36,6 +41,10 @@ public:
             break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
             level |= system::ILogger::ELL_ERROR;
+#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_EG_OP_LNK)
+            _NBL_EG_OP_LNK(level);
+            _NBL_DEBUG_BREAK_IF(true);
+#endif
             break;
         default:
             assert(!"Don't know what to do with this value!");

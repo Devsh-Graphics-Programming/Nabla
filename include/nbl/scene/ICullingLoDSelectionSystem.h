@@ -16,6 +16,16 @@ namespace nbl::scene
 class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
+		static void enableRequiredFeautres(video::SPhysicalDeviceFeatures& featuresToEnable)
+		{
+		}
+
+		static void enablePreferredFeatures(const video::SPhysicalDeviceFeatures& availableFeatures, video::SPhysicalDeviceFeatures& featuresToEnable)
+		{
+			featuresToEnable.multiDrawIndirect = availableFeatures.multiDrawIndirect;
+			featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
+		}
+
 		//
 		#define nbl_glsl_DispatchIndirectCommand_t asset::DispatchIndirectCommand_t
 		#define uint uint32_t
@@ -49,7 +59,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 
 			video::IGPUBuffer::SCreationParams params = {};
 			params.size = sizeof(contents);
-			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
+			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT|asset::IBuffer::EUF_TRANSFER_DST_BIT;
 			return utils->createFilledDeviceLocalBufferOnDedMem(queue,std::move(params),&contents);
 		}
 
@@ -150,8 +160,8 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		static inline constexpr auto InputDescriptorBindingCount = 8u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
+			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
+			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[InputDescriptorBindingCount];
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
@@ -172,8 +182,8 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		static inline constexpr auto OutputDescriptorBindingCount = 4u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createOutputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
+			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
+			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[OutputDescriptorBindingCount];
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)
@@ -486,7 +496,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, decltype(uniqueString)::value), decltype(uniqueString)::value};
+				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, decltype(uniqueString)::value), decltype(uniqueString)::value};
 			};
 			auto overrideShader = [device,&cwdForShaderCompilation,workgroupSize,_scanner](shader_source_and_path&& baseShader, std::string additionalCode)
 			{
@@ -498,7 +508,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				baseShader.first->setFilePathHint(path.string());
 				baseShader.first->setShaderStage(asset::IShader::ESS_COMPUTE);
 				auto shader =  device->createShader(
-					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
+					asset::CGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};

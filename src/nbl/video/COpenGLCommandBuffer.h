@@ -81,8 +81,7 @@ namespace impl
     ECT_CLEAR_ATTACHMENTS,\
     ECT_FILL_BUFFER,\
     ECT_UPDATE_BUFFER,\
-    ECT_EXECUTE_COMMANDS,\
-    ECT_REGENERATE_MIPMAPS
+    ECT_EXECUTE_COMMANDS
 
     enum E_COMMAND_TYPE
     {
@@ -411,10 +410,6 @@ namespace impl
     _NBL_DEFINE_SCMD_SPEC(ECT_EXECUTE_COMMANDS)
     {
         core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf; // secondary!!!
-    };
-    _NBL_DEFINE_SCMD_SPEC(ECT_REGENERATE_MIPMAPS)
-    {
-        core::smart_refctd_ptr<IGPUImage> imgview;
     };
 
 #undef _NBL_DEFINE_SCMD_SPEC
@@ -1309,15 +1304,6 @@ public:
 
             pushCommand(std::move(cmd));
         }
-        return true;
-    }
-    bool regenerateMipmaps(image_t* imgview, uint32_t lastReadyMip, asset::IImage::E_ASPECT_FLAGS aspect) override
-    {
-        SCmd<impl::ECT_REGENERATE_MIPMAPS> cmd;
-        cmd.imgview = core::smart_refctd_ptr<image_t>(imgview);
-
-        pushCommand(std::move(cmd));
-
         return true;
     }
 

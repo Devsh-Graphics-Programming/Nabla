@@ -34,66 +34,8 @@ public:
 
 	E_API_TYPE getAPIType() const override { return EAT_OPENGL; }
 
-	const SFormatImageUsage& getImageFormatUsagesLinear(const asset::E_FORMAT format) override
-	{
-		// Todo: Correct Format Reporting
-		if (m_linearTilingUsages[format].isInitialized)
-			return m_linearTilingUsages[format];
-
-		m_linearTilingUsages[format].sampledImage = 1;
-		m_linearTilingUsages[format].storageImage = 1;
-		m_linearTilingUsages[format].storageImageAtomic = 1;
-		m_linearTilingUsages[format].attachment = 1;
-		m_linearTilingUsages[format].attachmentBlend = 1;
-		m_linearTilingUsages[format].blitSrc = 1;
-		m_linearTilingUsages[format].blitDst = 1;
-		m_linearTilingUsages[format].transferSrc = 1;
-		m_linearTilingUsages[format].transferDst = 1;
-		m_linearTilingUsages[format].log2MaxSamples = 7u;
-		m_linearTilingUsages[format].isInitialized = 1;
-
-		return m_linearTilingUsages[format];
-	}
-
-	const SFormatImageUsage& getImageFormatUsagesOptimal(const asset::E_FORMAT format) override
-	{
-		// Todo: Correct Format Reporting
-		if (m_optimalTilingUsages[format].isInitialized)
-			return m_optimalTilingUsages[format];
-
-		m_optimalTilingUsages[format].sampledImage = 1;
-		m_optimalTilingUsages[format].storageImage = 1;
-		m_optimalTilingUsages[format].storageImageAtomic = 1;
-		m_optimalTilingUsages[format].attachment = 1;
-		m_optimalTilingUsages[format].attachmentBlend = 1;
-		m_optimalTilingUsages[format].blitSrc = 1;
-		m_optimalTilingUsages[format].blitDst = 1;
-		m_optimalTilingUsages[format].transferSrc = 1;
-		m_optimalTilingUsages[format].transferDst = 1;
-		m_optimalTilingUsages[format].log2MaxSamples = 7u;
-		m_optimalTilingUsages[format].isInitialized = 1;
-
-		return m_optimalTilingUsages[format];
-	}
-
-	const SFormatBufferUsage& getBufferFormatUsages(const asset::E_FORMAT format) override
-	{
-		// Todo: Correct Format Reporting
-		if (m_bufferUsages[format].isInitialized)
-			return m_bufferUsages[format];
-
-		m_bufferUsages[format].vertexAttribute = 1;
-		m_bufferUsages[format].bufferView = 1;
-		m_bufferUsages[format].storageBufferView = 1;
-		m_bufferUsages[format].storageBufferViewAtomic = 1;
-		m_bufferUsages[format].accelerationStructureVertex = 1;
-		m_bufferUsages[format].isInitialized = 1;
-
-		return m_bufferUsages[format];
-	}
-
 protected:
-	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
+	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) final override
 	{
 		return core::make_smart_refctd_ptr<COpenGLLogicalDevice>(core::smart_refctd_ptr<IAPIConnection>(m_api),this,m_rdoc_api,params,&m_egl,&m_glfeatures,m_config,m_gl_major,m_gl_minor);
 	}
@@ -102,6 +44,44 @@ private:
 	COpenGLPhysicalDevice(IAPIConnection* api, renderdoc_api_t* rdoc, core::smart_refctd_ptr<system::ISystem>&& s, egl::CEGL&& _egl, COpenGLDebugCallback&& dbgCb, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor)
 		: base_t(api, rdoc, std::move(s),std::move(_egl),std::move(dbgCb), config,ctx,major,minor)
 	{
+		// Set Format Usages
+		for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
+		{
+			const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(i);
+
+			// TODO: correct format reporting
+
+			m_linearTilingUsages[format] = {};
+			m_linearTilingUsages[format].sampledImage = 1;
+			m_linearTilingUsages[format].storageImage = 1;
+			m_linearTilingUsages[format].storageImageAtomic = 1;
+			m_linearTilingUsages[format].attachment = 1;
+			m_linearTilingUsages[format].attachmentBlend = 1;
+			m_linearTilingUsages[format].blitSrc = 1;
+			m_linearTilingUsages[format].blitDst = 1;
+			m_linearTilingUsages[format].transferSrc = 1;
+			m_linearTilingUsages[format].transferDst = 1;
+			m_linearTilingUsages[format].log2MaxSamples = 7u;
+			
+			m_optimalTilingUsages[format] = {};
+			m_optimalTilingUsages[format].sampledImage = 1;
+			m_optimalTilingUsages[format].storageImage = 1;
+			m_optimalTilingUsages[format].storageImageAtomic = 1;
+			m_optimalTilingUsages[format].attachment = 1;
+			m_optimalTilingUsages[format].attachmentBlend = 1;
+			m_optimalTilingUsages[format].blitSrc = 1;
+			m_optimalTilingUsages[format].blitDst = 1;
+			m_optimalTilingUsages[format].transferSrc = 1;
+			m_optimalTilingUsages[format].transferDst = 1;
+			m_optimalTilingUsages[format].log2MaxSamples = 7u;
+
+			m_bufferUsages[format] = {};
+			m_bufferUsages[format].vertexAttribute = 1;
+			m_bufferUsages[format].bufferView = 1;
+			m_bufferUsages[format].storageBufferView = 1;
+			m_bufferUsages[format].storageBufferViewAtomic = 1;
+			m_bufferUsages[format].accelerationStructureVertex = 0;
+		}
 	}
 };
 

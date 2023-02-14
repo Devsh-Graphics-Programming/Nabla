@@ -158,6 +158,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	ICPUImage::SBufferCopy region;
 	region.imageOffset = { 0,0,0 };
 	region.imageExtent = outParams.extent;
+	region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
 	region.imageSubresource.baseArrayLayer = 0u;
 	region.imageSubresource.layerCount = 1u;
 	region.imageSubresource.mipLevel = 0u;
