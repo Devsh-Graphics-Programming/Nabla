@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#if 0 // kill it
+
 #ifndef __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 #define __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
@@ -290,3 +292,5 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
 #endif
 
 #endif
+
+#endif 

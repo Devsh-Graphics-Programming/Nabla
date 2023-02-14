@@ -1,3 +1,5 @@
+#if 0 // kill it
+
 #ifndef __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_I_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
@@ -1256,5 +1258,7 @@ namespace nbl::video
 
 
 }		//namespace nbl
+
+#endif
 
 #endif

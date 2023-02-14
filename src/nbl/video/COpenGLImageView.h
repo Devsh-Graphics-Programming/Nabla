@@ -1,6 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+
+#if 0 // kill it
+
 #ifndef __NBL_VIDEO_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
 
@@ -86,3 +89,5 @@ class COpenGLImageView final : public IGPUImageView
 #endif
 
 #endif
+
+#endif 

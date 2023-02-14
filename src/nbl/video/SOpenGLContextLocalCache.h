@@ -1,3 +1,5 @@
+#if 0 // kill it
+
 #ifndef _NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED_
 #define _NBL_S_OPENGL_CONTEXT_LOCAL_CACHE_H_INCLUDED_
 
@@ -336,5 +338,7 @@ private:
 };
 
 }
+
+#endif
 
 #endif

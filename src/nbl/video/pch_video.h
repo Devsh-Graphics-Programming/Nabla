@@ -11,6 +11,7 @@
 // private headers
 #ifndef _NBL_PCH_IGNORE_PRIVATE_HEADERS
 
+/* KILL IT
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLBufferView.h"
@@ -32,6 +33,7 @@
 #include "nbl/video/COpenGLSemaphore.h"
 #include "nbl/video/COpenGLEvent.h"
 #include "nbl/video/COpenGLFence.h"
+*/
 
 #endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
 

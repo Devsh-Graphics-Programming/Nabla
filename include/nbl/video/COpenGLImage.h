@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#if 0
+
 #ifndef __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
 #define __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
 
@@ -79,3 +81,4 @@ class COpenGLImage final : public IGPUImage, public IOpenGLMemoryAllocation
 
 #endif
 
+#endif 

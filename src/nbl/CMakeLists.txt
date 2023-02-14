@@ -116,12 +116,12 @@ option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
 option(_NBL_COMPILE_WITH_PNG_WRITER_ "Compile with PNG Writer" ON)
 option(_NBL_COMPILE_WITH_TGA_LOADER_ "Compile with TGA Loader" ON)
 option(_NBL_COMPILE_WITH_TGA_WRITER_ "Compile with TGA Writer" ON)
-option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
-option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
+option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
+option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
 option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
-option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
-option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
+option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
+option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
 set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
 if(NBL_BUILD_ANDROID)
@@ -316,26 +316,26 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
 
-# OpenGL
-	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Swapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
+# OpenGL KILL IT
+	#${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
+	##${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Swapchain.cpp
+	#${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 # Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp

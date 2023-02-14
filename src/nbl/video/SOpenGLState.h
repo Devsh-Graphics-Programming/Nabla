@@ -1,3 +1,5 @@
+#if 0 // kill it
+
 #ifndef _NBL_S_OPENGL_STATE_H_INCLUDED_
 #define _NBL_S_OPENGL_STATE_H_INCLUDED_
 
@@ -194,3 +196,5 @@ struct SOpenGLState
 
 
 #endif
+
+#endif 

@@ -1,3 +1,5 @@
+#if 0 // kill it
+
 #ifndef __NBL_I_SURFACE_GL_H_INCLUDED__
 #define __NBL_I_SURFACE_GL_H_INCLUDED__
 
@@ -125,3 +127,5 @@ using CSurfaceGLAndroid = CSurfaceGL<ui::IWindowAndroid>;
 }
 
 #endif
+
+#endif 
