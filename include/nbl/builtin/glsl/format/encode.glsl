@@ -19,6 +19,21 @@ uvec3 nbl_glsl_impl_sharedExponentEncodeCommon(in vec3 clamped, in int newExpBia
 	return uvec3(clamped*scale + vec3(0.5));
 }
 
+uint nbl_glsl_encodeRGB9E5(in vec3 col)
+{
+	const vec3 clamped = clamp(col,vec3(0.0),vec3(nbl_glsl_MAX_RGB9E5));
+
+	int shared_exp;
+	const uvec3 mantissas = nbl_glsl_impl_sharedExponentEncodeCommon(clamped,nbl_glsl_RGB9E5_EXP_BIAS,nbl_glsl_MAX_RGB9E5_EXP,nbl_glsl_RGB9E5_MANTISSA_BITS,shared_exp);
+
+	uint encoded = mantissas.r
+		|(mantissas.g<<nbl_glsl_RGB9E5_COMPONENT_BITOFFSETS[1])
+		|(mantissas.b<<nbl_glsl_RGB9E5_COMPONENT_BITOFFSETS[2])
+		|uint((shared_exp+nbl_glsl_RGB9E5_EXP_BIAS)<<nbl_glsl_RGB9E5_COMPONENT_BITOFFSETS[3]);
+
+	return encoded;
+}
+
 uvec2 nbl_glsl_encodeRGB19E7(in vec3 col)
 {
 	const vec3 clamped = clamp(col,vec3(0.0),vec3(nbl_glsl_MAX_RGB19E7));

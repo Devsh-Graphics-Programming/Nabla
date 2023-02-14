@@ -1,6 +1,20 @@
 #ifndef _NBL_BUILTIN_GLSL_FORMAT_CONSTANTS_INCLUDED_
 #define _NBL_BUILTIN_GLSL_FORMAT_CONSTANTS_INCLUDED_
 
+//rgb9e5, a standard, shared exponent, floating point format
+#define nbl_glsl_RGB9E5_MANTISSA_BITS 9
+#define nbl_glsl_RGB9E5_MANTISSA_MASK 0x1ff
+#define nbl_glsl_RGB9E5_EXPONENT_BITS 5
+#define nbl_glsl_RGB9E5_EXP_BIAS 15
+#define nbl_glsl_MAX_RGB9E5_EXP (nbl_glsl_RGB9E5_EXP_BIAS+1)
+
+#define nbl_glsl_MAX_RGB9E5_MANTISSA_VALUES (0x1<<nbl_glsl_RGB9E5_MANTISSA_BITS)
+#define nbl_glsl_MAX_RGB9E5_MANTISSA (nbl_glsl_MAX_RGB9E5_MANTISSA_VALUES-1)
+#define nbl_glsl_MAX_RGB9E5 float(nbl_glsl_MAX_RGB9E5_MANTISSA)/float(nbl_glsl_MAX_RGB9E5_MANTISSA_VALUES)*exp2(float(nbl_glsl_MAX_RGB9E5_EXP))
+
+#define nbl_glsl_RGB9E5_COMPONENT_BITOFFSETS ivec4(0,nbl_glsl_RGB19E7_MANTISSA_BITS,(2*nbl_glsl_RGB19E7_MANTISSA_BITS)&31,(3*nbl_glsl_RGB19E7_MANTISSA_BITS)&31)
+
+
 //rgb19e7, our custom 3 channel, shared exponent, floating point format
 #define nbl_glsl_RGB19E7_MANTISSA_BITS 19
 #define nbl_glsl_RGB19E7_MANTISSA_MASK 0x7ffff
