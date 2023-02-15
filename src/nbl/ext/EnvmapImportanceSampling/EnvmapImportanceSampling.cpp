@@ -253,18 +253,19 @@ bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFa
 		m_driver->dispatch(m_lumaWorkgroups[0],m_lumaWorkgroups[1],1);
 	};
 
+	// 3 seconds is a long time
+	constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+
 	// Calculate directionality metric (0 uniform, 1 totally unidirectional) and new Regularization Factor.
 	// Ideally would want a better metric of how "concentrated" the energy is in one direction rather than variance, so it
 	// turns out that the first order spherical harmonic band and weighted (by luma) average of directions are the same thing.
 	float directionalityMetric = [&]()
 	{
 		maxEmittanceLuma = 0.f;
-		// 3 seconds is a long time
-		constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
 
-		auto downloadStagingArea = m_driver->getDefaultDownStreamingBuffer();
 		const uint32_t size = calcMeasurementBufferSize();
 		// remember that without initializing the address to be allocated to invalid_address you won't get an allocation!
+		auto downloadStagingArea = m_driver->getDefaultDownStreamingBuffer();
 		const auto& address = dynamicOffsets->operator[](0) = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
 		// allocate
 		{
@@ -315,11 +316,10 @@ bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFa
 					return lhs;
 				}
 			);
-			pdfNormalizationFactor = double(pcData.lumaMapResolution.x*pcData.lumaMapResolution.y)/(2.0*core::PI<double>()*core::PI<double>()*reduction.weightSum);
 			avgDir.set(&reduction.xDirSum);
 			maxEmittanceLuma = reduction.maxLuma;
-			downloadStagingArea->multi_free(1u,&address,&size,nullptr);
 		}
+		downloadStagingArea->multi_free(1u,&address,&size,nullptr);
 
 		avgDir /= avgDir.wwww();
 		avgDir.w = 0.f;
@@ -346,6 +346,71 @@ bool EnvmapImportanceSampling::computeWarpMap(const float envMapRegularizationFa
 
 	// Calc Mipmaps
 	m_luminance->regenerateMipMapLevels();
+	
+	// Download last mip level and get avg from it
+	{
+		const auto lumaImage = m_luminance->getCreationParameters().image;
+
+		//
+		IImage::SBufferCopy copyRegion = {};
+		{
+			copyRegion.bufferRowLength = 0u;
+			copyRegion.bufferImageHeight = 0u;
+			//copyRegion.imageSubresource.aspectMask = wait for Vulkan;
+			copyRegion.imageSubresource.mipLevel = lumaImage->getCreationParameters().mipLevels-1u;
+			copyRegion.imageSubresource.baseArrayLayer = 0u;
+			copyRegion.imageSubresource.layerCount = lumaImage->getCreationParameters().arrayLayers;
+			copyRegion.imageOffset = { 0u,0u,0u };
+			const auto extent = lumaImage->getMipSize(copyRegion.imageSubresource.mipLevel);
+			copyRegion.imageExtent = { extent.x,extent.y,extent.z };
+		}
+		const uint32_t lastMipTexelCount = copyRegion.imageSubresource.layerCount*copyRegion.imageExtent.depth*copyRegion.imageExtent.height*copyRegion.imageExtent.width;
+		const uint32_t size = lastMipTexelCount*asset::getTexelOrBlockBytesize(lumaImage->getCreationParameters().format);
+
+		// remember that without initializing the address to be allocated to invalid_address you won't get an allocation!
+		auto downloadStagingArea = m_driver->getDefaultDownStreamingBuffer();
+		uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
+		// allocate
+		{
+			// common page size
+			const uint32_t alignment = 4096u;
+			const auto waitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(timeoutInNanoSeconds);
+			auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint,1u,&address,&size,&alignment);
+			if (unallocatedSize)
+			{
+				os::Printer::log("Could not download the last luma mip map level from the GPU!", ELL_ERROR);
+				return core::nan<float>();
+			}
+		}
+
+		//
+		copyRegion.bufferOffset = address;
+		m_driver->copyImageToBuffer(lumaImage.get(),downloadStagingArea->getBuffer(),1,&copyRegion);
+
+		// place and wait for download fence
+		{
+			auto downloadFence = m_driver->placeFence(true);
+			auto result = downloadFence->waitCPU(timeoutInNanoSeconds,true);
+			//
+			if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED || result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+			{
+				os::Printer::log("Could not download the last luma mip map level from the GPU! Fence not Signalled!", ELL_ERROR);
+				downloadStagingArea->multi_free(1u,&address,&size,nullptr);
+				return core::nan<float>();
+			}
+			// then invalidate the CPU cache of the mapping
+			if (downloadStagingArea->needsManualFlushOrInvalidate())
+				m_driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,size} });
+		}
+
+		//
+		{
+			const float* r32fData = reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address);
+			const auto avgVal = std::reduce(r32fData,r32fData+lastMipTexelCount)/float(lastMipTexelCount);
+			pdfNormalizationFactor = 1.0/(2.0*core::PI<double>()*core::PI<double>()*avgVal);
+		}
+		downloadStagingArea->multi_free(1u,&address,&size,nullptr);
+	}
 
 	// Generate WarpMap
 	{
