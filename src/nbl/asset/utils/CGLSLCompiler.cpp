@@ -126,32 +126,28 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     {
         insertExtraDefines(code, preprocessOptions.extraDefines);
     }
+    IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+    disableGlDirectives(code);
+    shaderc::Compiler comp;
+    shaderc::CompileOptions options;
+    options.SetTargetSpirv(shaderc_spirv_version_1_6);
+
     if (preprocessOptions.includeFinder != nullptr)
     {
-        IShaderCompiler::disableAllDirectivesExceptIncludes(code);
-        disableGlDirectives(code);
-        shaderc::Compiler comp;
-        shaderc::CompileOptions options;
-        options.SetTargetSpirv(shaderc_spirv_version_1_6);
-
         options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u));//custom #include handler
-        const shaderc_shader_kind scstage = stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
-        auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
-
-        if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-            preprocessOptions.logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
-            return nullptr;
-        }
-
-        auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(), res.cend()));
-        IShaderCompiler::reenableDirectives(resolvedString);
-        reenableGlDirectives(resolvedString);
-        return resolvedString;
     }
-    else
-    {
-        return code;
+    const shaderc_shader_kind scstage = stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
+    auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
+
+    if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
+        preprocessOptions.logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
+        return nullptr;
     }
+
+    auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(), res.cend()));
+    IShaderCompiler::reenableDirectives(resolvedString);
+    reenableGlDirectives(resolvedString);
+    return resolvedString;
 }
 
 core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
