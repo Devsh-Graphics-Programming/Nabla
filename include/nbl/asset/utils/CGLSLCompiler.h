@@ -128,27 +128,6 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
 
-		static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
-		static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
-		static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
-		static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
-
-		static void disableGlDirectives(std::string& _code)
-		{
-			std::regex glMacro("[ \t\r\n\v\f]GL_");
-			auto result = std::regex_replace(_code, glMacro, PREPROC_GL__DISABLER);
-			std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
-			_code = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
-		}
-
-		static void reenableGlDirectives(std::string& _code)
-		{
-			std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
-			auto result = std::regex_replace(_code, lineContinuation, " \\");
-			std::regex glMacro(PREPROC_GL__ENABLER);
-			_code = std::regex_replace(result, glMacro, " GL_");
-		}
-
 	protected:
 
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;

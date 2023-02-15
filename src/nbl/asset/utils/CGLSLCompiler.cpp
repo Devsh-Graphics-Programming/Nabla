@@ -12,6 +12,27 @@
 using namespace nbl;
 using namespace nbl::asset;
 
+static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
+static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
+static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
+static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
+
+static void disableGlDirectives(std::string& _code)
+{
+    std::regex glMacro("[ \t\r\n\v\f]GL_");
+    auto result = std::regex_replace(_code, glMacro, PREPROC_GL__DISABLER);
+    std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
+    _code = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
+}
+
+static void reenableGlDirectives(std::string& _code)
+{
+    std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
+    auto result = std::regex_replace(_code, lineContinuation, " \\");
+    std::regex glMacro(PREPROC_GL__ENABLER);
+    _code = std::regex_replace(result, glMacro, " GL_");
+}
+
 
 namespace nbl::asset::impl
 {
@@ -67,7 +88,7 @@ namespace nbl::asset::impl
             else {
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
                 IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
-                CGLSLCompiler::disableGlDirectives(res_str);
+                disableGlDirectives(res_str);
                 res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), m_maxInclCnt, name.string().c_str());
 
                 res->content_length = res_str.size();
@@ -108,7 +129,7 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     if (preprocessOptions.includeFinder != nullptr)
     {
         IShaderCompiler::disableAllDirectivesExceptIncludes(code);
-        CGLSLCompiler::disableGlDirectives(code);
+        disableGlDirectives(code);
         shaderc::Compiler comp;
         shaderc::CompileOptions options;
         options.SetTargetSpirv(shaderc_spirv_version_1_6);
@@ -124,7 +145,7 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
         auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(), res.cend()));
         IShaderCompiler::reenableDirectives(resolvedString);
-        CGLSLCompiler::reenableGlDirectives(resolvedString);
+        reenableGlDirectives(resolvedString);
         return resolvedString;
     }
     else

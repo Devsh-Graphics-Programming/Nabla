@@ -14,6 +14,7 @@ using Microsoft::WRL::ComPtr;
 
 class IDxcUtils;
 class IDxcCompiler3;
+class DxcCompilationResult;
 
 namespace nbl::asset
 {
@@ -48,14 +49,15 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
 
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
+	protected:
+
+		ComPtr<IDxcUtils> m_dxcUtils;
+		ComPtr<IDxcCompiler3> m_dxcCompiler;
+
+		DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const;
 
 		IDxcUtils* getDxcUtils() const { return m_dxcUtils.Get(); }
 		IDxcCompiler3* getDxcCompiler() const { return m_dxcCompiler.Get(); }
-	protected:
-
-		// TODO do we want to use ComPtr? 
-		ComPtr<IDxcUtils> m_dxcUtils;
-		ComPtr<IDxcCompiler3> m_dxcCompiler;
 
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{

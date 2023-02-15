@@ -92,8 +92,9 @@ public:
     }
 };
 
-DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
+DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const
 {
+    auto compiler = this;
     if (options.genDebugInfo)
     {
         std::ostringstream insertion;
@@ -292,7 +293,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     const uint32_t nonDebugArgs = 5;
     const uint32_t allArgs = nonDebugArgs + 4;
 
-    auto compileResult = dxcCompile(this, newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
+    auto compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
 
     if (!compileResult.objectBlob)
     {
