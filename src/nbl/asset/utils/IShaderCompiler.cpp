@@ -65,7 +65,7 @@ std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, u
         "\n"
         "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
         "\n" +
-        "#line 1 \"" + _identifier + "\"\n" +
+        "#line 1 \"" + _identifier + "\"\n\n" +
         _code +
         "\n"
         "#endif"

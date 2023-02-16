@@ -73,8 +73,7 @@ static tcpp::IInputStream* getInputStreamInclude(
     }
 
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
-    // TODO support this
-    //res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
+    res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
 
     return new tcpp::StringInputStream(std::move(res_str));
 }
@@ -185,6 +184,10 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     );
 
+    proc.AddCustomDirectiveHandler(std::string("line"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
+        while (lexer.HasNextToken() && lexer.GetNextToken().mType != tcpp::E_TOKEN_TYPE::NEWLINE) {}
+        return std::string("");
+    });
     proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
         if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
         auto token = lexer.GetNextToken();
