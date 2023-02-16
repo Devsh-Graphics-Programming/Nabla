@@ -25,22 +25,39 @@ class NBL_API IApplicationFramework
             localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
 		{
 #if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_SHARED_BUILD_)
-            HMODULE res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
-            if (!res)
             {
-                const auto nablaBuiltDLL = (system::path(_NABLA_OUTPUT_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
-                res = LoadLibraryExA(nablaBuiltDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-            }
-            if (!res)
-            {
-                const auto nablaInstalledDLL = (system::path(_NABLA_INSTALL_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
-                res = LoadLibraryExA(nablaInstalledDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-            }
-            if (!res)
-                res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-            HRESULT hr = __HrLoadAllImportsForDll(_NABLA_DLL_NAME_);
-            assert(res && SUCCEEDED(hr));
+                HMODULE res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
+                if (!res)
+                {
+                    const auto nablaBuiltDLL = (system::path(_NABLA_OUTPUT_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
+                    res = LoadLibraryExA(nablaBuiltDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+                }
+                if (!res)
+                {
+                    const auto nablaInstalledDLL = (system::path(_NABLA_INSTALL_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
+                    res = LoadLibraryExA(nablaInstalledDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+                }
+                if (!res)
+                    res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+                HRESULT hr = __HrLoadAllImportsForDll(_NABLA_DLL_NAME_);
+                assert(res && SUCCEEDED(hr));
+            } 
 #endif // _NBL_PLATFORM_WINDOWS_ && _NBL_SHARED_BUILD_
+
+            {
+                constexpr std::string_view DXCOMPILER_DLL_NAME = "dxcompiler.dll";
+
+                HMODULE res = LoadLibraryExA(DXCOMPILER_DLL_NAME.data(), NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
+                if (!res)
+                {
+                    const auto dxcBuiltDLL = (system::path(_DXC_DLL_).make_preferred()).string();
+                    res = LoadLibraryExA(dxcBuiltDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+                }
+                if (!res)
+                    res = LoadLibraryExA(DXCOMPILER_DLL_NAME.data(), NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+                HRESULT hr = __HrLoadAllImportsForDll(DXCOMPILER_DLL_NAME.data());
+                assert(res && SUCCEEDED(hr));
+            }
 		}
 
         void onAppInitialized()
