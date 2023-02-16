@@ -60,6 +60,13 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		else()
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 		endif()
+		
+		if(WIN32 AND MSVC)
+			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
+			target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
+				_DXC_DLL_="${DXC_DLL}"
+			)
+		endif()
 	endif()
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
