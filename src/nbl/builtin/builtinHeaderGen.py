@@ -16,6 +16,7 @@ else:
     outputFilename = sys.argv[1]
     cmakeSourceDir = sys.argv[2]
     resourcesFile  = sys.argv[3]
+    resourcesNamespace = sys.argv[4]
 
     with open(resourcesFile, "r") as f:
         resourcePaths = f.read().rstrip().split(',')
@@ -29,14 +30,16 @@ else:
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
-    outp.write("#include <utility>\n#include <nbl/core/string/StringLiteral.h>\n")
-    outp.write("namespace nbl { \n\tnamespace builtin { \n")
-
+    outp.write("#include <utility>\n#include <nbl/core/string/StringLiteral.h>\n\n")
+    outp.write("namespace " + resourcesNamespace + " { \n")
+    outp.write("\t\ttemplate<nbl::core::StringLiteral Path>\n")
+    outp.write("\t\tconst std::pair<const uint8_t*, size_t> get_resource();\n")
+    
     #Iterating through input list
     for x in resourcePaths:
         outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
 
-    outp.write("\n\t}\n}")
+    outp.write("\n\t}")
     outp.write("\n#endif")
 
     outp.close()
