@@ -332,7 +332,7 @@ class NBL_API CBasicImageFilterCommon
 		}
 
 	protected:
-		virtual ~CBasicImageFilterCommon() =0;
+		virtual NBL_API2 ~CBasicImageFilterCommon() =0;
 
 		static inline bool validateSubresourceAndRange(	const ICPUImage::SSubresourceLayers& subresource,
 														const IImageFilter::IState::TexelRange& range,

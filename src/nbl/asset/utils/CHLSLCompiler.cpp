@@ -8,18 +8,12 @@
 #include <regex>
 #include <iterator>
 
-#include <dxc/dxcapi.h>
-#include <combaseapi.h>
-
 #define TCPP_IMPLEMENTATION
 #include <tcpp/source/tcppLibrary.hpp>
 #undef TCPP_IMPLEMENTATION
 
 using namespace nbl;
 using namespace nbl::asset;
-
-#include <combaseapi.h>
-#include <dxc/dxc/include/dxc/dxcapi.h>
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))

@@ -33,7 +33,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
-        ICPUBuffer(size_t sizeInBytes, void* dat) : asset::IBuffer({dat ? sizeInBytes:0,EUF_TRANSFER_DST_BIT}), data(dat) {}
+        ICPUBuffer(size_t sizeInBytes, void* dat) : asset::IBuffer({ dat ? sizeInBytes : 0,EUF_TRANSFER_DST_BIT }), data(dat) {}
     public:
         //! Constructor. TODO: remove, alloc can fail, should be a static create method instead!
         /** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
@@ -56,7 +56,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
-        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
         {
             if (!canBeConvertedToDummy())
                 return;
@@ -79,7 +79,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         virtual void* getPointer() 
         { 
             assert(!isImmutable_debug());
-            return data; 
+            return data;
         }
 
         bool canBeRestoredFrom(const IAsset* _other) const override
@@ -115,15 +115,15 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (willBeRestoredFrom(_other))
                 std::swap(data, other->data);
         }
-        
-        void* data;
-};
 
-template<
-    typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
-    bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
->
-class NBL_API CCustomAllocatorCPUBuffer;
+        void* data;
+    };
+
+    template<
+        typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
+        bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
+    >
+        class NBL_API CCustomAllocatorCPUBuffer;
 
 using CDummyCPUBuffer = CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true>;
 
@@ -133,11 +133,11 @@ using CDummyCPUBuffer = CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>,
     passing an object type for allocation and a pointer to allocated
     data for it's storage by ICPUBuffer.
 
-    So the need for the class existence is for common following tricks - among others creating an 
-    \bICPUBuffer\b over an already existing \bvoid*\b array without any \imemcpy\i or \itaking over the memory ownership\i.
-    You can use it with a \bnull_allocator\b that adopts memory (it is a bit counter intuitive because \badopt = take\b ownership, 
-    but a \inull allocator\i doesn't do anything, even free the memory, so you're all good).
-*/
+        So the need for the class existence is for common following tricks - among others creating an
+        \bICPUBuffer\b over an already existing \bvoid*\b array without any \imemcpy\i or \itaking over the memory ownership\i.
+        You can use it with a \bnull_allocator\b that adopts memory (it is a bit counter intuitive because \badopt = take\b ownership,
+        but a \inull allocator\i doesn't do anything, even free the memory, so you're all good).
+    */
 
 template<typename Allocator>
 class NBL_API CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer

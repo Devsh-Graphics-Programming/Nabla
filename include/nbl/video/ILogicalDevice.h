@@ -37,7 +37,7 @@ namespace nbl::video
 class IDescriptorPool;
 class IPhysicalDevice;
 
-class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
+class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
         struct SQueueCreationParams
