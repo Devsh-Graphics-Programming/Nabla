@@ -60,12 +60,15 @@ std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, u
         return undefs;
     };
 
+    std::string identifier = _identifier;
+    std::replace(identifier.begin(), identifier.end(), '\\', '/');
+
     return
         genDefs() +
         "\n"
         "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
         "\n" +
-        "#line 1 \"" + _identifier + "\"\n\n" +
+        "#line 1 \"" + identifier.c_str() + "\"\n" +
         _code +
         "\n"
         "#endif"
