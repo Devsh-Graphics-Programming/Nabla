@@ -4,6 +4,8 @@
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 
+#include <dxc/dxcapi.h>
+
 #include <sstream>
 #include <regex>
 #include <iterator>
@@ -14,6 +16,7 @@
 
 using namespace nbl;
 using namespace nbl::asset;
+using Microsoft::WRL::ComPtr;
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
