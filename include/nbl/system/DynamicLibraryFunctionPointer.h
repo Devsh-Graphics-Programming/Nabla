@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#if 0 // kill it
+
 #ifndef __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
 #define __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
 
@@ -90,3 +92,5 @@ class NBL_API DynamicLibraryFunctionPointer
 #define NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(FUNC_NAME) nbl::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)> p ## FUNC_NAME;
 
 #endif
+
+#endif 

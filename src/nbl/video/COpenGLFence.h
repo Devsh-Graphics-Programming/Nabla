@@ -1,3 +1,5 @@
+#if 0 //kill it
+
 #ifndef __NBL_C_OPENGL_FENCE_H_INCLUDED__
 #define __NBL_C_OPENGL_FENCE_H_INCLUDED__
 
@@ -65,5 +67,7 @@ class COpenGLFence final : public IGPUFence, public IOpenGLSyncPrimitiveBase
 };
 
 }
+
+#endif
 
 #endif

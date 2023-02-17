@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#if 0
+
 #ifndef __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 
@@ -1791,3 +1793,5 @@ inline void getOpenGLFormatAndParametersFromColorFormat(IOpenGL_FunctionTable* g
 
 
 #endif
+
+#endif // kill it

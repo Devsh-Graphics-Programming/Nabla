@@ -11,7 +11,7 @@
 
 #include "nbl/system/ICancellableAsyncQueueDispatcher.h"
 #include "nbl/system/IFileArchive.h"
-
+#include "nbl/core/string/StringLiteral.h"
 
 namespace nbl::system
 {
@@ -112,14 +112,15 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         };
 
         //! Compile time resource ID
-        template<typename StringUniqueType>
+        template<nbl::core::StringLiteral Path>
         inline core::smart_refctd_ptr<const IFile> loadBuiltinData() const
         {
         #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-            return impl_loadEmbeddedBuiltinData(StringUniqueType::value,nbl::builtin::get_resource<StringUniqueType>());
+
+            return impl_loadEmbeddedBuiltinData(Path.value, nbl::builtin::get_resource<Path>());
         #else
             future_t<core::smart_refctd_ptr<IFile>> future;
-            createFile(future,StringUniqueType::value,core::bitflag(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
+            createFile(future, STRING_LITERAL::value,core::bitflag(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
             return future.get();
         #endif
         }

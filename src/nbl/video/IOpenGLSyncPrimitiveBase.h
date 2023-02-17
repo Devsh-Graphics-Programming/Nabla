@@ -1,3 +1,5 @@
+#if 0 //
+
 #ifndef __NBL_I_OPENGL_SYNC_PRIMITIVE_BASE_H_INCLUDED__
 #define __NBL_I_OPENGL_SYNC_PRIMITIVE_BASE_H_INCLUDED__
 
@@ -39,3 +41,6 @@ protected:
 }
 
 #endif
+
+
+#endif 

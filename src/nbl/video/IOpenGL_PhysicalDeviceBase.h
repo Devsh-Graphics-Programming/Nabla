@@ -1,3 +1,5 @@
+#if 0 // kill it
+
 #ifndef __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 #define __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 
@@ -1379,4 +1381,5 @@ protected:
 
 }
 
+#endif
 #endif

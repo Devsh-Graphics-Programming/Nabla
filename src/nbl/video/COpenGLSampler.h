@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#if 0 // kill it
+
 #ifndef __NBL_VIDEO_C_OPENGL_SAMPLER_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_SAMPLER_H_INCLUDED__
 
@@ -128,6 +130,8 @@ class COpenGLSampler : public IGPUSampler
 };
 
 }
+#endif
+
 #endif
 
 #endif

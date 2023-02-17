@@ -1,4 +1,6 @@
-﻿#ifndef _NBL_C_OPENGL_SYNC_H_INCLUDED_
+﻿#if 0 // kill it
+
+#ifndef _NBL_C_OPENGL_SYNC_H_INCLUDED_
 #define _NBL_C_OPENGL_SYNC_H_INCLUDED_
 
 #include "nbl/core/IReferenceCounted.h"
@@ -69,5 +71,7 @@ class NBL_API COpenGLSync final : public core::IReferenceCounted
 };
 
 }
+
+#endif
 
 #endif

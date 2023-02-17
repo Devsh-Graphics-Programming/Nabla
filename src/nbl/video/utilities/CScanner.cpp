@@ -9,9 +9,9 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 	core::smart_refctd_ptr<const system::IFile> glsl;
 	{
 		if(indirect)
-			glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/indirect.comp")>();
+			glsl = system->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/indirect.comp")>();
 		else
-			glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/direct.comp")>();
+			glsl = system->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/direct.comp")>();
 	}
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glsl->getSize());
 	memcpy(buffer->getPointer(), glsl->getMappedPointer(), glsl->getSize());
