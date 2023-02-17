@@ -60,6 +60,7 @@ std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, u
         return undefs;
     };
 
+    // HACK: tcpp is having issues parsing the string, so this is a hack/mitigation that could be removed once tcpp is fixed
     std::string identifier = _identifier;
     std::replace(identifier.begin(), identifier.end(), '\\', '/');
 
@@ -68,7 +69,8 @@ std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, u
         "\n"
         "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
         "\n" +
-        "#line 1 \"" + identifier.c_str() + "\"\n" +
+        // This will get turned back into #line after the directives get re-enabled
+        PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + identifier.c_str() + "\"\n" +
         _code +
         "\n"
         "#endif"

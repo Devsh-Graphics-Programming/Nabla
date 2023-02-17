@@ -184,10 +184,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     );
 
-    proc.AddCustomDirectiveHandler(std::string("line"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
-        while (lexer.HasNextToken() && lexer.GetNextToken().mType != tcpp::E_TOKEN_TYPE::NEWLINE) {}
-        return std::string("");
-    });
     proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
         if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
         auto token = lexer.GetNextToken();
@@ -229,7 +225,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     auto resolvedString = proc.Process();
     IShaderCompiler::reenableDirectives(resolvedString);
-
     return resolvedString;
 }
 
