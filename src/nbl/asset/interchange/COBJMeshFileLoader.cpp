@@ -13,11 +13,12 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 
+#include "nbl/asset/metadata/COBJMetadata.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
+
 #include "COBJMeshFileLoader.h"
 
 #include <filesystem>
-
 
 namespace nbl
 {

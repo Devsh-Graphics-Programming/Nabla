@@ -9,6 +9,7 @@
 #include "nbl/system/path.h"
 #include "nbl/system/ILogger.h"
 #include "nbl/system/IFileBase.h"
+#include "nbl/core/SRange.h"
 
 #include <string_view>
 #include <algorithm>

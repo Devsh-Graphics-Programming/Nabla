@@ -5,6 +5,8 @@
 #ifndef _NBL_CORE_C_BITFLAG_H_INCLUDED_
 #define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
+#include "BuildConfigOptions.h"
+
 namespace nbl::core
 {
 

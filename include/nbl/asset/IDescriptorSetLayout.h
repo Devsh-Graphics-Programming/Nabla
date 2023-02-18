@@ -8,6 +8,7 @@
 #include "nbl/core/declarations.h"
 #include "nbl/core/SRange.h"
 #include "nbl/asset/ISpecializedShader.h"
+#include "nbl/asset/IShader.h"
 
 namespace nbl
 {

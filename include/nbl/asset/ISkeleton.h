@@ -5,6 +5,7 @@
 #ifndef _NBL_ASSET_I_SKELETON_H_INCLUDED_
 #define _NBL_ASSET_I_SKELETON_H_INCLUDED_
 
+#include "nbl/asset/IBuffer.h"
 #include "nbl/macros.h"
 
 #include "nbl/core/declarations.h"

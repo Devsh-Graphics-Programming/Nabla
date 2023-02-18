@@ -38,6 +38,10 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         {
             static inline constexpr E_REQUEST_TYPE type = RT;
         };
+
+        struct SRequestParams_EMPTY
+        {
+        };
         struct SRequestParams_CREATE_FILE : SRequestParamsBase<ERT_CREATE_FILE>
         {
             char filename[MAX_FILENAME_LENGTH] {};
@@ -61,10 +65,11 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         {
             E_REQUEST_TYPE type;
             std::variant<
+                SRequestParams_EMPTY,
                 SRequestParams_CREATE_FILE,
                 SRequestParams_READ,
                 SRequestParams_WRITE
-            > params;
+            > params = SRequestParams_EMPTY();
         };
         static inline constexpr uint32_t CircularBufferSize = 256u;
         class CAsyncQueue : public ICancellableAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
