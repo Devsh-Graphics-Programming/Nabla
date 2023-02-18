@@ -11,7 +11,7 @@
 
 #include "nbl/system/ICancellableAsyncQueueDispatcher.h"
 #include "nbl/system/IFileArchive.h"
-#include "nbl/core/string/StringLiteral.h"
+#include "nbl/builtin/builtinResources.h"
 
 namespace nbl::system
 {
