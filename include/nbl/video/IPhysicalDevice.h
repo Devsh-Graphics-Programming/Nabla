@@ -1,14 +1,14 @@
 #ifndef __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 #define __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/system/declarations.h"
 
-#include <type_traits>
+#include "nbl/core/util/bitflag.h"
+
+#include "nbl/system/declarations.h"
+#include "nbl/system/ISystem.h"
 
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
-
-#include "nbl/system/ISystem.h"
 
 #include "nbl/video/EApiType.h"
 #include "nbl/video/debug/IDebugCallback.h"
@@ -19,7 +19,8 @@
 
 #include "SPhysicalDeviceLimits.h"
 #include "SPhysicalDeviceFeatures.h"
-#include "nbl/core/util/bitflag.h"
+
+#include <type_traits>
 
 namespace nbl::video
 {

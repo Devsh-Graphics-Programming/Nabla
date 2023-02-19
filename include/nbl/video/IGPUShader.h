@@ -5,9 +5,9 @@
 #ifndef __NBL_VIDEO_I_GPU_SHADER_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_SHADER_H_INCLUDED__
 
-#include "nbl/asset/IShader.h"
-
 #include "nbl/core/IReferenceCounted.h"
+
+#include "nbl/asset/IShader.h"
 
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/decl/IBackendObject.h"
