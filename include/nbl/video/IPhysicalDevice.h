@@ -720,7 +720,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 namespace std
 {
     template<>
-    struct std::hash<nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage>
+    struct hash<nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage>
     {
         inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage& i) const
         {
@@ -739,7 +739,7 @@ namespace std
     };
 
     template<>
-    struct std::hash<nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage>
+    struct hash<nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage>
     {
         inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage& b) const
         {

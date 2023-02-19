@@ -103,7 +103,7 @@ struct NBL_API AlignedWithAllocator
 #define _NBL_DELETE(_obj)                                       nbl::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_(_obj)
 
 #define _NBL_NEW_ARRAY(_obj_type,count)                         nbl::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_NBL_DEFAULT_ALIGNMENT(_obj_type))
-#define _NBL_DELETE_ARRAY(_obj,count)                           nbl::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_array(_obj,count)
+#define _NBL_DELETE_ARRAY(_obj,count)                           nbl::core::impl::AlignedWithAllocator<typename std::remove_reference_t<typename std::remove_pointer_t<decltype(_obj)>>,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference_t<typename std::remove_pointer_t<decltype(_obj)>>> >::delete_array(_obj,count)
 
 //! Extra Utility Macros for when you don't want to always have to deduce the alignment but want to use a specific allocator
 //#define _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,_allocator_type)     static_assert(std::is_same<_obj_type,_allocator_type::value_type>::value,"Wrong allocator value_type!")
