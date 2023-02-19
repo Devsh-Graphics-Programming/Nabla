@@ -6,7 +6,9 @@
 
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
+#include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
 
 #include "simdjson/singleheader/simdjson.h"
 #include <algorithm>

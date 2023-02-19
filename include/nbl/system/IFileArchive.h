@@ -6,6 +6,8 @@
 #ifndef _NBL_SYSTEM_I_FILE_ARCHIVE_H_INCLUDED_
 #define _NBL_SYSTEM_I_FILE_ARCHIVE_H_INCLUDED_
 
+#include "nbl/core/SRange.h"
+
 #include "nbl/system/path.h"
 #include "nbl/system/ILogger.h"
 #include "nbl/system/IFileBase.h"

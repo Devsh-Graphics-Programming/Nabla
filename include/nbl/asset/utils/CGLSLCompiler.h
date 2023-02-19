@@ -7,6 +7,7 @@
 
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
+#include "nbl/asset/format/EFormat.h"
 
 namespace nbl::asset
 {

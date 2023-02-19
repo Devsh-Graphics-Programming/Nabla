@@ -1,14 +1,14 @@
 #ifndef __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 #define __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/system/declarations.h"
 
-#include <type_traits>
+#include "nbl/core/util/bitflag.h"
+
+#include "nbl/system/declarations.h"
+#include "nbl/system/ISystem.h"
 
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
-
-#include "nbl/system/ISystem.h"
 
 #include "nbl/video/EApiType.h"
 #include "nbl/video/debug/IDebugCallback.h"
@@ -19,6 +19,8 @@
 
 #include "SPhysicalDeviceLimits.h"
 #include "SPhysicalDeviceFeatures.h"
+
+#include <type_traits>
 
 namespace nbl::video
 {
@@ -74,9 +76,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             inline auto operator <=> (uint32_t vkApiVersion) const { return vkApiVersion - VK_MAKE_API_VERSION(0, major, minor, patch); }
             inline auto operator <=> (const APIVersion& other) const 
             {
-                if(major != other.major) return other.major - major;
-                if(minor != other.minor) return other.minor - minor;
-                if(patch != other.patch) return other.patch - patch;
+                if(major != other.major) return static_cast<uint32_t>(other.major - major);
+                if(minor != other.minor) return static_cast<uint32_t>(other.minor - minor);
+                if(patch != other.patch) return static_cast<uint32_t>(other.patch - patch);
                 return 0u;
             }
         };
@@ -720,7 +722,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 namespace std
 {
     template<>
-    struct std::hash<nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage>
+    struct hash<nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage>
     {
         inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage& i) const
         {
@@ -739,7 +741,7 @@ namespace std
     };
 
     template<>
-    struct std::hash<nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage>
+    struct hash<nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage>
     {
         inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage& b) const
         {

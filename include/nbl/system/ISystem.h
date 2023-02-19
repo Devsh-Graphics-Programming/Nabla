@@ -7,11 +7,10 @@
 #include "nbl/core/declarations.h"
 #include "nbl/core/util/bitflag.h"
 
-#include <variant>
-
 #include "nbl/system/ICancellableAsyncQueueDispatcher.h"
 #include "nbl/system/IFileArchive.h"
 
+#include <variant>
 
 namespace nbl::system
 {
@@ -26,31 +25,22 @@ class NBL_API2 ISystem : public core::IReferenceCounted
     protected:
         class ICaller;
     private:
-        // add more request types if needed
-        enum E_REQUEST_TYPE
+        struct SRequestParams_NOOP
         {
-            ERT_CREATE_FILE,
-            ERT_READ,
-            ERT_WRITE
         };
-        template <E_REQUEST_TYPE RT>
-        struct SRequestParamsBase
-        {
-            static inline constexpr E_REQUEST_TYPE type = RT;
-        };
-        struct SRequestParams_CREATE_FILE : SRequestParamsBase<ERT_CREATE_FILE>
+        struct SRequestParams_CREATE_FILE
         {
             char filename[MAX_FILENAME_LENGTH] {};
             IFileBase::E_CREATE_FLAGS flags;
         };
-        struct SRequestParams_READ : SRequestParamsBase<ERT_READ>
+        struct SRequestParams_READ
         {
             ISystemFile* file;
             void* buffer;
             size_t offset;
             size_t size;
         };
-        struct SRequestParams_WRITE : SRequestParamsBase<ERT_WRITE>
+        struct SRequestParams_WRITE
         {
             ISystemFile* file;
             const void* buffer;
@@ -59,12 +49,12 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         };
         struct SRequestType : impl::ICancellableAsyncQueueDispatcherBase::request_base_t
         {
-            E_REQUEST_TYPE type;
             std::variant<
+                SRequestParams_NOOP,
                 SRequestParams_CREATE_FILE,
                 SRequestParams_READ,
                 SRequestParams_WRITE
-            > params;
+            > params = SRequestParams_NOOP();
         };
         static inline constexpr uint32_t CircularBufferSize = 256u;
         class CAsyncQueue : public ICancellableAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
@@ -78,7 +68,6 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 template <typename FutureType, typename RequestParams>
                 void request_impl(SRequestType& req, FutureType& future, RequestParams&& params)
                 {
-                    req.type = params.type;
                     req.params = std::move(params);
                     base_t::associate_request_with_future(req, future);
                 }
@@ -88,6 +77,10 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 void init() {}
 
             private:
+                void handle_request(SRequestType& req, SRequestParams_NOOP& param);
+                void handle_request(SRequestType& req, SRequestParams_CREATE_FILE& param);
+                void handle_request(SRequestType& req, SRequestParams_READ& param);
+                void handle_request(SRequestType& req, SRequestParams_WRITE& param);
                 core::smart_refctd_ptr<ICaller> m_caller;
         };
         friend class ISystemFile;

@@ -17,6 +17,7 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/IImage.h"
+#include "nbl/asset/IShader.h"
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>

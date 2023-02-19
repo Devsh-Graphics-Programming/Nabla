@@ -6,7 +6,7 @@
 #include "nbl/system/IFile.h"
 
 #include "CSTLMeshWriter.h"
-
+#include "SColor.h"
 
 using namespace nbl;
 using namespace nbl::asset;

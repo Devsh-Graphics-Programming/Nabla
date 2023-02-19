@@ -11,6 +11,7 @@
 
 
 #include "nbl/asset/asset.h"
+#include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
@@ -275,7 +276,9 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
     constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
 
     auto pipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
-    auto& vtxParams = pipeline->getVertexInputParams() = {};
+    auto& vtxParams = pipeline->getVertexInputParams();
+    vtxParams = SVertexInputParams();
+
     vtxParams.enabledBindingFlags = (1u<<NEW_VTX_BUF_BINDING);
     vtxParams.enabledAttribFlags = oldVtxParams.enabledAttribFlags;
 
