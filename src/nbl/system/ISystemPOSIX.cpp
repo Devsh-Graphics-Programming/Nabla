@@ -1,10 +1,13 @@
 #include "nbl/system/ISystemPOSIX.h"
 #include "nbl/system/CFilePOSIX.h"
 
+#include "nbl/system/IFile.h"
+
 using namespace nbl;
 using namespace nbl::system;
 
-#if defined(__unix__)
+#if defined(_NBL_PLATFORM_LINUX_) || defined (_NBL_PLATFORM_ANDROID_)
+
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -13,7 +16,7 @@ core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile(const std:
 {	
     const bool writeAccess = flags.value&IFile::ECF_WRITE;
 	int createFlags = O_LARGEFILE|(writeAccess ? O_CREAT:0);
-	switch (_flags.value&IFile::ECF_READ_WRITE))
+	switch (flags.value&IFile::ECF_READ_WRITE)
 	{
 		case IFile::ECF_READ:
 			createFlags |= O_RDONLY;
@@ -30,7 +33,7 @@ core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile(const std:
 	}
 
 	CFilePOSIX::native_file_handle_t _native = -1;
-	auto filenameStream = _filename.string();
+	auto filenameStream = filename.string();
 	const char* name_c_str = filenameStream.c_str();
 	// only create a new file if we're going to be writing
 	if (writeAccess)
@@ -60,7 +63,7 @@ core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile(const std:
 
 	// map if needed
 	void* _mappedPtr = nullptr;
-	if (_flags.value & ECF_MAPPABLE)
+	if (flags.value & IFile::ECF_MAPPABLE)
 	{
 		const int mappingFlags = ((flags.value&IFile::ECF_READ) ? PROT_READ:0)|(writeAccess ? PROT_WRITE:0);
 		_mappedPtr = mmap((caddr_t)0, _size, mappingFlags, MAP_PRIVATE, _native, 0);
@@ -71,6 +74,6 @@ core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile(const std:
 		}
 	}
 
-	return core::make_smart_refctd_ptr<CFilePOSIX>(core::smart_refctd_ptr<ISystem>(m_system),filename,flags,_mappedPtr,_size,_native);
+	return core::make_smart_refctd_ptr<CFilePOSIX>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),flags,_mappedPtr,_size,_native);
 }
 #endif
