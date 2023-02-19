@@ -6,7 +6,7 @@
 namespace nbl::system
 {
 
-#if defined(__unix__)
+#if defined(_NBL_PLATFORM_LINUX_) || defined (_NBL_PLATFORM_ANDROID_)
 class ISystemPOSIX : public ISystem
 {
     protected:
