@@ -96,11 +96,13 @@ class NBL_API ILogger : public core::IReferenceCounted
 				return "";
 			}
 
-			size_t newSize = vsnprintf(nullptr, 0, fmtString.data(), l) + 1;
-			std::string message(newSize, '\0'); 
-			vsnprintf(message.data(), newSize, fmtString.data(), l);
-			
-			std::string out_str(timeStr.length() + messageTypeStr.length() + message.length() + 3, '\0');
+			va_list testArgs; // copy of va_list since it is not safe to use it twice
+			va_copy(testArgs, l);
+			int formatSize = vsnprintf(nullptr, 0, fmtString.data(), testArgs) + 1;
+			std::string message(formatSize, '\0'); 
+			vsnprintf(message.data(), formatSize, fmtString.data(), l);
+
+			std::string out_str(timeStr.length() + messageTypeStr.length() + formatSize + 3, '\0');
 			sprintf(out_str.data(), "%s%s: %s\n", timeStr.data(), messageTypeStr.data(), message.data());
  			return out_str;
 			return "";
