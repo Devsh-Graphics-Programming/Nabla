@@ -49,19 +49,12 @@
 [submodule "3rdparty/parallel-hashmap"]
 	path = 3rdparty/parallel-hashmap
 	url = https://github.com/greg7mdp/parallel-hashmap
-[submodule "3rdparty/radeonrays"]
-	path = 3rdparty/radeonrays
-	url = git@github.com:devshgraphicsprogramming/RadeonRays_SDK.git
-	branch = baw
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = https://github.com/NVIDIA/jitify
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git
-[submodule "3rdparty/EGL"]
-	path = 3rdparty/EGL
-	url = https://github.com/Crisspl/EGL.git
 [submodule "3rdparty/simdjson"]
 	path = 3rdparty/simdjson
 	url = https://github.com/simdjson/simdjson.git
