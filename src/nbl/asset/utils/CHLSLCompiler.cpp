@@ -4,6 +4,9 @@
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 
+#include <wrl.h>
+#include <combaseapi.h>
+
 #include <dxc/dxcapi.h>
 
 #include <sstream>
@@ -18,6 +21,14 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
+namespace nbl::asset::hlsl::impl
+{
+    struct DXC {
+        Microsoft::WRL::ComPtr<IDxcUtils> m_dxcUtils;
+        Microsoft::WRL::ComPtr<IDxcCompiler3> m_dxcCompiler;
+    };
+}
+
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
 {
@@ -29,8 +40,10 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    m_dxcUtils = utils;
-    m_dxcCompiler = compiler;
+    m_dxcCompilerTypes = std::unique_ptr<nbl::asset::hlsl::impl::DXC>(new nbl::asset::hlsl::impl::DXC{
+        utils,
+        compiler
+    });
 }
 
 static tcpp::IInputStream* getInputStreamInclude(
@@ -88,9 +101,8 @@ public:
     }
 };
 
-DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const
+DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
-    auto compiler = this;
     if (options.genDebugInfo)
     {
         std::ostringstream insertion;
@@ -108,7 +120,7 @@ DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* arg
     }
     
     ComPtr<IDxcBlobEncoding> src;
-    auto res = compiler->getDxcUtils()->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
+    auto res = dxc->m_dxcUtils->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
     assert(SUCCEEDED(res));
 
     DxcBuffer sourceBuffer;
@@ -117,7 +129,7 @@ DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* arg
     sourceBuffer.Encoding = 0;
 
     ComPtr<IDxcResult> compileResult;
-    res = compiler->getDxcCompiler()->Compile(&sourceBuffer, args, argCount, nullptr, IID_PPV_ARGS(compileResult.GetAddressOf()));
+    res = dxc->m_dxcCompiler->Compile(&sourceBuffer, args, argCount, nullptr, IID_PPV_ARGS(compileResult.GetAddressOf()));
     // If the compilation failed, this should still be a successful result
     assert(SUCCEEDED(res));
 
@@ -288,7 +300,15 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     const uint32_t nonDebugArgs = 5;
     const uint32_t allArgs = nonDebugArgs + 4;
 
-    auto compileResult = dxcCompile(newCode, &arguments[0], hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, hlslOptions);
+    // const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* compilerTypes, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options
+    auto compileResult = dxcCompile(
+        this, 
+        m_dxcCompilerTypes.get(), 
+        newCode,
+        &arguments[0], 
+        hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, 
+        hlslOptions
+    );
 
     if (!compileResult.objectBlob)
     {
