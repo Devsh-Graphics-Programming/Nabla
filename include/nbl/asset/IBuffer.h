@@ -62,6 +62,8 @@ class NBL_API IBuffer : public core::IBuffer, public IDescriptor
 		SCreationParams m_creationParams;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IBuffer::E_USAGE_FLAGS)
+
 template<class BufferType>
 struct NBL_API SBufferBinding
 {
