@@ -564,6 +564,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             m_device->blockForFences(1u, &fence.get());
         }
         
+
+        // pipelineBarrierAutoSubmit?
+
         // --------------
         // downloadBufferRangeViaStagingBuffer
         // --------------
