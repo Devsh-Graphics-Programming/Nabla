@@ -442,7 +442,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.rasterizationOrderDepthAttachmentAccess) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RASTERIZATION_ORDER_DEPTH_ATTACHMENT_ACCESS");
     if (features.rasterizationOrderStencilAttachmentAccess) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RASTERIZATION_ORDER_STENCIL_ATTACHMENT_ACCESS");
     if (features.fragmentShaderSampleInterlock) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_SHADER_SAMPLE_INTERLOCK");
-    if (features.fragmentShaderPixelInterlock) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_SHADER_PIXEL_INTERLOCK");
+    if (features.fragmentShaderPixelInterlock) addShaderDefineToPool(pool, "NBL_FEATURE_FRAGMENT_SHADER_PIXEL_INTERLOCK");
     if (features.fragmentShaderShadingRateInterlock) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_SHADER_SHADING_RATE_INTERLOCK");
     if (features.indexTypeUint8) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_INDEX_TYPE_UINT8");
     if (features.shaderBufferFloat32Atomics) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_BUFFER_FLOAT32_ATOMICS");
