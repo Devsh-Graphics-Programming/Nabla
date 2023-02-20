@@ -43,7 +43,7 @@ bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_
             if (found.first && found.second)
                 return true;
         #else
-            if (exists(builtinResourceDirectory/filename))
+            if (exists(builtin::getBuiltinResourcesDirectoryPath()/filename,flags))
                 return true;
         #endif
     }
@@ -112,9 +112,9 @@ core::vector<system::path> ISystem::listItemsInDirectory(const system::path& p) 
         #else
         err.clear();
         // check root path is prefixed with "nbl/builtin/"
-        if (p.string().find(builtinPathPrefix) == 0)
+        if (builtin::hasPathPrefix(p.string()))
         {
-            const auto subdirs = std::filesystem::recursive_directory_iterator(builtinResourceDirectory/p,err);
+            const auto subdirs = std::filesystem::recursive_directory_iterator(builtin::getBuiltinResourcesDirectoryPath()/p,err);
             if (!err)
             for (auto entry : subdirs) // there are never any archives inside builtins
                 res.push_back(entry.path());
@@ -221,7 +221,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
                 return;
             }
         #else
-            createFile(future,builtinResourceDirectory/filename,flags);
+            createFile(future,builtin::getBuiltinResourcesDirectoryPath()/filename,flags);
             return;
         #endif
     }
