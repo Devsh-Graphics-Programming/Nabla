@@ -264,7 +264,7 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
 
     // Shader stages
     uint32_t shaderStageCount_total = 0u;
-    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT);
     uint32_t specInfoCount_total = 0u;
     core::vector<VkSpecializationInfo> vk_specInfos(vk_shaderStages.size());
     constexpr uint32_t MAX_MAP_ENTRIES_PER_SHADER = 100u;
@@ -313,7 +313,7 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
         vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(creationParams[i].createFlags.value);
 
         uint32_t shaderStageCount = 0u;
-        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
         {
             const IGPUSpecializedShader* shader = rpIndie->getShaderAtIndex(ss);
             if (!shader || shader->getAPIType() != EAT_VULKAN)

@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#if 0 // kill it
+
 #ifndef __NBL_VIDEO_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
 
@@ -368,3 +370,5 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 }
 
 #endif
+
+#endif 

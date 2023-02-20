@@ -100,6 +100,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 	};
     core::unordered_multiset<pipeline_meta_pair_t,hash_t,key_equal_t> pipelines;
 
+	// TODO: map the file whenever possible
     std::string fileContents;
     fileContents.resize(filesize);
 	char* const buf = fileContents.data();
@@ -143,6 +144,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
     core::vector<std::string> submeshMaterialNames;
     core::vector<uint32_t> vtxSmoothGrp;
 
+	// TODO: handle failures much better!
 	constexpr const char* NO_MATERIAL_MTL_NAME = "#";
 	bool noMaterial = true;
 	bool dummyMaterialCreated = false;

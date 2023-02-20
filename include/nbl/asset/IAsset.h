@@ -39,7 +39,7 @@ class IAssetManager;
 	@see IReferenceCounted
 */
 
-class NBL_API IAsset : virtual public core::IReferenceCounted
+class NBL_API2 IAsset : virtual public core::IReferenceCounted
 {
 	public:
 		enum E_MUTABILITY : uint32_t

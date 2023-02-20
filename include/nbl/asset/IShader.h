@@ -75,6 +75,8 @@ protected:
 	std::string m_filepathHint;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IShader::E_SHADER_STAGE)
+
 }
 
 #endif

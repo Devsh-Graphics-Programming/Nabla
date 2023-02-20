@@ -27,7 +27,7 @@ template<typename T>
 NBL_FORCE_INLINE T abs(const T& a)
 {
 	auto isneg = a < T(0);
-	using bool_type = typename std::remove_reference<decltype(isneg)>::type;
+	using bool_type = std::remove_reference_t<decltype(isneg)>;
 	return core::mix<T,bool_type>(a,-a,isneg);
 }
 
@@ -189,7 +189,7 @@ NBL_FORCE_INLINE T min(const T& a, const T& b)
 {
 	T vb = T(b);
 	auto asmaller = a<vb;
-	using bool_type = typename std::remove_reference<decltype(asmaller)>::type;
+	using bool_type = std::remove_reference_t<decltype(asmaller)>;
 	return core::mix<T,bool_type>(vb,a,asmaller);
 }
 
@@ -225,7 +225,7 @@ NBL_FORCE_INLINE T max(const T& a, const T& b)
 {
 	T vb = T(b);
 	auto asmaller = a < vb;
-	using bool_type = typename std::remove_reference<decltype(asmaller)>::type;
+	using bool_type = std::remove_reference_t<decltype(asmaller)>;
 	return core::mix<T,bool_type>(a,vb,asmaller);
 }
 

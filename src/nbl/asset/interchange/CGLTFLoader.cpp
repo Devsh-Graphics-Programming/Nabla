@@ -685,7 +685,7 @@ using namespace nbl::asset;
 
 						for (const auto& glTFprimitive : glTFMesh.primitives)
 						{
-							typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
+							std::remove_reference_t<decltype(glTFprimitive)> SGLTFPrimitive;
 
 							auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 							cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
@@ -712,7 +712,7 @@ using namespace nbl::asset;
 								const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
 								const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
 
-								typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
+								std::remove_reference_t<decltype(glTFbufferView)> SGLTFBufferView;
 
 								auto setBufferBinding = [&](uint32_t target) -> void
 								{

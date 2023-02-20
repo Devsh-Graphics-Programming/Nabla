@@ -509,16 +509,7 @@ template<typename SpecShaderType, typename LayoutType>
 class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
-
-		enum E_SHADER_STAGE_IX : uint32_t
-		{
-			ESSI_VERTEX_SHADER_IX = 0,
-			ESSI_TESS_CTRL_SHADER_IX = 1,
-			ESSI_TESS_EVAL_SHADER_IX = 2,
-			ESSI_GEOMETRY_SHADER_IX = 3,
-			ESSI_FRAGMENT_SHADER_IX = 4
-		};
+		_NBL_STATIC_INLINE_CONSTEXPR size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
 		IRenderpassIndependentPipeline(
 			core::smart_refctd_ptr<LayoutType>&& _layout,
@@ -537,7 +528,7 @@ class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 			for (auto shdr : shaders)
 			{
 				const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-				assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
+				assert(ix < static_cast<int32_t>(GRAPHICS_SHADER_STAGE_COUNT));
 				assert(!m_shaders[ix]);//must be maximum of 1 for each stage
 				m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
 			}
@@ -548,7 +539,7 @@ class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 		inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
 		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
+        inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
 		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
 		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
@@ -556,7 +547,7 @@ class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
 	protected:
-		core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
+		core::smart_refctd_ptr<SpecShaderType> m_shaders[GRAPHICS_SHADER_STAGE_COUNT];
 
 		SBlendParams m_blendParams;
 		SPrimitiveAssemblyParams m_primAsmParams;

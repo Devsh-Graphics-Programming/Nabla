@@ -46,7 +46,7 @@ class NBL_API ICPURenderpassIndependentPipeline : public IRenderpassIndependentP
                 //intentionally parent is not converted
                 --referenceLevelsBelowToConvert;
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
-				for (auto i=0u; i<SHADER_STAGE_COUNT; i++)
+				for (auto i=0u; i<GRAPHICS_SHADER_STAGE_COUNT; i++)
                     if (m_shaders[i])
 					    m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
@@ -56,10 +56,10 @@ class NBL_API ICPURenderpassIndependentPipeline : public IRenderpassIndependentP
         {
             core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
 
-            std::array<core::smart_refctd_ptr<ICPUSpecializedShader>, SHADER_STAGE_COUNT> shaders;
+            std::array<core::smart_refctd_ptr<ICPUSpecializedShader>, GRAPHICS_SHADER_STAGE_COUNT> shaders;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
                 shaders[i] = (_depth > 0u && m_shaders[i]) ? core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(m_shaders[i]->clone(_depth-1u)) : m_shaders[i];
-            std::array<ICPUSpecializedShader*, SHADER_STAGE_COUNT> shaders_raw;
+            std::array<ICPUSpecializedShader*, GRAPHICS_SHADER_STAGE_COUNT> shaders_raw;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
                 shaders_raw[i] = shaders[i].get();
             std::sort(shaders_raw.begin(), shaders_raw.end(), [](ICPUSpecializedShader* a, ICPUSpecializedShader* b) { return (a && !b); });
@@ -125,11 +125,6 @@ class NBL_API ICPURenderpassIndependentPipeline : public IRenderpassIndependentP
 			assert(!isImmutable_debug());
 			m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); 
 		}
-		inline void setShaderAtIndex(uint32_t _ix, ICPUSpecializedShader* _shdr) 
-		{
-			assert(!isImmutable_debug());
-			m_shaders[_ix] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr);
-		}
 
 		inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout) 
 		{
@@ -151,7 +146,7 @@ class NBL_API ICPURenderpassIndependentPipeline : public IRenderpassIndependentP
 			if (m_disableOptimizations != other->m_disableOptimizations)
 				return false;
 
-			for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
+			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
 			{
 				if ((!m_shaders[i]) != (!other->m_shaders[i]))
 					return false;
@@ -174,7 +169,7 @@ class NBL_API ICPURenderpassIndependentPipeline : public IRenderpassIndependentP
 				--_levelsBelow;
 
 				restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
-				for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
+				for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
 					if (m_shaders[i])
 						restoreFromDummy_impl_call(m_shaders[i].get(), other->m_shaders[i].get(), _levelsBelow);
 			}

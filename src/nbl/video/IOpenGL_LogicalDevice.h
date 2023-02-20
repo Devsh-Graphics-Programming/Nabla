@@ -122,7 +122,7 @@ class IOpenGL_LogicalDeviceBase
             static inline constexpr E_REQUEST_TYPE type = rt;
             using retval_t = void;
             
-            GLuint glnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT*MaxGlNamesForSingleObject];
+            GLuint glnames[COpenGLRenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT*MaxGlNamesForSingleObject];
             uint32_t count;
         };
         struct SRequestSyncDestroy
@@ -774,9 +774,9 @@ protected:
 
             using GLPpln = COpenGLRenderpassIndependentPipeline;
 
-            const IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+            const IGPUSpecializedShader* shaders_array[IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT]{};
             uint32_t shaderCount = 0u;
-            for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+            for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++i)
                 if (params.shaders[i])
                     shaders_array[shaderCount++] = params.shaders[i].get();
 
@@ -800,8 +800,8 @@ protected:
             if (!layout || !vsIsPresent())
                 return nullptr;
 
-            GLuint GLnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
-            COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT];
+            GLuint GLnames[COpenGLRenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT]{};
+            COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT];
 
             COpenGLPipelineCache* cache = IBackendObject::device_compatibility_cast<COpenGLPipelineCache*>(_pipelineCache, device);
             COpenGLPipelineLayout* gllayout = IBackendObject::device_compatibility_cast<COpenGLPipelineLayout*>(layout.get(), device);
@@ -811,7 +811,7 @@ protected:
 
                 auto stage = glshdr->getStage();
                 uint32_t ix = core::findLSB<uint32_t>(stage);
-                assert(ix < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+                assert(ix < COpenGLRenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT);
 
                 COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(layout), stage };
                 auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{ 0,nullptr };

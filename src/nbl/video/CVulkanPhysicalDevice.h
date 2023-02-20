@@ -28,6 +28,8 @@ public:
                 m_availableFeatureSet.insert(vk_extension.extensionName);
         }
 
+        // TODO: Query Properties/Features based on availability of extensions to avoid validation issues about "unknown VkStructureType"
+
         // Get physical device's limits/properties
         
         // !! Always check the API version is >= 1.3 before using `vulkan13Properties`
@@ -662,7 +664,7 @@ public:
             m_features.shaderStorageImageArrayDynamicIndexing = features.shaderStorageImageArrayDynamicIndexing;
             m_features.shaderClipDistance = features.shaderClipDistance;
             m_features.shaderCullDistance = features.shaderCullDistance;
-            m_features.vertexAttributeDouble = features.shaderFloat64;
+            m_features.shaderFloat64 = features.shaderFloat64;
             m_features.shaderResourceResidency = features.shaderResourceResidency;
             m_features.shaderResourceMinLod = features.shaderResourceMinLod; 
             m_features.variableMultisampleRate = features.variableMultisampleRate;
@@ -1726,7 +1728,7 @@ protected:
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = enabledFeatures.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
-        vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.vertexAttributeDouble;
+        vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.shaderFloat64;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
         vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
         vk_deviceFeatures2.features.variableMultisampleRate = enabledFeatures.variableMultisampleRate;
@@ -1849,7 +1851,7 @@ protected:
             if(useVk12Struct)
             {
                 vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
-                vulkan12Features.bufferDeviceAddressCaptureReplay = false;
+                vulkan12Features.bufferDeviceAddressCaptureReplay = (m_rdoc_api != nullptr); // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
                 vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
             }
             else

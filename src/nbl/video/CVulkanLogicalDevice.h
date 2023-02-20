@@ -510,7 +510,38 @@ public:
             return nullptr;
         }
     }
-        
+
+    uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) override
+    {
+        constexpr uint64_t invalid_address = ~0ull;
+        CVulkanBuffer* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(buffer, this);
+        if (!vulkanBuffer)
+        {
+            // TODO: log error
+            assert(false);
+            return invalid_address;
+        }
+
+        if (!buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        {
+            // TODO: log error: Buffer should've been created with EUF_SHADER_DEVICE_ADDRESS_BIT
+            assert(false);
+            return invalid_address;
+        }
+
+        if (!m_enabledFeatures.bufferDeviceAddress)
+        {
+            // TODO: log error: bufferDeviceAddress extension is not enbaled
+            assert(false);
+            return invalid_address;
+        }
+
+        VkBufferDeviceAddressInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        info.buffer = vulkanBuffer->getInternalObject();
+        return m_devf.vk.vkGetBufferDeviceAddress(m_vkdev, &info);
+    }
+
     core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
         const char* entryPoint = "main";
@@ -536,7 +567,6 @@ public:
             commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
 
             commonCompileOptions.stage = shaderStage;
-            commonCompileOptions.entryPoint = entryPoint;
             commonCompileOptions.genDebugInfo = true;
             commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
             commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
@@ -570,7 +600,7 @@ public:
         if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), spirvShader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
         }
         else
         {
@@ -1361,7 +1391,7 @@ protected:
                 continue;
 
             uint32_t shaderCount = 0u;
-            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
             {
                 auto shader = creationParams[i].shaders[ss];
                 if (shader)

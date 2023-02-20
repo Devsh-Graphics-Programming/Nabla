@@ -14,7 +14,8 @@ namespace nbl::asset
 
 class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 {
-	public:
+	public:		
+
 		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_GLSL; };
 
 		CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
@@ -126,9 +127,11 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 			}
 		}
 
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
+
 	protected:
 
-		void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const override;
+		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
 		static CGLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{

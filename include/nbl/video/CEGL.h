@@ -1,3 +1,5 @@
+#if 0 // KILL IT
+
 #ifndef _NBL_C_EGL_H_INCLUDED_
 #define _NBL_C_EGL_H_INCLUDED_
 
@@ -58,4 +60,5 @@ class NBL_API CEGL
 
 }
 
+#endif
 #endif

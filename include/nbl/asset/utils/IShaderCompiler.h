@@ -136,7 +136,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
-			std::string_view entryPoint = "";
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			bool genDebugInfo = true;
 			SPreprocessorOptions preprocessorOptions = {};
@@ -178,7 +177,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		@returns Shader containing logically same High Level code as input but with #include directives resolved.
 		*/
-		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const;
+		virtual std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const = 0;
 
 		std::string preprocessShader(system::IFile* sourcefile, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const;
 		
@@ -255,18 +254,25 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 		}
 
+		static void disableAllDirectivesExceptIncludes(std::string& _code);
+
+		static void reenableDirectives(std::string& _code);
+
+		static std::string encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier);
+
 		virtual IShader::E_CONTENT_TYPE getCodeContentType() const = 0;
 
 		CIncludeFinder* getDefaultIncludeFinder() { return m_defaultIncludeFinder.get(); }
 
 		const CIncludeFinder* getDefaultIncludeFinder() const { return m_defaultIncludeFinder.get(); }
-
 	protected:
 
-		virtual void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const = 0;
+		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const = 0;
 
-	private:
+		void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const;
+
 		core::smart_refctd_ptr<system::ISystem> m_system;
+	private:
 		core::smart_refctd_ptr<CIncludeFinder> m_defaultIncludeFinder;
 };
 

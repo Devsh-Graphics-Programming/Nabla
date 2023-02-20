@@ -1,3 +1,5 @@
+#if 0 // kill it
+
 #ifndef _NBL_C_EGL_CALLER_H_INCLUDED_
 #define _NBL_C_EGL_CALLER_H_INCLUDED_
 
@@ -97,5 +99,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CEGLCaller,CEGLLoader,NBL_EGL_F
 
 #undef NBL_EGL_FUNC_LIST
 }
+
+#endif
 
 #endif

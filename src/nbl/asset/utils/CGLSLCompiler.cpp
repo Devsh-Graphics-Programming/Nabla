@@ -12,10 +12,142 @@
 using namespace nbl;
 using namespace nbl::asset;
 
+static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
+static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
+static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
+static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
+
+static void disableGlDirectives(std::string& _code)
+{
+    std::regex glMacro("[ \t\r\n\v\f]GL_");
+    auto result = std::regex_replace(_code, glMacro, PREPROC_GL__DISABLER);
+    std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
+    _code = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
+}
+
+static void reenableGlDirectives(std::string& _code)
+{
+    std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
+    auto result = std::regex_replace(_code, lineContinuation, " \\");
+    std::regex glMacro(PREPROC_GL__ENABLER);
+    _code = std::regex_replace(result, glMacro, " GL_");
+}
+
+
+namespace nbl::asset::impl
+{
+    class Includer : public shaderc::CompileOptions::IncluderInterface
+    {
+        const IShaderCompiler::CIncludeFinder* m_defaultIncludeFinder;
+        const system::ISystem* m_system;
+        const uint32_t m_maxInclCnt;
+
+    public:
+        Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_defaultIncludeFinder(_inclFinder), m_system(_fs), m_maxInclCnt{ _maxInclCnt } {}
+
+        //_requesting_source in top level #include's is what shaderc::Compiler's compiling functions get as `input_file_name` parameter
+        //so in order for properly working relative #include's (""-type) `input_file_name` has to be path to file from which the GLSL source really come from
+        //or at least path to not necessarily existing file whose directory will be base for ""-type #include's resolution
+        shaderc_include_result* GetInclude(const char* _requested_source,
+            shaderc_include_type _type,
+            const char* _requesting_source,
+            size_t _include_depth) override
+        {
+            shaderc_include_result* res = new shaderc_include_result;
+            std::string res_str;
+
+            std::filesystem::path relDir;
+            const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
+            const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
+            if (!reqFromBuiltin && !reqBuiltin)
+            {
+                //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
+                //  This rule applies also while a builtin is #includ`ing another builtin.
+                //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
+                //  or path relative to executable's working directory (""-type).
+                relDir = std::filesystem::path(_requesting_source).parent_path();
+            }
+            std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir / _requested_source) : (_requested_source);
+
+            if (std::filesystem::exists(name) && !reqBuiltin)
+                name = std::filesystem::absolute(name);
+
+            if (_type == shaderc_include_type_relative)
+                res_str = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+            else //shaderc_include_type_standard
+                res_str = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+
+            if (!res_str.size()) {
+                const char* error_str = "Could not open file";
+                res->content_length = strlen(error_str);
+                res->content = new char[res->content_length + 1u];
+                strcpy(const_cast<char*>(res->content), error_str);
+                res->source_name_length = 0u;
+                res->source_name = "";
+            }
+            else {
+                //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
+                IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
+                disableGlDirectives(res_str);
+                res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), m_maxInclCnt, name.string().c_str());
+
+                res->content_length = res_str.size();
+                res->content = new char[res_str.size() + 1u];
+                strcpy(const_cast<char*>(res->content), res_str.c_str());
+                res->source_name_length = name.native().size();
+                res->source_name = new char[name.native().size() + 1u];
+                strcpy(const_cast<char*>(res->source_name), name.string().c_str());
+            }
+
+            return res;
+        }
+
+        void ReleaseInclude(shaderc_include_result* data) override
+        {
+            if (data->content_length > 0u)
+                delete[] data->content;
+            if (data->source_name_length > 0u)
+                delete[] data->source_name;
+            delete data;
+        }
+    };
+}
 
 CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
 {
+}
+
+
+
+std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
+{
+    if (preprocessOptions.extraDefines.size())
+    {
+        insertExtraDefines(code, preprocessOptions.extraDefines);
+    }
+    IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+    disableGlDirectives(code);
+    shaderc::Compiler comp;
+    shaderc::CompileOptions options;
+    options.SetTargetSpirv(shaderc_spirv_version_1_6);
+
+    if (preprocessOptions.includeFinder != nullptr)
+    {
+        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u));//custom #include handler
+    }
+    const shaderc_shader_kind scstage = stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
+    auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
+
+    if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
+        preprocessOptions.logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
+        return nullptr;
+    }
+
+    auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(), res.cend()));
+    IShaderCompiler::reenableDirectives(resolvedString);
+    reenableGlDirectives(resolvedString);
+    return resolvedString;
 }
 
 core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
@@ -28,13 +160,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
         return nullptr;
     }
 
-    if (glslOptions.entryPoint.compare("main") != 0)
-    {
-        glslOptions.preprocessorOptions.logger.log("shaderc requires entry point to be \"main\" in GLSL", system::ILogger::ELL_ERROR);
-        return nullptr;
-    }
-
-    auto newCode = preprocessShader(code, glslOptions.stage, glslOptions.preprocessorOptions);
+    auto newCode = preprocessShader(std::string(code), glslOptions.stage, glslOptions.preprocessorOptions);
 
     shaderc::Compiler comp;
     shaderc::CompileOptions shadercOptions; //default options
@@ -43,7 +169,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
     if (glslOptions.genDebugInfo)
         shadercOptions.SetGenerateDebugInfo();
 
-    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", glslOptions.entryPoint.data(), shadercOptions);
+    shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", "main", shadercOptions);
 
     if (bin_res.GetCompilationStatus() == shaderc_compilation_status_success)
     {
@@ -61,7 +187,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
     }
 }
 
-static void insertAfterVersionAndPragmaShaderStage(std::string& code, std::ostringstream&& ins)
+void CGLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins) const
 {
     auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&code]() -> size_t
     {
@@ -93,17 +219,4 @@ static void insertAfterVersionAndPragmaShaderStage(std::string& code, std::ostri
 
     ins << "#line " << std::to_string(ln) << "\n";
     code.insert(pos, ins.str());
-}
-
-void CGLSLCompiler::insertExtraDefines(std::string& str, const core::SRange<const char* const>& defines) const
-{
-    if (defines.empty())
-        return;
-
-    std::ostringstream insertion;
-    for (auto def : defines)
-    {
-        insertion << "#define " << def << "\n";
-    }
-    insertAfterVersionAndPragmaShaderStage(str, std::move(insertion));
 }

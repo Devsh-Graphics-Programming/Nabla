@@ -8,6 +8,13 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
+class IDxcUtils;
+class IDxcCompiler3;
+class DxcCompilationResult;
+
+#include <wrl.h>
+#include <combaseapi.h>
+
 namespace nbl::asset
 {
 
@@ -38,9 +45,18 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//	return "";
 		//}
 
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
+
+		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 	protected:
 
-		void insertExtraDefines(std::string& str, const core::SRange<const char* const>& defines) const override;
+		Microsoft::WRL::ComPtr<IDxcUtils> m_dxcUtils;
+		Microsoft::WRL::ComPtr<IDxcCompiler3> m_dxcCompiler;
+
+		DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const;
+
+		IDxcUtils* getDxcUtils() const { return m_dxcUtils.Get(); }
+		IDxcCompiler3* getDxcCompiler() const { return m_dxcCompiler.Get(); }
 
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{

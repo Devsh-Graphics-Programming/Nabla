@@ -405,7 +405,7 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassInd
             asset::SBlendParams::serializedSize()+
             asset::SRasterizationParams::serializedSize()+
             asset::SPrimitiveAssemblyParams::serializedSize()+
-            sizeof(void*)*asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT+//shaders
+            sizeof(void*)*asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT+//shaders
             sizeof(void*);//layout
         uint8_t mem[bytesToHash]{};
         uint32_t offset = 0u;
@@ -418,9 +418,9 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassInd
         _ppln->getPrimitiveAssemblyParams().serialize(mem+offset);
         offset += sizeof(asset::SPrimitiveAssemblyParams);
         const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
-        for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+        for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++i)
             shaders[i] = _ppln->getShaderAtIndex(i);
-        offset += asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT*sizeof(void*);
+        offset += asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT*sizeof(void*);
         reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+offset)[0] = _ppln->getLayout();
 
         const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
@@ -1272,7 +1272,7 @@ inline created_gpu_object_array<asset::ICPUPipelineLayout> IGPUObjectFromAssetCo
 
 inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUObjectFromAssetConverter::create(const asset::ICPURenderpassIndependentPipeline** const _begin, const asset::ICPURenderpassIndependentPipeline** const _end, SParams& _params)
 {
-    constexpr size_t SHADER_STAGE_COUNT = asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT;
+    constexpr size_t GRAPHICS_SHADER_STAGE_COUNT = asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT;
 
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> >(assetCount);
@@ -1280,15 +1280,15 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
     core::vector<const asset::ICPUPipelineLayout*> cpuLayouts;
     cpuLayouts.reserve(assetCount);
     core::vector<const asset::ICPUSpecializedShader*> cpuShaders;
-    cpuShaders.reserve(assetCount * SHADER_STAGE_COUNT);
+    cpuShaders.reserve(assetCount * GRAPHICS_SHADER_STAGE_COUNT);
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         const asset::ICPURenderpassIndependentPipeline* cpuppln = _begin[i];
         cpuLayouts.push_back(cpuppln->getLayout());
 
-        for (size_t s = 0ull; s < SHADER_STAGE_COUNT; ++s)
-            if (const asset::ICPUSpecializedShader* shdr = cpuppln->getShaderAtIndex(static_cast<asset::ICPURenderpassIndependentPipeline::E_SHADER_STAGE_IX>(s)))
+        for (size_t s = 0ull; s < GRAPHICS_SHADER_STAGE_COUNT; ++s)
+            if (const asset::ICPUSpecializedShader* shdr = cpuppln->getShaderAtIndex(s))
                 cpuShaders.push_back(shdr);
     }
 
@@ -1305,10 +1305,10 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
 
         IGPUPipelineLayout* layout = (*gpuLayouts)[layoutRedirs[i]].get();
 
-        IGPUSpecializedShader* shaders[SHADER_STAGE_COUNT]{};
+        IGPUSpecializedShader* shaders[GRAPHICS_SHADER_STAGE_COUNT]{};
         size_t local_shdr_count = 0ull;
-        for (size_t s = 0ull; s < SHADER_STAGE_COUNT; ++s)
-            if (cpuppln->getShaderAtIndex(static_cast<asset::ICPURenderpassIndependentPipeline::E_SHADER_STAGE_IX>(s)))
+        for (size_t s = 0ull; s < GRAPHICS_SHADER_STAGE_COUNT; ++s)
+            if (cpuppln->getShaderAtIndex(s))
                 shaders[local_shdr_count++] = (*gpuShaders)[shdrRedirs[shdrIter++]].get();
 
         (*res)[i] = _params.device->createRenderpassIndependentPipeline(

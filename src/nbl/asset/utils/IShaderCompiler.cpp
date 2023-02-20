@@ -9,10 +9,74 @@
 #include <regex>
 #include <iterator>
 
-
 using namespace nbl;
 using namespace nbl::asset;
 
+//string to be replaced with all "#" except those in "#include"
+static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
+static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
+
+//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
+void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
+{
+    // TODO: replace this with a proper-ish proprocessor and includer one day
+    std::regex directive("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
+    //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
+    _code = std::regex_replace(_code, directive, PREPROC_DIRECTIVE_DISABLER);
+}
+
+void IShaderCompiler::reenableDirectives(std::string& _code)
+{
+    std::regex directive(PREPROC_DIRECTIVE_ENABLER);
+    _code = std::regex_replace(_code, directive, "#");
+}
+
+std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier)
+{
+    assert(_maxInclusions != 0u);
+
+    using namespace std::string_literals;
+    std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
+    std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
+
+    auto genDefs = [&defBase_, _maxInclusions, _identifier] {
+        auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
+        std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
+        for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
+            const std::string defname = defBase(i);
+            defs += "#elif !defined(" + defname + ")\n\t#define " + defname + "\n";
+        }
+        defs += "#endif\n";
+        return defs;
+    };
+    auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
+        auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
+        std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
+        for (int32_t i = _maxInclusions - 1; i >= 0; --i) {
+            const std::string defname = defBase(i);
+            undefs += "#elif defined(" + defname + ")\n\t#undef " + defname + "\n";
+        }
+        undefs += "#endif\n";
+        return undefs;
+    };
+
+    // HACK: tcpp is having issues parsing the string, so this is a hack/mitigation that could be removed once tcpp is fixed
+    std::string identifier = _identifier;
+    std::replace(identifier.begin(), identifier.end(), '\\', '/');
+
+    return
+        genDefs() +
+        "\n"
+        "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
+        "\n" +
+        // This will get turned back into #line after the directives get re-enabled
+        PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + identifier.c_str() + "\"\n" +
+        _code +
+        "\n"
+        "#endif"
+        "\n\n" +
+        genUndefs();
+}
 
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
@@ -20,188 +84,6 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
     m_defaultIncludeFinder->addGenerator(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeGenerator>());
     m_defaultIncludeFinder->getIncludeStandard("", "nbl/builtin/glsl/utils/common.glsl");
-}
-
-namespace nbl::asset::impl
-{
-    //string to be replaced with all "#" except those in "#include"
-    static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
-    static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
-    static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
-    static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
-    static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
-    static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
-    static void disableAllDirectivesExceptIncludes(std::string& _glslCode)
-    {
-        // TODO: replace this with a proper-ish proprocessor and includer one day
-        std::regex directive("#(?!(include|version|pragma shader_stage|line))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
-        //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
-        auto result = std::regex_replace(_glslCode,directive,PREPROC_DIRECTIVE_DISABLER);
-        std::regex glMacro("[ \t\r\n\v\f]GL_");
-        result = std::regex_replace(result, glMacro, PREPROC_GL__DISABLER);
-        std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
-        _glslCode = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
-    }
-    static void reenableDirectives(std::string& _glslCode)
-    {
-        std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
-        auto result = std::regex_replace(_glslCode, lineContinuation, " \\");
-        std::regex glMacro(PREPROC_GL__ENABLER);
-        result = std::regex_replace(result,glMacro," GL_");
-        std::regex directive(PREPROC_DIRECTIVE_ENABLER);
-        _glslCode = std::regex_replace(result, directive, "#");
-    }
-    static std::string encloseWithinExtraInclGuards(std::string&& _glslCode, uint32_t _maxInclusions, const char* _identifier)
-    {
-        assert(_maxInclusions!=0u);
-
-        using namespace std::string_literals;
-        std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
-        std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
-
-        auto genDefs = [&defBase_, _maxInclusions, _identifier] {
-            auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
-            std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
-            for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
-                const std::string defname = defBase(i);
-                defs += "#elif !defined(" + defname + ")\n\t#define " + defname + "\n";
-            }
-            defs += "#endif\n";
-            return defs;
-        };
-        auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
-            auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
-            std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
-            for (int32_t i = _maxInclusions-1; i >= 0; --i) {
-                const std::string defname = defBase(i);
-                undefs += "#elif defined(" + defname + ")\n\t#undef " + defname + "\n";
-            }
-            undefs += "#endif\n";
-            return undefs;
-        };
-        
-        return
-            genDefs() +
-            "\n"
-            "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
-            "\n" +
-            "#line 1 \"" + _identifier + "\"\n" +
-            _glslCode +
-            "\n"
-            "#endif"
-            "\n\n" +
-            genUndefs();
-    }
-
-    class Includer : public shaderc::CompileOptions::IncluderInterface
-    {
-        const IShaderCompiler::CIncludeFinder* m_defaultIncludeFinder;
-        const system::ISystem* m_system;
-        const uint32_t m_maxInclCnt;
-
-    public:
-        Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_defaultIncludeFinder(_inclFinder), m_system(_fs), m_maxInclCnt{_maxInclCnt} {}
-
-        //_requesting_source in top level #include's is what shaderc::Compiler's compiling functions get as `input_file_name` parameter
-        //so in order for properly working relative #include's (""-type) `input_file_name` has to be path to file from which the GLSL source really come from
-        //or at least path to not necessarily existing file whose directory will be base for ""-type #include's resolution
-        shaderc_include_result* GetInclude(const char* _requested_source,
-            shaderc_include_type _type,
-            const char* _requesting_source,
-            size_t _include_depth) override 
-        {
-            shaderc_include_result* res = new shaderc_include_result;
-            std::string res_str;
-
-            std::filesystem::path relDir;
-            const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
-            const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
-            if (!reqFromBuiltin && !reqBuiltin)
-            {
-                //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
-                //  This rule applies also while a builtin is #includ`ing another builtin.
-                //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
-                //  or path relative to executable's working directory (""-type).
-                relDir = std::filesystem::path(_requesting_source).parent_path();
-            }
-            std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir/_requested_source) : (_requested_source);
-
-            if (std::filesystem::exists(name) && !reqBuiltin)
-                name = std::filesystem::absolute(name);
-
-            if (_type == shaderc_include_type_relative)
-                res_str = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
-            else //shaderc_include_type_standard
-                res_str = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
-
-            if (!res_str.size()) {
-                const char* error_str = "Could not open file";
-                res->content_length = strlen(error_str);
-                res->content = new char[res->content_length+1u];
-                strcpy(const_cast<char*>(res->content), error_str);
-                res->source_name_length = 0u;
-                res->source_name = "";
-            }
-            else {
-                //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
-                disableAllDirectivesExceptIncludes(res_str);
-                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, name.string().c_str() );
-
-                res->content_length = res_str.size();
-                res->content = new char[res_str.size()+1u];
-                strcpy(const_cast<char*>(res->content), res_str.c_str());
-                res->source_name_length = name.native().size();
-                res->source_name = new char[name.native().size()+1u];
-                strcpy(const_cast<char*>(res->source_name), name.string().c_str());
-            }
-
-            return res;
-        }
-
-        void ReleaseInclude(shaderc_include_result* data) override
-        {
-            if (data->content_length > 0u)
-                delete[] data->content;
-            if (data->source_name_length > 0u)
-                delete[] data->source_name;
-            delete data;
-        }
-    };
-}
-
-std::string IShaderCompiler::preprocessShader(
-    std::string&& code,
-    IShader::E_SHADER_STAGE stage,
-    const SPreprocessorOptions& preprocessOptions) const
-{
-    if (preprocessOptions.extraDefines.size())
-    {
-        insertExtraDefines(code, preprocessOptions.extraDefines);
-    }
-    if (preprocessOptions.includeFinder != nullptr)
-    {
-        impl::disableAllDirectivesExceptIncludes(code);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
-        shaderc::Compiler comp;
-        shaderc::CompileOptions options;
-        options.SetTargetSpirv(shaderc_spirv_version_1_6);
-
-        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u));//custom #include handler
-        const shaderc_shader_kind scstage = stage==IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
-        auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
-
-        if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-            preprocessOptions.logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
-            return nullptr;
-        }
-
-        auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(),res.cend()));
-        impl::reenableDirectives(resolvedString);
-        return resolvedString;
-    }
-    else
-    {
-        return code;
-    }
 }
 
 std::string IShaderCompiler::preprocessShader(
@@ -389,4 +271,17 @@ std::string IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::str
     }
 
     return "";
+}
+
+void IShaderCompiler::insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const
+{
+    if (defines.empty())
+        return;
+
+    std::ostringstream insertion;
+    for (auto i = 0u; i < defines.size(); ++i)
+    {
+        insertion << "#define " << defines[i] << "\n";
+    }
+    insertIntoStart(code, std::move(insertion));
 }
