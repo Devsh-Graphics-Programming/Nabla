@@ -113,7 +113,7 @@ namespace impl
         // typedefs for implementation only
         using ValueType_impl = typename PairType::second_type; // container's value_type is always instantiation of std::pair
         using KeyType_impl = typename PairType::first_type;
-        using NoPtrValueType_impl = typename std::remove_pointer<ValueType_impl>::type;
+        using NoPtrValueType_impl = std::remove_pointer_t<ValueType_impl>;
         //! If T is pointer type, then ImmutableValueType_impl is `const U*` where U is type received by dereferencing operation on variable of type T.
         //! Otherwise (T is not pointer type) ImmutableValueType_impl is `const T`.
         using ImmutableValueType_impl = 
