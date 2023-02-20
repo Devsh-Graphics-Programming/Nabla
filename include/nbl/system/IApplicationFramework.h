@@ -1,14 +1,12 @@
 #ifndef	_NBL_SYSTEM_I_APPLICATION_FRAMEWORK_H_INCLUDED_
 #define	_NBL_SYSTEM_I_APPLICATION_FRAMEWORK_H_INCLUDED_
 
+
 #include "nbl/core/declarations.h"
 
 #include "nbl/system/declarations.h"
 #include "nbl/system/definitions.h"
 
-#ifdef _NBL_PLATFORM_WINDOWS_
-#include <delayimp.h>
-#endif // _NBL_PLATFORM_WINDOWS_
 
 namespace nbl::system
 {
@@ -16,7 +14,6 @@ namespace nbl::system
 class NBL_API IApplicationFramework
 {
 	public:
-        virtual void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) = 0;
         IApplicationFramework(
             const system::path& _localInputCWD, 
             const system::path& _localOutputCWD, 
@@ -24,41 +21,20 @@ class NBL_API IApplicationFramework
             const system::path& _sharedOutputCWD) : 
             localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
 		{
-#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_SHARED_BUILD_)
-            {
-                HMODULE res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
-                if (!res)
-                {
-                    const auto nablaBuiltDLL = (system::path(_NABLA_OUTPUT_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
-                    res = LoadLibraryExA(nablaBuiltDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-                }
-                if (!res)
-                {
-                    const auto nablaInstalledDLL = (system::path(_NABLA_INSTALL_DIR_).make_preferred() / _NABLA_DLL_NAME_).string();
-                    res = LoadLibraryExA(nablaInstalledDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-                }
-                if (!res)
-                    res = LoadLibraryExA(_NABLA_DLL_NAME_, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-                HRESULT hr = __HrLoadAllImportsForDll(_NABLA_DLL_NAME_);
-                assert(res && SUCCEEDED(hr));
-            } 
-#endif // _NBL_PLATFORM_WINDOWS_ && _NBL_SHARED_BUILD_
-
-            {
-                constexpr std::string_view DXCOMPILER_DLL_NAME = "dxcompiler.dll";
-
-                HMODULE res = LoadLibraryExA(DXCOMPILER_DLL_NAME.data(), NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
-                if (!res)
-                {
-                    const auto dxcBuiltDLL = (system::path(_DXC_DLL_).make_preferred()).string();
-                    res = LoadLibraryExA(dxcBuiltDLL.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
-                }
-                if (!res)
-                    res = LoadLibraryExA(DXCOMPILER_DLL_NAME.data(), NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-                HRESULT hr = __HrLoadAllImportsForDll(DXCOMPILER_DLL_NAME.data());
-                assert(res && SUCCEEDED(hr));
-            }
+            #ifdef _NBL_PLATFORM_WINDOWS_
+            // TODO: @AnastaZIuk also provide define constants for DXC install dir!
+            const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll",{_DXC_DLL_});
+            assert(SUCCEEDED(dxcLoad));
+            #ifdef _NBL_SHARED_BUILD_
+            // if there was no DLL next to the executable, then try from the Nabla build directory
+            // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR
+            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_,{_NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_});
+            assert(SUCCEEDED(nablaLoad));
+            #endif
+            #endif
 		}
+
+        virtual void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) = 0;
 
         void onAppInitialized()
         {
