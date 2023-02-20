@@ -48,25 +48,7 @@ endif()
 
 
 # TODO: redo
-find_package(OpenGL OPTIONAL_COMPONENTS EGL)
 find_package(Wayland)  # TODO: remove, load Wayland dynamically
-#[[if (OpenGL_EGL_FOUND)
-	message(FATAL_ERROR "FOUND EGL!!")
-else()
-	message(FATAL_ERROR "COULDNT FIND EGL!!")
-endif()]]
-# EGL
-set(EGL_NO_GLEW ON CACHE INTERNAL "" FORCE)
-if (OpenGL_EGL_FOUND AND UNIX AND NOT APPLE)
-	# TODO: This Cannot work like that!
-	set(EGL_PASSTHROUGH ON FORCE)
-	if (WAYLAND_CLIENT_FOUND)
-		set(EGL_USE_WAYLAND ON FORCE)
-		message(FATAL_ERROR "Using Wayland backend!!!")
-	endif()
-endif()
-# all of the above fuckery can be dismissed
-add_subdirectory(EGL/EGL)
 
 
 # zlib (target is zlibstatic)
@@ -331,8 +313,7 @@ set(NBL_3RDPARTY_TARGETS
 				GenericCodeGen
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
-				SPIRV-Tools-opt
-				egl 
+				SPIRV-Tools-opt 
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS

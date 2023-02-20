@@ -37,25 +37,10 @@ macro(FindLibraryAndSONAME _LIB)
 endmacro()
 
 FindLibraryAndSONAME(wayland-client)
-FindLibraryAndSONAME(wayland-egl)
 FindLibraryAndSONAME(wayland-cursor)
 message(FATAL_ERROR "XDDDDDDD")
 ]]
 
-if (NOT ANDROID)
-	find_package(OpenGL REQUIRED OPTIONAL_COMPONENTS EGL)
-else()
-	# TODO: @AnastaZluk we have these in our own 3rdparty anyway!
-	find_path(GLES3_INCLUDE_DIR GLES3/gl31.h HINTS ${ANDROID_NDK_ROOT_PATH} REQUIRED)
-	if (${GLES3_INCLUDE_DIR})
-		set(OpenGL_OpenGL_FOUND True)
-	endif()
-	find_path(EGL_INCLUDE_DIR EGL/egl.h HINTS ${ANDROID_NDK_ROOT_PATH} REQUIRED)
-	if (${OPENGL_EGL_INCLUDE_DIRS})
-		set(OpenGL_EGL_FOUND True)
-		set(OPENGL_EGL_INCLUDE_DIRS True)
-	endif()
-endif()
 if(UNIX AND NOT ANDROID)
 	# TODO: maybe require the `-dev` packages for both? (or ship headers ourselves?)
 	find_package(Wayland)
@@ -116,8 +101,8 @@ option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
 option(_NBL_COMPILE_WITH_PNG_WRITER_ "Compile with PNG Writer" ON)
 option(_NBL_COMPILE_WITH_TGA_LOADER_ "Compile with TGA Loader" ON)
 option(_NBL_COMPILE_WITH_TGA_WRITER_ "Compile with TGA Writer" ON)
-option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
-option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
+option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
+option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
 option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
@@ -138,7 +123,6 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 endif()
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
-set(_NBL_COMPILE_WITH_OPENGL_ ${NBL_COMPILE_WITH_OPENGL})
 if (NBL_COMPILE_WITH_CUDA)
 	message(STATUS "Building with CUDA interop")
 	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
@@ -152,7 +136,7 @@ set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
 
 # TODO: this is a mess and not the right way to about it
-if (WAYLAND_CLIENT_FOUND AND OpenGL_EGL_FOUND)
+if (WAYLAND_CLIENT_FOUND)
 	set(_NBL_BUILD_WITH_WAYLAND 1)
 	#message(FATAL_ERROR "found wayland! ${WAYLAND_CLIENT_LIBRARY}")
 else()
@@ -316,27 +300,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
-
-# OpenGL KILL IT
-	#${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
-	##${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Swapchain.cpp
-	#${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 # Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
@@ -620,11 +583,6 @@ endif()
 if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
-# OpenGL (EGL)
-target_link_libraries(Nabla PRIVATE egl)
-if (ANDROID)
-	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
-endif()
 
 # Include dirs for self
 target_include_directories(Nabla PUBLIC 
@@ -636,7 +594,6 @@ target_include_directories(Nabla PUBLIC
 	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
 	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
-	"$<$<BOOL:${OpenGL_EGL_FOUND}>:${OPENGL_EGL_INCLUDE_DIRS}>"
 	"$<$<BOOL:${WAYLAND_CLIENT_FOUND}>:${WAYLAND_CLIENT_INCLUDE_DIR}>"
 )
 
@@ -644,7 +601,7 @@ target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/so
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 target_compile_definitions(Nabla 
-	PRIVATE EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
@@ -708,7 +665,6 @@ nbl_install_lib(Nabla)
 
 if(NBL_STATIC_BUILD)
 	# install dependencies, they are required only for static Nabla builds
-	nbl_install_lib(egl)
 	nbl_install_lib(glslang)
 	nbl_install_lib(GenericCodeGen)
 	nbl_install_lib(MachineIndependent)
