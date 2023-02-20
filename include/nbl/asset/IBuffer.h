@@ -6,6 +6,7 @@
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/IBuffer.h"
+#include "nbl/core/util/bitflag.h"
 
 #include "nbl/asset/IDescriptor.h"
 

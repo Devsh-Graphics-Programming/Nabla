@@ -19,7 +19,7 @@ template <bool... Vals>
 using bool_sequence = std::integer_sequence<bool, Vals...>;
 
 template <typename T, typename... Us>
-_INLINE_VAR constexpr bool is_any_of_v = (... || std::is_same<T, Us>::value);
+inline constexpr bool is_any_of_v = (... || std::is_same<T, Us>::value);
 
 template<typename T, typename... Us>
 struct NBL_API is_any_of : std::integral_constant<bool, is_any_of_v<T, Us...>> {};

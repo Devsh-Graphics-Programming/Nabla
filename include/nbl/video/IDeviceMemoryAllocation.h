@@ -6,6 +6,8 @@
 #define __NBL_I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/util/bitflag.h"
+#include "nbl/video/EApiType.h"
 
 namespace nbl::video
 {

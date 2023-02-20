@@ -5,6 +5,8 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUShader.h"
+#include "nbl_spirv_cross/spirv.hpp"
+#include "nbl_spirv_cross/spirv_parser.hpp"
 
 #include "CSPVLoader.h"
 #include "nbl_spirv_cross/spirv.hpp"

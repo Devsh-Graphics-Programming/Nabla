@@ -9,7 +9,8 @@
 #include "nbl/asset/asset.h"
 
 #include "nbl/video/IGPUBuffer.h"
-
+#include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IGPUDescriptorSetLayout.h"
 
 namespace nbl::video
 {

@@ -1152,9 +1152,21 @@ public:
             m_properties.limits.shaderStencilExport = isExtensionSupported(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
             m_properties.limits.decorateString = isExtensionSupported(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME);
 
-            m_properties.limits.externalFence = isExtensionSupported(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
-            m_properties.limits.externalMemory = isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-            m_properties.limits.externalSemaphore = isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+            m_properties.limits.externalFence = isExtensionSupported(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME) 
+            #ifdef _NBL_WINDOWS_API_
+                || isExtensionSupported(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME)
+            #endif 
+            ;
+            m_properties.limits.externalMemory = isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME) 
+            #ifdef _NBL_WINDOWS_API_
+                || isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)
+            #endif
+            ;
+            m_properties.limits.externalSemaphore = isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) 
+            #ifdef _NBL_WINDOWS_API_
+                || isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME)
+            #endif
+            ;
 
             m_properties.limits.shaderNonSemanticInfo = isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
             m_properties.limits.fragmentShaderBarycentric = isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
@@ -1164,7 +1176,7 @@ public:
 
         // Get physical device's memory properties
         {
-            m_memoryProperties = {};
+            m_memoryProperties = SMemoryProperties();
             VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
             vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
             m_memoryProperties.memoryTypeCount = vk_physicalDeviceMemoryProperties.memoryTypeCount;
@@ -1661,9 +1673,18 @@ protected:
             insertExtensionIfAvailable(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME); // No Extension Requirements
 
-            insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
-            insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
-            insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME); 
+#ifdef _NBL_WINDOWS_API_
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+#endif
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME); 
+#ifdef _NBL_WINDOWS_API_
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+#endif
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME); 
+#ifdef _NBL_WINDOWS_API_
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+#endif
 
             insertExtensionIfAvailable(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME); // No Extension Requirements
