@@ -28,6 +28,8 @@ public:
                 m_availableFeatureSet.insert(vk_extension.extensionName);
         }
 
+        // TODO: Query Properties/Features based on availability of extensions to avoid validation issues about "unknown VkStructureType"
+
         // Get physical device's limits/properties
         
         // !! Always check the API version is >= 1.3 before using `vulkan13Properties`
