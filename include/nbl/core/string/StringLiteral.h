@@ -4,6 +4,9 @@
 #ifndef _NBL_CORE_STRING_LITERAL_H_INCLUDED_
 #define _NBL_CORE_STRING_LITERAL_H_INCLUDED_
 
+#include <algorithm>
+#include <cstddef>
+
 namespace nbl::core
 {
 
@@ -13,6 +16,11 @@ struct StringLiteral
     constexpr StringLiteral(const char (&str)[N])
     {
         std::copy_n(str, N, value);
+    }
+
+    // the size includes the null terminator
+    constexpr size_t size() const {
+        return N;
     }
 
     char value[N];

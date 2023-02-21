@@ -3,6 +3,7 @@
 
 #include "BuildConfigOptions.h"
 
+#include "nbl/ui/IWindowXcb.h"
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/video/CVulkanConnection.h"
 
@@ -45,9 +46,21 @@ class NBL_API2 CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32, ISu
         
         static core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowWin32>&& window);
 };
-#elif defined _NBL_PLATFORM_LINUX_
-// TODO: later, not this week
-#elif defined _NBL_PLATFORM_ANDROID_
+#elif defined(_NBL_PLATFORM_LINUX_)
+class NBL_API2 CSurfaceVulkanXcb final : public CSurface<ui::IWindowXcb, ISurfaceVulkan>
+{
+    using this_t = CSurfaceVulkanXcb;
+    using base_t = CSurface<ui::IWindowXcb, ISurfaceVulkan>;
+public:
+    inline CSurfaceVulkanXcb(core::smart_refctd_ptr<ui::IWindowXcb>&& window, core::smart_refctd_ptr<IAPIConnection>&& api, VkSurfaceKHR surf) :
+        base_t(std::move(window), std::move(api), surf)
+    {
+    }
+
+    static core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowXcb>&& window);
+};
+
+#elif defined(_NBL_PLATFORM_ANDROID_)
 // TODO: later, not this week
 #endif
 }
