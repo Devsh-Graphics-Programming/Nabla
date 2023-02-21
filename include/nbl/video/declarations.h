@@ -20,13 +20,9 @@
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // platform and API specific stuff
-//#include "nbl/video/COpenGL_Connection.h"
 #include "nbl/video/CVulkanConnection.h"
-//#include "nbl/video/COpenGL_Swapchain.h"
 #include "nbl/video/CVulkanSwapchain.h"
-//#include "nbl/video/COpenGLImage.h"
 #include "nbl/video/CVulkanImage.h"
-#include "nbl/video/surface/CSurfaceGL.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
 // CUDA

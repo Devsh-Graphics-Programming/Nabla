@@ -37,15 +37,10 @@ macro(FindLibraryAndSONAME _LIB)
     set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
   endif()
 endmacro()
-
-FindLibraryAndSONAME(wayland-client)
-FindLibraryAndSONAME(wayland-cursor)
-message(FATAL_ERROR "XDDDDDDD")
 ]]
 
 if(UNIX AND NOT ANDROID)
-	# TODO: maybe require the `-dev` packages for both? (or ship headers ourselves?)
-	find_package(Wayland)
+	# TODO: Now we require the `-dev` package or maybe ship headers ourselves?
 	find_package(X11 REQUIRED)
 	set(CMAKE_THREAD_PREFER_PTHREAD 1)
 	find_package(Threads REQUIRED)
@@ -137,15 +132,6 @@ set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
 
-# TODO: this is a mess and not the right way to about it
-if (WAYLAND_CLIENT_FOUND)
-	set(_NBL_BUILD_WITH_WAYLAND 1)
-	#message(FATAL_ERROR "found wayland! ${WAYLAND_CLIENT_LIBRARY}")
-else()
-	set(_NBL_BUILD_WITH_WAYLAND 0)
-	#message(FATAL_ERROR "NOT found wayland!")
-endif()
-
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 set(_NBL_DEBUG 0)
 set(_NBL_RELWITHDEBINFO 0)
@@ -199,9 +185,6 @@ set(NBL_SYSTEM_SOURCES
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowX11.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
@@ -603,7 +586,6 @@ target_include_directories(Nabla PUBLIC
 	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
 	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
-	"$<$<BOOL:${WAYLAND_CLIENT_FOUND}>:${WAYLAND_CLIENT_INCLUDE_DIR}>"
 )
 
 target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
