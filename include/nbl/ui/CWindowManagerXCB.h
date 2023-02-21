@@ -59,7 +59,7 @@ NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(XcbIcccm, system::DefaultFuncPt
     xcb_icccm_set_wm_normal_hints
 );
 
-class CWindowManagerXcb : public IWindowManager
+class CWindowManagerXCB : public IWindowManager
 {
 public:
 
@@ -73,8 +73,8 @@ public:
 		return SDisplayInfo();
 	}
 
-    CWindowManagerXcb();
-    ~CWindowManagerXcb() override = default;
+    CWindowManagerXCB();
+    ~CWindowManagerXCB() override = default;
 
 	virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override;
 

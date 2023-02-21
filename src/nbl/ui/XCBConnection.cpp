@@ -1,21 +1,21 @@
-#include "nbl/ui/XcbConnection.h"
+#include "nbl/ui/XCBConnection.h"
 
 #ifdef _NBL_PLATFORM_LINUX_
 
 namespace nbl::ui 
 {
-    XcbConnection::XcbConnection(core::smart_refctd_ptr<CWindowManagerXcb>&& windowManager):
+    XCBConnection::XCBConnection(core::smart_refctd_ptr<CWindowManagerXCB>&& windowManager):
         m_windowManager(std::move(windowManager)) {
             const auto& xcb = m_windowManager->getXcbFunctionTable();
             m_connection = xcb.pxcb_connect(nullptr, nullptr);
     }
 
-    XcbConnection::~XcbConnection() {
+    XCBConnection::~XCBConnection() {
         const auto&  xcb = m_windowManager->getXcbFunctionTable();
         xcb.pxcb_disconnect(m_connection);
     }
 
-    void XcbConnection::setNetMWState(xcb_window_t rootWindow, xcb_window_t window, bool set, xcb_atom_t first, xcb_atom_t second) const {
+    void XCBConnection::setNetMWState(xcb_window_t rootWindow, xcb_window_t window, bool set, xcb_atom_t first, xcb_atom_t second) const {
         const auto& xcb = m_windowManager->getXcbFunctionTable();
 
         xcb_client_message_event_t event;
@@ -35,14 +35,14 @@ namespace nbl::ui
     }
 
 
-    const xcb_screen_t* XcbConnection::primaryScreen() {
+    const xcb_screen_t* XCBConnection::primaryScreen() {
         const auto& xcb = m_windowManager->getXcbFunctionTable();
         const xcb_setup_t *setup = xcb.pxcb_get_setup(m_connection);
         xcb_screen_t *screen = xcb.pxcb_setup_roots_iterator(setup).data;
         return screen;
     }
 
-    void XcbConnection::setMotifWmHints(xcb_window_t window, const MotifWmHints& hint) const {
+    void XCBConnection::setMotifWmHints(xcb_window_t window, const MotifWmHints& hint) const {
         const auto& xcb = m_windowManager->getXcbFunctionTable();
 
         auto atomHint = resolveXCBAtom(m_MOTIF_WM_HINTS);

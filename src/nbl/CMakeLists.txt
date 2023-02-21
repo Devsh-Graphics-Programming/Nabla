@@ -187,11 +187,11 @@ set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowXcb.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/XcbConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/XCBConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerXcb.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlXcb.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerXCB.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlXCB.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CGraphicalApplicationAndroid.cpp
 )
