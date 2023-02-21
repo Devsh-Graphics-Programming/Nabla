@@ -16,7 +16,7 @@ namespace nbl::core
 {
 
 template<typename F>
-class NBL_API SRAIIBasedExiter
+class SRAIIBasedExiter
 {
 		F onDestr;
 

@@ -17,7 +17,7 @@ namespace nbl::video
 
 
 // property pool is inherently single threaded
-class NBL_API IPropertyPool : public core::IReferenceCounted
+class IPropertyPool : public core::IReferenceCounted
 {
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;

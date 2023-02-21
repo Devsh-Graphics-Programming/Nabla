@@ -16,7 +16,7 @@ class ICPUMeshBuffer;
 #ifdef OLD_SHADERS
 #include "nbl/nblpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct NBL_API NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
+struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
 {
 	//! Constructor filling all members
 	explicit MeshBufferBlobV3(const ICPUMeshBuffer*);
@@ -49,7 +49,7 @@ static_assert(
 );
 
 template<>
-struct NBL_API CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV3 type; };
+struct CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV3 type; };
 #endif
 
 } // nbl::asset

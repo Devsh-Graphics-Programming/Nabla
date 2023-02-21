@@ -18,7 +18,7 @@ namespace nbl::core
 
 //! Doesn't resize memory arenas, therefore once allocated pointers shall not move
 template<class AddressAllocator, template<class> class DataAllocator, typename... Args>
-class NBL_API SimpleBlockBasedAllocator
+class SimpleBlockBasedAllocator
 {
 	public:
 		using size_type = typename address_allocator_traits<AddressAllocator>::size_type;
@@ -215,7 +215,7 @@ using SimpleBlockBasedAllocatorST = SimpleBlockBasedAllocator<AddressAllocator, 
 
 
 template<class AddressAllocator, template<class> class DataAllocator, class RecursiveLockable=std::recursive_mutex, typename... Args>
-class NBL_API SimpleBlockBasedAllocatorMT : protected SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>
+class SimpleBlockBasedAllocatorMT : protected SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>
 {
 	using Base = SimpleBlockBasedAllocator<AddressAllocator, DataAllocator, Args...>;
 	

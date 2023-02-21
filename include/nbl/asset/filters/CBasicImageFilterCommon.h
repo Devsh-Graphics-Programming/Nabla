@@ -17,7 +17,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API CBasicImageFilterCommon
+class CBasicImageFilterCommon
 {
 	public:
 		template<uint32_t batch_dims>
@@ -361,7 +361,7 @@ class NBL_API CBasicImageFilterCommon
 		}
 };
 
-class NBL_API CBasicInImageFilterCommon : public CBasicImageFilterCommon
+class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
 		class CState : public IImageFilter::IState
@@ -390,7 +390,7 @@ class NBL_API CBasicInImageFilterCommon : public CBasicImageFilterCommon
 		virtual ~CBasicInImageFilterCommon() = 0;
 };
 
-class NBL_API CBasicOutImageFilterCommon : public CBasicImageFilterCommon
+class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
 		class CState : public IImageFilter::IState
@@ -419,7 +419,7 @@ class NBL_API CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 		virtual ~CBasicOutImageFilterCommon() = 0;
 };
 
-class NBL_API CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
+class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
 		class CState : public IImageFilter::IState

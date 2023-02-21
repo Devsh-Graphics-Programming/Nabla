@@ -14,7 +14,7 @@ namespace nbl::scene
 {
 
 
-class NBL_API ITransformTree : public virtual core::IReferenceCounted
+class ITransformTree : public virtual core::IReferenceCounted
 {
 	public:
 		using node_t = uint32_t;
@@ -200,7 +200,7 @@ class NBL_API ITransformTree : public virtual core::IReferenceCounted
 		// TODO: do we keep a contiguous `node_t` array in-case we want to shortcut to full tree reevaluation when the number of relative transform modification requests > totalNodes*ratio (or overflows the temporary buffer we've provided) ?
 };
 
-class NBL_API ITransformTreeWithoutNormalMatrices : public ITransformTree
+class ITransformTreeWithoutNormalMatrices : public ITransformTree
 {
 	public:
 		using property_pool_t = video::CPropertyPool<core::allocator,
@@ -259,7 +259,7 @@ class NBL_API ITransformTreeWithoutNormalMatrices : public ITransformTree
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 };
 
-class NBL_API ITransformTreeWithNormalMatrices : public ITransformTree
+class ITransformTreeWithNormalMatrices : public ITransformTree
 {
 	public:
 		struct normal_matrix_t

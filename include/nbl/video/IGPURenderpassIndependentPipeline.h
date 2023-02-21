@@ -20,7 +20,7 @@ namespace nbl::video
 	@see IRenderpassIndependentPipeline
 */
 
-class NBL_API IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
+class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
 {
 		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 

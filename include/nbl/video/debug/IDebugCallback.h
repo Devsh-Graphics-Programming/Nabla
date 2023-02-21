@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class NBL_API IDebugCallback
+class IDebugCallback
 {
     public:
         system::ILogger* getLogger() const { return m_logger.get(); }

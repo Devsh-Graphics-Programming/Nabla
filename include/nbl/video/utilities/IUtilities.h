@@ -1005,7 +1005,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         core::smart_refctd_ptr<CScanner> m_scanner;
     };
 
-class NBL_API ImageRegionIterator
+class ImageRegionIterator
 {
 public:
     ImageRegionIterator(

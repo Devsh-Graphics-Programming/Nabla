@@ -24,7 +24,7 @@ namespace asset
 // (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 
 template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, class ResamplingKernelX = CKaiserImageFilterKernel<>, class ReconstructionKernelX = CMitchellImageFilterKernel<>, class ResamplingKernelY = ResamplingKernelX, class ReconstructionKernelY = ReconstructionKernelX, class ResamplingKernelZ = ResamplingKernelY, class ReconstructionKernelZ = ReconstructionKernelY>
-class NBL_API CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle,Dither,Normalization,Clamp, ResamplingKernelX,ReconstructionKernelX, ResamplingKernelY,ReconstructionKernelY, ResamplingKernelZ,ReconstructionKernelZ> >, public CBasicImageFilterCommon
+class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle,Dither,Normalization,Clamp, ResamplingKernelX,ReconstructionKernelX, ResamplingKernelY,ReconstructionKernelY, ResamplingKernelZ,ReconstructionKernelZ> >, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}

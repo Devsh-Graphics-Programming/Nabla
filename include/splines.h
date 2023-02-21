@@ -34,7 +34,7 @@ namespace core
     // 
 // TODO: Refactor the `BlockChange` stuff into an ext::baw::Animators
     // all the methods with `BlockChange` in the name
-class NBL_API ISpline// : public AllocationOverrideDefault
+class ISpline// : public AllocationOverrideDefault
 {
     public:
         virtual ~ISpline() {}
@@ -76,7 +76,7 @@ class NBL_API ISpline// : public AllocationOverrideDefault
 };
 
 
-class NBL_API CLinearSpline : public ISpline
+class CLinearSpline : public ISpline
 {
     public:
         CLinearSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : ISpline(loop)
@@ -317,7 +317,7 @@ class NBL_API CLinearSpline : public ISpline
 
 
 //! Loop code is wrong for now, unable to calculate A_0 so the gradients match all the way around the loop
-class NBL_API CQuadraticSpline : public ISpline
+class CQuadraticSpline : public ISpline
 {
     public:
         CQuadraticSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false, float tightness = 1.1107f) : ISpline(loop)
@@ -747,7 +747,7 @@ class NBL_API CQuadraticSpline : public ISpline
 
 
 //! Loop code is wrong for now, unable to calculate A_0 so the gradients match all the way around the loop
-class NBL_API CQuadraticBSpline : public CQuadraticSpline
+class CQuadraticBSpline : public CQuadraticSpline
 {
     public:
         CQuadraticBSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : CQuadraticSpline(loop)

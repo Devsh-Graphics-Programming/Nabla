@@ -57,7 +57,7 @@ inline bool operator==(const VkExtent3D& v1, const VkExtent3D& v2)
 }
 
 
-class NBL_API IImage : public IDescriptor
+class IImage : public IDescriptor
 {
 	public:
 		enum E_ASPECT_FLAGS : uint16_t

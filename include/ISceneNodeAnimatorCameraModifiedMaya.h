@@ -23,7 +23,7 @@ namespace scene
 	the current orbit radius the camera moves on. Distance can be changed via the setter
 	or by mouse events.
 	*/
-	class NBL_API ISceneNodeAnimatorCameraModifiedMaya : public ISceneNodeAnimator
+	class ISceneNodeAnimatorCameraModifiedMaya : public ISceneNodeAnimator
 	{
 	public:
 

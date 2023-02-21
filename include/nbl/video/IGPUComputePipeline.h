@@ -15,7 +15,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
+class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
 {
         using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 

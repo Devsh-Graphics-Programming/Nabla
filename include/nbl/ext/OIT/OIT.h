@@ -8,7 +8,7 @@
 namespace nbl::ext::OIT
 {
 
-class NBL_API COIT
+class COIT
 {
     public:
         static inline constexpr auto ColorImageFormat = NBL_GLSL_OIT_IMG_FORMAT_COLOR;

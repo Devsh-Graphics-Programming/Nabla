@@ -19,7 +19,7 @@ namespace OptiX
 
 class IContext;
 
-class NBL_API IDenoiser final : public core::IReferenceCounted
+class IDenoiser final : public core::IReferenceCounted
 {
 	public:
 		inline OptixDenoiser getOptiXHandle() {return denoiser;}

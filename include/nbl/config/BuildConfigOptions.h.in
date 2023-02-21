@@ -96,7 +96,6 @@
 #else
     #define NBL_API2
 #endif
-#define NBL_API
 
 // any other target definitions for using Nabla as framework in another project
 #ifndef __NBL_BUILDING_NABLA__

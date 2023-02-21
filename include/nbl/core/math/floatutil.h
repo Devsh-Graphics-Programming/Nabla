@@ -357,7 +357,7 @@ inline uint32_t to10bitFloat(float _f32)
 
 //! Utility class used for IEEE754 float32 <-> float16 conversions
 /** By Phernost; taken from https://stackoverflow.com/a/3542975/5538150 */
-class NBL_API Float16Compressor
+class Float16Compressor
 {
 		union Bits
 		{
@@ -432,7 +432,7 @@ class NBL_API Float16Compressor
 		}
 };
 
-struct NBL_API rgb32f {
+struct rgb32f {
 	float x, y, z;
 };
 

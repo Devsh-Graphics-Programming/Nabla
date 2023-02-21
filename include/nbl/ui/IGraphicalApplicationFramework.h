@@ -7,7 +7,7 @@
 namespace nbl::ui
 {
 
-// no NBL_API because nothing in Nabla uses it
+// no because nothing in Nabla uses it
 class IGraphicalApplicationFramework
 {
 	public:

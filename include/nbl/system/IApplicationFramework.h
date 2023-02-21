@@ -11,7 +11,7 @@
 namespace nbl::system
 {
 
-class NBL_API IApplicationFramework
+class IApplicationFramework
 {
 	public:
         IApplicationFramework(

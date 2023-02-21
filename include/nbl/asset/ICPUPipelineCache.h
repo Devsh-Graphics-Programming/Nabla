@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-class NBL_API ICPUPipelineCache final : public IAsset
+class ICPUPipelineCache final : public IAsset
 {
 public:
 	enum E_BACKEND : uint8_t
