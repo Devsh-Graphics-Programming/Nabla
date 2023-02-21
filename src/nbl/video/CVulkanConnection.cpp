@@ -151,6 +151,8 @@ namespace nbl::video
             insertToFeatureSetIfAvailable(VK_KHR_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
 #if defined(_NBL_PLATFORM_WINDOWS_)
             insertToFeatureSetIfAvailable(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
+#elif defined(_NBL_PLATFORM_LINUX_)
+            insertToFeatureSetIfAvailable(VK_KHR_XCB_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
 #endif
         }
         SFeatures enabledFeatures = featuresToEnable;
