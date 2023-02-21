@@ -24,8 +24,8 @@ using Microsoft::WRL::ComPtr;
 namespace nbl::asset::hlsl::impl
 {
     struct DXC {
-        Microsoft::WRL::ComPtr<IDxcUtils> m_dxcUtils;
-        Microsoft::WRL::ComPtr<IDxcCompiler3> m_dxcCompiler;
+        ComPtr<IDxcUtils> m_dxcUtils;
+        ComPtr<IDxcCompiler3> m_dxcCompiler;
     };
 }
 
@@ -40,10 +40,15 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    m_dxcCompilerTypes = std::unique_ptr<nbl::asset::hlsl::impl::DXC>(new nbl::asset::hlsl::impl::DXC{
+    m_dxcCompilerTypes = new nbl::asset::hlsl::impl::DXC{
         utils,
         compiler
-    });
+    };
+}
+
+CHLSLCompiler::~CHLSLCompiler()
+{
+    delete m_dxcCompilerTypes;
 }
 
 static tcpp::IInputStream* getInputStreamInclude(
@@ -303,7 +308,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     // const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* compilerTypes, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options
     auto compileResult = dxcCompile(
         this, 
-        m_dxcCompilerTypes.get(), 
+        m_dxcCompilerTypes, 
         newCode,
         &arguments[0], 
         hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, 
