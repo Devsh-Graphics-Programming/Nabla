@@ -10,9 +10,9 @@
 
 // windows
 #include "nbl/ui/CWindowManagerWin32.h"
-#include "nbl/ui/CWindowManagerXcb.h"
+#include "nbl/ui/CWindowManagerXCB.h"
 
 #include "nbl/ui/CWindowWin32.h"
-#include "nbl/ui/CWindowXcb.h"
+#include "nbl/ui/CWindowXCB.h"
 
 #endif

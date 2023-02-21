@@ -146,7 +146,7 @@ namespace nbl::video
 #elif defined(_NBL_PLATFORM_LINUX_)
 	
 	#include <xcb/xcb.h>
-	core::smart_refctd_ptr<CSurfaceVulkanXcb> CSurfaceVulkanXcb::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowXcb>&& window)
+	core::smart_refctd_ptr<CSurfaceVulkanXcb> CSurfaceVulkanXcb::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowXCB>&& window)
 	{
 		if(!api || !window)
 			return nullptr;

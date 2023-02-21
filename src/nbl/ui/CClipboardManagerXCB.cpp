@@ -1,16 +1,16 @@
 
-#include "nbl/ui/XcbConnection.h"
+#include "nbl/ui/XCBConnection.h"
 #include <mutex>
 #include <string>
 #include <vector>
 #include <xcb/xproto.h>
 #ifdef _NBL_PLATFORM_LINUX_
 
-#include "nbl/ui/CClipboardManagerXcb.h"
+#include "nbl/ui/CClipboardManagerXCB.h"
 
 namespace nbl::ui
 {
-    std::string CClipboardManagerXcb::getClipboardText() {
+    std::string CClipboardManagerXCB::getClipboardText() {
         {
             std::unique_lock<std::mutex> lk(m_clipboardMutex);
             m_clipboardResponseCV.wait_until(lk, std::chrono::system_clock::now() + std::chrono::seconds(1));
@@ -21,22 +21,8 @@ namespace nbl::ui
         return response;
     }
 
-    xcb_window_t CClipboardManagerXcb::getClipboardWindow() {
-        const auto& xcb = m_xcbConnection->getXcbFunctionTable();
-        xcb_window_t window = 0;
-        auto cookie = xcb.pxcb_get_selection_owner(m_xcbConnection->getRawConnection(), 
-            m_xcbConnection->resolveXCBAtom(m_CLIPBOARD));
-        if(xcb_get_selection_owner_reply_t* reply =
-            xcb.pxcb_get_selection_owner_reply(m_xcbConnection->getRawConnection(), cookie, nullptr)) {
-            core::SRAIIBasedExiter exitReply([reply]() -> void { 
-                free(reply);
-            });
-            return reply->owner;
-        }
-        return 0;
 
-    }
-    bool CClipboardManagerXcb::setClipboardText(const std::string_view& data) {
+    bool CClipboardManagerXCB::setClipboardText(const std::string_view& data) {
         std::lock_guard lk(m_clipboardMutex);
         m_stagedClipboard.m_data = data;
         m_stagedClipboard.m_formats = {
@@ -51,7 +37,7 @@ namespace nbl::ui
         return true;
     }
 
-    void CClipboardManagerXcb::process(const IWindowXcb* window, xcb_generic_event_t* event) {
+    void CClipboardManagerXCB::process(const IWindowXCB* window, xcb_generic_event_t* event) {
         const auto& xcb = m_xcbConnection->getXcbFunctionTable();
         
         auto TARGETS = m_xcbConnection->resolveXCBAtom(m_TARGETS);

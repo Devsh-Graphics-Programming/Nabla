@@ -3,19 +3,19 @@
 
 
 #include "nbl/ui/ICursorControl.h"
-#include "nbl/ui/XcbConnection.h"
+#include "nbl/ui/XCBConnection.h"
 
 #ifdef _NBL_PLATFORM_LINUX_
 
 namespace nbl::ui
 {
-class NBL_API2 CCursorControlXcb final : public ICursorControl
+class NBL_API2 CCursorControlXCB final : public ICursorControl
 {
-        core::smart_refctd_ptr<XcbConnection> m_xcbConnection;
+        core::smart_refctd_ptr<XCBConnection> m_xcbConnection;
 
     public:
-        inline CCursorControlXcb(
-            core::smart_refctd_ptr<XcbConnection>&& xcbConnection) : 
+        inline CCursorControlXCB(
+            core::smart_refctd_ptr<XCBConnection>&& xcbConnection) : 
             m_xcbConnection(std::move(xcbConnection)) {}
 
         void setVisible(bool visible) override;

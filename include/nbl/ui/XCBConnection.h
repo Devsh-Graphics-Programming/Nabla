@@ -6,7 +6,7 @@
 #include "nbl/core/decl/Types.h"
 #include "nbl/core/string/StringLiteral.h"
 #include "nbl/core/decl/smart_refctd_ptr.h"
-#include "nbl/ui/CWindowManagerXcb.h"
+#include "nbl/ui/CWindowManagerXCB.h"
 
 #include <xcb/xcb.h>
 #include <xcb/xcb_icccm.h>
@@ -17,7 +17,7 @@
 namespace nbl::ui 
 {
 
-class XcbConnection : public core::IReferenceCounted {
+class XCBConnection : public core::IReferenceCounted {
 public:
     template<core::StringLiteral Name> 
     struct XCBAtomToken {
@@ -25,8 +25,8 @@ public:
         bool fetched = false;
     };
 
-    XcbConnection(core::smart_refctd_ptr<CWindowManagerXcb>&& windowManager);
-    virtual ~XcbConnection() override;
+    XCBConnection(core::smart_refctd_ptr<CWindowManagerXCB>&& windowManager);
+    virtual ~XCBConnection() override;
 
     template<core::StringLiteral Name> 
     inline xcb_atom_t resolveXCBAtom(XCBAtomToken<Name>& token, bool only_if_exists = true, bool forced = false) const {
@@ -97,11 +97,11 @@ public:
     const xcb_screen_t* primaryScreen();
 
 private:
-    core::smart_refctd_ptr<CWindowManagerXcb> m_windowManager;
+    core::smart_refctd_ptr<CWindowManagerXCB> m_windowManager;
     xcb_connection_t* m_connection = nullptr;
 
-    mutable XcbConnection::XCBAtomToken<core::StringLiteral("_NET_WM_STATE")> m_NET_WM_STATE;
-	mutable XcbConnection::XCBAtomToken<core::StringLiteral("_MOTIF_WM_HINTS")> m_MOTIF_WM_HINTS;
+    mutable XCBConnection::XCBAtomToken<core::StringLiteral("_NET_WM_STATE")> m_NET_WM_STATE;
+	mutable XCBConnection::XCBAtomToken<core::StringLiteral("_MOTIF_WM_HINTS")> m_MOTIF_WM_HINTS;
 };
 
 } // namespace nbl::ui

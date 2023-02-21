@@ -5,11 +5,11 @@
 
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
-#include "nbl/ui/IWindowXcb.h"
-#include "nbl/ui/CWindowXcb.h"
-#include "nbl/ui/CCursorControlXcb.h"
-#include "nbl/ui/CClipboardManagerXcb.h"
-#include "nbl/ui/CWindowManagerXcb.h"
+#include "nbl/ui/IWindowXCB.h"
+#include "nbl/ui/CWindowXCB.h"
+#include "nbl/ui/CCursorControlXCB.h"
+#include "nbl/ui/CClipboardManagerXCB.h"
+#include "nbl/ui/CWindowManagerXCB.h"
 
 #include <cstdint>
 #include <string>
@@ -28,11 +28,11 @@ static bool checkXcbCookie(const Xcb& functionTable, xcb_connection_t* connectio
     return true;
 }
 
-CWindowXcb::CDispatchThread::CDispatchThread(CWindowXcb& window):
+CWindowXCB::CDispatchThread::CDispatchThread(CWindowXCB& window):
     m_window(window) {
 }
 
-void CWindowXcb::CDispatchThread::work(lock_t& lock){
+void CWindowXCB::CDispatchThread::work(lock_t& lock){
     if(m_quit) {
         return; 
     }
@@ -97,62 +97,62 @@ void CWindowXcb::CDispatchThread::work(lock_t& lock){
 }
 
 
-void CWindowXcb::CDispatchThread::init()
+void CWindowXCB::CDispatchThread::init()
 {
 
 }
 
-void CWindowXcb::CDispatchThread::exit()
+void CWindowXCB::CDispatchThread::exit()
 {
 }
 
-CWindowManagerXcb::CWindowManagerXcb() {
+CWindowManagerXCB::CWindowManagerXCB() {
 }
 
-core::smart_refctd_ptr<IWindow> CWindowManagerXcb::createWindow(IWindow::SCreationParams&& creationParams)
+core::smart_refctd_ptr<IWindow> CWindowManagerXCB::createWindow(IWindow::SCreationParams&& creationParams)
 {
     std::string title = std::string(creationParams.windowCaption);
-    auto window = core::make_smart_refctd_ptr<CWindowXcb>(core::smart_refctd_ptr<CWindowManagerXcb>(this), std::move(creationParams));
+    auto window = core::make_smart_refctd_ptr<CWindowXCB>(core::smart_refctd_ptr<CWindowManagerXCB>(this), std::move(creationParams));
     window->setCaption(title);
     return window;
 }
 
-bool CWindowManagerXcb::setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) {
-    auto wnd = static_cast<IWindowXcb*>(window);
+bool CWindowManagerXCB::setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) {
+    auto wnd = static_cast<IWindowXCB*>(window);
     wnd->setWindowSize_impl(width, height);
     return true;
 }
 
-bool CWindowManagerXcb::setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) {
-    auto wnd = static_cast<IWindowXcb*>(window);
+bool CWindowManagerXCB::setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) {
+    auto wnd = static_cast<IWindowXCB*>(window);
     wnd->setWindowPosition_impl(x, y);
     return true;
 }
 
-bool CWindowManagerXcb::setWindowRotation_impl(IWindow* window, bool landscape) {
-    auto wnd = static_cast<IWindowXcb*>(window);
+bool CWindowManagerXCB::setWindowRotation_impl(IWindow* window, bool landscape) {
+    auto wnd = static_cast<IWindowXCB*>(window);
     wnd->setWindowRotation_impl(landscape);
     return true;
 }
 
-bool CWindowManagerXcb::setWindowVisible_impl(IWindow* window, bool visible) {
-    auto wnd = static_cast<IWindowXcb*>(window);
+bool CWindowManagerXCB::setWindowVisible_impl(IWindow* window, bool visible) {
+    auto wnd = static_cast<IWindowXCB*>(window);
     wnd->setWindowVisible_impl(visible);
     return true;
 }
 
-bool CWindowManagerXcb::setWindowMaximized_impl(IWindow* window, bool maximized) {
-    auto wnd = static_cast<IWindowXcb*>(window);
+bool CWindowManagerXCB::setWindowMaximized_impl(IWindow* window, bool maximized) {
+    auto wnd = static_cast<IWindowXCB*>(window);
     wnd->setWindowMaximized_impl(maximized);
     return true;
 }
 
-CWindowXcb::CWindowXcb(core::smart_refctd_ptr<CWindowManagerXcb>&& winManager, SCreationParams&& params):
-    IWindowXcb(std::move(params)),
+CWindowXCB::CWindowXCB(core::smart_refctd_ptr<CWindowManagerXCB>&& winManager, SCreationParams&& params):
+    IWindowXCB(std::move(params)),
     m_windowManager(winManager),
-    m_xcbConnection(core::make_smart_refctd_ptr<XcbConnection>(core::smart_refctd_ptr<CWindowManagerXcb>(m_windowManager))),
-    m_cursorControl(core::make_smart_refctd_ptr<CCursorControlXcb>(core::smart_refctd_ptr<XcbConnection>(m_xcbConnection))),
-    m_clipboardManager(core::make_smart_refctd_ptr<CClipboardManagerXcb>(core::smart_refctd_ptr<XcbConnection>(m_xcbConnection))),
+    m_xcbConnection(core::make_smart_refctd_ptr<XCBConnection>(core::smart_refctd_ptr<CWindowManagerXCB>(m_windowManager))),
+    m_cursorControl(core::make_smart_refctd_ptr<CCursorControlXCB>(core::smart_refctd_ptr<XCBConnection>(m_xcbConnection))),
+    m_clipboardManager(core::make_smart_refctd_ptr<CClipboardManagerXCB>(core::smart_refctd_ptr<XCBConnection>(m_xcbConnection))),
     m_dispatcher(*this) {
     
     auto& xcb = m_windowManager->getXcbFunctionTable();
@@ -196,7 +196,7 @@ CWindowXcb::CWindowXcb(core::smart_refctd_ptr<CWindowManagerXcb>&& winManager, S
     m_xcbConnection->setMotifWmHints(m_xcbWindow, motifHints);
     
     if(isAlwaysOnTop()) {
-        XcbConnection::XCBAtomToken<core::StringLiteral("NET_WM_STATE_ABOVE")> NET_WM_STATE_ABOVE;
+        XCBConnection::XCBAtomToken<core::StringLiteral("NET_WM_STATE_ABOVE")> NET_WM_STATE_ABOVE;
         m_xcbConnection->setNetMWState(
             primaryScreen->root,
             m_xcbWindow, false, m_xcbConnection->resolveXCBAtom(NET_WM_STATE_ABOVE));
@@ -207,23 +207,23 @@ CWindowXcb::CWindowXcb(core::smart_refctd_ptr<CWindowManagerXcb>&& winManager, S
     m_dispatcher.start();
 }
 
-CWindowXcb::~CWindowXcb()
+CWindowXCB::~CWindowXCB()
 {
 }
 
-IClipboardManager* CWindowXcb::getClipboardManager() {
+IClipboardManager* CWindowXCB::getClipboardManager() {
     return m_clipboardManager.get();
 }
 
-ICursorControl* CWindowXcb::getCursorControl() {
+ICursorControl* CWindowXCB::getCursorControl() {
     return m_cursorControl.get();
 }
 
-IWindowManager* CWindowXcb::getManager() {
+IWindowManager* CWindowXCB::getManager() {
     return m_windowManager.get();
 }
 
-bool CWindowXcb::setWindowSize_impl(uint32_t width, uint32_t height) {
+bool CWindowXCB::setWindowSize_impl(uint32_t width, uint32_t height) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
     auto& xcbIccm = m_windowManager->getXcbIcccmFunctionTable();
 
@@ -238,7 +238,7 @@ bool CWindowXcb::setWindowSize_impl(uint32_t width, uint32_t height) {
     return  true;
 }
 
-bool CWindowXcb::setWindowPosition_impl(int32_t x, int32_t y) {
+bool CWindowXCB::setWindowPosition_impl(int32_t x, int32_t y) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
 
     const int32_t values[] = { x, y };
@@ -249,18 +249,18 @@ bool CWindowXcb::setWindowPosition_impl(int32_t x, int32_t y) {
     return true;
 }
 
-void CWindowXcb::setCaption(const std::string_view& caption) {
+void CWindowXCB::setCaption(const std::string_view& caption) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
 
     xcb.pxcb_change_property(m_xcbConnection->getRawConnection(), XCB_PROP_MODE_REPLACE, m_xcbWindow, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, static_cast<uint32_t>(caption.size()), reinterpret_cast<const void* const>(caption.data()));
     xcb.pxcb_flush(m_xcbConnection->getRawConnection());
 }
 
-bool CWindowXcb::setWindowRotation_impl(bool landscape) {
+bool CWindowXCB::setWindowRotation_impl(bool landscape) {
     return true;
 }
 
-bool CWindowXcb::setWindowVisible_impl( bool visible) {
+bool CWindowXCB::setWindowVisible_impl( bool visible) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
 
     if(visible) {
@@ -273,7 +273,7 @@ bool CWindowXcb::setWindowVisible_impl( bool visible) {
     return true;
 }
 
-bool CWindowXcb::setWindowMaximized_impl(bool maximized) {
+bool CWindowXCB::setWindowMaximized_impl(bool maximized) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
     const auto* primaryScreen = m_xcbConnection->primaryScreen();
 
