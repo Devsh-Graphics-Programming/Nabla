@@ -19,7 +19,7 @@ namespace core
 
 //! Can only allocate up to a size of a single block, no support for allocations larger than blocksize
 template<typename _size_type>
-class NBL_API IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type>
+class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type>
 {
         using Base = PoolAddressAllocator<_size_type>;
     protected:

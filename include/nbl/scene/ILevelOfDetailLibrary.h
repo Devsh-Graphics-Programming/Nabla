@@ -11,7 +11,7 @@
 namespace nbl::scene
 {
 
-class NBL_API ILevelOfDetailLibrary : public virtual core::IReferenceCounted
+class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 {
 	public:
 		using AddressAllocator = core::GeneralpurposeAddressAllocator<uint32_t>;

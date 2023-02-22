@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 
-class NBL_API IRenderpass
+class IRenderpass
 {
 public:
     static constexpr inline uint32_t ATTACHMENT_UNUSED = 0xffFFffFFu;

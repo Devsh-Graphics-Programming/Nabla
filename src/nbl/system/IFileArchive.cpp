@@ -1,5 +1,6 @@
 #include "nbl/system/IFileArchive.h"
 
+#include "nbl/system/IFile.h"
 
 using namespace nbl;
 using namespace nbl::system;

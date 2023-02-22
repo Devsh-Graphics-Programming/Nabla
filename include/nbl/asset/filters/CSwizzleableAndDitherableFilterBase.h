@@ -28,7 +28,7 @@ namespace nbl::asset::impl
 	max and min values.
 */
 template<typename Swizzle, typename Dither, typename Normalization, bool Clamp>
-class NBL_API CSwizzleableAndDitherableFilterBase
+class CSwizzleableAndDitherableFilterBase
 {
 	public:
 		class CState : public Swizzle
@@ -169,7 +169,7 @@ class NBL_API CSwizzleableAndDitherableFilterBase
 	max values.
 */
 template<typename Swizzle, typename Normalization, bool Clamp>
-class NBL_API CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,Clamp>
+class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,Clamp>
 {
 	public:
 		virtual ~CSwizzleableAndDitherableFilterBase() {}
@@ -290,7 +290,7 @@ class NBL_API CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normali
 	max values.
 */
 template<typename Dither, typename Normalization, bool Clamp>
-class NBL_API CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalization,Clamp>
+class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalization,Clamp>
 {
 	public:
 		virtual ~CSwizzleableAndDitherableFilterBase() {}

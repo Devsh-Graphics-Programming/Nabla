@@ -5,6 +5,7 @@
 #include "nbl/asset/asset.h"
 
 #include "nbl/asset/interchange/CGLSLLoader.h"
+#include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
 
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
@@ -121,7 +122,8 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-    m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
+    if (!m_compilerSet)
+        m_compilerSet = core::make_smart_refctd_ptr<CCompilerSet>(core::smart_refctd_ptr(m_system));
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
@@ -171,6 +173,7 @@ void IAssetManager::addLoadersAndWriters()
 #endif
     addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CHLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
@@ -224,47 +227,50 @@ void IAssetManager::insertBuiltinAssets()
 									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{
-            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
+            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize() + 1u);
             memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
-            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, type, paths.begin()[0]);
+            char* bufferAsChar = reinterpret_cast<char*>(buffer->getPointer());
+            bufferAsChar[data->getSize()] = '\0';
+
+            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
 			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};
 		auto fileSystem = getSystem();
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/specialized_shader/fullscreentriangle.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
+		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::IShader::ESS_FRAGMENT, 
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
             });
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
 			asset::IShader::ESS_FRAGMENT,
 			{   
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
 			asset::IShader::ESS_FRAGMENT,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",

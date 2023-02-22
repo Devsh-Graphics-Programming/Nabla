@@ -3,6 +3,8 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
+include(ProcessorCount)
+
 #[[
 macro(FindLibraryAndSONAME _LIB)
   string(TOUPPER ${_LIB} _UPPERLNAME)
@@ -35,30 +37,10 @@ macro(FindLibraryAndSONAME _LIB)
     set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
   endif()
 endmacro()
-
-FindLibraryAndSONAME(wayland-client)
-FindLibraryAndSONAME(wayland-egl)
-FindLibraryAndSONAME(wayland-cursor)
-message(FATAL_ERROR "XDDDDDDD")
 ]]
 
-if (NOT ANDROID)
-	find_package(OpenGL REQUIRED OPTIONAL_COMPONENTS EGL)
-else()
-	# TODO: @AnastaZluk we have these in our own 3rdparty anyway!
-	find_path(GLES3_INCLUDE_DIR GLES3/gl31.h HINTS ${ANDROID_NDK_ROOT_PATH} REQUIRED)
-	if (${GLES3_INCLUDE_DIR})
-		set(OpenGL_OpenGL_FOUND True)
-	endif()
-	find_path(EGL_INCLUDE_DIR EGL/egl.h HINTS ${ANDROID_NDK_ROOT_PATH} REQUIRED)
-	if (${OPENGL_EGL_INCLUDE_DIRS})
-		set(OpenGL_EGL_FOUND True)
-		set(OPENGL_EGL_INCLUDE_DIRS True)
-	endif()
-endif()
 if(UNIX AND NOT ANDROID)
-	# TODO: maybe require the `-dev` packages for both? (or ship headers ourselves?)
-	find_package(Wayland)
+	# TODO: Now we require the `-dev` package or maybe ship headers ourselves?
 	find_package(X11 REQUIRED)
 	set(CMAKE_THREAD_PREFER_PTHREAD 1)
 	find_package(Threads REQUIRED)
@@ -120,8 +102,9 @@ option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
 option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
 option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
-option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
-option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
+option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
+option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
+set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
 if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
@@ -133,11 +116,10 @@ nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
 if(NBL_EMBED_BUILTIN_RESOURCES)	
 	add_subdirectory(builtin)
-	nbl_add_builtin_resources("${nbl_resources_to_embed}")
+	NBL_ADD_BUILTIN_RESOURCES()
 endif()
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
-set(_NBL_COMPILE_WITH_OPENGL_ ${NBL_COMPILE_WITH_OPENGL})
 if (NBL_COMPILE_WITH_CUDA)
 	message(STATUS "Building with CUDA interop")
 	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
@@ -149,15 +131,6 @@ endif()
 set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
-
-# TODO: this is a mess and not the right way to about it
-if (WAYLAND_CLIENT_FOUND AND OpenGL_EGL_FOUND)
-	set(_NBL_BUILD_WITH_WAYLAND 1)
-	#message(FATAL_ERROR "found wayland! ${WAYLAND_CLIENT_LIBRARY}")
-else()
-	set(_NBL_BUILD_WITH_WAYLAND 0)
-	#message(FATAL_ERROR "NOT found wayland!")
-endif()
 
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 set(_NBL_DEBUG 0)
@@ -212,9 +185,6 @@ set(NBL_SYSTEM_SOURCES
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowX11.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWayland.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWaylandCaller.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
@@ -230,9 +200,13 @@ set(NBL_ASSET_SOURCES
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/IGLSLCompiler.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CShaderIntrospector.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/IShaderCompiler.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGLSLCompiler.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CHLSLCompiler.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CCompilerSet.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSPIRVIntrospector.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CHLSLLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSPVLoader.cpp
 	
 # Pipeline loaders
@@ -315,28 +289,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
-
-# OpenGL
-	${NBL_ROOT_PATH}/src/nbl/video/IOpenGL_FunctionTable.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImage.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLImageView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSpecializedShader.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSampler.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/SOpenGLContextLocalCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLSync.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLShader.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLRenderpassIndependentPipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Connection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLComputePipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLQueryPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGLCommandPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/COpenGL_Swapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/debug/COpenGLDebugCallback.cpp
 	
 # Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
@@ -390,10 +342,6 @@ if(MSVC)
 	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
 endif()
 
-if (NBL_EMBED_BUILTIN_RESOURCES)
-	list(APPEND NABLA_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/nbl/builtin/builtinResourceData.cpp")
-endif()
-
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
         ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
@@ -409,8 +357,8 @@ file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
 #always install builtins (some may be included in cpp regardless if embedded or not)
-foreach(X IN LISTS nbl_resources_to_embed)
-	list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC ${NBL_ROOT_PATH}/include/${X})
+foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
+	list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${X}")
 endforeach()
 list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
@@ -470,6 +418,8 @@ endif()
 ## Set up 3rdparty deps
 # Parallel Hashmap
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
+# TCPP
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/tcpp)
 # oneDPL for clang C++17 parallelism
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_dependencies(Nabla oneDPL)
@@ -580,6 +530,35 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
+# DXC
+if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
+endif()
+
+if(NOT DEFINED _NBL_JOBS_AMOUNT_)
+	ProcessorCount(_NBL_JOBS_AMOUNT_)
+	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
+		set(_NBL_JOBS_AMOUNT_ 1)
+	endif()
+endif()
+
+add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
+	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v -j${_NBL_JOBS_AMOUNT_} --clean-first
+	VERBATIM
+	COMMAND_EXPAND_LISTS
+)
+
+add_custom_target(dxcompiler DEPENDS "${DXC_LIB}" "${DXC_DLL}")
+add_dependencies(Nabla dxcompiler)
+
+target_include_directories(Nabla PRIVATE "${DXC_INCLUDE_DIRECTORIES}")
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")
+else()
+	target_link_libraries(Nabla PRIVATE "${DXC_LIB}")
+endif()
+	
+
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
@@ -600,11 +579,6 @@ endif()
 if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
 endif()
-# OpenGL (EGL)
-target_link_libraries(Nabla PRIVATE egl)
-if (ANDROID)
-	target_compile_definitions(Nabla PUBLIC $<$<BOOL:${OpenGL_EGL_FOUND}>:WL_EGL_PLATFORM>)
-endif()
 
 # Include dirs for self
 target_include_directories(Nabla PUBLIC 
@@ -616,15 +590,13 @@ target_include_directories(Nabla PUBLIC
 	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
 	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
-	"$<$<BOOL:${OpenGL_EGL_FOUND}>:${OPENGL_EGL_INCLUDE_DIRS}>"
-	"$<$<BOOL:${WAYLAND_CLIENT_FOUND}>:${WAYLAND_CLIENT_INCLUDE_DIR}>"
 )
 
 target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 target_compile_definitions(Nabla 
-	PRIVATE EGL_STATIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
@@ -644,8 +616,9 @@ if(NBL_PCH)
 endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_custom_target(builtin_resources DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
-	add_dependencies(Nabla builtin_resources)
+	add_dependencies(Nabla nblBuiltinResourceData)
+	target_link_libraries(Nabla PUBLIC nblBuiltinResourceData)
+	target_include_directories(Nabla PUBLIC "${NBL_BUILTIN_RESOURCES_HEADER}")
 endif()
 
 # extensions
@@ -687,7 +660,6 @@ nbl_install_lib(Nabla)
 
 if(NBL_STATIC_BUILD)
 	# install dependencies, they are required only for static Nabla builds
-	nbl_install_lib(egl)
 	nbl_install_lib(glslang)
 	nbl_install_lib(GenericCodeGen)
 	nbl_install_lib(MachineIndependent)

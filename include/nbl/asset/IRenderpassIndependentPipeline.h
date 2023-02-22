@@ -17,6 +17,7 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/IImage.h"
+#include "nbl/asset/IShader.h"
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -26,7 +27,7 @@ namespace nbl
 namespace asset
 {
 
-struct NBL_API SViewport
+struct SViewport
 {
     float x, y;
     float width, height;
@@ -55,7 +56,7 @@ enum E_VERTEX_INPUT_RATE : uint8_t
 };
 
 #include "nbl/nblpack.h"
-struct NBL_API SVertexInputAttribParams
+struct SVertexInputAttribParams
 {
 	SVertexInputAttribParams() : binding(0u), format(EF_UNKNOWN), relativeOffset(0u) {}
 	SVertexInputAttribParams(uint32_t _binding, uint32_t _format, uint32_t _relativeOffset) :
@@ -86,7 +87,7 @@ struct NBL_API SVertexInputAttribParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
-struct NBL_API SVertexInputBindingParams
+struct SVertexInputBindingParams
 {
 
     inline bool operator==(const SVertexInputBindingParams& rhs) const
@@ -110,7 +111,7 @@ struct NBL_API SVertexInputBindingParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
-struct NBL_API SVertexInputParams
+struct SVertexInputParams
 {
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
@@ -163,7 +164,7 @@ struct NBL_API SVertexInputParams
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputParams) == (2u * 2u + SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT * sizeof(SVertexInputAttribParams) + SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT * sizeof(SVertexInputBindingParams)), "Unexpected size!");
 
-struct NBL_API SPrimitiveAssemblyParams
+struct SPrimitiveAssemblyParams
 {
     E_PRIMITIVE_TOPOLOGY primitiveType = EPT_TRIANGLE_LIST;
     uint8_t primitiveRestartEnable = false;
@@ -202,7 +203,7 @@ enum E_COMPARE_OP : uint8_t
     ECO_ALWAYS = 7
 };
 
-struct NBL_API SStencilOpParams
+struct SStencilOpParams
 {
     E_STENCIL_OP failOp = ESO_KEEP;
     E_STENCIL_OP passOp = ESO_KEEP;
@@ -228,7 +229,7 @@ enum E_FACE_CULL_MODE : uint8_t
     EFCM_FRONT_AND_BACK = 3
 };
 
-struct NBL_API SRasterizationParams
+struct SRasterizationParams
 {
 	SRasterizationParams()
 	{
@@ -392,7 +393,7 @@ enum E_BLEND_OP : uint8_t
     EBO_BLUE_EXT
 };
 
-struct NBL_API SColorAttachmentBlendParams
+struct SColorAttachmentBlendParams
 {
 	SColorAttachmentBlendParams() : 
 		blendEnable(false),
@@ -440,7 +441,7 @@ struct NBL_API SColorAttachmentBlendParams
 } PACK_STRUCT;
 //static_assert(sizeof(SColorAttachmentBlendParams)==5u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
 
-struct NBL_API SBlendParams
+struct SBlendParams
 {
 	SBlendParams() : logicOpEnable(false), logicOp(ELO_NO_OP), blendParams{} {}
 
@@ -505,19 +506,10 @@ enum E_VERTEX_ATTRIBUTE_ID
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
+class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
-
-		enum E_SHADER_STAGE_IX : uint32_t
-		{
-			ESSI_VERTEX_SHADER_IX = 0,
-			ESSI_TESS_CTRL_SHADER_IX = 1,
-			ESSI_TESS_EVAL_SHADER_IX = 2,
-			ESSI_GEOMETRY_SHADER_IX = 3,
-			ESSI_FRAGMENT_SHADER_IX = 4
-		};
+		_NBL_STATIC_INLINE_CONSTEXPR size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
 		IRenderpassIndependentPipeline(
 			core::smart_refctd_ptr<LayoutType>&& _layout,
@@ -536,7 +528,7 @@ class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 			for (auto shdr : shaders)
 			{
 				const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-				assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
+				assert(ix < static_cast<int32_t>(GRAPHICS_SHADER_STAGE_COUNT));
 				assert(!m_shaders[ix]);//must be maximum of 1 for each stage
 				m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
 			}
@@ -547,7 +539,7 @@ class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 		inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
 		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
+        inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
 		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
 		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
@@ -555,7 +547,7 @@ class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
 	protected:
-		core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
+		core::smart_refctd_ptr<SpecShaderType> m_shaders[GRAPHICS_SHADER_STAGE_COUNT];
 
 		SBlendParams m_blendParams;
 		SPrimitiveAssemblyParams m_primAsmParams;

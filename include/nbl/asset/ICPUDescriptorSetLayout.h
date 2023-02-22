@@ -20,7 +20,7 @@ namespace asset
     @see IAsset
 */
 
-class NBL_API ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
+class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
     using base_t = asset::IDescriptorSetLayout<ICPUSampler>;
 

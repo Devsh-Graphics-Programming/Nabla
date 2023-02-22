@@ -28,6 +28,8 @@ public:
                 m_availableFeatureSet.insert(vk_extension.extensionName);
         }
 
+        // TODO: Query Properties/Features based on availability of extensions to avoid validation issues about "unknown VkStructureType"
+
         // Get physical device's limits/properties
         
         // !! Always check the API version is >= 1.3 before using `vulkan13Properties`
@@ -519,22 +521,22 @@ public:
                 A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
             */
 
-            m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+            m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_3;
 
             switch (VK_API_VERSION_MINOR(apiVersion))
             {
             case 0:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_0; 
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_0; 
                 assert(false);
                 break;
             case 1:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_3;
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_3;
                 break;
             case 2:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5;
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5;
                 break;
             case 3:
-                m_properties.limits.spirvVersion = asset::IGLSLCompiler::ESV_1_5; //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
+                m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5; //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
                 break;
             default:
                 _NBL_DEBUG_BREAK_IF("Invalid Vulkan minor version!");
@@ -662,7 +664,7 @@ public:
             m_features.shaderStorageImageArrayDynamicIndexing = features.shaderStorageImageArrayDynamicIndexing;
             m_features.shaderClipDistance = features.shaderClipDistance;
             m_features.shaderCullDistance = features.shaderCullDistance;
-            m_features.vertexAttributeDouble = features.shaderFloat64;
+            m_features.shaderFloat64 = features.shaderFloat64;
             m_features.shaderResourceResidency = features.shaderResourceResidency;
             m_features.shaderResourceMinLod = features.shaderResourceMinLod; 
             m_features.variableMultisampleRate = features.variableMultisampleRate;
@@ -1051,12 +1053,6 @@ public:
                 m_features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
             }
 
-            /* VkPhysicalDeviceMaintenance4Features */
-            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
-            {
-                m_features.maintenance4 = maintenance4Features.maintenance4;
-            }
-
             /* VkPhysicalDeviceCoherentMemoryFeaturesAMD */
             if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
             {
@@ -1141,6 +1137,11 @@ public:
                 m_properties.limits.shaderSMBuiltins = shaderSMBuiltinsFeatures.shaderSMBuiltins;
             }
 
+            if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                m_properties.limits.workgroupSizeFromSpecConstant = maintenance4Features.maintenance4;
+            }
+
             m_properties.limits.shaderSubgroupPartitioned = isExtensionSupported(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME);
             m_properties.limits.gcnShader = isExtensionSupported(VK_AMD_GCN_SHADER_EXTENSION_NAME);
             m_properties.limits.gpuShaderHalfFloat = isExtensionSupported(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME);
@@ -1151,9 +1152,21 @@ public:
             m_properties.limits.shaderStencilExport = isExtensionSupported(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
             m_properties.limits.decorateString = isExtensionSupported(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME);
 
-            m_properties.limits.externalFence = isExtensionSupported(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
-            m_properties.limits.externalMemory = isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
-            m_properties.limits.externalSemaphore = isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) || isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
+            m_properties.limits.externalFence = isExtensionSupported(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME) 
+            #ifdef _NBL_WINDOWS_API_
+                || isExtensionSupported(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME)
+            #endif 
+            ;
+            m_properties.limits.externalMemory = isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME) 
+            #ifdef _NBL_WINDOWS_API_
+                || isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME)
+            #endif
+            ;
+            m_properties.limits.externalSemaphore = isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME) 
+            #ifdef _NBL_WINDOWS_API_
+                || isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME)
+            #endif
+            ;
 
             m_properties.limits.shaderNonSemanticInfo = isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
             m_properties.limits.fragmentShaderBarycentric = isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
@@ -1163,7 +1176,7 @@ public:
 
         // Get physical device's memory properties
         {
-            m_memoryProperties = {};
+            m_memoryProperties = SMemoryProperties();
             VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
             vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
             m_memoryProperties.memoryTypeCount = vk_physicalDeviceMemoryProperties.memoryTypeCount;
@@ -1643,6 +1656,13 @@ protected:
                 addFeatureToChain(&shaderSMBuiltinsFeatures);
             }
 
+            if (insertExtensionIfAvailable(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
+            {
+                // No Extension Requirements
+                maintenance4Features.maintenance4 = m_properties.limits.workgroupSizeFromSpecConstant;
+                addFeatureToChain(&maintenance4Features);
+            }
+
             insertExtensionIfAvailable(VK_NV_SHADER_SUBGROUP_PARTITIONED_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_AMD_GCN_SHADER_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME); // No Extension Requirements
@@ -1653,14 +1673,25 @@ protected:
             insertExtensionIfAvailable(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME); // No Extension Requirements
 
-            insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
-            insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
-            insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME); insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME); 
+#ifdef _NBL_WINDOWS_API_
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+#endif
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME); 
+#ifdef _NBL_WINDOWS_API_
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+#endif
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME); 
+#ifdef _NBL_WINDOWS_API_
+            insertExtensionIfAvailable(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
+#endif
 
             insertExtensionIfAvailable(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME); // No Extension Requirements
+
+
         }
 
         // B. FeaturesToEnable: add names to strings and structs to feature chain
@@ -1697,7 +1728,7 @@ protected:
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = enabledFeatures.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
-        vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.vertexAttributeDouble;
+        vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.shaderFloat64;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
         vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
         vk_deviceFeatures2.features.variableMultisampleRate = enabledFeatures.variableMultisampleRate;
@@ -1820,7 +1851,7 @@ protected:
             if(useVk12Struct)
             {
                 vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
-                vulkan12Features.bufferDeviceAddressCaptureReplay = false;
+                vulkan12Features.bufferDeviceAddressCaptureReplay = (m_rdoc_api != nullptr); // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
                 vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
             }
             else
@@ -2213,9 +2244,7 @@ protected:
         }
 
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(pipelineExecutableInfo, VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME, pipelineExecutablePropertiesFeatures);
-            
-        CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(maintenance4, VK_KHR_MAINTENANCE_4_EXTENSION_NAME, maintenance4Features)
-            
+        
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(deviceCoherentMemory, VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME, coherentMemoryFeatures);
             
         if (enabledFeatures.bufferMarkerAMD)
@@ -2268,7 +2297,10 @@ protected:
 
         vk_createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStrings.size());
         vk_createInfo.ppEnabledExtensionNames = extensionStrings.data();
-        
+
+        if (!params.compilerSet)
+            params.compilerSet = core::make_smart_refctd_ptr<asset::CCompilerSet>(core::smart_refctd_ptr(m_system));
+
         VkDevice vk_device = VK_NULL_HANDLE;
         if (vkCreateDevice(m_vkPhysicalDevice, &vk_createInfo, nullptr, &vk_device) == VK_SUCCESS)
         {
@@ -2291,7 +2323,7 @@ private:
     VkPhysicalDevice m_vkPhysicalDevice;
     core::unordered_set<std::string> m_availableFeatureSet;
 };
-        
+
 }
 
 #endif

@@ -8,6 +8,7 @@
 #include "nbl/core/declarations.h"
 #include "nbl/core/SRange.h"
 #include "nbl/asset/ISpecializedShader.h"
+#include "nbl/asset/IShader.h"
 
 namespace nbl
 {
@@ -36,7 +37,7 @@ namespace asset
 */
 
 template<typename SamplerType>
-class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
+class IDescriptorSetLayout : public virtual core::IReferenceCounted
 {
 public:
 	using sampler_type = SamplerType;

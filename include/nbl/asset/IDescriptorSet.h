@@ -33,13 +33,13 @@ class IAccelerationStructure;
 */
 
 template<typename LayoutType>
-class NBL_API IDescriptorSet : public virtual core::IReferenceCounted
+class IDescriptorSet : public virtual core::IReferenceCounted
 {
 		using this_type = IDescriptorSet<LayoutType>;
 
 	public:
 		using layout_t = LayoutType;
-		struct NBL_API SDescriptorInfo
+		struct SDescriptorInfo
 		{
                 struct SBufferInfo
                 {

@@ -16,7 +16,7 @@ namespace nbl::system
 {
 #ifdef _NBL_PLATFORM_ANDROID_
 
-class NBL_API CApplicationAndroid : public IApplicationFramework
+class CApplicationAndroid : public IApplicationFramework
 {
     public:
         void onStateSaved(android_app* params)

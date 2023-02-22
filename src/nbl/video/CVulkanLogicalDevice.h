@@ -71,8 +71,8 @@ public:
         
         std::ostringstream pool;
         bool runningInRenderdoc = (rdoc != nullptr);
-        addCommonGLSLDefines(pool,runningInRenderdoc);
-        finalizeGLSLDefinePool(std::move(pool));
+        addCommonShaderDefines(pool,runningInRenderdoc);
+        finalizeShaderDefinePool(std::move(pool));
 
         m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
     }
@@ -693,46 +693,85 @@ public:
             return nullptr;
         }
     }
-        
+
+    uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) override
+    {
+        constexpr uint64_t invalid_address = ~0ull;
+        CVulkanBuffer* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(buffer, this);
+        if (!vulkanBuffer)
+        {
+            // TODO: log error
+            assert(false);
+            return invalid_address;
+        }
+
+        if (!buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        {
+            // TODO: log error: Buffer should've been created with EUF_SHADER_DEVICE_ADDRESS_BIT
+            assert(false);
+            return invalid_address;
+        }
+
+        if (!m_enabledFeatures.bufferDeviceAddress)
+        {
+            // TODO: log error: bufferDeviceAddress extension is not enbaled
+            assert(false);
+            return invalid_address;
+        }
+
+        VkBufferDeviceAddressInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        info.buffer = vulkanBuffer->getInternalObject();
+        return m_devf.vk.vkGetBufferDeviceAddress(m_vkdev, &info);
+    }
+
     core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
         const char* entryPoint = "main";
         const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
 
-        const asset::ICPUBuffer* source = cpushader->getSPVorGLSL();
+        const asset::ICPUBuffer* source = cpushader->getContent();
 
-        core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
-        if (cpushader->containsGLSL())
+        core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
+
+        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
         {
-            const char* begin = static_cast<const char*>(source->getPointer());
-            const char* end = begin + source->getSize();
-
-            std::string glsl(begin, end);
-            asset::IShader::insertDefines(glsl, getExtraGLSLDefines());
-
-            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-
-            core::smart_refctd_ptr<asset::ICPUShader> glslShader_woIncludes =
-                m_physicalDevice->getGLSLCompiler()->resolveIncludeDirectives(glsl.c_str(),
-                    shaderStage, cpushader->getFilepathHint().c_str(), 4u, logger);
-
-            spirv = m_physicalDevice->getGLSLCompiler()->compileSPIRVFromGLSL(
-                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
-                shaderStage,
-                entryPoint,
-                cpushader->getFilepathHint().c_str(),
-                true,
-                nullptr,
-                logger,
-                m_physicalDevice->getLimits().spirvVersion);
+            spirvShader = cpushader;
         }
         else
         {
-            spirv = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
+            auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
+
+            asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
+
+            commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+            commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+            commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
+            commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
+
+            commonCompileOptions.stage = shaderStage;
+            commonCompileOptions.genDebugInfo = true;
+            commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
+            commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+
+            if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+            {
+                // TODO: add specific HLSLCompiler::SOption params
+                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+            }
+            else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+            {
+                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+            }
+            else
+                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+
         }
 
-        if (!spirv)
+        if (!spirvShader || !spirvShader->getContent())
             return nullptr;
+
+        auto spirv = spirvShader->getContent();
 
         VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
         vk_createInfo.pNext = nullptr;
@@ -744,7 +783,7 @@ public:
         if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<video::CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(spirv), cpushader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
+                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), spirvShader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
         }
         else
         {
@@ -949,21 +988,12 @@ protected:
 
     core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(
         const IGPUShader* _unspecialized,
-        const asset::ISpecializedShader::SInfo& specInfo,
-        const asset::ISPIRVOptimizer* spvopt) override
+        const asset::ISpecializedShader::SInfo& specInfo) override
     {
         if (_unspecialized->getAPIType() != EAT_VULKAN)
             return nullptr;
 
         const CVulkanShader* vulkanShader = IBackendObject::device_compatibility_cast<const CVulkanShader*>(_unspecialized, this);
-
-        auto spirv = core::smart_refctd_ptr<const asset::ICPUBuffer>(static_cast<const CVulkanShader*>(_unspecialized)->getSPV());
-
-        if (spvopt)
-            spirv = spvopt->optimize(spirv.get(), m_physicalDevice->getDebugCallback()->getLogger());
-
-        if (!spirv)
-            return nullptr;
 
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
@@ -1341,7 +1371,7 @@ protected:
                 continue;
 
             uint32_t shaderCount = 0u;
-            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
             {
                 auto shader = creationParams[i].shaders[ss];
                 if (shader)

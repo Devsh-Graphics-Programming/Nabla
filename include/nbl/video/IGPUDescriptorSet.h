@@ -24,7 +24,7 @@ namespace nbl::video
 	@see IDescriptorSet
 */
 
-class NBL_API IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLayout>, public IBackendObject
+class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLayout>, public IBackendObject
 {
 		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
 

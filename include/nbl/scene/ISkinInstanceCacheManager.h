@@ -16,7 +16,7 @@ namespace nbl::scene
 {
 
 
-class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
+class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 {
 	public:
 		// creation
@@ -32,7 +32,7 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, ""));
+				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, ""));
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 

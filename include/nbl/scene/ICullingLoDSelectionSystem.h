@@ -13,7 +13,7 @@
 namespace nbl::scene
 {
 
-class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
+class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
 		static void enableRequiredFeautres(video::SPhysicalDeviceFeatures& featuresToEnable)
@@ -487,16 +487,16 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				return nullptr;
 			
 			using shader_source_and_path = std::pair<core::smart_refctd_ptr<asset::ICPUShader>,system::path>;
-			auto getShader = [device](auto uniqueString) -> shader_source_and_path
+			auto getShader = [device]<core::StringLiteral Path>() -> shader_source_and_path
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>(); 
+				auto glslFile = system->loadBuiltinData<Path>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, decltype(uniqueString)::value), decltype(uniqueString)::value};
+				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, Path.value), Path.value};
 			};
 			auto overrideShader = [device,&cwdForShaderCompilation,workgroupSize,_scanner](shader_source_and_path&& baseShader, std::string additionalCode)
 			{
@@ -508,14 +508,14 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				baseShader.first->setFilePathHint(path.string());
 				baseShader.first->setShaderStage(asset::IShader::ESS_COMPUTE);
 				auto shader =  device->createShader(
-					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
+					asset::CGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			const std::string workgroupSizeDef = "\n#define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_\n";
 			
-			auto firstShader = getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")());
+			auto firstShader = getShader.operator()<core::StringLiteral("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")>();
 			auto instanceCullAndLoDSelect = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceCullAndLoDSelectLayout),
 				overrideShader(std::move(firstShader),workgroupSizeDef+perViewPerInstanceDefinition+cullAndLoDSelectFuncDefinitions)
@@ -533,7 +533,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			
 			auto instanceDrawCull = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceDrawCullLayout),
-				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")()),workgroupSizeDef+perViewPerInstanceDefinition)
+				overrideShader(getShader.operator()<core::StringLiteral("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")>(),workgroupSizeDef+perViewPerInstanceDefinition)
 			);
 
 			auto drawInstanceCountPrefixSum = device->createComputePipeline(
@@ -548,7 +548,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			);
 			auto instanceRefCountingSortScatter = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
-				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp")()),workgroupSizeDef)
+				overrideShader(getShader.operator()<core::StringLiteral("nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp")>(),workgroupSizeDef)
 			);
 
 			//auto drawCompact = ?;

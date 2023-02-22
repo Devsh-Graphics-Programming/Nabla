@@ -13,7 +13,7 @@ namespace nbl::video
 {
 class IGPUCommandBuffer;
 
-class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
+class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
     static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
 

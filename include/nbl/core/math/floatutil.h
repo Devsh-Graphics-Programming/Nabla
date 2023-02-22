@@ -49,21 +49,21 @@ NBL_FORCE_INLINE matrix4SIMD ROUNDING_ERROR<matrix4SIMD>();
 #endif
 //! Constant for PI.
 template<typename T>
-NBL_FORCE_INLINE T PI()
+NBL_FORCE_INLINE constexpr T PI()
 {
 	return T(3.14159265358979323846);
 }
 
 //! Constant for reciprocal of PI.
 template<typename T>
-NBL_FORCE_INLINE T RECIPROCAL_PI()
+NBL_FORCE_INLINE constexpr T RECIPROCAL_PI()
 {
 	return T(1.0) / PI<T>();
 }
 
 //! Constant for half of PI.
 template<typename T>
-NBL_FORCE_INLINE T HALF_PI()
+NBL_FORCE_INLINE constexpr T HALF_PI()
 {
 	return PI<T>() * T(0.5);
 }
@@ -357,7 +357,7 @@ inline uint32_t to10bitFloat(float _f32)
 
 //! Utility class used for IEEE754 float32 <-> float16 conversions
 /** By Phernost; taken from https://stackoverflow.com/a/3542975/5538150 */
-class NBL_API Float16Compressor
+class Float16Compressor
 {
 		union Bits
 		{
@@ -432,7 +432,7 @@ class NBL_API Float16Compressor
 		}
 };
 
-struct NBL_API rgb32f {
+struct rgb32f {
 	float x, y, z;
 };
 

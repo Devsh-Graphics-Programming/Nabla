@@ -16,7 +16,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-struct NBL_API SPropertyElementData
+struct SPropertyElementData
 {
 	enum Type
 	{
@@ -196,7 +196,7 @@ struct NBL_API SPropertyElementData
 	};
 };
 
-struct NBL_API SNamedPropertyElement : SPropertyElementData
+struct SNamedPropertyElement : SPropertyElementData
 {
 	SNamedPropertyElement() : SPropertyElementData(), name("")
 	{
@@ -305,7 +305,7 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 { using type = void; };
 
 
-class NBL_API CPropertyElementManager
+class CPropertyElementManager
 {
 	public:
 		static std::pair<bool, SNamedPropertyElement> createPropertyData(const char* _el, const char** _atts);

@@ -3,6 +3,7 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/CCompilerSet.h"
 
 #include "nbl/video/IGPUFence.h"
 /*
@@ -36,7 +37,7 @@ namespace nbl::video
 class IDescriptorPool;
 class IPhysicalDevice;
 
-class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
+class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
         struct SQueueCreationParams
@@ -51,6 +52,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             uint32_t queueParamsCount;
             const SQueueCreationParams* queueParams;
             SPhysicalDeviceFeatures featuresToEnable;
+            core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
         };
 
         struct SDescriptorSetCreationParams
@@ -180,6 +182,8 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) { return nullptr; }
 
+        virtual uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) { return ~0ull; }
+
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
         so pooling or aliasing memory for different resources is not possible.
@@ -191,11 +195,11 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
-        core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
+        core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
         {
             if (!_unspecialized->wasCreatedBy(this))
                 return nullptr;
-            auto retval =  createSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            auto retval =  createSpecializedShader_impl(_unspecialized, _specInfo);
             const auto path = _unspecialized->getFilepathHint();
             if (retval && !path.empty())
                 retval->setObjectDebugName(path.c_str());
@@ -468,15 +472,15 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual const void* getNativeHandle() const = 0;
         
         // these are the defines which shall be added to any IGPUShader which has its source as GLSL
-        inline core::SRange<const char* const> getExtraGLSLDefines() const
+        inline core::SRange<const char* const> getExtraShaderDefines() const
         {
-            const char* const* begin = m_extraGLSLDefines.data();
-            return {begin,begin+m_extraGLSLDefines.size()};
+            const char* const* begin = m_extraShaderDefines.data();
+            return {begin,begin+m_extraShaderDefines.size()};
         }
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
-            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable)
+            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
         {
             uint32_t qcnt = 0u;
             uint32_t greatestFamNum = 0u;
@@ -514,7 +518,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
         virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
+        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
@@ -552,27 +556,27 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
         virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
         
-        void addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderDoc);
+        void addCommonShaderDefines(std::ostringstream& pool, const bool runningInRenderDoc);
 
         template<typename... Args>
-        inline void addGLSLDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
+        inline void addShaderDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
         {
             const ptrdiff_t pos = pool.tellp();
-            m_extraGLSLDefines.push_back(reinterpret_cast<const char*>(pos));
+            m_extraShaderDefines.push_back(reinterpret_cast<const char*>(pos));
             pool << define << " ";
             ((pool << std::forward<Args>(args)), ...);
         }
-        inline void finalizeGLSLDefinePool(std::ostringstream&& pool)
+        inline void finalizeShaderDefinePool(std::ostringstream&& pool)
         {
-            m_GLSLDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraGLSLDefines.size());
-            const auto data = ptrdiff_t(m_GLSLDefineStringPool.data());
+            m_ShaderDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraShaderDefines.size());
+            const auto data = ptrdiff_t(m_ShaderDefineStringPool.data());
 
             const auto str = pool.str();
             size_t nullCharsWritten = 0u;
-            for (auto i=0u; i<m_extraGLSLDefines.size(); i++)
+            for (auto i=0u; i<m_extraShaderDefines.size(); i++)
             {
-                auto& dst = m_extraGLSLDefines[i];
-                const auto len = (i!=(m_extraGLSLDefines.size()-1u) ? ptrdiff_t(m_extraGLSLDefines[i+1]):str.length())-ptrdiff_t(dst);
+                auto& dst = m_extraShaderDefines[i];
+                const auto len = (i!=(m_extraShaderDefines.size()-1u) ? ptrdiff_t(m_extraShaderDefines[i+1]):str.length())-ptrdiff_t(dst);
                 const char* src = str.data()+ptrdiff_t(dst);
                 dst += data+(nullCharsWritten++);
                 memcpy(const_cast<char*>(dst),src,len);
@@ -580,9 +584,10 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             }
         }
 
-        core::vector<char> m_GLSLDefineStringPool;
-        core::vector<const char*> m_extraGLSLDefines;
+        core::vector<char> m_ShaderDefineStringPool;
+        core::vector<const char*> m_extraShaderDefines;
 
+        core::smart_refctd_ptr<asset::CCompilerSet> m_compilerSet;
         core::smart_refctd_ptr<IAPIConnection> m_api;
         SPhysicalDeviceFeatures m_enabledFeatures;
         IPhysicalDevice* m_physicalDevice;

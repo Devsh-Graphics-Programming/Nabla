@@ -19,10 +19,10 @@ template <bool... Vals>
 using bool_sequence = std::integer_sequence<bool, Vals...>;
 
 template <typename T, typename... Us>
-_INLINE_VAR constexpr bool is_any_of_v = (... || std::is_same<T, Us>::value);
+inline constexpr bool is_any_of_v = (... || std::is_same<T, Us>::value);
 
 template<typename T, typename... Us>
-struct NBL_API is_any_of : std::integral_constant<bool, is_any_of_v<T, Us...>> {};
+struct is_any_of : std::integral_constant<bool, is_any_of_v<T, Us...>> {};
 
 static_assert(is_any_of<bool, bool>::value == true, "is_any_of test");
 static_assert(is_any_of<bool, int>::value == false, "is_any_of test");
@@ -32,20 +32,20 @@ static_assert(is_any_of<bool, int, double, bool>::value == true, "is_any_of test
 static_assert(is_any_of<bool, int, double, float>::value == false, "is_any_of test");
 
 template<auto cf, decltype(cf) cmp, decltype(cf)... searchtab>
-struct NBL_API is_any_of_values : is_any_of_values<cf,searchtab...> {};
+struct is_any_of_values : is_any_of_values<cf,searchtab...> {};
 
 template<auto cf, decltype(cf) cmp>
-struct NBL_API is_any_of_values<cf, cmp> : std::false_type {}; //if last comparison is also false, than return false
+struct is_any_of_values<cf, cmp> : std::false_type {}; //if last comparison is also false, than return false
 
 template<auto cf, decltype(cf)... searchtab>
-struct NBL_API is_any_of_values<cf, cf, searchtab...> : std::true_type {};
+struct is_any_of_values<cf, cf, searchtab...> : std::true_type {};
 
 
 template<typename T, bool is_const_pointer = std::is_const_v<T>>
-struct NBL_API pointer_to_const;
+struct pointer_to_const;
 
 template<typename T>
-struct NBL_API pointer_to_const<T, false>
+struct pointer_to_const<T, false>
 {
 	static_assert(std::is_pointer_v<T>);
 
@@ -57,7 +57,7 @@ struct NBL_API pointer_to_const<T, false>
 };
 
 template<typename T>
-struct NBL_API pointer_to_const<T, true>
+struct pointer_to_const<T, true>
 {
 	using type = std::add_const_t<typename pointer_to_const<T, false>::type>;
 };
@@ -67,29 +67,29 @@ using pointer_to_const_t = typename pointer_to_const<T>::type;
 
 
 template<typename T, bool is_pointer = std::is_pointer_v<T>>
-struct NBL_API pointer_level_count;
+struct pointer_level_count;
 
 template<typename T>
-struct NBL_API pointer_level_count<T, false> : std::integral_constant<int, 0> {};
+struct pointer_level_count<T, false> : std::integral_constant<int, 0> {};
 
 template<typename T>
-struct NBL_API pointer_level_count<T, true> : std::integral_constant<int, pointer_level_count<std::remove_pointer_t<T>>::value + 1> {};
+struct pointer_level_count<T, true> : std::integral_constant<int, pointer_level_count<std::remove_pointer_t<T>>::value + 1> {};
 
 template<typename T>
 inline constexpr int pointer_level_count_v = pointer_level_count<T>::value;
 
 
 template<typename T, int levels, bool = (levels == 0) || !std::is_pointer_v<T>>
-struct NBL_API remove_pointer_levels;
+struct remove_pointer_levels;
 
 template<typename T, int levels>
-struct NBL_API remove_pointer_levels<T, levels, true>
+struct remove_pointer_levels<T, levels, true>
 {
 	using type = T;
 };
 
 template<typename T, int levels>
-struct NBL_API remove_pointer_levels<T, levels, false>
+struct remove_pointer_levels<T, levels, false>
 {
 	static_assert(levels <= pointer_level_count_v<T>);
 
@@ -108,7 +108,7 @@ using remove_all_pointer_levels_t = typename remove_all_pointer_levels<T>::type;
 
 
 template<typename T>
-struct NBL_API is_pointer_to_const_object :
+struct is_pointer_to_const_object :
 	std::bool_constant<
 		std::is_const_v<
 			remove_all_pointer_levels_t<
@@ -126,21 +126,21 @@ namespace impl
 {
 
 	template <typename... Ts>
-	struct NBL_API type_sequence {};
+	struct type_sequence {};
 
 	template<typename T, bool is_ptr = std::is_pointer_v<T>, typename... Ts>
-	struct NBL_API pointer_level_constness_help;
+	struct pointer_level_constness_help;
 	template<typename T, typename... Ts>
-	struct NBL_API pointer_level_constness_help<T, false, Ts...>
+	struct pointer_level_constness_help<T, false, Ts...>
 	{
 		using levels_t = type_sequence<Ts...>;
 	};
 	template<typename T, typename... Ts>
-	struct NBL_API pointer_level_constness_help<T, true, Ts...> : pointer_level_constness_help<std::remove_pointer_t<T>, std::is_pointer_v<std::remove_pointer_t<T>>, Ts..., T> {};
+	struct pointer_level_constness_help<T, true, Ts...> : pointer_level_constness_help<std::remove_pointer_t<T>, std::is_pointer_v<std::remove_pointer_t<T>>, Ts..., T> {};
 
 
 	template<typename T>
-	class NBL_API pointer_level_constness_seq
+	class pointer_level_constness_seq
 	{
 		template<typename... Levels>
 		static constexpr auto get_constness(type_sequence<Levels...>) -> bool_sequence<std::is_const_v<Levels>...>;
@@ -150,7 +150,7 @@ namespace impl
 	};
 
 	template<typename T, T... Seq>
-	struct NBL_API integer_array
+	struct integer_array
 	{
 		using type = std::array<T, sizeof...(Seq)>;
 
@@ -160,7 +160,7 @@ namespace impl
 } // namespace impl
 
 template<typename T>
-class NBL_API pointer_levels_constness
+class pointer_levels_constness
 {
 	template<bool... Vals>
 	constexpr static auto func(bool_sequence<Vals...>) { return impl::integer_array<bool, Vals...>::get_array(); }
@@ -175,7 +175,7 @@ inline constexpr auto pointer_levels_constness_v = pointer_levels_constness<T>::
 namespace impl
 {
 	template<typename T, int levels, bool is_const_level, bool... is_const_rest>
-	struct NBL_API add_pointers
+	struct add_pointers
 	{
 	private:
 		using tmp_type_ = typename add_pointers<
@@ -189,7 +189,7 @@ namespace impl
 	};
 
 	template<typename T, bool is_const_level>
-	struct NBL_API add_pointers<T, 1, is_const_level>
+	struct add_pointers<T, 1, is_const_level>
 	{
 		using type = std::conditional_t<is_const_level, T* const, T*>;
 	};
@@ -202,7 +202,7 @@ namespace impl
 } // namespace impl
 
 template<typename T, int levels, bool... constness>
-struct NBL_API add_pointers
+struct add_pointers
 {
 	using type = impl::add_pointers_t<T, levels, constness...>;
 };
@@ -213,7 +213,7 @@ using add_pointers_t = typename add_pointers<T, levels, constness...>::type;
 namespace impl
 {
 	template<typename T, int levels, typename U>
-	struct NBL_API add_pointers_restore_constness
+	struct add_pointers_restore_constness
 	{
 		using type = decltype(impl::add_pointers_with_constness_f<T, levels>(typename impl::pointer_level_constness_seq<U>::constness_seq{}));
 	};
@@ -224,7 +224,7 @@ namespace impl
 //! type is `const T` in case when T is not a pointer type
 //!		or `const T**const*` in case of `T**const*`, etc. (preserves pointer depth and constness of each level)
 template<typename T>
-struct NBL_API pointer_to_const_object
+struct pointer_to_const_object
 {
 private:
 	using object_t = remove_all_pointer_levels_t<T>;
@@ -240,7 +240,7 @@ using pointer_to_const_object_t = typename pointer_to_const_object<T>::type;
 
 //! Analogous to pointer_to_const_object
 template<typename T>
-struct NBL_API pointer_to_nonconst_object
+struct pointer_to_nonconst_object
 {
 private:
 	using object_t = remove_all_pointer_levels_t<T>;

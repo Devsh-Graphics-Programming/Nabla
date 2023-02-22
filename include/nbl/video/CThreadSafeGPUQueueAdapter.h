@@ -10,7 +10,7 @@ namespace nbl::video
     A thread-safe implementation of IGPUQueue.
     Note, that using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
 */
-class NBL_API CThreadSafeGPUQueueAdapter : public IGPUQueue
+class CThreadSafeGPUQueueAdapter : public IGPUQueue
 {
     friend class CVulkanSwapchain;
     protected:

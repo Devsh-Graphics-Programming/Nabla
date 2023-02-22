@@ -17,7 +17,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
+class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 {
 	public:
 		ICPUBufferView(core::smart_refctd_ptr<ICPUBuffer> _buffer, E_FORMAT _format, size_t _offset = 0ull, size_t _size = ICPUBufferView::whole_buffer) :

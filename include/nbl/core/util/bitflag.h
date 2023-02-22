@@ -5,11 +5,13 @@
 #ifndef _NBL_CORE_C_BITFLAG_H_INCLUDED_
 #define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
+#include "BuildConfigOptions.h"
+
 namespace nbl::core
 {
 
 template <typename ENUM_TYPE>
-struct NBL_API bitflag final
+struct bitflag final
 {
 	using UNDERLYING_TYPE = std::underlying_type_t<ENUM_TYPE>;
 

@@ -17,7 +17,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 
-#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CCompilerSet.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
 
 
@@ -45,7 +45,7 @@ std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* con
 	@see IAsset
 
 */
-class NBL_API IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
+class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
 {
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
@@ -119,14 +119,15 @@ class NBL_API IAssetManager : public core::IReferenceCounted, public core::QuitS
 
         core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
         core::smart_refctd_ptr<IMeshManipulator> m_meshManipulator;
-        core::smart_refctd_ptr<IGLSLCompiler> m_glslCompiler;
+        core::smart_refctd_ptr<CCompilerSet> m_compilerSet;
         // called as a part of constructor only
         void initializeMeshTools();
 
     public:
         //! Constructor
-        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s) :
-            m_system(std::move(_s)),
+        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& system, core::smart_refctd_ptr<CCompilerSet>&& compilerSet = nullptr) :
+            m_system(std::move(system)),
+            m_compilerSet(std::move(compilerSet)),
             m_defaultLoaderOverride(this)
         {
             initializeMeshTools();
@@ -144,7 +145,7 @@ class NBL_API IAssetManager : public core::IReferenceCounted, public core::QuitS
 
         const IGeometryCreator* getGeometryCreator() const;
         IMeshManipulator* getMeshManipulator();
-        IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
+        CCompilerSet* getCompilerSet() const { return m_compilerSet.get(); }
 
     protected:
 		virtual ~IAssetManager()

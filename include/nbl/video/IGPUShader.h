@@ -5,13 +5,12 @@
 #ifndef __NBL_VIDEO_I_GPU_SHADER_H_INCLUDED__
 #define __NBL_VIDEO_I_GPU_SHADER_H_INCLUDED__
 
-
 #include "nbl/core/IReferenceCounted.h"
 
-#include "nbl/asset/ISPIR_VProgram.h"
+#include "nbl/asset/IShader.h"
 
 #include "nbl/video/decl/IBackendObject.h"
-
+#include "nbl/video/decl/IBackendObject.h"
 
 namespace nbl::video
 {
@@ -21,7 +20,7 @@ namespace nbl::video
 	@see IReferenceCounted
 */
 
-class NBL_API IGPUShader : public asset::IShader, public IBackendObject
+class IGPUShader : public asset::IShader, public IBackendObject
 {
     protected:
         explicit IGPUShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev,

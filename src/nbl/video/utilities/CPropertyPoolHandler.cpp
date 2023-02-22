@@ -15,13 +15,13 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 	{
-		auto glslFile = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
+		auto glslFile = system->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/property_pool/copy.comp")>();
 		glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 		memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 	}
 
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "????");
-	auto gpushader = m_device->createShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "????");
+	auto gpushader = m_device->createShader(asset::CGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
 	auto specshader = m_device->createSpecializedShader(gpushader.get(), { nullptr,nullptr,"main"});
 
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+2u;

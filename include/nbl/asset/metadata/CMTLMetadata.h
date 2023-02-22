@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API CMTLMetadata final : public IAssetMetadata
+class CMTLMetadata final : public IAssetMetadata
 {
     public:
         class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata

@@ -19,11 +19,7 @@
 #cmakedefine _NBL_PLATFORM_OSX_
 #cmakedefine _NBL_PLATFORM_ANDROID_
 
-// TODO: X11 vs Wayland shouldn't even be an option (dlopen at runtime!)
-#cmakedefine _NBL_BUILD_WITH_WAYLAND
-
 // graphics API backend
-#cmakedefine _NBL_COMPILE_WITH_OPENGL_
 #cmakedefine _NBL_COMPILE_WITH_VULKAN_
 
 // loaders
@@ -70,6 +66,17 @@
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
+#define _NBL_EG_PRFNT_LEVEL @_NBL_EG_PRFNT_LEVEL@
+#if _NBL_EG_PRFNT_LEVEL == 1
+#define _NBL_EG_OP_LNK(_x) ShellExecuteA(NULL, "open", "https://www.youtube.com/watch?v=4HXeL_yimMs", NULL, NULL, SW_SHOWNORMAL)
+#elif _NBL_EG_PRFNT_LEVEL == 2
+#define _NBL_EG_OP_LNK(_x) ShellExecuteA(NULL, "open", "https://www.youtube.com/watch?v=4HXeL_yimMs", NULL, NULL, SW_SHOWNORMAL)
+#elif _NBL_EG_PRFNT_LEVEL >= 3
+#define _NBL_EG_OP_LNK(_x) ShellExecuteA(NULL, "open", "https://www.youtube.com/watch?v=4HXeL_yimMs", NULL, NULL, SW_SHOWNORMAL)
+#endif
+#endif
+
 // DDL exports
 #cmakedefine _NBL_SHARED_BUILD_
 #ifdef _NBL_SHARED_BUILD_
@@ -89,7 +96,6 @@
 #else
     #define NBL_API2
 #endif
-#define NBL_API
 
 // any other target definitions for using Nabla as framework in another project
 #ifndef __NBL_BUILDING_NABLA__

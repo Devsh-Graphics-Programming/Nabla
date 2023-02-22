@@ -13,7 +13,7 @@ namespace nbl { namespace core
 
 namespace impl
 {
-    struct NBL_API NBL_FORCE_EBO CConcurrentObjectCacheBase
+    struct NBL_FORCE_EBO CConcurrentObjectCacheBase
     {
         CConcurrentObjectCacheBase() = default;
         // explicitely making concurrent caches non-copy-and-move-constructible and non-copy-and-move-assignable
@@ -30,7 +30,7 @@ namespace impl
     };
 
     template<typename CacheT>
-    class NBL_API CMakeCacheConcurrent : private impl::CConcurrentObjectCacheBase, private CacheT
+    class CMakeCacheConcurrent : private impl::CConcurrentObjectCacheBase, private CacheT
     {
         using BaseCache = CacheT;
         using K = typename BaseCache::KeyType_impl;

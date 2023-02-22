@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API IMeshPackerV2Base
+class IMeshPackerV2Base
 {
 public:
     class SupportedFormatsContainer
@@ -276,7 +276,7 @@ protected:
 };
 
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
-class NBL_API IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public IMeshPackerV2Base
+class IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public IMeshPackerV2Base
 {
     static_assert(std::is_base_of<IBuffer,BufferType>::value);
 
