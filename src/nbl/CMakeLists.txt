@@ -417,7 +417,7 @@ target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashm
 # TCPP
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/tcpp)
 # oneDPL for clang C++17 parallelism
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(_NBL_BUILD_DPL_)
 	add_dependencies(Nabla oneDPL)
 	target_include_directories(Nabla PUBLIC ${ONETBB_INSTALL_DIR}/include)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
@@ -687,7 +687,7 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(zlibstatic)
 	nbl_install_lib(simdjson)
 	nbl_install_lib(volk)
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if(_NBL_BUILD_DPL_)
 		nbl_install_program(tbb)
 		nbl_install_program(tbbmalloc)
 		nbl_install_program(tbbmalloc_proxy)

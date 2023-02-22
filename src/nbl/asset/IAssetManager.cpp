@@ -8,6 +8,9 @@
 #include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
 
+#include <array>
+#include <nbl/core/string/StringLiteral.h>	
+
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #endif
