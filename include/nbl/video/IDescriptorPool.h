@@ -19,7 +19,7 @@ class IGPUBufferView;
 class IGPUDescriptorSet;
 class IGPUDescriptorSetLayout;
 
-class NBL_API IDescriptorPool : public core::IReferenceCounted, public IBackendObject
+class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

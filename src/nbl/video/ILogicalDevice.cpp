@@ -69,7 +69,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
     return true;
 }
 
-void ILogicalDevice::addCommonGLSLDefines(std::ostringstream& pool, const bool runningInRenderdoc)
+void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool runningInRenderdoc)
 {
     const auto& limits = m_physicalDevice->getProperties().limits;
     const auto& features = getEnabledFeatures();

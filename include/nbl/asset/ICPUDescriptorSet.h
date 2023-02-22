@@ -25,7 +25,7 @@ namespace nbl::asset
 	@see IDescriptorSet
 */
 
-class NBL_API ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, public IAsset
+class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, public IAsset
 {
 	using base_t = IDescriptorSet<ICPUDescriptorSetLayout>;
 
