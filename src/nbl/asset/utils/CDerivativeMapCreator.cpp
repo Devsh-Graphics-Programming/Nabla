@@ -132,7 +132,6 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	<
 		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
 		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
-		// TODO(achal): This might not be correct.
 		CBlitUtilities<ReconstructionKernel, XDerivKernel, ReconstructionKernel, YDerivKernel, ReconstructionKernel, CBoxImageFilterKernel>
 	>;
 
@@ -141,8 +140,6 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), extent.width), CBoxImageFilterKernel()));
 	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
-
-	// TODO(achal): This might not be correct.
 	typename DerivativeMapFilter::state_type state(ReconstructionKernel(), std::move(xderiv), ReconstructionKernel(), std::move(yderiv), ReconstructionKernel(), CBoxImageFilterKernel());
 
 	const auto& inParams = _inImg->getCreationParameters();
@@ -181,6 +178,9 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.borderColor = _borderColor;
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
+
+	if (!DerivativeMapFilter::blit_utils_t:: template computeScaledKernelPhasedLUT<float>(state.scratchMemory + DerivativeMapFilter::getScratchOffset(&state, DerivativeMapFilter::ESU_SCALED_KERNEL_PHASED_LUT), state.inExtentLayerCount, state.outExtentLayerCount, state.inImage->getCreationParameters().type, state.reconstructionX, state.resamplingX, state.reconstructionY, state.resamplingY, state.reconstructionZ, state.resamplingZ))
+		return nullptr;
 
 	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);
 	if (result)

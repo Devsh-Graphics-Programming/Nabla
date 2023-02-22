@@ -23,7 +23,7 @@ public:
 		{
 			if constexpr (derivative == 0)
 			{
-				std::numeric_limits<float>::infinity();
+				return std::numeric_limits<float>::infinity();
 			}
 			else
 			{
