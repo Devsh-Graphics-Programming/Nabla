@@ -4,7 +4,6 @@
 #include "nbl/system/CApplicationAndroid.h"
 #include "nbl/system/CSystemAndroid.h"
 
-#include "nbl/ui/IGraphicalApplicationFramework.h"
 #include "nbl/ui/IWindow.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
 
@@ -14,7 +13,7 @@
 namespace nbl::ui
 {
 
-class CGraphicalApplicationAndroid : public system::CApplicationAndroid, public ui::IGraphicalApplicationFramework
+class CGraphicalApplicationAndroid : public system::CApplicationAndroid
 {
 	public:
 		struct SGraphicalContext : SContext
