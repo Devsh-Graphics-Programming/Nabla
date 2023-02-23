@@ -27,6 +27,7 @@ bool IDescriptorPool::reset()
         if (!m_descriptorAllocators[t])
             continue;
 
+        // TODO(achal): I should call the dtors on descriptors only after calling vkResetDescriptorPool (in reset_impl)
         const uint32_t allocatedCount = m_descriptorAllocators[t]->getAllocatedDescriptorCount(allowsFreeing);
         std::destroy_n(getDescriptorStorage(static_cast<asset::IDescriptor::E_TYPE>(t)), allocatedCount);
 

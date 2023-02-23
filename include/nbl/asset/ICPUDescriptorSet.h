@@ -70,6 +70,14 @@ public:
 
 	inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
 	{
+		// TODO: @Hazardu
+		// Cannot do the mutability check here because it requires the function to be non-const, but the function cannot be non-const because it's called
+		// from const functions in the asset converter.
+		// Relevant comments/conversations:
+		// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1054258384
+		// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1056289599
+		// 
+		// assert(!isImmutable_debug());
 		if (!m_descriptorInfos[static_cast<uint32_t>(type)])
 			return { nullptr, nullptr };
 		else
