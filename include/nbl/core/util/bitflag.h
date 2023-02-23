@@ -5,11 +5,13 @@
 #ifndef _NBL_CORE_C_BITFLAG_H_INCLUDED_
 #define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
+#include "BuildConfigOptions.h"
+
 namespace nbl::core
 {
 
 template <typename ENUM_TYPE>
-struct NBL_API bitflag final
+struct bitflag final
 {
 	static_assert(std::is_enum<ENUM_TYPE>::value);
 

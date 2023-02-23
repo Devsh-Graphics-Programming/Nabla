@@ -17,7 +17,7 @@ namespace asset
 // TODO: do every member var in 4 copies, support, window sizes, etc. ?
 
 // runtime polymorphic interface for a kernel
-class NBL_API IImageFilterKernel
+class IImageFilterKernel
 {
 	public:
 		// All kernels are by default, defined on max 4 channels
@@ -138,7 +138,7 @@ class NBL_API IImageFilterKernel
 
 // statically polymorphic version of the interface for a kernel
 template<class CRTP, typename value_type>
-class NBL_API CImageFilterKernel : public IImageFilterKernel
+class CImageFilterKernel : public IImageFilterKernel
 {
 	public:
 		using IImageFilterKernel::IImageFilterKernel;

@@ -37,7 +37,7 @@ namespace nbl::video
 class IDescriptorPool;
 class IPhysicalDevice;
 
-class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
+class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
         struct SQueueCreationParams
@@ -181,6 +181,8 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) { return nullptr; }
+
+        virtual uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) { return ~0ull; }
 
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,

@@ -116,16 +116,16 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_WIDTH",limits.maxFramebufferWidth);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_HEIGHT",limits.maxFramebufferHeight);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_FRAMEBUFFER_LAYERS",limits.maxFramebufferLayers);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_COLOR_SAMPLE_COUNTS",limits.framebufferColorSampleCounts.value);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_DEPTH_SAMPLE_COUNTS",limits.framebufferDepthSampleCounts.value);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_STENCIL_SAMPLE_COUNTS",limits.framebufferStencilSampleCounts.value);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_NO_ATTACHMENTS_SAMPLE_COUNTS",limits.framebufferNoAttachmentsSampleCounts.value);
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_COLOR_SAMPLE_COUNTS",static_cast<uint32_t>(limits.framebufferColorSampleCounts.value));
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_DEPTH_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferDepthSampleCounts.value));
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_STENCIL_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferStencilSampleCounts.value));
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAMEBUFFER_NO_ATTACHMENTS_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferNoAttachmentsSampleCounts.value));
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COLOR_ATTACHMENTS",limits.maxColorAttachments);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_COLOR_SAMPLE_COUNTS",limits.sampledImageColorSampleCounts.value);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS",limits.sampledImageIntegerSampleCounts.value);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_DEPTH_SAMPLE_COUNTS",limits.sampledImageDepthSampleCounts.value);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS",limits.sampledImageStencilSampleCounts.value);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_STORAGE_IMAGE_SAMPLE_COUNTS",limits.storageImageSampleCounts.value);
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_COLOR_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageColorSampleCounts.value));
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageIntegerSampleCounts.value));
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_DEPTH_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageDepthSampleCounts.value));
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageStencilSampleCounts.value));
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_STORAGE_IMAGE_SAMPLE_COUNTS", static_cast<uint32_t>(limits.storageImageSampleCounts.value));
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_MASK_WORDS",limits.maxSampleMaskWords);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_TIMESTAMP_COMPUTE_AND_GRAPHICS",limits.timestampComputeAndGraphics);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_TIMESTAMP_PERIOD_IN_NANO_SECONDS",limits.timestampPeriodInNanoSeconds);
@@ -149,7 +149,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_VERTEX_OUTPUT_COMPONENTS",limits.maxVertexOutputComponents);
     
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SUBGROUP_SIZE",limits.subgroupSize);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SUBGROUP_OPS_SHADER_STAGES",limits.subgroupOpsShaderStages.value);
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SUBGROUP_OPS_SHADER_STAGES", static_cast<uint32_t>(limits.subgroupOpsShaderStages.value));
     if (limits.shaderSubgroupBasic) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_BASIC");
     if (limits.shaderSubgroupVote) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_VOTE");
     if (limits.shaderSubgroupArithmetic) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_SUBGROUP_ARITHMETIC");
@@ -213,7 +213,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SUBGROUP_SIZE",limits.maxSubgroupSize);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_COMPUTE_WORKGROUP_SUBGROUPS",limits.maxComputeWorkgroupSubgroups);
 
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_REQUIRED_SUBGROUP_SIZE_STAGES",limits.requiredSubgroupSizeStages.value);
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_REQUIRED_SUBGROUP_SIZE_STAGES", static_cast<uint32_t>(limits.requiredSubgroupSizeStages.value));
 
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_STORAGE_TEXEL_BUFFER_OFFSET_ALIGNMENT_BYTES",limits.minSubgroupSize);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_UNIFORM_TEXEL_BUFFER_OFFSET_ALIGNMENT_BYTES",limits.maxSubgroupSize);
@@ -277,7 +277,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
 
     if (limits.variableSampleLocations) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_VARIABLE_SAMPLE_LOCATIONS");
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_SUBPIXEL_BITS",limits.sampleLocationSubPixelBits);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_SAMPLE_COUNTS",limits.sampleLocationSampleCounts.value);
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_SAMPLE_COUNTS",static_cast<uint32_t>(limits.sampleLocationSampleCounts.value));
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_LOCATION_GRID_SIZE_X",limits.maxSampleLocationGridSize.width);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_SAMPLE_LOCATION_GRID_SIZE_Y",limits.maxSampleLocationGridSize.height);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SAMPLE_LOCATION_COORDINATE_RANGE_X",limits.sampleLocationCoordinateRange[0]);
@@ -310,7 +310,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_DISPATCH_INVOCATION_COUNT",limits.maxRayDispatchInvocationCount);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_GROUP_HANDLE_ALIGNMENT",limits.shaderGroupHandleAlignment);
     addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_MAX_RAY_HIT_ATTRIBUTE_SIZE",limits.maxRayHitAttributeSize);
-    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_COOPERATIVE_MATRIX_SUPPORTED_STAGES",limits.cooperativeMatrixSupportedStages.value);
+    addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_COOPERATIVE_MATRIX_SUPPORTED_STAGES", static_cast<uint32_t>(limits.cooperativeMatrixSupportedStages.value));
   
     if (limits.shaderOutputViewportIndex) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_OUTPUT_VIEWPORT_INDEX");
     if (limits.shaderOutputLayer) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_OUTPUT_LAYER");
@@ -393,7 +393,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.shaderStorageImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_ARRAY_DYNAMIC_INDEXING");
     if (features.shaderClipDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CLIP_DISTANCE");
     if (features.shaderCullDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CULL_DISTANCE");
-    if (features.vertexAttributeDouble) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VERTEX_ATTRIBUTE_DOUBLE");
+    if (features.shaderFloat64) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_FLOAT64");
     if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_RESIDENCY");
     if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_MIN_LOD");
     if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VARIABLE_MULTISAMPLE_RATE");
@@ -442,7 +442,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.rasterizationOrderDepthAttachmentAccess) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RASTERIZATION_ORDER_DEPTH_ATTACHMENT_ACCESS");
     if (features.rasterizationOrderStencilAttachmentAccess) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RASTERIZATION_ORDER_STENCIL_ATTACHMENT_ACCESS");
     if (features.fragmentShaderSampleInterlock) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_SHADER_SAMPLE_INTERLOCK");
-    if (features.fragmentShaderPixelInterlock) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_SHADER_PIXEL_INTERLOCK");
+    if (features.fragmentShaderPixelInterlock) addShaderDefineToPool(pool, "NBL_FEATURE_FRAGMENT_SHADER_PIXEL_INTERLOCK");
     if (features.fragmentShaderShadingRateInterlock) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FRAGMENT_SHADER_SHADING_RATE_INTERLOCK");
     if (features.indexTypeUint8) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_INDEX_TYPE_UINT8");
     if (features.shaderBufferFloat32Atomics) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_BUFFER_FLOAT32_ATOMICS");

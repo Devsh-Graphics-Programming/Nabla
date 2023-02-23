@@ -11,7 +11,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
+class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

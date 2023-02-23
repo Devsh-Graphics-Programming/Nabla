@@ -15,7 +15,7 @@
 namespace nbl::video
 {
     
-class NBL_API CSubpassKiln
+class CSubpassKiln
 {
     public:
 

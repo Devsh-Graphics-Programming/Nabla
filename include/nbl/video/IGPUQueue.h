@@ -10,7 +10,7 @@ namespace nbl::video
 class IGPUFence;
 class IGPUSemaphore;
 
-class NBL_API IGPUQueue : public core::Interface, public core::Unmovable
+class IGPUQueue : public core::Interface, public core::Unmovable
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

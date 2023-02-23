@@ -33,7 +33,7 @@ namespace asset
 namespace impl
 {
 
-class NBL_API CDirQuantCacheBase
+class CDirQuantCacheBase
 {
 	public:
 		struct alignas(uint8_t) Vector8u3
@@ -213,29 +213,29 @@ class NBL_API CDirQuantCacheBase
 };
 
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R8G8B8_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R8G8B8_SNORM>
 {
 	typedef Vector8u3 type;
 };
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R8G8B8A8_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R8G8B8A8_SNORM>
 {
 	typedef Vector8u4 type;
 };
 
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_A2B10G10R10_SNORM_PACK32>
+struct CDirQuantCacheBase::value_type<EF_A2B10G10R10_SNORM_PACK32>
 {
 	typedef Vector1010102 type;
 };
 
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R16G16B16_SNORM>
 {
 	typedef Vector16u3 type;
 };
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 {
 	typedef Vector16u4 type;
 };
@@ -244,7 +244,7 @@ struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 
 
 template<typename Key, class Hash, E_FORMAT... Formats>
-class NBL_API CDirQuantCacheBase : public impl::CDirQuantCacheBase
+class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 { 
 	public:
 		template<E_FORMAT CacheFormat>

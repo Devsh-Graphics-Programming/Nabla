@@ -20,7 +20,7 @@ namespace asset
     @see IAsset
 */
 
-class NBL_API ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
+class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u;

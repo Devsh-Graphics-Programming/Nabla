@@ -29,7 +29,7 @@ namespace nbl::asset
 	to Specialized Shader constructor.
 */
 
-class NBL_API IShader : public virtual core::IReferenceCounted
+class IShader : public virtual core::IReferenceCounted
 {
 	public:
 		// TODO: make this enum class
@@ -74,6 +74,8 @@ protected:
 	E_SHADER_STAGE m_shaderStage;
 	std::string m_filepathHint;
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IShader::E_SHADER_STAGE)
 
 }
 

@@ -20,12 +20,12 @@ namespace asset
 #if 0 // implementations are a TODO (we probably need a polyphase kernel to cache these results)
 // class for an image filter kernel which is a convolution of two image filter kernels
 template<class KernelA, class KernelB>
-class NBL_API CConvolutionImageFilterKernel;
+class CConvolutionImageFilterKernel;
 
 namespace impl
 {
 	template<class KernelA, class KernelB, class CRTP>
-	class NBL_API CConvolutionImageFilterKernelBase : protected KernelA, protected KernelB, public CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernelBase<KernelA,KernelB,CRTP>>
+	class CConvolutionImageFilterKernelBase : protected KernelA, protected KernelB, public CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernelBase<KernelA,KernelB,CRTP>>
 	{
 		// TODO: figure out what I meant to do here
 			//static_assert(std::is_same_v<typename KernelA::value_type,typename KernelB::value_type>::value, "Both kernels must use the same value_type!");
@@ -88,7 +88,7 @@ TODO: Specializations of CConvolutionImageFilterKernel
 
 // this is the horribly slow generic version that you should not use (only use the specializations)
 template<class KernelA, class KernelB>
-class NBL_API CConvolutionImageFilterKernel : public impl::CConvolutionImageFilterKernelBase<KernelA,KernelB,CConvolutionImageFilterKernel<KernelA,KernelB> >
+class CConvolutionImageFilterKernel : public impl::CConvolutionImageFilterKernelBase<KernelA,KernelB,CConvolutionImageFilterKernel<KernelA,KernelB> >
 {
 		using Base = CConvolutionImageFilterKernelBase<KernelA,KernelB,CConvolutionImageFilterKernel<KernelA,KernelB> >;
 

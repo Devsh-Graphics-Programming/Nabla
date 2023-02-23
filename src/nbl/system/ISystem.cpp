@@ -43,7 +43,7 @@ bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_
             if (found.first && found.second)
                 return true;
         #else
-            if (exists(builtinResourceDirectory/filename))
+            if (exists(builtin::getBuiltinResourcesDirectoryPath()/filename,flags))
                 return true;
         #endif
     }
@@ -112,9 +112,9 @@ core::vector<system::path> ISystem::listItemsInDirectory(const system::path& p) 
         #else
         err.clear();
         // check root path is prefixed with "nbl/builtin/"
-        if (p.string().find(builtinPathPrefix) == 0)
+        if (builtin::hasPathPrefix(p.string()))
         {
-            const auto subdirs = std::filesystem::recursive_directory_iterator(builtinResourceDirectory/p,err);
+            const auto subdirs = std::filesystem::recursive_directory_iterator(builtin::getBuiltinResourcesDirectoryPath()/p,err);
             if (!err)
             for (auto entry : subdirs) // there are never any archives inside builtins
                 res.push_back(entry.path());
@@ -221,7 +221,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
                 return;
             }
         #else
-            createFile(future,builtinResourceDirectory/filename,flags);
+            createFile(future,builtin::getBuiltinResourcesDirectoryPath()/filename,flags);
             return;
         #endif
     }
@@ -308,27 +308,25 @@ ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolut
 
 void ISystem::CAsyncQueue::process_request(SRequestType& req)
 {
-    switch (req.type)
-    {
-        case ERT_CREATE_FILE:
-        {
-            auto& p = std::get<SRequestParams_CREATE_FILE>(req.params);
-            base_t::notify_future<core::smart_refctd_ptr<IFile>>(req,m_caller->createFile(p.filename,p.flags));
-        }
-        break;
-        case ERT_READ:
-        {
-            auto& p = std::get<SRequestParams_READ>(req.params);
-            base_t::notify_future<size_t>(req,p.file->asyncRead(p.buffer, p.offset, p.size));
-        }
-        break;
-        case ERT_WRITE:
-        {
-            auto& p = std::get<SRequestParams_WRITE>(req.params);
-            base_t::notify_future<size_t>(req,p.file->asyncWrite(p.buffer, p.offset, p.size));
-        }
-        break;
-    }
+    std::visit([&](auto& visitor) {
+        handle_request(req, visitor);
+    }, req.params);
+}
+
+void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_NOOP& param) {
+    assert(false); // should never be called
+}
+
+void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_CREATE_FILE& param) {
+    base_t::notify_future<core::smart_refctd_ptr<IFile>>(req, m_caller->createFile(param.filename, param.flags));
+}
+
+void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_READ& param) {
+    base_t::notify_future<size_t>(req, param.file->asyncRead(param.buffer, param.offset, param.size));
+}
+
+void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_WRITE& param) {
+    base_t::notify_future<size_t>(req, param.file->asyncWrite(param.buffer, param.offset, param.size));
 }
 
 bool ISystem::ICaller::invalidateMapping(IFile* file, size_t offset, size_t size)

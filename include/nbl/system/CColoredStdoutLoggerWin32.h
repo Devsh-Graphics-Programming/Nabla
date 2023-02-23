@@ -9,7 +9,7 @@ namespace nbl::system
 //instead of #include <Windows.h>
 #include "nbl/system/DefaultFuncPtrLoader.h"
 
-class NBL_API CColoredStdoutLoggerWin32 : public IThreadsafeLogger
+class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 {
 		HANDLE m_native_console;
 

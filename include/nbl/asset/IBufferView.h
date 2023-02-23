@@ -16,7 +16,7 @@ namespace asset
 {
 
 template<typename BufferType>
-class NBL_API IBufferView : public IDescriptor
+class IBufferView : public IDescriptor
 {
 	public:
 		static inline constexpr size_t whole_buffer = ~static_cast<size_t>(0u);

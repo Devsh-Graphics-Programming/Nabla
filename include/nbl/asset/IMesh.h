@@ -17,7 +17,7 @@ namespace asset
 	(IMeshBuffer). 
 	*/
 	template <class T>
-	class NBL_API IMesh : public virtual core::IReferenceCounted
+	class IMesh : public virtual core::IReferenceCounted
 	{
 		protected:
 			//! The cached bounding box of this mesh

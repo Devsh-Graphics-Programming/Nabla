@@ -19,7 +19,7 @@ namespace nbl::video
 	@see ISpecializedShader
 */
 
-class NBL_API IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendObject
+class IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendObject
 {
 	public:
 		IGPUSpecializedShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}

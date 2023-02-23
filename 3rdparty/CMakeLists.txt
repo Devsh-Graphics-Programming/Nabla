@@ -16,10 +16,20 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
-
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
+# DXC
+set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
+option(_NBL_ENABLE_DXC_COMPILE_TESTS_ "Enable it in order to test compilation of Nabla shaders at build time" OFF)
+option(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_ "Enable more verbose log when creating DXC compile test target - only for Nabla developers!" OFF)
+set(_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_ "[DXC_CT]:" CACHE INTERNAL "only for Nabla developers")
+add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
+
+if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+	message(STATUS "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, DXC compile test target will be executed at build time!")
+endif()
 
 # volk
 set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples
@@ -38,25 +48,7 @@ endif()
 
 
 # TODO: redo
-find_package(OpenGL OPTIONAL_COMPONENTS EGL)
 find_package(Wayland)  # TODO: remove, load Wayland dynamically
-#[[if (OpenGL_EGL_FOUND)
-	message(FATAL_ERROR "FOUND EGL!!")
-else()
-	message(FATAL_ERROR "COULDNT FIND EGL!!")
-endif()]]
-# EGL
-set(EGL_NO_GLEW ON CACHE INTERNAL "" FORCE)
-if (OpenGL_EGL_FOUND AND UNIX AND NOT APPLE)
-	# TODO: This Cannot work like that!
-	set(EGL_PASSTHROUGH ON FORCE)
-	if (WAYLAND_CLIENT_FOUND)
-		set(EGL_USE_WAYLAND ON FORCE)
-		message(FATAL_ERROR "Using Wayland backend!!!")
-	endif()
-endif()
-# all of the above fuckery can be dismissed
-add_subdirectory(EGL/EGL)
 
 
 # zlib (target is zlibstatic)
@@ -111,14 +103,13 @@ set(ZLIB_LIBRARY # for PNGLIB purposes
 		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 CACHE INTERNAL "" FORCE)
 
-
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
-add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
+add_subdirectory(dxc/dxc/external/SPIRV-Headers dxc/external/SPIRV-Headers EXCLUDE_FROM_ALL)
 set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
 set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
-add_subdirectory(SPIRV-Tools SPIRV-Tools EXCLUDE_FROM_ALL)
+add_subdirectory(dxc/dxc/external/SPIRV-Tools dxc/external/SPIRV-Tools EXCLUDE_FROM_ALL)
 set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
 set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
 set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
@@ -322,8 +313,7 @@ set(NBL_3RDPARTY_TARGETS
 				GenericCodeGen
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
-				SPIRV-Tools-opt
-				egl 
+				SPIRV-Tools-opt 
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS

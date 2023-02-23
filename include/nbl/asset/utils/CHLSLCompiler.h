@@ -8,6 +8,11 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
+namespace nbl::asset::hlsl::impl
+{
+	class DXC;
+}
+
 namespace nbl::asset
 {
 
@@ -17,6 +22,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 
 		CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
+		~CHLSLCompiler();
 
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
@@ -38,9 +44,14 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//	return "";
 		//}
 
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
+
+		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 	protected:
 
-		void insertExtraDefines(std::string& str, const core::SRange<const char* const>& defines) const override;
+		// This can't be a unique_ptr due to it being an undefined type 
+		// when Nabla is used as a lib
+		nbl::asset::hlsl::impl::DXC* m_dxcCompilerTypes;
 
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{

@@ -16,7 +16,7 @@ namespace ToneMapper
 {
 
 
-class NBL_API CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmovable
+class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmovable
 {
     public:
 		enum E_OPERATOR

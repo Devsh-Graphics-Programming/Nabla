@@ -25,7 +25,7 @@ namespace nbl::scene
 #undef int
 #undef uint
 
-class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
+class ITransformTreeManager : public virtual core::IReferenceCounted
 {
 		template<uint32_t BindingCount>
 		static inline auto createDescriptorSetLayout(video::ILogicalDevice* device)
@@ -106,9 +106,9 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
-			auto createShader = [&system,&device](auto uniqueString, asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+			auto createShader = [&system,&device]<core::StringLiteral Path>(asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
+				auto glslFile = system->loadBuiltinData<Path>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
@@ -118,11 +118,11 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
-			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
-			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
-			auto recomputeGlobalAndNormalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")());
-			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::IShader::ESS_VERTEX);
-			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::IShader::ESS_FRAGMENT);
+			auto updateRelativeSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")>();
+			auto recomputeGlobalSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/global_transform_update.comp")>();
+			auto recomputeGlobalAndNormalSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")>();
+			auto debugDrawVertexSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/debug.vert")>(asset::IShader::ESS_VERTEX);
+			auto debugDrawFragmentSpec = createShader.operator()<core::StringLiteral("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(asset::IShader::ESS_FRAGMENT);
 			if (!updateRelativeSpec || !recomputeGlobalSpec || !recomputeGlobalAndNormalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
 				return nullptr;
 

@@ -15,7 +15,7 @@
 namespace nbl::video
 {
 
-class NBL_API IUtilities : public core::IReferenceCounted
+class NBL_API2 IUtilities : public core::IReferenceCounted
 {
     protected:
         constexpr static inline uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
@@ -564,6 +564,9 @@ class NBL_API IUtilities : public core::IReferenceCounted
             m_device->blockForFences(1u, &fence.get());
         }
         
+
+        // pipelineBarrierAutoSubmit?
+
         // --------------
         // downloadBufferRangeViaStagingBuffer
         // --------------
@@ -1002,7 +1005,7 @@ class NBL_API IUtilities : public core::IReferenceCounted
         core::smart_refctd_ptr<CScanner> m_scanner;
     };
 
-class NBL_API ImageRegionIterator
+class ImageRegionIterator
 {
 public:
     ImageRegionIterator(

@@ -8,6 +8,7 @@
 #include "nbl/core/declarations.h"
 #include "nbl/core/SRange.h"
 #include "nbl/asset/ISpecializedShader.h"
+#include "nbl/asset/IShader.h"
 
 namespace nbl
 {
@@ -76,7 +77,7 @@ enum E_DESCRIPTOR_TYPE : uint32_t
 */
 
 template<typename SamplerType>
-class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
+class IDescriptorSetLayout : public virtual core::IReferenceCounted
 {
 	public:
 		using sampler_type = SamplerType;
@@ -86,7 +87,7 @@ class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			uint32_t count;
-			IShader::E_SHADER_STAGE stageFlags;
+			IShader::E_SHADER_STAGE stageFlags; // TODO: make it bitflag
 			// Use this if you want an immutable sampler that is baked into the DS layout itself.
 			// If its `nullptr` then the sampler used is mutable and can be specified while writing the image descriptor to a binding while updating the DS.
 			const core::smart_refctd_ptr<sampler_type>* samplers;

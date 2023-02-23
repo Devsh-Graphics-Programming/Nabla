@@ -16,7 +16,7 @@ namespace nbl::scene
 {
 
 
-class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
+class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 {
 	public:
 		// creation

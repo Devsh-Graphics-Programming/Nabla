@@ -14,7 +14,7 @@
 namespace nbl::video
 {
 
-class NBL_API CVulkanDebugCallback : public IDebugCallback
+class CVulkanDebugCallback : public IDebugCallback
 {
 public:
     explicit CVulkanDebugCallback(core::smart_refctd_ptr<system::ILogger>&& _logger)
@@ -41,10 +41,6 @@ public:
             break;
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
             level |= system::ILogger::ELL_ERROR;
-#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_EG_OP_LNK)
-            _NBL_EG_OP_LNK(level);
-            _NBL_DEBUG_BREAK_IF(true);
-#endif
             break;
         default:
             assert(!"Don't know what to do with this value!");
@@ -66,6 +62,14 @@ public:
         }
 
         cb->getLogger()->log("%s", static_cast<system::ILogger::E_LOG_LEVEL>(level), callbackData->pMessage);
+
+        if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        {
+#if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_EG_OP_LNK)
+            _NBL_EG_OP_LNK(level);
+            _NBL_DEBUG_BREAK_IF(true);
+#endif
+        }
 
         return VK_FALSE;
     }

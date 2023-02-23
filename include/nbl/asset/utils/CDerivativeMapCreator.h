@@ -10,7 +10,7 @@ namespace nbl::asset
 {
 
 //! `isotropicNormalization` makes filter to use max value of all channels for normalization instead of per-channel max
-class NBL_API CDerivativeMapCreator
+class CDerivativeMapCreator
 {
 	public:
 		CDerivativeMapCreator() = delete;
