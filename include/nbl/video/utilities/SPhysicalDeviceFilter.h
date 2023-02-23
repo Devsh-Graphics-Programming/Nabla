@@ -13,9 +13,9 @@ namespace nbl::video
         VkConformanceVersion                            minConformanceVersion = {0u, 0u, 0u, 0u};
         IPhysicalDevice::SLimits                        minimumLimits = {}; // minimum required limits to be satisfied
         IPhysicalDevice::SFeatures                      requiredFeatures = {}; // required features, will be also used to enable logical device features
-        IPhysicalDevice::SFormatBufferUsages            requiredBufferFormatUsages = {};
-        IPhysicalDevice::SFormatImageUsages             requiredImageFormatUsagesLinearTiling = {};
-        IPhysicalDevice::SFormatImageUsages             requiredImageFormatUsagesOptimalTiling = {};
+        detail::SFormatBufferUsages            requiredBufferFormatUsages = {};
+        detail::SFormatImageUsages             requiredImageFormatUsagesLinearTiling = {};
+        detail::SFormatImageUsages             requiredImageFormatUsagesOptimalTiling = {};
 
         struct MemoryRequirement
         {

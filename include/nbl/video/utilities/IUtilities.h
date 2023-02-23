@@ -304,7 +304,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                         return (physicalDevice->getImageFormatUsagesLinearTiling()[params.format] & reqFormatUsages) == reqFormatUsages;
                 };
 
-                IPhysicalDevice::SFormatImageUsages::SUsage requiredFormatUsage = {};
+                detail::SFormatImageUsages::SUsage requiredFormatUsage = {};
                 requiredFormatUsage.transferSrc = 1;
                 if (!validateFormatFeature(srcImage->getCreationParameters().format, requiredFormatUsage))
                     return nullptr;

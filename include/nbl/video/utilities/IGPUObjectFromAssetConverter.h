@@ -1043,14 +1043,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         }
         
         promotionRequest.usages = promotionRequest.usages | params.usage;
-        // auto newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
+        auto newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
         
         // If Format Promotion failed try the same usages but with linear tiling.
-        // if (params.format == asset::EF_UNKNOWN)
-            // newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_LINEAR);
+        if (params.format == asset::EF_UNKNOWN)
+            newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_LINEAR);
 
         assert(params.format != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
-        // params.format = newFormat;
+        params.format = newFormat;
 
         auto gpuimg = _params.device->createImage(std::move(params));
         auto gpuimgMemReqs = gpuimg->getMemoryReqs();

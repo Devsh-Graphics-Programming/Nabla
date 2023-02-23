@@ -376,125 +376,125 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     return smallestTexelBlock;
 }
 
-// asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req)
-// {
-//     assert(
-//         !asset::isBlockCompressionFormat(req.originalFormat) &&
-//         !asset::isPlanarFormat(req.originalFormat) &&
-//         getImageAspects(req.originalFormat).hasFlags(asset::IImage::EAF_COLOR_BIT)
-//     );
-//     auto& buf_cache = this->m_formatPromotionCache.buffers;
-//     auto cached = buf_cache.find(req);
-//     if (cached != buf_cache.end())
-//         return cached->second;
+asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req)
+{
+    assert(
+        !asset::isBlockCompressionFormat(req.originalFormat) &&
+        !asset::isPlanarFormat(req.originalFormat) &&
+        getImageAspects(req.originalFormat).hasFlags(asset::IImage::EAF_COLOR_BIT)
+    );
+    auto& buf_cache = this->m_formatPromotionCache.buffers;
+    auto cached = buf_cache.find(req);
+    if (cached != buf_cache.end())
+        return cached->second;
 
-//     if (req.usages < getBufferFormatUsages()[req.originalFormat])
-//     {
-//         buf_cache.insert(cached, { req,req.originalFormat });
-//         return req.originalFormat;
-//     }
+    if (req.usages < getBufferFormatUsages()[req.originalFormat])
+    {
+        buf_cache.insert(cached, { req,req.originalFormat });
+        return req.originalFormat;
+    }
 
-//     auto srcFormat = req.originalFormat;
-//     bool srcIntFormat = asset::isIntegerFormat(srcFormat);
-//     bool srcSignedFormat = asset::isSignedFormat(srcFormat);
-//     auto srcChannels = asset::getFormatChannelCount(srcFormat);
-//     double srcMinVal[4];
-//     double srcMaxVal[4];
-//     for (uint32_t channel = 0; channel < srcChannels; channel++)
-//     {
-//         srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
-//         srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
-//     }
+    auto srcFormat = req.originalFormat;
+    bool srcIntFormat = asset::isIntegerFormat(srcFormat);
+    bool srcSignedFormat = asset::isSignedFormat(srcFormat);
+    auto srcChannels = asset::getFormatChannelCount(srcFormat);
+    double srcMinVal[4];
+    double srcMaxVal[4];
+    for (uint32_t channel = 0; channel < srcChannels; channel++)
+    {
+        srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
+        srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
+    }
 
-//     // Cache valid formats per usage?
-//     core::unordered_set<asset::E_FORMAT> validFormats;
+    // Cache valid formats per usage?
+    core::unordered_set<asset::E_FORMAT> validFormats;
 
-//     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
-//     {
-//         auto f = static_cast<asset::E_FORMAT>(format);
-//         // Can't have less aspects
-//         if (!getImageAspects(f).hasFlags(asset::IImage::EAF_COLOR_BIT))
-//             continue;
+    for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
+    {
+        auto f = static_cast<asset::E_FORMAT>(format);
+        // Can't have less aspects
+        if (!getImageAspects(f).hasFlags(asset::IImage::EAF_COLOR_BIT))
+            continue;
 
-//         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
-//             continue;
+        if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
+            continue;
 
-//         if (req.usages < getBufferFormatUsages()[f])
-//         {
-//             validFormats.insert(f);
-//         }
-//     }
+        if (req.usages < getBufferFormatUsages()[f])
+        {
+            validFormats.insert(f);
+        }
+    }
 
-//     auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
-//     buf_cache.insert(cached, { req,promoted });
-//     return promoted;
-// }
+    auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
+    buf_cache.insert(cached, { req,promoted });
+    return promoted;
+}
 
-// asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling)
-// {
-//     format_image_cache_t& cache = tiling == IGPUImage::E_TILING::ET_LINEAR 
-//         ? this->m_formatPromotionCache.linearTilingImages 
-//         : this->m_formatPromotionCache.optimalTilingImages;
-//     auto cached = cache.find(req);
-//     if (cached != cache.end())
-//         return cached->second;
+asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling)
+{
+    format_image_cache_t& cache = tiling == IGPUImage::E_TILING::ET_LINEAR 
+        ? this->m_formatPromotionCache.linearTilingImages 
+        : this->m_formatPromotionCache.optimalTilingImages;
+    auto cached = cache.find(req);
+    if (cached != cache.end())
+        return cached->second;
 
-//     auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f)
-//     {
-//         switch (tiling)
-//         {
-//             case IGPUImage::E_TILING::ET_LINEAR:
-//                 return getImageFormatUsagesLinearTiling()[f];
-//             case IGPUImage::E_TILING::ET_OPTIMAL:
-//                 return getImageFormatUsagesOptimalTiling()[f];
-//             default:
-//                 assert(false); // Invalid tiling
-//         }
-//         return SFormatImageUsages::SUsage{}; // compiler please shut up
-//     };
+    auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f)
+    {
+        switch (tiling)
+        {
+            case IGPUImage::E_TILING::ET_LINEAR:
+                return getImageFormatUsagesLinearTiling()[f];
+            case IGPUImage::E_TILING::ET_OPTIMAL:
+                return getImageFormatUsagesOptimalTiling()[f];
+            default:
+                assert(false); // Invalid tiling
+        }
+        return detail::SFormatImageUsages::SUsage{}; // compiler please shut up
+    };
 
-//     if (req.usages < getImageFormatUsagesTiling(req.originalFormat))
-//     {
-//         cache.insert(cached, { req,req.originalFormat });
-//         return req.originalFormat;
-//     }
+    if (req.usages < getImageFormatUsagesTiling(req.originalFormat))
+    {
+        cache.insert(cached, { req,req.originalFormat });
+        return req.originalFormat;
+    }
 
-//     auto srcFormat = req.originalFormat;
-//     auto srcAspects = getImageAspects(srcFormat);
-//     bool srcIntFormat = asset::isIntegerFormat(srcFormat);
-//     bool srcSignedFormat = asset::isSignedFormat(srcFormat);
-//     auto srcChannels = asset::getFormatChannelCount(srcFormat);
-//     double srcMinVal[4];
-//     double srcMaxVal[4];
-//     for (uint32_t channel = 0; channel < srcChannels; channel++)
-//     {
-//         srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
-//         srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
-//     }
+    auto srcFormat = req.originalFormat;
+    auto srcAspects = getImageAspects(srcFormat);
+    bool srcIntFormat = asset::isIntegerFormat(srcFormat);
+    bool srcSignedFormat = asset::isSignedFormat(srcFormat);
+    auto srcChannels = asset::getFormatChannelCount(srcFormat);
+    double srcMinVal[4];
+    double srcMaxVal[4];
+    for (uint32_t channel = 0; channel < srcChannels; channel++)
+    {
+        srcMinVal[channel] = asset::getFormatMinValue<double>(srcFormat, channel);
+        srcMaxVal[channel] = asset::getFormatMaxValue<double>(srcFormat, channel);
+    }
 
-//     // Cache valid formats per usage?
-//     core::unordered_set<asset::E_FORMAT> validFormats;
+    // Cache valid formats per usage?
+    core::unordered_set<asset::E_FORMAT> validFormats;
 
-//     for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
-//     {
-//         auto f = static_cast<asset::E_FORMAT>(format);
-//         // Can't have less aspects
-//         if (!getImageAspects(f).hasFlags(srcAspects))
-//             continue;
+    for (uint32_t format = 0; format < asset::E_FORMAT::EF_UNKNOWN; format++)
+    {
+        auto f = static_cast<asset::E_FORMAT>(format);
+        // Can't have less aspects
+        if (!getImageAspects(f).hasFlags(srcAspects))
+            continue;
 
-//         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
-//             continue;
+        if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
+            continue;
 
-//         if (req.usages < getImageFormatUsagesTiling(f))
-//         {
-//             validFormats.insert(f);
-//         }
-//     }
+        if (req.usages < getImageFormatUsagesTiling(f))
+        {
+            validFormats.insert(f);
+        }
+    }
 
 
-//     auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
-//     cache.insert(cached, { req,promoted });
-//     return promoted;
-// }
+    auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
+    cache.insert(cached, { req,promoted });
+    return promoted;
+}
 
 }
