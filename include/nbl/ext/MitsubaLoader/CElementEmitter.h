@@ -18,7 +18,7 @@ namespace MitsubaLoader
 {
 	
 
-class NBL_API CElementEmitter : public IElement
+class CElementEmitter : public IElement
 {
 	public:
 		enum Type

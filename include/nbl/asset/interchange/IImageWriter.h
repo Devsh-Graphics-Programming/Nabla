@@ -19,7 +19,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API IImageWriter : public IAssetWriter, public IImageAssetHandlerBase
+class IImageWriter : public IAssetWriter, public IImageAssetHandlerBase
 {
 	public:
 

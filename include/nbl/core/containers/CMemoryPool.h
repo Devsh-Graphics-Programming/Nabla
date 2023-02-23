@@ -12,7 +12,7 @@ namespace nbl::core
 {
 
 template <class AddressAllocator, template<class> class DataAllocator, bool isThreadSafe, typename... Args>
-class NBL_API CMemoryPool : public Uncopyable
+class CMemoryPool : public Uncopyable
 {
 public:
     using addr_allocator_type = AddressAllocator;

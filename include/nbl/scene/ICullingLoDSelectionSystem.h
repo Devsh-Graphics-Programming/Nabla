@@ -13,7 +13,7 @@
 namespace nbl::scene
 {
 
-class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
+class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
 		static void enableRequiredFeautres(video::SPhysicalDeviceFeatures& featuresToEnable)

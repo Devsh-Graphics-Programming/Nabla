@@ -14,7 +14,7 @@ namespace nbl::ext::Bullet3
 
 
 class CPhysicsWorld;
-class NBL_API IMotionStateBase : public btMotionState
+class IMotionStateBase : public btMotionState
 {
     public:
 

@@ -20,7 +20,7 @@ namespace nbl::video
 	@see IReferenceCounted
 */
 
-class NBL_API IGPUShader : public asset::IShader, public IBackendObject
+class IGPUShader : public asset::IShader, public IBackendObject
 {
     protected:
         explicit IGPUShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev,

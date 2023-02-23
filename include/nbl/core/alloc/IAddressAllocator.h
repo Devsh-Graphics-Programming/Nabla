@@ -14,7 +14,7 @@ namespace nbl
 namespace core
 {
 
-class NBL_API NBL_FORCE_EBO IAddressAllocator : Interface
+class NBL_FORCE_EBO IAddressAllocator : Interface
 {
         _NBL_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
     public:
@@ -39,7 +39,7 @@ class NBL_API NBL_FORCE_EBO IAddressAllocator : Interface
 
 
 template <class AddressAllocator>
-class NBL_API NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
+class NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
 {
         inline AddressAllocator&    getBaseRef() noexcept {return static_cast<AddressAllocator&>(*this);}
     public:

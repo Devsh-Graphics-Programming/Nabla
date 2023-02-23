@@ -14,7 +14,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API ICPUImageView final : public IImageView<ICPUImage>, public IAsset
+class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 {
 	public:
 		static core::smart_refctd_ptr<ICPUImageView> create(SCreationParams&& params)

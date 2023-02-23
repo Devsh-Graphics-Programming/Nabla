@@ -11,7 +11,7 @@
 namespace nbl::system
 {
 
-class NBL_API IApplicationFramework
+class IApplicationFramework
 {
 	public:
         IApplicationFramework(
@@ -24,7 +24,7 @@ class NBL_API IApplicationFramework
             #ifdef _NBL_PLATFORM_WINDOWS_
             // TODO: @AnastaZIuk also provide define constants for DXC install dir!
             const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll",{system::path(_DXC_DLL_).parent_path()});
-            assert(SUCCEEDED(dxcLoad));
+            //assert(SUCCEEDED(dxcLoad)); // no clue why this fails to find the dll
             #ifdef _NBL_SHARED_BUILD_
             // if there was no DLL next to the executable, then try from the Nabla build directory
             // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR

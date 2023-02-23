@@ -17,7 +17,7 @@ namespace asset
 
 // Kaiser filter, basically a windowed sinc, can be configured to different Kaiser window widths
 template<uint32_t support=3u>
-class NBL_API CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel<support>,std::ratio<support,1> >
+class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel<support>,std::ratio<support,1> >
 {
 		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel<support>,std::ratio<support,1> >;
 

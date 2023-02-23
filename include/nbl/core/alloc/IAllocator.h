@@ -10,7 +10,7 @@ namespace nbl
 namespace core
 {
 
-class NBL_API NBL_FORCE_EBO IAllocator
+class NBL_FORCE_EBO IAllocator
 {
     public:
         virtual         ~IAllocator() {}
@@ -23,7 +23,7 @@ class NBL_API NBL_FORCE_EBO IAllocator
 
 
 template <class Alloc>
-class NBL_API NBL_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
+class NBL_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
 {
         inline Alloc& getBaseRef() noexcept {return static_cast<Alloc&>(*this);}
     public:

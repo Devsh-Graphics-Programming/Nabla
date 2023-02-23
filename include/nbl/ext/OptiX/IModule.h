@@ -19,7 +19,7 @@ namespace OptiX
 class IContext;
 
 
-class NBL_API IModule final : public core::IReferenceCounted
+class IModule final : public core::IReferenceCounted
 {
 	public:
 		inline OptixModule getOptiXHandle() {return module;}

@@ -19,7 +19,7 @@ namespace nbl::system
 
 // these files are cached and created "on demand", and their storage is pooled
 template<typename T>
-class NBL_API CInnerArchiveFile : public CFileView<T>
+class CInnerArchiveFile : public CFileView<T>
 {
 		std::atomic_flag* alive;
 	public:
@@ -68,7 +68,7 @@ class NBL_API CInnerArchiveFile : public CFileView<T>
 
 
 //!
-class NBL_API CFileArchive : public IFileArchive
+class CFileArchive : public IFileArchive
 {
 		static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualMemoryAllocator>));
 		static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));

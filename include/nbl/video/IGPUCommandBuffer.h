@@ -22,7 +22,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUCommandBuffer :
+class IGPUCommandBuffer :
     public core::IReferenceCounted,
     public asset::ICommandBuffer<
         IGPUBuffer,

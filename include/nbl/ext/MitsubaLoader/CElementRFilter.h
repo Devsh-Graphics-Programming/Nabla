@@ -17,7 +17,7 @@ namespace MitsubaLoader
 {
 
 
-class NBL_API CElementRFilter : public IElement
+class CElementRFilter : public IElement
 {
 	public:
 		enum Type

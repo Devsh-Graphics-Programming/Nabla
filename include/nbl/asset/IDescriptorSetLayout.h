@@ -77,7 +77,7 @@ enum E_DESCRIPTOR_TYPE : uint32_t
 */
 
 template<typename SamplerType>
-class NBL_API IDescriptorSetLayout : public virtual core::IReferenceCounted
+class IDescriptorSetLayout : public virtual core::IReferenceCounted
 {
 	public:
 		using sampler_type = SamplerType;

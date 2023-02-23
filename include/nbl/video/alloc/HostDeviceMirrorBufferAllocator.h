@@ -14,7 +14,7 @@ namespace nbl::video
 //class ILogicalDevice;
 
 template<class HostAllocator = core::allocator<uint8_t> >
-class NBL_API HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
+class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
 {
         HostAllocator hostAllocator;
     public:

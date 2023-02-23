@@ -22,20 +22,20 @@ namespace nbl::asset
 {
 
 //TODO move and possibly rename
-struct NBL_API SBufferCopy
+struct SBufferCopy
 {
     size_t srcOffset;
     size_t dstOffset;
     size_t size;
 };
-struct NBL_API SImageBlit
+struct SImageBlit
 {
     asset::IImage::SSubresourceLayers srcSubresource;
     asset::VkOffset3D srcOffsets[2];
     asset::IImage::SSubresourceLayers dstSubresource;
     asset::VkOffset3D dstOffsets[2];
 };
-struct NBL_API SImageResolve
+struct SImageResolve
 {
     asset::IImage::SSubresourceLayers srcSubresource;
     asset::VkOffset3D srcOffset;
@@ -44,7 +44,7 @@ struct NBL_API SImageResolve
     asset::VkExtent3D extent;
 };
 
-struct NBL_API SMemoryBarrier
+struct SMemoryBarrier
 {
     core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask = asset::EAF_NONE;
     core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask = asset::EAF_NONE;
@@ -56,7 +56,7 @@ union SClearColorValue
     int32_t int32[4];
     uint32_t uint32[4];
 };
-struct NBL_API SClearDepthStencilValue
+struct SClearDepthStencilValue
 {
     float depth;
     uint32_t stencil;
@@ -67,14 +67,14 @@ union SClearValue
     SClearDepthStencilValue depthStencil;
 };
 
-struct NBL_API SClearAttachment
+struct SClearAttachment
 {
     asset::IImage::E_ASPECT_FLAGS aspectMask;
     uint32_t colorAttachment;
     SClearValue clearValue;
 };
 
-struct NBL_API SClearRect
+struct SClearRect
 {
     VkRect2D rect;
     uint32_t baseArrayLayer;
@@ -94,7 +94,7 @@ template <
     typename EventType,
     typename CommandBufferType
 >
-class NBL_API ICommandBuffer
+class ICommandBuffer
 {
 protected:
     using buffer_t = BufferType;

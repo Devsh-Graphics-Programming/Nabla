@@ -24,7 +24,7 @@ namespace nbl::asset
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class NBL_API IComputePipeline : public IPipeline<LayoutType>
+class IComputePipeline : public IPipeline<LayoutType>
 {
     public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;

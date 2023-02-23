@@ -12,7 +12,7 @@
 namespace nbl::asset
 {
 
-struct NBL_API DrawArraysIndirectCommand_t
+struct DrawArraysIndirectCommand_t
 {
 	uint32_t  count;
 	uint32_t  instanceCount;
@@ -20,7 +20,7 @@ struct NBL_API DrawArraysIndirectCommand_t
 	uint32_t  baseInstance;
 };
 
-struct NBL_API DrawElementsIndirectCommand_t
+struct DrawElementsIndirectCommand_t
 {
 	uint32_t count;
 	uint32_t instanceCount;
@@ -29,7 +29,7 @@ struct NBL_API DrawElementsIndirectCommand_t
 	uint32_t baseInstance;
 };
 
-struct NBL_API DispatchIndirectCommand_t
+struct DispatchIndirectCommand_t
 {
 	uint32_t  num_groups_x;
 	uint32_t  num_groups_y;
@@ -52,7 +52,7 @@ struct NBL_API DispatchIndirectCommand_t
 */
 
 template<typename LayoutType>
-class NBL_API IPipeline : public virtual core::IReferenceCounted
+class IPipeline : public virtual core::IReferenceCounted
 {
 	public:
 		enum E_PIPELINE_CREATION : uint32_t

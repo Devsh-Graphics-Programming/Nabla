@@ -563,7 +563,7 @@ constexpr const uint8_t getBitsPerChannel()
     information such as dimension or block byte size.
 */
 
-struct NBL_API TexelBlockInfo
+struct TexelBlockInfo
 {
     public:
         TexelBlockInfo(E_FORMAT format) :
@@ -1699,7 +1699,7 @@ constexpr bool isBGRALayoutFormat()
 // ! Precision
 
 template<E_FORMAT format>
-struct NBL_API format_interm_storage_type
+struct format_interm_storage_type
 {
     using type = typename std::conditional<isIntegerFormat<format>(),typename std::conditional<isSignedFormat<format>(),int64_t,uint64_t>::type,double>::type;
 };
@@ -1931,7 +1931,7 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
 namespace std
 {
     template <>
-    struct NBL_API hash<nbl::asset::E_FORMAT>
+    struct hash<nbl::asset::E_FORMAT>
     {
         std::size_t operator()(const nbl::asset::E_FORMAT& k) const noexcept { return k; }
     };

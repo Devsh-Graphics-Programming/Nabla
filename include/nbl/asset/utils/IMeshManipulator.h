@@ -29,7 +29,7 @@ fixing problems with wrong imported or exported meshes quickly after
 loading. It is not intended for doing mesh modifications and/or
 animations during runtime.
 */
-class NBL_API IMeshManipulator : public virtual core::IReferenceCounted
+class IMeshManipulator : public virtual core::IReferenceCounted
 {
 	public:
 		//! Comparison methods

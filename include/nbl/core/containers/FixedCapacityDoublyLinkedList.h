@@ -18,7 +18,7 @@ namespace core
 
 namespace impl
 {
-	class NBL_API FixedCapacityDoublyLinkedListBase
+	class FixedCapacityDoublyLinkedListBase
 	{
 		public:
 			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
@@ -36,7 +36,7 @@ namespace impl
 
 //Struct for use in a doubly linked list. Stores data and pointers to next and previous elements the list, or invalid iterator if it is first/last
 template<typename Value>
-struct NBL_API alignas(void*) SDoublyLinkedNode
+struct alignas(void*) SDoublyLinkedNode
 {
 	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;
 
@@ -81,7 +81,7 @@ struct NBL_API alignas(void*) SDoublyLinkedNode
 };
 
 template<typename Value>
-class NBL_API FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedListBase
+class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedListBase
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;

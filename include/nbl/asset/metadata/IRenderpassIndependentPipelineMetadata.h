@@ -30,7 +30,7 @@ namespace asset
 
 	But we can provide useful metadata from the loader.
 */
-class NBL_API IRenderpassIndependentPipelineMetadata : public core::Interface
+class IRenderpassIndependentPipelineMetadata : public core::Interface
 {
 	public:
 		//! A common struct to unify the metadata declarations.
