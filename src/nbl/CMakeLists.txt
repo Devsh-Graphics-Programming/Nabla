@@ -633,13 +633,13 @@ if(NOT NBL_STATIC_BUILD)
 		COMMENT "Launching defines.h generation script!"
 		VERBATIM
 	)
-	
-	add_custom_target(generate_define_header ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
-	add_dependencies(Nabla generate_define_header)
 endif()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+if(NOT NBL_STATIC_BUILD)
+	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+endif()
+nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
