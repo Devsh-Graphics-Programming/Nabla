@@ -5,7 +5,7 @@
 #ifndef _NBL_CORE_EXECUTION_H_INCLUDED_
 #define _NBL_CORE_EXECUTION_H_INCLUDED_
 
-#ifndef _NBL_BUILD_DPL_
+#if __has_include (<execution>)
 #include <execution>
 #include <algorithm>
 #else
@@ -26,7 +26,7 @@ inline auto highLevelF(Args&&... args) -> decltype(lowLevelF(std::forward<Args>(
 
 namespace nbl::core
 {
-#ifndef _NBL_BUILD_DPL_
+#if __has_include(<execution>)
 namespace execution = std::execution;
 
 ALIAS_TEMPLATE_FUNCTION(for_each_n, std::for_each_n)
