@@ -1,0 +1,23 @@
+#include <nbl/system/CFileArchive.h>
+
+namespace @_NAMESPACE_@
+{
+	class CAPKResourcesArchive final : public system::CFileArchive
+	{
+		constexpr static std::string_view pathPrefix = "@_PATH_PREFIX_@";
+		constexpr static bool hasPathPrefix(std::string_view str) { return str.find(pathPrefix) == 0ull; }
+		
+		public:
+			inline CAPKResourcesArchive(const system::path& _path, system::logger_opt_smart_ptr&& logger)
+				: system::CFileArchive(_path,std::move(logger), getItemList()) {}
+			
+		protected:
+			file_buffer_t getFileBuffer(const system::IFileArchive::SListEntry* item) override
+			{
+					auto found = get_resource_runtime(item->pathRelativeToArchive);
+					return {found.first, found.second, nullptr};
+			}
+
+			static core::vector<system::IFileArchive::SListEntry> getItemList(); // defined in the auto-generated file
+	};
+}

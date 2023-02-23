@@ -611,12 +611,6 @@ if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_dependencies(Nabla nblBuiltinResourceData)
-	target_link_libraries(Nabla PUBLIC nblBuiltinResourceData)
-	target_include_directories(Nabla PUBLIC "${NBL_BUILTIN_RESOURCES_HEADER}")
-endif()
-
 # extensions
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
