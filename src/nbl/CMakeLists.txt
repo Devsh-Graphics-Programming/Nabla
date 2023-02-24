@@ -181,6 +181,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemAndroid.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ISystemPOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemLinux.cpp
 )
 set(NBL_UI_SOURCES
@@ -429,6 +430,7 @@ if (UNIX)
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
 	)
+	target_link_libraries(Nabla PUBLIC atomic)
 endif()
 # OpenSSL
 if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
