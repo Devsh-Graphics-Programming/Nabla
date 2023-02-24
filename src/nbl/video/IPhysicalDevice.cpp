@@ -450,7 +450,7 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
             default:
                 assert(false); // Invalid tiling
         }
-        return detail::SFormatImageUsages::SUsage{}; // compiler please shut up
+        return IPhysicalDevice::SFormatImageUsages::SUsage{}; // compiler please shut up
     };
 
     if (req.usages < getImageFormatUsagesTiling(req.originalFormat))

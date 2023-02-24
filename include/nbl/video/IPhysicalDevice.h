@@ -22,294 +22,6 @@
 
 #include <type_traits>
 
-namespace nbl::video::detail {
-    struct SFormatImageUsages
-    {
-        // TODO: should memset everything to 0 on default constructor?
-
-        struct SUsage
-        {
-            uint16_t sampledImage : 1u; // samplerND
-            uint16_t storageImage : 1u; // imageND
-            uint16_t storageImageAtomic : 1u;
-            uint16_t attachment : 1u; // color, depth, stencil can be infferred from the format itself
-            uint16_t attachmentBlend : 1u;
-            uint16_t blitSrc : 1u;
-            uint16_t blitDst : 1u;
-            uint16_t transferSrc : 1u;
-            uint16_t transferDst : 1u;
-            uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
-
-
-            SUsage()
-                : sampledImage(0)
-                , storageImage(0)
-                , storageImageAtomic(0)
-                , attachment(0)
-                , attachmentBlend(0)
-                , blitSrc(0)
-                , blitDst(0)
-                , transferSrc(0)
-                , transferDst(0)
-                , log2MaxSamples(0)
-            {}
-
-            SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages):
-                log2MaxSamples(0),
-                sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
-                storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
-                transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
-                transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
-                attachment((usages & (core::bitflag(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
-                attachmentBlend(usages.hasFlags(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)), // TODO: should conservatively deduct to be false
-                // Deduced as false. User may patch it up later
-                blitSrc(0),
-                blitDst(0),
-                storageImageAtomic(0)
-            {}
-
-            inline SUsage operator & (const SUsage& other) const
-            {
-                SUsage result;
-                result.sampledImage = sampledImage & other.sampledImage;
-                result.storageImage = storageImage & other.storageImage;
-                result.storageImageAtomic = storageImageAtomic & other.storageImageAtomic;
-                result.attachment = attachment & other.attachment;
-                result.attachmentBlend = attachmentBlend & other.attachmentBlend;
-                result.blitSrc = blitSrc & other.blitSrc;
-                result.blitDst = blitDst & other.blitDst;
-                result.transferSrc = transferSrc & other.transferSrc;
-                result.transferDst = transferDst & other.transferDst;
-                result.log2MaxSamples = log2MaxSamples & other.log2MaxSamples;
-                return result;
-            }
-
-            inline SUsage operator | (const SUsage& other) const
-            {
-                SUsage result;
-                result.sampledImage = sampledImage | other.sampledImage;
-                result.storageImage = storageImage | other.storageImage;
-                result.storageImageAtomic = storageImageAtomic | other.storageImageAtomic;
-                result.attachment = attachment | other.attachment;
-                result.attachmentBlend = attachmentBlend | other.attachmentBlend;
-                result.blitSrc = blitSrc | other.blitSrc;
-                result.blitDst = blitDst | other.blitDst;
-                result.transferSrc = transferSrc | other.transferSrc;
-                result.transferDst = transferDst | other.transferDst;
-                result.log2MaxSamples = log2MaxSamples | other.log2MaxSamples;
-                return result;
-            }
-
-            inline SUsage operator ^ (const SUsage& other) const
-            {
-                SUsage result;
-                result.sampledImage = sampledImage ^ other.sampledImage;
-                result.storageImage = storageImage ^ other.storageImage;
-                result.storageImageAtomic = storageImageAtomic ^ other.storageImageAtomic;
-                result.attachment = attachment ^ other.attachment;
-                result.attachmentBlend = attachmentBlend ^ other.attachmentBlend;
-                result.blitSrc = blitSrc ^ other.blitSrc;
-                result.blitDst = blitDst ^ other.blitDst;
-                result.transferSrc = transferSrc ^ other.transferSrc;
-                result.transferDst = transferDst ^ other.transferDst;
-                result.log2MaxSamples = log2MaxSamples ^ other.log2MaxSamples;
-                return result;
-            }
-
-            inline bool operator<(const SUsage& other) const
-            {
-                if (sampledImage && !other.sampledImage) return false;
-                if (storageImage && !other.storageImage) return false;
-                if (storageImageAtomic && !other.storageImageAtomic) return false;
-                if (attachment && !other.attachment) return false;
-                if (attachmentBlend && !other.attachmentBlend) return false;
-                if (blitSrc && !other.blitSrc) return false;
-                if (blitDst && !other.blitDst) return false;
-                if (transferSrc && !other.transferSrc) return false;
-                if (transferDst && !other.transferDst) return false;
-                if (other.log2MaxSamples < log2MaxSamples) return false;
-                return true;
-            }
-
-            inline bool operator == (const SUsage& other) const
-            {
-                return
-                    (sampledImage == other.sampledImage) &&
-                    (storageImage == other.storageImage) &&
-                    (storageImageAtomic == other.storageImageAtomic) &&
-                    (attachment == other.attachment) &&
-                    (attachmentBlend == other.attachmentBlend) &&
-                    (blitSrc == other.blitSrc) &&
-                    (blitDst == other.blitDst) &&
-                    (transferSrc == other.transferSrc) &&
-                    (transferDst == other.transferDst) &&
-                    (log2MaxSamples == other.log2MaxSamples);
-            }
-        };
-        
-        inline SUsage& operator[](const asset::E_FORMAT idx)
-        {
-            return m_usages[idx];
-        }
-
-        inline const SUsage& operator[](const asset::E_FORMAT idx) const
-        {
-            return m_usages[idx];
-        }
-
-        inline bool isSubsetOf(const SFormatImageUsages& other) const
-        {
-            for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
-                if(!(m_usages[i] < other.m_usages[i]))
-                    return false;
-            return true;
-        }
-
-        SUsage m_usages[asset::EF_COUNT] = {};
-    };
-
-    struct SFormatBufferUsages
-    {
-        // TODO: should memset everything to 0 on default constructor?
-
-        struct SUsage
-        {
-            uint8_t vertexAttribute : 1u; // vertexAtrtibute binding
-            uint8_t bufferView : 1u; // samplerBuffer
-            uint8_t storageBufferView : 1u; // imageBuffer
-            uint8_t storageBufferViewAtomic : 1u; // imageBuffer
-            uint8_t accelerationStructureVertex : 1u;
-
-            SUsage()
-                : vertexAttribute(0)
-                , bufferView(0)
-                , storageBufferView(0)
-                , storageBufferViewAtomic(0)
-                , accelerationStructureVertex(0)
-            {}
-
-            SUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages) 
-                : vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT))
-                , bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT))
-                , storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT))
-                , accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT))
-                // Deduced as false. User may patch it up later
-                , storageBufferViewAtomic(0)
-            {}
-
-            inline SUsage operator & (const SUsage& other) const
-            {
-                SUsage result;
-                result.vertexAttribute = vertexAttribute & other.vertexAttribute;
-                result.bufferView = bufferView & other.bufferView;
-                result.storageBufferView = storageBufferView & other.storageBufferView;
-                result.storageBufferViewAtomic = storageBufferViewAtomic & other.storageBufferViewAtomic;
-                result.accelerationStructureVertex = accelerationStructureVertex & other.accelerationStructureVertex;
-                return result;
-            }
-
-            inline SUsage operator | (const SUsage& other) const
-            {
-                SUsage result;
-                result.vertexAttribute = vertexAttribute | other.vertexAttribute;
-                result.bufferView = bufferView | other.bufferView;
-                result.storageBufferView = storageBufferView | other.storageBufferView;
-                result.storageBufferViewAtomic = storageBufferViewAtomic | other.storageBufferViewAtomic;
-                result.accelerationStructureVertex = accelerationStructureVertex | other.accelerationStructureVertex;
-                return result;
-            }
-
-            inline SUsage operator ^ (const SUsage& other) const
-            {
-                SUsage result;
-                result.vertexAttribute = vertexAttribute ^ other.vertexAttribute;
-                result.bufferView = bufferView ^ other.bufferView;
-                result.storageBufferView = storageBufferView ^ other.storageBufferView;
-                result.storageBufferViewAtomic = storageBufferViewAtomic ^ other.storageBufferViewAtomic;
-                result.accelerationStructureVertex = accelerationStructureVertex ^ other.accelerationStructureVertex;
-                return result;
-            }
-
-            inline bool operator<(const SUsage& other) const
-            {
-                if (vertexAttribute && !other.vertexAttribute) return false;
-                if (bufferView && !other.bufferView) return false;
-                if (storageBufferView && !other.storageBufferView) return false;
-                if (storageBufferViewAtomic && !other.storageBufferViewAtomic) return false;
-                if (accelerationStructureVertex && !other.accelerationStructureVertex) return false;
-                return true;
-            }
-
-            inline bool operator == (const SUsage& other) const
-            {
-                return
-                    (vertexAttribute == other.vertexAttribute) &&
-                    (bufferView == other.bufferView) &&
-                    (storageBufferView == other.storageBufferView) &&
-                    (storageBufferViewAtomic == other.storageBufferViewAtomic) &&
-                    (accelerationStructureVertex == other.accelerationStructureVertex);
-            }
-        };
-        
-        inline SUsage& operator[](const asset::E_FORMAT idx)
-        {
-            return m_usages[idx];
-        }
-
-        inline const SUsage& operator[](const asset::E_FORMAT idx) const
-        {
-            return m_usages[idx];
-        }
-
-        inline bool isSubsetOf(const SFormatBufferUsages& other) const
-        {
-            for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
-                if(!(m_usages[i] < other.m_usages[i]))
-                    return false;
-            return true;
-        }
-
-        SUsage m_usages[asset::EF_COUNT] = {};
-    };
-}
-
-
-namespace std {
-
-    template<>
-    struct ::std::hash<nbl::video::detail::SFormatImageUsages::SUsage>
-    {
-        inline uint32_t operator()(const nbl::video::detail::SFormatImageUsages::SUsage& i) const
-        {
-            return
-                i.sampledImage |
-                (i.storageImage << 1) |
-                (i.storageImageAtomic << 2) |
-                (i.attachment << 3) |
-                (i.attachmentBlend << 4) |
-                (i.blitSrc << 5) |
-                (i.blitDst << 6) |
-                (i.transferSrc << 7) |
-                (i.transferDst << 8) |
-                (i.log2MaxSamples << 9);
-        }
-    };
-
-    template<>
-    struct ::std::hash<nbl::video::detail::SFormatBufferUsages::SUsage>
-    {
-        inline uint32_t operator()(const nbl::video::detail::SFormatBufferUsages::SUsage& b) const
-        {
-            return
-                b.vertexAttribute |
-                (b.bufferView << 1) |
-                (b.storageBufferView << 2) |
-                (b.storageBufferViewAtomic << 3) |
-                (b.accelerationStructureVertex << 4);
-        }
-    };
-}
-
 namespace nbl::video
 {
 
@@ -555,10 +267,260 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 - VkVideoProfilesKHR(video stuff)
         */
 
-        const detail::SFormatBufferUsages& getBufferFormatUsages() const { return m_bufferUsages; };
+        //
+        struct SFormatBufferUsages
+        {
+            // TODO: should memset everything to 0 on default constructor?
 
-        const detail::SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_linearTilingUsages; }
-        const detail::SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_optimalTilingUsages; }
+            struct SUsage
+            {
+                uint8_t vertexAttribute : 1u; // vertexAtrtibute binding
+                uint8_t bufferView : 1u; // samplerBuffer
+                uint8_t storageBufferView : 1u; // imageBuffer
+                uint8_t storageBufferViewAtomic : 1u; // imageBuffer
+                uint8_t accelerationStructureVertex : 1u;
+
+                SUsage()
+                    : vertexAttribute(0)
+                    , bufferView(0)
+                    , storageBufferView(0)
+                    , storageBufferViewAtomic(0)
+                    , accelerationStructureVertex(0)
+                {}
+
+                SUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages) 
+                    : vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT))
+                    , bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT))
+                    , storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT))
+                    , accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT))
+                    // Deduced as false. User may patch it up later
+                    , storageBufferViewAtomic(0)
+                {}
+
+                inline SUsage operator & (const SUsage& other) const
+                {
+                    SUsage result;
+                    result.vertexAttribute = vertexAttribute & other.vertexAttribute;
+                    result.bufferView = bufferView & other.bufferView;
+                    result.storageBufferView = storageBufferView & other.storageBufferView;
+                    result.storageBufferViewAtomic = storageBufferViewAtomic & other.storageBufferViewAtomic;
+                    result.accelerationStructureVertex = accelerationStructureVertex & other.accelerationStructureVertex;
+                    return result;
+                }
+
+                inline SUsage operator | (const SUsage& other) const
+                {
+                    SUsage result;
+                    result.vertexAttribute = vertexAttribute | other.vertexAttribute;
+                    result.bufferView = bufferView | other.bufferView;
+                    result.storageBufferView = storageBufferView | other.storageBufferView;
+                    result.storageBufferViewAtomic = storageBufferViewAtomic | other.storageBufferViewAtomic;
+                    result.accelerationStructureVertex = accelerationStructureVertex | other.accelerationStructureVertex;
+                    return result;
+                }
+
+                inline SUsage operator ^ (const SUsage& other) const
+                {
+                    SUsage result;
+                    result.vertexAttribute = vertexAttribute ^ other.vertexAttribute;
+                    result.bufferView = bufferView ^ other.bufferView;
+                    result.storageBufferView = storageBufferView ^ other.storageBufferView;
+                    result.storageBufferViewAtomic = storageBufferViewAtomic ^ other.storageBufferViewAtomic;
+                    result.accelerationStructureVertex = accelerationStructureVertex ^ other.accelerationStructureVertex;
+                    return result;
+                }
+
+                inline bool operator<(const SUsage& other) const
+                {
+                    if (vertexAttribute && !other.vertexAttribute) return false;
+                    if (bufferView && !other.bufferView) return false;
+                    if (storageBufferView && !other.storageBufferView) return false;
+                    if (storageBufferViewAtomic && !other.storageBufferViewAtomic) return false;
+                    if (accelerationStructureVertex && !other.accelerationStructureVertex) return false;
+                    return true;
+                }
+
+                inline bool operator == (const SUsage& other) const
+                {
+                    return
+                        (vertexAttribute == other.vertexAttribute) &&
+                        (bufferView == other.bufferView) &&
+                        (storageBufferView == other.storageBufferView) &&
+                        (storageBufferViewAtomic == other.storageBufferViewAtomic) &&
+                        (accelerationStructureVertex == other.accelerationStructureVertex);
+                }
+            };
+            
+            inline SUsage& operator[](const asset::E_FORMAT idx)
+            {
+                return m_usages[idx];
+            }
+
+            inline const SUsage& operator[](const asset::E_FORMAT idx) const
+            {
+                return m_usages[idx];
+            }
+
+            inline bool isSubsetOf(const SFormatBufferUsages& other) const
+            {
+                for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
+                    if(!(m_usages[i] < other.m_usages[i]))
+                        return false;
+                return true;
+            }
+
+            SUsage m_usages[asset::EF_COUNT] = {};
+        };
+        const SFormatBufferUsages& getBufferFormatUsages() const { return m_bufferUsages; };
+
+        //
+
+        struct SFormatImageUsages
+        {
+            // TODO: should memset everything to 0 on default constructor?
+
+            struct SUsage
+            {
+                uint16_t sampledImage : 1u; // samplerND
+                uint16_t storageImage : 1u; // imageND
+                uint16_t storageImageAtomic : 1u;
+                uint16_t attachment : 1u; // color, depth, stencil can be infferred from the format itself
+                uint16_t attachmentBlend : 1u;
+                uint16_t blitSrc : 1u;
+                uint16_t blitDst : 1u;
+                uint16_t transferSrc : 1u;
+                uint16_t transferDst : 1u;
+                uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
+
+                SUsage()
+                    : sampledImage(0)
+                    , storageImage(0)
+                    , storageImageAtomic(0)
+                    , attachment(0)
+                    , attachmentBlend(0)
+                    , blitSrc(0)
+                    , blitDst(0)
+                    , transferSrc(0)
+                    , transferDst(0)
+                    , log2MaxSamples(0)
+                {}
+
+                SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages):
+                    log2MaxSamples(0),
+                    sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
+                    storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
+                    transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
+                    transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
+                    attachment((usages & (core::bitflag(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
+                    attachmentBlend(usages.hasFlags(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)), // TODO: should conservatively deduct to be false
+                    // Deduced as false. User may patch it up later
+                    blitSrc(0),
+                    blitDst(0),
+                    storageImageAtomic(0)
+                {}
+
+                inline SUsage operator & (const SUsage& other) const
+                {
+                    SUsage result;
+                    result.sampledImage = sampledImage & other.sampledImage;
+                    result.storageImage = storageImage & other.storageImage;
+                    result.storageImageAtomic = storageImageAtomic & other.storageImageAtomic;
+                    result.attachment = attachment & other.attachment;
+                    result.attachmentBlend = attachmentBlend & other.attachmentBlend;
+                    result.blitSrc = blitSrc & other.blitSrc;
+                    result.blitDst = blitDst & other.blitDst;
+                    result.transferSrc = transferSrc & other.transferSrc;
+                    result.transferDst = transferDst & other.transferDst;
+                    result.log2MaxSamples = log2MaxSamples & other.log2MaxSamples;
+                    return result;
+                }
+
+                inline SUsage operator | (const SUsage& other) const
+                {
+                    SUsage result;
+                    result.sampledImage = sampledImage | other.sampledImage;
+                    result.storageImage = storageImage | other.storageImage;
+                    result.storageImageAtomic = storageImageAtomic | other.storageImageAtomic;
+                    result.attachment = attachment | other.attachment;
+                    result.attachmentBlend = attachmentBlend | other.attachmentBlend;
+                    result.blitSrc = blitSrc | other.blitSrc;
+                    result.blitDst = blitDst | other.blitDst;
+                    result.transferSrc = transferSrc | other.transferSrc;
+                    result.transferDst = transferDst | other.transferDst;
+                    result.log2MaxSamples = log2MaxSamples | other.log2MaxSamples;
+                    return result;
+                }
+
+                inline SUsage operator ^ (const SUsage& other) const
+                {
+                    SUsage result;
+                    result.sampledImage = sampledImage ^ other.sampledImage;
+                    result.storageImage = storageImage ^ other.storageImage;
+                    result.storageImageAtomic = storageImageAtomic ^ other.storageImageAtomic;
+                    result.attachment = attachment ^ other.attachment;
+                    result.attachmentBlend = attachmentBlend ^ other.attachmentBlend;
+                    result.blitSrc = blitSrc ^ other.blitSrc;
+                    result.blitDst = blitDst ^ other.blitDst;
+                    result.transferSrc = transferSrc ^ other.transferSrc;
+                    result.transferDst = transferDst ^ other.transferDst;
+                    result.log2MaxSamples = log2MaxSamples ^ other.log2MaxSamples;
+                    return result;
+                }
+
+                inline bool operator<(const SUsage& other) const
+                {
+                    if (sampledImage && !other.sampledImage) return false;
+                    if (storageImage && !other.storageImage) return false;
+                    if (storageImageAtomic && !other.storageImageAtomic) return false;
+                    if (attachment && !other.attachment) return false;
+                    if (attachmentBlend && !other.attachmentBlend) return false;
+                    if (blitSrc && !other.blitSrc) return false;
+                    if (blitDst && !other.blitDst) return false;
+                    if (transferSrc && !other.transferSrc) return false;
+                    if (transferDst && !other.transferDst) return false;
+                    if (other.log2MaxSamples < log2MaxSamples) return false;
+                    return true;
+                }
+
+                inline bool operator == (const SUsage& other) const
+                {
+                    return
+                        (sampledImage == other.sampledImage) &&
+                        (storageImage == other.storageImage) &&
+                        (storageImageAtomic == other.storageImageAtomic) &&
+                        (attachment == other.attachment) &&
+                        (attachmentBlend == other.attachmentBlend) &&
+                        (blitSrc == other.blitSrc) &&
+                        (blitDst == other.blitDst) &&
+                        (transferSrc == other.transferSrc) &&
+                        (transferDst == other.transferDst) &&
+                        (log2MaxSamples == other.log2MaxSamples);
+                }
+            };
+            
+            inline SUsage& operator[](const asset::E_FORMAT idx)
+            {
+                return m_usages[idx];
+            }
+
+            inline const SUsage& operator[](const asset::E_FORMAT idx) const
+            {
+                return m_usages[idx];
+            }
+
+            inline bool isSubsetOf(const SFormatImageUsages& other) const
+            {
+                for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
+                    if(!(m_usages[i] < other.m_usages[i]))
+                        return false;
+                return true;
+            }
+
+            SUsage m_usages[asset::EF_COUNT] = {};
+        };
+
+        const SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_linearTilingUsages; }
+        const SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_optimalTilingUsages; }
 
         //
         enum E_QUEUE_FLAGS : uint32_t
@@ -621,12 +583,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SBufferFormatPromotionRequest {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            detail::SFormatBufferUsages::SUsage usages = detail::SFormatBufferUsages::SUsage();
+            SFormatBufferUsages::SUsage usages = SFormatBufferUsages::SUsage();
         };
 
         struct SImageFormatPromotionRequest {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            detail::SFormatImageUsages::SUsage usages = detail::SFormatImageUsages::SUsage();
+            SFormatImageUsages::SUsage usages = SFormatImageUsages::SUsage();
         };
 
         asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
@@ -722,45 +684,32 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
 
-       detail::SFormatImageUsages m_linearTilingUsages = {};
-       detail::SFormatImageUsages m_optimalTilingUsages = {};
-       detail::SFormatBufferUsages m_bufferUsages = {};
+        SFormatImageUsages m_linearTilingUsages = {};
+        SFormatImageUsages m_optimalTilingUsages = {};
+        SFormatBufferUsages m_bufferUsages = {};
 
         struct SBufferFormatPromotionRequestHash
         {
             // pack into 64bit for easy hashing 
-            uint64_t operator()(const SBufferFormatPromotionRequest& r) const
-            {
-                uint64_t msb = uint64_t(std::hash<detail::SFormatBufferUsages::SUsage>()(r.usages));
-                return (msb << 32u) | r.originalFormat;
-            }
+            inline uint64_t operator()(const SBufferFormatPromotionRequest& r) const;
         };
 
         struct SBufferFormatPromotionRequestEqualTo
         {
-            bool operator()(const SBufferFormatPromotionRequest& l, const SBufferFormatPromotionRequest& r) const
-            {
-                return l.originalFormat == r.originalFormat && l.usages == r.usages;
-            }
+            inline bool operator()(const SBufferFormatPromotionRequest& l, const SBufferFormatPromotionRequest& r) const;
         };
 
         struct SImageFormatPromotionRequestHash
         {
             // pack into 64bit for easy hashing 
-            uint64_t operator()(const SImageFormatPromotionRequest& r) const
-            {
-                uint64_t msb = uint64_t(std::hash<detail::SFormatImageUsages::SUsage>()(r.usages));
-                return (msb << 32u) | r.originalFormat;
-            }
+            inline uint64_t operator()(const SImageFormatPromotionRequest& r) const;
         };
 
         struct SImageFormatPromotionRequestEqualTo
         {
-            bool operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const
-            {
-                return l.originalFormat == r.originalFormat && l.usages == r.usages;
-            }
+            inline bool operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const;
         };
+
 
 
         typedef core::unordered_map<SBufferFormatPromotionRequest, asset::E_FORMAT, 
@@ -770,7 +719,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SImageFormatPromotionRequestHash, 
             SImageFormatPromotionRequestEqualTo> format_image_cache_t;
 
-        struct format_promotion_cache_t {
+            
+        struct format_promotion_cache_t
+        {
             format_buffer_cache_t buffers;
             format_image_cache_t optimalTilingImages;
             format_image_cache_t linearTilingImages;
@@ -779,4 +730,64 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
 }
 
+namespace std
+{
+    template<>
+    struct hash<nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage>
+    {
+        inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage& i) const
+        {
+            return
+                i.sampledImage |
+                (i.storageImage << 1) |
+                (i.storageImageAtomic << 2) |
+                (i.attachment << 3) |
+                (i.attachmentBlend << 4) |
+                (i.blitSrc << 5) |
+                (i.blitDst << 6) |
+                (i.transferSrc << 7) |
+                (i.transferDst << 8) |
+                (i.log2MaxSamples << 9);
+        }
+    };
+
+    template<>
+    struct hash<nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage>
+    {
+        inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage& b) const
+        {
+            return
+                b.vertexAttribute |
+                (b.bufferView << 1) |
+                (b.storageBufferView << 2) |
+                (b.storageBufferViewAtomic << 3) |
+                (b.accelerationStructureVertex << 4);
+        }
+    };
+}
+
+namespace nbl::video
+{
+    inline uint64_t IPhysicalDevice::SBufferFormatPromotionRequestHash::operator()(const SBufferFormatPromotionRequest& r) const {
+        uint64_t msb = uint64_t(std::hash<IPhysicalDevice::SFormatBufferUsages::SUsage>()(r.usages));
+        return (msb << 32u) | r.originalFormat;
+    }
+
+    inline uint64_t IPhysicalDevice::SImageFormatPromotionRequestHash::operator()(const SImageFormatPromotionRequest& r) const {
+        uint64_t msb = uint64_t(std::hash<IPhysicalDevice::SFormatImageUsages::SUsage>()(r.usages));
+        return (msb << 32u) | r.originalFormat;
+    }
+
+    inline bool IPhysicalDevice::SBufferFormatPromotionRequestEqualTo::operator()(const SBufferFormatPromotionRequest& l, const SBufferFormatPromotionRequest& r) const
+    {
+        return l.originalFormat == r.originalFormat && l.usages == r.usages;
+    }
+
+     inline bool IPhysicalDevice::SImageFormatPromotionRequestEqualTo::operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const
+    {
+        return l.originalFormat == r.originalFormat && l.usages == r.usages;
+    }
+    
+
+}
 #endif

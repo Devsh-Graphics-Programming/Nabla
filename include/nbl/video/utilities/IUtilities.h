@@ -7,6 +7,7 @@
 #include "nbl/video/IGPUBuffer.h"
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
 #include "nbl/video/utilities/CScanner.h"
@@ -304,7 +305,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                         return (physicalDevice->getImageFormatUsagesLinearTiling()[params.format] & reqFormatUsages) == reqFormatUsages;
                 };
 
-                detail::SFormatImageUsages::SUsage requiredFormatUsage = {};
+                IPhysicalDevice::SFormatImageUsages::SUsage requiredFormatUsage = {};
                 requiredFormatUsage.transferSrc = 1;
                 if (!validateFormatFeature(srcImage->getCreationParameters().format, requiredFormatUsage))
                     return nullptr;
