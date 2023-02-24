@@ -35,8 +35,6 @@ class IAccelerationStructure;
 template<typename LayoutType>
 class IDescriptorSet : public virtual core::IReferenceCounted
 {
-		using this_type = IDescriptorSet<LayoutType>;
-
 	public:
 		using layout_t = LayoutType;
 		struct SDescriptorInfo
@@ -135,29 +133,6 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 						return true;
 					return info.buffer != other.info.buffer;
 				}
-		};
-
-		struct SWriteDescriptorSet
-		{
-			//smart pointer not needed here
-			this_type* dstSet;
-			uint32_t binding;
-			uint32_t arrayElement;
-			uint32_t count;
-			IDescriptor::E_TYPE descriptorType;
-			SDescriptorInfo* info;
-		};
-
-		struct SCopyDescriptorSet
-		{
-			//smart pointer not needed here
-			this_type* dstSet;
-			const this_type* srcSet;
-			uint32_t srcBinding;
-			uint32_t srcArrayElement;
-			uint32_t dstBinding;
-			uint32_t dstArrayElement;
-			uint32_t count;
 		};
 
 		const layout_t* getLayout() const { return m_layout.get(); }

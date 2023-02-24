@@ -29,6 +29,29 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
 
 	public:
+        struct SWriteDescriptorSet
+        {
+            //smart pointer not needed here
+            IGPUDescriptorSet* dstSet;
+            uint32_t binding;
+            uint32_t arrayElement;
+            uint32_t count;
+            asset::IDescriptor::E_TYPE descriptorType;
+            SDescriptorInfo* info;
+        };
+
+        struct SCopyDescriptorSet
+        {
+            //smart pointer not needed here
+            IGPUDescriptorSet* dstSet;
+            const IGPUDescriptorSet* srcSet;
+            uint32_t srcBinding;
+            uint32_t srcArrayElement;
+            uint32_t dstBinding;
+            uint32_t dstArrayElement;
+            uint32_t count;
+        };
+
         IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& offsets);
 
         inline uint64_t getVersion() const { return m_version.load(); }
