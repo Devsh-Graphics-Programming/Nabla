@@ -1189,7 +1189,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto* ds0layout = _layout->getDescriptorSetLayout(0u);
 
 	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
-	_ctx.backend_ctx.vt.vt->updateDescriptorSet(ds0.get());
+	const bool updateSuccess = _ctx.backend_ctx.vt.vt->updateDescriptorSet(ds0.get());
+	assert(updateSuccess);
 	
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
