@@ -16,22 +16,9 @@
 
 namespace nbl::builtin
 {
-	
-constexpr std::string_view PathPrefix = "nbl/builtin/";
-constexpr bool hasPathPrefix(std::string_view str) { return str.find(PathPrefix) == 0ull; }
 
 // if you attempt to use this without `NBL_EMBED_BUILTIN_RESOURCES_` CMake option, this will always return `{nullptr,0ull}`
 std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
-
-#ifndef _NBL_EMBED_BUILTIN_RESOURCES_
-#define _NBL_BUILTIN_PATH_AVAILABLE
-constexpr std::string_view getBuiltinResourcesDirectoryPath()
-{
-    std::string_view retval = __FILE__;
-    retval.remove_suffix(PathPrefix.size()+std::string_view("common.h").size());
-    return retval;
-}
-#endif
 
 }
 #endif

@@ -83,6 +83,15 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 void handle_request(SRequestType& req, SRequestParams_WRITE& param);
                 core::smart_refctd_ptr<ICaller> m_caller;
         };
+
+#ifndef _NBL_EMBED_BUILTIN_RESOURCES_
+        constexpr std::string_view getBuiltinResourcesDirectoryPath()
+        {
+            std::string_view retval = NBL_BUILTIN_RESOURCES_DIRECTORY_PATH;
+            return retval;
+        }
+#endif
+
         friend class ISystemFile;
         CAsyncQueue m_dispatcher;
 
