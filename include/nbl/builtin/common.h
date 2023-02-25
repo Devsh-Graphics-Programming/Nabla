@@ -11,8 +11,8 @@
 
 #include <string>
 #include <string_view>
-
-#include "nbl/core/string/StringLiteral.h"
+//#include "nbl/builtin/"
+#include "nbl/builtin/builtinResources.h"
 
 namespace nbl::builtin
 {

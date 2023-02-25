@@ -411,6 +411,20 @@ if(NOT NBL_STATIC_BUILD)
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
 endif()
 
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	add_dependencies(Nabla ${_NBL_BUILTIN_RESOURCES_LIBRARIES_})
+	
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE
+			${_NBL_BUILTIN_RESOURCES_LIBRARIES_}
+		)
+	else()
+		target_link_libraries(Nabla PRIVATE 
+			${_NBL_BUILTIN_RESOURCES_LIBRARIES_}
+		)
+	endif()
+endif()
+
 ## Set up 3rdparty deps
 # Parallel Hashmap
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
@@ -622,13 +636,13 @@ if(NOT NBL_STATIC_BUILD)
 		COMMENT "Launching defines.h generation script!"
 		VERBATIM
 	)
-	
-	add_custom_target(generate_define_header ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
-	add_dependencies(Nabla generate_define_header)
 endif()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+if(NOT NBL_STATIC_BUILD)
+	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+endif()
+nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
