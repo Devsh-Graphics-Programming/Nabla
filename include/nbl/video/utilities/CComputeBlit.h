@@ -484,9 +484,9 @@ public:
 				{
 					auto& write = writes[writeCount++];
 					write.dstSet = ds;
-					write.binding = redirect.getBindingNumber(i).data;
+					write.binding = redirect.getBindingFromStorageIndex(i).data;
 					write.arrayElement = 0u;
-					write.count = redirect.getCount(i);
+					write.count = redirect.getCountFromStorageIndex(i);
 					write.info = &infos[i];
 					write.descriptorType = type;
 				}

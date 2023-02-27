@@ -93,6 +93,12 @@ inline bool is_aligned_to(const void* value, size_t alignment)
     return core::is_aligned_to(reinterpret_cast<size_t>(value),alignment);
 }
 
+template <typename T>
+constexpr inline bool is_aligned_ptr(T* ptr)
+{
+    return is_aligned_to(ptr, alignof(T));
+}
+
 }
 }
 

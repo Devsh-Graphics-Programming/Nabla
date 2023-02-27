@@ -80,79 +80,85 @@ public:
 			uint32_t data;
 		};
 
+		struct storage_range_index_t
+		{
+			inline storage_range_index_t(const uint32_t d) : data(d) {}
+			uint32_t data;
+		};
+
 		inline uint32_t getBindingCount() const { return m_count; }
 
 		// Returns index into the binding property arrays below (including `m_storageOffsets`), for the given binding number `binding`.
 		// Assumes `m_bindingNumbers` is sorted and that there are no duplicate values in it.
-		inline uint32_t searchForBinding(const binding_number_t binding) const
+		inline storage_range_index_t findBindingStorageIndex(const binding_number_t binding) const
 		{
 			if (!m_bindingNumbers)
-				return Invalid;
+				return { Invalid };
 
 			assert(m_storageOffsets && (m_count != 0u));
 
 			auto found = std::lower_bound(m_bindingNumbers, m_bindingNumbers + m_count, binding, [](binding_number_t a, binding_number_t b) -> bool {return a.data < b.data; });
 
 			if ((found >= m_bindingNumbers + m_count) || (found->data != binding.data))
-				return Invalid;
+				return { Invalid };
 
 			const uint32_t foundIndex = found - m_bindingNumbers;
 			assert(foundIndex < m_count);
-			return foundIndex;
+			return { foundIndex };
 		}
 
-		inline binding_number_t getBindingNumber(const uint32_t index) const
+		inline binding_number_t getBindingFromStorageIndex(const storage_range_index_t index) const
 		{
-			assert(index < m_count);
-			return m_bindingNumbers[index];
+			assert(index.data < m_count);
+			return m_bindingNumbers[index.data];
 		}
 
-		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const uint32_t index) const
+		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlagsFromStorageIndex(const storage_range_index_t index) const
 		{
-			assert(index < m_count);
-			return m_stageFlags[index];
+			assert(index.data < m_count);
+			return m_stageFlags[index.data];
 		}
 
-		inline uint32_t getCount(const uint32_t index) const
+		inline uint32_t getCountFromStorageIndex(const storage_range_index_t index) const
 		{
-			assert(index < m_count);
-			return (index == 0u) ? m_storageOffsets[index].data : m_storageOffsets[index].data - m_storageOffsets[index - 1].data;
+			assert(index.data < m_count);
+			return (index.data == 0u) ? m_storageOffsets[index.data].data : m_storageOffsets[index.data].data - m_storageOffsets[index.data - 1].data;
 		}
 
-		inline storage_offset_t getStorageOffset(const uint32_t index) const
+		inline storage_offset_t getStorageOffsetFromStorageIndex(const storage_range_index_t index) const
 		{
-			assert(index < m_count);
-			return (index == 0u) ? 0u : m_storageOffsets[index - 1];
+			assert(index.data < m_count);
+			return (index.data == 0u) ? 0u : m_storageOffsets[index.data - 1];
 		}
 
-		// The follwoing are merely convenience functions for one off use.
-		// If you already have an index (the result of `searchForBinding`) lying around use the above functions for quick lookups, and to avoid unnecessary binary searches.
+		// The following are merely convenience functions for one off use.
+		// If you already have an index (the result of `findBindingStorageIndex`) lying around use the above functions for quick lookups, and to avoid unnecessary binary searches.
 
 		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const binding_number_t binding) const
 		{
-			const auto index = searchForBinding(binding);
+			const auto index = findBindingStorageIndex(binding);
 			if (index == Invalid)
-				return Invalid;
+				return IShader::ESS_UNKNOWN;
 
 			return getStageFlags(index);
 		}
 
 		inline uint32_t getCount(const binding_number_t binding) const
 		{
-			const auto index = searchForBinding(binding);
+			const auto index = findBindingStorageIndex(binding);
 			if (index == Invalid)
-				return Invalid;
+				return 0;
 
 			return getDescriptorCount(index);
 		}
 
 		inline storage_offset_t getStorageOffset(const binding_number_t binding) const
 		{
-			const auto index = searchForBinding(binding);
-			if (index == Invalid)
-				return Invalid;
+			const auto index = findBindingStorageIndex(binding);
+			if (index.data == Invalid)
+				return { Invalid };
 
-			return getStorageOffset(index);
+			return getStorageOffsetFromStorageIndex(index);
 		}
 
 		inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
@@ -203,17 +209,26 @@ public:
 
 				uint64_t offset = 0ull;
 
+				// Allocations ordered from fattest alignment to smallest alignment, because there could be problem on ARM.
 				m_bindingNumbers = reinterpret_cast<binding_number_t*>(m_data.get() + offset);
 				offset += m_count * sizeof(binding_number_t);
+				assert(core::is_aligned_ptr(m_bindingNumbers));
 
-				m_createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(m_data.get() + offset);
-				offset += m_count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>);
+				assert(alignof(core::bitflag<IShader::E_SHADER_STAGE>) <= alignof(decltype(m_bindingNumbers[0])));
 
 				m_stageFlags = reinterpret_cast<core::bitflag<IShader::E_SHADER_STAGE>*>(m_data.get() + offset);
 				offset += m_count * sizeof(core::bitflag<IShader::E_SHADER_STAGE>);
+				assert(core::is_aligned_ptr(m_stageFlags));
+
+				assert(alignof(core::bitflag<IShader::E_SHADER_STAGE>) >= alignof(storage_offset_t));
 
 				m_storageOffsets = reinterpret_cast<storage_offset_t*>(m_data.get() + offset);
 				offset += m_count * sizeof(storage_offset_t);
+				assert(core::is_aligned_ptr(m_storageOffsets));
+
+				m_createFlags = reinterpret_cast<core::bitflag<typename SBinding::E_CREATE_FLAGS>*>(m_data.get() + offset);
+				offset += m_count * sizeof(core::bitflag<typename SBinding::E_CREATE_FLAGS>);
+				assert(core::is_aligned_ptr(m_createFlags));
 
 				assert(offset == requiredMemSize);
 			}

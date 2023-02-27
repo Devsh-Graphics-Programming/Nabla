@@ -18,7 +18,7 @@ core::SRange<const ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDes
 		{
 			const auto possibleType = static_cast<IDescriptor::E_TYPE>(t);
 			const auto& redirect = getLayout()->getDescriptorRedirect(possibleType);
-			if (redirect.searchForBinding(binding) != redirect.Invalid)
+			if (redirect.findBindingStorageIndex(binding).data != redirect.Invalid)
 			{
 				type = possibleType;
 				break;
@@ -30,12 +30,12 @@ core::SRange<const ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDes
 	}
 
 	const auto& redirect = getLayout()->getDescriptorRedirect(type);
-	const auto bindingNumberIndex = redirect.searchForBinding(binding);
-	if (bindingNumberIndex == redirect.Invalid)
+	const auto bindingNumberIndex = redirect.findBindingStorageIndex(binding);
+	if (bindingNumberIndex.data == redirect.Invalid)
 		return { nullptr, nullptr };
 
-	const auto offset = redirect.getStorageOffset(bindingNumberIndex).data;
-	const auto count = redirect.getCount(bindingNumberIndex);
+	const auto offset = redirect.getStorageOffsetFromStorageIndex(bindingNumberIndex).data;
+	const auto count = redirect.getCountFromStorageIndex(bindingNumberIndex);
 
 	auto infosBegin = m_descriptorInfos[static_cast<uint32_t>(type)]->begin() + offset;
 
@@ -112,7 +112,6 @@ void ICPUDescriptorSet::convertToDummyObject(uint32_t referenceLevelsBelowToConv
 	if (referenceLevelsBelowToConvert)
 	{
 		--referenceLevelsBelowToConvert;
-		m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 
 		for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 		{
@@ -149,6 +148,8 @@ void ICPUDescriptorSet::convertToDummyObject(uint32_t referenceLevelsBelowToConv
 				}
 			}
 		}
+
+		m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 	}
 }
 
@@ -204,49 +205,51 @@ void ICPUDescriptorSet::restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBe
 bool ICPUDescriptorSet::isAnyDependencyDummy_impl(uint32_t _levelsBelow) const
 {
 	--_levelsBelow;
-	if (m_layout->isAnyDependencyDummy(_levelsBelow))
-		return true;
-
-	for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
+	if (_levelsBelow)
 	{
-		const auto type = static_cast<IDescriptor::E_TYPE>(t);
-		const auto descriptorCount = m_layout->getTotalDescriptorCount(type);
-		if (descriptorCount == 0ull)
-			continue;
+		if (m_layout->isAnyDependencyDummy(_levelsBelow))
+			return true;
 
-		auto descriptorInfos = m_descriptorInfos[t]->begin();
-		assert(descriptorInfos);
-
-		const auto category = getCategoryFromType(type);
-		for (uint32_t i = 0u; i < descriptorCount; ++i)
+		for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 		{
-			switch (category)
+			const auto type = static_cast<IDescriptor::E_TYPE>(t);
+			const auto descriptorCount = m_layout->getTotalDescriptorCount(type);
+			if (descriptorCount == 0ull)
+				continue;
+
+			auto descriptorInfos = m_descriptorInfos[t]->begin();
+			assert(descriptorInfos);
+
+			const auto category = getCategoryFromType(type);
+			for (uint32_t i = 0u; i < descriptorCount; ++i)
 			{
-			case IDescriptor::EC_BUFFER:
-				if (static_cast<ICPUBuffer*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
-					return true;
-				break;
+				switch (category)
+				{
+				case IDescriptor::EC_BUFFER:
+					if (static_cast<ICPUBuffer*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
+						return true;
+					break;
 
-			case IDescriptor::EC_IMAGE:
-			{
-				if (static_cast<ICPUImageView*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
-					return true;
+				case IDescriptor::EC_IMAGE:
+				{
+					if (static_cast<ICPUImageView*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
+						return true;
 
-				if (descriptorInfos[i].info.image.sampler && descriptorInfos[i].info.image.sampler->isAnyDependencyDummy(_levelsBelow))
-					return true;
-			} break;
+					if (descriptorInfos[i].info.image.sampler && descriptorInfos[i].info.image.sampler->isAnyDependencyDummy(_levelsBelow))
+						return true;
+				} break;
 
-			case IDescriptor::EC_BUFFER_VIEW:
-				if (static_cast<ICPUBufferView*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
-					return true;
-				break;
+				case IDescriptor::EC_BUFFER_VIEW:
+					if (static_cast<ICPUBufferView*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
+						return true;
+					break;
 
-			default:
-				assert(!"Invalid code path.");
+				default:
+					assert(!"Invalid code path.");
+				}
 			}
 		}
 	}
-
 	return false;
 }
 

@@ -1382,17 +1382,17 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
             for (uint32_t b = 0; b < declaredBindingCount; ++b)
             {
                 auto& gpuBinding = tmpBindings->begin()[gpuBindingCount++];
-                gpuBinding.binding = descriptorBindingRedirect.getBindingNumber(b).data;
+                gpuBinding.binding = descriptorBindingRedirect.getBindingFromStorageIndex(b).data;
                 gpuBinding.type = type;
-                gpuBinding.count = descriptorBindingRedirect.getCount(b);
-                gpuBinding.stageFlags = descriptorBindingRedirect.getStageFlags(b);
+                gpuBinding.count = descriptorBindingRedirect.getCountFromStorageIndex(b);
+                gpuBinding.stageFlags = descriptorBindingRedirect.getStageFlagsFromStorageIndex(b);
                 gpuBinding.samplers = nullptr;
 
                 // If this DS layout has any immutable samplers..
                 if ((gpuBinding.type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && (samplerBindingCount > 0))
                 {
                     // If this binding number has any immutable samplers..
-                    if (samplerBindingRedirect.searchForBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ gpuBinding.binding }) == samplerBindingRedirect.Invalid)
+                    if (samplerBindingRedirect.findBindingStorageIndex(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ gpuBinding.binding }).data == samplerBindingRedirect.Invalid)
                         continue;
 
                     // Copy in tmpSamplers.
@@ -1721,15 +1721,15 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 for (uint32_t b = 0u; b < descriptorBindingRedirect.getBindingCount(); ++b)
                 {
                     write_it->dstSet = gpuds;
-                    write_it->binding = descriptorBindingRedirect.getBindingNumber(b).data;
+                    write_it->binding = descriptorBindingRedirect.getBindingFromStorageIndex(b).data;
                     write_it->arrayElement = 0u;
 
-                    const uint32_t descriptorCount = descriptorBindingRedirect.getCount(b);
+                    const uint32_t descriptorCount = descriptorBindingRedirect.getCountFromStorageIndex(b);
                     write_it->count = descriptorCount;
                     write_it->descriptorType = type;
                     write_it->info = &(*info);
 
-                    const uint32_t offset = descriptorBindingRedirect.getStorageOffset(b).data;
+                    const uint32_t offset = descriptorBindingRedirect.getStorageOffsetFromStorageIndex(b).data;
 
                     // It is better to use getDescriptorInfoStorage over getDescriptorInfos, because the latter does a binary search
                     // over the bindings, which is not really required given we have the index of binding number (since we're iterating
@@ -1771,7 +1771,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 
                             if (!isStorageImgDesc(type))
                             {
-                                const bool isMutableSamplerBinding = (mutableSamplerBindingRedirect.searchForBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write_it->binding }) != mutableSamplerBindingRedirect.Invalid);
+                                const bool isMutableSamplerBinding = (mutableSamplerBindingRedirect.findBindingStorageIndex(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write_it->binding }).data != mutableSamplerBindingRedirect.Invalid);
                                 if (descriptorInfos.begin()[offset + d].info.image.sampler && isMutableSamplerBinding)
                                     info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
                             }

@@ -48,7 +48,7 @@ void IRenderpassIndependentPipelineLoader::initialize()
             auto& semantic = (m_basicViewParamsSemantics->end()-i-1u)[0];
             semantic.type = types[i];
             semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-            semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getDescriptorRedirect(IDescriptor::E_TYPE::ET_UNIFORM_BUFFER).getBindingNumber(0).data;
+            semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getDescriptorRedirect(IDescriptor::E_TYPE::ET_UNIFORM_BUFFER).getBindingFromStorageIndex(0).data;
             semantic.descriptorSection.uniformBufferObject.set = 1u;
             semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
             semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
