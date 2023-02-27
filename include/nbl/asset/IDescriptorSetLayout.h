@@ -313,27 +313,10 @@ public:
 		if (!areRedirectsEqual(m_mutableSamplerRedirect, _other->m_mutableSamplerRedirect))
 			return false;
 
-		if (!m_samplers && !_other->m_samplers)
-		{
-			return true;
-		}
-		else if (!m_samplers || !_other->m_samplers)
-		{
-			return false;
-		}
+		if (m_samplers && _other->m_samplers)
+			return std::equal(m_samplers->begin(), m_samplers->end(), _other->m_samplers->begin(), _other->m_samplers->end());
 		else
-		{
-			const auto samplerCount = m_samplers->size();
-			if (samplerCount != _other->m_samplers->size())
-				return false;
-
-			for (uint32_t i = 0u; i < samplerCount; ++i)
-			{
-				if (m_samplers->begin()[i] != _other->m_samplers->begin()[i])
-					return false;
-			}
-			return true;
-		}
+			return !m_samplers && !_other->m_samplers;
 	}
 
 	inline uint32_t getTotalMutableSamplerCount() const { return m_mutableSamplerRedirect.getTotalCount(); }
