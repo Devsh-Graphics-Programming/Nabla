@@ -1,29 +1,32 @@
-#ifndef _NBL_C_ARCHIVE_H_
-#define _NBL_C_ARCHIVE_H_
+#ifndef _@_GUARD_SUFFIX_@_C_ARCHIVE_H_
+#define _@_GUARD_SUFFIX_@_C_ARCHIVE_H_
 
 #include <nbl/system/CFileArchive.h>
+#include "@NBL_BS_HEADER_FILENAME@"
 
 namespace @_NAMESPACE_@
 {
 	constexpr std::string_view pathPrefix = "@_PATH_PREFIX_@";
 	constexpr bool hasPathPrefix(std::string_view str) { return str.find(pathPrefix) == 0ull; }
+	
+	std::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);
 
-	class CArchive final : public system::CFileArchive
+	class CArchive final : public nbl::system::CFileArchive
 	{
 		public:
-			inline CArchive(system::path _path, system::logger_opt_smart_ptr&& logger)
-				: system::CFileArchive(std::move(_path),std::move(logger), getItemList()) {}
+			inline CArchive(nbl::system::path _path, nbl::system::logger_opt_smart_ptr&& logger)
+				: nbl::system::CFileArchive(std::move(_path),std::move(logger), getItemList()) {}
 			
 		protected:
-			file_buffer_t getFileBuffer(const system::IFileArchive::SListEntry* item) override
+			file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SListEntry* item) override
 			{
 					auto found = get_resource_runtime(item->pathRelativeToArchive.string());
 					return { const_cast<uint8_t*>(found.first), found.second, nullptr };
 			}
 
-			core::vector<system::IFileArchive::SListEntry> getItemList()
+			nbl::core::vector<nbl::system::IFileArchive::SListEntry> getItemList()
 			{
-				static core::vector<system::IFileArchive::SListEntry> resources
+				static nbl::core::vector<nbl::system::IFileArchive::SListEntry> resources
 				{
 @_RESOURCES_INIT_LIST_@
 				};
@@ -33,6 +36,6 @@ namespace @_NAMESPACE_@
 	};
 }
 
-#endif // _NBL_C_ARCHIVE_H_
+#endif // _@_GUARD_SUFFIX_@_C_ARCHIVE_H_
 
 
