@@ -256,6 +256,15 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     auto newCode = preprocessShader(code, stage, hlslOptions.preprocessorOptions);
 
     // Suffix is the shader model version
+    // TODO: Figure out a way to get the shader model version automatically
+    // 
+    // We can't get it from the DXC library itself, as the different versions and the parsing
+    // use a weird lexer based system that resolves to a hash, and all of that is in a scoped variable
+    // (lib/DXIL/DxilShaderModel.cpp:83)
+    // 
+    // Another option is trying to fetch it from the commandline tool, either from parsing the help message
+    // or from brute forcing every -T option until one isn't accepted
+    //
     std::wstring targetProfile(L"XX_6_2");
 
     // Set profile two letter prefix based on stage
@@ -289,29 +298,40 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         return nullptr;
     };
 
-    LPCWSTR arguments[] = {
-        // These will always be present
+    std::vector<LPCWSTR> arguments = {
         L"-spirv",
         L"-HV", L"2021",
         L"-T", targetProfile.c_str(),
-
-        // These are debug only
-        DXC_ARG_DEBUG,
-        L"-Qembed_debug",
-        L"-fspv-debug=vulkan-with-source",
-        L"-fspv-debug=file"
     };
 
-    const uint32_t nonDebugArgs = 5;
-    const uint32_t allArgs = nonDebugArgs + 4;
+    // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+    // This is how we can get more optimizer options.
+    // 
+    // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
+    // optimization levels greater than zero; they will all invoke the same optimization recipe. 
+    // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
+    if (hlslOptions.spirvOptimizer)
+    {
+        arguments.push_back(L"-O0");
+    }
 
-    // const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* compilerTypes, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options
+    // Debug only values
+    if (hlslOptions.genDebugInfo)
+    {
+        arguments.insert(arguments.end(), {
+            DXC_ARG_DEBUG,
+            L"-Qembed_debug",
+            L"-fspv-debug=vulkan-with-source",
+            L"-fspv-debug=file"
+        });
+    }
+
     auto compileResult = dxcCompile(
         this, 
         m_dxcCompilerTypes, 
         newCode,
-        &arguments[0], 
-        hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, 
+        &arguments[0],
+        arguments.size(),
         hlslOptions
     );
 
@@ -321,6 +341,11 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     }
 
     auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
+    
+    // Optimizer step
+    if (hlslOptions.spirvOptimizer)
+        outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), hlslOptions.preprocessorOptions.logger);
+
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
