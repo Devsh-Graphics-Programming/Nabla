@@ -534,10 +534,10 @@ public:
         {
             auto pgtInfos = _dstSet->getDescriptorInfos(_pgtBinding, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
             if (pgtInfos.empty())
-                return false;
+                return false; // TODO: Log
 
             if (pgtInfos.size() != 1ull)
-                return false;
+                return false; // TODO: Log
 
             auto& info = pgtInfos.begin()[0];
             info.info.image.imageLayout = IImage::EL_UNDEFINED;
@@ -550,7 +550,7 @@ public:
             auto infos = _dstSet->getDescriptorInfos(binding, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 
             if (infos.size() < views.size())
-                return false;
+                return false; // TODO: Log
 
             for (uint32_t i = 0; i < infos.size(); ++i)
             {

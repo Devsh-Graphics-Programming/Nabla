@@ -52,18 +52,12 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             uint32_t count;
         };
 
-        IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, const uint32_t poolOffset, IDescriptorPool::SDescriptorOffsets&& offsets);
-
         inline uint64_t getVersion() const { return m_version.load(); }
-
         inline IDescriptorPool* getPool() const { return m_pool.get(); }
-
-        inline bool isZombie() const
-        {
-            return (m_pool.get() == nullptr);
-        }
+        inline bool isZombie() const { return (m_pool.get() == nullptr); }
 
 	protected:
+        IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, const uint32_t poolOffset, IDescriptorPool::SDescriptorOffsets&& offsets);
         virtual ~IGPUDescriptorSet();
 
 	private:
@@ -144,7 +138,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             if (baseAddress == nullptr)
                 return nullptr;
 
-            const auto offset = m_descriptorStorageOffsets.data[static_cast<uint32_t>(type)];
+            const auto offset = getDescriptorStorageOffset(type);
             if (offset == ~0u)
                 return nullptr;
 
@@ -157,7 +151,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             if (baseAddress == nullptr)
                 return nullptr;
 
-            const auto poolOffset = m_descriptorStorageOffsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
+            const auto poolOffset = getMutableSamplerStorageOffset();
             if (poolOffset == ~0u)
                 return nullptr;
 
@@ -171,7 +165,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         friend class IDescriptorPool;
         core::smart_refctd_ptr<IDescriptorPool> m_pool;
         uint32_t m_poolOffset;
-        IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
+        const IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
 };
 
 }
