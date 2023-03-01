@@ -6,7 +6,6 @@
 #define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
-
 #include <string>
 
 namespace nbl::asset
@@ -210,6 +209,13 @@ class IAsset : virtual public core::IReferenceCounted
 
 		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
+		//! 
+		virtual size_t hash() const = 0;
+
+		//!
+		virtual bool equals(const IAsset* _other) const = 0;
+
+
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
 		inline bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
 		{
@@ -282,12 +288,19 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
+		inline void hashCombine(size_t& seed, size_t hash) const
+		{
+			seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+
 	public:
 		//! To be implemented by derived classes. Returns a type of an Asset
 		virtual E_TYPE getAssetType() const = 0;
 
 		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
 		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+
+
 };
 
 }

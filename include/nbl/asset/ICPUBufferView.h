@@ -64,19 +64,27 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
+		bool equals(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUBufferView*>(_other);
+			return compareMembers(other) && m_buffer->equals(other->m_buffer.get());
+		}
+
+
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUBufferView*>(_other);
-			if (m_size != other->m_size)
-				return false;
-			if (m_offset != other->m_offset)
-				return false;
-			if (m_format != other->m_format)
-				return false;
-			if (!m_buffer->canBeRestoredFrom(other->m_buffer.get()))
-				return false;
+			return compareMembers(other) && m_buffer->canBeRestoredFrom(other->m_buffer.get());
+		}
 
-			return true;
+		size_t hash() const override
+		{
+			size_t seed = 0;
+			hashCombine(seed, m_buffer->hash());
+			hashCombine(seed, std::hash<E_FORMAT>{}(m_format));
+			hashCombine(seed, std::hash<size_t>{}(m_offset));
+			hashCombine(seed, std::hash<size_t>{}(m_size));
+			return seed;
 		}
 
 	protected:
@@ -96,6 +104,12 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		}
 
 		virtual ~ICPUBufferView() = default;
+
+	private:
+
+		bool compareMembers(const ICPUBufferView* other) const {
+			return (m_size == other->m_size) && (m_offset == other->m_offset) && (m_format == other->m_format);
+		}
 };
 
 }
