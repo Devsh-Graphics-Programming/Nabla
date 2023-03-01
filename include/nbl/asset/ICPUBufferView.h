@@ -7,6 +7,7 @@
 
 
 #include <utility>
+#include "nbl/core/algorithm/utility.h"
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IBufferView.h"
@@ -80,10 +81,10 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		size_t hash() const override
 		{
 			size_t seed = 0;
-			hashCombine(seed, m_buffer->hash());
-			hashCombine(seed, std::hash<E_FORMAT>{}(m_format));
-			hashCombine(seed, std::hash<size_t>{}(m_offset));
-			hashCombine(seed, std::hash<size_t>{}(m_size));
+			core::hash_combine(seed, m_buffer->hash());
+			core::hash_combine(seed, m_format);
+			core::hash_combine(seed, m_offset);
+			core::hash_combine(seed, m_size);
 			return seed;
 		}
 

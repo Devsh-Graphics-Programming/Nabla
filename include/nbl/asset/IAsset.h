@@ -288,10 +288,6 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
-		inline void hashCombine(size_t& seed, size_t hash) const
-		{
-			seed ^= hash + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-		}
 
 	public:
 		//! To be implemented by derived classes. Returns a type of an Asset
