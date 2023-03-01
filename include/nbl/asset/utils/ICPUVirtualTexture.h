@@ -536,30 +536,35 @@ public:
             if (pgtInfos.empty())
                 return false;
 
-            assert(pgtInfos.size() == 1ull);
+            if (pgtInfos.size() != 1ull)
+                return false;
+
             auto& info = pgtInfos.begin()[0];
             info.info.image.imageLayout = IImage::EL_UNDEFINED;
             info.info.image.sampler = nullptr;
             info.desc = core::smart_refctd_ptr<ICPUImageView>(getPageTableView());
         }
 
-        auto updateSamplersBinding = [&](const uint32_t binding, const auto& views)
+        auto updateSamplersBinding = [&](const uint32_t binding, const auto& views) -> bool
         {
             auto infos = _dstSet->getDescriptorInfos(binding, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+
+            if (infos.size() < views.size())
+                return false;
 
             for (uint32_t i = 0; i < infos.size(); ++i)
             {
                 auto& info = infos.begin()[i];
 
-                info.info.image.imageLayout = IImage::EL_UNDEFINED;
+                info.info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
                 info.info.image.sampler = nullptr;
                 info.desc = views.begin()[i].view;
             }
+
+            return true;
         };
 
-        updateSamplersBinding(_fsamplersBinding, getFloatViews());
-        updateSamplersBinding(_isamplersBinding, getIntViews());
-        updateSamplersBinding(_usamplersBinding, getUintViews());
+        return updateSamplersBinding(_fsamplersBinding, getFloatViews()) && updateSamplersBinding(_isamplersBinding, getIntViews()) && updateSamplersBinding(_usamplersBinding, getUintViews());
     }
 
 protected:

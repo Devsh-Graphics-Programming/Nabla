@@ -59,15 +59,16 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
                 return nullptr;
         }
 
-        bool createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
+        uint32_t createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
 
         bool reset();
 
         inline uint32_t getCapacity() const { return m_creationParameters.maxSets; }
+        inline bool allowsFreeing() const { return m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT); }
 
     protected:
         explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo)
-            : IBackendObject(std::move(dev)), m_creationParameters(std::move(createInfo)), m_version(0u)
+            : IBackendObject(std::move(dev)), m_creationParameters(std::move(createInfo))
         {
             for (auto i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
                 m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[i], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));
@@ -82,11 +83,27 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
             m_UBO_SSBOStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)]);
             m_UTB_STBStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)]);
             m_accelerationStructureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE)]);
+
+            m_allocatedDescriptorSets = std::make_unique<IGPUDescriptorSet* []>(m_creationParameters.maxSets);
+            std::fill_n(m_allocatedDescriptorSets.get(), m_creationParameters.maxSets, nullptr);
+
+            m_descriptorSetAllocatorReservedSpace = std::make_unique<uint8_t[]>(core::IteratablePoolAddressAllocator<uint32_t>::reserved_size(1, m_creationParameters.maxSets, 1));
+            m_descriptorSetAllocator = core::IteratablePoolAddressAllocator<uint32_t>(m_descriptorSetAllocatorReservedSpace.get(), 0, 0, 1, m_creationParameters.maxSets, 1);
         }
 
-        virtual ~IDescriptorPool() {}
+        virtual ~IDescriptorPool()
+        {
+            if (allowsFreeing())
+            {
+                assert(m_descriptorSetAllocator.get_allocated_size() == 0);
+#ifdef _NBL_DEBUG
+                for (uint32_t i = 0u; i < m_creationParameters.maxSets; ++i)
+                    assert(m_allocatedDescriptorSets[i] == nullptr);
+#endif
+            }
+        }
 
-        virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
+        virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets* const offsets, const uint32_t firstSetOffsetInPool, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
 
         virtual bool reset_impl() = 0;
 
@@ -142,16 +159,19 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
         friend class IGPUDescriptorSet;
         // Returns the offset into the pool's descriptor storage. These offsets will be combined
         // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
-        SDescriptorOffsets allocateDescriptorOffsets(const IGPUDescriptorSetLayout* layout);
+        bool allocateDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout);
+        void freeDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout);
+
+        void deleteSetStorage(IGPUDescriptorSet* set);
 
         struct allocator_state_t
         {
-            allocator_state_t(const uint32_t maxDescriptorCount, const bool allowsFreeing)
+            allocator_state_t(const uint32_t maxDescriptorCount, const bool useGeneralAllocator)
             {
                 if (maxDescriptorCount == 0)
                     return;
 
-                if (allowsFreeing)
+                if (useGeneralAllocator)
                 {
                     generalAllocatorReservedSpace = std::make_unique<uint8_t[]>(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(1u, maxDescriptorCount, 1u));
                     generalAllocator = core::GeneralpurposeAddressAllocator<uint32_t>(generalAllocatorReservedSpace.get(), 0u, 0u, 1u, maxDescriptorCount, 1u);
@@ -164,17 +184,12 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 
             ~allocator_state_t() {}
 
-            inline uint32_t allocate(const uint32_t count, const bool allowsFreeing)
+            inline uint32_t allocate(const uint32_t count)
             {
-                if (allowsFreeing)
-                {
-                    assert(generalAllocatorReservedSpace);
+                if (generalAllocatorReservedSpace)
                     return generalAllocator.alloc_addr(count, 1u);
-                }
                 else
-                {
                     return linearAllocator.alloc_addr(count, 1u);
-                }
             }
 
             inline void free(const uint32_t allocatedOffset, const uint32_t count)
@@ -183,20 +198,20 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
                 generalAllocator.free_addr(allocatedOffset, count);
             }
 
-            inline void reset(const bool allowsFreeing)
+            inline void reset()
             {
-                if (!allowsFreeing)
-                    linearAllocator.reset();
-                else
+                if (generalAllocatorReservedSpace)
                     generalAllocator.reset();
+                else
+                    linearAllocator.reset();
             }
 
-            inline uint32_t getAllocatedDescriptorCount(const bool allowsFreeing) const
+            inline uint32_t getAllocatedDescriptorCount() const
             {
-                if (!allowsFreeing)
-                    return linearAllocator.get_allocated_size();
-                else
+                if (generalAllocatorReservedSpace)
                     return generalAllocator.get_allocated_size();
+                else
+                    return linearAllocator.get_allocated_size();
             }
 
             union
@@ -209,7 +224,10 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
         std::unique_ptr<allocator_state_t> m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
 
         const SCreateInfo m_creationParameters;
-        std::atomic_uint32_t m_version;
+
+        core::IteratablePoolAddressAllocator<uint32_t> m_descriptorSetAllocator;
+        std::unique_ptr<uint8_t[]> m_descriptorSetAllocatorReservedSpace = nullptr;
+        std::unique_ptr<IGPUDescriptorSet* []> m_allocatedDescriptorSets = nullptr; // This array might be sparse.
 
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableSamplerStorage;

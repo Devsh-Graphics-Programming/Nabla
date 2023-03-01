@@ -52,7 +52,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             uint32_t count;
         };
 
-        IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SDescriptorOffsets&& offsets);
+        IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, const uint32_t poolOffset, IDescriptorPool::SDescriptorOffsets&& offsets);
 
         inline uint64_t getVersion() const { return m_version.load(); }
 
@@ -60,10 +60,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 
         inline bool isZombie() const
         {
-            if (m_pool->m_version.load() > m_parentPoolVersion)
-                return true;
-            else
-                return false;
+            return (m_pool.get() == nullptr);
         }
 
 	protected:
@@ -171,8 +168,9 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline uint32_t getMutableSamplerStorageOffset() const { return m_descriptorStorageOffsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
 
         std::atomic_uint64_t m_version;
-        const uint32_t m_parentPoolVersion;
+        friend class IDescriptorPool;
         core::smart_refctd_ptr<IDescriptorPool> m_pool;
+        uint32_t m_poolOffset;
         IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
 };
 
