@@ -21,6 +21,8 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_2";
+
 namespace nbl::asset::hlsl::impl
 {
     struct DXC {
@@ -57,7 +59,10 @@ static tcpp::IInputStream* getInputStreamInclude(
     uint32_t _maxInclCnt,
     const char* _requesting_source,
     const char* _requested_source,
-    bool _type // true for #include "string"; false for #include <string>
+    bool _type, // true for #include "string"; false for #include <string>
+    uint32_t lexerLineIndex,
+    uint32_t leadingLinesImports,
+    std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
     std::string res_str;
@@ -87,8 +92,25 @@ static tcpp::IInputStream* getInputStreamInclude(
         return new tcpp::StringInputStream("#error File not found");
     }
 
+    // Figure out what line in the current file this #include was
+    // That would be the current lexer line, minus the line where the current file was included
+    uint32_t lineGoBackTo = lexerLineIndex - includeStack.back().first -
+        // if this is 2 includes deep (include within include), subtract leading import lines
+        // from the previous include
+        (includeStack.size() > 1 ? leadingLinesImports : 0);
+
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
     res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
+    res_str = res_str + "\n" +
+        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineGoBackTo) + " \"" +  includeStack.back().second + "\"\n";
+
+    // HACK: tcpp is having issues parsing the string, so this is a hack/mitigation that could be removed once tcpp is fixed
+    std::string identifier = name.string().c_str();
+    std::replace(identifier.begin(), identifier.end(), '\\', '/');
+
+    includeStack.push_back(std::pair<uint32_t, std::string>(lineGoBackTo, identifier));
+
+    printf("included res_str:\n%s\n", res_str.c_str());
 
     return new tcpp::StringInputStream(std::move(res_str));
 }
@@ -169,12 +191,23 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
+    std::ostringstream insertion;
+    insertion << IShaderCompiler::PREPROC_DIRECTIVE_ENABLER;
+    insertion << "line 1\n";
+    insertIntoStart(code, std::move(insertion));
+
+    uint32_t defineLeadingLinesMain = 0;
+    uint32_t leadingLinesImports = IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(preprocessOptions.maxSelfInclusionCount + 1u);
     if (preprocessOptions.extraDefines.size())
     {
         insertExtraDefines(code, preprocessOptions.extraDefines);
+        defineLeadingLinesMain += preprocessOptions.extraDefines.size();
     }
 
     IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+
+    // Keep track of the line in the original file where each #include was on each level of the include stack
+    std::vector<std::pair<uint32_t, std::string>> lineOffsetStack = { std::pair<uint32_t, std::string>(defineLeadingLinesMain, preprocessOptions.sourceIdentifier) };
 
     tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
     tcpp::Lexer lexer(codeIs);
@@ -188,13 +221,17 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             {
                 return getInputStreamInclude(
                     preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u,
-                    preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath
+                    preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath,
+                    lexer.GetCurrLineIndex(), leadingLinesImports, lineOffsetStack
                 );
             }
             else
             {
                 return static_cast<tcpp::IInputStream*>(new tcpp::StringInputStream(std::string("#error No include handler")));
             }
+        },
+        [&]() {
+            lineOffsetStack.pop_back();
         }
     );
 
@@ -239,6 +276,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     auto resolvedString = proc.Process();
     IShaderCompiler::reenableDirectives(resolvedString);
+
+    printf("Resolved string:\n\n%s\n", resolvedString.c_str());
     return resolvedString;
 }
 
@@ -265,7 +304,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     // Another option is trying to fetch it from the commandline tool, either from parsing the help message
     // or from brute forcing every -T option until one isn't accepted
     //
-    std::wstring targetProfile(L"XX_6_2");
+    std::wstring targetProfile(SHADER_MODEL_PROFILE);
 
     // Set profile two letter prefix based on stage
     switch (stage) {
