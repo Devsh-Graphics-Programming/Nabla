@@ -84,7 +84,6 @@ public:
     const XcbIcccm& getXcbIcccmFunctionTable() const { return m_xcbIcccm; }
 
 private:
-
 	Xcb m_xcb = Xcb("xcb"); // function tables
 	XcbIcccm m_xcbIcccm = XcbIcccm("xcb-icccm");
 };

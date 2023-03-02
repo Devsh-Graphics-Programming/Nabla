@@ -1,19 +1,20 @@
 #ifndef __C_WINDOW_XCB_H_INCLUDED__
 #define __C_WINDOW_XCB_H_INCLUDED__
 
-#include <cstdlib>
-
 #include "nbl/core/decl/smart_refctd_ptr.h"
-#include "nbl/ui/CClipboardManagerXCB.h"
+#include "nbl/ui/IClipboardManagerXCB.h"
 #include "nbl/ui/IWindowXCB.h"
 #include "nbl/ui/XCBConnection.h"
+
+#include <cstdlib>
 
 namespace nbl::ui
 {
 
-class CCursorControlXCB;
 class CWindowManagerXCB;
-class CClipboardManagerXCB;
+class XCBConnection;
+class CCursorControlXCB;
+class IClipboardManagerXCB;
 
 class NBL_API2 CWindowXCB final : public IWindowXCB
 {
@@ -25,7 +26,7 @@ public:
 	// Display* getDisplay() const override { return m_dpy; }
 	xcb_window_t getXcbWindow() const override { return m_xcbWindow; }
 	xcb_connection_t* getXcbConnection() const override {
-		return m_xcbConnection->getRawConnection();
+		return m_connection->getRawConnection();
 	}
 
 	virtual IClipboardManager* getClipboardManager() override;
@@ -44,9 +45,9 @@ private:
     CWindowXCB(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags);
 	
 	core::smart_refctd_ptr<CWindowManagerXCB> m_windowManager;
-	core::smart_refctd_ptr<XCBConnection> m_xcbConnection;
+	core::smart_refctd_ptr<XCBConnection> m_connection;
 	core::smart_refctd_ptr<CCursorControlXCB> m_cursorControl;
-	core::smart_refctd_ptr<CClipboardManagerXCB> m_clipboardManager;
+	core::smart_refctd_ptr<IClipboardManagerXCB> m_clipboardManager;
 
 	class CDispatchThread final : public system::IThreadHandler<CDispatchThread>
 	{
