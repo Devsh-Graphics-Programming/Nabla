@@ -12,6 +12,19 @@
 using namespace nbl;
 using namespace nbl::asset;
 
+std::string IShaderCompiler::escapeFilename(std::string&& code)
+{
+    std::string dest;
+    for (char c : code)
+    {
+        if (c == '\\')
+            dest.append("\\" "\\");
+        else 
+            dest.push_back(c);
+    }
+    return dest;
+}
+
 //all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
 void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
 {
@@ -56,10 +69,7 @@ std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, u
         return undefs;
     };
 
-    // avoid warnings about improperly escaping
-    std::string identifier = _identifier;
-    std::replace(identifier.begin(), identifier.end(), '\\', '/');
-
+    std::string identifier = IShaderCompiler::escapeFilename(_identifier);
     return
         genDefs() +
         "\n"

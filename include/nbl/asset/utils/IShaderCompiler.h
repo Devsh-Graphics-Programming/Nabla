@@ -257,6 +257,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 		}
 
+		static std::string escapeFilename(std::string&& code);
+
 		static void disableAllDirectivesExceptIncludes(std::string& _code);
 
 		static void reenableDirectives(std::string& _code);

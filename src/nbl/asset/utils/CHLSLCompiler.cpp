@@ -102,13 +102,9 @@ static tcpp::IInputStream* getInputStreamInclude(
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
     res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
     res_str = res_str + "\n" +
-        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineGoBackTo) + " \"" +  includeStack.back().second + "\"\n";
+        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineGoBackTo).c_str() + " \"" + includeStack.back().second.c_str() + "\"\n";
 
-    // avoid warnings about improperly escaping
-    std::string identifier = name.string().c_str();
-    std::replace(identifier.begin(), identifier.end(), '\\', '/');
-
-    includeStack.push_back(std::pair<uint32_t, std::string>(lineGoBackTo, identifier));
+    includeStack.push_back(std::pair<uint32_t, std::string>(lineGoBackTo, IShaderCompiler::escapeFilename(name.string())));
 
     return new tcpp::StringInputStream(std::move(res_str));
 }
