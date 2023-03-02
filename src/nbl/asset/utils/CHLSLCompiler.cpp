@@ -122,9 +122,9 @@ public:
     ComPtr<IDxcBlob> objectBlob;
     ComPtr<IDxcResult> compileResult;
 
-    char* GetErrorMessagesString()
+    std::string GetErrorMessagesString()
     {
-        return reinterpret_cast<char*>(errorMessages->GetBufferPointer());
+        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
     }
 };
 
@@ -173,9 +173,17 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
     result.compileResult = compileResult;
     result.objectBlob = nullptr;
 
-    if (!SUCCEEDED(compilationStatus))
+    auto errorMessagesString = result.GetErrorMessagesString();
+    if (SUCCEEDED(compilationStatus))
     {
-        options.preprocessorOptions.logger.log(result.GetErrorMessagesString(), system::ILogger::ELL_ERROR);
+        if (errorMessagesString.length() > 0)
+        {
+            options.preprocessorOptions.logger.log("DXC Compilation Warnings:\n%s", system::ILogger::ELL_WARNING, errorMessagesString.c_str());
+        }
+    } 
+    else
+    {
+        options.preprocessorOptions.logger.log("DXC Compilation Failed:\n%s", system::ILogger::ELL_ERROR, errorMessagesString.c_str());
         return result;
     }
 
