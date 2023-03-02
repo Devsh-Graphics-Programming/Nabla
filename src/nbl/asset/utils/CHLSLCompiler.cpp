@@ -54,12 +54,12 @@ CHLSLCompiler::~CHLSLCompiler()
 }
 
 static tcpp::IInputStream* getInputStreamInclude(
-    const IShaderCompiler::CIncludeFinder* _inclFinder,
-    const system::ISystem* _fs,
-    uint32_t _maxInclCnt,
-    const char* _requesting_source,
-    const char* _requested_source,
-    bool _type, // true for #include "string"; false for #include <string>
+    const IShaderCompiler::CIncludeFinder* inclFinder,
+    const system::ISystem* fs,
+    uint32_t maxInclCnt,
+    const char* requestingSource,
+    const char* requestedSource,
+    bool isRelative, // true for #include "string"; false for #include <string>
     uint32_t lexerLineIndex,
     uint32_t leadingLinesImports,
     std::vector<std::pair<uint32_t, std::string>>& includeStack
@@ -68,25 +68,25 @@ static tcpp::IInputStream* getInputStreamInclude(
     std::string res_str;
 
     std::filesystem::path relDir;
-    const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
-    const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
+    const bool reqFromBuiltin = builtin::hasPathPrefix(requestingSource);
+    const bool reqBuiltin = builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
     {
         //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
         //  This rule applies also while a builtin is #includ`ing another builtin.
         //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
         //  or path relative to executable's working directory (""-type).
-        relDir = std::filesystem::path(_requesting_source).parent_path();
+        relDir = std::filesystem::path(requestingSource).parent_path();
     }
-    std::filesystem::path name = _type ? (relDir / _requested_source) : (_requested_source);
+    std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
 
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
-    if (_type)
-        res_str = _inclFinder->getIncludeRelative(relDir, _requested_source);
+    if (isRelative)
+        res_str = inclFinder->getIncludeRelative(relDir, requestedSource);
     else //shaderc_include_type_standard
-        res_str = _inclFinder->getIncludeStandard(relDir, _requested_source);
+        res_str = inclFinder->getIncludeStandard(relDir, requestedSource);
 
     if (!res_str.size()) {
         return new tcpp::StringInputStream("#error File not found");
@@ -100,11 +100,11 @@ static tcpp::IInputStream* getInputStreamInclude(
         (includeStack.size() > 1 ? leadingLinesImports : 0);
 
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
-    res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
+    res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
     res_str = res_str + "\n" +
         IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineGoBackTo) + " \"" +  includeStack.back().second + "\"\n";
 
-    // HACK: tcpp is having issues parsing the string, so this is a hack/mitigation that could be removed once tcpp is fixed
+    // avoid warnings about improperly escaping
     std::string identifier = name.string().c_str();
     std::replace(identifier.begin(), identifier.end(), '\\', '/');
 
@@ -199,10 +199,8 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    std::ostringstream insertion;
-    insertion << IShaderCompiler::PREPROC_DIRECTIVE_ENABLER;
-    insertion << "line 1\n";
-    insertIntoStart(code, std::move(insertion));
+    // Line 1 comes before all the extra defines in the main shader
+    insertIntoStart(code, std::ostringstream(std::string(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER) + "line 1\n"));
 
     uint32_t defineLeadingLinesMain = 0;
     uint32_t leadingLinesImports = IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(preprocessOptions.maxSelfInclusionCount + 1u);
@@ -285,7 +283,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     auto resolvedString = proc.Process();
     IShaderCompiler::reenableDirectives(resolvedString);
 
-    printf("Resolved string:\n\n%s\n", resolvedString.c_str());
     return resolvedString;
 }
 

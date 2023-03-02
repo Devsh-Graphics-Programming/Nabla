@@ -56,7 +56,7 @@ std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, u
         return undefs;
     };
 
-    // HACK: tcpp is having issues parsing the string, so this is a hack/mitigation that could be removed once tcpp is fixed
+    // avoid warnings about improperly escaping
     std::string identifier = _identifier;
     std::replace(identifier.begin(), identifier.end(), '\\', '/');
 
