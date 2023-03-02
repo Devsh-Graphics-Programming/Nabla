@@ -38,31 +38,12 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
             return false;
     }
 
-#if 0
     for (auto i = 0; i < descriptorCopyCount; ++i)
     {
         auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
         if (!dstDS->processCopy(pDescriptorCopies[i]))
             return false;
-
-        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-        {
-            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-
-            auto* srcDescriptors = srcDS->getDescriptors(type, pDescriptorCopies[i].srcBinding);
-            auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);
-
-            auto* dstDescriptors = dstDS->getDescriptors(type, pDescriptorCopies[i].dstBinding);
-            auto* dstSamplers = dstDS->getMutableSamplers(pDescriptorCopies[i].dstBinding);
-
-            if (srcDescriptors && dstDescriptors)
-                std::copy_n(srcDescriptors, pDescriptorCopies[i].count, dstDescriptors);
-
-            if (srcSamplers && dstSamplers)
-                std::copy_n(srcSamplers, pDescriptorCopies[i].count, dstSamplers);
-        }
     }
-#endif
 
     updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
 

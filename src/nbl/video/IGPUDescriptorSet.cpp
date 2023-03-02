@@ -82,27 +82,58 @@ bool IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
 
 bool IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy)
 {
-#if 0
     assert(copy.dstSet == this);
+
+    system::ILogger* logger = nullptr;
+    {
+        auto debugCallback = getOriginDevice()->getPhysicalDevice()->getDebugCallback();
+        if (debugCallback)
+            logger = debugCallback->getLogger();
+    }
 
     for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
     {
         const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
 
-        auto* srcDescriptors = srcDS->getDescriptors(type, pDescriptorCopies[i].srcBinding);
-        auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);
+        auto* srcDescriptors = copy.srcSet->getDescriptors(type, copy.srcBinding);
+        if (!srcDescriptors)
+        {
+            if (logger)
+                logger->log("Expected descriptors of given type at binding %u for the src descriptor set but none found.", system::ILogger::ELL_ERROR, copy.srcBinding);
+            return false;
+        }
 
-        auto* dstDescriptors = dstDS->getDescriptors(type, pDescriptorCopies[i].dstBinding);
-        auto* dstSamplers = dstDS->getMutableSamplers(pDescriptorCopies[i].dstBinding);
+        auto* srcSamplers = copy.srcSet->getMutableSamplers(copy.srcBinding);
+        if (!srcSamplers)
+        {
+            if (logger)
+                logger->log("Expected mutable samplers at binding %u for the src descriptor set, but none found", system::ILogger::ELL_ERROR, copy.srcBinding);
+            return false;
+        }
 
-        if (srcDescriptors && dstDescriptors)
-            std::copy_n(srcDescriptors, pDescriptorCopies[i].count, dstDescriptors);
+        auto* dstDescriptors = copy.dstSet->getDescriptors(type, copy.dstBinding);
+        if (!dstDescriptors)
+        {
+            if (logger)
+                logger->log("Expected descriptors of given type at binding %u for the dst descriptor set but none found.", system::ILogger::ELL_ERROR, copy.dstBinding);
+            return false;
+        }
 
-        if (srcSamplers && dstSamplers)
-            std::copy_n(srcSamplers, pDescriptorCopies[i].count, dstSamplers);
+        auto* dstSamplers = copy.dstSet->getMutableSamplers(copy.dstBinding);
+        if (!dstSamplers)
+        {
+            if (logger)
+                logger->log("Expected mutable samplers at binding %u for the dst descriptor set, but none found", system::ILogger::ELL_ERROR, copy.dstBinding);
+            return false;
+        }
+
+        std::copy_n(srcDescriptors, copy.count, dstDescriptors);
+        std::copy_n(srcSamplers, copy.count, dstSamplers);
     }
-#endif
-    return false;
+
+    incrementVersion();
+
+    return true;
 }
 
 }

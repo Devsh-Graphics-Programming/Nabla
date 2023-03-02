@@ -107,14 +107,7 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 
         virtual ~IDescriptorPool()
         {
-            if (allowsFreeing())
-            {
-                assert(m_descriptorSetAllocator.get_allocated_size() == 0);
-#ifdef _NBL_DEBUG
-                for (uint32_t i = 0u; i < m_creationParameters.maxSets; ++i)
-                    assert(m_allocatedDescriptorSets[i] == nullptr);
-#endif
-            }
+            assert(m_descriptorSetAllocator.get_allocated_size() == 0);
         }
 
         virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SStorageOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
