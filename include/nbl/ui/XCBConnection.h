@@ -29,7 +29,7 @@ public:
     virtual ~XCBConnection() override;
 
     template<core::StringLiteral Name> 
-    inline xcb_atom_t resolveXCBAtom(XCBAtomToken<Name>& token, bool only_if_exists = true, bool forced = false) const {
+    inline xcb_atom_t resolveAtom(XCBAtomToken<Name>& token, bool only_if_exists = true, bool forced = false) const {
         const auto& xcb = m_windowManager->getXcbFunctionTable();
         if(token.fetched && !forced) {
             return token.token;

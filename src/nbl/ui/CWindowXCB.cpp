@@ -37,12 +37,12 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
         return; 
     }
     auto& xcb = m_window.m_windowManager->getXcbFunctionTable();
-    auto& xcbConnection = m_window.m_xcbConnection;
+    auto& connection = m_window.m_connection;
 
-    auto MW_DELETE_WINDOW = xcbConnection->resolveXCBAtom(m_window.m_WM_DELETE_WINDOW);
-    auto NET_WM_PING = xcbConnection->resolveXCBAtom(m_window.m_NET_WM_PING);
+    auto MW_DELETE_WINDOW = connection->resolveAtom(m_window.m_WM_DELETE_WINDOW);
+    auto NET_WM_PING = connection->resolveAtom(m_window.m_NET_WM_PING);
 
-    if(auto event = xcb.pxcb_wait_for_event(xcbConnection->getRawConnection())) {
+    if(auto event = xcb.pxcb_wait_for_event(connection->getRawConnection())) {
         auto* eventCallback = m_window.getEventCallback();
         m_window.m_clipboardManager->process(&m_window, event);
         switch (event->response_type & ~0x80)
@@ -81,7 +81,7 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
                     m_window.m_xcbWindow = 0;
                     m_quit = true; // we need to quit the dispatch thread
                     eventCallback->onWindowClosed(&m_window);
-                } else if(cme->data.data32[0] == NET_WM_PING && cme->window != xcbConnection->primaryScreen()->root) {
+                } else if(cme->data.data32[0] == NET_WM_PING && cme->window != connection->primaryScreen()->root) {
                     xcb_client_message_event_t ev = *cme;
                     ev.response_type = XCB_CLIENT_MESSAGE;
                     ev.window = m_window.m_xcbWindow;
@@ -150,17 +150,17 @@ bool CWindowManagerXCB::setWindowMaximized_impl(IWindow* window, bool maximized)
 CWindowXCB::CWindowXCB(core::smart_refctd_ptr<CWindowManagerXCB>&& winManager, SCreationParams&& params):
     IWindowXCB(std::move(params)),
     m_windowManager(winManager),
-    m_xcbConnection(core::make_smart_refctd_ptr<XCBConnection>(core::smart_refctd_ptr<CWindowManagerXCB>(m_windowManager))),
-    m_cursorControl(core::make_smart_refctd_ptr<CCursorControlXCB>(core::smart_refctd_ptr<XCBConnection>(m_xcbConnection))),
-    m_clipboardManager(core::make_smart_refctd_ptr<CClipboardManagerXCB>(core::smart_refctd_ptr<XCBConnection>(m_xcbConnection))),
+    m_connection(core::make_smart_refctd_ptr<XCBConnection>(core::smart_refctd_ptr<CWindowManagerXCB>(m_windowManager))),
+    m_cursorControl(core::make_smart_refctd_ptr<CCursorControlXCB>(core::smart_refctd_ptr<XCBConnection>(m_connection))),
+    m_clipboardManager(core::make_smart_refctd_ptr<CClipboardManagerXCB>(core::smart_refctd_ptr<XCBConnection>(m_connection))),
     m_dispatcher(*this) {
     
     auto& xcb = m_windowManager->getXcbFunctionTable();
     auto& xcbIccm = m_windowManager->getXcbIcccmFunctionTable();
 
-    m_xcbWindow = xcb.pxcb_generate_id(m_xcbConnection->getRawConnection());
+    m_xcbWindow = xcb.pxcb_generate_id(m_connection->getRawConnection());
 
-    const auto* primaryScreen = m_xcbConnection->primaryScreen();
+    const auto* primaryScreen = m_connection->primaryScreen();
 
     uint32_t eventMask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
     uint32_t valueList[] = {
@@ -170,7 +170,7 @@ CWindowXCB::CWindowXCB(core::smart_refctd_ptr<CWindowManagerXCB>&& winManager, S
     };
 
     xcb_void_cookie_t xcbCheckResult = xcb.pxcb_create_window(
-        m_xcbConnection->getRawConnection(), XCB_COPY_FROM_PARENT, m_xcbWindow, primaryScreen->root,
+        m_connection->getRawConnection(), XCB_COPY_FROM_PARENT, m_xcbWindow, primaryScreen->root,
         static_cast<int16_t>(m_x),
         static_cast<int16_t>(m_y),
         static_cast<int16_t>(m_width),
@@ -180,30 +180,30 @@ CWindowXCB::CWindowXCB(core::smart_refctd_ptr<CWindowManagerXCB>&& winManager, S
 
     setWindowSize_impl(m_width, m_height);
     
-    auto WM_DELETE_WINDOW = m_xcbConnection->resolveXCBAtom(m_WM_DELETE_WINDOW);
-    auto NET_WM_PING = m_xcbConnection->resolveXCBAtom(m_NET_WM_PING);
-    auto WM_PROTOCOLS = m_xcbConnection->resolveXCBAtom(m_WM_PROTOCOLS);
+    auto WM_DELETE_WINDOW = m_connection->resolveAtom(m_WM_DELETE_WINDOW);
+    auto NET_WM_PING = m_connection->resolveAtom(m_NET_WM_PING);
+    auto WM_PROTOCOLS = m_connection->resolveAtom(m_WM_PROTOCOLS);
     
     const std::array atoms {WM_DELETE_WINDOW, NET_WM_PING};
     xcb.pxcb_change_property(
-            m_xcbConnection->getRawConnection(), 
+            m_connection->getRawConnection(), 
             XCB_PROP_MODE_REPLACE, 
             m_xcbWindow, 
             WM_PROTOCOLS, XCB_ATOM_ATOM, 32, atoms.size(), atoms.data());
 
 
     auto motifHints = fetchMotifMWHints(getFlags().value);
-    m_xcbConnection->setMotifWmHints(m_xcbWindow, motifHints);
+    m_connection->setMotifWmHints(m_xcbWindow, motifHints);
     
     if(isAlwaysOnTop()) {
         XCBConnection::XCBAtomToken<core::StringLiteral("NET_WM_STATE_ABOVE")> NET_WM_STATE_ABOVE;
-        m_xcbConnection->setNetMWState(
+        m_connection->setNetMWState(
             primaryScreen->root,
-            m_xcbWindow, false, m_xcbConnection->resolveXCBAtom(NET_WM_STATE_ABOVE));
+            m_xcbWindow, false, m_connection->resolveAtom(NET_WM_STATE_ABOVE));
     }
 
-    xcb.pxcb_map_window(m_xcbConnection->getRawConnection(), m_xcbWindow);
-    xcb.pxcb_flush(m_xcbConnection->getRawConnection());
+    xcb.pxcb_map_window(m_connection->getRawConnection(), m_xcbWindow);
+    xcb.pxcb_flush(m_connection->getRawConnection());
     m_dispatcher.start();
 }
 
@@ -234,7 +234,7 @@ bool CWindowXCB::setWindowSize_impl(uint32_t width, uint32_t height) {
         xcbIccm.pxcb_icccm_size_hints_set_min_size(&hints, width, height);
         xcbIccm.pxcb_icccm_size_hints_set_max_size(&hints, width, height);
     }
-    xcbIccm.pxcb_icccm_set_wm_normal_hints(m_xcbConnection->getRawConnection(), m_xcbWindow, &hints);
+    xcbIccm.pxcb_icccm_set_wm_normal_hints(m_connection->getRawConnection(), m_xcbWindow, &hints);
     return  true;
 }
 
@@ -242,9 +242,9 @@ bool CWindowXCB::setWindowPosition_impl(int32_t x, int32_t y) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
 
     const int32_t values[] = { x, y };
-    auto cookie = xcb.pxcb_configure_window_checked(m_xcbConnection->getRawConnection(), m_xcbWindow, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
-    bool check = checkXcbCookie(xcb, m_xcbConnection->getRawConnection(), cookie);
-    xcb.pxcb_flush(m_xcbConnection->getRawConnection());
+    auto cookie = xcb.pxcb_configure_window_checked(m_connection->getRawConnection(), m_xcbWindow, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
+    bool check = checkXcbCookie(xcb, m_connection->getRawConnection(), cookie);
+    xcb.pxcb_flush(m_connection->getRawConnection());
     assert(check);
     return true;
 }
@@ -252,8 +252,8 @@ bool CWindowXCB::setWindowPosition_impl(int32_t x, int32_t y) {
 void CWindowXCB::setCaption(const std::string_view& caption) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
 
-    xcb.pxcb_change_property(m_xcbConnection->getRawConnection(), XCB_PROP_MODE_REPLACE, m_xcbWindow, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, static_cast<uint32_t>(caption.size()), reinterpret_cast<const void* const>(caption.data()));
-    xcb.pxcb_flush(m_xcbConnection->getRawConnection());
+    xcb.pxcb_change_property(m_connection->getRawConnection(), XCB_PROP_MODE_REPLACE, m_xcbWindow, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 8, static_cast<uint32_t>(caption.size()), reinterpret_cast<const void* const>(caption.data()));
+    xcb.pxcb_flush(m_connection->getRawConnection());
 }
 
 bool CWindowXCB::setWindowRotation_impl(bool landscape) {
@@ -264,30 +264,30 @@ bool CWindowXCB::setWindowVisible_impl( bool visible) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
 
     if(visible) {
-        xcb.pxcb_map_window(m_xcbConnection->getRawConnection(), m_xcbWindow);
-        xcb.pxcb_flush(m_xcbConnection->getRawConnection());
+        xcb.pxcb_map_window(m_connection->getRawConnection(), m_xcbWindow);
+        xcb.pxcb_flush(m_connection->getRawConnection());
     } else {
-        xcb.pxcb_unmap_window(m_xcbConnection->getRawConnection(), m_xcbWindow);
-        xcb.pxcb_flush(m_xcbConnection->getRawConnection());
+        xcb.pxcb_unmap_window(m_connection->getRawConnection(), m_xcbWindow);
+        xcb.pxcb_flush(m_connection->getRawConnection());
     }
     return true;
 }
 
 bool CWindowXCB::setWindowMaximized_impl(bool maximized) {
     auto& xcb = m_windowManager->getXcbFunctionTable();
-    const auto* primaryScreen = m_xcbConnection->primaryScreen();
+    const auto* primaryScreen = m_connection->primaryScreen();
 
-    m_xcbConnection->setNetMWState(
+    m_connection->setNetMWState(
         primaryScreen->root,
-            m_xcbWindow, maximized && !isBorderless(), m_xcbConnection->resolveXCBAtom(m_NET_WM_STATE_FULLSCREEN));
+            m_xcbWindow, maximized && !isBorderless(), m_connection->resolveAtom(m_NET_WM_STATE_FULLSCREEN));
 
-    m_xcbConnection->setNetMWState(
+    m_connection->setNetMWState(
         primaryScreen->root,
             m_xcbWindow, maximized && isBorderless(), 
-            m_xcbConnection->resolveXCBAtom(m_NET_WM_STATE_MAXIMIZED_VERT),
-            m_xcbConnection->resolveXCBAtom(m_NET_WM_STATE_MAXIMIZED_HORZ));
+            m_connection->resolveAtom(m_NET_WM_STATE_MAXIMIZED_VERT),
+            m_connection->resolveAtom(m_NET_WM_STATE_MAXIMIZED_HORZ));
 
-    xcb.pxcb_flush(m_xcbConnection->getRawConnection());
+    xcb.pxcb_flush(m_connection->getRawConnection());
     return true;
 }
 

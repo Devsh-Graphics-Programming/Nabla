@@ -1,12 +1,12 @@
 
+#include "nbl/ui/CClipboardManagerXCB.h"
 #include "nbl/ui/XCBConnection.h"
+
 #include <mutex>
 #include <string>
 #include <vector>
-#include <xcb/xproto.h>
-#ifdef _NBL_PLATFORM_LINUX_
 
-#include "nbl/ui/CClipboardManagerXCB.h"
+#include <xcb/xproto.h>
 
 namespace nbl::ui
 {
@@ -24,23 +24,14 @@ namespace nbl::ui
 
     bool CClipboardManagerXCB::setClipboardText(const std::string_view& data) {
         std::lock_guard lk(m_clipboardMutex);
-        m_stagedClipboard.m_data = data;
-        m_stagedClipboard.m_formats = {
-            m_xcbConnection->resolveXCBAtom(m_formatUTF8_0),
-            m_xcbConnection->resolveXCBAtom(m_formatUTF8_1),
-            m_xcbConnection->resolveXCBAtom(m_formatUTF8_2),
-            m_xcbConnection->resolveXCBAtom(m_formatGTK),
-            m_xcbConnection->resolveXCBAtom(m_formatString),
-            m_xcbConnection->resolveXCBAtom(m_formatText),
-            m_xcbConnection->resolveXCBAtom(m_formatTextPlain)
-        };
+        m_savedClipboard = data;
         return true;
     }
 
     void CClipboardManagerXCB::process(const IWindowXCB* window, xcb_generic_event_t* event) {
-        const auto& xcb = m_xcbConnection->getXcbFunctionTable();
+        const auto& xcb = m_connection->getXcbFunctionTable();
         
-        auto TARGETS = m_xcbConnection->resolveXCBAtom(m_TARGETS);
+        auto TARGETS = m_connection->resolveAtom(m_TARGETS);
 
         switch(event->response_type & ~0x80) {
             // XCB_ATOM
@@ -52,13 +43,21 @@ namespace nbl::ui
                             std::vector<xcb_atom_t> targets;
                             {
                                 std::lock_guard lk(m_clipboardMutex);
-                                for(auto& format : m_stagedClipboard.m_formats) {
+                                for(auto& format : {
+                                    m_connection->resolveAtom(m_formatUTF8_0),
+                                    m_connection->resolveAtom(m_formatUTF8_1),
+                                    m_connection->resolveAtom(m_formatUTF8_2),
+                                    m_connection->resolveAtom(m_formatGTK),
+                                    m_connection->resolveAtom(m_formatString),
+                                    m_connection->resolveAtom(m_formatText),
+                                    m_connection->resolveAtom(m_formatTextPlain)
+                                }) {
                                     targets.push_back(format);
                                 }
                             }
-                            targets.push_back(m_xcbConnection->resolveXCBAtom(m_TARGETS));
+                            targets.push_back(m_connection->resolveAtom(m_TARGETS));
                             xcb.pxcb_change_property(
-                                m_xcbConnection->getRawConnection(),
+                                m_connection->getRawConnection(),
                                 XCB_PROP_MODE_REPLACE,
                                 sne->requestor,
                                 sne->property,
@@ -69,14 +68,14 @@ namespace nbl::ui
                     } else {
                         std::lock_guard lk(m_clipboardMutex);
                         xcb.pxcb_change_property(
-                            m_xcbConnection->getRawConnection(),
+                            m_connection->getRawConnection(),
                             XCB_PROP_MODE_REPLACE,
                             sne->requestor,
                             sne->property,
                             sne->target,
                             8,
-                            m_stagedClipboard.m_data.size(),
-                            m_stagedClipboard.m_data.data());
+                            m_savedClipboard.size(),
+                            m_savedClipboard.data());
                     }
                 }
 
@@ -91,22 +90,21 @@ namespace nbl::ui
                 notify.target        = sne->target;
                 notify.property      = sne->property;
 
-                xcb.pxcb_send_event(m_xcbConnection->getRawConnection(), false,
+                xcb.pxcb_send_event(m_connection->getRawConnection(), false,
                             sne->requestor,
                             XCB_EVENT_MASK_NO_EVENT, // SelectionNotify events go without mask
                             (const char*)&notify);
 
-                xcb.pxcb_flush(m_xcbConnection->getRawConnection());
+                xcb.pxcb_flush(m_connection->getRawConnection());
                 break;
             }
             // Someone else has new content in the clipboard, so is
             // notifying us that we should delete our data now.
             case XCB_SELECTION_CLEAR: {
                 auto* sne = reinterpret_cast<xcb_selection_clear_event_t*>(event);
-                if (sne->selection == m_xcbConnection->resolveXCBAtom(m_CLIPBOARD)) {
+                if (sne->selection == m_connection->resolveAtom(m_CLIPBOARD)) {
                     std::lock_guard<std::mutex> lock(m_clipboardMutex);
-                    m_stagedClipboard.m_formats = {};
-                    m_stagedClipboard.m_data = std::string();
+                    m_savedClipboard = std::string();
                 }
                 break;
             }
@@ -119,17 +117,17 @@ namespace nbl::ui
                     if(sne->target != TARGETS) {
                         fieldType = sne->target;
                     }
-                    xcb_get_property_cookie_t cookie = xcb.pxcb_get_property(m_xcbConnection->getRawConnection(), true, 
+                    xcb_get_property_cookie_t cookie = xcb.pxcb_get_property(m_connection->getRawConnection(), true, 
                         sne->requestor,
                         sne->property, 
                         fieldType, 0, 0x1fffffff); // 0x1fffffff = INT32_MAX / 4
                     if(xcb_get_property_reply_t* reply =
-                        xcb.pxcb_get_property_reply(m_xcbConnection->getRawConnection(), cookie, nullptr)) {
+                        xcb.pxcb_get_property_reply(m_connection->getRawConnection(), cookie, nullptr)) {
                         core::SRAIIBasedExiter exitReply([reply]() -> void { 
                             free(reply);
                         });
 
-                        if(reply->type == m_xcbConnection->resolveXCBAtom(m_INCR)) {
+                        if(reply->type == m_connection->resolveAtom(m_INCR)) {
                             assert(false); // TODO
                         } else {
                             const auto* src = reinterpret_cast<const char*>(xcb.pxcb_get_property_value(reply));
@@ -147,5 +145,3 @@ namespace nbl::ui
         }
     }
 }
-
-#endif

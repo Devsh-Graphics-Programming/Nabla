@@ -20,7 +20,7 @@ namespace nbl::ui
 
         xcb_client_message_event_t event;
         event.response_type = XCB_CLIENT_MESSAGE;
-        event.type = resolveXCBAtom(m_NET_WM_STATE);
+        event.type = resolveAtom(m_NET_WM_STATE);
         event.window = window;
         event.format = 32;
         event.sequence = 0;
@@ -45,7 +45,7 @@ namespace nbl::ui
     void XCBConnection::setMotifWmHints(xcb_window_t window, const MotifWmHints& hint) const {
         const auto& xcb = m_windowManager->getXcbFunctionTable();
 
-        auto atomHint = resolveXCBAtom(m_MOTIF_WM_HINTS);
+        auto atomHint = resolveAtom(m_MOTIF_WM_HINTS);
         if(hint.flags != MotifFlags::MWM_HINTS_NONE) {
             xcb.pxcb_change_property(m_connection, XCB_PROP_MODE_REPLACE, window, 
                 atomHint, 
