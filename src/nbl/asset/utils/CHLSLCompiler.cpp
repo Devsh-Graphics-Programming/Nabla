@@ -110,8 +110,6 @@ static tcpp::IInputStream* getInputStreamInclude(
 
     includeStack.push_back(std::pair<uint32_t, std::string>(lineGoBackTo, identifier));
 
-    printf("included res_str:\n%s\n", res_str.c_str());
-
     return new tcpp::StringInputStream(std::move(res_str));
 }
 
