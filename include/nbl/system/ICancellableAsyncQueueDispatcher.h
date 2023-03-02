@@ -45,8 +45,37 @@ class ICancellableAsyncQueueDispatcherBase
                 friend future_base_t;
                 friend ICancellableAsyncQueueDispatcherBase;
 
-                //! Atomically cancels this request
-                bool set_cancel();
+                //! Atomically cancels this request, returns false if we haven't cancelled the request in time before it was executed
+                bool set_cancel()
+                {
+                    // double cancellation
+                    if (!future)
+                        return false;
+                    // wait in case of processing
+                    uint32_t expected = ES_PENDING;
+                    while (!state.compare_exchange_strong(expected, ES_INITIAL))
+                    {
+                        if (expected == ES_READY)
+                        {
+                            transition(ES_READY, ES_INITIAL);
+                            return true;
+                        }
+                        else if (expected == ES_INITIAL) // cancel after await
+                        {
+                            return false;
+                        }
+                        // was executing, we didnt get here on time
+                        assert(expected == ES_EXECUTING);
+                        state.wait(expected);
+                        expected = ES_PENDING;
+                    }
+                    // we've actually cancelled a pending request, and need to cleanup the future
+                    if (future)
+                        future->request = nullptr;
+                    future = nullptr;
+                    return true;
+                }
+                //!
                 bool query_cancel() const
                 {
                     return state.load()==ES_INITIAL||future==nullptr;
@@ -83,6 +112,7 @@ class ICancellableAsyncQueueDispatcherBase
 
                 bool cancel()
                 {
+                    // atomic exchange of pointer to ensure only one thread gets to cancel at once
                     request_base_t* req = request.exchange(nullptr);
                     if (req)
                         return req->set_cancel();
@@ -106,7 +136,10 @@ class ICancellableAsyncQueueDispatcherBase
                     // all the data is stored inside the future during the request execution, so we dont need access to the request struct after its done executing 
                     // could have used wait_ready() && discard_storate() but its more efficient that way
                     if (req)
+                    {
                         req->transition(impl::IAsyncQueueDispatcherBase::request_base_t::ES_READY,impl::IAsyncQueueDispatcherBase::request_base_t::ES_INITIAL);
+                        req->state.notify_one();
+                    }
                 }
         };
 
@@ -219,36 +252,6 @@ class ICancellableAsyncQueueDispatcher : public IAsyncQueueDispatcher<CRTP, Requ
             future.associate_request(&req);
         }
 };
-
-// returns false if we haven't cancelled the request in time before it was executed
-inline bool impl::ICancellableAsyncQueueDispatcherBase::request_base_t::set_cancel()
-{
-    // double cancellation
-    if (!future)
-        return false;
-    // wait in case of processing
-    uint32_t expected = ES_PENDING;
-    while (!state.compare_exchange_strong(expected,ES_INITIAL))
-    {
-        if (expected==ES_READY)
-        {
-            transition(ES_READY,ES_INITIAL);
-            return true;
-        }
-        else if (expected==ES_INITIAL) // cancel after await
-        {
-            return false;
-        }
-        // was executing, we didnt get here on time
-        state.wait(expected);
-        expected = ES_PENDING;
-    }
-    // we've actually cancelled a pending request, and need to cleanup the future
-    if (future)
-        future->request = nullptr;
-    future = nullptr;
-    return true;
-}
 
 }
 

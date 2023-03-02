@@ -30,10 +30,18 @@ class IAsyncQueueDispatcherBase
                 {
                     static_assert(std::atomic_uint32_t::is_always_lock_free);
                 }
-                ~request_base_t() = default;
+                ~request_base_t()
+                {
+                    // must have been consumed before exit !
+                    const auto atExit = state.load();
+                    assert(atExit==ES_INITIAL);
+                }
+
+                // in case you need it (which you won't
+                E_STATE queryState() const {return static_cast<E_STATE>(state.load());}
 
                 // lock when overwriting the request
-                void reset()
+                void start()
                 {
                     transition(ES_INITIAL,ES_RECORDING);
                 }
@@ -58,16 +66,21 @@ class IAsyncQueueDispatcherBase
                     assert(prev==ES_EXECUTING);
                     state.notify_one();
                 }
+
+                // non-blocking query
+                bool is_ready() const
+                {
+                    return state.load()==ES_READY;
+                }
                 // to call to await the request to finish processing
-                void wait_ready()
+                void wait_ready() const
                 {
                     wait_for(ES_READY);
                 }
                 // to call after done reading the request and its memory can be recycled
                 void discard_storage()
                 {
-                    const auto prev = state.exchange(ES_INITIAL);
-                    assert(prev==ES_READY);
+                    transition(ES_READY,ES_INITIAL);
                     state.notify_one();
                 }
 
@@ -82,7 +95,7 @@ class IAsyncQueueDispatcherBase
                     }
                     assert(expected==from);
                 }
-                void wait_for(const E_STATE waitVal)
+                void wait_for(const E_STATE waitVal) const
                 {
                     uint32_t current; 
                     while ((current=state.load())!=waitVal)
@@ -95,11 +108,21 @@ class IAsyncQueueDispatcherBase
 }
 
 /**
+* Required accessible methods of class being CRTP parameter:
+* 
+* void init(internal_state_t* state); // required only in case of custom internal state
+*
+* void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
+*
+* void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request(), the request's state is locked with a mutex during the call
+* void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
+* void background_work() // optional, does nothing if not provided
+* 
+* 
 * Provided RequestType shall define 5 methods:
-* T reset();
-* void finalize(T&&);
+* void start();
+* void finalize();
 * T wait_for_work();
-* T wait_for_result();
 * T notify_all_ready(T&&);
 * TODO: [outdated docs] lock() will be called just before processing the request, and unlock() will be called just after processing the request.
 * Those are to enable safe external write access to the request struct for user-defined purposes.
@@ -110,7 +133,7 @@ class IAsyncQueueDispatcherBase
 * notify_all_ready() takes an r-value reference to an already locked mutex and notifies any waiters then releases the lock
 */
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
-class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, public impl::IAsyncQueueDispatcherBase
+class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, protected impl::IAsyncQueueDispatcherBase
 {
         static_assert(std::is_base_of_v<impl::IAsyncQueueDispatcherBase::request_base_t,RequestType>, "Request type must derive from request_base_t!");
         static_assert(BufferSize>0u, "BufferSize must not be 0!");
@@ -118,10 +141,12 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
     protected:
         using base_t = IThreadHandler<CRTP,InternalStateType>;
-        friend base_t;
+        friend base_t; // TODO: remove, some functions should just be protected
+
     private:
         constexpr static inline uint32_t MaxRequestCount = BufferSize;
 
+        // maybe one day we'll abstract this into a lockless queue
         using atomic_counter_t = std::atomic_uint64_t;
         using counter_t = atomic_counter_t::value_type;
 
@@ -135,11 +160,9 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
             return x & Mask;
         }
 
-
     public:
-        
-        IAsyncQueueDispatcher() {};
-        ~IAsyncQueueDispatcher() {};
+        inline IAsyncQueueDispatcher() {}
+        inline ~IAsyncQueueDispatcher() {}
 
         using mutex_t = typename base_t::mutex_t;
         using lock_t = typename base_t::lock_t;
@@ -148,20 +171,10 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
 
         using request_t = RequestType;
 
-        ///////
-        // Required accessible methods of class being CRTP parameter:
-
-        //void init(internal_state_t* state); // required only in case of custom internal state
-
-        //void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
-
-        //void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request(), the request's state is locked with a mutex during the call
-        //void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
-        //void background_work() // optional, does nothing if not provided
-        ///////
-
-        using base_t::base_t;
-
+        // Returns a reference to a request's storage in the circular buffer after processing the moved arguments
+        // YOU MUST CONSUME THE REQUEST by calling `discard_storage()` on it EXACTLY ONCE!
+        // YOU MUST CALL IT EVEN IF THERE'S NO DATA YOU WISH TO GET BACK FROM IT!
+        // (if you don't the queue will deadlock because of an unresolved overflow)
         template <typename... Args>
         request_t& request(Args&&... args)
         {
@@ -174,7 +187,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pu
             const auto r_id = wrapAround(virtualIx);
 
             request_t& req = request_pool[r_id];
-            req.reset();
+            req.start();
             static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
             req.finalize();
 
