@@ -94,17 +94,21 @@ static tcpp::IInputStream* getInputStreamInclude(
 
     // Figure out what line in the current file this #include was
     // That would be the current lexer line, minus the line where the current file was included
-    uint32_t lineGoBackTo = lexerLineIndex - includeStack.back().first -
+    uint32_t lineInCurrentFileWithInclude = lexerLineIndex -
         // if this is 2 includes deep (include within include), subtract leading import lines
         // from the previous include
         (includeStack.size() > 1 ? leadingLinesImports : 0);
+    auto lastItemInIncludeStack = includeStack.back();
 
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
     res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
     res_str = res_str + "\n" +
-        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineGoBackTo).c_str() + " \"" + includeStack.back().second.c_str() + "\"\n";
+        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineInCurrentFileWithInclude - lastItemInIncludeStack.first - 1).c_str() + " \"" + lastItemInIncludeStack.second.c_str() + "\"\n";
 
-    includeStack.push_back(std::pair<uint32_t, std::string>(lineGoBackTo, IShaderCompiler::escapeFilename(name.string())));
+    // Offset the lines this include takes up for subsequent includes
+    includeStack.back().first += std::count(res_str.begin(), res_str.end(), '\n');
+
+    includeStack.push_back(std::pair<uint32_t, std::string>(lineInCurrentFileWithInclude, IShaderCompiler::escapeFilename(name.string())));
 
     return new tcpp::StringInputStream(std::move(res_str));
 }
