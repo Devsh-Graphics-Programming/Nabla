@@ -22,9 +22,8 @@ template<typename _size_type>
 class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type>
 {
         using Base = PoolAddressAllocator<_size_type>;
-    public:
-        inline _size_type* begin() { return &Base::getFreeStack(Base::freeStackCtr); }
     protected:
+        inline _size_type* begin() { return &Base::getFreeStack(Base::freeStackCtr); }
         inline _size_type& getIteratorOffset(_size_type i) {return reinterpret_cast<_size_type*>(Base::reservedSpace)[Base::blockCount+i];}
         inline const _size_type& getIteratorOffset(_size_type i) const {return reinterpret_cast<const _size_type*>(Base::reservedSpace)[Base::blockCount+i];}
 

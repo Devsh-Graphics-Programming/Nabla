@@ -23,7 +23,7 @@ public:
     void setObjectDebugName(const char* label) const override;
 
 private:
-    bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets *const offsets, const uint32_t firstSetOffsetInPool, core::smart_refctd_ptr<IGPUDescriptorSet>* output) override;
+    bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SStorageOffsets *const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) override;
     bool reset_impl() override;
 
     VkDescriptorPool m_descriptorPool;

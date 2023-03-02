@@ -13,8 +13,8 @@ class CVulkanDescriptorPool;
 class CVulkanDescriptorSet : public IGPUDescriptorSet
 {
 public:
-    CVulkanDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, const uint32_t poolOffset, IDescriptorPool::SDescriptorOffsets offsets, VkDescriptorSet descriptorSet)
-        : IGPUDescriptorSet(std::move(layout), std::move(pool), poolOffset, std::move(offsets)), m_descriptorSet(descriptorSet)
+    CVulkanDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SStorageOffsets offsets, VkDescriptorSet descriptorSet)
+        : IGPUDescriptorSet(std::move(layout), std::move(pool), std::move(offsets)), m_descriptorSet(descriptorSet)
     {}
 
     ~CVulkanDescriptorSet();

@@ -37,16 +37,30 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
             uint32_t maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = { 0 };
         };
 
-        struct SDescriptorOffsets
+        struct SStorageOffsets
         {
-            SDescriptorOffsets()
+            static constexpr inline uint32_t Invalid = ~0u;
+
+            SStorageOffsets()
             {
-                // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
-                // know which descriptors are present in the set and hence should be destroyed.
-                std::fill_n(data, static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1, ~0u);
+                // The default constructor should initiailze all the offsets to Invalid because other parts of the codebase relies on it to
+                // know which descriptors are present in the set and hence should be destroyed, or which set in the pool is non-zombie.
+                std::fill_n(data, static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 2, Invalid);
             }
 
-            uint32_t data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
+            inline uint32_t getDescriptorOffset(const asset::IDescriptor::E_TYPE type) const
+            {
+                const uint32_t idx = static_cast<uint32_t>(type);
+                assert(idx < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT));
+                return data[idx];
+            }
+
+            inline uint32_t getMutableSamplerOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
+
+            inline uint32_t getSetOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
+            inline uint32_t& getSetOffset() { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
+
+            uint32_t data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 2];
         };
 
         inline core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
@@ -103,7 +117,7 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
             }
         }
 
-        virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets* const offsets, const uint32_t firstSetOffsetInPool, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
+        virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SStorageOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
 
         virtual bool reset_impl() = 0;
 
@@ -159,10 +173,10 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
         friend class IGPUDescriptorSet;
         // Returns the offset into the pool's descriptor storage. These offsets will be combined
         // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
-        bool allocateDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout);
-        void freeDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout);
+        bool allocateStorageOffsets(SStorageOffsets& offsets, const IGPUDescriptorSetLayout* layout);
+        void rewindLastStorageAllocations(const uint32_t count, const SStorageOffsets* offsets, const IGPUDescriptorSetLayout *const *const layouts);
 
-        void deleteSetStorage(IGPUDescriptorSet* set);
+        void deleteSetStorage(IGPUDescriptorSet*& set);
 
         struct allocator_state_t
         {

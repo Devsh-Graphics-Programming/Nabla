@@ -6,8 +6,8 @@ namespace nbl::video
 
 uint32_t IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
 {
-    core::vector<SDescriptorOffsets> descriptorOffsets;
-    descriptorOffsets.reserve(count);
+    core::vector<SStorageOffsets> offsets;
+    offsets.reserve(count);
 
     system::ILogger* logger = nullptr;
     {
@@ -21,67 +21,57 @@ uint32_t IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescrip
         if (!isCompatibleDevicewise(layouts[i]))
         {
             if (logger)
-                logger->log("Device-Incompatible descriptor set layout found at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_WARNING, i);
+                logger->log("Device-Incompatible descriptor set layout found at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_ERROR, i);
 
             break;
         }
         
-        if (!allocateDescriptorOffsets(descriptorOffsets.emplace_back(), layouts[i]))
+        if (!allocateStorageOffsets(offsets.emplace_back(), layouts[i]))
         {
             if (logger)
-                logger->log("Failed to allocate descriptor offsets in the pool's storage for descriptor set layout at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_WARNING, i);
+                logger->log("Failed to allocate descriptor or descriptor set offsets in the pool's storage for descriptor set layout at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_WARNING, i);
 
-            descriptorOffsets.pop_back();
+            offsets.pop_back();
             break;
         }
     }
 
-    const auto successCount = descriptorOffsets.size();
-    assert(count >= successCount);
-    std::fill_n(output + successCount, count - successCount, nullptr);
+    auto successCount = offsets.size();
 
-    const uint32_t allocatedDSOffset = m_descriptorSetAllocator.alloc_addr(successCount, 1u);
-    if (allocatedDSOffset != m_descriptorSetAllocator.invalid_address)
+    const bool creationSuccess = createDescriptorSets_impl(successCount, layouts, offsets.data(), output);
+    if (creationSuccess)
     {
-        if (createDescriptorSets_impl(successCount, layouts, descriptorOffsets.data(), allocatedDSOffset, output))
-        {
-            for (uint32_t i = 0u; i < successCount; ++i)
-                m_allocatedDescriptorSets[allocatedDSOffset + i] = output[i].get();
-
-            return successCount;
-        }
+        for (uint32_t i = 0u; i < successCount; ++i)
+            m_allocatedDescriptorSets[offsets[i].getSetOffset()] = output[i].get();
     }
     else
     {
-        if (logger)
-            logger->log("Failed to allocate descriptor sets.", system::ILogger::ELL_ERROR);
+        // Free the allocated offsets for all the successfully allocated descriptor sets and the offset of the descriptor sets themselves.
+        rewindLastStorageAllocations(successCount, offsets.data(), layouts);
+        successCount = 0;
     }
 
-    // Free the allocated offsets for all the successfully allocated descriptor sets.
-    for (uint32_t i = 0u; i < successCount; ++i)
-        freeDescriptorOffsets(descriptorOffsets[i], layouts[i]);
+    assert(count >= successCount);
+    std::fill_n(output + successCount, count - successCount, nullptr);
 
-    return 0;
+    return successCount;
 }
 
 bool IDescriptorPool::reset()
 {
-    for (const uint32_t setIndex : m_descriptorSetAllocator)
-    {
+    const auto& compilerIsRetarded = m_descriptorSetAllocator;
+    for (const uint32_t setIndex : compilerIsRetarded)
         deleteSetStorage(m_allocatedDescriptorSets[setIndex]);
-
-        m_allocatedDescriptorSets[setIndex]->m_pool = nullptr;
-        m_allocatedDescriptorSets[setIndex]->m_poolOffset = ~0u;
-        m_allocatedDescriptorSets[setIndex] = nullptr;
-    }
 
     m_descriptorSetAllocator.reset();
 
     return reset_impl();
 }
 
-bool IDescriptorPool::allocateDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout)
+bool IDescriptorPool::allocateStorageOffsets(SStorageOffsets& offsets, const IGPUDescriptorSetLayout* layout)
 {
+    bool success = true;
+
     for (uint32_t i = 0u; i <= static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
     {
         uint32_t count = 0u;
@@ -104,41 +94,64 @@ bool IDescriptorPool::allocateDescriptorOffsets(SDescriptorOffsets& offsets, con
         offsets.data[i] = m_descriptorAllocators[i]->allocate(count);
         if (offsets.data[i] >= maxCount)
         {
-            // Offset allocation for this descriptor type failed, nothing needs to be done for this type but rewind the previous types' allocations.
-            freeDescriptorOffsets(offsets, layout);
-            return false;
+            success = false;
+            break;
         }
     }
 
-    return true;
+    if (success)
+    {
+        // Allocate offset into the pool's m_allocatedDescriptorSets
+        offsets.getSetOffset() = m_descriptorSetAllocator.alloc_addr(1u, 1u);
+        if (offsets.getSetOffset() == m_descriptorSetAllocator.invalid_address)
+            success = false;
+    }
+
+    if (!success)
+        rewindLastStorageAllocations(1, &offsets, &layout);
+
+    return success;
 }
 
-void IDescriptorPool::freeDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout)
+void IDescriptorPool::rewindLastStorageAllocations(const uint32_t count, const SStorageOffsets* offsets, const IGPUDescriptorSetLayout *const *const layouts)
 {
+    for (uint32_t j = 0; j < count; ++j)
+    {
+        if (offsets[j].getSetOffset() != SStorageOffsets::Invalid)
+            m_descriptorSetAllocator.free_addr(offsets[j].getSetOffset(), 1u);
+    }
+
+    // Order of iteration important, once we find the lowest allocated offset for a type we can skip all other allocations in the case of linear allocator.
     for (uint32_t i = 0; i <= static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
     {
-        const uint32_t maxCount = (i == static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT))
-            ? m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]
-            : m_creationParameters.maxDescriptorCount[i];
-
-        if (offsets.data[i] < maxCount)
+        for (uint32_t j = 0; j < count; ++j)
         {
-            if (allowsFreeing())
-                m_descriptorAllocators[i]->free(offsets.data[i], layout->getTotalDescriptorCount(static_cast<asset::IDescriptor::E_TYPE>(i)));
-            else
-                m_descriptorAllocators[i]->linearAllocator.reset(offsets.data[i]);
+            if (offsets[j].data[i] != SStorageOffsets::Invalid)
+            {
+                if (allowsFreeing())
+                {
+                    m_descriptorAllocators[i]->free(offsets[j].data[i], layouts[j]->getTotalDescriptorCount(static_cast<asset::IDescriptor::E_TYPE>(i)));
+                }
+                else
+                {
+                    // First allocated offset will be the lowest.
+                    m_descriptorAllocators[i]->linearAllocator.reset(offsets->data[i]);
+                    break;
+                }
+            }
         }
     }
 }
 
-void IDescriptorPool::deleteSetStorage(IGPUDescriptorSet* set)
+void IDescriptorPool::deleteSetStorage(IGPUDescriptorSet*& set)
 {
     assert(set);
+    assert(!set->isZombie());
 
     for (auto i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
     {
         const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
-        const uint32_t allocatedOffset = set->getDescriptorStorageOffset(type);
+        const uint32_t allocatedOffset = set->m_storageOffsets.getDescriptorOffset(type);
 
         // There is no descriptor of such type in the set.
         if (allocatedOffset == ~0u)
@@ -156,14 +169,21 @@ void IDescriptorPool::deleteSetStorage(IGPUDescriptorSet* set)
     const auto mutableSamplerCount = set->getLayout()->getTotalMutableSamplerCount();
     if (mutableSamplerCount > 0)
     {
-        const uint32_t allocatedOffset = set->getMutableSamplerStorageOffset();
+        const uint32_t allocatedOffset = set->m_storageOffsets.getMutableSamplerOffset();
         assert(allocatedOffset != ~0u);
 
         std::destroy_n(getMutableSamplerStorage() + allocatedOffset, mutableSamplerCount);
 
         if (allowsFreeing())
             m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]->free(allocatedOffset, mutableSamplerCount);
-    } 
+    }
+
+    m_descriptorSetAllocator.free_addr(set->m_storageOffsets.getSetOffset(), 1);
+    if (m_descriptorSetAllocator.get_allocated_size() == 0)
+        reset();
+
+    set->m_pool = nullptr;
+    set = nullptr;
 }
 
 }
