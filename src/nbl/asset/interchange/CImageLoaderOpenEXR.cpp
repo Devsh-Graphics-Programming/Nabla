@@ -72,7 +72,6 @@ class nblIStream : public IMF::IStream
 		virtual bool read(char c[/*n*/], int n) override
 		{
 			system::ISystem::future_t<size_t> future;
-			system::IFile::success_t success;
 			nblFile->read(future, c, fileOffset, n);
 			const auto bytesRead = future.get();
 			fileOffset += bytesRead;
