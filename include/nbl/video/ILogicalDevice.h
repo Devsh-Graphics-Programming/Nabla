@@ -1,6 +1,8 @@
 #ifndef __NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED__
 #define __NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED__
 
+#include <span>
+
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/CCompilerSet.h"
@@ -30,6 +32,7 @@
 #include "nbl/video/IDeviceMemoryAllocator.h"
 
 #include "nbl/video/SPhysicalDeviceFeatures.h"
+
 
 namespace nbl::video
 {
@@ -161,24 +164,36 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 
         //! For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
-        void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+        inline void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
         {
             core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
             return flushMappedMemoryRanges(ranges);
         }
 
         //! Utility wrapper for the pointer based func
-        virtual void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
+        inline void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges)
+        {
+            auto mapped = ranges.toSpan();
+            flushMappedMemoryRanges(mapped);
+        }
+
+        virtual void flushMappedMemoryRanges(std::span<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
 
         //! For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
-        void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
+        inline void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
         {
             core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
             return invalidateMappedMemoryRanges(ranges);
         }
 
         //! Utility wrapper for the pointer based func
-        virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
+        inline void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) {
+            auto mapped = ranges.toSpan();
+            invalidateMappedMemoryRanges(mapped);
+        }
+
+        virtual void invalidateMappedMemoryRanges(std::span<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
+
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) { return nullptr; }
 

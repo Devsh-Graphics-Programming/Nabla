@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <utility>
 #include <iterator>
+#include <span>
 
 /*! \file SRange.h
 	\brief File containing SRange utility struct for C++11 range loops
@@ -43,6 +44,8 @@ struct SRange
         inline typename std::enable_if<!std::is_const_v<Q>,T&>::type operator[](size_t ix) noexcept { return begin()[ix]; }
 		
 		inline size_t size() const {return std::distance(m_begin,m_end);}
+
+		inline std::span<T> toSpan() const { return {m_begin,m_end}; }
 
 		inline bool empty() const { return m_begin==m_end; }
 

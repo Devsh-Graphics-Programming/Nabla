@@ -2,6 +2,7 @@
 #define _NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
 
 #include <algorithm>
+#include <span>
 
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/CVulkanCommon.h"
@@ -387,17 +388,20 @@ public:
             return nullptr;
         }
     }
-           
+
+    
+
     // API needs to change, vkFlushMappedMemoryRanges could fail.
-    void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
+    void flushMappedMemoryRanges(std::span<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
     {
         constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
         VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
 
         const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
         assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
+        // std::span<VkMappedMemoryRange> outRange(vk_memoryRanges, MAX_MEMORY_RANGE_COUNT);
 
-        getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
+        getVkMappedMemoryRanges(vk_memoryRanges, ranges);
         
         if (m_devf.vk.vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
         {
@@ -406,9 +410,9 @@ public:
                 logger->log("flushMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
         }
     }
-            
+
     // API needs to change, this could fail
-    void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
+    void invalidateMappedMemoryRanges(std::span<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
     {
         constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
         VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
@@ -416,7 +420,7 @@ public:
         const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
         assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
 
-        getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
+        getVkMappedMemoryRanges(vk_memoryRanges, ranges);
 
         if (m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
         {
@@ -1459,21 +1463,22 @@ protected:
     bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
 private:
-    inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeEnd)
+
+    inline void getVkMappedMemoryRanges(std::span<VkMappedMemoryRange> vkOutputMapping, std::span<const IDeviceMemoryAllocation::MappedMemoryRange> inputRange)
     {
-        uint32_t k = 0u;
-        for (auto currentRange = inRangeBegin; currentRange != inRangeEnd; ++currentRange)
-        {
-            VkMappedMemoryRange& vk_memoryRange = outRanges[k++];
+        uint32_t k = 0;
+        for(auto& input : inputRange) {
+            VkMappedMemoryRange& vk_memoryRange = vkOutputMapping[k++];
             vk_memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
             vk_memoryRange.pNext = nullptr; // pNext must be NULL
 
-            if (currentRange->memory->getAPIType() != EAT_VULKAN)
+            if (input.memory->getAPIType() != EAT_VULKAN) {
                 continue;
+            }
 
-            vk_memoryRange.memory = static_cast<const CVulkanMemoryAllocation*>(currentRange->memory)->getInternalObject();
-            vk_memoryRange.offset = static_cast<VkDeviceSize>(currentRange->range.offset);
-            vk_memoryRange.size = static_cast<VkDeviceSize>(currentRange->range.length);
+            vk_memoryRange.memory = static_cast<const CVulkanMemoryAllocation*>(input.memory)->getInternalObject();
+            vk_memoryRange.offset = static_cast<VkDeviceSize>(input.range.offset);
+            vk_memoryRange.size = static_cast<VkDeviceSize>(input.range.length);
         }
     }
 
