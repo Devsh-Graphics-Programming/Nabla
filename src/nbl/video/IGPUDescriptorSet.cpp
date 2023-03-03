@@ -29,28 +29,17 @@ IGPUDescriptorSet::IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptor
 IGPUDescriptorSet::~IGPUDescriptorSet()
 {
     if (!isZombie())
-    {
-        auto dummy = this;
-        m_pool->deleteSetStorage(dummy);
-    }
+        m_pool->deleteSetStorage(m_storageOffsets.getSetOffset());
 }
 
 bool IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write)
 {
     assert(write.dstSet == this);
 
-    system::ILogger* logger = nullptr;
-    {
-        auto debugCallback = getOriginDevice()->getPhysicalDevice()->getDebugCallback();
-        if (debugCallback)
-            logger = debugCallback->getLogger();
-    }
-
     auto* descriptors = getDescriptors(write.descriptorType, write.binding);
     if (!descriptors)
     {
-        if (logger)
-            logger->log("Descriptor set layout doesn't allow descriptor of such type at binding %u.", system::ILogger::ELL_ERROR, write.binding);
+        m_pool->m_logger.log("Descriptor set layout doesn't allow descriptor of such type at binding %u.", system::ILogger::ELL_ERROR, write.binding);
         return false;
     }
 
@@ -61,8 +50,7 @@ bool IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
         mutableSamplers = getMutableSamplers(write.binding);
         if (!mutableSamplers)
         {
-            if (logger)
-                logger->log("Descriptor set layout doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, write.binding);
+            m_pool->m_logger.log("Descriptor set layout doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, write.binding);
             return false;
         }
     }
@@ -84,13 +72,6 @@ bool IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet&
 {
     assert(copy.dstSet == this);
 
-    system::ILogger* logger = nullptr;
-    {
-        auto debugCallback = getOriginDevice()->getPhysicalDevice()->getDebugCallback();
-        if (debugCallback)
-            logger = debugCallback->getLogger();
-    }
-
     for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
     {
         const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
@@ -98,32 +79,28 @@ bool IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet&
         auto* srcDescriptors = copy.srcSet->getDescriptors(type, copy.srcBinding);
         if (!srcDescriptors)
         {
-            if (logger)
-                logger->log("Expected descriptors of given type at binding %u for the src descriptor set but none found.", system::ILogger::ELL_ERROR, copy.srcBinding);
+            m_pool->m_logger.log("Expected descriptors of given type at binding %u for the src descriptor set but none found.", system::ILogger::ELL_ERROR, copy.srcBinding);
             return false;
         }
 
         auto* srcSamplers = copy.srcSet->getMutableSamplers(copy.srcBinding);
         if (!srcSamplers)
         {
-            if (logger)
-                logger->log("Expected mutable samplers at binding %u for the src descriptor set, but none found", system::ILogger::ELL_ERROR, copy.srcBinding);
+            m_pool->m_logger.log("Expected mutable samplers at binding %u for the src descriptor set, but none found", system::ILogger::ELL_ERROR, copy.srcBinding);
             return false;
         }
 
         auto* dstDescriptors = copy.dstSet->getDescriptors(type, copy.dstBinding);
         if (!dstDescriptors)
         {
-            if (logger)
-                logger->log("Expected descriptors of given type at binding %u for the dst descriptor set but none found.", system::ILogger::ELL_ERROR, copy.dstBinding);
+            m_pool->m_logger.log("Expected descriptors of given type at binding %u for the dst descriptor set but none found.", system::ILogger::ELL_ERROR, copy.dstBinding);
             return false;
         }
 
         auto* dstSamplers = copy.dstSet->getMutableSamplers(copy.dstBinding);
         if (!dstSamplers)
         {
-            if (logger)
-                logger->log("Expected mutable samplers at binding %u for the dst descriptor set, but none found", system::ILogger::ELL_ERROR, copy.dstBinding);
+            m_pool->m_logger.log("Expected mutable samplers at binding %u for the dst descriptor set, but none found", system::ILogger::ELL_ERROR, copy.dstBinding);
             return false;
         }
 

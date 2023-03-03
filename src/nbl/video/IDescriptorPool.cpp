@@ -4,33 +4,46 @@
 namespace nbl::video
 {
 
+IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo)
+    : IBackendObject(std::move(dev)), m_creationParameters(std::move(createInfo)), m_logger(getOriginDevice()->getPhysicalDevice()->getDebugCallback() ? getOriginDevice()->getPhysicalDevice()->getDebugCallback()->getLogger() : nullptr)
+{
+    for (auto i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
+        m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[i], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));
+
+    // For mutable samplers. We don't know if there will be mutable samplers in sets allocated by this pool when we create the pool.
+    m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));
+
+    // Initialize the storages.
+    m_textureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]);
+    m_mutableSamplerStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]);
+    m_storageImageStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT)]);
+    m_UBO_SSBOStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)]);
+    m_UTB_STBStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)]);
+    m_accelerationStructureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE)]);
+
+    m_allocatedDescriptorSets = std::make_unique<IGPUDescriptorSet * []>(m_creationParameters.maxSets);
+    std::fill_n(m_allocatedDescriptorSets.get(), m_creationParameters.maxSets, nullptr);
+
+    m_descriptorSetAllocatorReservedSpace = std::make_unique<uint8_t[]>(core::IteratablePoolAddressAllocator<uint32_t>::reserved_size(1, m_creationParameters.maxSets, 1));
+    m_descriptorSetAllocator = core::IteratablePoolAddressAllocator<uint32_t>(m_descriptorSetAllocatorReservedSpace.get(), 0, 0, 1, m_creationParameters.maxSets, 1);
+}
+
 uint32_t IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
 {
     core::vector<SStorageOffsets> offsets;
     offsets.reserve(count);
 
-    system::ILogger* logger = nullptr;
-    {
-        auto debugCallback = getOriginDevice()->getPhysicalDevice()->getDebugCallback();
-        if (debugCallback)
-            logger = debugCallback->getLogger();
-    }
-
     for (uint32_t i = 0u; i < count; ++i)
     {
         if (!isCompatibleDevicewise(layouts[i]))
         {
-            if (logger)
-                logger->log("Device-Incompatible descriptor set layout found at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_ERROR, i);
-
+            m_logger.log("Device-Incompatible descriptor set layout found at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_ERROR, i);
             break;
         }
         
         if (!allocateStorageOffsets(offsets.emplace_back(), layouts[i]))
         {
-            if (logger)
-                logger->log("Failed to allocate descriptor or descriptor set offsets in the pool's storage for descriptor set layout at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_WARNING, i);
-
+            m_logger.log("Failed to allocate descriptor or descriptor set offsets in the pool's storage for descriptor set layout at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_WARNING, i);
             offsets.pop_back();
             break;
         }
@@ -61,7 +74,7 @@ bool IDescriptorPool::reset()
 {
     const auto& compilerIsRetarded = m_descriptorSetAllocator;
     for (const uint32_t setIndex : compilerIsRetarded)
-        deleteSetStorage(m_allocatedDescriptorSets[setIndex]);
+        deleteSetStorage(setIndex);
 
     m_descriptorSetAllocator.reset();
 
@@ -143,8 +156,10 @@ void IDescriptorPool::rewindLastStorageAllocations(const uint32_t count, const S
     }
 }
 
-void IDescriptorPool::deleteSetStorage(IGPUDescriptorSet*& set)
+void IDescriptorPool::deleteSetStorage(const uint32_t setIndex)
 {
+    auto* set = m_allocatedDescriptorSets[setIndex];
+
     assert(set);
     assert(!set->isZombie());
 
@@ -179,11 +194,13 @@ void IDescriptorPool::deleteSetStorage(IGPUDescriptorSet*& set)
     }
 
     m_descriptorSetAllocator.free_addr(set->m_storageOffsets.getSetOffset(), 1);
-    if (m_descriptorSetAllocator.get_allocated_size() == 0)
+    if ((m_descriptorSetAllocator.get_allocated_size() == 0) && !allowsFreeing())
         reset();
-
+    
+    // Order is important because we don't want first nullify the pool (which will destroy the pool for the last surviving DS) because ~IDescriptorPool
+    // checks if all the allocated DS have been set to nullptr.
+    m_allocatedDescriptorSets[setIndex] = nullptr;
     set->m_pool = nullptr;
-    set = nullptr;
 }
 
 }
