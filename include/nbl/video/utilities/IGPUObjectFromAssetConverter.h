@@ -1382,10 +1382,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
             for (uint32_t b = 0; b < declaredBindingCount; ++b)
             {
                 auto& gpuBinding = tmpBindings->begin()[gpuBindingCount++];
-                gpuBinding.binding = descriptorBindingRedirect.getBindingFromStorageIndex(b).data;
+                gpuBinding.binding = descriptorBindingRedirect.getBinding(b).data;
                 gpuBinding.type = type;
-                gpuBinding.count = descriptorBindingRedirect.getCountFromStorageIndex(b);
-                gpuBinding.stageFlags = descriptorBindingRedirect.getStageFlagsFromStorageIndex(b);
+                gpuBinding.count = descriptorBindingRedirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
+                gpuBinding.stageFlags = descriptorBindingRedirect.getStageFlags(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
                 gpuBinding.samplers = nullptr;
 
                 // If this DS layout has any immutable samplers..
@@ -1721,15 +1721,15 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 for (uint32_t b = 0u; b < descriptorBindingRedirect.getBindingCount(); ++b)
                 {
                     write_it->dstSet = gpuds;
-                    write_it->binding = descriptorBindingRedirect.getBindingFromStorageIndex(b).data;
+                    write_it->binding = descriptorBindingRedirect.getBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b }).data;
                     write_it->arrayElement = 0u;
 
-                    const uint32_t descriptorCount = descriptorBindingRedirect.getCountFromStorageIndex(b);
+                    const uint32_t descriptorCount = descriptorBindingRedirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
                     write_it->count = descriptorCount;
                     write_it->descriptorType = type;
                     write_it->info = &(*info);
 
-                    const uint32_t offset = descriptorBindingRedirect.getStorageOffsetFromStorageIndex(b).data;
+                    const uint32_t offset = descriptorBindingRedirect.getStorageOffset(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b }).data;
 
                     // It is better to use getDescriptorInfoStorage over getDescriptorInfos, because the latter does a binary search
                     // over the bindings, which is not really required given we have the index of binding number (since we're iterating

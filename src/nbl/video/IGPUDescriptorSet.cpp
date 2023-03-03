@@ -18,12 +18,18 @@ IGPUDescriptorSet::IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptor
 
         // Default-construct the core::smart_refctd_ptr<IDescriptor>s because even if the user didn't update the descriptor set with ILogicalDevice::updateDescriptorSet we
         // won't have uninitialized memory and destruction wouldn't crash in ~IGPUDescriptorSet.
-        std::uninitialized_default_construct_n(m_pool->getDescriptorStorage(type) + m_storageOffsets.data[i], m_layout->getTotalDescriptorCount(type));
+        auto descriptors = getAllDescriptors(type);
+        assert(descriptors);
+        std::uninitialized_default_construct_n(descriptors, m_layout->getTotalDescriptorCount(type));
     }
 
     const auto mutableSamplerCount = m_layout->getTotalMutableSamplerCount();
     if (mutableSamplerCount > 0)
-        std::uninitialized_default_construct_n(m_pool->getMutableSamplerStorage() + m_storageOffsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)], mutableSamplerCount);
+    {
+        auto mutableSamplers = getAllMutableSamplers();
+        assert(mutableSamplers);
+        std::uninitialized_default_construct_n(mutableSamplers, mutableSamplerCount);
+    }
 }
 
 IGPUDescriptorSet::~IGPUDescriptorSet()
@@ -32,7 +38,7 @@ IGPUDescriptorSet::~IGPUDescriptorSet()
         m_pool->deleteSetStorage(m_storageOffsets.getSetOffset());
 }
 
-bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write)
+bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const
 {
     assert(write.dstSet == this);
 
@@ -92,7 +98,7 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     incrementVersion();
 }
 
-bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy)
+bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const
 {
     assert(copy.dstSet == this);
 

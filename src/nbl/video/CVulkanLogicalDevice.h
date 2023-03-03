@@ -469,7 +469,7 @@ public:
         core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(descriptorWriteCount);
         core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(descriptorWriteCount);
 
-        core::vector<VkDescriptorBufferInfo>vk_bufferInfos;
+        core::vector<VkDescriptorBufferInfo> vk_bufferInfos;
         core::vector<VkDescriptorImageInfo> vk_imageInfos;
         core::vector<VkBufferView> vk_bufferViews;
         core::vector<VkAccelerationStructureKHR> vk_accelerationStructures;
@@ -478,23 +478,6 @@ public:
         {
             vk_writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             vk_writeDescriptorSets[i].pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkWriteDescriptorSetAccelerationStructureKHR, VkWriteDescriptorSetAccelerationStructureNV, or VkWriteDescriptorSetInlineUniformBlockEXT
-
-            const IGPUDescriptorSetLayout* layout = pDescriptorWrites[i].dstSet->getLayout();
-            if (layout->getAPIType() != EAT_VULKAN)
-            {
-                auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-                if (logger)
-                {
-                    const char* dsDebugName = pDescriptorWrites[i].dstSet->getDebugName();
-                    const char* dsLayoutDebugName = pDescriptorWrites[i].dstSet->getDebugName();
-                    if (dsDebugName && dsLayoutDebugName)
-                        logger->log("Descriptor set layout (%s, %p) of the descriptor set (%s, %p) uses a different backend than the logical device it was created with. Skipping the descriptor set..", system::ILogger::ELL_ERROR, dsLayoutDebugName, layout, dsDebugName, pDescriptorWrites[i].dstSet);
-                    else
-                        logger->log("Descriptor set layout (%p) of the descriptor set (%p) uses a different backend than the logical device it was created with. Skipping the descriptor set..", system::ILogger::ELL_ERROR, layout, pDescriptorWrites[i].dstSet);
-
-                }
-                continue;
-            }
 
             const CVulkanDescriptorSet* vulkanDescriptorSet = static_cast<const CVulkanDescriptorSet*>(pDescriptorWrites[i].dstSet);
             vk_writeDescriptorSets[i].dstSet = vulkanDescriptorSet->getInternalObject();

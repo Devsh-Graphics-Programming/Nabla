@@ -34,8 +34,8 @@ core::SRange<const ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDes
 	if (bindingNumberIndex.data == redirect.Invalid)
 		return { nullptr, nullptr };
 
-	const auto offset = redirect.getStorageOffsetFromStorageIndex(bindingNumberIndex).data;
-	const auto count = redirect.getCountFromStorageIndex(bindingNumberIndex);
+	const auto offset = redirect.getStorageOffset(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ bindingNumberIndex }).data;
+	const auto count = redirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ bindingNumberIndex });
 
 	auto infosBegin = m_descriptorInfos[static_cast<uint32_t>(type)]->begin() + offset;
 

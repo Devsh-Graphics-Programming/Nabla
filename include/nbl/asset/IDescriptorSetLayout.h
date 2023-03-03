@@ -107,25 +107,25 @@ public:
 			return { foundIndex };
 		}
 
-		inline binding_number_t getBindingFromStorageIndex(const storage_range_index_t index) const
+		inline binding_number_t getBinding(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return m_bindingNumbers[index.data];
 		}
 
-		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlagsFromStorageIndex(const storage_range_index_t index) const
+		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return m_stageFlags[index.data];
 		}
 
-		inline uint32_t getCountFromStorageIndex(const storage_range_index_t index) const
+		inline uint32_t getCount(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return (index.data == 0u) ? m_storageOffsets[index.data].data : m_storageOffsets[index.data].data - m_storageOffsets[index.data - 1].data;
 		}
 
-		inline storage_offset_t getStorageOffsetFromStorageIndex(const storage_range_index_t index) const
+		inline storage_offset_t getStorageOffset(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return (index.data == 0u) ? 0u : m_storageOffsets[index.data - 1];
@@ -158,7 +158,7 @@ public:
 			if (index.data == Invalid)
 				return { Invalid };
 
-			return getStorageOffsetFromStorageIndex(index);
+			return getStorageOffset(index);
 		}
 
 		inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
