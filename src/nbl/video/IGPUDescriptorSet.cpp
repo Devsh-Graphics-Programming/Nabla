@@ -32,27 +32,53 @@ IGPUDescriptorSet::~IGPUDescriptorSet()
         m_pool->deleteSetStorage(m_storageOffsets.getSetOffset());
 }
 
-bool IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write)
+bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write)
 {
     assert(write.dstSet == this);
+
+    const char* debugName = getDebugName();
 
     auto* descriptors = getDescriptors(write.descriptorType, write.binding);
     if (!descriptors)
     {
-        m_pool->m_logger.log("Descriptor set layout doesn't allow descriptor of such type at binding %u.", system::ILogger::ELL_ERROR, write.binding);
+        if (debugName)
+            m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow descriptor of such type at binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+        else
+            m_pool->m_logger.log("Descriptor set (%p) doesn't allow descriptor of such type at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
+
         return false;
     }
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
-
     if (write.descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && write.info->info.image.sampler)
     {
         mutableSamplers = getMutableSamplers(write.binding);
         if (!mutableSamplers)
         {
-            m_pool->m_logger.log("Descriptor set layout doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, write.binding);
+            if (debugName)
+                m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+            else
+                m_pool->m_logger.log("Descriptor set (%p) doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
+
             return false;
         }
+    }
+
+    return true;
+}
+
+void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write)
+{
+    assert(write.dstSet == this);
+
+    auto* descriptors = getDescriptors(write.descriptorType, write.binding);
+    assert(descriptors);
+
+    core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
+    if ((write.descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && write.info->info.image.sampler)
+    {
+        mutableSamplers = getMutableSamplers(write.binding);
+        assert(mutableSamplers);
     }
 
     for (auto j = 0; j < write.count; ++j)
@@ -64,11 +90,40 @@ bool IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     }
 
     incrementVersion();
+}
+
+bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy)
+{
+    assert(copy.dstSet == this);
+
+    const char* srcDebugName = copy.srcSet->getDebugName();
+    const char* dstDebugName = copy.dstSet->getDebugName();
+
+    for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+    {
+        const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+
+        auto* srcDescriptors = copy.srcSet->getDescriptors(type, copy.srcBinding);
+        auto* dstDescriptors = copy.dstSet->getDescriptors(type, copy.dstBinding);
+
+        auto* srcSamplers = copy.srcSet->getMutableSamplers(copy.srcBinding);
+        auto* dstSamplers = copy.dstSet->getMutableSamplers(copy.dstBinding);
+
+        if ((!srcDescriptors != !dstDescriptors) || (!srcSamplers != !dstSamplers))
+        {
+            if (srcDebugName && dstDebugName)
+                m_pool->m_logger.log("Incompatible copy from descriptor set (%s, %p) at binding %u to descriptor set (%s, %p) at binding %u.", system::ILogger::ELL_ERROR, srcDebugName, copy.srcSet, copy.srcBinding, dstDebugName, copy.dstSet, copy.dstBinding);
+            else
+                m_pool->m_logger.log("Incompatible copy from descriptor set (%p) at binding %u to descriptor set (%p) at binding %u.", system::ILogger::ELL_ERROR, copy.srcSet, copy.srcBinding, copy.dstSet, copy.dstBinding);
+
+            return false;
+        }
+    }
 
     return true;
 }
 
-bool IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy)
+void IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy)
 {
     assert(copy.dstSet == this);
 
@@ -77,40 +132,21 @@ bool IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet&
         const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
 
         auto* srcDescriptors = copy.srcSet->getDescriptors(type, copy.srcBinding);
-        if (!srcDescriptors)
-        {
-            m_pool->m_logger.log("Expected descriptors of given type at binding %u for the src descriptor set but none found.", system::ILogger::ELL_ERROR, copy.srcBinding);
-            return false;
-        }
+        auto* dstDescriptors = copy.dstSet->getDescriptors(type, copy.dstBinding);
+        assert(!(!srcDescriptors != !dstDescriptors));
 
         auto* srcSamplers = copy.srcSet->getMutableSamplers(copy.srcBinding);
-        if (!srcSamplers)
-        {
-            m_pool->m_logger.log("Expected mutable samplers at binding %u for the src descriptor set, but none found", system::ILogger::ELL_ERROR, copy.srcBinding);
-            return false;
-        }
-
-        auto* dstDescriptors = copy.dstSet->getDescriptors(type, copy.dstBinding);
-        if (!dstDescriptors)
-        {
-            m_pool->m_logger.log("Expected descriptors of given type at binding %u for the dst descriptor set but none found.", system::ILogger::ELL_ERROR, copy.dstBinding);
-            return false;
-        }
-
         auto* dstSamplers = copy.dstSet->getMutableSamplers(copy.dstBinding);
-        if (!dstSamplers)
-        {
-            m_pool->m_logger.log("Expected mutable samplers at binding %u for the dst descriptor set, but none found", system::ILogger::ELL_ERROR, copy.dstBinding);
-            return false;
-        }
+        assert(!(!srcSamplers != !dstSamplers));
 
-        std::copy_n(srcDescriptors, copy.count, dstDescriptors);
-        std::copy_n(srcSamplers, copy.count, dstSamplers);
+        if (srcDescriptors && dstDescriptors)
+            std::copy_n(srcDescriptors, copy.count, dstDescriptors);
+
+        if (srcSamplers && dstSamplers)
+            std::copy_n(srcSamplers, copy.count, dstSamplers);
     }
 
     incrementVersion();
-
-    return true;
 }
 
 }

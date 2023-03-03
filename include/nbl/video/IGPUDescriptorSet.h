@@ -64,8 +64,10 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline void incrementVersion() { m_version.fetch_add(1ull); }
 
         friend class ILogicalDevice;
-        bool processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write);
-        bool processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
+        bool validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write);
+        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write);
+        bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
+        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
 
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const uint32_t binding) const

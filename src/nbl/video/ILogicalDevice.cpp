@@ -33,16 +33,32 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
 {
     for (auto i = 0; i < descriptorWriteCount; ++i)
     {
-        auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
-        if (!ds->processWrite(pDescriptorWrites[i]))
+        const auto& write = pDescriptorWrites[i];
+        auto* ds = static_cast<IGPUDescriptorSet*>(write.dstSet);
+        if (!ds->validateWrite(write))
             return false;
     }
 
     for (auto i = 0; i < descriptorCopyCount; ++i)
     {
+        const auto& copy = pDescriptorCopies[i];
         auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
-        if (!dstDS->processCopy(pDescriptorCopies[i]))
+        if (!dstDS->validateCopy(copy))
             return false;
+    }
+
+    for (auto i = 0; i < descriptorWriteCount; ++i)
+    {
+        auto& write = pDescriptorWrites[i];
+        auto* ds = static_cast<IGPUDescriptorSet*>(write.dstSet);
+        ds->processWrite(write);
+    }
+
+    for (auto i = 0; i < descriptorCopyCount; ++i)
+    {
+        const auto& copy = pDescriptorCopies[i];
+        auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
+        dstDS->processCopy(copy);
     }
 
     updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
