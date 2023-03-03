@@ -78,7 +78,7 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			return compatible(other) && m_buffer->canBeRestoredFrom(other->m_buffer.get());
 		}
 
-		size_t hash(std::unordered_map<IAsset*, size_t>& temporary_hash_cache) const override
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
 		{
 			size_t seed = AssetType;
 			size_t buffer_hash = hashMatchInCache(m_buffer.get(), temporary_hash_cache);
