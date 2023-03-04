@@ -242,8 +242,18 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 				m_accelerationStructureSize = 0ull;
 			}
 		}
-		
+	
 		//!
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_ACCELERATION_STRUCTURE;
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
+
+
+		bool equals(const IAsset* _other) const override
+		{
+			return compatible(_other);
+		}
+
+
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUAccelerationStructure*>(_other);
@@ -251,12 +261,38 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 			return false;
 		}
 
-		//!
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_ACCELERATION_STRUCTURE;
-		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+		{
+			size_t seed = AssetType;
+			core::hash_combine(seed, m_accelerationStructureSize);
+			core::hash_combine(seed, m_hasBuildInfo);
+			if (m_hasBuildInfo) {
+				core::hash_combine(seed, m_buildInfo.buildFlags);
+				core::hash_combine(seed, m_buildInfo.buildMode);
+				core::hash_combine(seed, m_buildInfo.geometries);
+				core::hash_combine(seed, m_buildInfo.type);
+			}
+			return seed;
+		}
 
 	protected:
+
+		bool compatible(const IAsset* _other) const override {
+			if (!IAsset::compatible(_other))
+				return false;
+			auto* other = static_cast<const ICPUAccelerationStructure*>(_other);
+			if (m_accelerationStructureSize != other->m_accelerationStructureSize ||
+				m_mutability != other->m_mutability || m_hasBuildInfo != other->m_hasBuildInfo)
+				return false;
+			if (m_hasBuildInfo)
+				if (m_buildInfo.buildFlags != other->m_buildInfo.buildFlags ||
+					m_buildInfo.buildMode != other->m_buildInfo.buildMode ||
+					m_buildInfo.geometries != other->m_buildInfo.geometries ||
+					m_buildInfo.type != other->m_buildInfo.type)
+					return false;
+			return true;
+		}
 
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
