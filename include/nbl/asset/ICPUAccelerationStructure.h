@@ -265,6 +265,7 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
 		{
 			size_t seed = AssetType;
+			core::hash_combine(seed, params);
 			core::hash_combine(seed, m_accelerationStructureSize);
 			core::hash_combine(seed, m_hasBuildInfo);
 			if (m_hasBuildInfo) {
