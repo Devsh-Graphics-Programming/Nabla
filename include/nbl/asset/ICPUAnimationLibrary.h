@@ -136,32 +136,68 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
-			auto other = static_cast<const ICPUAnimationLibrary*>(_other);
-			if (m_keyframeCount != other->m_keyframeCount)
+			if (!compatible(_other))
 				return false;
-
-            if (m_keyframeStorageBinding.offset != other->m_keyframeStorageBinding.offset)
-                return false;
-            if (m_keyframeStorageBinding.buffer->canBeRestoredFrom(other->m_keyframeStorageBinding.buffer.get()))
-                return false;
-            if (m_timestampStorageBinding.offset != other->m_timestampStorageBinding.offset)
-                return false;
-            if (m_timestampStorageBinding.buffer->canBeRestoredFrom(other->m_timestampStorageBinding.buffer.get()))
-                return false;
-
-            if (m_animationStorageRange.offset != other->m_animationStorageRange.offset)
-                return false;
-            if (m_animationStorageRange.size != other->m_animationStorageRange.size)
-                return false;
-            if ((!m_animationStorageRange.buffer) != (!other->m_animationStorageRange.buffer))
-                return false;
-            if (m_animationStorageRange.buffer && !m_animationStorageRange.buffer->canBeRestoredFrom(other->m_animationStorageRange.buffer.get()))
-                return false;
-
+			auto other = static_cast<const ICPUAnimationLibrary*>(_other);
+			if (m_keyframeStorageBinding.buffer->canBeRestoredFrom(other->m_keyframeStorageBinding.buffer.get()))
+				return false;
+			if (m_timestampStorageBinding.buffer->canBeRestoredFrom(other->m_timestampStorageBinding.buffer.get()))
+				return false;
+			if (m_animationStorageRange.buffer && !m_animationStorageRange.buffer->canBeRestoredFrom(other->m_animationStorageRange.buffer.get()))
+				return false;
 			return true;
 		}
 
+		bool equals(const IAsset* _other) const override
+		{
+			if (!compatible(_other))
+				return false;
+			auto* other = static_cast<const ICPUAnimationLibrary*>(_other);
+			if (m_keyframeStorageBinding.buffer->equals(other->m_keyframeStorageBinding.buffer.get()))
+				return false;
+			if (m_timestampStorageBinding.buffer->equals(other->m_timestampStorageBinding.buffer.get()))
+				return false;
+			if (m_animationStorageRange.buffer && !m_animationStorageRange.buffer->equals(other->m_animationStorageRange.buffer.get()))
+				return false;
+			return true;
+
+		}
+
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+		{
+			size_t seed = AssetType;
+			core::hash_combine(seed, hashMatchInCache(m_keyframeStorageBinding.buffer.get(), temporary_hash_cache));
+			core::hash_combine(seed, hashMatchInCache(m_timestampStorageBinding.buffer.get(), temporary_hash_cache));
+			if(m_animationStorageRange.buffer)
+				core::hash_combine(seed, hashMatchInCache(m_animationStorageRange.buffer.get(), temporary_hash_cache));
+			core::hash_combine(seed, m_keyframeCount);
+			core::hash_combine(seed, m_keyframeStorageBinding.offset);
+			core::hash_combine(seed, m_timestampStorageBinding.offset);
+			core::hash_combine(seed, m_animationStorageRange.offset);
+			core::hash_combine(seed, m_animationStorageRange.size);
+			return seed;
+		}
+
 	protected:
+		
+		bool compatible(const IAsset* _other) const override {
+			auto other = static_cast<const ICPUAnimationLibrary*>(_other);
+			if (m_keyframeCount != other->m_keyframeCount)
+				return false;
+			if (m_keyframeStorageBinding.offset != other->m_keyframeStorageBinding.offset)
+				return false;
+			if (m_timestampStorageBinding.offset != other->m_timestampStorageBinding.offset)
+				return false;
+			if (m_animationStorageRange.offset != other->m_animationStorageRange.offset)
+				return false;
+			if (m_animationStorageRange.size != other->m_animationStorageRange.size)
+				return false;
+			if ((!m_animationStorageRange.buffer) != (!other->m_animationStorageRange.buffer))
+				return false;
+			return true;
+		}
+
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUAnimationLibrary*>(_other);
