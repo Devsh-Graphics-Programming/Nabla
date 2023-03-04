@@ -282,6 +282,8 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 			if (!IAsset::compatible(_other))
 				return false;
 			auto* other = static_cast<const ICPUAccelerationStructure*>(_other);
+			if (params != other->params)
+				return false;
 			if (m_accelerationStructureSize != other->m_accelerationStructureSize ||
 				m_mutability != other->m_mutability || m_hasBuildInfo != other->m_hasBuildInfo)
 				return false;
