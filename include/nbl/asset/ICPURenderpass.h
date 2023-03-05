@@ -34,13 +34,13 @@ public:
     
     bool equals(const IAsset* _other) const override
 	{
-        return compatible(_other);
+        return compatible(_other); // TODO
 	}
 
 	size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
 	{
 		size_t seed = AssetType;
-		return seed;
+		return seed; // TODO
 	}
 private:	
     

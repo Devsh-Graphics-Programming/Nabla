@@ -23,6 +23,12 @@ public:
         core::smart_refctd_ptr<const RenderpassType> renderpass;
         uint32_t subpassIx = 0u;
         core::bitflag<ICPURenderpassIndependentPipeline::E_PIPELINE_CREATION> createFlags;
+
+        inline bool operator==(const SCreationParams& other) const
+        {
+            return (renderpassIndependent == other.renderpassIndependent) && (rasterizationSamples == other.rasterizationSamples) && (renderpass == other.renderpass) && (subpassIx == other.subpassIx)
+                && (createFlags == other.createFlags);
+        }
     };
 
     static bool validate(const SCreationParams& params)
