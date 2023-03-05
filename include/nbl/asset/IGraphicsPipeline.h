@@ -26,8 +26,7 @@ public:
 
         inline bool operator==(const SCreationParams& other) const
         {
-            return (renderpassIndependent == other.renderpassIndependent) && (rasterizationSamples == other.rasterizationSamples) && (renderpass == other.renderpass) && (subpassIx == other.subpassIx)
-                && (createFlags == other.createFlags);
+            return (renderpassIndependent == other.renderpassIndependent) && (rasterizationSamples == other.rasterizationSamples) && (renderpass == other.renderpass) && (subpassIx == other.subpassIx) && (createFlags == other.createFlags);
         }
     };
 
