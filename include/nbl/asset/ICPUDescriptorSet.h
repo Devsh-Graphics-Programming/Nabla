@@ -59,7 +59,20 @@ public:
 	inline bool canBeRestoredFrom(const IAsset* _other) const override
 	{
 		auto* other = static_cast<const ICPUDescriptorSet*>(_other);
-		return m_layout->canBeRestoredFrom(other->m_layout.get());
+		return compatible(_other) && m_layout->canBeRestoredFrom(other->m_layout.get());
+	}
+
+    bool equals(const IAsset* _other) const override
+	{
+        auto* other = static_cast<const ICPUDescriptorSet*>(_other);
+		return compatible(_other) && m_layout->equals(other->m_layout.get());
+	}
+
+	size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	{
+		size_t seed = AssetType;
+        core::hash_combine(seed, hashMatchInCache(m_layout.get(), temporary_hash_cache));
+		return seed;
 	}
 
 	inline size_t conservativeSizeEstimate() const override
@@ -98,6 +111,10 @@ protected:
 	bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override;
 
 	virtual ~ICPUDescriptorSet() = default;
+
+	bool compatible(const IAsset* _other) const override {
+        return IAsset::compatible(_other);
+	}
 
 private:
 	static inline IDescriptor::E_CATEGORY getCategoryFromType(const IDescriptor::E_TYPE type)
