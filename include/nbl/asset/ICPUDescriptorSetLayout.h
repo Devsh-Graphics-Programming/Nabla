@@ -90,13 +90,9 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 
         bool canBeRestoredFrom(const IAsset* _other) const override
         {
+            if (!compatible(_other))
+                return false;
             auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
-            if (getTotalBindingCount() != other->getTotalBindingCount())
-                return false;
-            if ((!m_samplers) != (!other->m_samplers))
-                return false;
-            if (m_samplers && m_samplers->size() != other->m_samplers->size())
-                return false;
             if (m_samplers)
             {
                 for (uint32_t i = 0u; i < m_samplers->size(); ++i)
@@ -105,11 +101,55 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                         return false;
                 }
             }
-
             return true;
         }
+       
+        bool equals(const IAsset* _other) const override
+	    {
+            if (!compatible(_other))
+                return false;
+            auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
+            if (m_samplers)
+            {
+                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
+                {
+                    if (!(*m_samplers)[i]->equals((*other->m_samplers)[i].get()))
+                        return false;
+                }
+            }
+            return true;
+	    }
+
+	    size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	    {
+		    size_t seed = AssetType;
+            core::hash_combine(seed, getTotalBindingCount());
+            if (m_samplers)
+            {
+                core::hash_combine(seed, m_samplers);
+                core::hash_combine(seed, m_samplers->size());
+                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
+                {
+                    core::hash_combine(seed, hashMatchInCache((*m_samplers)[i].get(), temporary_hash_cache));
+                }
+            }
+		    return seed;
+	    }
 
 	protected:
+
+        bool compatible(const IAsset* _other) const override {
+            if (!IAsset::compatible(_other))
+                return false;
+            auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
+            if (getTotalBindingCount() != other->getTotalBindingCount())
+                return false;
+            if ((!m_samplers) != (!other->m_samplers))
+                return false;
+            if (m_samplers && m_samplers->size() != other->m_samplers->size())
+                return false;
+	    }
+
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
