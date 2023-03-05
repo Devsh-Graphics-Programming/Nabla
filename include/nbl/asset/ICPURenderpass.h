@@ -23,14 +23,31 @@ public:
     {
         return false; // TODO
     }
+
+    _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS;
     E_TYPE getAssetType() const override
     {
-        return ET_RENDERPASS;
+        return AssetType;
     }
 
     ~ICPURenderpass() = default;
+    
+    bool equals(const IAsset* _other) const override
+	{
+        return compatible(_other);
+	}
 
-private:
+	size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	{
+		size_t seed = AssetType;
+		return seed;
+	}
+private:	
+    
+    bool compatible(const IAsset* _other) const override {
+        //return IAsset::compatible(_other);
+        return false; // TODO
+	}
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         // TODO
