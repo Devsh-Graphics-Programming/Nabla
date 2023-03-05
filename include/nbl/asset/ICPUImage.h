@@ -211,18 +211,47 @@ class ICPUImage final : public IImage, public IAsset
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
+			if (!compatible(_other))
+				return false;
+			auto* other = static_cast<const ICPUImage*>(_other);
+			if (!buffer->canBeRestoredFrom(other->buffer.get()))
+				return false;
+			return true;
+		}
+
+
+		bool equals(const IAsset* _other) const override
+		{
+			if (!compatible(_other))
+				return false;
+			auto* other = static_cast<const ICPUImage*>(_other);
+			if (!buffer->equals(other->buffer.get()))
+				return false;
+			return true;
+		}
+
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+		{
+			size_t seed = AssetType;
+			core::hash_combine(seed, m_creationParams);
+			core::hash_combine(seed, info);
+			core::hash_combine(seed, hashMatchInCache(buffer.get(), temporary_hash_cache));
+			return seed;
+		}
+
+
+    protected:
+		bool compatible(const IAsset* _other) const override {
+			if (!IAsset::compatible(_other))
+				return false;
 			auto* other = static_cast<const ICPUImage*>(_other);
 			if (info != other->info)
 				return false;
 			if (m_creationParams != other->m_creationParams)
 				return false;
-			if (!buffer->canBeRestoredFrom(other->buffer.get()))
-				return false;
-
 			return true;
 		}
 
-    protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUImage*>(_other);
