@@ -15,6 +15,7 @@ using namespace nbl::asset;
 std::string IShaderCompiler::escapeFilename(std::string&& code)
 {
     std::string dest;
+    dest.reserve(code.size() * 2);
     for (char c : code)
     {
         if (c == '\\')
