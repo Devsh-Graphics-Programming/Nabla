@@ -581,33 +581,15 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             );
         }
 
-        template<typename FORMAT_USAGE>
-        struct FormatPromotionRequest
-        {
+        struct SBufferFormatPromotionRequest {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            FORMAT_USAGE usages = FORMAT_USAGE();
-
-            struct hash
-            {
-                // pack into 64bit for easy hashing 
-                uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
-                {
-                    uint64_t msb = uint64_t(std::hash<FORMAT_USAGE>()(r.usages));
-                    return (msb << 32u) | r.originalFormat;
-                }
-            };
-
-            struct equal_to
-            {
-                bool operator()(const FormatPromotionRequest<FORMAT_USAGE>& l, const FormatPromotionRequest<FORMAT_USAGE>& r) const
-                {
-                    return l.originalFormat == r.originalFormat && l.usages == r.usages;
-                }
-            };
+            SFormatBufferUsages::SUsage usages = SFormatBufferUsages::SUsage();
         };
 
-        using SBufferFormatPromotionRequest = FormatPromotionRequest<IPhysicalDevice::SFormatBufferUsages::SUsage>;
-        using SImageFormatPromotionRequest = FormatPromotionRequest<IPhysicalDevice::SFormatImageUsages::SUsage>;
+        struct SImageFormatPromotionRequest {
+            asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
+            SFormatImageUsages::SUsage usages = SFormatImageUsages::SUsage();
+        };
 
         asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
         asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling);
@@ -706,9 +688,38 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         SFormatImageUsages m_optimalTilingUsages = {};
         SFormatBufferUsages m_bufferUsages = {};
 
-        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>::equal_to> format_buffer_cache_t;
-        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>::equal_to> format_image_cache_t;
+        struct SBufferFormatPromotionRequestHash
+        {
+            // pack into 64bit for easy hashing 
+            inline uint64_t operator()(const SBufferFormatPromotionRequest& r) const;
+        };
 
+        struct SBufferFormatPromotionRequestEqualTo
+        {
+            inline bool operator()(const SBufferFormatPromotionRequest& l, const SBufferFormatPromotionRequest& r) const;
+        };
+
+        struct SImageFormatPromotionRequestHash
+        {
+            // pack into 64bit for easy hashing 
+            inline uint64_t operator()(const SImageFormatPromotionRequest& r) const;
+        };
+
+        struct SImageFormatPromotionRequestEqualTo
+        {
+            inline bool operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const;
+        };
+
+
+
+        typedef core::unordered_map<SBufferFormatPromotionRequest, asset::E_FORMAT, 
+            SBufferFormatPromotionRequestHash, 
+            SBufferFormatPromotionRequestEqualTo> format_buffer_cache_t;
+        typedef core::unordered_map<SImageFormatPromotionRequest, asset::E_FORMAT, 
+            SImageFormatPromotionRequestHash, 
+            SImageFormatPromotionRequestEqualTo> format_image_cache_t;
+
+            
         struct format_promotion_cache_t
         {
             format_buffer_cache_t buffers;
@@ -755,4 +766,28 @@ namespace std
     };
 }
 
+namespace nbl::video
+{
+    inline uint64_t IPhysicalDevice::SBufferFormatPromotionRequestHash::operator()(const SBufferFormatPromotionRequest& r) const {
+        uint64_t msb = uint64_t(std::hash<IPhysicalDevice::SFormatBufferUsages::SUsage>()(r.usages));
+        return (msb << 32u) | r.originalFormat;
+    }
+
+    inline uint64_t IPhysicalDevice::SImageFormatPromotionRequestHash::operator()(const SImageFormatPromotionRequest& r) const {
+        uint64_t msb = uint64_t(std::hash<IPhysicalDevice::SFormatImageUsages::SUsage>()(r.usages));
+        return (msb << 32u) | r.originalFormat;
+    }
+
+    inline bool IPhysicalDevice::SBufferFormatPromotionRequestEqualTo::operator()(const SBufferFormatPromotionRequest& l, const SBufferFormatPromotionRequest& r) const
+    {
+        return l.originalFormat == r.originalFormat && l.usages == r.usages;
+    }
+
+     inline bool IPhysicalDevice::SImageFormatPromotionRequestEqualTo::operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const
+    {
+        return l.originalFormat == r.originalFormat && l.usages == r.usages;
+    }
+    
+
+}
 #endif

@@ -7,6 +7,7 @@
 #include "nbl/video/IGPUBuffer.h"
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
 #include "nbl/video/utilities/CScanner.h"
