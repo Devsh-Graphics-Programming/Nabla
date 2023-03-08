@@ -86,7 +86,9 @@ class CElementBSDF : public IElement
 			ASHIKHMIN_SHIRLEY
 		};
 
-		RoughSpecularBase(float defaultAlpha) : distribution(GGX), specularReflectance(1.f)
+		RoughSpecularBase(float defaultAlpha) : distribution(GGX), specularReflectance(1.f),
+			// union ignores ctors, and ctors are important to not try to free garbage strings
+			alphaU(core::nan<float>()), alphaV(core::nan<float>())
 		{
 			alpha = defaultAlpha;
 		}
