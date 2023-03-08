@@ -21,7 +21,7 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
-static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_2";
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_6";
 
 namespace nbl::asset::hlsl::impl
 {
