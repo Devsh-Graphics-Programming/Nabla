@@ -487,57 +487,37 @@ public:
             vk_writeDescriptorSets[i].descriptorType = getVkDescriptorTypeFromDescriptorType(pDescriptorWrites[i].descriptorType);
             vk_writeDescriptorSets[i].descriptorCount = pDescriptorWrites[i].count;
 
-            assert(pDescriptorWrites[i].info[0].desc);
+            const auto bindingWriteCount = pDescriptorWrites[i].count;
 
             switch (pDescriptorWrites[i].info->desc->getTypeCategory())
             {
             case asset::IDescriptor::EC_BUFFER:
             {
-                VkDescriptorBufferInfo dummyInfo = {};
-                dummyInfo.buffer = static_cast<const CVulkanBuffer*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-                dummyInfo.offset = pDescriptorWrites[i].info[0].info.buffer.offset;
-                dummyInfo.range = pDescriptorWrites[i].info[0].info.buffer.size;
-
                 vk_writeDescriptorSets[i].pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(vk_bufferInfos.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_bufferInfos.push_back(dummyInfo);
+                vk_bufferInfos.resize(vk_bufferInfos.size() + bindingWriteCount);
             } break;
 
             case asset::IDescriptor::EC_IMAGE:
             {
-                const auto& firstDescWriteImageInfo = pDescriptorWrites[i].info[0].info.image;
-
-                VkDescriptorImageInfo dummyInfo = { VK_NULL_HANDLE };
-                if (firstDescWriteImageInfo.sampler && (firstDescWriteImageInfo.sampler->getAPIType() == EAT_VULKAN))
-                    dummyInfo.sampler = static_cast<const CVulkanSampler*>(firstDescWriteImageInfo.sampler.get())->getInternalObject();
-                dummyInfo.imageView = static_cast<const CVulkanImageView*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-                dummyInfo.imageLayout = static_cast<VkImageLayout>(pDescriptorWrites[i].info[0].info.image.imageLayout);
-
                 vk_writeDescriptorSets[i].pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(vk_imageInfos.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_imageInfos.push_back(dummyInfo);
+                vk_imageInfos.resize(vk_imageInfos.size() + bindingWriteCount);
             } break;
 
             case asset::IDescriptor::EC_BUFFER_VIEW:
             {
-                VkBufferView dummyBufferView = static_cast<const CVulkanBufferView*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-
                 vk_writeDescriptorSets[i].pTexelBufferView = reinterpret_cast<VkBufferView*>(vk_bufferViews.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_bufferViews.push_back(dummyBufferView);
+                vk_bufferViews.resize(vk_bufferViews.size() + bindingWriteCount);
             } break;
 
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
             {
                 auto& writeAS = vk_writeDescriptorSetAS[i];
                 writeAS = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, nullptr };
-                writeAS.accelerationStructureCount = pDescriptorWrites[i].count;
-
+                writeAS.accelerationStructureCount = bindingWriteCount;
                 vk_writeDescriptorSets[i].pNext = &writeAS;
 
                 writeAS.pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(vk_accelerationStructures.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_accelerationStructures.push_back({});
+                vk_accelerationStructures.resize(vk_accelerationStructures.size() + bindingWriteCount);
             } break;
 
             default:

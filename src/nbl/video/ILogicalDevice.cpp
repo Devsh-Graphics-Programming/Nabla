@@ -36,8 +36,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         const auto& write = pDescriptorWrites[i];
         auto* ds = static_cast<IGPUDescriptorSet*>(write.dstSet);
 
-        if (!ds->getLayout()->isCompatibleDevicewise(ds))
-            return false;
+        assert(ds->getLayout()->isCompatibleDevicewise(ds));
 
         if (!ds->validateWrite(write))
             return false;
@@ -49,7 +48,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         const auto* srcDS = static_cast<const IGPUDescriptorSet*>(copy.srcSet);
         const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
 
-        if ((!srcDS->getLayout()->isCompatibleDevicewise(srcDS)) || (!dstDS->getLayout()->isCompatibleDevicewise(dstDS)))
+        if (!dstDS->isCompatibleDevicewise(srcDS))
             return false;
 
         if (!dstDS->validateCopy(copy))

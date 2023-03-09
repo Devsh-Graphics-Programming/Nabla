@@ -1772,8 +1772,11 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                             if (!isStorageImgDesc(type))
                             {
                                 const bool isMutableSamplerBinding = (mutableSamplerBindingRedirect.findBindingStorageIndex(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write_it->binding }).data != mutableSamplerBindingRedirect.Invalid);
-                                if (descriptorInfos.begin()[offset + d].info.image.sampler && isMutableSamplerBinding)
+                                if (isMutableSamplerBinding)
+                                {
+                                    assert(descriptorInfos.begin()[offset + d].info.image.sampler);
                                     info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+                                }
                             }
                         }
                         allDescriptorsPresent = allDescriptorsPresent && info->desc;

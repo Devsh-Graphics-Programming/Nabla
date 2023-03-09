@@ -72,12 +72,21 @@ uint32_t IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescrip
 
 bool IDescriptorPool::reset()
 {
+    // something else except for the allocated sets needs to be holding onto the pool, so that
+    // we don't have an implicit call to `~IDescriptorPool` on `this` before we get out of the current stackframe  
+    assert(getReferenceCount() > m_descriptorSetAllocator.get_allocated_size());
+
     const auto& compilerIsRetarded = m_descriptorSetAllocator;
     for (const uint32_t setIndex : compilerIsRetarded)
         deleteSetStorage(setIndex);
 
+    // the `reset` doesn't deallocate anything, but it rearranges the free address stack in order to
+    // not make the future allocated addresses dependent on what happened before a reset
+    assert(m_descriptorSetAllocator.get_allocated_size() == 0);
     m_descriptorSetAllocator.reset();
 
+    // see the comment at the first assert
+    assert(getReferenceCount() >= 1);
     return reset_impl();
 }
 
