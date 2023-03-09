@@ -537,12 +537,9 @@ public:
                 auto* infoDst = const_cast<VkDescriptorBufferInfo*>(vk_writeDescriptorSets[i].pBufferInfo);
                 for (uint32_t j = 0; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
                 {
-                    if (infoSrc->info.buffer.size)
-                    {
-                        infoDst->buffer = static_cast<const CVulkanBuffer*>(infoSrc->desc.get())->getInternalObject();
-                        infoDst->offset = infoSrc->info.buffer.offset;
-                        infoDst->range = infoSrc->info.buffer.size;
-                    }
+                    infoDst->buffer = static_cast<const CVulkanBuffer*>(infoSrc->desc.get())->getInternalObject();
+                    infoDst->offset = infoSrc->info.buffer.offset;
+                    infoDst->range = infoSrc->info.buffer.size;
                 }
             } break;
 
@@ -554,16 +551,13 @@ public:
                 auto* infoDst = const_cast<VkDescriptorImageInfo*>(vk_writeDescriptorSets[i].pImageInfo);
                 for (uint32_t j = 0; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
                 {
-                    if (infoSrc->info.image.imageLayout != asset::IImage::E_LAYOUT::EL_UNDEFINED)
-                    {
-                        VkSampler vk_sampler = VK_NULL_HANDLE;
-                        if (infoSrc->info.image.sampler && (infoSrc->info.image.sampler->getAPIType() == EAT_VULKAN))
-                            vk_sampler = static_cast<const CVulkanSampler*>(infoSrc->info.image.sampler.get())->getInternalObject();
+                    VkSampler vk_sampler = VK_NULL_HANDLE;
+                    if (infoSrc->info.image.sampler && (infoSrc->info.image.sampler->getAPIType() == EAT_VULKAN))
+                        vk_sampler = static_cast<const CVulkanSampler*>(infoSrc->info.image.sampler.get())->getInternalObject();
 
-                        infoDst->sampler = vk_sampler;
-                        infoDst->imageView = static_cast<const CVulkanImageView*>(infoSrc->desc.get())->getInternalObject();
-                        infoDst->imageLayout = static_cast<VkImageLayout>(infoSrc->info.image.imageLayout);
-                    }
+                    infoDst->sampler = vk_sampler;
+                    infoDst->imageView = static_cast<const CVulkanImageView*>(infoSrc->desc.get())->getInternalObject();
+                    infoDst->imageLayout = static_cast<VkImageLayout>(infoSrc->info.image.imageLayout);
                 }
             } break;
 
@@ -574,10 +568,7 @@ public:
                 const auto* infoSrc = pDescriptorWrites[i].info;
                 auto* infoDst = const_cast<VkBufferView*>(vk_writeDescriptorSets[i].pTexelBufferView);
                 for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
-                {
-                    if (infoSrc->info.buffer.size)
-                        *infoDst = static_cast<const CVulkanBufferView*>(infoSrc->desc.get())->getInternalObject();
-                }
+                    *infoDst = static_cast<const CVulkanBufferView*>(infoSrc->desc.get())->getInternalObject();
             } break;
 
             case asset::IDescriptor::E_CATEGORY::EC_ACCELERATION_STRUCTURE:
