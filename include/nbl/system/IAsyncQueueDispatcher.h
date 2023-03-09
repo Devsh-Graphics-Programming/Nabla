@@ -31,7 +31,7 @@ class IAsyncQueueDispatcherBase
                 }
 
                 inline STATE query() const {return static_cast<STATE>(state.load());}
-
+// TODO: improve
                 inline void wait(const STATE targetState) const
                 {
                     uint32_t current;
@@ -39,7 +39,7 @@ class IAsyncQueueDispatcherBase
                         state.wait(current);
                 }
 
-                inline bool tryTransition(STATE& expected, const STATE to)
+                [[nodiscard]] inline bool tryTransition(STATE& expected, const STATE to)
                 {
                     return state.compare_exchange_strong(reinterpret_cast<uint32_t&>(from),static_cast<uint32_t>(to));
                 }
@@ -55,7 +55,7 @@ class IAsyncQueueDispatcherBase
                     assert(expected==from);
                 }
 
-                inline bool waitAbortableTransition(const STATE from, const STATE to, const STATE abortState)
+                [[nodiscard]] inline bool waitAbortableTransition(const STATE from, const STATE to, const STATE abortState)
                 {
                     uint32_t expected = static_cast<uint32_t>(from);
                     while (!state.compare_exchange_strong(expected,static_cast<uint32_t>(to)))
@@ -68,7 +68,7 @@ class IAsyncQueueDispatcherBase
                     assert(expected==from);
                     return true;
                 }
-
+// TODO: improve (assert and notify one vs all)
                 inline void exchangeNotify(const STATE expected, const STATE to)
                 {
                     const auto prev = state.exchange(static_cast<uint32_t>(to));
@@ -108,38 +108,18 @@ class IAsyncQueueDispatcherBase
                 void finalize(future_base_t* fut);
                 
                 //! WORKER THREAD: returns when work is ready, will deadlock if the state will not eventually transition to pending
-                bool wait();
+                [[nodiscard]] bool wait();
                 //! WORKER THREAD: to call after request is done being processed, will deadlock if the request was not executed
                 void notify();
-//TODO
-                //! ANY THREAD: via future_base_t
-                inline bool cancel()
-                {
 
-                    //state.waitAbortableTransition(STATE::PENDING,STATE::CANCELLED,STATE::INITIAL);
-                    //assert(future);
-                    //
-                    /*
-                    // we're expecting PENDING
-                    uint32_t expected = ES_PENDING;
-                    while (!state.compare_exchange_strong(expected, ES_INITIAL))
-                    {
-                        // if we cancel 
-                        if (expected == ES_READY)
-                        {
-                            transition(ES_READY, ES_INITIAL);
-                            return true;
-                        }
-                        else if (expected == ES_INITIAL) // cancel after await
-                        {
-                            return false;
-                        }
-                        // was executing, we didnt get here on time
-                        assert(expected == ES_EXECUTING);
-                        state.wait(expected);
-                        expected = ES_PENDING;
-                    }
-                    */
+                //! ANY THREAD [except worker]: via cancellable_future_t::cancel
+                inline void cancel()
+                {
+                    const auto prev = state.exchangeNotify(STATE::CANCELLED);
+                    // If we were in EXECUTING then worker thread is definitely stuck `base_t::disassociate_request` spinlock
+                    assert(prev==STATE::PENDING || prev==STATE::EXECUTING);
+                    // sanity check, but its not our job to set it to nullptr
+                    assert(future);
                 }
 
             protected:
@@ -160,6 +140,7 @@ class IAsyncQueueDispatcherBase
                 future_base_t* future = nullptr;
                 atomic_state_t<STATE,STATE::INITIAL> state = {};
         };
+        // TODO: attempt to fight the virtualism
         struct future_base_t
         {
             public:
@@ -178,19 +159,17 @@ class IAsyncQueueDispatcherBase
                 };
 
                 //! REQUESTING THREAD: done as part of filling out the request
-                virtual void associate_request(request_base_t* req)
+                virtual inline void associate_request(request_base_t* req)
                 {
                     // sanity check
                     assert(req->getState().query()==request_base_t::STATE::RECORDING);
                     // if not initial state then wait until it gets moved, etc.
                     state.waitTransition(STATE::INITIAL,STATE::ASSOCIATED);
                 }
-                //! WORKER THREAD: done as part of execution at the very start, after we begin work
-                inline void disassociate_request()
+                //! WORKER THREAD: done as part of execution at the very start, after we want to begin work
+                [[nodiscard]] virtual inline bool disassociate_request()
                 {
-                    state.exchangeNotify(STATE::ASSOCIATED,STATE::EXECUTING); // should we really notify?
-                    request_base_t* noOtherRequest = request.exchange(nullptr);
-                    assert(noOtherRequest && noOtherRequest->getState().query()==request_base_t::STATE::EXECUTING);
+                    return state.waitAbortableTransition(STATE::ASSOCIATED,STATE::EXECUTING,STATE::INITIAL);
                 }
                 //! WORKER THREAD: done as part of execution at the very end, after object is constructed
                 inline void notify()
@@ -198,7 +177,36 @@ class IAsyncQueueDispatcherBase
                     state.exchangeNotify(STATE::EXECUTING,STATE::READY);
                 }
 
-                //! ANY THREAD [except WORKER]: Check if worker thread actually processed out request
+            protected:
+                // the base class is not directly usable
+                virtual inline ~future_base_t()
+                {
+                    // non-cancellable future just need to get to this state, and cancellable will move here
+                    state.wait(STATE::INITIAL);
+                }
+                // future_t is non-copyable and non-movable because request needs a pointer to it
+                future_base_t(const future_base_t&) = delete;
+                future_base_t(future_base_t&&) = delete;
+                future_base_t& operator=(const future_base_t&) = delete;
+                future_base_t& operator=(future_base_t&&) = delete;
+
+                // this tells us whether an object with a lifetime has been constructed over the memory backing the future
+                // also acts as a lock
+                atomic_state_t<STATE,STATE::INITIAL> state= {};
+        };
+
+    public:
+        template<typename T>
+        struct future_t : private core::StorageTrivializer<T>, protected future_base_t
+        {
+            public:
+                inline future_t() = default;
+                inline ~future_t()
+                {
+                    discard();
+                }
+
+                //!
                 inline bool ready() const
                 {
                     switch (state.query())
@@ -212,149 +220,167 @@ class IAsyncQueueDispatcherBase
                     }
                     return false;
                 }
+                
+                //! Returns after waiting till `ready()` would be true or after 
+                inline bool wait()
+                {
+                    while (true)
+                    {
+                        switch (state.query())
+                        {
+                            case STATE::INITIAL:
+                                return false;
+                                break;
+                            case STATE::READY:
+                                [[fallthrough]];
+                            case STATE::LOCKED:
+                                return true;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    assert(false);
+                }
+
+                //! NOTE: Deliberately named `...acquire` instead of `...lock` to make them incompatible with `unique_lock`
+                // and other RAII locks as the blocking aquire can fail and that needs to be handled.
+
+                //! ANY THREAD [except WORKER]: If we're READY transition to LOCKED
+                [[nodiscard]] inline T* try_acquire()
+                {
+                    auto expected = STATE::READY;
+                    if (state.tryTransition(expected,STATE::LOCKED))
+                        return getStorage();
+                    return nullptr;
+                }
+                //! ANY THREAD [except WORKER]: Wait till we're either in READY and move us to LOCKED or bail on INITIAL
+                // this accounts for being cancelled or consumed while waiting
+                [[nodiscard]] inline T* acquire()
+                {
+                    if (state.waitAbortableTransition(STATE::READY,STATE::LOCKED,STATE::INITIAL))
+                        return getStorage();
+                    return nullptr;
+                }
+                //! ANY THREAD [except WORKER]: Release an acquired lock
+                inline void release()
+                {
+                    state.exchangeNotify(STATE::LOCKED,STATE::READY);
+                }
+
+                //! NOTE: You're in charge of ensuring future doesn't transition back to INITIAL (e.g. lock or use sanely!)
+                inline const T* get() const
+                {
+                    if (ready())
+                        return getStorage();
+                    return nullptr;
+                }
+                inline T* get()
+                {
+                    if (future_base_t::state.query() != future_base_t::STATE::LOCKED)
+                        return nullptr;
+                    return getStorage();
+                }
+
+                //! Can only be called once! If returns false means has been cancelled and nothing happened
+                inline bool move_into(T& dst)
+                {
+                    T* pSrc = acquire();
+                    if (!pSrc)
+                        return false;
+                    dst = std::move(*T);
+                    discard_common();
+                    return true;
+                }
+
+                //!
+                virtual inline void discard()
+                {
+                    if (acquire())
+                        discard_common();
+                }
 
             protected:
-                // the base class is not directly usable
-                inline ~future_base_t()
+                // construct the retval element 
+                template <typename... Args>
+                inline void notify(Args&&... args)
                 {
-                    // non-cancellable future just need to get to this state, and cancellable will move here
-                    state.wait(STATE::INITIAL);
+                    new (getStorage()) T(std::forward<Args>(args)...);
+                    future_base_t::notify();
                 }
-                // future_t is non-copyable and non-movable because request needs a pointer to it
-                future_base_t(const future_base_t&) = delete;
-                future_base_t(future_base_t&&) = delete;
-                future_base_t& operator=(const future_base_t&) = delete;
-                future_base_t& operator=(future_base_t&&) = delete;
 
-                // this tells us whether an object with a lifetime has been constructed over the memory backing the future
-                // also acts as a lock
-                atomic_state_t<STATE,STATE::INITIAL> state;
+            private:
+                inline discard_common()
+                {
+                    destruct();
+                    state.exchangeNotify(STATE::LOCKED, STATE::INITIAL);
+                }
         };
-
-    public:
-        struct cancellable_future_t final : protected future_base_t
+        template<typename T>
+        struct cancellable_future_t final : public future_t<T>
         {
-                using base_t = future_base_t;
+                using base_t = future_t<T>;
                 std::atomic<request_base_t*> request = nullptr;
 
             public:
-                inline ~cancellable_future_t()
+                //! ANY THREAD [except WORKER]: Cancel pending request if we can, returns whether we actually managed to cancel
+                inline bool cancel()
                 {
-                    cancel();
-                    // either we never had a request at all to begin with or derived called
-                    // its own `cancel` in the destructor, I'm just checking its already done
-                    assert(!request.load());
+                    STATE expected = STATE::ASSOCIATED;
+                    if (state.tryTransition(expected,STATE::EXECUTING))
+                    {
+                        // Since we're here we've managed to move from ASSOCIATED to fake "EXECUTING" this means that the Request is either:
+                        // 1. RECORDING but after returning from `base_t::associate_request`
+                        while (!request.load()) {}
+                        // 2. PENDING
+                        // 3. EXECUTING but before returning from `base_t::disassociate_request` cause there's a spinlock there
+                        
+                        request.exchange(nullptr)->cancel();
+
+                        // after doing everything, we can mark ourselves as cleaned up
+                        state.exchangeNotify(STATE::EXECUTING,STATE::INITIAL);
+                        return true;
+                    }
+                    // we're here because either:
+                    // - there was no work submitted
+                    // - someone else cancelled
+                    // - request is currently executing
+                    // - request is ready
+                    // - storage is locked/acquired
+                    // sanity check (there's a tiny gap between transitioning to EXECUTING and disassociating request)
+                    assert(expected==STATE::EXECUTING || request==nullptr);
+                    return false;
                 }
 
+                inline void discard() override final
+                {
+                    // try to cancel
+                    cancel();
+                    // sanity check
+                    assert(request==nullptr);
+                    // proceed with the usual
+                    base_t::discard();
+                }
+
+            private:
                 inline void associate_request(request_base_t* req) override
                 {
                     base_t::associate_request(req);
-                    request_base_t* noOtherRequest = request.exchange(req);
+                    request_base_t* prev = request.exchange(req);
                     // sanity check
-                    assert(request==nullptr);
+                    assert(prev==nullptr);
                 }
-
-                inline void cancel()
+                inline bool disassociate_request() override
                 {
-                    STATE expected = STATE::ASSOCIATED;
-                    state.tryTransition(expected,STATE::INITIAL);
-//                    if
-//                        core::StorageTrivializer<T>::destroy();
-                }
-        };
-        struct retval_future_t : public future_base_t
-        {
-            public:
-                inline ~retval_future_t()
-                {
-                    if (cancellable)
-                        destroy = cancel();
-                    else
+                    assert(request.load()->getState().query()==request_base_t::STATE::EXECUTING);
+                    if (base_t::disassociate_request())
                     {
-                        wait_ready();
-                        cond_destroy();
+                        // only assign if we didn't get cancelled mid-way, otherwise will mess up `associate_request` sanity checks
+                        request_base_t* prev = request.exchange(nullptr);
+                        assert(prev);
+                        return true;
                     }
-                }
-                
-
-                //! NOTE: Deliberately named `...acquire` instead of `...lock` to make them incompatible with `unique_lock`
-                // and other RAII locks as the blocking aquire can fail and that needs to be handled.
-                //! ANY THREAD [except WORKER]: If we're READY transition to LOCKED
-                [[nodiscard]] inline bool try_acquire()
-                {
-                    auto expected = STATE::READY;
-                    return state.tryTransition(expected,STATE::LOCKED);
-                }
-                //! ANY THREAD [except WORKER]: Wait till we're either in READY and move us to LOCKED or bail on INITIAL
-                // this accounts for being cancelled or consumed while waiting
-                [[nodiscard]] inline bool acquire()
-                {
-                    return state.waitAbortableTransition(STATE::READY,STATE::LOCKED,STATE::INITIAL);
-                }
-                //! ANY THREAD [except WORKER]: Release a lock
-                inline void release()
-                {
-                    state.exchangeNotify(STATE::LOCKED,STATE::READY);
-                }
-
-                //! ANY THREAD [except WORKER]: returns whether we actually managed to cancel
-                bool cancel()
-                {
-                    bool actuallyCancelled = false;
-                    // atomic exchange of pointer to ensure only one thread gets to cancel, ever
-                    request_base_t* req = request.exchange(nullptr);
-                    if (req)
-                        actuallyCancelled = req->set_cancel();
-                    const bool constructed = valid_flag.exchange(false);
-                    if (constructed)
-                        destroyStorage();
-                    else
-                    {
-                        // if we cancelled then the object never got constructed
-                        assert(!actuallyCancelled);
-                    }
-                    return actuallyCancelled;
-                }
-
-            protected:
-                inline void cancel()
-                {
-                    assert(cancellable);
-                    cond_destroy();
-                }
-                inline void cond_destroy()
-                {
-                    core::StorageTrivializer<T>::destroy();
-                }
-        };
-        template<typename T, bool _Cancellable>
-        struct future_t : private core::StorageTrivializer<T>, public future_base_t
-        {
-            public:
-                inline bool ready() const { return future_base_t::ready(); }
-                static inline constexpr bool Cancellable = _Cancellable;
-
-                inline future_t() = default;
-                
-
-                //! NOTE: Deliberately named `...acquire` instead of `...lock` to make them incompatible with `unique_lock`
-                // and other RAII locks as the blocking aquire can fail and that needs to be handled.
-                //! ANY THREAD [except WORKER]: If we're READY transition to LOCKED
-                [[nodiscard]] inline bool try_acquire()
-                {
-                    auto expected = STATE::READY;
-                    return state.tryTransition(expected,STATE::LOCKED);
-                }
-                //! ANY THREAD [except WORKER]: Wait till we're either in READY and move us to LOCKED or bail on INITIAL
-                // this accounts for being cancelled or consumed while waiting
-                [[nodiscard]] inline bool acquire()
-                {
-                    return state.waitAbortableTransition(STATE::READY,STATE::LOCKED,STATE::INITIAL);
-                }
-                //! ANY THREAD [except WORKER]: Release a lock
-                inline void release()
-                {
-                    state.exchangeNotify(STATE::LOCKED,STATE::READY);
+                    return false;
                 }
         };
 };
@@ -368,17 +394,12 @@ inline void IAsyncQueueDispatcherBase::request_base_t::finalize(future_base_t* f
 
 inline bool IAsyncQueueDispatcherBase::request_base_t::wait()
 {
-    const bool notCancelled = state.waitAbortableTransition(STATE::PENDING,STATE::EXECUTING,STATE::CANCELLED);
-    if (notCancelled)
-        future->disassociate_request();
-    else
-    {
-        // the only other option is for `notify()` to handle this
-        //assert(future->cancellable);
-        future = nullptr;
-        state.exchangeNotify(STATE::CANCELLED,STATE::INITIAL);
-    }
-    return notCancelled;
+    if (state.waitAbortableTransition(STATE::PENDING,STATE::EXECUTING,STATE::CANCELLED) && future->disassociate_request())
+        return true;
+    //assert(future->cancellable);
+    future = nullptr;
+    state.exchangeNotify(STATE::CANCELLED,STATE::INITIAL);
+    return false;
 }
 inline void IAsyncQueueDispatcherBase::request_base_t::notify()
 {

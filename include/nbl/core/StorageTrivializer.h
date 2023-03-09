@@ -30,7 +30,7 @@ struct alignas(T) StorageTrivializer
     }
     void destruct()
     {
-        getStorage->~T();
+        getStorage()->~T();
     }
 
     uint8_t* storage[sizeof(T)];
