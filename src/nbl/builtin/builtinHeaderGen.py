@@ -17,6 +17,7 @@ else:
     cmakeSourceDir = sys.argv[2]
     resourcesFile  = sys.argv[3]
     resourcesNamespace = sys.argv[4]
+    guardSuffix = sys.argv[5]
 
     with open(resourcesFile, "r") as f:
         resourcePaths = f.read().rstrip().split(',')
@@ -24,8 +25,8 @@ else:
     #opening a file
     outp = open(outputFilename,"w+")
 
-    outp.write("#ifndef BUILTINRESOURCEDATA_H\n")
-    outp.write("#define BUILTINRESOURCEDATA_H\n")
+    outp.write("#ifndef _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
+    outp.write("#define _" + guardSuffix + "_BUILTINRESOURCEDATA_H\n")
     outp.write("#include <stdlib.h>\n")
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
@@ -40,6 +41,6 @@ else:
         outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
 
     outp.write("\n\t}")
-    outp.write("\n#endif")
+    outp.write("\n#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")
 
     outp.close()

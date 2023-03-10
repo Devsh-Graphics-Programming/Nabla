@@ -364,6 +364,7 @@ set(NABLA_HEADERS "${NBL_ROOT_PATH}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${N
 set(NBL_LIBRARY_CREATION_SOURCES 
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
+	${_NBL_BUILTIN_RESOURCES_ARCHIVE_APK_SOURCES_}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
@@ -409,6 +410,20 @@ endif()
 if(NOT NBL_STATIC_BUILD)
 	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
+endif()
+
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	add_dependencies(Nabla ${_NBL_BUILTIN_RESOURCES_LIBRARIES_})
+	
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE
+			${_NBL_BUILTIN_RESOURCES_LIBRARIES_}
+		)
+	else()
+		target_link_libraries(Nabla PRIVATE 
+			${_NBL_BUILTIN_RESOURCES_LIBRARIES_}
+		)
+	endif()
 endif()
 
 ## Set up 3rdparty deps
@@ -611,12 +626,6 @@ if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_dependencies(Nabla nblBuiltinResourceData)
-	target_link_libraries(Nabla PUBLIC nblBuiltinResourceData)
-	target_include_directories(Nabla PUBLIC "${NBL_BUILTIN_RESOURCES_HEADER}")
-endif()
-
 # extensions
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
@@ -628,13 +637,13 @@ if(NOT NBL_STATIC_BUILD)
 		COMMENT "Launching defines.h generation script!"
 		VERBATIM
 	)
-	
-	add_custom_target(generate_define_header ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
-	add_dependencies(Nabla generate_define_header)
 endif()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+if(NOT NBL_STATIC_BUILD)
+	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+endif()
+nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
