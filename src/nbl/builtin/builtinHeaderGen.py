@@ -38,7 +38,7 @@ else:
     
     #Iterating through input list
     for x in resourcePaths:
-        outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
 
     outp.write("\n\t}")
     outp.write("\n#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")
