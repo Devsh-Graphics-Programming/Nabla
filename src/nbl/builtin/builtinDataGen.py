@@ -17,18 +17,15 @@ else:
     cmakeSourceDir = sys.argv[2]
     resourcesFile  = sys.argv[3]
     resourcesNamespace = sys.argv[4]
+    correspondingHeaderFile = sys.argv[5]
 
     with open(resourcesFile, "r") as f:
         resourcePaths = f.read().rstrip().split(',')
 
     #opening a file
     outp = open(outputFilename,"w+")
-  
-
-    outp.write("#include \"nbl/core/string/StringLiteral.h\"\n")
-    outp.write("#include <cstdint>\n")
-    outp.write("#include <unordered_map>\n");
-    outp.write("#include <string>\n");
+    
+    outp.write("#include \"" + correspondingHeaderFile + "\"\n")
     outp.write("\tnamespace " + resourcesNamespace + " {\n")
 
     outp.write("template<nbl::core::StringLiteral Path>")
