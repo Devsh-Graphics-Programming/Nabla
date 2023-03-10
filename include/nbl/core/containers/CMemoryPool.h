@@ -47,7 +47,7 @@ public:
 
         using traits_t = std::allocator_traits<DataAllocator<T>>;
         DataAllocator<T> data_alctr;
-        if constexpr (sizeof...(FuncArgs)!=0u || !std::is_trivial<T>)
+        if constexpr (sizeof...(FuncArgs)!=0u || !std::is_trivial_v<T>)
         {
             for (uint32_t i = 0u; i < n; ++i)
                 traits_t::construct(data_alctr, reinterpret_cast<T*>(ptr) + i, std::forward<FuncArgs>(args)...);

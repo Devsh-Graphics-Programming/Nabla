@@ -57,14 +57,14 @@ class ITransformTree : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createRenderDescriptorSetLayout(asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			asset::ICPUDescriptorSetLayout::SBinding bindings[TransformTree::RenderDescriptorSetBindingCount];
-            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+            asset::ICPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
 		}
 		template<class TransformTree>
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createRenderDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[TransformTree::RenderDescriptorSetBindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,TransformTree::RenderDescriptorSetBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createDescriptorSetLayout(bindings,bindings+TransformTree::RenderDescriptorSetBindingCount);
 		}
 		
@@ -142,8 +142,10 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!outPool)
 				return false;
 
-			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,property_pool_t::PropertyCount+TransformTree::RenderDescriptorSetBindingCount};
-			auto dsp = device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,2u,1u,&size);
+			video::IDescriptorPool::SCreateInfo createInfo;
+			createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] = property_pool_t::PropertyCount + TransformTree::RenderDescriptorSetBindingCount;
+			createInfo.maxSets = 2;
+			auto dsp = device->createDescriptorPool(std::move(createInfo));
 			if (!dsp)
 				return false;
 
@@ -152,7 +154,7 @@ class ITransformTree : public virtual core::IReferenceCounted
 			for (auto i=0u; i<property_pool_t::PropertyCount; i++)
 			{
 				writes[i].binding = i;
-				writes[i].descriptorType = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].count = 1u;
 			}
 			auto poolLayout = createPoolDescriptorSetLayout<TransformTree>(device);
@@ -160,8 +162,8 @@ class ITransformTree : public virtual core::IReferenceCounted
 			if (!poolLayout || !renderLayout)
 				return false;
 
-			outPoolDS = device->createDescriptorSet(dsp.get(),std::move(poolLayout));
-			outRenderDS = device->createDescriptorSet(dsp.get(),std::move(renderLayout));
+			outPoolDS = dsp->createDescriptorSet(std::move(poolLayout));
+			outRenderDS = dsp->createDescriptorSet(std::move(renderLayout));
 			if (!outPoolDS || !outRenderDS)
 				return false;
 
