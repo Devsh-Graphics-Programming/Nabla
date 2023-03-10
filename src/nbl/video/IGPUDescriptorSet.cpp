@@ -60,12 +60,26 @@ bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorS
     {
 #ifdef _NBL_DEBUG
         if (m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) != 0)
+        {
+            if (debugName)
+                m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow immutable samplers at binding %u, but immutable samplers found.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+            else
+                m_pool->m_logger.log("Descriptor set (%p) doesn't allow immutable samplers at binding %u, but immutable samplers found.", system::ILogger::ELL_ERROR, this, write.binding);
             return false;
+        }
 
         for (uint32_t i = 0; i < write.count; ++i)
         {
-            if (!write.info[i].info.image.sampler || !write.info[i].info.image.sampler->isCompatibleDevicewise(write.dstSet))
+            auto* sampler = write.info[i].info.image.sampler.get();
+            if (!sampler || !sampler->isCompatibleDevicewise(write.dstSet))
+            {
+                const char* samplerDebugName = sampler->getDebugName();
+                if (samplerDebugName && debugName)
+                    m_pool->m_logger.log("Sampler (%s, %p) does not exist or is not device-compatible with descriptor set (%s, %p).", system::ILogger::ELL_ERROR, samplerDebugName, sampler, debugName, write.dstSet);
+                else
+                    m_pool->m_logger.log("Sampler (%p) does not exist or is not device-compatible with descriptor set (%p).", system::ILogger::ELL_ERROR, sampler, write.dstSet);
                 return false;
+            }
         }
 #endif
         mutableSamplers = getMutableSamplers(write.binding);
