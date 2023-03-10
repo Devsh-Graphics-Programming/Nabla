@@ -58,6 +58,16 @@ bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorS
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
     if (write.descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && write.info->info.image.sampler)
     {
+#ifdef _NBL_DEBUG
+        if (m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) != 0)
+            return false;
+
+        for (uint32_t i = 0; i < write.count; ++i)
+        {
+            if (!write.info[i].info.image.sampler || !write.info[i].info.image.sampler->isCompatibleDevicewise(write.dstSet))
+                return false;
+        }
+#endif
         mutableSamplers = getMutableSamplers(write.binding);
         if (!mutableSamplers)
         {

@@ -549,11 +549,10 @@ public:
 
                 const auto* infoSrc = pDescriptorWrites[i].info;
                 auto* infoDst = const_cast<VkDescriptorImageInfo*>(vk_writeDescriptorSets[i].pImageInfo);
+
                 for (uint32_t j = 0; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
                 {
-                    VkSampler vk_sampler = VK_NULL_HANDLE;
-                    if (infoSrc->info.image.sampler && (infoSrc->info.image.sampler->getAPIType() == EAT_VULKAN))
-                        vk_sampler = static_cast<const CVulkanSampler*>(infoSrc->info.image.sampler.get())->getInternalObject();
+                    VkSampler vk_sampler = infoSrc->info.image.sampler ? static_cast<const CVulkanSampler*>(infoSrc->info.image.sampler.get())->getInternalObject() : VK_NULL_HANDLE;
 
                     infoDst->sampler = vk_sampler;
                     infoDst->imageView = static_cast<const CVulkanImageView*>(infoSrc->desc.get())->getInternalObject();

@@ -146,10 +146,10 @@ public:
 		inline uint32_t getCount(const binding_number_t binding) const
 		{
 			const auto index = findBindingStorageIndex(binding);
-			if (index == Invalid)
+			if (index.data == Invalid)
 				return 0;
 
-			return getDescriptorCount(index);
+			return getCount(index);
 		}
 
 		inline storage_offset_t getStorageOffset(const binding_number_t binding) const
