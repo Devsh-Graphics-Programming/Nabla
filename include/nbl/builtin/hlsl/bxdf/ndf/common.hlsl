@@ -17,7 +17,7 @@ namespace ndf
 {
 
 // general path
-static float microfacet_to_light_measure_transform(in float NDFcos, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
+float microfacet_to_light_measure_transform(in float NDFcos, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
 {
     float denominator = absNdotV;
     if (transmitted)
@@ -28,7 +28,7 @@ static float microfacet_to_light_measure_transform(in float NDFcos, in float abs
     }
     return NDFcos*(transmitted ? VdotHLdotH:0.25)/denominator;
 }
-static float microfacet_to_light_measure_transform(in float NDFcos, in float maxNdotV)
+float microfacet_to_light_measure_transform(in float NDFcos, in float maxNdotV)
 {
     return 0.25*NDFcos/maxNdotV;
 }

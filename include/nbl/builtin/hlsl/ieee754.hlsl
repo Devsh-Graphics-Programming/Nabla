@@ -12,15 +12,6 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace numeric_limits
-{
-
-float float_epsilon(float n);
-float float_epsilon(int n);
-float float_epsilon();
-
-}
-
 
 namespace ieee754
 {
@@ -84,16 +75,30 @@ uint encode_ufloat_impl(in int exponent, in uint exponentBits, in uint mantissa,
 	return encodedValue;
 }
 
+float float_epsilon(float n)
+{
+	return ieee754::fast_mul_exp2(n, -24);
+}
+
+float float_epsilon(int n)
+{
+	return float_epsilon(float(n));
+}
+
+float float_epsilon()
+{
+	return FLT_EPSILON;
+}
 
 
 float gamma(float n)
 {
-	const float a = numeric_limits::float_epsilon(n);
+	const float a = float_epsilon(n);
 	return a / (1.f - a);
 }
 float rcpgamma(float n)
 {
-	const float a = numeric_limits::float_epsilon(n);
+	const float a = float_epsilon(n);
 	return 1.f / a - 1.f;
 }
 
@@ -108,14 +113,14 @@ float rcpgamma(uint n)
 
 float3 add_with_bounds_wo_gamma(out float3 error, in float3 a, in float3 a_error, in float3 b, in float3 b_error)
 {
-	error = (a_error + b_error) / numeric_limits::float_epsilon(1u);
+	error = (a_error + b_error) / float_epsilon(1u);
 	float3 sum = a + b;
 	error += abs(sum);
 	return sum;
 }
 float3 sub_with_bounds_wo_gamma(out float3 error, in float3 a, in float3 a_error, in float3 b, in float3 b_error)
 {
-	error = (a_error + b_error) / numeric_limits::float_epsilon(1u);
+	error = (a_error + b_error) / float_epsilon(1u);
 	float3 sum = a - b;
 	error += abs(sum);
 	return sum;
@@ -124,7 +129,7 @@ float3 mul_with_bounds_wo_gamma(out float3 error, in float3 a, in float3 a_error
 {
 	float3 crossCorrelationA = abs(a) * b_error;
 	float3 crossCorrelationB = a_error * abs(b);
-	error = (crossCorrelationB + crossCorrelationA + crossCorrelationB * crossCorrelationA) / numeric_limits::float_epsilon(1u);
+	error = (crossCorrelationB + crossCorrelationA + crossCorrelationB * crossCorrelationA) / float_epsilon(1u);
 	float3 product = a * b;
 	error += abs(product);
 	return product;

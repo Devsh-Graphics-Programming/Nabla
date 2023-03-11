@@ -47,25 +47,22 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace numeric_limits
-{
 
-	
-float float_epsilon(float n)
-{
-	return ieee754::fast_mul_exp2(n,-24);
-}
-float float_epsilon(int n)
-{
-	return float_epsilon(float(n));
-}
-float float_epsilon()
-{
-	return FLT_EPSILON;
-}
+template <typename T>
+struct numeric_limits;
 
+template <>
+struct numeric_limits <float>
+{
+	static float nan() { return (0.0f / 0.0f); }
+	static float min() { return 1.175494351e-38f; }
+	static float max() { return 3.402823466e+38f; }
+	static float epsilon() { return ieee754::float_epsilon(); }
+	static float inf() { return 1.0f / 0.0f; }
+};
 
-}
+// TODO int, uint specializations
+
 }
 }
 
