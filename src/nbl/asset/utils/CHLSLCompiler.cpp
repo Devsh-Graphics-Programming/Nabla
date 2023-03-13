@@ -200,7 +200,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     // Line 1 comes before all the extra defines in the main shader
     insertIntoStart(code, std::ostringstream(std::string(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER) + "line 1\n"));
 
-    uint32_t defineLeadingLinesMain = 0;
+    uint32_t defineLeadingLinesMain = 1;
     uint32_t leadingLinesImports = IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(preprocessOptions.maxSelfInclusionCount + 1u);
     if (preprocessOptions.extraDefines.size())
     {
