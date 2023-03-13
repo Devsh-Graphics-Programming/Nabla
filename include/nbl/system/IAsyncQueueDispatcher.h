@@ -13,10 +13,10 @@ namespace impl
 {
 class IAsyncQueueDispatcherBase
 {
-    public:
+    protected:
         struct future_base_t;
         // dont want to play around with relaxed memory ordering yet
-        struct request_base_t
+        struct request_base_t // TODO: protect to anyone but inheritor
         {
             public:
                 enum class STATE : uint32_t
@@ -92,6 +92,8 @@ class IAsyncQueueDispatcherBase
                     LOCKED=4
                 };
 
+            protected:
+                friend struct request_base_t;
                 //! REQUESTING THREAD: done as part of filling out the request
                 virtual inline void associate_request(request_base_t* req)
                 {
@@ -111,7 +113,6 @@ class IAsyncQueueDispatcherBase
                     state.exchangeNotify<true>(STATE::READY,STATE::EXECUTING);
                 }
 
-            protected:
                 // the base class is not directly usable
                 virtual inline ~future_base_t()
                 {
@@ -129,7 +130,7 @@ class IAsyncQueueDispatcherBase
                 atomic_state_t<STATE,STATE::INITIAL> state= {};
         };
 
-    protected:
+        // not meant for direct usage
         IAsyncQueueDispatcherBase() = default;
         ~IAsyncQueueDispatcherBase() = default;
 
@@ -145,7 +146,7 @@ class IAsyncQueueDispatcherBase
                 }
 
             public:
-                inline future_t() = default;
+                inline future_t() {}
                 inline ~future_t()
                 {
                     discard();
@@ -230,7 +231,7 @@ class IAsyncQueueDispatcherBase
                 }
 
                 //! Can only be called once! If returns false means has been cancelled and nothing happened
-                inline bool move_into(T& dst)
+                [[nodiscard]] inline bool move_into(T& dst)
                 {
                     T* pSrc = acquire();
                     if (!pSrc)
@@ -238,6 +239,15 @@ class IAsyncQueueDispatcherBase
                     dst = std::move(*pSrc);
                     discard_common();
                     return true;
+                }
+
+                //! Utility to write less code, WILL ASSERT IF IT FAILS TO ACQUIRE! So don't use on futures that might be cancelled or fail.
+                inline T copy_out()
+                {
+                    T retval;
+                    const bool success = move_into(retval);
+                    assert(success);
+                    return retval;
                 }
 
                 //!
@@ -250,14 +260,13 @@ class IAsyncQueueDispatcherBase
             protected:
                 // construct the retval element 
                 template <typename... Args>
-                inline void notify(Args&&... args)
+                inline void construct(Args&&... args)
                 {
                     storage_t::construct(std::forward<Args>(args)...);
-                    future_base_t::notify();
                 }
         };
         template<typename T>
-        struct cancellable_future_t final : public future_t<T>
+        struct cancellable_future_t : public future_t<T>
         {
                 using base_t = future_t<T>;
                 std::atomic<request_base_t*> request = nullptr;
@@ -267,7 +276,7 @@ class IAsyncQueueDispatcherBase
                 inline bool cancel()
                 {
                     auto expected = base_t::STATE::ASSOCIATED;
-                    if (state.tryTransition(STATE::EXECUTING,expected))
+                    if (base_t::state.tryTransition(base_t::STATE::EXECUTING,expected))
                     {
                         // Since we're here we've managed to move from ASSOCIATED to fake "EXECUTING" this means that the Request is either:
                         // 1. RECORDING but after returning from `base_t::associate_request`
@@ -278,7 +287,7 @@ class IAsyncQueueDispatcherBase
                         request.exchange(nullptr)->cancel();
 
                         // after doing everything, we can mark ourselves as cleaned up
-                        state.exchangeNotify<false>(STATE::INITIAL,STATE::EXECUTING);
+                        base_t::state.exchangeNotify<false>(base_t::STATE::INITIAL, base_t::STATE::EXECUTING);
                         return true;
                     }
                     // we're here because either:
@@ -288,7 +297,7 @@ class IAsyncQueueDispatcherBase
                     // - request is ready
                     // - storage is locked/acquired
                     // sanity check (there's a tiny gap between transitioning to EXECUTING and disassociating request)
-                    assert(expected==STATE::EXECUTING || request==nullptr);
+                    assert(expected==base_t::STATE::EXECUTING || request==nullptr);
                     return false;
                 }
 
@@ -303,14 +312,14 @@ class IAsyncQueueDispatcherBase
                 }
 
             private:
-                inline void associate_request(request_base_t* req) override
+                inline void associate_request(request_base_t* req) override final
                 {
                     base_t::associate_request(req);
                     request_base_t* prev = request.exchange(req);
                     // sanity check
                     assert(prev==nullptr);
                 }
-                inline bool disassociate_request() override
+                inline bool disassociate_request() override final
                 {
                     if (base_t::disassociate_request())
                     {
@@ -357,35 +366,30 @@ inline void IAsyncQueueDispatcherBase::request_base_t::notify()
 * void init(internal_state_t* state); // required only in case of custom internal state
 *
 * void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
-*
-* void request_impl(request_t& req, ...); // `...` are parameteres forwarded from request(), the request's state is locked with a mutex during the call
-* void process_request(request_t& req, internal_state_t& state); // no `state` parameter in case of no internal state
+* 
+* // no `state` parameter in case of no internal state
+* void process_request(request_metadata_t& req, internal_state_t& state);
+* 
 * void background_work() // optional, does nothing if not provided
 * 
 * 
-* Provided RequestType shall define 5 methods:
-* void start();
-* void finalize();
-* bool wait();
-* void notify();
-* TODO: [outdated docs] lock() will be called just before processing the request, and unlock() will be called just after processing the request.
-* Those are to enable safe external write access to the request struct for user-defined purposes.
-*
-* wait_for_result() will wait until the Async queue completes processing the request and notifies us that the request is ready,
-* the request will remain locked upon return (so nothing overwrites its address on the circular buffer)
-* 
-* notify_all_ready() takes an r-value reference to an already locked mutex and notifies any waiters then releases the lock
+* The `lock()` will be called just before calling into `background_work()` and processing any requests via `process_request()`,
+* `unlock()` will be called just after processing the request (if any).
 */
-template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
+template<typename CRTP, typename request_metadata_t, uint32_t BufferSize=256u, typename InternalStateType=void>
 class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, protected impl::IAsyncQueueDispatcherBase
 {
-        static_assert(std::is_base_of_v<impl::IAsyncQueueDispatcherBase::request_base_t,RequestType>, "Request type must derive from request_base_t!");
         static_assert(BufferSize>0u, "BufferSize must not be 0!");
         static_assert(core::isPoT(BufferSize), "BufferSize must be power of two!");
 
     protected:
         using base_t = IThreadHandler<CRTP,InternalStateType>;
         friend base_t; // TODO: remove, some functions should just be protected
+
+        struct request_t : public request_base_t
+        {
+            request_metadata_t m_metadata;
+        };
 
     private:
         constexpr static inline uint32_t MaxRequestCount = BufferSize;
@@ -394,7 +398,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
         using atomic_counter_t = std::atomic_uint64_t;
         using counter_t = atomic_counter_t::value_type;
 
-        RequestType request_pool[MaxRequestCount];
+        request_t request_pool[MaxRequestCount];
         atomic_counter_t cb_begin = 0u;
         atomic_counter_t cb_end = 0u;
 
@@ -413,39 +417,41 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
         using cvar_t = typename base_t::cvar_t;
         using internal_state_t = typename base_t::internal_state_t;
 
-        using request_t = RequestType;
+        template<typename T>
+        using future_t = impl::IAsyncQueueDispatcherBase::future_t<T>;
+        template<typename T>
+        using cancellable_future_t = impl::IAsyncQueueDispatcherBase::cancellable_future_t<T>;
 
-        // Returns a reference to a request's storage in the circular buffer after processing the moved arguments
-        // YOU MUST CONSUME THE REQUEST by calling `discard_storage()` on it EXACTLY ONCE!
-        // YOU MUST CALL IT EVEN IF THERE'S NO DATA YOU WISH TO GET BACK FROM IT!
-        // (if you don't the queue will deadlock because of an unresolved overflow)
-        template <typename... Args>
-        request_t& request(Args&&... args)
+        //! Constructs a request with `args` via `CRTP::request_impl` on the circular buffer after there's enough space to accomodate it.
+        //! Then it associates the request to a future passed in as the first argument.
+        template<typename T, typename... Args>
+        void request(future_t<T>* _future, Args&&... args)
         {
-            auto virtualIx = cb_end++;
-            auto safe_begin = virtualIx<MaxRequestCount ? static_cast<counter_t>(0) : (virtualIx-MaxRequestCount+1u);
-
-            for (counter_t old_begin; (old_begin = cb_begin.load()) < safe_begin; )
+            // get next output index
+            const auto virtualIx = cb_end++;
+            // protect against overflow by waiting for the worker to catch up
+            const auto safe_begin = virtualIx<MaxRequestCount ? static_cast<counter_t>(0) : (virtualIx-MaxRequestCount+1u);
+            for (counter_t old_begin; (old_begin=cb_begin.load())<safe_begin; )
                 cb_begin.wait(old_begin);
 
+            // get actual storage index now
             const auto r_id = wrapAround(virtualIx);
 
             request_t& req = request_pool[r_id];
             req.start();
-            static_cast<CRTP*>(this)->request_impl(req, std::forward<Args>(args)...);
-            req.finalize();
+            req.m_metadata = request_metadata_t(std::forward<Args>(args)...);
+            req.finalize(_future);
 
             {
                 auto global_lk = base_t::createLock();
                 // wake up queue thread (needs to happen under a lock to not miss a wakeup)
                 base_t::m_cvar.notify_one();
             }
-            return req;
         }
 
     protected:
         inline ~IAsyncQueueDispatcher() {}
-        void background_work() {}
+        inline void background_work() {}
 
     private:
         template <typename... Args>
@@ -463,17 +469,16 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
 
                 request_t& req = request_pool[r_id];
                 // do NOT allow cancelling or modification of the request while working on it
-                if (req.wait_for_work())
+                if (req.wait())
                 {
-                    // if the request supports cancelling and got cancelled, the wait_for_work function may return false
-                    static_cast<CRTP*>(this)->process_request(req, optional_internal_state...);
+                    // if the request supports cancelling and got cancelled, then `wait()` function may return false
+                    static_cast<CRTP*>(this)->process_request(req.m_metadata,optional_internal_state...);
+                    req.notify();
                 }
                 // wake the waiter up
-                req.notify_ready();
                 cb_begin++;
-                #if __cplusplus >= 202002L
-                    cb_begin.notify_one();
-                #endif
+                // this does not need to happen under a lock, because its not a condvar
+                cb_begin.notify_one();
             }
             lock.lock();
         }

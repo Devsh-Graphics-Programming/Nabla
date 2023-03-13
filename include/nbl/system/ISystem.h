@@ -23,85 +23,26 @@ class NBL_API2 ISystem : public core::IReferenceCounted
 {
     public:
         inline static constexpr uint32_t MAX_FILENAME_LENGTH = 4096;
-    protected:
-        class ICaller;
-    private:
-        struct SRequestParams_NOOP
-        {
-        };
-        struct SRequestParams_CREATE_FILE
-        {
-            char filename[MAX_FILENAME_LENGTH] {};
-            IFileBase::E_CREATE_FLAGS flags;
-        };
-        struct SRequestParams_READ
-        {
-            ISystemFile* file;
-            void* buffer;
-            size_t offset;
-            size_t size;
-        };
-        struct SRequestParams_WRITE
-        {
-            ISystemFile* file;
-            const void* buffer;
-            size_t offset;
-            size_t size;
-        };
-        struct SRequestType : impl::IAsyncQueueDispatcherBase::request_base_t
-        {
-            std::variant<
-                SRequestParams_NOOP,
-                SRequestParams_CREATE_FILE,
-                SRequestParams_READ,
-                SRequestParams_WRITE
-            > params = SRequestParams_NOOP();
-        };
-        static inline constexpr uint32_t CircularBufferSize = 256u;
-        class CAsyncQueue : public IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
-        {
-                using base_t = IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>;
-                //friend base_t;
-
-            public:
-                inline CAsyncQueue(core::smart_refctd_ptr<ICaller>&& caller) : base_t(base_t::start_on_construction), m_caller(std::move(caller)) {}
-
-                template <typename FutureType, typename RequestParams>
-                void request_impl(SRequestType& req, FutureType& future, RequestParams&& params)
-                {
-                    req.params = std::move(params);
-                    base_t::associate_request_with_future(req, future);
-                }
-
-                void process_request(SRequestType& req);
-
-                void init() {}
-
-            private:
-                void handle_request(SRequestType& req, SRequestParams_NOOP& param);
-                void handle_request(SRequestType& req, SRequestParams_CREATE_FILE& param);
-                void handle_request(SRequestType& req, SRequestParams_READ& param);
-                void handle_request(SRequestType& req, SRequestParams_WRITE& param);
-                core::smart_refctd_ptr<ICaller> m_caller;
-        };
-        friend class ISystemFile;
-        CAsyncQueue m_dispatcher;
-
-    public:
+        //! We overrride the future a little bit, to allow to put a result in it right away without asynchronocity
         template <typename T>
-        struct future_t : public CAsyncQueue::future_t<T>
+        struct future_t final : public impl::IAsyncQueueDispatcherBase::cancellable_future_t<T>
         {
-                friend class ISystem;
+            private:
                 friend class IFutureManipulator;
+                template <typename... Args>
+                inline void set_result(Args&&... args)
+                {
+                    state.waitTransition(STATE::EXECUTING,STATE::INITIAL);
+                    construct(std::forward<Args>(args)...);
+                    notify();
+                }
         };
         class IFutureManipulator
         {
             protected:
-                //template <typename T>
-                //inline void fake_notify(future_t<T>& future, T&& value) const
-                inline void fake_notify(future_t<size_t>& future, const size_t value) const
+                inline void set_result(future_t<size_t>& future, const size_t value) const
                 {
-                    future.notify(value);
+                    future.set_result(value);
                 }
         };
 
@@ -110,11 +51,13 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         inline core::smart_refctd_ptr<const IFile> loadBuiltinData()
         {
         #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-            return impl_loadEmbeddedBuiltinData(Path.value, nbl::builtin::get_resource<Path>());
+            return impl_loadEmbeddedBuiltinData(Path.value,nbl::builtin::get_resource<Path>());
         #else
             future_t<core::smart_refctd_ptr<IFile>> future;
             createFile(future,system::path(Path.value),core::bitflag(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
-            return future.get();
+            if (future.wait())
+                return future.copy_out();
+            return nullptr;
         #endif
         }
 
@@ -138,7 +81,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         bool isPathReadOnly(const system::path& p) const;
 
         //
-        virtual bool isDirectory(const system::path& p) const
+        virtual inline bool isDirectory(const system::path& p) const
         {
             if (isPathReadOnly(p))
                 return p.extension()==""; // TODO: this is a temporary decision until we figure out how to check if a file is directory in android APK
@@ -183,11 +126,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             future_t<core::smart_refctd_ptr<IFile>> future;
             createFile(future, filename, core::bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
 
-            auto file = future.get();
-            if (!file)
-                return nullptr;
-
-            return openFileArchive(std::move(file),password);
+            if (future.wait())
+                return openFileArchive(future.copy_out(),password);
+            return nullptr;
         }
 
         // After opening and archive, you must mount it if you want the global path lookup to work seamlessly.
@@ -274,6 +215,64 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         } m_loaders;
         //
         core::CMultiObjectCache<system::path,core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
+        
+    protected:
+        class ICaller;
+    private:
+        struct SRequestParams_NOOP
+        {
+        };
+        struct SRequestParams_CREATE_FILE
+        {
+            char filename[MAX_FILENAME_LENGTH] {};
+            IFileBase::E_CREATE_FLAGS flags;
+        };
+        struct SRequestParams_READ
+        {
+            ISystemFile* file;
+            void* buffer;
+            size_t offset;
+            size_t size;
+        };
+        struct SRequestParams_WRITE
+        {
+            ISystemFile* file;
+            const void* buffer;
+            size_t offset;
+            size_t size;
+        };
+        struct SRequestType
+        {
+            std::variant<
+                SRequestParams_NOOP,
+                SRequestParams_CREATE_FILE,
+                SRequestParams_READ,
+                SRequestParams_WRITE
+            > params = SRequestParams_NOOP();
+        };
+        static inline constexpr uint32_t CircularBufferSize = 256u;
+        class CAsyncQueue : public IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
+        {
+                using base_t = IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>;
+                //friend base_t;
+
+            public:
+                inline CAsyncQueue(core::smart_refctd_ptr<ICaller>&& caller) : base_t(base_t::start_on_construction), m_caller(std::move(caller)) {}
+
+                void process_request(SRequestType& req);
+
+                void init() {}
+
+            private:
+                void handle_request(SRequestType& req, SRequestParams_NOOP& param);
+                void handle_request(SRequestType& req, SRequestParams_CREATE_FILE& param);
+                void handle_request(SRequestType& req, SRequestParams_READ& param);
+                void handle_request(SRequestType& req, SRequestParams_WRITE& param);
+
+                core::smart_refctd_ptr<ICaller> m_caller;
+        };
+        friend class ISystemFile;
+        CAsyncQueue m_dispatcher;
 };
 
 }
