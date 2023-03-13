@@ -29,7 +29,7 @@ class IAsyncQueueDispatcherBase
                 };
 
                 // in case you need it, which you won't
-                inline const auto& getState() const {return state;}
+                inline const atomic_state_t<STATE,STATE::INITIAL>& getState() const {return state;}
 
                 //! REQUESTING THREAD: lock when overwriting the request's data
                 inline void start()

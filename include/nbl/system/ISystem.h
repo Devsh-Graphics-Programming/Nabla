@@ -29,12 +29,15 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         {
             private:
                 friend class IFutureManipulator;
+
+                using base_t = impl::IAsyncQueueDispatcherBase::cancellable_future_t<T>;
+
                 template <typename... Args>
                 inline void set_result(Args&&... args)
                 {
-                    state.waitTransition(STATE::EXECUTING,STATE::INITIAL);
-                    construct(std::forward<Args>(args)...);
-                    notify();
+                    base_t::state.waitTransition(base_t::STATE::EXECUTING,base_t::STATE::INITIAL);
+                    base_t::construct(std::forward<Args>(args)...);
+                    base_t::notify();
                 }
         };
         class IFutureManipulator

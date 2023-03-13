@@ -168,7 +168,7 @@ class CWindowManagerWin32 : public IWindowManager
 			uint32_t minimized : 1 = 0;
 			uint32_t maximized : 1 = 0;
 		};
-		struct SRequest : system::impl::IAsyncQueueDispatcherBase::request_base_t
+		struct SRequest
 		{
 			E_REQUEST_TYPE type;
 			union

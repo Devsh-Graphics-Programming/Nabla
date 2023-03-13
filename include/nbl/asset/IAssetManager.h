@@ -652,15 +652,15 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::Quit
                 _override = &defOverride;
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            m_system->createFile(future, (_params.workingDirectory.generic_string() + _filename).c_str(), system::IFile::ECF_WRITE);
-            auto file = future.get();
-			if (file) // could fail creating file (lack of permissions)
+            m_system->createFile(future, (_params.workingDirectory.generic_string()+_filename).c_str(), system::IFile::ECF_WRITE);
+            core::smart_refctd_ptr<system::IFile>* file;
+			if (future.wait() && (file=future.acquire()))
 			{
-				bool res = writeAsset(file.get(), _params, _override);
+				bool res = writeAsset(file->get(), _params, _override);
+                future.release();
 				return res;
 			}
-			else
-				return false;
+			return false;
         }
         bool writeAsset(system::IFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
