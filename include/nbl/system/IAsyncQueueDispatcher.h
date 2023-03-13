@@ -1,9 +1,10 @@
-#ifndef __NBL_I_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
-#define __NBL_I_ASYNC_QUEUE_DISPATCHER_H_INCLUDED__
+#ifndef _NBL_I_ASYNC_QUEUE_DISPATCHER_H_INCLUDED_
+#define _NBL_I_ASYNC_QUEUE_DISPATCHER_H_INCLUDED_
 
-#include <atomic>
 #include "nbl/core/declarations.h"
+
 #include "nbl/system/IThreadHandler.h"
+#include "nbl/system/atomic_state.h"
 
 namespace nbl::system
 {
@@ -12,74 +13,7 @@ namespace impl
 {
 class IAsyncQueueDispatcherBase
 {
-    protected:
-        IAsyncQueueDispatcherBase() = default;
-        ~IAsyncQueueDispatcherBase() = default;
-
-        template<class STATE, STATE kInitial=static_cast<STATE>(0u)>
-        class atomic_state_t
-        {
-                static_assert(std::is_enum_v<STATE>);
-
-            public:
-                ~atomic_state_t()
-                {
-                    static_assert(std::atomic_uint32_t::is_always_lock_free);
-                    // must have been consumed before exit !
-                    const auto atExit = state.load();
-                    assert(static_cast<STATE>(atExit)==kInitial);
-                }
-
-                inline STATE query() const {return static_cast<STATE>(state.load());}
-// TODO: improve
-                inline void wait(const STATE targetState) const
-                {
-                    uint32_t current;
-                    while ((current=state.load()) != targetState)
-                        state.wait(current);
-                }
-
-                [[nodiscard]] inline bool tryTransition(STATE& expected, const STATE to)
-                {
-                    return state.compare_exchange_strong(reinterpret_cast<uint32_t&>(from),static_cast<uint32_t>(to));
-                }
-
-                inline void waitTransition(const STATE from, const STATE to)
-                {
-                    STATE expected = from;
-                    while (!tryTransition(expected,to))
-                    {
-                        state.wait(static_cast<uint32_t>(expected));
-                        expected = from;
-                    }
-                    assert(expected==from);
-                }
-
-                [[nodiscard]] inline bool waitAbortableTransition(const STATE from, const STATE to, const STATE abortState)
-                {
-                    uint32_t expected = static_cast<uint32_t>(from);
-                    while (!state.compare_exchange_strong(expected,static_cast<uint32_t>(to)))
-                    {
-                        state.wait(expected);
-                        if (expected==static_cast<uint32_t>(abortState))
-                            return false;
-                        expected = from;
-                    }
-                    assert(expected==from);
-                    return true;
-                }
-// TODO: improve (assert and notify one vs all)
-                inline void exchangeNotify(const STATE expected, const STATE to)
-                {
-                    const auto prev = state.exchange(static_cast<uint32_t>(to));
-                    assert(static_cast<STATE>(prev)==expected);
-                    state.notify_one();
-                }
-
-            private:
-                std::atomic_uint32_t state = static_cast<uint32_t>(kInitial);
-        };
-
+    public:
         struct future_base_t;
         // dont want to play around with relaxed memory ordering yet
         struct request_base_t
@@ -100,7 +34,7 @@ class IAsyncQueueDispatcherBase
                 //! REQUESTING THREAD: lock when overwriting the request's data
                 inline void start()
                 {
-                    state.waitTransition(STATE::INITIAL,STATE::RECORDING);
+                    state.waitTransition(STATE::RECORDING,STATE::INITIAL);
                     // previous thing cleaned up after itself
                     assert(!future);
                 }
@@ -115,8 +49,8 @@ class IAsyncQueueDispatcherBase
                 //! ANY THREAD [except worker]: via cancellable_future_t::cancel
                 inline void cancel()
                 {
-                    const auto prev = state.exchangeNotify(STATE::CANCELLED);
-                    // If we were in EXECUTING then worker thread is definitely stuck `base_t::disassociate_request` spinlock
+                    const auto prev = state.exchangeNotify<false>(STATE::CANCELLED);
+                    // If we were in EXECUTING then worker thread is definitely stuck in `base_t::disassociate_request` spinlock
                     assert(prev==STATE::PENDING || prev==STATE::EXECUTING);
                     // sanity check, but its not our job to set it to nullptr
                     assert(future);
@@ -164,17 +98,17 @@ class IAsyncQueueDispatcherBase
                     // sanity check
                     assert(req->getState().query()==request_base_t::STATE::RECORDING);
                     // if not initial state then wait until it gets moved, etc.
-                    state.waitTransition(STATE::INITIAL,STATE::ASSOCIATED);
+                    state.waitTransition(STATE::ASSOCIATED,STATE::INITIAL);
                 }
                 //! WORKER THREAD: done as part of execution at the very start, after we want to begin work
                 [[nodiscard]] virtual inline bool disassociate_request()
                 {
-                    return state.waitAbortableTransition(STATE::ASSOCIATED,STATE::EXECUTING,STATE::INITIAL);
+                    return state.waitAbortableTransition(STATE::EXECUTING,STATE::ASSOCIATED,STATE::INITIAL);
                 }
                 //! WORKER THREAD: done as part of execution at the very end, after object is constructed
                 inline void notify()
                 {
-                    state.exchangeNotify(STATE::EXECUTING,STATE::READY);
+                    state.exchangeNotify<true>(STATE::READY,STATE::EXECUTING);
                 }
 
             protected:
@@ -182,7 +116,7 @@ class IAsyncQueueDispatcherBase
                 virtual inline ~future_base_t()
                 {
                     // non-cancellable future just need to get to this state, and cancellable will move here
-                    state.wait(STATE::INITIAL);
+                    state.wait([](const STATE _query)->bool{return _query!=STATE::INITIAL;});
                 }
                 // future_t is non-copyable and non-movable because request needs a pointer to it
                 future_base_t(const future_base_t&) = delete;
@@ -195,10 +129,21 @@ class IAsyncQueueDispatcherBase
                 atomic_state_t<STATE,STATE::INITIAL> state= {};
         };
 
+    protected:
+        IAsyncQueueDispatcherBase() = default;
+        ~IAsyncQueueDispatcherBase() = default;
+
     public:
         template<typename T>
-        struct future_t : private core::StorageTrivializer<T>, protected future_base_t
+        class future_t : private core::StorageTrivializer<T>, protected future_base_t
         {
+                using storage_t = core::StorageTrivializer<T>;
+                inline void discard_common()
+                {
+                    storage_t::destruct();
+                    state.exchangeNotify<true>(STATE::INITIAL,STATE::LOCKED);
+                }
+
             public:
                 inline future_t() = default;
                 inline ~future_t()
@@ -222,25 +167,27 @@ class IAsyncQueueDispatcherBase
                 }
                 
                 //! Returns after waiting till `ready()` would be true or after 
-                inline bool wait()
+                inline bool wait() const
                 {
-                    while (true)
-                    {
-                        switch (state.query())
+                    bool retval = false;
+                    state.wait([&retval](const STATE _query)->bool{
+                        switch (_query)
                         {
-                            case STATE::INITIAL:
-                                return false;
-                                break;
-                            case STATE::READY:
-                                [[fallthrough]];
-                            case STATE::LOCKED:
-                                return true;
-                                break;
-                            default:
-                                break;
+                        case STATE::INITIAL:
+                            return false;
+                            break;
+                        case STATE::READY:
+                            [[fallthrough]];
+                        case STATE::LOCKED:
+                            retval = true;
+                            return false;
+                            break;
+                        default:
+                            break;
                         }
-                    }
-                    assert(false);
+                        return true;
+                    });
+                    return retval;
                 }
 
                 //! NOTE: Deliberately named `...acquire` instead of `...lock` to make them incompatible with `unique_lock`
@@ -250,36 +197,36 @@ class IAsyncQueueDispatcherBase
                 [[nodiscard]] inline T* try_acquire()
                 {
                     auto expected = STATE::READY;
-                    if (state.tryTransition(expected,STATE::LOCKED))
-                        return getStorage();
+                    if (state.tryTransition(STATE::LOCKED,expected))
+                        return storage_t::getStorage();
                     return nullptr;
                 }
                 //! ANY THREAD [except WORKER]: Wait till we're either in READY and move us to LOCKED or bail on INITIAL
                 // this accounts for being cancelled or consumed while waiting
                 [[nodiscard]] inline T* acquire()
                 {
-                    if (state.waitAbortableTransition(STATE::READY,STATE::LOCKED,STATE::INITIAL))
-                        return getStorage();
+                    if (state.waitAbortableTransition(STATE::LOCKED,STATE::READY,STATE::INITIAL))
+                        return storage_t::getStorage();
                     return nullptr;
                 }
                 //! ANY THREAD [except WORKER]: Release an acquired lock
                 inline void release()
                 {
-                    state.exchangeNotify(STATE::LOCKED,STATE::READY);
+                    state.exchangeNotify<true>(STATE::READY,STATE::LOCKED);
                 }
 
                 //! NOTE: You're in charge of ensuring future doesn't transition back to INITIAL (e.g. lock or use sanely!)
                 inline const T* get() const
                 {
                     if (ready())
-                        return getStorage();
+                        return storage_t::getStorage();
                     return nullptr;
                 }
                 inline T* get()
                 {
                     if (future_base_t::state.query() != future_base_t::STATE::LOCKED)
                         return nullptr;
-                    return getStorage();
+                    return storage_t::getStorage();
                 }
 
                 //! Can only be called once! If returns false means has been cancelled and nothing happened
@@ -288,7 +235,7 @@ class IAsyncQueueDispatcherBase
                     T* pSrc = acquire();
                     if (!pSrc)
                         return false;
-                    dst = std::move(*T);
+                    dst = std::move(*pSrc);
                     discard_common();
                     return true;
                 }
@@ -305,15 +252,8 @@ class IAsyncQueueDispatcherBase
                 template <typename... Args>
                 inline void notify(Args&&... args)
                 {
-                    new (getStorage()) T(std::forward<Args>(args)...);
+                    storage_t::construct(std::forward<Args>(args)...);
                     future_base_t::notify();
-                }
-
-            private:
-                inline discard_common()
-                {
-                    destruct();
-                    state.exchangeNotify(STATE::LOCKED, STATE::INITIAL);
                 }
         };
         template<typename T>
@@ -326,8 +266,8 @@ class IAsyncQueueDispatcherBase
                 //! ANY THREAD [except WORKER]: Cancel pending request if we can, returns whether we actually managed to cancel
                 inline bool cancel()
                 {
-                    STATE expected = STATE::ASSOCIATED;
-                    if (state.tryTransition(expected,STATE::EXECUTING))
+                    auto expected = base_t::STATE::ASSOCIATED;
+                    if (state.tryTransition(STATE::EXECUTING,expected))
                     {
                         // Since we're here we've managed to move from ASSOCIATED to fake "EXECUTING" this means that the Request is either:
                         // 1. RECORDING but after returning from `base_t::associate_request`
@@ -338,7 +278,7 @@ class IAsyncQueueDispatcherBase
                         request.exchange(nullptr)->cancel();
 
                         // after doing everything, we can mark ourselves as cleaned up
-                        state.exchangeNotify(STATE::EXECUTING,STATE::INITIAL);
+                        state.exchangeNotify<false>(STATE::INITIAL,STATE::EXECUTING);
                         return true;
                     }
                     // we're here because either:
@@ -372,12 +312,11 @@ class IAsyncQueueDispatcherBase
                 }
                 inline bool disassociate_request() override
                 {
-                    assert(request.load()->getState().query()==request_base_t::STATE::EXECUTING);
                     if (base_t::disassociate_request())
                     {
                         // only assign if we didn't get cancelled mid-way, otherwise will mess up `associate_request` sanity checks
                         request_base_t* prev = request.exchange(nullptr);
-                        assert(prev);
+                        assert(prev && prev->getState().query()==request_base_t::STATE::EXECUTING);
                         return true;
                     }
                     return false;
@@ -389,16 +328,16 @@ inline void IAsyncQueueDispatcherBase::request_base_t::finalize(future_base_t* f
 {
     future = fut;
     future->associate_request(this);
-    state.exchangeNotify(STATE::RECORDING,STATE::PENDING);
+    state.exchangeNotify<false>(STATE::PENDING,STATE::RECORDING);
 }
 
 inline bool IAsyncQueueDispatcherBase::request_base_t::wait()
 {
-    if (state.waitAbortableTransition(STATE::PENDING,STATE::EXECUTING,STATE::CANCELLED) && future->disassociate_request())
+    if (state.waitAbortableTransition(STATE::EXECUTING,STATE::PENDING,STATE::CANCELLED) && future->disassociate_request())
         return true;
     //assert(future->cancellable);
     future = nullptr;
-    state.exchangeNotify(STATE::CANCELLED,STATE::INITIAL);
+    state.exchangeNotify<false>(STATE::INITIAL,STATE::CANCELLED);
     return false;
 }
 inline void IAsyncQueueDispatcherBase::request_base_t::notify()
@@ -407,7 +346,7 @@ inline void IAsyncQueueDispatcherBase::request_base_t::notify()
     // cleanup
     future = nullptr;
     // allow to be recycled
-    state.exchangeNotify(STATE::EXECUTING,STATE::INITIAL);
+    state.exchangeNotify<false>(STATE::INITIAL,STATE::EXECUTING);
 }
 
 }
@@ -438,7 +377,7 @@ inline void IAsyncQueueDispatcherBase::request_base_t::notify()
 * notify_all_ready() takes an r-value reference to an already locked mutex and notifies any waiters then releases the lock
 */
 template <typename CRTP, typename RequestType, uint32_t BufferSize = 256u, typename InternalStateType = void>
-class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, protected impl::IAsyncQueueDispatcherBase
+class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, protected impl::IAsyncQueueDispatcherBase
 {
         static_assert(std::is_base_of_v<impl::IAsyncQueueDispatcherBase::request_base_t,RequestType>, "Request type must derive from request_base_t!");
         static_assert(BufferSize>0u, "BufferSize must not be 0!");
@@ -467,7 +406,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pr
 
     public:
         inline IAsyncQueueDispatcher() {}
-        inline ~IAsyncQueueDispatcher() {}
+        inline IAsyncQueueDispatcher(base_t::start_on_construction_t) : base_t(base_t::start_on_construction_t) {}
 
         using mutex_t = typename base_t::mutex_t;
         using lock_t = typename base_t::lock_t;
@@ -505,6 +444,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pr
         }
 
     protected:
+        inline ~IAsyncQueueDispatcher() {}
         void background_work() {}
 
     private:
@@ -538,9 +478,8 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP, InternalStateType>, pr
             lock.lock();
         }
 
-
-        bool wakeupPredicate() const { return (cb_begin != cb_end); }
-        bool continuePredicate() const { return (cb_begin != cb_end); }
+        inline bool wakeupPredicate() const { return (cb_begin != cb_end); }
+        inline bool continuePredicate() const { return (cb_begin != cb_end); }
 };
 
 }

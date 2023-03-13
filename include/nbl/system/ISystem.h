@@ -2,16 +2,16 @@
 #define _NBL_SYSTEM_I_SYSTEM_H_INCLUDED_
 
 
-#include "nbl/builtin/common.h"
-
 #include "nbl/core/declarations.h"
 #include "nbl/core/util/bitflag.h"
 
-#include "nbl/system/ICancellableAsyncQueueDispatcher.h"
-#include "nbl/system/IFileArchive.h"
-//#include "nbl/builtin/builtinResources.h"
+#include "nbl/builtin/common.h"
 
 #include <variant>
+
+#include "nbl/system/IFileArchive.h"
+#include "nbl/system/IAsyncQueueDispatcher.h"
+//#include "nbl/builtin/builtinResources.h"
 
 namespace nbl::system
 {
@@ -48,7 +48,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             size_t offset;
             size_t size;
         };
-        struct SRequestType : impl::ICancellableAsyncQueueDispatcherBase::request_base_t
+        struct SRequestType : impl::IAsyncQueueDispatcherBase::request_base_t
         {
             std::variant<
                 SRequestParams_NOOP,
@@ -58,13 +58,13 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             > params = SRequestParams_NOOP();
         };
         static inline constexpr uint32_t CircularBufferSize = 256u;
-        class CAsyncQueue : public ICancellableAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
+        class CAsyncQueue : public IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
         {
-                using base_t = ICancellableAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>;
+                using base_t = IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>;
                 //friend base_t;
 
             public:
-                CAsyncQueue(core::smart_refctd_ptr<ICaller>&& caller) : base_t(base_t::start_on_construction), m_caller(std::move(caller)) {}
+                inline CAsyncQueue(core::smart_refctd_ptr<ICaller>&& caller) : base_t(base_t::start_on_construction), m_caller(std::move(caller)) {}
 
                 template <typename FutureType, typename RequestParams>
                 void request_impl(SRequestType& req, FutureType& future, RequestParams&& params)

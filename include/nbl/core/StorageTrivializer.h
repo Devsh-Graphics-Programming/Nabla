@@ -24,6 +24,7 @@ struct alignas(T) StorageTrivializer
     T* getStorage() {return reinterpret_cast<T*>(storage); }
     const T* getStorage() const {return reinterpret_cast<const T*>(storage);}
     
+    template<typename... Args>
     void construct(Args&&... args)
     {
         new (getStorage()) T(std::forward<Args>(args)...);
