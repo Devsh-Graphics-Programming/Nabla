@@ -163,17 +163,22 @@ bool ISystem::copy(const system::path& from, const system::path& to)
     auto copyFile = [this](const system::path& from, const system::path& to) -> bool
     {
         future_t<core::smart_refctd_ptr<IFile>> readFileFut, writeFileFut;
-        createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
         createFile(writeFileFut,to,IFile::ECF_WRITE);
-        auto readF = readFileFut.get();
-        const IFile* readFptr = readF.get();
-        auto writeF = writeFileFut.get();
-        if (!readF || !readFptr->getMappedPointer() || !writeF)
-            return false;
-
-        IFile::success_t bytesWritten;
-        writeF->write(bytesWritten,readFptr->getMappedPointer(),0,readF->getSize());
-        return bool(bytesWritten);
+        if (auto writeF=writeFileFut.acquire())
+        {
+            createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
+            if (auto readF=readFileFut.acquire())
+            {
+                auto& readFptr = *readF;
+                if (auto pSrc=readFptr->getMappedPointer())
+                {
+                    IFile::success_t bytesWritten;
+                    (*writeF)->write(bytesWritten,pSrc,0,readFptr->getSize());
+                    return bool(bytesWritten);
+                }
+            }
+        }
+        return false;
     };
     if (isPathReadOnly(from))
     {
@@ -210,6 +215,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
     // canonicalize
     if (std::filesystem::exists(filename))
         filename = std::filesystem::canonical(filename);
+
     // try builtins
     if (!(flags.value&IFile::ECF_WRITE) && builtin::hasPathPrefix(filename.string()))
     {
@@ -217,7 +223,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
             auto file = impl_loadEmbeddedBuiltinData(filename.string(),nbl::builtin::get_resource_runtime(filename.string()));
             if (file)
             {
-                future.notify(core::smart_refctd_ptr<IFile>(const_cast<IFile*>(file.get())));
+                future.set_result(const_cast<IFile*>(file.get()));
                 return;
             }
         #else
@@ -234,7 +240,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
             auto file = found.archive->getFile(found.pathRelativeToArchive,accessToken);
             if (file)
             {
-                future.notify(std::move(file));
+                future.set_result(std::move(file));
                 return;
             }
         }
@@ -245,15 +251,15 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
         filename = std::filesystem::absolute(filename).generic_string();
     if (filename.string().size()>=MAX_FILENAME_LENGTH)
     {
-        future.notify(nullptr);
+        future.set_result(nullptr);
         return;
     }
+
 
     SRequestParams_CREATE_FILE params;
     strcpy(params.filename,filename.string().c_str());
     params.flags = flags.value;
-        
-    m_dispatcher.request(future,params);
+    m_dispatcher.request(&future,params);
 }
 
 core::smart_refctd_ptr<IFileArchive> ISystem::openFileArchive(core::smart_refctd_ptr<IFile>&& file, const std::string_view& password)
@@ -306,27 +312,24 @@ ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolut
 }
 
 
-void ISystem::CAsyncQueue::process_request(SRequestType& req)
+void ISystem::CAsyncQueue::process_request(base_t::future_base_t* _future_base, SRequestType& req)
 {
-    std::visit([&](auto& visitor) {
-        handle_request(req, visitor);
+    std::visit([=](auto& visitor) {
+        using retval_t = std::remove_reference_t<decltype(visitor)>::retval_t;
+        visitor(base_t::future_storage_cast<retval_t>(_future_base),m_caller.get());
     }, req.params);
 }
-
-void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_NOOP& param) {
-    assert(false); // should never be called
+void ISystem::SRequestParams_CREATE_FILE::operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller)
+{
+    retval->construct(_caller->createFile(filename,flags));
 }
-
-void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_CREATE_FILE& param) {
-    base_t::notify_future<core::smart_refctd_ptr<IFile>>(req, m_caller->createFile(param.filename, param.flags));
+void ISystem::SRequestParams_READ::operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller)
+{
+    retval->construct(file->asyncRead(buffer,offset,size));
 }
-
-void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_READ& param) {
-    base_t::notify_future<size_t>(req, param.file->asyncRead(param.buffer, param.offset, param.size));
-}
-
-void ISystem::CAsyncQueue::handle_request(SRequestType& req, SRequestParams_WRITE& param) {
-    base_t::notify_future<size_t>(req, param.file->asyncWrite(param.buffer, param.offset, param.size));
+void ISystem::SRequestParams_WRITE::operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller)
+{
+    retval->construct(file->asyncWrite(buffer,offset,size));
 }
 
 bool ISystem::ICaller::invalidateMapping(IFile* file, size_t offset, size_t size)

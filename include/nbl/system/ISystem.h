@@ -28,6 +28,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         struct future_t final : public impl::IAsyncQueueDispatcherBase::cancellable_future_t<T>
         {
             private:
+                friend class ISystem;
                 friend class IFutureManipulator;
 
                 using base_t = impl::IAsyncQueueDispatcherBase::cancellable_future_t<T>;
@@ -59,7 +60,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             future_t<core::smart_refctd_ptr<IFile>> future;
             createFile(future,system::path(Path.value),core::bitflag(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
             if (future.wait())
-                return future.copy_out();
+                return future.copy();
             return nullptr;
         #endif
         }
@@ -130,7 +131,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             createFile(future, filename, core::bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
 
             if (future.wait())
-                return openFileArchive(future.copy_out(),password);
+                return openFileArchive(future.copy(),password);
             return nullptr;
         }
 
@@ -218,20 +219,26 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         } m_loaders;
         //
         core::CMultiObjectCache<system::path,core::smart_refctd_ptr<IFileArchive>> m_cachedArchiveFiles;
-        
-    protected:
-        class ICaller;
+
     private:
         struct SRequestParams_NOOP
         {
+            using retval_t = void;
+            inline void operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller) {}
         };
         struct SRequestParams_CREATE_FILE
         {
+            using retval_t = core::smart_refctd_ptr<IFile>;
+            void operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller);
+
             char filename[MAX_FILENAME_LENGTH] {};
             IFileBase::E_CREATE_FLAGS flags;
         };
         struct SRequestParams_READ
         {
+            using retval_t = size_t;
+            void operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller);
+
             ISystemFile* file;
             void* buffer;
             size_t offset;
@@ -239,6 +246,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         };
         struct SRequestParams_WRITE
         {
+            using retval_t = size_t;
+            void operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller);
+
             ISystemFile* file;
             const void* buffer;
             size_t offset;
@@ -254,27 +264,20 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             > params = SRequestParams_NOOP();
         };
         static inline constexpr uint32_t CircularBufferSize = 256u;
-        class CAsyncQueue : public IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
+        class CAsyncQueue final : public IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
         {
                 using base_t = IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>;
-                //friend base_t;
+
+                core::smart_refctd_ptr<ICaller> m_caller;
 
             public:
                 inline CAsyncQueue(core::smart_refctd_ptr<ICaller>&& caller) : base_t(base_t::start_on_construction), m_caller(std::move(caller)) {}
 
-                void process_request(SRequestType& req);
+                void process_request(base_t::future_base_t* _future_base, SRequestType& req);
 
                 void init() {}
-
-            private:
-                void handle_request(SRequestType& req, SRequestParams_NOOP& param);
-                void handle_request(SRequestType& req, SRequestParams_CREATE_FILE& param);
-                void handle_request(SRequestType& req, SRequestParams_READ& param);
-                void handle_request(SRequestType& req, SRequestParams_WRITE& param);
-
-                core::smart_refctd_ptr<ICaller> m_caller;
         };
-        friend class ISystemFile;
+        friend class ISystemFile; // TODO: do we need this friendship?
         CAsyncQueue m_dispatcher;
 };
 

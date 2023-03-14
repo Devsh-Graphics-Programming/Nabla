@@ -138,20 +138,18 @@ class IAsyncQueueDispatcherBase
 
     public:
         template<typename T>
-        class future_t : private core::StorageTrivializer<T>, protected future_base_t
+        class future_t : private core::StorageTrivializer<T>, public future_base_t
         {
                 using storage_t = core::StorageTrivializer<T>;
-                inline void discard_common()
-                {
-                    storage_t::destruct();
-                    state.exchangeNotify<true>(STATE::INITIAL,STATE::LOCKED);
-                }
+                
+                friend class storage_lock_t;
 
             public:
                 inline future_t() : future_base_t() {}
-                inline ~future_t()
+                virtual inline ~future_t()
                 {
-                    discard();
+                    if (auto lock=acquire())
+                        lock.discard();
                 }
 
                 //!
@@ -193,31 +191,6 @@ class IAsyncQueueDispatcherBase
                     return retval;
                 }
 
-                //! NOTE: Deliberately named `...acquire` instead of `...lock` to make them incompatible with `unique_lock`
-                // and other RAII locks as the blocking aquire can fail and that needs to be handled.
-
-                //! ANY THREAD [except WORKER]: If we're READY transition to LOCKED
-                [[nodiscard]] inline T* try_acquire()
-                {
-                    auto expected = STATE::READY;
-                    if (state.tryTransition(STATE::LOCKED,expected))
-                        return storage_t::getStorage();
-                    return nullptr;
-                }
-                //! ANY THREAD [except WORKER]: Wait till we're either in READY and move us to LOCKED or bail on INITIAL
-                // this accounts for being cancelled or consumed while waiting
-                [[nodiscard]] inline T* acquire()
-                {
-                    if (state.waitAbortableTransition(STATE::LOCKED,STATE::READY,STATE::INITIAL))
-                        return storage_t::getStorage();
-                    return nullptr;
-                }
-                //! ANY THREAD [except WORKER]: Release an acquired lock
-                inline void release()
-                {
-                    state.exchangeNotify<true>(STATE::READY,STATE::LOCKED);
-                }
-
                 //! NOTE: You're in charge of ensuring future doesn't transition back to INITIAL (e.g. lock or use sanely!)
                 inline const T* get() const
                 {
@@ -225,38 +198,86 @@ class IAsyncQueueDispatcherBase
                         return storage_t::getStorage();
                     return nullptr;
                 }
-                inline T* get()
-                {
-                    if (future_base_t::state.query() != future_base_t::STATE::LOCKED)
-                        return nullptr;
-                    return storage_t::getStorage();
-                }
 
-                //! Can only be called once! If returns false means has been cancelled and nothing happened
-                [[nodiscard]] inline bool move_into(T& dst)
+                //! Utility to write less code, WILL ASSERT IF IT FAILS! So don't use on futures that might be cancelled or fail.
+                inline T copy() const
                 {
-                    T* pSrc = acquire();
-                    if (!pSrc)
-                        return false;
-                    dst = std::move(*pSrc);
-                    discard_common();
-                    return true;
-                }
-
-                //! Utility to write less code, WILL ASSERT IF IT FAILS TO ACQUIRE! So don't use on futures that might be cancelled or fail.
-                inline T copy_out()
-                {
-                    T retval;
-                    const bool success = move_into(retval);
+                    const bool success = wait();
                     assert(success);
-                    return retval;
+                    return *get();
                 }
 
-                //!
-                virtual inline void discard()
+                //! NOTE: Deliberately named `...acquire` instead of `...lock` to make them incompatible with `std::unique_lock`
+                // and other RAII locks as the blocking aquire can fail and that needs to be handled.
+                class storage_lock_t final
                 {
-                    if (acquire())
-                        discard_common();
+                        using state_enum = future_base_t::STATE;
+                        future_t<T>* m_future;
+
+                        //! constructor, arg is nullptr if locked
+                        friend class future_t<T>;
+                        inline storage_lock_t(future_t<T>* _future) : m_future(_future)
+                        {
+                            assert(m_future->state.query()==state_enum::LOCKED);
+                        }
+                        //! as usual for "unique" things
+                        inline storage_lock_t(const storage_lock_t&) = delete;
+                        inline storage_lock_t& operator=(const storage_lock_t&) = delete;
+
+                    public:
+                        inline ~storage_lock_t()
+                        {
+                            if (m_future)
+                                m_future->state.exchangeNotify<true>(state_enum::READY,state_enum::LOCKED);
+                        }
+
+                        //!
+                        inline explicit operator bool()
+                        {
+                            return m_future;
+                        }
+                        inline bool operator!()
+                        {
+                            return !m_future;
+                        }
+
+                        //!
+                        inline T* operator->() const
+                        {
+                            if (m_future)
+                                return m_future->getStorage();
+                            return nullptr;
+                        }
+                        template<typename U=T> requires (std::is_same_v<U,T> && !std::is_void_v<U>)
+                        inline U& operator*() const {return *operator->();}
+
+                        //! Can only be called once!
+                        inline void discard()
+                        {
+                            assert(m_future);
+                            m_future->destruct();
+                            m_future->state.exchangeNotify<true>(state_enum::INITIAL,state_enum::LOCKED);
+                        }
+                        //! Can only be called once!
+                        template<typename U=T> requires (std::is_same_v<U,T> && !std::is_void_v<U>)
+                        inline void move_into(U& dst)
+                        {
+                            dst = std::move(operator*());
+                            discard();
+                        }
+                };
+
+                //! ANY THREAD [except WORKER]: If we're READY transition to LOCKED
+                inline storage_lock_t try_acquire()
+                {
+                    auto expected = STATE::READY;
+                    return storage_lock_t(state.tryTransition(STATE::LOCKED,expected) ? this:nullptr);
+                }
+                //! ANY THREAD [except WORKER]: Wait till we're either in READY and move us to LOCKED or bail on INITIAL
+                // this accounts for being cancelled or consumed while waiting
+                inline storage_lock_t acquire()
+                {
+                    return storage_lock_t(state.waitAbortableTransition(STATE::LOCKED,STATE::READY,STATE::INITIAL) ? this:nullptr);
                 }
 
             protected:
@@ -276,6 +297,12 @@ class IAsyncQueueDispatcherBase
                 std::atomic<request_base_t*> request = nullptr;
 
             public:
+                inline ~cancellable_future_t()
+                {
+                    // try to cancel
+                    cancel();
+                }
+
                 //! ANY THREAD [except WORKER]: Cancel pending request if we can, returns whether we actually managed to cancel
                 inline bool cancel()
                 {
@@ -305,16 +332,6 @@ class IAsyncQueueDispatcherBase
                     return false;
                 }
 
-                inline void discard() override final
-                {
-                    // try to cancel
-                    cancel();
-                    // sanity check
-                    assert(request==nullptr);
-                    // proceed with the usual
-                    base_t::discard();
-                }
-
             private:
                 inline void associate_request(request_base_t* req) override final
                 {
@@ -338,18 +355,7 @@ class IAsyncQueueDispatcherBase
 
     protected:
         template<typename T>
-        class future_constructor_t final
-        {
-                future_t<T>* pFuture;
-            public:
-                inline future_constructor_t(future_base_t* _future_base) : pFuture(static_cast<future_t<T>*>(_future_base)) {}
-
-                template<typename... Args>
-                inline void operator()(Args&&... args)
-                {
-                    pFuture->construct(std::forward<Args>(args)...);
-                }
-        };
+        static inline core::StorageTrivializer<T>* future_storage_cast(future_base_t* _future_base) {return static_cast<future_t<T>*>(_future_base);}
 };
 
 inline void IAsyncQueueDispatcherBase::request_base_t::finalize(future_base_t* fut)

@@ -330,14 +330,12 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::Quit
                 filePath = _params.workingDirectory/filePath;
                 _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
             }
-
+            
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
             m_system->createFile(future, filePath, system::IFile::ECF_READ);
-            auto file = future.get();
-            if (!file)
-                return SAssetBundle(0);
-
-            return getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+            if (auto file=future.acquire())
+                return getAssetInHierarchy_impl<RestoreWholeBundle>(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+            return SAssetBundle(0);
         }
 
         //TODO change name
@@ -653,14 +651,9 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::Quit
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
             m_system->createFile(future, (_params.workingDirectory.generic_string()+_filename).c_str(), system::IFile::ECF_WRITE);
-            core::smart_refctd_ptr<system::IFile>* file;
-			if (future.wait() && (file=future.acquire()))
-			{
-				bool res = writeAsset(file->get(), _params, _override);
-                future.release();
-				return res;
-			}
-			return false;
+            if (auto file=future.acquire())
+                return writeAsset(file->get(), _params, _override);
+            return false;
         }
         bool writeAsset(system::IFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
