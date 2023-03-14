@@ -139,7 +139,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&c,offset,sizeof(c));
 				if (!success)
 					return false;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 				charCallback(c);
 			}
 			// if string is not null terminated, something went wrong reading the file
@@ -157,7 +157,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&gzipHeader,0ull,sizeof(gzipHeader));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 			}
 
 			//! The gzip file format seems to think that there can be multiple files in a gzip file
@@ -174,7 +174,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&dataLen,offset,sizeof(dataLen));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 				// skip the extra data
 				offset += dataLen;
 			}
@@ -211,7 +211,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&header.DataDescriptor.CRC32,offset,sizeof(header.DataDescriptor.CRC32));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 			}
 			// read uncompressed size
 			{
@@ -219,7 +219,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&header.DataDescriptor.UncompressedSize,offset,sizeof(header.DataDescriptor.UncompressedSize));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 			}
 
 			//
@@ -235,7 +235,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 					file->read(success,&zipHeader,offset,sizeof(zipHeader));
 					if (!success)
 						break;
-					offset += success.getSizeToProcess();
+					offset += success.getBytesToProcess();
 				}
 
 				if (zipHeader.Sig!=0x04034b50u)
@@ -247,7 +247,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 					file->read(success,filename.data(),offset,zipHeader.FilenameLength);
 					if (!success)
 						break;
-					offset += success.getSizeToProcess();
+					offset += success.getBytesToProcess();
 				}
 
 				// AES encryption
@@ -265,7 +265,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 							file->read(success,&extraHeader,localOffset,sizeof(extraHeader));
 							if (!success)
 								break;
-							localOffset += success.getSizeToProcess();
+							localOffset += success.getBytesToProcess();
 							if (localOffset>offset)
 								break;
 						}
@@ -278,7 +278,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 							file->read(success,&data,localOffset,sizeof(data));
 							if (!success)
 								break;
-							localOffset += success.getSizeToProcess();
+							localOffset += success.getBytesToProcess();
 							if (localOffset>offset)
 								break;
 						}

@@ -112,7 +112,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             from - a path to the source file or directory. Must exist. Can be both readonly and mutable path.
             to - a path to the destination file or directory. Must be mutable path (isPathReadonly(to) must be false).
         */
-        bool copy(const system::path& from, const system::path& to);
+        bool copy(const system::path& from, const system::path& to); // TODO: as a future
 
         //
         void createFile(
