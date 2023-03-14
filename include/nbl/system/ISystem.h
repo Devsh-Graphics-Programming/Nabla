@@ -277,7 +277,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
 
                 void init() {}
         };
-        friend class ISystemFile; // TODO: do we need this friendship?
+        // friendship needed to be able to know about the request types
+        friend class ISystemFile;
+
         CAsyncQueue m_dispatcher;
 };
 

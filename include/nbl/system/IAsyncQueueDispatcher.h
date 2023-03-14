@@ -42,7 +42,7 @@ class IAsyncQueueDispatcherBase
                 void finalize(future_base_t* fut);
                 
                 //! WORKER THREAD: returns when work is ready, will deadlock if the state will not eventually transition to pending
-                [[nodiscard]] bool wait();
+                [[nodiscard]] future_base_t* wait();
                 //! WORKER THREAD: to call after request is done being processed, will deadlock if the request was not executed
                 void notify();
 
@@ -365,14 +365,14 @@ inline void IAsyncQueueDispatcherBase::request_base_t::finalize(future_base_t* f
     state.exchangeNotify<false>(STATE::PENDING,STATE::RECORDING);
 }
 
-inline bool IAsyncQueueDispatcherBase::request_base_t::wait()
+inline IAsyncQueueDispatcherBase::future_base_t* IAsyncQueueDispatcherBase::request_base_t::wait()
 {
     if (state.waitAbortableTransition(STATE::EXECUTING,STATE::PENDING,STATE::CANCELLED) && future->disassociate_request())
-        return true;
+        return future;
     //assert(future->cancellable);
     future = nullptr;
     state.exchangeNotify<false>(STATE::INITIAL,STATE::CANCELLED);
-    return false;
+    return nullptr;
 }
 inline void IAsyncQueueDispatcherBase::request_base_t::notify()
 {
@@ -496,10 +496,10 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
 
                 request_t& req = request_pool[r_id];
                 // do NOT allow cancelling or modification of the request while working on it
-                if (req.wait())
+                if (future_base_t* future=req.wait())
                 {
                     // if the request supports cancelling and got cancelled, then `wait()` function may return false
-                    static_cast<CRTP*>(this)->process_request(nullptr/*TODO*/,req.m_metadata,optional_internal_state...);
+                    static_cast<CRTP*>(this)->process_request(future,req.m_metadata,optional_internal_state...);
                     req.notify();
                 }
                 // wake the waiter up
