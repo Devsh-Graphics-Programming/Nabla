@@ -58,6 +58,7 @@ class IAsyncQueueDispatcherBase
 
             protected:
                 // the base class is not directly usable
+                inline request_base_t() = default;
                 inline ~request_base_t()
                 {
                     // fully cleaned up
@@ -114,6 +115,7 @@ class IAsyncQueueDispatcherBase
                 }
 
                 // the base class is not directly usable
+                inline future_base_t() = default;
                 virtual inline ~future_base_t()
                 {
                     // non-cancellable future just need to get to this state, and cancellable will move here
@@ -127,7 +129,7 @@ class IAsyncQueueDispatcherBase
 
                 // this tells us whether an object with a lifetime has been constructed over the memory backing the future
                 // also acts as a lock
-                atomic_state_t<STATE,STATE::INITIAL> state= {};
+                atomic_state_t<STATE,STATE::INITIAL> state = {};
         };
 
         // not meant for direct usage
@@ -146,7 +148,7 @@ class IAsyncQueueDispatcherBase
                 }
 
             public:
-                inline future_t() {}
+                inline future_t() : future_base_t() {}
                 inline ~future_t()
                 {
                     discard();
@@ -258,6 +260,8 @@ class IAsyncQueueDispatcherBase
                 }
 
             protected:
+                // to get access to the below
+                friend class IAsyncQueueDispatcherBase;
                 // construct the retval element 
                 template <typename... Args>
                 inline void construct(Args&&... args)
@@ -331,6 +335,21 @@ class IAsyncQueueDispatcherBase
                     return false;
                 }
         };
+
+    protected:
+        template<typename T>
+        class future_constructor_t final
+        {
+                future_t<T>* pFuture;
+            public:
+                inline future_constructor_t(future_base_t* _future_base) : pFuture(static_cast<future_t<T>*>(_future_base)) {}
+
+                template<typename... Args>
+                inline void operator()(Args&&... args)
+                {
+                    pFuture->construct(std::forward<Args>(args)...);
+                }
+        };
 };
 
 inline void IAsyncQueueDispatcherBase::request_base_t::finalize(future_base_t* fut)
@@ -388,7 +407,9 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
 
         struct request_t : public request_base_t
         {
-            request_metadata_t m_metadata;
+            inline request_t() : request_base_t() {}
+
+            request_metadata_t m_metadata = {};
         };
 
     private:
@@ -410,7 +431,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
 
     public:
         inline IAsyncQueueDispatcher() {}
-        inline IAsyncQueueDispatcher(base_t::start_on_construction_t) : base_t(base_t::start_on_construction_t) {}
+        inline IAsyncQueueDispatcher(base_t::start_on_construction_t) : base_t(base_t::start_on_construction) {}
 
         using mutex_t = typename base_t::mutex_t;
         using lock_t = typename base_t::lock_t;
@@ -454,7 +475,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
         inline void background_work() {}
 
     private:
-        template <typename... Args>
+        template<typename... Args>
         void work(lock_t& lock, Args&&... optional_internal_state)
         {
             lock.unlock();
@@ -472,7 +493,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
                 if (req.wait())
                 {
                     // if the request supports cancelling and got cancelled, then `wait()` function may return false
-                    static_cast<CRTP*>(this)->process_request(req.m_metadata,optional_internal_state...);
+                    static_cast<CRTP*>(this)->process_request(nullptr/*TODO*/,req.m_metadata,optional_internal_state...);
                     req.notify();
                 }
                 // wake the waiter up

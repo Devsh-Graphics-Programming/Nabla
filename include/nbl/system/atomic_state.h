@@ -51,11 +51,11 @@ class atomic_state_t
         }
         [[nodiscard]] inline bool waitAbortableTransition(const STATE to, const STATE from, const STATE abortState)
         {
-            uint32_t expected = static_cast<uint32_t>(from);
+            STATE expected = from;
             while (!tryTransition(to,expected))
             {
-                state.wait(expected);
-                if (expected==static_cast<uint32_t>(abortState))
+                state.wait(static_cast<uint32_t>(expected));
+                if (expected==abortState)
                     return false;
                 expected = from;
             }
