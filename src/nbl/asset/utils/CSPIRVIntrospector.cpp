@@ -102,32 +102,32 @@ bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<const CIntr
     return true;
 }
 
-static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
+static IDescriptor::E_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
 {
     switch (_t)
     {
         case ESRT_COMBINED_IMAGE_SAMPLER:
-            return EDT_COMBINED_IMAGE_SAMPLER;
+            return IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             break;
         case ESRT_STORAGE_IMAGE:
-            return EDT_STORAGE_IMAGE;
+            return IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
             break;
         case ESRT_UNIFORM_TEXEL_BUFFER:
-            return EDT_UNIFORM_TEXEL_BUFFER;
+            return IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
             break;
         case ESRT_STORAGE_TEXEL_BUFFER:
-            return EDT_STORAGE_TEXEL_BUFFER;
+            return IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER;
             break;
         case ESRT_UNIFORM_BUFFER:
-            return EDT_UNIFORM_BUFFER;
+            return IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
             break;
         case ESRT_STORAGE_BUFFER:
-            return EDT_STORAGE_BUFFER;
+            return IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
             break;
         default:
             break;
     }
-    return EDT_INVALID;
+    return IDescriptor::E_TYPE::ET_COUNT;
 }
 
 template<E_SHADER_RESOURCE_TYPE restype>

@@ -194,7 +194,7 @@ class IPropertyPool : public core::IReferenceCounted
 		template<typename DescriptorSetLayoutType, uint32_t PropertyCount>
 		static inline void fillDescriptorLayoutBindings(typename DescriptorSetLayoutType::SBinding* bindings, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-            DescriptorSetLayoutType::fillBindingsSameType(bindings,PropertyCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+            DescriptorSetLayoutType::fillBindingsSameType(bindings,PropertyCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 		}
         template<uint32_t PropertyCount>
 		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)

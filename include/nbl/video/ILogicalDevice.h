@@ -147,7 +147,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         
         virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
         virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
-        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
+        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) = 0;
 
         core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
@@ -236,62 +236,30 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createAccelerationStructure_impl(std::move(params));
         }
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
-        {
-            if (!pool->wasCreatedBy(this))
-                return nullptr;
-            if (!layout->wasCreatedBy(this))
-                return nullptr;
-            return createDescriptorSet_impl(pool, std::move(layout));
-        }
-
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
         {
-            uint32_t totalSetCount = 0;
-            std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes; // TODO: use a map
+            IDescriptorPool::SCreateInfo createInfo;
+
             auto setCountsIt = setCounts;
             for (auto* curLayout = begin; curLayout!=end; curLayout++,setCountsIt++)
             {
                 const auto setCount = setCounts ? (*setCountsIt):1u;
-                totalSetCount += setCount;
+                createInfo.maxSets += setCount;
 
-                auto bindings = (*curLayout)->getBindings();
-                for (const auto& binding : bindings)
+                for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 {
-                    auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
-                    if (ps != poolSizes.end())
-                    {
-                        ps->count += setCount*binding.count;
-                    }
-                    else
-                    {
-                        poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, setCount*binding.count });
-                    }
+                    const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+                    const auto& redirect = (*curLayout)->getDescriptorRedirect(type);
+                    createInfo.maxDescriptorCount[t] += setCount * redirect.getTotalCount();
                 }
-
             }
         
-            core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(flags, totalSetCount, poolSizes.size(), poolSizes.data());
+            auto dsPool = createDescriptorPool(std::move(createInfo));
             return dsPool;
         }
 
-        void createDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
-        {
-            core::SRange<const IGPUDescriptorSetLayout* const> layouts{ _layouts, _layouts + count };
-            createDescriptorSets(pool, layouts, output);
-        }
-        void createDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
-        {
-            uint32_t i = 0u;
-            for (const IGPUDescriptorSetLayout* layout_ : layouts)
-            {
-                auto layout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layout_);
-                output[i++] = createDescriptorSet(pool, std::move(layout));
-            }
-        }
-
         //! Fill out the descriptor sets with descriptors
-        virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
+        bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
         //! Create a sampler object to use with images
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
@@ -553,7 +521,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+        virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
         virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(

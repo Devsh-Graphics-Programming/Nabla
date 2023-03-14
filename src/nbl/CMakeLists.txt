@@ -195,6 +195,7 @@ set(NBL_ASSET_SOURCES
 # Assets
 	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
@@ -282,8 +283,12 @@ set(NBL_VIDEO_SOURCES
 
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
 	
@@ -305,6 +310,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanComputePipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
@@ -630,13 +636,13 @@ if(NOT NBL_STATIC_BUILD)
 		COMMENT "Launching defines.h generation script!"
 		VERBATIM
 	)
-	
-	add_custom_target(generate_define_header ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
-	add_dependencies(Nabla generate_define_header)
 endif()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+if(NOT NBL_STATIC_BUILD)
+	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+endif()
+nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311

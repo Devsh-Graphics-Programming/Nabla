@@ -13,18 +13,15 @@ class CVulkanDescriptorPool;
 class CVulkanDescriptorSet : public IGPUDescriptorSet
 {
 public:
-    CVulkanDescriptorSet(core::smart_refctd_ptr<ILogicalDevice>&& dev,
-        core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout,
-        core::smart_refctd_ptr<const CVulkanDescriptorPool>&& parentPool,
-        VkDescriptorSet descriptorSet)
-        : IGPUDescriptorSet(std::move(dev), std::move(layout)), m_parentPool(std::move(parentPool)),
-        m_descriptorSet(descriptorSet)
+    CVulkanDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SStorageOffsets offsets, VkDescriptorSet descriptorSet)
+        : IGPUDescriptorSet(std::move(layout), std::move(pool), std::move(offsets)), m_descriptorSet(descriptorSet)
     {}
+
+    ~CVulkanDescriptorSet();
 
     inline VkDescriptorSet getInternalObject() const { return m_descriptorSet; }
 
 private:
-    core::smart_refctd_ptr<const CVulkanDescriptorPool> m_parentPool = nullptr;
     VkDescriptorSet m_descriptorSet;
 };
 

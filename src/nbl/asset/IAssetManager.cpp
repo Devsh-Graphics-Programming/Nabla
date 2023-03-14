@@ -289,7 +289,7 @@ void IAssetManager::insertBuiltinAssets()
     binding1.count = 1u;
     binding1.binding = 0u;
     binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-    binding1.type = asset::EDT_UNIFORM_BUFFER;
+    binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
     addBuiltInToCaches(ds1Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/1");
@@ -300,7 +300,7 @@ void IAssetManager::insertBuiltinAssets()
 
     asset::ICPUDescriptorSetLayout::SBinding binding3;
     binding3.binding = 0u;
-    binding3.type = EDT_COMBINED_IMAGE_SAMPLER;
+    binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
     binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
     binding3.samplers = nullptr;
@@ -404,7 +404,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
     }
@@ -413,14 +413,15 @@ void IAssetManager::insertBuiltinAssets()
     {
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
-            auto desc = ds1->getDescriptors(0u).begin();
-            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
             auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
-            desc->desc = std::move(ubo);
-            desc->buffer.offset = 0ull;
-            desc->buffer.size = UBO_SZ;
+
+            auto descriptorInfos = ds1->getDescriptorInfos(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+            descriptorInfos.begin()[0].desc = std::move(ubo);
+            descriptorInfos.begin()[0].info.buffer.offset = 0ull;
+            descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
         }
         addBuiltInToCaches(ds1, "nbl/builtin/descriptor_set/basic_view_parameters");
         addBuiltInToCaches(defaultDs1Layout, "nbl/builtin/descriptor_set_layout/basic_view_parameters");
@@ -433,7 +434,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);

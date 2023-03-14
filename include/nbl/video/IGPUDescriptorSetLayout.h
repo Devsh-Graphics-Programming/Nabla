@@ -25,7 +25,20 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 
     public:
-        IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SBinding* const _begin, const SBinding* const _end) : base_t(_begin, _end), IBackendObject(std::move(dev)) {}
+        IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SBinding* const _begin, const SBinding* const _end)
+            : base_t(_begin, _end), IBackendObject(std::move(dev))
+        {
+            for (const auto* binding = _begin; binding != _end; ++binding)
+            {
+                if (binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) || binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT))
+                {
+                    m_canUpdateAfterBind = true;
+                    break;
+                }
+            }
+        }
+
+        inline bool canUpdateAfterBind() const { return m_canUpdateAfterBind; }
 
     protected:
         virtual ~IGPUDescriptorSetLayout() = default;
