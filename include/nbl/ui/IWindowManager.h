@@ -6,7 +6,7 @@
 namespace nbl::ui
 {
 
-class NBL_API2 IWindowManager : public core::IReferenceCounted
+class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 {
 	public:
 		virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) = 0;

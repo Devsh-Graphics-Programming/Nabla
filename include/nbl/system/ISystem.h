@@ -224,7 +224,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         struct SRequestParams_NOOP
         {
             using retval_t = void;
-            inline void operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller) {}
+            inline void operator()(core::StorageTrivializer<retval_t>* retval, ICaller* _caller) {assert(false);}
         };
         struct SRequestParams_CREATE_FILE
         {

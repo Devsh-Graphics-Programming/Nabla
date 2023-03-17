@@ -9,7 +9,7 @@
 namespace nbl::ui
 {
 
-class ICursorControl : public core::IReferenceCounted
+class ICursorControl : public virtual core::IReferenceCounted
 {
 	public:
 		struct SPosition
