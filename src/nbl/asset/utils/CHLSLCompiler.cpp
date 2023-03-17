@@ -4,6 +4,9 @@
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 
+
+#ifdef _NBL_PLATFORM_WINDOWS_
+
 #include <wrl.h>
 #include <combaseapi.h>
 
@@ -397,3 +400,5 @@ void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins)
 {
     code.insert(0u, ins.str());
 }
+
+#endif
