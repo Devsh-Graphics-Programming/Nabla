@@ -218,7 +218,7 @@ class IAsyncQueueDispatcherBase
                         friend class future_t<T>;
                         inline storage_lock_t(future_t<T>* _future) : m_future(_future)
                         {
-                            assert(m_future->state.query()==state_enum::LOCKED);
+                            assert(!m_future || m_future->state.query()==state_enum::LOCKED);
                         }
                         //! as usual for "unique" things
                         inline storage_lock_t(const storage_lock_t&) = delete;
