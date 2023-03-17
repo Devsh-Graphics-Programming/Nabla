@@ -9,6 +9,7 @@
 
 #include "nbl/system/ICancellableAsyncQueueDispatcher.h"
 #include "nbl/system/IFileArchive.h"
+#include "nbl/builtin/builtinResources.h"
 
 #include <variant>
 
