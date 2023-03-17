@@ -257,6 +257,7 @@ class IAsyncQueueDispatcherBase
                             assert(m_future);
                             m_future->destruct();
                             m_future->state.exchangeNotify<true>(state_enum::INITIAL,state_enum::LOCKED);
+                            m_future = nullptr;
                         }
                         //! Can only be called once!
                         template<typename U=T> requires (std::is_same_v<U,T> && !std::is_void_v<U>)

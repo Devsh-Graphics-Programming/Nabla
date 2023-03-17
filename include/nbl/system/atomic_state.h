@@ -54,9 +54,9 @@ class atomic_state_t
             STATE expected = from;
             while (!tryTransition(to,expected))
             {
-                state.wait(static_cast<uint32_t>(expected));
                 if (expected==abortState)
                     return false;
+                state.wait(static_cast<uint32_t>(expected));
                 expected = from;
             }
             assert(expected==from);
