@@ -37,7 +37,7 @@ float projected_hemisphere_remainder_and_pdf(out float pdf, in float3 L)
 	return projected_hemisphere_remainder_and_pdf(pdf,L.z);
 }
 
-float3 projected_sphere_generate(float3 _sample)
+float3 projected_sphere_generate(inout float3 _sample) // TODO, it should be `inout`, right?
 {
     float3 retval = projected_hemisphere_generate(_sample.xy);
     const bool chooseLower = _sample.z>0.5f;

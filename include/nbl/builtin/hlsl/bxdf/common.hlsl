@@ -406,7 +406,7 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 template<typename SpectralBins>
 struct quotient_and_pdf
 {
-  quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float _pdf)
+  static quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float _pdf)
   {
     quotient_and_pdf<SpectralBins> retval;
     retval.quotient = _quotient;
