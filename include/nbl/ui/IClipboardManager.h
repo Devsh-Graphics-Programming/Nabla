@@ -1,10 +1,9 @@
-#ifndef __NBL_I_CLIPBOARD_MANAGER_H_INCLUDED__
-#define __NBL_I_CLIPBOARD_MANAGER_H_INCLUDED__
+#ifndef _NBL_I_CLIPBOARD_MANAGER_H_INCLUDED_
+#define _NBL_I_CLIPBOARD_MANAGER_H_INCLUDED_
 
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl/system/ISystem.h"
+
 #include "nbl/asset/ICPUImage.h"
-#include "nbl/asset/ICommandBuffer.h"
 
 namespace nbl::ui
 {

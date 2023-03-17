@@ -1,5 +1,5 @@
-#ifndef __NBL_SYSTEM_I_CURSOR_CONTROL_H_INCLUDED__
-#define __NBL_SYSTEM_I_CURSOR_CONTROL_H_INCLUDED__
+#ifndef _NBL_SYSTEM_I_CURSOR_CONTROL_H_INCLUDED_
+#define _NBL_SYSTEM_I_CURSOR_CONTROL_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/decl/Types.h"
