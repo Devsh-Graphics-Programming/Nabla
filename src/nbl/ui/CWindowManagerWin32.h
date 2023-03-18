@@ -198,7 +198,10 @@ class CWindowManagerWin32 final : public IWindowManagerWin32, public ICursorCont
 				using base_t = system::IAsyncQueueDispatcher<CAsyncQueue,SRequest,CircularBufferSize>;
 
 			public:
-				inline CAsyncQueue() : base_t(base_t::start_on_construction) {}
+				inline CAsyncQueue() : base_t(base_t::start_on_construction)
+				{
+					//waitForInitComplete(); init is a NOOP
+				}
 
 				inline void init() {}
 

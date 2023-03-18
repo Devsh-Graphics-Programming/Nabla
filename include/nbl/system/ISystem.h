@@ -271,7 +271,10 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 core::smart_refctd_ptr<ICaller> m_caller;
 
             public:
-                inline CAsyncQueue(core::smart_refctd_ptr<ICaller>&& caller) : base_t(base_t::start_on_construction), m_caller(std::move(caller)) {}
+                inline CAsyncQueue(core::smart_refctd_ptr<ICaller>&& caller) : base_t(base_t::start_on_construction), m_caller(std::move(caller))
+                {
+                    //waitForInitComplete(); init is a NOOP
+                }
 
                 void process_request(base_t::future_base_t* _future_base, SRequestType& req);
 
