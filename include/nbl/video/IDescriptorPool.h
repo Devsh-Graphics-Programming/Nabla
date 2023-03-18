@@ -1,5 +1,5 @@
-#ifndef __NBL_I_DESCRIPTOR_POOL_H_INCLUDED__
-#define __NBL_I_DESCRIPTOR_POOL_H_INCLUDED__
+#ifndef _NBL_I_DESCRIPTOR_POOL_H_INCLUDED_
+#define _NBL_I_DESCRIPTOR_POOL_H_INCLUDED_
 
 
 #include "nbl/core/IReferenceCounted.h"
@@ -13,9 +13,11 @@
 namespace nbl::video
 {
 
+class IGPUBuffer;
+class IGPUBufferView;
 class IGPUImageView;
 class IGPUSampler;
-class IGPUBufferView;
+class IGPUAccelerationStructure;
 class IGPUDescriptorSet;
 class IGPUDescriptorSetLayout;
 
