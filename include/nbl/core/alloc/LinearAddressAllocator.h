@@ -5,7 +5,6 @@
 #ifndef __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 
-#include "AddressAllocatorBase.h"
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
 namespace nbl
@@ -20,10 +19,13 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         typedef AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type> Base;
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
-       
+
+        #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(invalid_address), cursor(invalid_address) {}
+        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
+        #undef DUMMY_DEFAULT_CONSTRUCTOR
+
         virtual ~LinearAddressAllocator() {}
-        
-        LinearAddressAllocator() : bufferSize(invalid_address), cursor(invalid_address) {}
+
         LinearAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz) noexcept :
                     Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), bufferSize(bufSz-Base::alignOffset)
         {
