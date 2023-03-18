@@ -31,7 +31,7 @@ public:
 
 		{
 			constexpr auto BlitDescriptorCount = 3;
-			const asset::E_DESCRIPTOR_TYPE types[BlitDescriptorCount] = { asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_BUFFER }; // input image, output image, alpha statistics
+			const asset::IDescriptor::E_TYPE types[BlitDescriptorCount] = { asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER }; // input image, output image, alpha statistics
 
 			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
 			{
@@ -43,7 +43,7 @@ public:
 
 		{
 			constexpr auto KernelWeightsDescriptorCount = 1;
-			asset::E_DESCRIPTOR_TYPE types[KernelWeightsDescriptorCount] = { asset::EDT_UNIFORM_TEXEL_BUFFER };
+			asset::IDescriptor::E_TYPE types[KernelWeightsDescriptorCount] = { asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER };
 			result->m_kernelWeightsDSLayout = result->createDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get());
 
 			if (!result->m_kernelWeightsDSLayout)
@@ -467,23 +467,32 @@ public:
 
 		auto updateDS = [this, coverageAdjustmentScratchBuffer](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos) -> bool
 		{
-			const auto& bindings = ds->getLayout()->getBindings();
-			if ((bindings.size() == 3) && !coverageAdjustmentScratchBuffer)
+			const auto bindingCount = ds->getLayout()->getTotalBindingCount();
+			if ((bindingCount == 3) && !coverageAdjustmentScratchBuffer)
 				return false;
 
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
 
-			for (auto i = 0; i < bindings.size(); ++i)
+			uint32_t writeCount = 0;
+			for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
 			{
-				writes[i].dstSet = ds;
-				writes[i].binding = i;
-				writes[i].arrayElement = 0u;
-				writes[i].count = 1u;
-				writes[i].info = &infos[i];
-				writes[i].descriptorType = bindings.begin()[i].type;
-			}
+				const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+				const auto& redirect = ds->getLayout()->getDescriptorRedirect(type);
+				const auto declaredBindingCount = redirect.getBindingCount();
 
-			m_device->updateDescriptorSets(bindings.size(), writes, 0u, nullptr);
+				for (uint32_t i = 0; i < declaredBindingCount; ++i)
+				{
+					auto& write = writes[writeCount++];
+					write.dstSet = ds;
+					write.binding = redirect.getBinding(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i }).data;
+					write.arrayElement = 0u;
+					write.count = redirect.getCount(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i });
+					write.info = &infos[i];
+					write.descriptorType = type;
+				}
+			}
+			assert(writeCount == bindingCount);
+			m_device->updateDescriptorSets(writeCount, writes, 0u, nullptr);
 
 			return true;
 		};
@@ -515,18 +524,18 @@ public:
 			}
 			
 			infos[0].desc = inImageView;
-			infos[0].image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-			infos[0].image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
+			infos[0].info.image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+			infos[0].info.image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 			infos[1].desc = outImageView;
-			infos[1].image.imageLayout = asset::IImage::EL_GENERAL;
-			infos[1].image.sampler = nullptr;
+			infos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+			infos[1].info.image.sampler = nullptr;
 
 			if (coverageAdjustmentScratchBuffer)
 			{
 				infos[2].desc = coverageAdjustmentScratchBuffer;
-				infos[2].buffer.offset = 0;
-				infos[2].buffer.size = coverageAdjustmentScratchBuffer->getSize();
+				infos[2].info.buffer.offset = 0;
+				infos[2].info.buffer.size = coverageAdjustmentScratchBuffer->getSize();
 			}
 
 			if (!updateDS(blitDS, infos))
@@ -537,8 +546,8 @@ public:
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo info = {};
 			info.desc = kernelWeightsUTB;
-			info.buffer.offset = 0ull;
-			info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getSize();
+			info.info.buffer.offset = 0ull;
+			info.info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getSize();
 
 			if (!updateDS(kernelWeightsDS, &info))
 				return false;
@@ -810,7 +819,7 @@ private:
 		cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 	}
 
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(const uint32_t descriptorCount, const asset::E_DESCRIPTOR_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
+	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(const uint32_t descriptorCount, const asset::IDescriptor::E_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
 	{
 		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5;
 		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);

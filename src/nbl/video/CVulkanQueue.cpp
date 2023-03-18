@@ -108,6 +108,7 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     {
         if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
             return false;
+
         return true;
     }
     else

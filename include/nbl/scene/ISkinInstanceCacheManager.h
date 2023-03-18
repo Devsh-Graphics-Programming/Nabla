@@ -363,7 +363,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createCacheUpdateDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[CacheUpdateDescriptorBindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheUpdateDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheUpdateDescriptorBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createDescriptorSetLayout(bindings,bindings+CacheUpdateDescriptorBindingCount);
 		}
 		// first uint in the `skinsToUpdate` buffer tells us how many skinCache entries to update we have
@@ -383,7 +383,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			infos[0] = skinsToUpdate;
@@ -420,7 +420,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDebugDrawDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[DebugDrawDescriptorBindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,DebugDrawDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,DebugDrawDescriptorBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createDescriptorSetLayout(bindings,bindings+DebugDrawDescriptorBindingCount);
 		}
 		//
@@ -446,7 +446,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			infos[0] = transformTree->getNodePropertyPool()->getPropertyMemoryBlock(scene::ITransformTree::parent_prop_ix);

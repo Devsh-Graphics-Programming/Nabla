@@ -12,9 +12,19 @@
 using namespace nbl;
 using namespace nbl::asset;
 
-//string to be replaced with all "#" except those in "#include"
-static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
-static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
+std::string IShaderCompiler::escapeFilename(std::string&& code)
+{
+    std::string dest;
+    dest.reserve(code.size() * 2);
+    for (char c : code)
+    {
+        if (c == '\\')
+            dest.append("\\" "\\");
+        else 
+            dest.push_back(c);
+    }
+    return dest;
+}
 
 //all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
 void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
@@ -22,12 +32,12 @@ void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
     // TODO: replace this with a proper-ish proprocessor and includer one day
     std::regex directive("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
     //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
-    _code = std::regex_replace(_code, directive, PREPROC_DIRECTIVE_DISABLER);
+    _code = std::regex_replace(_code, directive, IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
 }
 
 void IShaderCompiler::reenableDirectives(std::string& _code)
 {
-    std::regex directive(PREPROC_DIRECTIVE_ENABLER);
+    std::regex directive(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER);
     _code = std::regex_replace(_code, directive, "#");
 }
 
@@ -60,22 +70,30 @@ std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, u
         return undefs;
     };
 
-    // HACK: tcpp is having issues parsing the string, so this is a hack/mitigation that could be removed once tcpp is fixed
-    std::string identifier = _identifier;
-    std::replace(identifier.begin(), identifier.end(), '\\', '/');
-
+    std::string identifier = IShaderCompiler::escapeFilename(_identifier);
     return
         genDefs() +
         "\n"
         "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
         "\n" +
         // This will get turned back into #line after the directives get re-enabled
-        PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + identifier.c_str() + "\"\n" +
+        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + identifier.c_str() + "\"\n" +
         _code +
         "\n"
         "#endif"
         "\n\n" +
         genUndefs();
+}
+
+// Amount of lines before the #line after having run encloseWithinExtraInclGuards
+uint32_t IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(uint32_t _maxInclusions)
+{
+    auto lineDirectiveString = std::string(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER) + "line";
+    std::string str = IShaderCompiler::encloseWithinExtraInclGuards(std::string(""), _maxInclusions, "encloseWithinExtraInclGuardsLeadingLines");
+    size_t lineDirectivePos = str.find(lineDirectiveString);
+    auto substr = str.substr(0, lineDirectivePos - lineDirectiveString.length());
+
+    return std::count(substr.begin(), substr.end(), '\n');
 }
 
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
