@@ -20,24 +20,14 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         typedef AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type> Base;
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
-
-        #define DUMMY_DEFAULT_CONSTRUCTOR LinearAddressAllocator() : bufferSize(invalid_address), cursor(invalid_address) {}
-        GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
-        #undef DUMMY_DEFAULT_CONSTRUCTOR
-
+       
         virtual ~LinearAddressAllocator() {}
-
+        
+        LinearAddressAllocator() : bufferSize(invalid_address), cursor(invalid_address) {}
         LinearAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, size_type bufSz) noexcept :
                     Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), bufferSize(bufSz-Base::alignOffset)
         {
             reset();
-        }
-        
-        LinearAddressAllocator(LinearAddressAllocator&& other) noexcept :
-            Base(std::move(other))
-        {
-            std::swap(bufferSize,other.bufferSize);
-            std::swap(cursor,other.cursor);
         }
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator

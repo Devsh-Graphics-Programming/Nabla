@@ -87,14 +87,6 @@ public:
     {
         struct header_t
         {
-        public:
-            header_t(core::LinearAddressAllocator<uint32_t>&& alloc):
-                commandAllocator(std::move(alloc)),
-                next(nullptr),
-                nextHead(nullptr),
-                prevHead(nullptr)
-            {}
-            
             core::LinearAddressAllocator<uint32_t> commandAllocator;
             CCommandSegment* next = nullptr;
 
@@ -105,10 +97,10 @@ public:
     public:
         static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
 
-        CCommandSegment(CCommandSegment* prev):
-            m_header(core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE))
+        CCommandSegment(CCommandSegment* prev)
         {
             static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
+            m_header.commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE);
             wipeNextCommandSize();
 
             if (prev)
