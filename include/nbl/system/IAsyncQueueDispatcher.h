@@ -387,14 +387,14 @@ inline void IAsyncQueueDispatcherBase::request_base_t::notify()
 }
 
 /**
-* Required accessible methods of class being CRTP parameter:
+* Required accessible public methods of class being CRTP parameter:
 * 
-* void init(internal_state_t* state); // required only in case of custom internal state
+* void init(internal_state_t*); // required only in case of custom internal state
 *
-* void exit(internal_state_t* state); // optional, no `state` parameter in case of no internal state
+* void exit(internal_state_t*); // optional, no `state` parameter in case of no internal state
 * 
 * // no `state` parameter in case of no internal state
-* void process_request(request_metadata_t& req, internal_state_t& state);
+* void process_request(future_base_t*, request_metadata_t&, internal_state_t&);
 * 
 * void background_work() // optional, does nothing if not provided
 * 
