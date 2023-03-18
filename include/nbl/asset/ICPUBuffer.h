@@ -24,7 +24,7 @@ namespace nbl::asset
 
     @see IAsset
 */
-class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
+class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 {
     protected:
         virtual ~ICPUBuffer()
@@ -70,7 +70,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
-        inline E_TYPE getAssetType() const override { return AssetType; }
+        inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
 
@@ -123,7 +123,7 @@ class NBL_API ICPUBuffer : public asset::IBuffer, public asset::IAsset
         typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
         bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
     >
-        class NBL_API CCustomAllocatorCPUBuffer;
+        class CCustomAllocatorCPUBuffer;
 
 using CDummyCPUBuffer = CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true>;
 
@@ -140,7 +140,7 @@ using CDummyCPUBuffer = CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>,
     */
 
 template<typename Allocator>
-class NBL_API CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
+class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {
         static_assert(sizeof(typename Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
     protected:
@@ -171,7 +171,7 @@ class NBL_API CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 };
 
 template<typename Allocator>
-class NBL_API CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
+class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
 {
         using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
     protected:

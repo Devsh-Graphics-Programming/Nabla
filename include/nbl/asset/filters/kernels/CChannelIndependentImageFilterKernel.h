@@ -21,7 +21,7 @@ namespace impl
 {
 
 template <class... Kernels>
-class NBL_API CChannelIndependentImageFilterKernelBase
+class CChannelIndependentImageFilterKernelBase
 {
 	protected:
 		const bool haveScale;
@@ -62,7 +62,7 @@ class NBL_API CChannelIndependentImageFilterKernelBase
 }
 
 template<class... Kernels>
-class NBL_API CChannelIndependentImageFilterKernel :
+class CChannelIndependentImageFilterKernel :
 	public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<Kernels...>>, public impl::CChannelIndependentImageFilterKernelBase<Kernels...>
 {
 	static_assert(sizeof...(Kernels) <= 4u);

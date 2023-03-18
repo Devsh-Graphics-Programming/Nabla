@@ -33,7 +33,7 @@ inline constexpr bool is_const_iterator_v =
     (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
 
 template<class AssetType>
-struct NBL_API AssetBundleIterator
+struct AssetBundleIterator
 {
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
@@ -82,7 +82,7 @@ struct NBL_API AssetBundleIterator
 
 
 
-class NBL_API IGPUObjectFromAssetConverter
+class IGPUObjectFromAssetConverter
 {
     public:
 
@@ -380,7 +380,7 @@ class NBL_API IGPUObjectFromAssetConverter
 };
 
 
-class NBL_API CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
+class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
 {
     public:
         using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
@@ -396,7 +396,7 @@ class NBL_API CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFro
 
 // need to specialize outside because of GCC
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
 {
     inline std::size_t operator()(const asset::ICPURenderpassIndependentPipeline* _ppln) const
     {
@@ -429,7 +429,7 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassInd
     }
 };
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 {
     inline std::size_t operator()(const asset::ICPUComputePipeline* _ppln) const
     {
@@ -448,13 +448,13 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeli
 };
 
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPURenderpassIndependentPipeline* lhs, const asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
 };
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPUComputePipeline* lhs, const asset::ICPUComputePipeline* rhs) const { return true; }
@@ -589,7 +589,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 namespace impl
 {
 template<typename MapIterator>
-struct NBL_API CustomBoneNameIterator
+struct CustomBoneNameIterator
 {
         inline CustomBoneNameIterator(const MapIterator& it) : m_it(it) {}
         inline CustomBoneNameIterator(MapIterator&& it) : m_it(std::move(it)) {}
@@ -1330,32 +1330,28 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUDescriptorSetLayout> >(assetCount);
 
-    core::vector<asset::ICPUSampler*> cpuSamplers;//immutable samplers
+    // This is a descriptor set layout function, we only care about immutable samplers here.
+    core::vector<const asset::ICPUSampler*> cpuSamplers;
     size_t maxSamplers = 0ull;
-    size_t maxBindingsPerDescSet = 0ull;
-    size_t maxSamplersPerDescSet = 0u;
+    size_t maxBindingsPerLayout = 0ull;
+    size_t maxSamplersPerLayout = 0ull;
     for (auto dsl : core::SRange<const asset::ICPUDescriptorSetLayout*>(_begin, _end))
     {
-        size_t samplersInDS = 0u;
-        for (const auto& bnd : dsl->getBindings()) {
-            const uint32_t samplerCnt = bnd.samplers ? bnd.count : 0u;
-            maxSamplers += samplerCnt;
-            samplersInDS += samplerCnt;
-        }
-        maxBindingsPerDescSet = core::max<size_t>(maxBindingsPerDescSet, dsl->getBindings().size());
-        maxSamplersPerDescSet = core::max<size_t>(maxSamplersPerDescSet, samplersInDS);
+        const auto samplerCount = dsl->getImmutableSamplerRedirect().getTotalCount();
+        maxSamplers += samplerCount;
+
+        maxBindingsPerLayout = core::max<size_t>(maxBindingsPerLayout, dsl->getTotalBindingCount());
+        maxSamplersPerLayout = core::max<size_t>(maxSamplersPerLayout, samplerCount);
     }
     cpuSamplers.reserve(maxSamplers);
 
     for (auto dsl : core::SRange<const asset::ICPUDescriptorSetLayout*>(_begin, _end))
     {
-        for (const auto& bnd : dsl->getBindings())
+        const auto& samplers = dsl->getImmutableSamplers();
+        if (!samplers.empty())
         {
-            if (bnd.samplers)
-            {
-                for (uint32_t i = 0u; i < bnd.count; ++i)
-                    cpuSamplers.push_back(bnd.samplers[i].get());
-            }
+            for (auto& sampler : samplers)
+                cpuSamplers.push_back(sampler.get());
         }
     }
 
@@ -1364,33 +1360,53 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
     size_t gpuSmplrIter = 0ull;
 
     using gpu_bindings_array_t = core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout::SBinding>;
-    auto tmpBindings = core::make_refctd_dynamic_array<gpu_bindings_array_t>(maxBindingsPerDescSet);
+    auto tmpBindings = core::make_refctd_dynamic_array<gpu_bindings_array_t>(maxBindingsPerLayout);
+
     using samplers_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUSampler>>;
-    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerDescSet * maxBindingsPerDescSet);
+    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerLayout);
+
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         core::smart_refctd_ptr<IGPUSampler>* smplr_ptr = tmpSamplers->data();
         const asset::ICPUDescriptorSetLayout* cpudsl = _begin[i];
-        size_t bndIter = 0ull;
-        for (const auto& bnd : cpudsl->getBindings())
-        {
-            IGPUDescriptorSetLayout::SBinding gpubnd;
-            gpubnd.binding = bnd.binding;
-            gpubnd.type = bnd.type;
-            gpubnd.count = bnd.count;
-            gpubnd.stageFlags = bnd.stageFlags;
-            gpubnd.samplers = nullptr;
 
-            if (bnd.samplers)
+        size_t gpuBindingCount = 0ull;
+        const auto& samplerBindingRedirect = cpudsl->getImmutableSamplerRedirect();
+        const auto samplerBindingCount = samplerBindingRedirect.getBindingCount();
+        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+        {
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+            const auto& descriptorBindingRedirect = cpudsl->getDescriptorRedirect(type);
+            const auto declaredBindingCount = descriptorBindingRedirect.getBindingCount();
+
+            for (uint32_t b = 0; b < declaredBindingCount; ++b)
             {
-                for (uint32_t s = 0u; s < gpubnd.count; ++s)
-                    smplr_ptr[s] = (*gpuSamplers)[redirs[gpuSmplrIter++]];
-                gpubnd.samplers = smplr_ptr;
-                smplr_ptr += gpubnd.count;
+                auto& gpuBinding = tmpBindings->begin()[gpuBindingCount++];
+                gpuBinding.binding = descriptorBindingRedirect.getBinding(b).data;
+                gpuBinding.type = type;
+                gpuBinding.count = descriptorBindingRedirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
+                gpuBinding.stageFlags = descriptorBindingRedirect.getStageFlags(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
+                gpuBinding.samplers = nullptr;
+
+                // If this DS layout has any immutable samplers..
+                if ((gpuBinding.type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && (samplerBindingCount > 0))
+                {
+                    // If this binding number has any immutable samplers..
+                    if (samplerBindingRedirect.findBindingStorageIndex(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ gpuBinding.binding }).data == samplerBindingRedirect.Invalid)
+                        continue;
+
+                    // Copy in tmpSamplers.
+                    for (uint32_t s = 0; s < gpuBinding.count; ++s)
+                        smplr_ptr[s] = (*gpuSamplers)[redirs[gpuSmplrIter++]];
+
+                    gpuBinding.samplers = smplr_ptr;
+                    smplr_ptr += gpuBinding.count;
+                }
             }
-            (*tmpBindings)[bndIter++] = gpubnd;
         }
-        (*res)[i] = _params.device->createDescriptorSetLayout((*tmpBindings).data(), (*tmpBindings).data() + bndIter);
+        assert(gpuBindingCount == cpudsl->getTotalBindingCount());
+
+        (*res)[i] = _params.device->createDescriptorSetLayout(tmpBindings->begin(), tmpBindings->begin() + gpuBindingCount);
     }
 
     return res;
@@ -1537,16 +1553,16 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 
     struct BindingDescTypePair_t{
         uint32_t binding;
-        asset::E_DESCRIPTOR_TYPE descType;
+        asset::IDescriptor::E_TYPE descType;
         size_t count;
     };
-    auto isBufferDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isBufferDesc = [](asset::IDescriptor::E_TYPE t) {
         using namespace asset;
         switch (t) {
-        case EDT_UNIFORM_BUFFER: [[fallthrough]];
-        case EDT_STORAGE_BUFFER: [[fallthrough]];
-        case EDT_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
-        case EDT_STORAGE_BUFFER_DYNAMIC:
+        case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_STORAGE_BUFFER: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
             return true;
             break;
         default:
@@ -1554,15 +1570,15 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
             break;
         }
     };
-    auto isBufviewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isBufviewDesc = [](asset::IDescriptor::E_TYPE t) {
         using namespace asset;
-        return t==EDT_STORAGE_TEXEL_BUFFER || t==EDT_UNIFORM_TEXEL_BUFFER;
+        return t==IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER || t==IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
     };
-    auto isSampledImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
-        return t==asset::EDT_COMBINED_IMAGE_SAMPLER;
+    auto isSampledImgViewDesc = [](asset::IDescriptor::E_TYPE t) {
+        return t==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     };
-    auto isStorageImgDesc = [](asset::E_DESCRIPTOR_TYPE t) {
-        return t==asset::EDT_STORAGE_IMAGE;
+    auto isStorageImgDesc = [](asset::IDescriptor::E_TYPE t) {
+        return t==asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
     };
 
 	// TODO: Deal with duplication of layouts and any other resource that can be present at different resource tree levels
@@ -1578,24 +1594,27 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     {
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
 		cpuLayouts.push_back(cpuds->getLayout());
-              
-		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-		{
-			const uint32_t cnt = cpuds->getDescriptors(j).size();
-			if (cnt)
-				maxWriteCount++;
-			descCount += cnt;
 
-			const auto type = cpuds->getDescriptorsType(j);
-			if (isBufferDesc(type))
-				bufCount += cnt;
-			else if (isBufviewDesc(type))
-				bufviewCount += cnt;
-			else if (isSampledImgViewDesc(type))
-				sampledImgViewCount += cnt;
-			else if (isStorageImgDesc(type))
-				storageImgViewCount += cnt;
-		}
+        for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+        {
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+            
+            // Since one binding can have multiple descriptors which will all be updated with a single SWriteDescriptorSet,
+            // we add the binding count here not the descriptor count.
+            maxWriteCount += cpuds->getLayout()->getDescriptorRedirect(type).getBindingCount();
+
+            const auto count = cpuds->getLayout()->getTotalDescriptorCount(type);
+            descCount += count;
+
+            if (isBufferDesc(type))
+                bufCount += count;
+            else if (isBufviewDesc(type))
+                bufCount += count;
+            else if (isSampledImgViewDesc(type))
+                sampledImgViewCount += count;
+            else if (isStorageImgDesc(type))
+                storageImgViewCount += count;
+        }
     }
 	
     core::vector<asset::ICPUBuffer*> cpuBuffers;
@@ -1609,50 +1628,56 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
-		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-		{
-			const auto type = cpuds->getDescriptorsType(j);
-			for (const auto& info : cpuds->getDescriptors(j))
-			{
-				if (isBufferDesc(type))
-				{
-					auto cpuBuf = static_cast<asset::ICPUBuffer*>(info.desc.get());
-					if(type == asset::EDT_UNIFORM_BUFFER || type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
-					else if(type == asset::EDT_STORAGE_BUFFER || type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
-					cpuBuffers.push_back(cpuBuf);
-				}
-				else if (isBufviewDesc(type))
-				{
-					auto cpuBufView = static_cast<asset::ICPUBufferView*>(info.desc.get());
-					auto cpuBuf = cpuBufView->getUnderlyingBuffer();
-					if(cpuBuf && type == asset::EDT_UNIFORM_TEXEL_BUFFER)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-					else if(cpuBuf && type == asset::EDT_STORAGE_TEXEL_BUFFER)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
-					cpuBufviews.push_back(cpuBufView);
-				}
-				else if (isSampledImgViewDesc(type))
-				{
-					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
-					auto cpuImg = cpuImgView->getCreationParameters().image;
-					if(cpuImg)
-						cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
-					cpuImgViews.push_back(cpuImgView);
-					if (info.image.sampler)
-					    cpuSamplers.push_back(info.image.sampler.get());
-				}
-				else if (isStorageImgDesc(type))
-				{
-					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
-					auto cpuImg = cpuImgView->getCreationParameters().image;
-					if(cpuImg)
-						cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
-					cpuImgViews.push_back(cpuImgView);
-				}
-			}
-		}
+
+        for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+        {
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+            if (cpuds->getDescriptorInfoStorage(type).empty())
+                continue;
+
+            for (uint32_t d = 0u; d < cpuds->getLayout()->getTotalDescriptorCount(type); ++d)
+            {
+                auto* info = cpuds->getDescriptorInfoStorage(type).begin() + d;
+                auto descriptor = info->desc.get();
+                if (isBufferDesc(type))
+                {
+                    auto cpuBuf = static_cast<asset::ICPUBuffer*>(descriptor);
+                    if (type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER || type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
+                    else if (type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER || type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
+                    cpuBuffers.push_back(cpuBuf);
+                }
+                else if (isBufviewDesc(type))
+                {
+                    auto cpuBufView = static_cast<asset::ICPUBufferView*>(descriptor);
+                    auto cpuBuf = cpuBufView->getUnderlyingBuffer();
+                    if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
+                    else if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
+                    cpuBufviews.push_back(cpuBufView);
+                }
+                else if (isSampledImgViewDesc(type))
+                {
+                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
+                    auto cpuImg = cpuImgView->getCreationParameters().image;
+                    if (cpuImg)
+                        cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
+                    cpuImgViews.push_back(cpuImgView);
+                    if (info->info.image.sampler)
+                        cpuSamplers.push_back(info->info.image.sampler.get());
+                }
+                else if (isStorageImgDesc(type))
+                {
+                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
+                    auto cpuImg = cpuImgView->getCreationParameters().image;
+                    if (cpuImg)
+                        cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
+                    cpuImgViews.push_back(cpuImgView);
+                }
+            }
+        }
     }
 
 	using redirs_t = core::vector<size_t>;
@@ -1681,80 +1706,91 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		for (ptrdiff_t i = 0u; i < assetCount; i++)
 		{
 			IGPUDescriptorSetLayout* gpulayout = gpuLayouts->operator[](layoutRedirs[i]).get();
-			res->operator[](i) = _params.device->createDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
+			res->operator[](i) = dsPool->createDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
 			auto gpuds = res->operator[](i).get();
 
             const asset::ICPUDescriptorSet* cpuds = _begin[i];
-			for (uint32_t j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-			{
-				auto descriptors = cpuds->getDescriptors(j);
-				if (descriptors.size()==0u)
-					continue;
 
-				const auto type = cpuds->getDescriptorsType(j);
-				write_it->dstSet = gpuds;
-				write_it->binding = j;
-				write_it->arrayElement = 0;
-				write_it->count = descriptors.size();
-				write_it->descriptorType = type;
-				write_it->info = &(*info);
-                bool allDescriptorsPresent = true;
-				for (const auto& desc : descriptors)
-				{
-					if (isBufferDesc(type))
-					{
-						core::smart_refctd_ptr<video::IGPUOffsetBufferPair> buffer = bufRedirs[bi]>=gpuBuffers->size() ? nullptr : gpuBuffers->operator[](bufRedirs[bi]);
-                        if (buffer)
-                        {
-                            info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
-                            info->buffer.offset = desc.buffer.offset + buffer->getOffset();
-                            info->buffer.size = desc.buffer.size;
-                        }
-                        else
-                        {
-                            info->desc = nullptr;
-                            info->buffer.offset = 0u;
-                            info->buffer.size = 0u;
-                        }
-                        ++bi;
-					}
-                    else if (isBufviewDesc(type))
+            for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+            {
+                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+
+                const auto& descriptorBindingRedirect = cpuds->getLayout()->getDescriptorRedirect(type);
+                const auto& mutableSamplerBindingRedirect = cpuds->getLayout()->getMutableSamplerRedirect();
+
+                for (uint32_t b = 0u; b < descriptorBindingRedirect.getBindingCount(); ++b)
+                {
+                    write_it->dstSet = gpuds;
+                    write_it->binding = descriptorBindingRedirect.getBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b }).data;
+                    write_it->arrayElement = 0u;
+
+                    const uint32_t descriptorCount = descriptorBindingRedirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
+                    write_it->count = descriptorCount;
+                    write_it->descriptorType = type;
+                    write_it->info = &(*info);
+
+                    const uint32_t offset = descriptorBindingRedirect.getStorageOffset(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b }).data;
+
+                    // It is better to use getDescriptorInfoStorage over getDescriptorInfos, because the latter does a binary search
+                    // over the bindings, which is not really required given we have the index of binding number (since we're iterating
+                    // over all the declared bindings).
+                    auto descriptorInfos = cpuds->getDescriptorInfoStorage(type);
+
+                    // Iterate through each descriptor in this binding to fill the info structs
+                    bool allDescriptorsPresent = true;
+                    for (uint32_t d = 0u; d < descriptorCount; ++d)
                     {
-                        info->desc = bufviewRedirs[bvi]>=gpuBufviews->size() ? nullptr : gpuBufviews->operator[](bufviewRedirs[bvi]);
-                        ++bvi;
-                    }
-					else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
-					{
-						info->desc = imgViewRedirs[ivi]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
-                        ++ivi;
-						// TODO: This should be set in the loader (or whoever is creating
-                        // the descriptor)
-                        if (info->image.imageLayout == asset::IImage::EL_UNDEFINED)
+                        if (isBufferDesc(type))
                         {
-                            if (isStorageImgDesc(type))
+                            core::smart_refctd_ptr<video::IGPUOffsetBufferPair> buffer = bufRedirs[bi] >= gpuBuffers->size() ? nullptr : gpuBuffers->operator[](bufRedirs[bi]);
+                            if (buffer)
                             {
-                                info->image.imageLayout = asset::IImage::EL_GENERAL;
+                                info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
+                                info->info.buffer.offset = descriptorInfos.begin()[offset+d].info.buffer.offset + buffer->getOffset();
+                                info->info.buffer.size = descriptorInfos.begin()[offset+d].info.buffer.size;
                             }
                             else
                             {
-                                const auto imageFormat = static_cast<asset::ICPUImageView*>(info->desc.get())->getCreationParameters().format;
-                                info->image.imageLayout = isDepthOrStencilFormat(imageFormat) ? asset::IImage::EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL : asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+                                info->desc = nullptr;
+                                info->info.buffer.offset = 0u;
+                                info->info.buffer.size = 0u;
+                            }
+                            ++bi;
+                        }
+                        else if (isBufviewDesc(type))
+                        {
+                            info->desc = bufviewRedirs[bvi] >= gpuBufviews->size() ? nullptr : gpuBufviews->operator[](bufviewRedirs[bvi]);
+                            ++bvi;
+                        }
+                        else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
+                        {
+                            info->desc = imgViewRedirs[ivi] >= gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
+                            ++ivi;
+                            info->info.image.imageLayout = descriptorInfos[offset + d].info.image.imageLayout;
+                            assert(info->info.image.imageLayout != asset::IImage::EL_UNDEFINED);
 
-                                if (desc.image.sampler)
-							        info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+                            if (!isStorageImgDesc(type))
+                            {
+                                const bool isMutableSamplerBinding = (mutableSamplerBindingRedirect.findBindingStorageIndex(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write_it->binding }).data != mutableSamplerBindingRedirect.Invalid);
+                                if (isMutableSamplerBinding)
+                                {
+                                    assert(descriptorInfos.begin()[offset + d].info.image.sampler);
+                                    info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+                                }
                             }
                         }
-					}
-                    allDescriptorsPresent = allDescriptorsPresent && info->desc;
-					info++;
-				}
-                if (allDescriptorsPresent)
-                    write_it++;
-			}
+                        allDescriptorsPresent = allDescriptorsPresent && info->desc;
+                        info++;
+                    }
+
+                    if (allDescriptorsPresent)
+                        write_it++;
+                }
+            }
 		}
 	}
 
-	_params.device->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
+    _params.device->updateDescriptorSets(write_it - writes.begin(), writes.data(), 0u, nullptr);
 
     return res;
 }

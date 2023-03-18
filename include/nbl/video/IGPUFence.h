@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUFence : public core::IReferenceCounted, public IBackendObject
+class IGPUFence : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

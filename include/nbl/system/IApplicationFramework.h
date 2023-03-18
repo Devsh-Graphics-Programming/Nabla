@@ -11,9 +11,26 @@
 namespace nbl::system
 {
 
-class NBL_API IApplicationFramework
+class IApplicationFramework
 {
 	public:
+        static void GlobalsInit()
+        {
+            #ifdef _NBL_PLATFORM_WINDOWS_
+            // TODO: @AnastaZIuk also provide define constants for DXC install dir!
+            const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll",{system::path(_DXC_DLL_).parent_path()});
+            //assert(SUCCEEDED(dxcLoad)); // no clue why this fails to find the dll
+            #ifdef _NBL_SHARED_BUILD_
+            // if there was no DLL next to the executable, then try from the Nabla build directory
+            // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR
+            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_,{_NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_});
+            assert(SUCCEEDED(nablaLoad));
+            #endif
+            #else
+            // nothing else needs to be done cause we have RPath
+            #endif
+        }
+
         IApplicationFramework(
             const system::path& _localInputCWD, 
             const system::path& _localOutputCWD, 
@@ -21,17 +38,7 @@ class NBL_API IApplicationFramework
             const system::path& _sharedOutputCWD) : 
             localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
 		{
-            #ifdef _NBL_PLATFORM_WINDOWS_
-            // TODO: @AnastaZIuk also provide define constants for DXC install dir!
-            const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll",{system::path(_DXC_DLL_).parent_path()});
-            assert(SUCCEEDED(dxcLoad));
-            #ifdef _NBL_SHARED_BUILD_
-            // if there was no DLL next to the executable, then try from the Nabla build directory
-            // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR
-            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_,{_NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_});
-            assert(SUCCEEDED(nablaLoad));
-            #endif
-            #endif
+            GlobalsInit();
 		}
 
         virtual void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) = 0;
@@ -47,6 +54,8 @@ class NBL_API IApplicationFramework
 
         virtual void workLoopBody() = 0;
         virtual bool keepRunning() = 0;
+
+        // TODO: refactor/hide
         std::vector<std::string> argv;
 
     protected:

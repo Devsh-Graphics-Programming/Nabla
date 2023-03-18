@@ -17,7 +17,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
+class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 {
 	public:
 		ICPUBufferView(core::smart_refctd_ptr<ICPUBuffer> _buffer, E_FORMAT _format, size_t _offset = 0ull, size_t _size = ICPUBufferView::whole_buffer) :
@@ -44,7 +44,7 @@ class NBL_API ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
-		inline E_TYPE getAssetType() const override { return AssetType; }
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		ICPUBuffer* getUnderlyingBuffer() 
 		{

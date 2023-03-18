@@ -16,7 +16,7 @@ namespace MitsubaLoader
 {
 
 
-class NBL_API CElementTransform : public IElement
+class CElementTransform : public IElement
 {
 	public:
 		CElementTransform() : IElement(""), matrix() {}

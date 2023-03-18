@@ -20,7 +20,7 @@ namespace core
 		3) To hold three Euler rotations, where X is pitch, Y is yaw and Z is roll.
 	*/
 	template <class T>
-	class NBL_API vector3d// : public AllocationOverrideDefault
+	class vector3d// : public AllocationOverrideDefault
 	{
 	public:
 		//! Default constructor (null vector).

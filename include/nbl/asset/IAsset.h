@@ -39,7 +39,7 @@ class IAssetManager;
 	@see IReferenceCounted
 */
 
-class NBL_API2 IAsset : virtual public core::IReferenceCounted
+class IAsset : virtual public core::IReferenceCounted
 {
 	public:
 		enum E_MUTABILITY : uint32_t
@@ -159,7 +159,7 @@ class NBL_API2 IAsset : virtual public core::IReferenceCounted
 		}
 
 		//!
-		IAsset() : isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
+		inline IAsset() : isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
 
 		//! Returns correct size reserved associated with an Asset and its data
 		/**
@@ -175,7 +175,7 @@ class NBL_API2 IAsset : virtual public core::IReferenceCounted
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
+		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
 			assert(getAssetType() == _other->getAssetType());
 
@@ -187,7 +187,7 @@ class NBL_API2 IAsset : virtual public core::IReferenceCounted
 			return true;
 		}
 
-		bool willBeRestoredFrom(const IAsset* _other) const
+		inline bool willBeRestoredFrom(const IAsset* _other) const
 		{
 			assert(getAssetType() == _other->getAssetType());
 
@@ -211,7 +211,7 @@ class NBL_API2 IAsset : virtual public core::IReferenceCounted
 		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
-		bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
+		inline bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
 		{
 			if (isADummyObjectForCache())
 				return true;
@@ -270,7 +270,7 @@ class NBL_API2 IAsset : virtual public core::IReferenceCounted
 		*/
 		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) = 0;
 
-        void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
+        inline void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
         {
 			if (canBeConvertedToDummy())
 				isDummyObjectForCacheAliasing = true;
@@ -280,7 +280,7 @@ class NBL_API2 IAsset : virtual public core::IReferenceCounted
 		inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
 
 		//! Pure virtual destructor to ensure no instantiation
-		virtual ~IAsset() = 0;
+		NBL_API2 virtual ~IAsset() = 0;
 
 	public:
 		//! To be implemented by derived classes. Returns a type of an Asset

@@ -25,7 +25,7 @@ namespace nbl::scene
 #undef int
 #undef uint
 
-class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
+class ITransformTreeManager : public virtual core::IReferenceCounted
 {
 		template<uint32_t BindingCount>
 		static inline auto createDescriptorSetLayout(video::ILogicalDevice* device)
@@ -33,7 +33,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUDescriptorSetLayout::SBinding bnd[BindingCount];
 			bnd[0].binding = 0u;
 			bnd[0].count = 1u;
-			bnd[0].type = asset::EDT_STORAGE_BUFFER;
+			bnd[0].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			bnd[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bnd[0].samplers = nullptr;
 			for (auto i = 1u; i < BindingCount; i++)
@@ -54,13 +54,13 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			for (auto i = 0u; i < BindingCount; i++)
 			{
 				infos[i].desc = std::move(bufferBindings[i].buffer);
-				infos[i].buffer.offset = bufferBindings[i].offset;
-				infos[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
+				infos[i].info.buffer.offset = bufferBindings[i].offset;
+				infos[i].info.buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
 				writes[i].dstSet = set;
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
@@ -788,9 +788,9 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+3u);
 
 			DescriptorSets descSets;
-			descSets.updateLocal = device->createDescriptorSet(pool.get(),std::move(layouts[0]));
-			descSets.recomputeGlobal = device->createDescriptorSet(pool.get(),std::move(layouts[1]));
-			descSets.debugDraw = device->createDescriptorSet(pool.get(),std::move(layouts[2]));
+			descSets.updateLocal = pool->createDescriptorSet(std::move(layouts[0]));
+			descSets.recomputeGlobal = pool->createDescriptorSet(std::move(layouts[1]));
+			descSets.debugDraw = pool->createDescriptorSet(std::move(layouts[2]));
 			return descSets;
 		}
 	protected:

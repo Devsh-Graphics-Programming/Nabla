@@ -14,7 +14,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API ICPUAccelerationStructure final : public IAccelerationStructure, public IAsset
+class ICPUAccelerationStructure final : public IAccelerationStructure, public IAsset
 {
 	using Base = IAccelerationStructure;
 

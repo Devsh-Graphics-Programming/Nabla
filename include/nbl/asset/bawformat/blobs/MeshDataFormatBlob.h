@@ -21,7 +21,7 @@ namespace legacyv0
 
 #ifdef OLD_SHADERS
 #include "nbl/nblpack.h"
-struct NBL_API NBL_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
+struct NBL_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
 {
 private:
     enum { VERTEX_ATTRIB_CNT = 16 };
@@ -50,7 +50,7 @@ using MeshDataFormatDescBlobV2 = MeshDataFormatDescBlobV1;
 using MeshDataFormatDescBlobV3 = MeshDataFormatDescBlobV2;
 
 template<>
-struct NBL_API CorrespondingBlobTypeFor<IMeshDataFormatDesc<ICPUBuffer> > { typedef MeshDataFormatDescBlobV3 type; };
+struct CorrespondingBlobTypeFor<IMeshDataFormatDesc<ICPUBuffer> > { typedef MeshDataFormatDescBlobV3 type; };
 
 template<>
 inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV3, IMeshDataFormatDesc<ICPUBuffer> >::calcBlobSizeForObj(const IMeshDataFormatDesc<ICPUBuffer>* _obj)

@@ -30,7 +30,7 @@ namespace asset
 
 	But we can provide useful metadata from the loader.
 */
-class NBL_API IRenderpassIndependentPipelineMetadata : public core::Interface
+class IRenderpassIndependentPipelineMetadata : public core::Interface
 {
 	public:
 		//! A common struct to unify the metadata declarations.
@@ -106,13 +106,13 @@ class NBL_API IRenderpassIndependentPipelineMetadata : public core::Interface
 
 			enum E_TYPE
 			{
-				ET_COMBINED_IMAGE_SAMPLER = EDT_COMBINED_IMAGE_SAMPLER,
-				ET_STORAGE_IMAGE = EDT_STORAGE_IMAGE,
-				ET_UNIFORM_TEXEL_BUFFER = EDT_UNIFORM_TEXEL_BUFFER,
-				ET_STORAGE_TEXEL_BUFFER = EDT_STORAGE_TEXEL_BUFFER,
-				ET_UNIFORM_BUFFER = EDT_UNIFORM_BUFFER,
-				ET_STORAGE_BUFFER = EDT_STORAGE_BUFFER,
-				ET_INPUT_ATTACHMENT = EDT_INPUT_ATTACHMENT,
+				ET_COMBINED_IMAGE_SAMPLER = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
+				ET_STORAGE_IMAGE = IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
+				ET_UNIFORM_TEXEL_BUFFER = IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER,
+				ET_STORAGE_TEXEL_BUFFER = IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER,
+				ET_UNIFORM_BUFFER = IDescriptor::E_TYPE::ET_UNIFORM_BUFFER,
+				ET_STORAGE_BUFFER = IDescriptor::E_TYPE::ET_STORAGE_BUFFER,
+				ET_INPUT_ATTACHMENT = IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT,
 				ET_PUSH_CONSTANT = 11
 			};
 			E_TYPE type;

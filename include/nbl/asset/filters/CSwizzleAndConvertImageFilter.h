@@ -23,7 +23,7 @@ namespace impl
 {
 
 template<typename Swizzle, typename Dither, typename Normalization, bool Clamp>
-class NBL_API CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CMatchedSizeInOutImageFilterCommon
+class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CMatchedSizeInOutImageFilterCommon
 {
 	public:
 		using base_t = CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>;
@@ -96,7 +96,7 @@ class NBL_API CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherab
 	Do a per-pixel recombination of image channels while converting
 */
 template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle, typename Dither=IdentityDither, typename Normalization=void, bool Clamp=false>
-class NBL_API CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
+class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
 {
 	private:
 		using base_t = impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>;
@@ -173,7 +173,7 @@ class NBL_API CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndCon
 	Do a per-pixel recombination of image channels while converting
 */
 template<typename Swizzle, typename Dither, typename Normalization, bool Clamp>
-class NBL_API CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
+class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
 {
 	private:
 		using base_t = impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>;
@@ -240,7 +240,7 @@ class NBL_API CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither
 	Out format compile-time template parameter provided.
 */
 template<E_FORMAT outFormat, typename Swizzle, typename Dither, typename Normalization, bool Clamp>
-class NBL_API CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normalization,Clamp> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
+class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normalization,Clamp> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
 {
 	private:
 		using base_t = impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>;
@@ -315,7 +315,7 @@ class NBL_API CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,
 	In format compile-time template parameter provided.
 */
 template<E_FORMAT inFormat, typename Swizzle, typename Dither, typename Normalization, bool Clamp>
-class NBL_API CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp> : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
+class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp> : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normalization,Clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>
 {
 	private:
 		using base_t = impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither,Normalization,Clamp>;

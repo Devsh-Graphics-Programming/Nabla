@@ -13,7 +13,7 @@ namespace nbl::video
 {
 
 template<template<class...> class allocator=core::allocator>
-class NBL_API CDrawIndirectAllocator final : public IDrawIndirectAllocator
+class CDrawIndirectAllocator final : public IDrawIndirectAllocator
 {
         using this_t = CDrawIndirectAllocator<allocator>;
 

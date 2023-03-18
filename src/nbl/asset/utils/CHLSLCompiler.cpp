@@ -4,6 +4,9 @@
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 
+
+#ifdef _NBL_PLATFORM_WINDOWS_
+
 #include <wrl.h>
 #include <combaseapi.h>
 
@@ -21,11 +24,13 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_6";
+
 namespace nbl::asset::hlsl::impl
 {
     struct DXC {
-        Microsoft::WRL::ComPtr<IDxcUtils> m_dxcUtils;
-        Microsoft::WRL::ComPtr<IDxcCompiler3> m_dxcCompiler;
+        ComPtr<IDxcUtils> m_dxcUtils;
+        ComPtr<IDxcCompiler3> m_dxcCompiler;
     };
 }
 
@@ -40,50 +45,73 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    m_dxcCompilerTypes = std::unique_ptr<nbl::asset::hlsl::impl::DXC>(new nbl::asset::hlsl::impl::DXC{
+    m_dxcCompilerTypes = new nbl::asset::hlsl::impl::DXC{
         utils,
         compiler
-    });
+    };
+}
+
+CHLSLCompiler::~CHLSLCompiler()
+{
+    delete m_dxcCompilerTypes;
 }
 
 static tcpp::IInputStream* getInputStreamInclude(
-    const IShaderCompiler::CIncludeFinder* _inclFinder,
-    const system::ISystem* _fs,
-    uint32_t _maxInclCnt,
-    const char* _requesting_source,
-    const char* _requested_source,
-    bool _type // true for #include "string"; false for #include <string>
+    const IShaderCompiler::CIncludeFinder* inclFinder,
+    const system::ISystem* fs,
+    uint32_t maxInclCnt,
+    const char* requestingSource,
+    const char* requestedSource,
+    bool isRelative, // true for #include "string"; false for #include <string>
+    uint32_t lexerLineIndex,
+    uint32_t leadingLinesImports,
+    std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
     std::string res_str;
 
     std::filesystem::path relDir;
-    const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
-    const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
+    const bool reqFromBuiltin = builtin::hasPathPrefix(requestingSource);
+    const bool reqBuiltin = builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
     {
         //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
         //  This rule applies also while a builtin is #includ`ing another builtin.
         //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
         //  or path relative to executable's working directory (""-type).
-        relDir = std::filesystem::path(_requesting_source).parent_path();
+        relDir = std::filesystem::path(requestingSource).parent_path();
     }
-    std::filesystem::path name = _type ? (relDir / _requested_source) : (_requested_source);
+    std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
 
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
-    if (_type)
-        res_str = _inclFinder->getIncludeRelative(relDir, _requested_source);
+    if (isRelative)
+        res_str = inclFinder->getIncludeRelative(relDir, requestedSource);
     else //shaderc_include_type_standard
-        res_str = _inclFinder->getIncludeStandard(relDir, _requested_source);
+        res_str = inclFinder->getIncludeStandard(relDir, requestedSource);
 
     if (!res_str.size()) {
         return new tcpp::StringInputStream("#error File not found");
     }
 
+    // Figure out what line in the current file this #include was
+    // That would be the current lexer line, minus the line where the current file was included
+    uint32_t lineInCurrentFileWithInclude = lexerLineIndex -
+        // if this is 2 includes deep (include within include), subtract leading import lines
+        // from the previous include
+        (includeStack.size() > 1 ? leadingLinesImports : 0);
+    auto lastItemInIncludeStack = includeStack.back();
+
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
-    res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), _maxInclCnt, name.string().c_str());
+    res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
+    res_str = res_str + "\n" +
+        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineInCurrentFileWithInclude - lastItemInIncludeStack.first - 1).c_str() + " \"" + lastItemInIncludeStack.second.c_str() + "\"\n";
+
+    // Offset the lines this include takes up for subsequent includes
+    includeStack.back().first += std::count(res_str.begin(), res_str.end(), '\n');
+
+    includeStack.push_back(std::pair<uint32_t, std::string>(lineInCurrentFileWithInclude, IShaderCompiler::escapeFilename(name.string())));
 
     return new tcpp::StringInputStream(std::move(res_str));
 }
@@ -95,9 +123,9 @@ public:
     ComPtr<IDxcBlob> objectBlob;
     ComPtr<IDxcResult> compileResult;
 
-    char* GetErrorMessagesString()
+    std::string GetErrorMessagesString()
     {
-        return reinterpret_cast<char*>(errorMessages->GetBufferPointer());
+        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
     }
 };
 
@@ -146,9 +174,17 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
     result.compileResult = compileResult;
     result.objectBlob = nullptr;
 
-    if (!SUCCEEDED(compilationStatus))
+    auto errorMessagesString = result.GetErrorMessagesString();
+    if (SUCCEEDED(compilationStatus))
     {
-        options.preprocessorOptions.logger.log(result.GetErrorMessagesString(), system::ILogger::ELL_ERROR);
+        if (errorMessagesString.length() > 0)
+        {
+            options.preprocessorOptions.logger.log("DXC Compilation Warnings:\n%s", system::ILogger::ELL_WARNING, errorMessagesString.c_str());
+        }
+    } 
+    else
+    {
+        options.preprocessorOptions.logger.log("DXC Compilation Failed:\n%s", system::ILogger::ELL_ERROR, errorMessagesString.c_str());
         return result;
     }
 
@@ -164,12 +200,21 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
+    // Line 1 comes before all the extra defines in the main shader
+    insertIntoStart(code, std::ostringstream(std::string(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER) + "line 1\n"));
+
+    uint32_t defineLeadingLinesMain = 1;
+    uint32_t leadingLinesImports = IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(preprocessOptions.maxSelfInclusionCount + 1u);
     if (preprocessOptions.extraDefines.size())
     {
         insertExtraDefines(code, preprocessOptions.extraDefines);
+        defineLeadingLinesMain += preprocessOptions.extraDefines.size();
     }
 
     IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+
+    // Keep track of the line in the original file where each #include was on each level of the include stack
+    std::vector<std::pair<uint32_t, std::string>> lineOffsetStack = { std::pair<uint32_t, std::string>(defineLeadingLinesMain, preprocessOptions.sourceIdentifier) };
 
     tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
     tcpp::Lexer lexer(codeIs);
@@ -183,13 +228,17 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             {
                 return getInputStreamInclude(
                     preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u,
-                    preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath
+                    preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath,
+                    lexer.GetCurrLineIndex(), leadingLinesImports, lineOffsetStack
                 );
             }
             else
             {
                 return static_cast<tcpp::IInputStream*>(new tcpp::StringInputStream(std::string("#error No include handler")));
             }
+        },
+        [&]() {
+            lineOffsetStack.pop_back();
         }
     );
 
@@ -234,6 +283,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     auto resolvedString = proc.Process();
     IShaderCompiler::reenableDirectives(resolvedString);
+
     return resolvedString;
 }
 
@@ -251,7 +301,16 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     auto newCode = preprocessShader(code, stage, hlslOptions.preprocessorOptions);
 
     // Suffix is the shader model version
-    std::wstring targetProfile(L"XX_6_2");
+    // TODO: Figure out a way to get the shader model version automatically
+    // 
+    // We can't get it from the DXC library itself, as the different versions and the parsing
+    // use a weird lexer based system that resolves to a hash, and all of that is in a scoped variable
+    // (lib/DXIL/DxilShaderModel.cpp:83)
+    // 
+    // Another option is trying to fetch it from the commandline tool, either from parsing the help message
+    // or from brute forcing every -T option until one isn't accepted
+    //
+    std::wstring targetProfile(SHADER_MODEL_PROFILE);
 
     // Set profile two letter prefix based on stage
     switch (stage) {
@@ -284,29 +343,40 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         return nullptr;
     };
 
-    LPCWSTR arguments[] = {
-        // These will always be present
+    std::vector<LPCWSTR> arguments = {
         L"-spirv",
         L"-HV", L"2021",
         L"-T", targetProfile.c_str(),
-
-        // These are debug only
-        DXC_ARG_DEBUG,
-        L"-Qembed_debug",
-        L"-fspv-debug=vulkan-with-source",
-        L"-fspv-debug=file"
     };
 
-    const uint32_t nonDebugArgs = 5;
-    const uint32_t allArgs = nonDebugArgs + 4;
+    // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+    // This is how we can get more optimizer options.
+    // 
+    // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
+    // optimization levels greater than zero; they will all invoke the same optimization recipe. 
+    // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
+    if (hlslOptions.spirvOptimizer)
+    {
+        arguments.push_back(L"-O0");
+    }
 
-    // const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* compilerTypes, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options
+    // Debug only values
+    if (hlslOptions.genDebugInfo)
+    {
+        arguments.insert(arguments.end(), {
+            DXC_ARG_DEBUG,
+            L"-Qembed_debug",
+            L"-fspv-debug=vulkan-with-source",
+            L"-fspv-debug=file"
+        });
+    }
+
     auto compileResult = dxcCompile(
         this, 
-        m_dxcCompilerTypes.get(), 
+        m_dxcCompilerTypes, 
         newCode,
-        &arguments[0], 
-        hlslOptions.genDebugInfo ? allArgs : nonDebugArgs, 
+        &arguments[0],
+        arguments.size(),
         hlslOptions
     );
 
@@ -317,6 +387,11 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
+    
+    // Optimizer step
+    if (hlslOptions.spirvOptimizer)
+        outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), hlslOptions.preprocessorOptions.logger);
+
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
@@ -325,3 +400,5 @@ void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins)
 {
     code.insert(0u, ins.str());
 }
+
+#endif

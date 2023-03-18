@@ -7,6 +7,7 @@
 #include "nbl/video/IGPUBuffer.h"
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
 #include "nbl/video/utilities/CScanner.h"
@@ -1005,7 +1006,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         core::smart_refctd_ptr<CScanner> m_scanner;
     };
 
-class NBL_API ImageRegionIterator
+class ImageRegionIterator
 {
 public:
     ImageRegionIterator(

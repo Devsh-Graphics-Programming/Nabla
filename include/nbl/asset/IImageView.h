@@ -13,7 +13,7 @@ namespace asset
 {
 
 template<class ImageType>
-class NBL_API IImageView : public IDescriptor
+class IImageView : public IDescriptor
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_mip_levels = ~static_cast<size_t>(0u);

@@ -12,7 +12,7 @@ namespace nbl::video
 
 //class ILogicalDevice;
 
-class NBL_API StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
+class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
 {
     private:
         void* mapWrapper(IDriverMemoryAllocation* mem, IDriverMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAG access, const IDriverMemoryAllocation::MemoryRange& range) noexcept;

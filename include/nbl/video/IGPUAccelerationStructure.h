@@ -12,7 +12,7 @@
 
 namespace nbl::video
 {
-class NBL_API IGPUAccelerationStructure : public asset::IAccelerationStructure, public IBackendObject
+class IGPUAccelerationStructure : public asset::IAccelerationStructure, public IBackendObject
 {
 	using Base = asset::IAccelerationStructure;
 	public:

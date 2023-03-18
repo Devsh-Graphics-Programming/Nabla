@@ -4,7 +4,7 @@
 namespace nbl::system 
 {
 #ifdef _NBL_PLATFORM_WINDOWS_
-class NBL_API CFileViewVirtualAllocatorWin32 : public IFileViewAllocator
+class CFileViewVirtualAllocatorWin32 : public IFileViewAllocator
 {
 	public:
 		using IFileViewAllocator::IFileViewAllocator;

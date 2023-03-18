@@ -6,7 +6,7 @@
 namespace nbl::system
 {
 
-class NBL_API IFile : public IFileBase, private ISystem::IFutureManipulator
+class IFile : public IFileBase, private ISystem::IFutureManipulator
 {
 	public:
 		//
@@ -14,7 +14,7 @@ class NBL_API IFile : public IFileBase, private ISystem::IFutureManipulator
 		{
 			const IFileBase* constThis = this;
 			const auto* ptr = reinterpret_cast<const std::byte*>(constThis->getMappedPointer());
-			if (ptr)
+			if (ptr || sizeToRead==0ull)
 			{
 				const size_t size = getSize();
 				if (offset+sizeToRead>size)
@@ -28,7 +28,7 @@ class NBL_API IFile : public IFileBase, private ISystem::IFutureManipulator
 		inline void write(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite)
 		{
 			auto* ptr = reinterpret_cast<std::byte*>(getMappedPointer());
-			if (ptr)
+			if (ptr || sizeToWrite==0ull)
 			{
 				// TODO: growable mappings
 				if (offset+sizeToWrite>getSize())

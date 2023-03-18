@@ -22,20 +22,20 @@ namespace nbl::asset
 {
 
 //TODO move and possibly rename
-struct NBL_API SBufferCopy
+struct SBufferCopy
 {
     size_t srcOffset;
     size_t dstOffset;
     size_t size;
 };
-struct NBL_API SImageBlit
+struct SImageBlit
 {
     asset::IImage::SSubresourceLayers srcSubresource;
     asset::VkOffset3D srcOffsets[2];
     asset::IImage::SSubresourceLayers dstSubresource;
     asset::VkOffset3D dstOffsets[2];
 };
-struct NBL_API SImageResolve
+struct SImageResolve
 {
     asset::IImage::SSubresourceLayers srcSubresource;
     asset::VkOffset3D srcOffset;
@@ -44,7 +44,7 @@ struct NBL_API SImageResolve
     asset::VkExtent3D extent;
 };
 
-struct NBL_API SMemoryBarrier
+struct SMemoryBarrier
 {
     core::bitflag<asset::E_ACCESS_FLAGS> srcAccessMask = asset::EAF_NONE;
     core::bitflag<asset::E_ACCESS_FLAGS> dstAccessMask = asset::EAF_NONE;
@@ -56,7 +56,7 @@ union SClearColorValue
     int32_t int32[4];
     uint32_t uint32[4];
 };
-struct NBL_API SClearDepthStencilValue
+struct SClearDepthStencilValue
 {
     float depth;
     uint32_t stencil;
@@ -67,14 +67,14 @@ union SClearValue
     SClearDepthStencilValue depthStencil;
 };
 
-struct NBL_API SClearAttachment
+struct SClearAttachment
 {
     asset::IImage::E_ASPECT_FLAGS aspectMask;
     uint32_t colorAttachment;
     SClearValue clearValue;
 };
 
-struct NBL_API SClearRect
+struct SClearRect
 {
     VkRect2D rect;
     uint32_t baseArrayLayer;
@@ -94,7 +94,7 @@ template <
     typename EventType,
     typename CommandBufferType
 >
-class NBL_API ICommandBuffer
+class ICommandBuffer
 {
 protected:
     using buffer_t = BufferType;
@@ -211,36 +211,11 @@ public:
 
     E_LEVEL getLevel() const { return m_level; }
 
-    // hm now i think having begin(), reset() and end() as command buffer API is a little weird
+    // hm now i think having an ICPUCommandBuffer is weird, maybe we should have a rendergraph
 
-    virtual bool begin(core::bitflag<E_USAGE> _flags)
-    {
-        if(m_state == ES_RECORDING)
-        {
-            assert(false);
-            return false;
-        }
-        m_state = ES_RECORDING;
-        m_recordingFlags = _flags;
-        return true;
-    }
-   
-    virtual bool reset(core::bitflag<E_RESET_FLAGS> _flags)
-    {
-        m_state = ES_INITIAL;
-        return true;
-    }
-
-    virtual bool end()
-    {
-        if(m_state!=ES_RECORDING)
-        {
-            assert(false);
-            return false;
-        }
-        m_state = ES_EXECUTABLE;
-        return true;
-    }
+    virtual bool begin(core::bitflag<E_USAGE> flags, const SInheritanceInfo* inheritanceInfo = nullptr) = 0;
+    virtual bool reset(core::bitflag<E_RESET_FLAGS> flags) = 0;
+    virtual bool end() = 0;
 
     virtual bool bindIndexBuffer(const buffer_t* buffer, size_t offset, E_INDEX_TYPE indexType) = 0;
 
@@ -264,17 +239,7 @@ public:
     virtual bool copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) = 0;
     virtual bool copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
     virtual bool copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
-    virtual bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
-    {
-        for (uint32_t i = 0u; i < regionCount; ++i)
-        {
-            if (pRegions[i].dstSubresource.aspectMask != pRegions[i].srcSubresource.aspectMask)
-                return false;
-            if (pRegions[i].dstSubresource.layerCount != pRegions[i].srcSubresource.layerCount)
-                return false;
-        }
-        return true;
-    }
+    virtual bool blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) = 0;
     virtual bool resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
     virtual bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t*const *const pBuffers, const size_t* pOffsets) = 0;
@@ -291,7 +256,6 @@ public:
 
     virtual bool setEvent(event_t* event, const SDependencyInfo& depInfo) = 0;
     virtual bool resetEvent(event_t* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
-
     virtual bool waitEvents(uint32_t eventCount, event_t*const *const pEvents, const SDependencyInfo* depInfos) = 0;
 
     virtual bool pipelineBarrier(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
@@ -304,20 +268,20 @@ public:
     virtual bool nextSubpass(E_SUBPASS_CONTENTS contents) = 0;
     virtual bool endRenderPass() = 0;
 
-    virtual bool setDeviceMask(uint32_t deviceMask) { m_deviceMask = deviceMask; return true; }
+    virtual bool setDeviceMask(uint32_t deviceMask) = 0;
 
     //those two instead of bindPipeline(E_PIPELINE_BIND_POINT, pipeline)
     virtual bool bindGraphicsPipeline(const graphics_pipeline_t* pipeline) = 0;
     virtual bool bindComputePipeline(const compute_pipeline_t* pipeline) = 0;
 
-    virtual bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) {return false;}
-    virtual bool beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags = video::IQueryPool::E_QUERY_CONTROL_FLAGS::EQCF_NONE) {return false;}
-    virtual bool endQuery(video::IQueryPool* queryPool, uint32_t query) {return false;}
-    virtual bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) {return false;}
-    virtual bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) {return false;}
+    virtual bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;
+    virtual bool beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS> flags = video::IQueryPool::E_QUERY_CONTROL_FLAGS::EQCF_NONE) = 0;
+    virtual bool endQuery(video::IQueryPool* queryPool, uint32_t query) = 0;
+    virtual bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
+    virtual bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) = 0;
 
     // Acceleration Structure Properties (Only available on Vulkan)
-    virtual bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) {return false;}
+    virtual bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) = 0;
 
     // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
     virtual bool bindDescriptorSets(
@@ -332,26 +296,16 @@ public:
     virtual bool fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) = 0;
     virtual bool updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) = 0;
     
-    virtual bool buildAccelerationStructures(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) { return false; }
+    virtual bool buildAccelerationStructures(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) = 0;
     virtual bool buildAccelerationStructuresIndirect(
-        const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, 
+        const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos,
         const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses,
         const uint32_t* pIndirectStrides,
-        const uint32_t* const* ppMaxPrimitiveCounts) { return false; }
-    virtual bool copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) { return false; }
-    virtual bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) { return false; }
-    virtual bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) { return false; }
-
-    virtual bool executeCommands(uint32_t count, cmdbuf_t*const *const cmdbufs)
-    {
-        for (uint32_t i = 0u; i < count; ++i)
-        {
-            if (cmdbufs[i]->getLevel() != EL_SECONDARY)
-                return false;
-        }
-        return true;
-    }
-
+        const uint32_t* const* ppMaxPrimitiveCounts) = 0;
+    virtual bool copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
+    virtual bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) = 0;
+    virtual bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) = 0;
+    virtual bool executeCommands(uint32_t count, cmdbuf_t* const* const cmdbufs) = 0;
 
 protected:
     ICommandBuffer(E_LEVEL lvl) : m_level(lvl) {}

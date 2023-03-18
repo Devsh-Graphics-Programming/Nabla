@@ -27,7 +27,7 @@ namespace nbl
 namespace asset
 {
 
-struct NBL_API SViewport
+struct SViewport
 {
     float x, y;
     float width, height;
@@ -56,7 +56,7 @@ enum E_VERTEX_INPUT_RATE : uint8_t
 };
 
 #include "nbl/nblpack.h"
-struct NBL_API SVertexInputAttribParams
+struct SVertexInputAttribParams
 {
 	SVertexInputAttribParams() : binding(0u), format(EF_UNKNOWN), relativeOffset(0u) {}
 	SVertexInputAttribParams(uint32_t _binding, uint32_t _format, uint32_t _relativeOffset) :
@@ -87,7 +87,7 @@ struct NBL_API SVertexInputAttribParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
-struct NBL_API SVertexInputBindingParams
+struct SVertexInputBindingParams
 {
 
     inline bool operator==(const SVertexInputBindingParams& rhs) const
@@ -111,7 +111,7 @@ struct NBL_API SVertexInputBindingParams
     }
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
-struct NBL_API SVertexInputParams
+struct SVertexInputParams
 {
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
@@ -164,7 +164,7 @@ struct NBL_API SVertexInputParams
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputParams) == (2u * 2u + SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT * sizeof(SVertexInputAttribParams) + SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT * sizeof(SVertexInputBindingParams)), "Unexpected size!");
 
-struct NBL_API SPrimitiveAssemblyParams
+struct SPrimitiveAssemblyParams
 {
     E_PRIMITIVE_TOPOLOGY primitiveType = EPT_TRIANGLE_LIST;
     uint8_t primitiveRestartEnable = false;
@@ -203,7 +203,7 @@ enum E_COMPARE_OP : uint8_t
     ECO_ALWAYS = 7
 };
 
-struct NBL_API SStencilOpParams
+struct SStencilOpParams
 {
     E_STENCIL_OP failOp = ESO_KEEP;
     E_STENCIL_OP passOp = ESO_KEEP;
@@ -229,7 +229,7 @@ enum E_FACE_CULL_MODE : uint8_t
     EFCM_FRONT_AND_BACK = 3
 };
 
-struct NBL_API SRasterizationParams
+struct SRasterizationParams
 {
 	SRasterizationParams()
 	{
@@ -393,7 +393,7 @@ enum E_BLEND_OP : uint8_t
     EBO_BLUE_EXT
 };
 
-struct NBL_API SColorAttachmentBlendParams
+struct SColorAttachmentBlendParams
 {
 	SColorAttachmentBlendParams() : 
 		blendEnable(false),
@@ -441,7 +441,7 @@ struct NBL_API SColorAttachmentBlendParams
 } PACK_STRUCT;
 //static_assert(sizeof(SColorAttachmentBlendParams)==5u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
 
-struct NBL_API SBlendParams
+struct SBlendParams
 {
 	SBlendParams() : logicOpEnable(false), logicOp(ELO_NO_OP), blendParams{} {}
 
@@ -506,7 +506,7 @@ enum E_VERTEX_ATTRIBUTE_ID
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class NBL_API IRenderpassIndependentPipeline : public IPipeline<LayoutType>
+class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;

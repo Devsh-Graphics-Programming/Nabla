@@ -63,6 +63,8 @@
 #cmakedefine __NBL_FAST_MATH
 #cmakedefine _NBL_EMBED_BUILTIN_RESOURCES_
 
+#cmakedefine _NBL_BUILD_DPL_
+
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
@@ -96,7 +98,6 @@
 #else
     #define NBL_API2
 #endif
-#define NBL_API
 
 // any other target definitions for using Nabla as framework in another project
 #ifndef __NBL_BUILDING_NABLA__

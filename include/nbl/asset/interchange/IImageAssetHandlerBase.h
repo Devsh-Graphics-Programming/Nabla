@@ -17,7 +17,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API IImageAssetHandlerBase : public virtual core::IReferenceCounted
+class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 {
 	protected:
 		IImageAssetHandlerBase() {}

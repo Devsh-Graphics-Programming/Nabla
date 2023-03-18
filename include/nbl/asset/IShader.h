@@ -29,7 +29,7 @@ namespace nbl::asset
 	to Specialized Shader constructor.
 */
 
-class NBL_API IShader : public virtual core::IReferenceCounted
+class IShader : public virtual core::IReferenceCounted
 {
 	public:
 		// TODO: make this enum class

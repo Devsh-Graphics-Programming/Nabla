@@ -20,7 +20,7 @@ namespace impl
 {
 	
 template<class Kernel>
-class NBL_API CScaledImageFilterKernelBase
+class CScaledImageFilterKernelBase
 {
 	public:
 		// we preserve all basic properties of the original kernel
@@ -45,7 +45,7 @@ protected:
 
 // this kernel will become a stretched version of the original kernel while keeping its integral constant
 template<class Kernel>
-class NBL_API CScaledImageFilterKernel : //order of bases is important! do not change
+class CScaledImageFilterKernel : //order of bases is important! do not change
 	public impl::CScaledImageFilterKernelBase<Kernel>, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename impl::CScaledImageFilterKernelBase<Kernel>::value_type>
 {
 		using Base = impl::CScaledImageFilterKernelBase<Kernel>;

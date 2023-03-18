@@ -5,7 +5,6 @@
 #define _NBL_CORE_STRING_LITERAL_H_INCLUDED_
 
 #include <algorithm>
-#include <cstddef>
 
 namespace nbl::core
 {

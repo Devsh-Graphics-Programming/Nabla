@@ -12,7 +12,7 @@
 namespace nbl::asset
 {
 
-class NBL_API CGLTFMetadata final : public IAssetMetadata
+class CGLTFMetadata final : public IAssetMetadata
 {
     public:
         

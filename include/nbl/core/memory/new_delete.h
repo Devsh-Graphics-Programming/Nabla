@@ -23,7 +23,7 @@ namespace impl
 {
 
 template<typename T, class Alloc=_NBL_DEFAULT_ALLOCATOR_METATYPE<T> >
-struct NBL_API AlignedWithAllocator
+struct AlignedWithAllocator
 {
     template<typename... Args>
     static inline T*    new_(size_t align, Alloc& alloc, Args&&... args)
@@ -78,7 +78,7 @@ struct NBL_API AlignedWithAllocator
         delete_array(p,n,static_cast<Alloc&>(alloc));
     }
 
-    struct NBL_API VA_ARGS_comma_workaround
+    struct VA_ARGS_comma_workaround
     {
         VA_ARGS_comma_workaround(size_t align, Alloc _alloc = Alloc()) : m_align(align), m_alloc(_alloc) {}
 
@@ -128,14 +128,14 @@ namespace core
 //Maybe: Create a nbl::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
 
 template<class CRTP, class Alloc=aligned_allocator<CRTP> >
-class NBL_API NBL_FORCE_EBO AllocatedWithStatelessAllocator
+class NBL_FORCE_EBO AllocatedWithStatelessAllocator
 {
     public:
 };
 */
 
 //! Special Class For providing deletion for things like C++11 smart-pointers
-struct NBL_API alligned_delete
+struct alligned_delete
 {
     template<class T>
     void operator()(T* ptr) const noexcept(noexcept(ptr->~T()))

@@ -21,7 +21,7 @@ namespace nbl::video
     @see IPipelineLayout
 */
 
-class NBL_API IGPUPipelineLayout : public core::IReferenceCounted, public asset::IPipelineLayout<IGPUDescriptorSetLayout>, public IBackendObject
+class IGPUPipelineLayout : public core::IReferenceCounted, public asset::IPipelineLayout<IGPUDescriptorSetLayout>, public IBackendObject
 {
         using base_t = asset::IPipelineLayout<IGPUDescriptorSetLayout>;
 

@@ -11,7 +11,7 @@ namespace core
 {
 
 	template <class BasicLockable>
-	class NBL_API unlock_guard
+	class unlock_guard
 	{
 	public:
 		typedef BasicLockable mutex_type;

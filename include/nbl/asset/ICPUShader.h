@@ -24,7 +24,7 @@ namespace asset
 	@see IAsset
 */
 
-class NBL_API ICPUShader : public IAsset, public IShader
+class ICPUShader : public IAsset, public IShader
 {
 	protected:
 		virtual ~ICPUShader() = default;

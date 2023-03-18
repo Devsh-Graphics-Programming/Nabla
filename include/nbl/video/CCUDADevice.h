@@ -24,7 +24,7 @@ namespace nbl::video
 {
 class CCUDAHandler;
 
-class NBL_API CCUDADevice : public core::IReferenceCounted
+class CCUDADevice : public core::IReferenceCounted
 {
     public:
 		enum E_VIRTUAL_ARCHITECTURE

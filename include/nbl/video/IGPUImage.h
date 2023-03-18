@@ -18,7 +18,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBackendObject
+class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBackendObject
 {
 	public:
 		enum E_TILING : uint8_t

@@ -783,6 +783,33 @@ static inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> ge
     return ret;
 }
 
+static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const asset::IDescriptor::E_TYPE descriptorType)
+{
+    switch (descriptorType)
+    {
+    case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
+        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+    case asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
+        return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+    case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
+        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+    case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
+        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+    case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
+        return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+    default:
+        assert(!"Invalid code path.");
+        return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+    }
+}
 static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
 {
     if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;

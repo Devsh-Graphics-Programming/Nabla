@@ -17,7 +17,7 @@ namespace asset
 namespace impl
 {
 
-struct NBL_API Projection
+struct Projection
 {
 	inline Projection(const core::vectorSIMDf& absDir)
 	{
@@ -37,7 +37,7 @@ struct NBL_API Projection
 	float z;
 };
 
-struct NBL_API QuantQuaternionHash
+struct QuantQuaternionHash
 {
 	inline size_t operator()(const Projection& vec) const noexcept
 	{
@@ -54,7 +54,7 @@ struct NBL_API QuantQuaternionHash
 }
 
 
-class NBL_API CQuantQuaternionCache : public CDirQuantCacheBase<impl::Projection,impl::QuantQuaternionHash,EF_R8G8B8A8_SNORM,EF_R16G16B16A16_SNORM>
+class CQuantQuaternionCache : public CDirQuantCacheBase<impl::Projection,impl::QuantQuaternionHash,EF_R8G8B8A8_SNORM,EF_R16G16B16A16_SNORM>
 {
 		using Base = CDirQuantCacheBase<impl::Projection,impl::QuantQuaternionHash,EF_R8G8B8A8_SNORM,EF_R16G16B16A16_SNORM>;
 

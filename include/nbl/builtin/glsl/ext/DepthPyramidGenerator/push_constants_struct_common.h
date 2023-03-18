@@ -29,7 +29,7 @@ struct uvec2
 }
 #endif
 
-struct NBL_API nbl_glsl_depthPyramid_PushConstantsData
+struct nbl_glsl_depthPyramid_PushConstantsData
 {
 #ifdef __cplusplus
     nbl::ext::DepthPyramidGenerator::uvec2 mainDispatchFirstMipExtent;
