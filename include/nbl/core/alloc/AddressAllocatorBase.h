@@ -107,6 +107,15 @@ namespace core
                 combinedOffset = addressOffset+alignOffset;
             }
 
+            AddressAllocatorBase(AddressAllocatorBase&& other)
+            {
+                std::swap(reservedSpace,other.reservedSpace);
+                std::swap(addressOffset,other.addressOffset);
+                std::swap(alignOffset,other.alignOffset);
+                std::swap(maxRequestableAlignment,other.maxRequestableAlignment);
+                std::swap(combinedOffset,other.combinedOffset);
+            }
+
             inline bool checkResize(_size_type newBuffSz, _size_type newAlignOffset)
             {
                 // cannot reallocate the data into smaller storage than is necessary

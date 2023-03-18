@@ -11,6 +11,7 @@
 */
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
+#include "nbl/asset/IDescriptor.h"
 
 #include <compare>
 
@@ -103,16 +104,15 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 
 				auto operator<=>(const PushConstant&) const = default;
 			};
-
-			enum E_TYPE
+			enum class E_TYPE: uint8_t 
 			{
-				ET_COMBINED_IMAGE_SAMPLER = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
-				ET_STORAGE_IMAGE = IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
-				ET_UNIFORM_TEXEL_BUFFER = IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER,
-				ET_STORAGE_TEXEL_BUFFER = IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER,
-				ET_UNIFORM_BUFFER = IDescriptor::E_TYPE::ET_UNIFORM_BUFFER,
-				ET_STORAGE_BUFFER = IDescriptor::E_TYPE::ET_STORAGE_BUFFER,
-				ET_INPUT_ATTACHMENT = IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT,
+				ET_COMBINED_IMAGE_SAMPLER = static_cast<uint8_t>(IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER),
+				ET_STORAGE_IMAGE = static_cast<uint8_t>(IDescriptor::E_TYPE::ET_STORAGE_IMAGE),
+				ET_UNIFORM_TEXEL_BUFFER = static_cast<uint8_t>(IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER),
+				ET_STORAGE_TEXEL_BUFFER = static_cast<uint8_t>(IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER),
+				ET_UNIFORM_BUFFER = static_cast<uint8_t>(IDescriptor::E_TYPE::ET_UNIFORM_BUFFER),
+				ET_STORAGE_BUFFER = static_cast<uint8_t>(IDescriptor::E_TYPE::ET_STORAGE_BUFFER),
+				ET_INPUT_ATTACHMENT = static_cast<uint8_t>(IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT),
 				ET_PUSH_CONSTANT = 11
 			};
 			E_TYPE type;

@@ -346,9 +346,9 @@ public:
 protected:
 	IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end)
 	{
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_descriptors[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_mutableSamplers;
+		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_descriptors[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
+		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
+		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_mutableSamplers;
 
 		for (auto b = _begin; b != _end; ++b)
 		{
@@ -376,7 +376,7 @@ protected:
 		{
 			if (b->type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b->samplers)
 			{
-				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(CBindingRedirect::binding_number_t(b->binding)).data;
+				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b->binding)).data;
 				assert(localOffset != m_immutableSamplerRedirect.Invalid);
 
 				auto* dst = m_samplers->begin() + localOffset;

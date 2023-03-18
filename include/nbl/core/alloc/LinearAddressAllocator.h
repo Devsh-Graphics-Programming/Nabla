@@ -5,6 +5,7 @@
 #ifndef __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 
+#include "AddressAllocatorBase.h"
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
 namespace nbl
@@ -30,6 +31,13 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
                     Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment), bufferSize(bufSz-Base::alignOffset)
         {
             reset();
+        }
+        
+        LinearAddressAllocator(LinearAddressAllocator&& other) noexcept :
+            Base(std::move(other))
+        {
+            std::swap(bufferSize,other.bufferSize);
+            std::swap(cursor,other.cursor);
         }
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
