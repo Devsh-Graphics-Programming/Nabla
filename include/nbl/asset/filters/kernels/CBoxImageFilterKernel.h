@@ -12,7 +12,7 @@ namespace nbl::asset
 {
 
 // Standard Box function, symmetric, value in the support is 1, integral is 1, so support must be [-1/2,1/2)
-class NBL_API CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel>
+class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel>
 {
 	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel>;
 

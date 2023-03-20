@@ -24,7 +24,7 @@ namespace asset
 // (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 
 template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, Blittable BlitUtilities = CBlitUtilities<CMitchellImageFilterKernel<>>>
-class NBL_API CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities>>, public CBasicImageFilterCommon
+class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities>>, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}

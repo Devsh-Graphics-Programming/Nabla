@@ -17,7 +17,7 @@ namespace nbl::asset
 
 // this is the horribly slow generic version that you should not use (only use the specializations)
 template<typename KernelA, typename KernelB>
-class NBL_API CConvolutionImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernel<KernelA, KernelB>>
+class CConvolutionImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernel<KernelA, KernelB>>
 {
 	using Base = CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernel<KernelA, KernelB>>;
 

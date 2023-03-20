@@ -9,7 +9,7 @@
 namespace nbl::asset
 {
 
-class NBL_API CDiracImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiracImageFilterKernel>
+class CDiracImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiracImageFilterKernel>
 {
 	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiracImageFilterKernel>;
 

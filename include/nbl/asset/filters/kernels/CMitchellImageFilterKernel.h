@@ -14,7 +14,7 @@ namespace nbl::asset
 
 // A standard Mitchell filter expressed as a convolution kernel, the standard has a support of [-2,2] the B and C template parameters are the same ones from the paper
 template<class B=std::ratio<1,3>, class C=std::ratio<1,3>>
-class NBL_API CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>>
+class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>>
 {
 	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>>;
 

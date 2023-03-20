@@ -488,6 +488,7 @@ public:
 
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
 
+			uint32_t infoIdx = 0;
 			uint32_t writeCount = 0;
 			for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
 			{
@@ -502,8 +503,10 @@ public:
 					write.binding = redirect.getBinding(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i }).data;
 					write.arrayElement = 0u;
 					write.count = redirect.getCount(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i });
-					write.info = &infos[i];
+					write.info = &infos[infoIdx];
 					write.descriptorType = type;
+
+					infoIdx += write.count;
 				}
 			}
 			assert(writeCount == bindingCount);

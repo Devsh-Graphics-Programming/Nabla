@@ -91,7 +91,7 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 
 // same as CFloatingPointSeparableImageFilterKernelBase but with added constraint that support is symmetric around the orign
 template<class CRTP>
-class NBL_API CFloatingPointIsotropicSeparableImageFilterKernelBase : public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP>>
+class CFloatingPointIsotropicSeparableImageFilterKernelBase : public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP>>
 {
 	using Base = CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP>>;
 

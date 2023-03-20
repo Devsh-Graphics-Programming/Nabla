@@ -11,7 +11,7 @@ namespace nbl::asset
 {
 
 // Standard Triangle function, symmetric, peak in the support is 1 and at origin, integral is 1, so support must be [-1,1)
-class NBL_API CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel>
+class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel>
 {
 	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel>;
 

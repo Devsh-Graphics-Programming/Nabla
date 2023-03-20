@@ -23,7 +23,7 @@ namespace nbl::asset
 {
 
 template<typename Swizzle, typename Dither, typename Normalization, bool Clamp>
-class NBL_API CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CBasicImageFilterCommon
+class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CBasicImageFilterCommon
 {
 	public:
 		class CStateBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>::state_type
@@ -85,7 +85,7 @@ template<
 	bool Clamp						= true,
 	Blittable BlitUtilities			= CBlitUtilities<>,
 	typename LutDataType			= float>
-class NBL_API CBlitImageFilter :
+class CBlitImageFilter :
 	public CImageFilter<CBlitImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities, LutDataType>>,
 	public CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>
 {

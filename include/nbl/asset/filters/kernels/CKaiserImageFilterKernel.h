@@ -11,7 +11,7 @@ namespace nbl::asset
 {
 
 // Kaiser filter, basically a windowed sinc.
-class NBL_API CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel>
+class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel>
 {
 	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel>;
 
