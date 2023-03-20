@@ -161,7 +161,7 @@ template<class T>
 NBL_FORCE_INLINE T sign(const T& a)
 {
 	auto isneg = a < T(0);
-	using bool_type = typename std::remove_reference<decltype(isneg)>::type;
+	using bool_type = std::remove_reference_t<decltype(isneg)>;
 	T half_sign = core::mix<T,bool_type>(T(1),T(-1),isneg);
 	auto iszero = a == T(0);
 	return core::mix<T,bool_type>(half_sign,T(0),iszero);

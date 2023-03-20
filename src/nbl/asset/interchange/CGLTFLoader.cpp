@@ -6,7 +6,9 @@
 
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
+#include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
 
 #include "simdjson/singleheader/simdjson.h"
 #include <algorithm>
@@ -49,9 +51,9 @@ using namespace nbl::asset;
 				auto glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 
-				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::ICPUShader::buffer_contains_glsl, stage, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
+				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), stage, asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
 				if (extraDefine)
-					unspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader.get(),"%s",extraDefine);
+					unspecializedShader = CGLSLCompiler::createOverridenCopy(unspecializedShader.get(),"%s",extraDefine);
 
 				ICPUSpecializedShader::SInfo specInfo({},nullptr,"main");
 				auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
@@ -83,7 +85,7 @@ using namespace nbl::asset;
 			for (auto i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; i++)
 			{
 				combinedSamplerBindings[i].binding = i;
-				combinedSamplerBindings[i].type = EDT_COMBINED_IMAGE_SAMPLER;
+				combinedSamplerBindings[i].type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
 				combinedSamplerBindings[i].count = 1u;
 				combinedSamplerBindings[i].stageFlags = IShader::ESS_FRAGMENT;
 				combinedSamplerBindings[i].samplers = nullptr;
@@ -322,18 +324,19 @@ using namespace nbl::asset;
 				auto defaultSampler = _override->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",context.loadContext,0u).first;
 				for (uint16_t i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
 				{
-					auto desc = material.descriptorSet->getDescriptors(i).begin();
-					desc->desc = defaultImageView;
-					desc->image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-					desc->image.sampler = defaultSampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = defaultImageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = defaultSampler;
 				}
 				auto setImage = [&cpuTextures,&material](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
 				{
 					const auto& [imageView,sampler] = cpuTextures[globalTextureIndex];
 
-					auto desc = material.descriptorSet->getDescriptors(localTextureIndex).begin();
-					desc->desc = imageView;
-					desc->image.sampler = sampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(localTextureIndex, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = imageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				};
 
 				auto& pushConstants = material.pushConstants;
@@ -372,9 +375,10 @@ using namespace nbl::asset;
 					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<false>(cpuTextures[normalTextureID].first->getCreationParameters().image.get(), scales);
 					auto& sampler = cpuTextures[normalTextureID].second;
 
-					auto desc = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE).begin();
-					desc->desc = std::move(imageView);
-					desc->image.sampler = sampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = imageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				}
 				if (glTFMaterial.occlusionTexture.has_value() && glTFMaterial.occlusionTexture.value().index.has_value())
 				{
@@ -683,7 +687,7 @@ using namespace nbl::asset;
 
 						for (const auto& glTFprimitive : glTFMesh.primitives)
 						{
-							typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
+							std::remove_reference_t<decltype(glTFprimitive)> SGLTFPrimitive;
 
 							auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 							cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
@@ -710,7 +714,7 @@ using namespace nbl::asset;
 								const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
 								const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
 
-								typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
+								std::remove_reference_t<decltype(glTFbufferView)> SGLTFBufferView;
 
 								auto setBufferBinding = [&](uint32_t target) -> void
 								{

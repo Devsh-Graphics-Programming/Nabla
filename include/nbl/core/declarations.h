@@ -60,7 +60,7 @@
 #include "nbl/core/parallel/unlock_guard.h"
 // string
 #include "nbl/core/string/stringutil.h"
-#include "nbl/core/string/UniqueStringLiteralType.h"
+#include "nbl/core/string/StringLiteral.h"
 // other useful things
 #include "nbl/core/SingleEventHandler.h"
 #include "nbl/core/EventDeferredHandler.h"

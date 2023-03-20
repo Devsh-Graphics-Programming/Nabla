@@ -32,7 +32,7 @@ inline void fillBufferWithDeadBeef(ICPUBuffer* _buf)
 #include "nbl/nblpack.h"
 //! Designed for use with interface blocks declared with `layout (row_major, std140)`
 // TODO: change members to core::matrix3x4SIMD and core::matrix4SIMD
-struct NBL_API SBasicViewParameters
+struct SBasicViewParameters
 {
     float MVP[4*4];
     //! Might be used for Model matrix just as well

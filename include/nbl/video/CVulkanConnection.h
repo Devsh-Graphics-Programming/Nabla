@@ -29,7 +29,6 @@ protected:
     explicit CVulkanConnection(
         VkInstance instance,
         const SFeatures& enabledFeatures,
-        core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc,
         std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger);
 

@@ -13,7 +13,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API COBJMetadata final : public IAssetMetadata
+class COBJMetadata final : public IAssetMetadata
 {
     public:
         using CRenderpassIndependentPipeline = typename CMTLMetadata::CRenderpassIndependentPipeline;

@@ -8,7 +8,7 @@
 namespace nbl::system
 {
 
-class NBL_API ISystemFile : public IFile
+class ISystemFile : public IFile
 {
 	protected:
 		// the ISystem is the factory, so this stays protected

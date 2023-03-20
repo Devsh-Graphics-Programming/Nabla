@@ -2,7 +2,7 @@
 #define _NBL_VIDEO_S_PHYSICAL_DEVICE_LIMITS_H_INCLUDED_
 
 #include <type_traits>
-#include "nbl/asset/utils/IGLSLCompiler.h" // asset::IGLSLCompiler::E_SPIRV_VERSION
+#include "nbl/asset/utils/CGLSLCompiler.h" // asset::CGLSLCompiler::E_SPIRV_VERSION
 #include "nbl/asset/IImage.h"
 
 namespace nbl::video
@@ -34,20 +34,20 @@ struct SPhysicalDeviceLimits
     //size_t            sparseAddressSpaceSize;         // [TODO LATER] when we support sparse
     //uint32_t          maxBoundDescriptorSets;         // [DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently
 
-    uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
+    uint32_t maxPerStageDescriptorSamplers = 0u;  // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxPerStageDescriptorUBOs = 0u;
     uint32_t maxPerStageDescriptorSSBOs = 0u;
-    uint32_t maxPerStageDescriptorImages = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER, EDT_UNIFORM_TEXEL_BUFFER count against this limit.
+    uint32_t maxPerStageDescriptorImages = 0u; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER count against this limit.
     uint32_t maxPerStageDescriptorStorageImages = 0u;
     uint32_t maxPerStageDescriptorInputAttachments = 0u;
     uint32_t maxPerStageResources = 0u;
 
-    uint32_t maxDescriptorSetSamplers = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER count against this limit
+    uint32_t maxDescriptorSetSamplers = 0u; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxDescriptorSetUBOs = 0u;
     uint32_t maxDescriptorSetDynamicOffsetUBOs = 0u;
     uint32_t maxDescriptorSetSSBOs = 0u;
     uint32_t maxDescriptorSetDynamicOffsetSSBOs = 0u;
-    uint32_t maxDescriptorSetImages = 0u; // Descriptors with a type of EDT_COMBINED_IMAGE_SAMPLER, EDT_UNIFORM_TEXEL_BUFFER count against this limit.
+    uint32_t maxDescriptorSetImages = 0u; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER count against this limit.
     uint32_t maxDescriptorSetStorageImages = 0u;
     uint32_t maxDescriptorSetInputAttachments = 0u;
 
@@ -589,6 +589,10 @@ struct SPhysicalDeviceLimits
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
     bool shaderSMBuiltins = false;
 
+    // [TODO] MORE: Use multiple booleans that represent what `VK_KHR_maintenance4` adds support for, instead of single bool; see description in https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_maintenance4.html
+    /* VkPhysicalDeviceMaintenance4Features *//* VK_KHR_maintenance4 */
+    bool workgroupSizeFromSpecConstant = false;
+
     bool shaderSubgroupPartitioned = false; /* VK_NV_shader_subgroup_partitioned */
     bool gcnShader = false; /* VK_AMD_gcn_shader */
     bool gpuShaderHalfFloat = false; /* VK_AMD_gpu_shader_half_float */
@@ -612,7 +616,7 @@ struct SPhysicalDeviceLimits
     bool allowCommandBufferQueryCopies = false;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
-    asset::IGLSLCompiler::E_SPIRV_VERSION spirvVersion;
+    asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion;
 
     // utility functions
     // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),
@@ -876,6 +880,7 @@ struct SPhysicalDeviceLimits
         if (imageFootprint && !_rhs.imageFootprint) return false;
         if (texelBufferAlignment && !_rhs.texelBufferAlignment) return false;
         if (shaderSMBuiltins && !_rhs.shaderSMBuiltins) return false;
+        if (workgroupSizeFromSpecConstant && !_rhs.workgroupSizeFromSpecConstant) return false;
         if (shaderSubgroupPartitioned && !_rhs.shaderSubgroupPartitioned) return false;
         if (gcnShader && !_rhs.gcnShader) return false;
         if (gpuShaderHalfFloat && !_rhs.gpuShaderHalfFloat) return false;

@@ -21,10 +21,9 @@
 namespace nbl::asset
 {
 
-// Todo(achal): Vulkan's VkOffset3D has int32_t members, getting rid of this
-// produces a bunch of errors in the filtering APIs and core::vectorSIMD**,
-// gotta do it carefully
-// Resultion(devsh): when we have our own HLSL lib, replace these types with `uvec3`
+// TODO: Vulkan's VkOffset3D has int32_t members, getting rid of this
+// produces a bunch of errors in the filtering APIs and core::vectorSIMD**.
+// When we have our own HLSL lib, replace these types with `uvec3`. 
 
 //placeholder until we configure Vulkan SDK
 typedef struct VkOffset3D {
@@ -57,7 +56,7 @@ inline bool operator==(const VkExtent3D& v1, const VkExtent3D& v2)
 }
 
 
-class NBL_API IImage : public IDescriptor
+class IImage : public IDescriptor
 {
 	public:
 		enum E_ASPECT_FLAGS : uint16_t
@@ -739,6 +738,8 @@ class NBL_API IImage : public IDescriptor
 		}
 };
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_USAGE_FLAGS)
 
 } // end namespace nbl::asset
 

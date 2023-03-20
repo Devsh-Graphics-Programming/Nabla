@@ -1,14 +1,14 @@
 #ifndef __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 #define __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
 
-#include "nbl/system/declarations.h"
 
-#include <type_traits>
+#include "nbl/core/util/bitflag.h"
+
+#include "nbl/system/declarations.h"
+#include "nbl/system/ISystem.h"
 
 #include "nbl/asset/IImage.h" //for VkExtent3D only
 #include "nbl/asset/ISpecializedShader.h"
-
-#include "nbl/system/ISystem.h"
 
 #include "nbl/video/EApiType.h"
 #include "nbl/video/debug/IDebugCallback.h"
@@ -19,6 +19,8 @@
 
 #include "SPhysicalDeviceLimits.h"
 #include "SPhysicalDeviceFeatures.h"
+
+#include <type_traits>
 
 namespace nbl::video
 {
@@ -74,9 +76,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             inline auto operator <=> (uint32_t vkApiVersion) const { return vkApiVersion - VK_MAKE_API_VERSION(0, major, minor, patch); }
             inline auto operator <=> (const APIVersion& other) const 
             {
-                if(major != other.major) return other.major - major;
-                if(minor != other.minor) return other.minor - minor;
-                if(patch != other.patch) return other.patch - patch;
+                if(major != other.major) return static_cast<uint32_t>(other.major - major);
+                if(minor != other.minor) return static_cast<uint32_t>(other.minor - minor);
+                if(patch != other.patch) return static_cast<uint32_t>(other.patch - patch);
                 return 0u;
             }
         };
@@ -579,47 +581,22 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             );
         }
 
-        template<typename FORMAT_USAGE>
-        struct FormatPromotionRequest
-        {
+        struct SBufferFormatPromotionRequest {
             asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
-            FORMAT_USAGE usages = FORMAT_USAGE();
-
-            struct hash
-            {
-                // pack into 64bit for easy hashing 
-                uint64_t operator()(const FormatPromotionRequest<FORMAT_USAGE>& r) const
-                {
-                    uint64_t msb = uint64_t(std::hash<FORMAT_USAGE>()(r.usages));
-                    return (msb << 32u) | r.originalFormat;
-                }
-            };
-
-            struct equal_to
-            {
-                bool operator()(const FormatPromotionRequest<FORMAT_USAGE>& l, const FormatPromotionRequest<FORMAT_USAGE>& r) const
-                {
-                    return l.originalFormat == r.originalFormat && l.usages == r.usages;
-                }
-            };
+            SFormatBufferUsages::SUsage usages = SFormatBufferUsages::SUsage();
         };
 
-        using SBufferFormatPromotionRequest = FormatPromotionRequest<IPhysicalDevice::SFormatBufferUsages::SUsage>;
-        using SImageFormatPromotionRequest = FormatPromotionRequest<IPhysicalDevice::SFormatImageUsages::SUsage>;
+        struct SImageFormatPromotionRequest {
+            asset::E_FORMAT originalFormat = asset::EF_UNKNOWN;
+            SFormatImageUsages::SUsage usages = SFormatImageUsages::SUsage();
+        };
 
         asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
         asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling);
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
-
-        inline asset::IGLSLCompiler* getGLSLCompiler() const 
-        {
-            if (m_api)
-                return m_api->getGLSLCompiler();
-            return nullptr;
-        }
-
+        
         virtual IDebugCallback* getDebugCallback() = 0;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
@@ -699,7 +676,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         
         IAPIConnection* m_api; // dumb pointer to avoid circ ref
         core::smart_refctd_ptr<system::ISystem> m_system;
-        core::smart_refctd_ptr<asset::IGLSLCompiler> m_GLSLCompiler;
 
         SProperties m_properties = {};
         SFeatures m_features = {};
@@ -712,9 +688,38 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         SFormatImageUsages m_optimalTilingUsages = {};
         SFormatBufferUsages m_bufferUsages = {};
 
-        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatBufferUsages::SUsage>::equal_to> format_buffer_cache_t;
-        typedef core::unordered_map<FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>, asset::E_FORMAT, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>::hash, FormatPromotionRequest<video::IPhysicalDevice::SFormatImageUsages::SUsage>::equal_to> format_image_cache_t;
+        struct SBufferFormatPromotionRequestHash
+        {
+            // pack into 64bit for easy hashing 
+            inline uint64_t operator()(const SBufferFormatPromotionRequest& r) const;
+        };
 
+        struct SBufferFormatPromotionRequestEqualTo
+        {
+            inline bool operator()(const SBufferFormatPromotionRequest& l, const SBufferFormatPromotionRequest& r) const;
+        };
+
+        struct SImageFormatPromotionRequestHash
+        {
+            // pack into 64bit for easy hashing 
+            inline uint64_t operator()(const SImageFormatPromotionRequest& r) const;
+        };
+
+        struct SImageFormatPromotionRequestEqualTo
+        {
+            inline bool operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const;
+        };
+
+
+
+        typedef core::unordered_map<SBufferFormatPromotionRequest, asset::E_FORMAT, 
+            SBufferFormatPromotionRequestHash, 
+            SBufferFormatPromotionRequestEqualTo> format_buffer_cache_t;
+        typedef core::unordered_map<SImageFormatPromotionRequest, asset::E_FORMAT, 
+            SImageFormatPromotionRequestHash, 
+            SImageFormatPromotionRequestEqualTo> format_image_cache_t;
+
+            
         struct format_promotion_cache_t
         {
             format_buffer_cache_t buffers;
@@ -728,7 +733,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 namespace std
 {
     template<>
-    struct std::hash<nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage>
+    struct hash<nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage>
     {
         inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatImageUsages::SUsage& i) const
         {
@@ -747,7 +752,7 @@ namespace std
     };
 
     template<>
-    struct std::hash<nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage>
+    struct hash<nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage>
     {
         inline uint32_t operator()(const nbl::video::IPhysicalDevice::SFormatBufferUsages::SUsage& b) const
         {
@@ -761,4 +766,28 @@ namespace std
     };
 }
 
+namespace nbl::video
+{
+    inline uint64_t IPhysicalDevice::SBufferFormatPromotionRequestHash::operator()(const SBufferFormatPromotionRequest& r) const {
+        uint64_t msb = uint64_t(std::hash<IPhysicalDevice::SFormatBufferUsages::SUsage>()(r.usages));
+        return (msb << 32u) | r.originalFormat;
+    }
+
+    inline uint64_t IPhysicalDevice::SImageFormatPromotionRequestHash::operator()(const SImageFormatPromotionRequest& r) const {
+        uint64_t msb = uint64_t(std::hash<IPhysicalDevice::SFormatImageUsages::SUsage>()(r.usages));
+        return (msb << 32u) | r.originalFormat;
+    }
+
+    inline bool IPhysicalDevice::SBufferFormatPromotionRequestEqualTo::operator()(const SBufferFormatPromotionRequest& l, const SBufferFormatPromotionRequest& r) const
+    {
+        return l.originalFormat == r.originalFormat && l.usages == r.usages;
+    }
+
+     inline bool IPhysicalDevice::SImageFormatPromotionRequestEqualTo::operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const
+    {
+        return l.originalFormat == r.originalFormat && l.usages == r.usages;
+    }
+    
+
+}
 #endif

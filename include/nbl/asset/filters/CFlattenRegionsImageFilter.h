@@ -18,7 +18,7 @@ namespace asset
 {
 
 // respecifies the image in terms of the least amount of region entries
-class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilter>, public CBasicImageFilterCommon
+class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilter>, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CFlattenRegionsImageFilter() {}

@@ -16,7 +16,7 @@ namespace nbl::asset
 
 // A Kernel that's a derivative of another, `Kernel` must have a `d_weight` function
 template<class Kernel>
-class NBL_API CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>
+class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>
 {
 		using Base = CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>;
 

@@ -18,7 +18,7 @@
 namespace nbl::system
 {
 
-class NBL_API ILogger : public core::IReferenceCounted
+class ILogger : public core::IReferenceCounted
 {
 	public:
 		enum E_LOG_LEVEL : uint8_t
@@ -31,7 +31,7 @@ class NBL_API ILogger : public core::IReferenceCounted
 			ELL_ERROR = 16
 		};
 
-		void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
+		inline void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
 		{
 			if (logLevel & m_logLevelMask.value)
 			{
@@ -48,12 +48,12 @@ class NBL_API ILogger : public core::IReferenceCounted
 		}
 
 	protected:
-		static core::bitflag<E_LOG_LEVEL> defaultLogMask();
+		NBL_API2 static core::bitflag<E_LOG_LEVEL> defaultLogMask();
 
 		ILogger(core::bitflag<E_LOG_LEVEL> logLevelMask) : m_logLevelMask(logLevelMask) {}
 
 		virtual void log_impl(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list args) = 0;
-		virtual std::string constructLogString(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
+		inline virtual std::string constructLogString(const std::string_view& fmtString, E_LOG_LEVEL logLevel, va_list l)
 		{
 			using namespace std::literals;
 			using namespace std::chrono;
@@ -96,11 +96,13 @@ class NBL_API ILogger : public core::IReferenceCounted
 				return "";
 			}
 
-			size_t newSize = vsnprintf(nullptr, 0, fmtString.data(), l) + 1;
-			std::string message(newSize, '\0'); 
-			vsnprintf(message.data(), newSize, fmtString.data(), l);
-			
-			std::string out_str(timeStr.length() + messageTypeStr.length() + message.length() + 3, '\0');
+			va_list testArgs; // copy of va_list since it is not safe to use it twice
+			va_copy(testArgs, l);
+			int formatSize = vsnprintf(nullptr, 0, fmtString.data(), testArgs) + 1;
+			std::string message(formatSize, '\0'); 
+			vsnprintf(message.data(), formatSize, fmtString.data(), l);
+
+			std::string out_str(timeStr.length() + messageTypeStr.length() + formatSize + 3, '\0');
 			sprintf(out_str.data(), "%s%s: %s\n", timeStr.data(), messageTypeStr.data(), message.data());
  			return out_str;
 			return "";
@@ -110,41 +112,41 @@ class NBL_API ILogger : public core::IReferenceCounted
 		core::bitflag<E_LOG_LEVEL> m_logLevelMask;
 };
 
-class NBL_API logger_opt_ptr final
+class logger_opt_ptr final
 {
 	public:
-		logger_opt_ptr(ILogger* const _logger) : logger(_logger) {}
-		~logger_opt_ptr() = default;
+		inline logger_opt_ptr(ILogger* const _logger) : logger(_logger) {}
+		inline ~logger_opt_ptr() = default;
 
 		template<typename... Args>
-		void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
+		inline void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
 		{
 			if (logger != nullptr)
 				return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
 		}
 
-		ILogger* get() const { return logger; }
+		inline ILogger* get() const { return logger; }
 	private:
 		mutable ILogger* logger;
 };
 
-class NBL_API logger_opt_smart_ptr final
+class logger_opt_smart_ptr final
 {
 	public:
-		logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
-		logger_opt_smart_ptr(std::nullptr_t t) : logger(nullptr) {}
-		~logger_opt_smart_ptr() = default;
+		inline logger_opt_smart_ptr(core::smart_refctd_ptr<ILogger>&& _logger) : logger(std::move(_logger)) {}
+		inline logger_opt_smart_ptr(std::nullptr_t t) : logger(nullptr) {}
+		inline ~logger_opt_smart_ptr() = default;
 
 		template<typename... Args>
-		void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
+		inline void log(const std::string_view& fmtString, ILogger::E_LOG_LEVEL logLevel = ILogger::ELL_DEBUG, Args&&... args) const
 		{
 			if (logger.get() != nullptr)
 				return logger->log(fmtString, logLevel, std::forward<Args>(args)...);
 		}
 
-		ILogger* getRaw() const { return logger.get(); }
-		logger_opt_ptr getOptRawPtr() const { return logger_opt_ptr(logger.get()); }
-		const core::smart_refctd_ptr<ILogger>& get() const { return logger; }
+		inline ILogger* getRaw() const { return logger.get(); }
+		inline logger_opt_ptr getOptRawPtr() const { return logger_opt_ptr(logger.get()); }
+		inline const core::smart_refctd_ptr<ILogger>& get() const { return logger; }
 
 	private:
 		mutable core::smart_refctd_ptr<ILogger> logger;

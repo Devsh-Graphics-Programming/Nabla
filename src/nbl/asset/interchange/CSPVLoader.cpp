@@ -5,8 +5,13 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUShader.h"
+#include "nbl_spirv_cross/spirv.hpp"
+#include "nbl_spirv_cross/spirv_parser.hpp"
 
 #include "CSPVLoader.h"
+#include "nbl_spirv_cross/spirv.hpp"
+#include "nbl_spirv_cross/spirv_cfg.hpp"
+#include "nbl_spirv_cross/spirv_parser.hpp"
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -75,5 +80,5 @@ SAssetBundle CSPVLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAs
 	const SPIRV_CROSS_NAMESPACE::ParsedIR& parsedIR = parser.get_parsed_ir();
 	SPIRV_CROSS_NAMESPACE::SPIREntryPoint defaultEntryPoint = parsedIR.entry_points.at(parsedIR.default_entry_point);
 
-    return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<ICPUShader>(std::move(buffer), getShaderStageFromSPIRVCrossExecutionModel(defaultEntryPoint.model), _file->getFileName().string())});
+    return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<ICPUShader>(std::move(buffer), getShaderStageFromSPIRVCrossExecutionModel(defaultEntryPoint.model), asset::IShader::E_CONTENT_TYPE::ECT_SPIRV, _file->getFileName().string())});
 }

@@ -32,7 +32,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	string(REGEX REPLACE "^[0-9]+\." "" EXECUTABLE_NAME ${EXECUTABLE_NAME})
 	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
 	string(MAKE_C_IDENTIFIER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
-
+	
 	project(${EXECUTABLE_NAME})
 
 	if(ANDROID)
@@ -60,6 +60,13 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		else()
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 		endif()
+		
+		if(WIN32 AND MSVC)
+			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
+			target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
+				_DXC_DLL_="${DXC_DLL}"
+			)
+		endif()
 	endif()
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
@@ -75,13 +82,11 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		set_target_properties("${EXECUTABLE_NAME}" PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
 	endif()
 	
-	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
-	
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC "${NBL_ROOT_PATH}/examples_tests/common"
+		PUBLIC "${NBL_ROOT_PATH_BINARY}/include"
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
-		PRIVATE ${NBL_EGL_INCLUDE_DIRECORIES}
 	)
 	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
 
@@ -216,7 +221,6 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	add_dependencies(${LIB_NAME} Nabla)
 	
 	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
-	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
 
 	target_include_directories(${LIB_NAME}
 		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
@@ -227,7 +231,6 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		PUBLIC ${CMAKE_SOURCE_DIR}/src
 		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
 		PRIVATE ${LIB_INCLUDES}
-		PRIVATE ${NBL_EGL_INCLUDE_DIRECORIES}
 	)
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
@@ -669,7 +672,7 @@ function(NBL_UPDATE_SUBMODULES)
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
 		set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
 		set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
-		message(STATUS "test")
+		
 		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
 			NBL_WRAPPER_COMMAND("" "" TRUE)
 		else()

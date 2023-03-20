@@ -18,7 +18,7 @@ namespace LumaMeter
 /**
 - Overridable Tonemapping Parameter preparation (for OptiX and stuff)
 **/
-class NBL_API CLumaMeter : public core::TotalInterface
+class CLumaMeter : public core::TotalInterface
 {
     public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_COUNT = 256u;
@@ -113,7 +113,7 @@ class NBL_API CLumaMeter : public core::TotalInterface
 
 		// Special Note for Optix: minLuma>=0.00000001 and std::get<E_COLOR_PRIMARIES>(inputColorSpace)==ECP_SRGB
 		static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createShader(
-			asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
+			asset::CGLSLCompiler* compilerToAddBuiltinIncludeTo,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 			E_METERING_MODE meterMode, float minLuma=1.f/2048.f, float maxLuma=65536.f
 		);

@@ -20,7 +20,7 @@ namespace nbl::asset
 /*
 	NormalMap to DerivativeMap Swizzle
 */
-struct NBL_API NormalMapToDerivativeMapSwizzle
+struct NormalMapToDerivativeMapSwizzle
 {
 	// since most normalmaps are supplied in RG8_UNORM
 	double zeroEpsilon = 1.0 / 255.0;

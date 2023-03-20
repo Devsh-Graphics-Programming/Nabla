@@ -7,7 +7,7 @@
 #include "nbl/video/debug/IDebugCallback.h"
 #include "nbl/video/utilities/renderdoc.h"
 #include "nbl/video/ECommonEnums.h"
-#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CGLSLCompiler.h"
 
 namespace nbl::video
 {
@@ -30,7 +30,7 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
             bool validations = false;
 
             // VK_EXT_debug_utils
-            // When combined with validation layers, even more detailed feedback on the application’s use of Vulkan will be provided.
+            // When combined with validation layers, even more detailed feedback on the applicationï¿½s use of Vulkan will be provided.
             //  The ability to create a debug messenger which will pass along debug messages to an application supplied callback.
             //  The ability to identify specific Vulkan objects using a name or tag to improve tracking.
             //  The ability to identify specific sections within a VkQueue or VkCommandBuffer using labels to aid organization and offline analysis in external tools.
@@ -45,15 +45,12 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; };
 
-        inline asset::IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
-
     protected:
-        IAPIConnection(const SFeatures& enabledFeatures, core::smart_refctd_ptr<asset::IGLSLCompiler>&& glslc);
+        IAPIConnection(const SFeatures& enabledFeatures);
 
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
         renderdoc_api_t* m_rdoc_api;
         SFeatures m_enabledFeatures = {};
-        core::smart_refctd_ptr<asset::IGLSLCompiler> m_glslCompiler;
 };
 
 }

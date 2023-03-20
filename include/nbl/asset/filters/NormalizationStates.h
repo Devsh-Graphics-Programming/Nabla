@@ -14,7 +14,7 @@ namespace nbl::asset
 
 //! Global per channel Normalizing state
 // TODO: support using the min/max from Tdec values
-class NBL_API CGlobalNormalizationState
+class CGlobalNormalizationState
 {
 	public:
 		inline bool validate() const {return true;}
@@ -115,7 +115,7 @@ class NBL_API CGlobalNormalizationState
 namespace impl
 {
 
-class NBL_API CDerivativeMapNormalizationStateBase
+class CDerivativeMapNormalizationStateBase
 {
 	public:
 		inline bool validate() const {return true;}
@@ -179,7 +179,7 @@ class NBL_API CDerivativeMapNormalizationStateBase
 }
 
 template<bool isotropic>
-class NBL_API CDerivativeMapNormalizationState : public impl::CDerivativeMapNormalizationStateBase
+class CDerivativeMapNormalizationState : public impl::CDerivativeMapNormalizationStateBase
 {
 	public:
 		template<typename Tenc>
@@ -197,10 +197,10 @@ class NBL_API CDerivativeMapNormalizationState : public impl::CDerivativeMapNorm
 
 //! Wrapper that makes it easy to put inside states
 template<class NormalizationState>
-class NBL_API conditional_normalization_state;
+class conditional_normalization_state;
 
 template<>
-class NBL_API conditional_normalization_state<void>
+class conditional_normalization_state<void>
 {
 	public:
 		inline bool validate() const {return true;}
@@ -232,7 +232,7 @@ class NBL_API conditional_normalization_state<void>
 };
 
 template<class NormalizationState>
-class NBL_API conditional_normalization_state : public NormalizationState
+class conditional_normalization_state : public NormalizationState
 {
 };
 

@@ -5,6 +5,7 @@
 #ifndef __NBL_CORE_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 #define __NBL_CORE_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/alloc/AlignedBase.h"
 #include "nbl/core/containers/dynamic_array.h"
@@ -36,7 +37,7 @@ namespace nbl::core
 	@see core::dynamic_array
 */
 template<typename T, class allocator=core::allocator<typename std::remove_const<T>::type>, typename... OverAlignmentTypes>
-class NBL_API NBL_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator,OverAlignmentTypes...>,OverAlignmentTypes...>
+class NBL_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator,OverAlignmentTypes...>,OverAlignmentTypes...>
 {
 	public:
 		using this_type = refctd_dynamic_array<T,allocator,OverAlignmentTypes...>;

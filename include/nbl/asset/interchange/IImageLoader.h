@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-class NBL_API IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
+class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 {
 	public:
 

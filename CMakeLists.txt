@@ -2,11 +2,9 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 #policies
-cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
-set(OpenGL_GL_PREFERENCE LEGACY)
-#cmake_policy(SET CMP )
+cmake_policy(SET CMP0112 NEW)
 
 set(NBL_BUILD_ANDROID OFF)
 
@@ -14,6 +12,7 @@ include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla LANGUAGES CXX C)
+enable_language(C CXX ASM)
 
 option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
@@ -262,7 +261,7 @@ endif()
 #uncomment in the future
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
-option(NBL_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
+option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 
 option(NBL_PCH "Enable pre-compiled header" ON)
 

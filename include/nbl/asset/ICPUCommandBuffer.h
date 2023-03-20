@@ -17,7 +17,7 @@
 namespace nbl::asset
 {
 
-class NBL_API ICPUCommandBuffer final :
+class ICPUCommandBuffer final :
     public IAsset,
     public ICommandBuffer<
         ICPUBuffer,

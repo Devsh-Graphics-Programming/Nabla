@@ -15,7 +15,7 @@ namespace nbl {
 namespace asset
 {
 
-class NBL_API ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView, ICPUSampler>
+class ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView, ICPUSampler>
 {
     using base_t = IVirtualTexture<ICPUImageView, ICPUSampler>;
 
@@ -523,9 +523,43 @@ public:
         return getDSlayoutBindings_internal<ICPUDescriptorSetLayout>(_outBindings, _outSamplers, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
     }
 
-    auto getDescriptorSetWrites(ICPUDescriptorSet::SWriteDescriptorSet* _outWrites, ICPUDescriptorSet::SDescriptorInfo* _outInfo, ICPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    bool updateDescriptorSet(ICPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        return getDescriptorSetWrites_internal<ICPUDescriptorSet>(_outWrites, _outInfo, _dstSet, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
+        // Update _pgtBinding.
+        {
+            auto pgtInfos = _dstSet->getDescriptorInfos(_pgtBinding, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+            if (pgtInfos.empty())
+                return false; // TODO: Log
+
+            if (pgtInfos.size() != 1ull)
+                return false; // TODO: Log
+
+            auto& info = pgtInfos.begin()[0];
+            info.info.image.imageLayout = IImage::EL_UNDEFINED;
+            info.info.image.sampler = nullptr;
+            info.desc = core::smart_refctd_ptr<ICPUImageView>(getPageTableView());
+        }
+
+        auto updateSamplersBinding = [&](const uint32_t binding, const auto& views) -> bool
+        {
+            auto infos = _dstSet->getDescriptorInfos(binding, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+
+            if (infos.size() < views.size())
+                return false; // TODO: Log
+
+            for (uint32_t i = 0; i < infos.size(); ++i)
+            {
+                auto& info = infos.begin()[i];
+
+                info.info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+                info.info.image.sampler = nullptr;
+                info.desc = views.begin()[i].view;
+            }
+
+            return true;
+        };
+
+        return updateSamplersBinding(_fsamplersBinding, getFloatViews()) && updateSamplersBinding(_isamplersBinding, getIntViews()) && updateSamplersBinding(_usamplersBinding, getUintViews());
     }
 
 protected:

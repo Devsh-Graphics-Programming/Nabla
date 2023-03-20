@@ -253,5 +253,46 @@
 
 #define NBL_FOREACH(WHAT, ... ) NBL_EVAL(NBL_CONCATENATE(NBL_FOREACH_,NBL_VA_ARGS_COUNT(__VA_ARGS__))(WHAT, __VA_ARGS__))
 
+#define NBL_ENUM_ADD_BITWISE_OPERATORS(EnumType)												\
+	inline constexpr EnumType operator&(const EnumType& lhs, const EnumType& rhs) noexcept		\
+	{																							\
+		using T = typename std::underlying_type_t<EnumType>;									\
+		return static_cast<EnumType>(static_cast<T>(lhs) & static_cast<T>(rhs));				\
+	}																							\
+																								\
+	inline constexpr EnumType& operator&=(EnumType& lhs, const EnumType& rhs) noexcept			\
+	{																							\
+	return lhs = lhs & rhs;																		\
+	}																							\
+																								\
+	inline constexpr EnumType operator|(const EnumType& lhs, const EnumType& rhs) noexcept		\
+	{																							\
+	using T = typename std::underlying_type_t<EnumType>;										\
+	return static_cast<EnumType>(static_cast<T>(lhs) | static_cast<T>(rhs));					\
+	}																							\
+																								\
+	inline constexpr EnumType& operator|=(EnumType& lhs, const EnumType& rhs) noexcept			\
+	{																							\
+	return lhs = lhs | rhs;																		\
+	}																							\
+																								\
+	inline constexpr EnumType operator^(const EnumType& lhs, const EnumType& rhs) noexcept		\
+	{																							\
+	using T = typename std::underlying_type_t<EnumType>;										\
+	return static_cast<EnumType>(static_cast<T>(lhs) ^ static_cast<T>(rhs));					\
+	}																							\
+																								\
+	inline constexpr EnumType& operator^=(EnumType& lhs, const EnumType& rhs) noexcept			\
+	{																							\
+	return lhs = lhs ^ rhs;																		\
+	}																							\
+																								\
+	inline constexpr EnumType& operator~(EnumType& e) noexcept									\
+	{																							\
+	using T = typename std::underlying_type_t<EnumType>;										\
+	return e = static_cast<EnumType>(~static_cast<T>(e));										\
+	}																							\
+	/**/
+
 
 #endif

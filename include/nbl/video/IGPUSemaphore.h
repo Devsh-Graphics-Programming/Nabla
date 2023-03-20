@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUSemaphore : public core::IReferenceCounted, public IBackendObject
+class IGPUSemaphore : public core::IReferenceCounted, public IBackendObject
 {
     protected:
         IGPUSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}

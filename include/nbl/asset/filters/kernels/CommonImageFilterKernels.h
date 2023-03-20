@@ -12,7 +12,7 @@ namespace nbl::asset
 {
 
 // base class for all kernels that require the pixels and arithmetic to be done in precise floats
-class NBL_API CFloatingPointOnlyImageFilterKernelBase
+class CFloatingPointOnlyImageFilterKernelBase
 {
 	public:
 		using value_type = double; // should probably allot `float`s at some point
@@ -29,7 +29,7 @@ class NBL_API CFloatingPointOnlyImageFilterKernelBase
 };
 
 // base class for all kernels which can be separated into axis-aligned passes
-class NBL_API CSeparableImageFilterKernelBase
+class CSeparableImageFilterKernelBase
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = true;
@@ -40,7 +40,7 @@ class NBL_API CSeparableImageFilterKernelBase
 
 // base class for all kernels that require pixels and arithmetic to be done in precise floats AND are separable AND have the same kernel function in each dimension AND have a rational support
 template<class CRTP>
-class NBL_API CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<CRTP,typename CFloatingPointOnlyImageFilterKernelBase::value_type>, public CFloatingPointOnlyImageFilterKernelBase, public CSeparableImageFilterKernelBase
+class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<CRTP,typename CFloatingPointOnlyImageFilterKernelBase::value_type>, public CFloatingPointOnlyImageFilterKernelBase, public CSeparableImageFilterKernelBase
 {
 	public:
 		using value_type = typename CFloatingPointOnlyImageFilterKernelBase::value_type;

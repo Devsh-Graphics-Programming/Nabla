@@ -103,11 +103,17 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
     }
 
     VkFence fence = _fence ? IBackendObject::device_compatibility_cast<CVulkanFence*>(_fence, m_originDevice)->getInternalObject() : VK_NULL_HANDLE;
-    if (vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence) == VK_SUCCESS)
+    auto vkRes = vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence);
+    if (vkRes == VK_SUCCESS)
     {
         if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
             return false;
+
         return true;
+    }
+    else
+    {
+        _NBL_DEBUG_BREAK_IF(true);
     }
 
     return false;
