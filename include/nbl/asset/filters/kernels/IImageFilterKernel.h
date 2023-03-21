@@ -1,13 +1,14 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED_
+#define _NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUImage.h"
+
 
 namespace nbl::asset
 {
@@ -96,16 +97,6 @@ class IImageFilterKernel
 		{
 			return window_size;
 		}
-
-		core::vectorSIMDf		negative_support;
-		core::vectorSIMDf		positive_support;
-		core::vectorSIMDi32		window_size;
-		core::vectorSIMDi32		window_strides;
-
-		// We only need multiplied scale so only store that.
-		// Here by "multiplied" we mean that all channels are multiplied together to get a value
-		// which is then replicated across all channels.
-		core::vectorSIMDf		m_multipliedScale = core::vectorSIMDf(1.f);
 		
 	protected:
 		// derived classes need to let us know where the function starts and stops having non-zero values, this is measured in pixels
@@ -134,6 +125,16 @@ class IImageFilterKernel
 
 			window_strides = core::vectorSIMDi32(1, window_size[0], window_size[0] * window_size[1]);
 		}
+	
+		core::vectorSIMDf		negative_support;
+		core::vectorSIMDf		positive_support;
+		core::vectorSIMDi32		window_size;
+		core::vectorSIMDi32		window_strides;
+	
+		// We only need multiplied scale so only store that.
+		// Here by "multiplied" we mean that all channels are multiplied together to get a value
+		// which is then replicated across all channels.
+		core::vectorSIMDf		m_multipliedScale = core::vectorSIMDf(1.f);
 };
 
 // statically polymorphic version of the interface for a kernel
@@ -155,13 +156,13 @@ class CImageFilterKernel : public IImageFilterKernel
 		// These are same as the functions declated here without the `p` prefix but allow us to use polymorphism at a higher level
 		inline bool pIsSeparable() const override
 		{
-			return CRTP::is_separable;
+			return false;
 		}
-		inline bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const override
+		inline bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const override final
 		{
 			return CRTP::validate(inImage, outImage);
 		}
-		void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override
+		inline void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override final
 		{
 			static_cast<const CRTP*>(this)->evaluate(globalPos,preFilter,postFilter);
 		}
@@ -202,28 +203,5 @@ class CImageFilterKernel : public IImageFilterKernel
 		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord) const;
 };
 
-//use this whenever you have diamond inheritance and ambiguous resolves
-#define NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(BASENAME) \
-template<typename... Args> \
-inline core::vectorSIMDi32 getWindowMinCoord(Args&&... args) const \
-{ \
-	return BASENAME::getWindowMinCoord(std::forward<Args>(args)...); \
-} \
-inline const auto& getWindowSize() const \
-{ \
-	return BASENAME::getWindowSize(); \
-} \
-template<class PreFilter=const typename BASENAME::default_sample_functor_t, class PostFilter=const typename BASENAME::default_sample_functor_t> \
-inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const \
-{ \
-	BASENAME::evaluate(globalPos, preFilter, postFilter); \
-} \
-template<class PreFilter, class PostFilter> \
-inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale) const \
-{ \
-	BASENAME::evaluateImpl(preFilter, postFilter, windowSample, relativePos, globalTexelCoord, multipliedScale); \
-}
-
 } // end namespace nbl::asset
-
 #endif
