@@ -1,28 +1,19 @@
-#ifndef __NBL_I_GPU_COMMAND_BUFFER_H_INCLUDED__
-#define __NBL_I_GPU_COMMAND_BUFFER_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_GPU_COMMAND_BUFFER_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_COMMAND_BUFFER_H_INCLUDED_
 
 #include "nbl/asset/ICommandBuffer.h"
-/*
-#include "nbl/video/IGPUImage.h"
-#include "nbl/video/IGPUImageView.h"
-#include "nbl/video/IGPURenderpass.h"
-#include "nbl/video/IGPUFramebuffer.h"
-#include "nbl/video/IGPUGraphicsPipeline.h"
-*/
-#include "nbl/video/IGPUDescriptorSet.h"
-/*
-#include "nbl/video/IGPUPipelineLayout.h"
-*/
+
 #include "nbl/video/IGPUEvent.h"
+#include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUComputePipeline.h"
-#include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
+#include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUCommandPool.h"
 
 namespace nbl::video
 {
 
-class IGPUCommandBuffer :
+class NBL_API2 IGPUCommandBuffer :
     public core::IReferenceCounted,
     public asset::ICommandBuffer<
         IGPUBuffer,

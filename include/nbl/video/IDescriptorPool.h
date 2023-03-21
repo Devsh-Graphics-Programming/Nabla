@@ -1,5 +1,5 @@
-#ifndef _NBL_I_DESCRIPTOR_POOL_H_INCLUDED_
-#define _NBL_I_DESCRIPTOR_POOL_H_INCLUDED_
+#ifndef _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
+#define _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
 
 
 #include "nbl/core/IReferenceCounted.h"
@@ -21,7 +21,7 @@ class IGPUAccelerationStructure;
 class IGPUDescriptorSet;
 class IGPUDescriptorSetLayout;
 
-class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
+class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t
