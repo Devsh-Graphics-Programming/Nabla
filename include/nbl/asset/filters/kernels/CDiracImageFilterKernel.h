@@ -1,40 +1,29 @@
-#ifndef __NBL_ASSET_C_DIRAC_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __NBL_ASSET_C_DIRAC_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef _NBL_ASSET_C_DIRAC_IMAGE_FILTER_KERNEL_H_INCLUDED_
+#define _NBL_ASSET_C_DIRAC_IMAGE_FILTER_KERNEL_H_INCLUDED_
 
-#include "nbl/asset/filters/kernels/IImageFilterKernel.h"
-
-#include <ratio>
 #include <limits>
 
 namespace nbl::asset
 {
 
-class CDiracImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiracImageFilterKernel>
+struct CDiracFunction
 {
-	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiracImageFilterKernel>;
+	constexpr static inline uint32_t k_smoothness = 0;
 
-public:
-	CDiracImageFilterKernel() : Base(0.f) {}
-
-	template <uint32_t derivative = 0>
-	inline float weight(float x, int32_t channel) const
+	template<int32_t derivative=0>
+	inline float operator(float x, uint32_t channel) const
 	{
-		if (x == 0.f)
-		{
-			if constexpr (derivative == 0)
-			{
-				return std::numeric_limits<float>::infinity();
-			}
-			else
-			{
-				static_assert(false);
-				return core::nan<float>();
-			}
-		}
-		return 0.f;
-	}
+		if (x!=0.f)
+			return 0.f;
 
-	static inline constexpr bool has_derivative = false;
+		if constexpr (derivative == 0)
+			return std::numeric_limits<float>::infinity();
+		else
+		{
+			static_assert(false);
+			return core::nan<float>();
+		}
+	}
 };
 
 } // end namespace nbl::asset
