@@ -61,8 +61,7 @@ class IImageFilterKernel
 		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCenterSampledCoord, core::vectorSIMDf& cornerSampledCoord) const
 		{
 			cornerSampledCoord = unnormCenterSampledCoord-core::vectorSIMDf(0.5f,0.5f,0.5f,0.f);
-			// We subtract negative_support here instead of adding because we store negative_support without sign, for example -0.5 will stored as 0.5.
-			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord-negative_support));
+			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord+negative_support));
 		}
 		// overload that does not return the cornern sampled coordinate of the given center sampled coordinate
 		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCeterSampledCoord) const
@@ -74,8 +73,8 @@ class IImageFilterKernel
 		// stretch is per dimension
 		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s)
 		{
-			negative_support *= s;
-			positive_support *= s;
+			min_support *= s;
+			max_support *= s;
 
 			calculateWindowProperties();
 		}
@@ -107,14 +106,14 @@ class IImageFilterKernel
 		
 	protected:
 		// derived classes need to let us know where the function starts and stops having non-zero values, this is measured in pixels
-		IImageFilterKernel(const float* _negative_support, const float* _positive_support) :
-			negative_support(_negative_support[0],_negative_support[1],_negative_support[2]),
-			positive_support(_positive_support[0],_positive_support[1],_positive_support[2])
+		IImageFilterKernel(const float* _min_support, const float* _max_support) :
+			min_support(_min_support[0],_min_support[1],_min_support[2]),
+			max_support(_max_support[0],_max_support[1],_max_support[2])
 		{
 			calculateWindowProperties();
 		}
-		IImageFilterKernel(const std::initializer_list<float>& _negative_support, const std::initializer_list<float>& _positive_support) :
-			IImageFilterKernel(_negative_support.begin(),_positive_support.begin())
+		IImageFilterKernel(const std::initializer_list<float>& _min_support, const std::initializer_list<float>& _max_support) :
+			IImageFilterKernel(_min_support.begin(),_max_support.begin())
 		{}
 
 	private:
@@ -128,19 +127,19 @@ class IImageFilterKernel
 			// (x=-0.5 and x=0.5), that is window_size will be 2.
 			// Note that the window_size can never exceed 2, in the above case, because for that to happen there should be more than 2 pixel centers in non-zero
 			// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
-			window_size = static_cast<core::vectorSIMDi32>(core::ceil<core::vectorSIMDf>(negative_support + positive_support));
+			window_size = static_cast<core::vectorSIMDi32>(core::ceil<core::vectorSIMDf>(max_support-min_support));
 
 			window_strides = core::vectorSIMDi32(1, window_size[0], window_size[0] * window_size[1]);
 		}
 	
 		// float3 when we get that HLSL lib
-		core::vectorSIMDf		negative_support;
-		core::vectorSIMDf		positive_support;
-		core::vectorSIMDi32		window_size;
-		core::vectorSIMDi32		window_strides;
+		core::vectorSIMDf	min_support;
+		core::vectorSIMDf	max_support;
+		core::vectorSIMDi32	window_size;
+		core::vectorSIMDi32	window_strides;
 	
 		// We only need multiplied scale so only store that, per channel required
-		core::vectorSIMDf		m_multipliedScale = core::vectorSIMDf(1.f);
+		core::vectorSIMDf	m_multipliedScale = core::vectorSIMDf(1.f);
 };
 
 // statically polymorphic version of the interface for a kernel
