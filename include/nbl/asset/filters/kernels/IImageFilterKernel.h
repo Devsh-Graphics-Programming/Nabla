@@ -71,7 +71,8 @@ class IImageFilterKernel
 			return getWindowMinCoord(unnormCeterSampledCoord,dummy);
 		}
 
-		inline void stretch(const core::vectorSIMDf& s)
+		// stretch is per dimension
+		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s)
 		{
 			negative_support *= s;
 			positive_support *= s;
@@ -79,17 +80,23 @@ class IImageFilterKernel
 			calculateWindowProperties();
 		}
 
+		// scale is per output channel
 		inline void scale(const core::vectorSIMDf& s)
 		{
-			assert((s != core::vectorSIMDf(0.f, 0.f, 0.f, 0.f)).all());
-			m_multipliedScale *= s.x*s.y*s.z;
+			m_multipliedScale *= s;
+		}
+		// monochromatic variant
+		inline void scale(float s)
+		{
+			scale(core::vectorSIMDf(s,s,s,s));
 		}
 
 		// This method will keep the integral of the kernel constant.
-		inline void stretchAndScale(const core::vectorSIMDf& stretchFactor)
+		inline void stretchAndScale(const core::vectorSIMDf/*vec3*/& stretchFactor)
 		{
 			stretch(stretchFactor);
-			scale(core::vectorSIMDf(1.f).preciseDivision(stretchFactor));
+			auto rcp = core::vectorSIMDf(1.f).preciseDivision(stretchFactor);
+			scale(rcp.x*rcp.y*rcp.z);
 		}
 
 		// get the kernel support (measured in pixels)
@@ -126,14 +133,13 @@ class IImageFilterKernel
 			window_strides = core::vectorSIMDi32(1, window_size[0], window_size[0] * window_size[1]);
 		}
 	
+		// float3 when we get that HLSL lib
 		core::vectorSIMDf		negative_support;
 		core::vectorSIMDf		positive_support;
 		core::vectorSIMDi32		window_size;
 		core::vectorSIMDi32		window_strides;
 	
-		// We only need multiplied scale so only store that.
-		// Here by "multiplied" we mean that all channels are multiplied together to get a value
-		// which is then replicated across all channels.
+		// We only need multiplied scale so only store that, per channel required
 		core::vectorSIMDf		m_multipliedScale = core::vectorSIMDf(1.f);
 };
 
@@ -195,6 +201,7 @@ class CImageFilterKernel : public IImageFilterKernel
 			}
 		}
 
+	protected:
 		// This function is called once for each pixel in the kernel window, for explanation of `preFilter` and `postFilter` @see evaluate.
 		// The `windowSample` holds the temporary storage (channels) for the current pixel, but at the time its passed to this function the contents are garbage.
 		// Its the `preFilter` and `postFilter` that deals with actually loading and saving the pixel's value.
