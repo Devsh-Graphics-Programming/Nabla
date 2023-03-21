@@ -23,20 +23,26 @@ using weight_function_value_type_t = typename weight_function_value_type::type;
 }
 
 // kernels that requires pixels and arithmetic to be done in precise floats AND are separable AND have the same kernel function in each dimension AND have a rational support
-template<class Weight1DFunction, uint32_t derivative_order=0>
-class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloatingPointSeparableImageFilterKernel<Weight1DFunction>,weight_function_value_type_t<Weight1DFunction>>, protected Weight1DFunction
+template<class Weight1DFunction, int32_t derivative_order=0>
+class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloatingPointSeparableImageFilterKernel<Weight1DFunction,derivative_order>,weight_function_value_type_t<Weight1DFunction>>
 {
 	public:
 		using value_type = weight_function_value_type_t<Weight1DFunction>;
+		static_assert(std::is_same_v<value_type,double>,"should probably allow `float`s at some point!");
+		
 	private:
-		using this_t = CFloatingPointSeparableImageFilterKernel<Weight1DFunction>;
-		using base_t = CImageFilterKernel<this_t,weight_function_value_type_t<Weight1DFunction>>;
+		using this_t = CFloatingPointSeparableImageFilterKernel<Weight1DFunction,derivative_order>;
+		using base_t = CImageFilterKernel<this_t,value_type>;
 
 	public:
-		CFloatingPointSeparableImageFilterKernel(Weight1DFunction&& func) : StaticPolymorphicBase({_negative_support,_negative_support,_negative_support},{_positive_support,_positive_support,_positive_support}) {}
+		CFloatingPointSeparableImageFilterKernel(Weight1DFunction&& _func) :
+			StaticPolymorphicBase(
+				{func::negative_support,func::negative_support,func::negative_support},
+				{func::positive_support,func::positive_support,func::positive_support}
+			), func(std::move(_func))
+		{}
 
-		static_assert(std::is_same_v<value_type,double>,"should probably allow `float`s at some point!");
-	
+
 		inline bool pIsSeparable() const override final
 		{
 			return true;
@@ -64,6 +70,7 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 					// by default there's no optimization so operation is O(SupportExtent^3) even though the filter is separable
 					for (int32_t i=0; i<CRTP::MaxChannels; i++)
 					{
+						// we don't support integration (yet)
 						if constexpr(derivative_order<0)
 						{
 							windowSample[i] = core::nan<value_type>();
@@ -71,9 +78,6 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 						}
 						// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
 						windowSample[i] *= (_this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i))* multipliedScale[i];
-						//
-						if constexpr(derivative_order>0)
-							windowSample[i] *= multipliedStretch[i];
 					}
 
 					// this is programmable, but usually in the case of a convolution filter it would be summing the values
@@ -119,7 +123,7 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 	protected:
 		CFloatingPointSeparableImageFilterKernel() {}
 		
-		core::vectorSIMDf multipliedStretch;
+		Weight1DFunction func;
 		
 	private:
 		template<class PreFilter, class PostFilter>
@@ -131,9 +135,13 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 			// we dont evaluate `weight` function in children outside the support and just are able to return 0.f
 			if (x>=base_t::positive_support.x || (-x)>base_t::negative_support.x) // TODO: unscrew the convention for negative supports?
 				return 0.f;
-			return Weight1DFunction::operator()<derivative_order,Args...>(std::forward<Args>(args)...);
+			return func.operator()<derivative_order,Args...>(std::forward<Args>(args)...);
 		}
 };
+
+//
+template<class Weight1DFunction>
+using CDerivativeImageFilterKernel = CFloatingPointSeparableImageFilterKernel<Weight1DFunction,1>;
 
 } // end namespace nbl::asset
 
