@@ -70,12 +70,8 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 					// by default there's no optimization so operation is O(SupportExtent^3) even though the filter is separable
 					for (int32_t i=0; i<CRTP::MaxChannels; i++)
 					{
-						// we don't support integration (yet)
-						if constexpr(derivative_order<0)
-						{
-							windowSample[i] = core::nan<value_type>();
-							continue;
-						}
+						static_assert(derivative_order>=0,"We don't support integration (yet)");
+						static_assert(derivative_order<=Weight1DFunction::k_smoothness,"Derivative of higher order is not Well Undefined!");
 						// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
 						windowSample[i] *= (_this->weight<0>(relativePos,i)*_this->weight<1>(relativePos,i)*_this->weight<2>(relativePos,i))* multipliedScale[i];
 					}
