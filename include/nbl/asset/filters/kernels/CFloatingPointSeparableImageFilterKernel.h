@@ -37,8 +37,8 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 	public:
 		CFloatingPointSeparableImageFilterKernel(Weight1DFunction&& _func) :
 			StaticPolymorphicBase(
-				{func::negative_support,func::negative_support,func::negative_support},
-				{func::positive_support,func::positive_support,func::positive_support}
+				{func::min_support,func::min_support,func::min_support},
+				{func::max_support,func::max_support,func::max_support}
 			), func(std::move(_func))
 		{}
 
@@ -77,7 +77,7 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 							continue;
 						}
 						// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
-						windowSample[i] *= (_this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i))* multipliedScale[i];
+						windowSample[i] *= (_this->weight(relativePos,i)*_this->weight(relativePos,i)*_this->weight(relativePos,i))* multipliedScale[i];
 					}
 
 					// this is programmable, but usually in the case of a convolution filter it would be summing the values
@@ -115,6 +115,7 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 
 		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s) override
 		{
+			m_invStretch /= s;
 			if constexpr(derivative_order) // a `core::pow` could be useful
 				scale(core::vectorSIMDf(pow(s.x,derivative_order),pow(s.y,derivative_order),pow(s.z,derivative_order),1.f));
 			base_t::stretch(s);
@@ -124,18 +125,22 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 		CFloatingPointSeparableImageFilterKernel() {}
 		
 		Weight1DFunction func;
+		core::vectorSIMDf m_invStretch = {1.f,1.f,1.f,0.f};
 		
 	private:
 		template<class PreFilter, class PostFilter>
 		friend struct sample_functor_t;
 		
-		template<typename... Args>
-		inline value_type weight(Args&&... args)
+		template<uint32_t dim>
+		//template<typename... Args> // TODO: later if needed
+		inline value_type weight(const core::vectorSIMDf& relativePos, const uint32_t channel)
 		{
+			const float ax = relativePos[dim];
 			// we dont evaluate `weight` function in children outside the support and just are able to return 0.f
-			if (x>=base_t::positive_support.x || (-x)>base_t::negative_support.x) // TODO: unscrew the convention for negative supports?
+			if (ax<base_t::min_support[dim] || ax>=base_t::max_support[dim]) // TODO: unscrew the convention for negative supports?
 				return 0.f;
-			return func.operator()<derivative_order,Args...>(std::forward<Args>(args)...);
+			const float x = ax*m_invStretch[dim];
+			return func.operator()<derivative_order>(x,channel);
 		}
 };
 
