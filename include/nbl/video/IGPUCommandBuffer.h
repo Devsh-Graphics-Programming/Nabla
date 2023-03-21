@@ -143,6 +143,8 @@ protected:
 
     inline bool validate_updateBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
     {
+        if (!dstBuffer)
+            return false;
         if (!this->isCompatibleDevicewise(dstBuffer))
             return false;
         if ((dstOffset & 0x03ull) != 0ull)
