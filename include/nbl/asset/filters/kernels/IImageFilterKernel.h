@@ -40,7 +40,7 @@ class IImageFilterKernel
 
 		// Whether we can break up the convolution in multiple dimensions as a separate convlution per dimension all followed after each other,this is very important for performance
 		// as it turns a convolution from a O(window_size.x*image_extent.x*window_size.y*image_extent.y...) to O(window_size.x*image_extent.x+window_size.y*image_extent.y+..)
-		virtual bool pIsSeparable() const = 0;
+		virtual inline bool pIsSeparable() const {return false;}
 		virtual bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const = 0;
 
 		// function to evaluate the kernel at a pixel position
@@ -159,20 +159,6 @@ class CImageFilterKernel : public IImageFilterKernel
 			}
 		};
 
-		// These are same as the functions declated here without the `p` prefix but allow us to use polymorphism at a higher level
-		inline bool pIsSeparable() const override
-		{
-			return false;
-		}
-		inline bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const override final
-		{
-			return CRTP::validate(inImage, outImage);
-		}
-		inline void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override final
-		{
-			static_cast<const CRTP*>(this)->evaluate(globalPos,preFilter,postFilter);
-		}
-
 
 		// `globalPos` is an unnormalized and center sampled pixel coordinate
 		// each derived class needs to declare a method `template<class PreFilter, class PostFilter> auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const`
@@ -201,7 +187,17 @@ class CImageFilterKernel : public IImageFilterKernel
 			}
 		}
 
-	protected:
+	private:
+		// These are same as the functions declated here without the `p` prefix but allow us to use polymorphism at a higher level
+		inline bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const override final
+		{
+			return CRTP::validate(inImage, outImage);
+		}
+		inline void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override final
+		{
+			static_cast<const CRTP*>(this)->evaluate(globalPos,preFilter,postFilter);
+		}
+
 		// This function is called once for each pixel in the kernel window, for explanation of `preFilter` and `postFilter` @see evaluate.
 		// The `windowSample` holds the temporary storage (channels) for the current pixel, but at the time its passed to this function the contents are garbage.
 		// Its the `preFilter` and `postFilter` that deals with actually loading and saving the pixel's value.
