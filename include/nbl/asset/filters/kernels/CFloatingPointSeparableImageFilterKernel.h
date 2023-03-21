@@ -77,7 +77,7 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 							continue;
 						}
 						// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
-						windowSample[i] *= (_this->weight(relativePos,i)*_this->weight(relativePos,i)*_this->weight(relativePos,i))* multipliedScale[i];
+						windowSample[i] *= (_this->weight<0>(relativePos,i)*_this->weight<1>(relativePos,i)*_this->weight<2>(relativePos,i))* multipliedScale[i];
 					}
 
 					// this is programmable, but usually in the case of a convolution filter it would be summing the values
