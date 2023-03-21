@@ -109,7 +109,12 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 			base_t::evaluate(globalPos, preFilter, postFilter);
 		}
 
-		// TODO: virtual overloads of `stretch`, `stretchAndScale` so they appropriately accumulate into `multipliedStretch`
+		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s) override
+		{
+			if constexpr(derivative_order) // a `core::pow` could be useful
+				scale(core::vectorSIMDf(pow(s.x,derivative_order),pow(s.y,derivative_order),pow(s.z,derivative_order),1.f));
+			base_t::stretch(s);
+		}
 
 	protected:
 		CFloatingPointSeparableImageFilterKernel() {}
