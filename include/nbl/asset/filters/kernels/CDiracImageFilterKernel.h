@@ -9,6 +9,8 @@ namespace nbl::asset
 struct CDiracFunction
 {
 	constexpr static inline uint32_t k_smoothness = 0;
+	constexpr static inline float min_support = std::nextafter<float>(0.f,-1.f);
+	constexpr static inline float max_support = std::nextafter<float>(0.f,+1.f);
 
 	template<int32_t derivative=0>
 	inline float operator(float x, uint32_t channel) const
