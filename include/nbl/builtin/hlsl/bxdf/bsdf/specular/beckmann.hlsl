@@ -75,16 +75,16 @@ float beckmann_pdf_wo_clamps(in bool transmitted, in float reflectance, in float
 
 
 
-float beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
+quotient_and_pdf_scalar beckmann_cos_quotient_and_pdf_wo_clamps(in float ndf, in bool transmitted, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
 {
     float onePlusLambda_V;
-    pdf = beckmann_pdf_wo_clamps(transmitted, reflectance, ndf, absNdotV, NdotV2, VdotH, LdotH, VdotHLdotH, a2, orientedEta, onePlusLambda_V);
+    const float pdf = beckmann_pdf_wo_clamps(transmitted, reflectance, ndf, absNdotV, NdotV2, VdotH, LdotH, VdotHLdotH, a2, orientedEta, onePlusLambda_V);
 
-    return geom_smith::beckmann::G2_over_G1(onePlusLambda_V, NdotL2, a2);
+    return quotient_and_pdf_scalar::create( geom_smith::beckmann::G2_over_G1(onePlusLambda_V, NdotL2, a2), pdf );
 }
 
 template <class IncomingRayDirInfo>
-float beckmann_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float eta, in float a2)
+quotient_and_pdf_scalar beckmann_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float eta, in float a2)
 {
     const float ndf = ndf::beckmann(a2,_cache.NdotH2);
     
@@ -98,19 +98,20 @@ float beckmann_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDi
     const float reflectance = fresnel::dielectric_common(orientedEta2,abs(_cache.VdotH));
 
     const float absNdotV = abs(interaction.NdotV);
-    return beckmann_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, _sample.NdotL2, absNdotV, interaction.NdotV_squared, _cache.VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, a2);
+
+    return beckmann_cos_quotient_and_pdf_wo_clamps(ndf, transmitted, _sample.NdotL2, absNdotV, interaction.NdotV_squared, _cache.VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, a2);
 }
 
 
-float beckmann_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float NdotL2, in float TdotL2, in float BdotL2, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float ax2, in float ay2)
+quotient_and_pdf_scalar beckmann_aniso_dielectric_cos_quotient_and_pdf_wo_clamps(in float ndf, in bool transmitted, in float NdotL2, in float TdotL2, in float BdotL2, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float ax2, in float ay2)
 {
     float onePlusLambda_V;
-    pdf = beckmann_pdf_wo_clamps(transmitted,reflectance, ndf,absNdotV,TdotV2,BdotV2,NdotV2, VdotH,LdotH,VdotHLdotH, ax2,ay2,orientedEta,onePlusLambda_V);
+    const float pdf = beckmann_pdf_wo_clamps(transmitted,reflectance, ndf,absNdotV,TdotV2,BdotV2,NdotV2, VdotH,LdotH,VdotHLdotH, ax2,ay2,orientedEta,onePlusLambda_V);
 
-    return geom_smith::beckmann::G2_over_G1(onePlusLambda_V, TdotL2, BdotL2, NdotL2, ax2, ay2);
+    return quotient_and_pdf_scalar::create( geom_smith::beckmann::G2_over_G1(onePlusLambda_V, TdotL2, BdotL2, NdotL2, ax2, ay2), pdf );
 }
 template <class IncomingRayDirInfo>
-float beckmann_aniso_dielectric_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
+quotient_and_pdf_scalar beckmann_aniso_dielectric_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
 {    
     const float ax2 = ax*ax;
     const float ay2 = ay*ay;
@@ -134,7 +135,7 @@ float beckmann_aniso_dielectric_cos_remainder_and_pdf(out float pdf, in LightSam
     const bool transmitted = VdotHLdotH<0.0;
     
     const float reflectance = fresnel::dielectric_common(orientedEta2,abs(VdotH));
-	return beckmann_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, _sample.NdotL2,TdotL2,BdotL2, abs(interaction.NdotV),TdotV2,BdotV2, interaction.NdotV_squared, VdotH,_cache.LdotH,VdotHLdotH, reflectance,orientedEta, ax2,ay2);
+	return beckmann_aniso_dielectric_cos_quotient_and_pdf_wo_clamps(ndf, transmitted, _sample.NdotL2,TdotL2,BdotL2, abs(interaction.NdotV),TdotV2,BdotV2, interaction.NdotV_squared, VdotH,_cache.LdotH,VdotHLdotH, reflectance,orientedEta, ax2,ay2);
 }
 
 

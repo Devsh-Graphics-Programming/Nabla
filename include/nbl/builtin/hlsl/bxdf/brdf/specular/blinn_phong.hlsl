@@ -61,7 +61,7 @@ LightSample<RayDirInfo> blinn_phong_cos_generate(in surface_interactions::Anisot
 }
 
 /*
-float3 blinn_phong_dielectric_cos_remainder_and_pdf(out float& pdf, in BxDFSample s, in surface_interactions::Isotropic<RayDirInfo> interaction, in float n, in float3 ior)
+float3 blinn_phong_dielectric_cos_quotient_and_pdf(out float& pdf, in BxDFSample s, in surface_interactions::Isotropic<RayDirInfo> interaction, in float n, in float3 ior)
 {
 	pdf = (n+1.0)*0.5*RECIPROCAL_PI * 0.25*pow(s.NdotH,n)/s.VdotH;
 
@@ -69,7 +69,7 @@ float3 blinn_phong_dielectric_cos_remainder_and_pdf(out float& pdf, in BxDFSampl
     return fr * s.NdotL * (n*(n + 6.0) + 8.0) * s.VdotH / ((pow(0.5,0.5*n) + n) * (n + 1.0));
 }
 
-float3 blinn_phong_conductor_cos_remainder_and_pdf(out float& pdf, in BxDFSample s, in surface_interactions::Isotropic<RayDirInfo> interaction, in float n, in float2x3 ior)
+float3 blinn_phong_conductor_cos_quotient_and_pdf(out float& pdf, in BxDFSample s, in surface_interactions::Isotropic<RayDirInfo> interaction, in float n, in float2x3 ior)
 {
 	pdf = (n+1.0)*0.5*RECIPROCAL_PI * 0.25*pow(s.NdotH,n)/s.VdotH;
 

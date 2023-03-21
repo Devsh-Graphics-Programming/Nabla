@@ -173,41 +173,42 @@ namespace specular
 }
 
 
- float3 ggx_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in float3 reflectance, in float a2)
+ quotient_and_pdf_rgb ggx_cos_quotient_and_pdf_wo_clamps(in float ndf, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in float3 reflectance, in float a2)
 {
     const float one_minus_a2 = 1.0 - a2;
     const float devsh_v = geom_smith::ggx::devsh_part(NdotV2, a2, one_minus_a2);
-    pdf = ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
+    const float pdf = ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 
     const float G2_over_G1 = geom_smith::ggx::G2_over_G1_devsh(maxNdotL, NdotL2, maxNdotV, devsh_v, a2, one_minus_a2);
 
-    return reflectance * G2_over_G1;
+    return quotient_and_pdf_rgb::create(reflectance * G2_over_G1, pdf);
 }
 
  template <class RayDirInfo>
- float3 ggx_cos_remainder_and_pdf(out float pdf, in LightSample<RayDirInfo> _sample, in surface_interactions::Isotropic<RayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float2x3 ior, in float a2)
+ quotient_and_pdf_rgb ggx_cos_quotient_and_pdf(in LightSample<RayDirInfo> _sample, in surface_interactions::Isotropic<RayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float2x3 ior, in float a2)
 {    
     const float one_minus_a2 = 1.0 - a2;
     const float ndf = ndf::ggx::trowbridge_reitz(a2, _cache.NdotH2);
     const float devsh_v = geom_smith::ggx::devsh_part(interaction.NdotV_squared, a2, one_minus_a2);
-    pdf = ggx_pdf_wo_clamps(ndf, devsh_v, interaction.NdotV);
-    float3 rem = float3(0.0,0.0,0.0);
+    const float pdf = ggx_pdf_wo_clamps(ndf, devsh_v, interaction.NdotV);
+
+    quotient_and_pdf_rgb qpdf = quotient_and_pdf_rgb::create(float3(0.0, 0.0, 0.0), pdf);
     if (_sample.NdotL>FLT_MIN && interaction.NdotV>FLT_MIN)
     {
         const float3 reflectance = fresnel::conductor(ior[0], ior[1], _cache.VdotH);
         const float G2_over_G1 = geom_smith::ggx::G2_over_G1_devsh(_sample.NdotL, _sample.NdotL2, interaction.NdotV, devsh_v, a2, one_minus_a2);
 
-        rem = reflectance * G2_over_G1;
+        qpdf.quotient = reflectance * G2_over_G1;
     }
 
-    return rem;
+    return qpdf;
 }
 
 
- float3 ggx_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float3 reflectance, in float ax2,in float ay2)
+ quotient_and_pdf_rgb ggx_aniso_cos_quotient_and_pdf_wo_clamps(in float ndf, in float maxNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float3 reflectance, in float ax2,in float ay2)
 {
     const float devsh_v = geom_smith::ggx::devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
-    pdf = ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
+    const float pdf = ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 
     const float G2_over_G1 = geom_smith::ggx::G2_over_G1_devsh(
         maxNdotL, TdotL2,BdotL2,NdotL2,
@@ -215,11 +216,11 @@ namespace specular
         ax2, ay2
     );
 
-    return reflectance * G2_over_G1;
+    return quotient_and_pdf_rgb::create(reflectance * G2_over_G1, pdf);
 }
 
  template <class RayDirInfo>
- float3 ggx_aniso_cos_remainder_and_pdf(out float pdf, in LightSample<RayDirInfo> _sample, in surface_interactions::Anisotropic<RayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float2x3 ior, in float ax, in float ay)
+ quotient_and_pdf_rgb ggx_aniso_cos_quotient_and_pdf(in LightSample<RayDirInfo> _sample, in surface_interactions::Anisotropic<RayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float2x3 ior, in float ax, in float ay)
 {
     const float ax2 = ax * ax;
     const float ay2 = ay * ay;
@@ -233,8 +234,8 @@ namespace specular
 
     const float devsh_v = geom_smith::ggx::devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
     const float ndf = ndf::ggx::aniso(TdotH2, BdotH2, _cache.NdotH2, ax, ay, ax2, ay2);
-    pdf = ggx_pdf_wo_clamps(ndf, devsh_v, interaction.NdotV);
-    float3 rem = float3(0.0,0.0,0.0);
+    const float pdf = ggx_pdf_wo_clamps(ndf, devsh_v, interaction.NdotV);
+    quotient_and_pdf_rgb qpdf = quotient_and_pdf_rgb::create(float3(0.0, 0.0, 0.0), pdf);
     if (_sample.NdotL>FLT_MIN && interaction.NdotV>FLT_MIN)
     {
         const float TdotL2 = _sample.TdotL*_sample.TdotL;
@@ -247,10 +248,10 @@ namespace specular
             ax2, ay2
         );
 
-        rem = reflectance * G2_over_G1;
+        qpdf.quotient = reflectance * G2_over_G1;
     }
 
-    return rem;
+    return qpdf;
 }
 
 }

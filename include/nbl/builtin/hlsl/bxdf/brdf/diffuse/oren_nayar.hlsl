@@ -71,16 +71,19 @@ float oren_nayar_pdf(in LightSample<IncomingRayDirInfo> s, in surface_interactio
 }
 
 
-float oren_nayar_cos_remainder_and_pdf_wo_clamps(out float pdf, in float a2, in float VdotL, in float maxNdotL, in float maxNdotV)
+quotient_and_pdf_scalar oren_nayar_cos_quotient_and_pdf_wo_clamps(in float a2, in float VdotL, in float maxNdotL, in float maxNdotV)
 {
-    pdf = oren_nayar_pdf_wo_clamps(maxNdotL);
-    return oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2,VdotL,maxNdotL,maxNdotV);
+    float pdf = oren_nayar_pdf_wo_clamps(maxNdotL);
+    return quotient_and_pdf_scalar::create(
+        oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2,VdotL,maxNdotL,maxNdotV),
+        pdf
+    );
 }
 
 template <class IncomingRayDirInfo>
-float oren_nayar_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> s, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in float a2)
+quotient_and_pdf_scalar oren_nayar_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> s, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in float a2)
 {
-    return oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a2,dot(interaction.V.getDirection(),s.L), max(s.NdotL,0.0f), max(interaction.NdotV,0.0f));
+    return oren_nayar_cos_quotient_and_pdf_wo_clamps(a2,dot(interaction.V.getDirection(),s.L), max(s.NdotL,0.0f), max(interaction.NdotV,0.0f));
 }
 
 }

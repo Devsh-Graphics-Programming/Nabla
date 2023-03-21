@@ -27,14 +27,14 @@ float projected_hemisphere_pdf(in float L_z)
     return L_z * math::RECIPROCAL_PI;
 }
 
-float projected_hemisphere_remainder_and_pdf(out float pdf, in float L_z)
+float projected_hemisphere_quotient_and_pdf(out float pdf, in float L_z)
 {
 	pdf = projected_hemisphere_pdf(L_z);
 	return 1.0f;
 }
-float projected_hemisphere_remainder_and_pdf(out float pdf, in float3 L)
+float projected_hemisphere_quotient_and_pdf(out float pdf, in float3 L)
 {
-	return projected_hemisphere_remainder_and_pdf(pdf,L.z);
+	return projected_hemisphere_quotient_and_pdf(pdf,L.z);
 }
 
 float3 projected_sphere_generate(inout float3 _sample) // TODO, it should be `inout`, right?
@@ -48,15 +48,15 @@ float3 projected_sphere_generate(inout float3 _sample) // TODO, it should be `in
     return retval;
 }
 
-float projected_sphere_remainder_and_pdf(out float pdf, in float L_z)
+float projected_sphere_quotient_and_pdf(out float pdf, in float L_z)
 {
-    float retval = projected_hemisphere_remainder_and_pdf(pdf,L_z);
+    float retval = projected_hemisphere_quotient_and_pdf(pdf,L_z);
     pdf *= 0.5f;
 	return retval;
 }
-float projected_sphere_remainder_and_pdf(out float pdf, in float3 L)
+float projected_sphere_quotient_and_pdf(out float pdf, in float3 L)
 {
-    return projected_sphere_remainder_and_pdf(pdf,L.z);
+    return projected_sphere_quotient_and_pdf(pdf,L.z);
 }
 
 float projected_sphere_pdf(in float L_z)

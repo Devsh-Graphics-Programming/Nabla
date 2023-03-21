@@ -423,6 +423,8 @@ struct quotient_and_pdf
   float pdf;
 };
 
+using quotient_and_pdf_scalar = quotient_and_pdf<float>;
+using quotient_and_pdf_rgb = quotient_and_pdf<float3>;
 
 }
 }

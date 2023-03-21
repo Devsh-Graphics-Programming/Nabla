@@ -58,29 +58,28 @@ LightSample<IncomingRayDirInfo> thin_smooth_dielectric_cos_generate(in surface_i
 
 
 
-float3 thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float3 remainderMetadata)
+quotient_and_pdf_rgb thin_smooth_dielectric_cos_quotient_and_pdf_wo_clamps(in float3 remainderMetadata)
 {
-    pdf = 1.0 / 0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, but would still be an INF.
-    return remainderMetadata;
+    float pdf = 1.0 / 0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, but would still be an INF.
+    return quotient_and_pdf_rgb::create(remainderMetadata, pdf);
 }
 
-float3 thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in bool transmitted, in float absNdotV, in float3 eta2, in float3 luminosityContributionHint)
+quotient_and_pdf_rgb thin_smooth_dielectric_cos_quotient_and_pdf_wo_clamps(in bool transmitted, in float absNdotV, in float3 eta2, in float3 luminosityContributionHint)
 {
     const float3 reflectance = fresnel::thindielectric_infinite_scatter(fresnel::dielectric_common(eta2,absNdotV));
     const float3 sampleValue = transmitted ? (float3(1.0,1.0,1.0)-reflectance):reflectance;
 
     const float sampleProb = dot(sampleValue,luminosityContributionHint);
 
-    pdf = 1.0 / 0.0;
-    return thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, sampleValue / sampleProb);
+    return thin_smooth_dielectric_cos_quotient_and_pdf_wo_clamps(sampleValue / sampleProb);
 }
 
-// for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `transmission_cos_remainder_and_pdf` in `irr/builtin/glsl/bxdf/common_samples.hlsl`
+// for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `transmission_cos_quotient_and_pdf` in `irr/builtin/glsl/bxdf/common_samples.hlsl`
 template <class IncomingRayDirInfo>
-float3 thin_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in float3 eta2, in float3 luminosityContributionHint)
+quotient_and_pdf_rgb thin_smooth_dielectric_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in float3 eta2, in float3 luminosityContributionHint)
 {
-    const bool transmitted = isTransmissionPath(interaction.NdotV,_sample.NdotL);
-    return thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,abs(interaction.NdotV),eta2,luminosityContributionHint);
+    const bool transmitted = math::isTransmissionPath(interaction.NdotV,_sample.NdotL);
+    return thin_smooth_dielectric_cos_quotient_and_pdf_wo_clamps(transmitted,abs(interaction.NdotV),eta2,luminosityContributionHint);
 }
 
 
@@ -118,22 +117,22 @@ LightSample<IncomingRayDirInfo> smooth_dielectric_cos_generate(in surface_intera
 }
 
 
-float smooth_dielectric_cos_remainder_and_pdf(out float pdf, in bool transmitted, in float rcpOrientedEta2)
+quotient_and_pdf_scalar smooth_dielectric_cos_quotient_and_pdf(in bool transmitted, in float rcpOrientedEta2)
 {
-    pdf = 1.0 / 0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, but would still be an INF.
-    return transmitted ? rcpOrientedEta2:1.0;
+    const float pdf = 1.0 / 0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, but would still be an INF.
+    return quotient_and_pdf_scalar::create(transmitted ? rcpOrientedEta2 : 1.0, pdf);
 }
 
-// for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `transmission_cos_remainder_and_pdf` in `irr/builtin/glsl/bxdf/common_samples.hlsl`
+// for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `transmission_cos_quotient_and_pdf` in `irr/builtin/glsl/bxdf/common_samples.hlsl`
 template <class IncomingRayDirInfo>
-float smooth_dielectric_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in float eta)
+quotient_and_pdf_scalar smooth_dielectric_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in float eta)
 {
     const bool transmitted = math::isTransmissionPath(interaction.NdotV,_sample.NdotL);
     
     float dummy, rcpOrientedEta;
     const bool backside = math::getOrientedEtas(dummy, rcpOrientedEta, interaction.NdotV, eta);
 
-    return smooth_dielectric_cos_remainder_and_pdf(pdf,transmitted,rcpOrientedEta);
+    return smooth_dielectric_cos_quotient_and_pdf(transmitted,rcpOrientedEta);
 }
 
 }

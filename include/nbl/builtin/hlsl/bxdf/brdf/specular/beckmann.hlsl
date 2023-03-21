@@ -144,20 +144,20 @@ float beckmann_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, 
     return beckmann_pdf_wo_clamps(ndf, maxNdotV, TdotV2, BdotV2, NdotV2, ax2, ay2, dummy);
 }
 
-float3 beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float NdotL2, in float maxNdotV, in float NdotV2, in float3 reflectance, in float a2)
+quotient_and_pdf_rgb beckmann_cos_quotient_and_pdf_wo_clamps(in float ndf, in float NdotL2, in float maxNdotV, in float NdotV2, in float3 reflectance, in float a2)
 {
     float onePlusLambda_V;
-    pdf = beckmann_pdf_wo_clamps(ndf,maxNdotV,NdotV2,a2,onePlusLambda_V);
+    float pdf = beckmann_pdf_wo_clamps(ndf,maxNdotV,NdotV2,a2,onePlusLambda_V);
 
     float G2_over_G1 = geom_smith::beckmann::G2_over_G1(onePlusLambda_V, NdotL2, a2);
-    return reflectance*G2_over_G1;
+    return quotient_and_pdf_rgb::create(reflectance*G2_over_G1, pdf);
 }
 template <class RayDirInfo>
-float3 beckmann_cos_remainder_and_pdf(out float pdf, in LightSample<RayDirInfo> _sample, in surface_interactions::Isotropic<RayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float2x3 ior, in float a2)
+quotient_and_pdf_rgb beckmann_cos_quotient_and_pdf(in LightSample<RayDirInfo> _sample, in surface_interactions::Isotropic<RayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float2x3 ior, in float a2)
 {
     const float ndf = ndf::beckmann(a2, _cache.NdotH2);
     float onePlusLambda_V;
-    pdf = beckmann_pdf_wo_clamps(ndf, interaction.NdotV, interaction.NdotV2, a2, onePlusLambda_V);
+    float pdf = beckmann_pdf_wo_clamps(ndf, interaction.NdotV, interaction.NdotV2, a2, onePlusLambda_V);
     float3 rem = float3(0.0,0.0,0.0);
     if (_sample.NdotL>FLT_MIN && interaction.NdotV>FLT_MIN)
     {
@@ -167,21 +167,21 @@ float3 beckmann_cos_remainder_and_pdf(out float pdf, in LightSample<RayDirInfo> 
         rem = reflectance * G2_over_G1;
     }
     
-    return rem;
+    return quotient_and_pdf_rgb::create(rem, pdf);
 }
 
 
 
-float3 beckmann_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float3 reflectance, in float ax2, in float ay2)
+quotient_and_pdf_rgb beckmann_aniso_cos_quotient_and_pdf_wo_clamps(in float ndf, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float3 reflectance, in float ax2, in float ay2)
 {
     float onePlusLambda_V;
-    pdf = beckmann_pdf_wo_clamps(ndf,maxNdotV,TdotV2,BdotV2,NdotV2,ax2,ay2,onePlusLambda_V);
+    float pdf = beckmann_pdf_wo_clamps(ndf,maxNdotV,TdotV2,BdotV2,NdotV2,ax2,ay2,onePlusLambda_V);
 
     float G2_over_G1 = geom_smith::beckmann::G2_over_G1(onePlusLambda_V, TdotL2, BdotL2, NdotL2, ax2, ay2);
-    return reflectance * G2_over_G1;
+    return quotient_and_pdf_rgb::create(reflectance * G2_over_G1, pdf);
 }
 template <class RayDirInfo>
-float3 beckmann_aniso_cos_remainder_and_pdf(out float pdf, in LightSample<RayDirInfo> _sample, in surface_interactions::Anisotropic<RayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float2x3 ior, in float ax, in float ay)
+quotient_and_pdf_rgb beckmann_aniso_cos_quotient_and_pdf(in LightSample<RayDirInfo> _sample, in surface_interactions::Anisotropic<RayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float2x3 ior, in float ax, in float ay)
 {    
     const float ax2 = ax * ax;
     const float ay2 = ay * ay;
@@ -195,8 +195,8 @@ float3 beckmann_aniso_cos_remainder_and_pdf(out float pdf, in LightSample<RayDir
 
     const float ndf = ndf::beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, _cache.NdotH2);
     float onePlusLambda_V;
-    pdf = beckmann_pdf_wo_clamps(ndf, interaction.NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2, onePlusLambda_V);
-    float3 rem = float3(0.0,0.0,0.0);
+    float pdf = beckmann_pdf_wo_clamps(ndf, interaction.NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2, onePlusLambda_V);
+    quotient_and_pdf_rgb qpdf = quotient_and_pdf_rgb::create(float3(0.0, 0.0, 0.0), pdf);
     if (_sample.NdotL>FLT_MIN && interaction.NdotV>FLT_MIN)
     {
         const float TdotL2 = _sample.TdotL*_sample.TdotL;
@@ -204,10 +204,10 @@ float3 beckmann_aniso_cos_remainder_and_pdf(out float pdf, in LightSample<RayDir
     
         const float3 reflectance = fresnel::conductor(ior[0], ior[1], _cache.VdotH);
 
-	    rem = beckmann_aniso_cos_remainder_and_pdf_wo_clamps(pdf, ndf, _sample.NdotL2, TdotL2, BdotL2, interaction.NdotV, TdotV2, BdotV2, NdotV2, reflectance, ax2, ay2);
+        qpdf = beckmann_aniso_cos_quotient_and_pdf_wo_clamps(ndf, _sample.NdotL2, TdotL2, BdotL2, interaction.NdotV, TdotV2, BdotV2, NdotV2, reflectance, ax2, ay2);
     }
     
-    return rem;
+    return qpdf;
 }
 
 

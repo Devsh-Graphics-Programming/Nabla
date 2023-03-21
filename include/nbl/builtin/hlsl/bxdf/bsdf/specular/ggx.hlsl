@@ -124,14 +124,14 @@ LightSample<IncomingRayDirInfo> ggx_cos_generate_wo_clamps(in float3 localV, in 
 template <class IncomingRayDirInfo>
 LightSample<IncomingRayDirInfo> ggx_cos_generate(in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, inout float3 u, in float ax, in float ay, in float eta, out AnisotropicMicrofacetCache _cache)
 {
-    const float3 localV = getTangentSpaceV(interaction);
+    const float3 localV = interaction.getTangentSpaceV();
 
     float orientedEta, rcpOrientedEta;
-    const bool backside = getOrientedEtas(orientedEta, rcpOrientedEta, interaction.NdotV, eta);
+    const bool backside = math::getOrientedEtas(orientedEta, rcpOrientedEta, interaction.NdotV, eta);
 
     const float3 upperHemisphereV = backside ? (-localV) : localV;
 
-    const float3x3 m = getTangentFrame(interaction);
+    const float3x3 m = interaction.getTangentFrame();
     return ggx_cos_generate_wo_clamps<IncomingRayDirInfo>(localV, backside, upperHemisphereV, m, u, ax, ay, rcpOrientedEta, orientedEta * orientedEta, rcpOrientedEta * rcpOrientedEta, _cache);
 }
 
@@ -157,7 +157,7 @@ float ggx_pdf_wo_clamps(in bool transmitted, in float reflectance, in float Ndot
     return ggx_pdf_wo_clamps(transmitted, reflectance, ndf, devsh_v, absNdotV, VdotH, LdotH, VdotHLdotH, orientedEta);
 }
 
-float ggx_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
+float ggx_cos_quotient_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
 {
     const float one_minus_a2 = 1.0 - a2;
     const float devsh_v = geom_smith::ggx::devsh_part(NdotV2, a2, one_minus_a2);
@@ -167,7 +167,7 @@ float ggx_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool t
 }
 
 template <class IncomingRayDirInfo>
-float ggx_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float eta, in float a2)
+float ggx_cos_quotient_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Isotropic<IncomingRayDirInfo> interaction, in IsotropicMicrofacetCache _cache, in float eta, in float a2)
 {
     const float ndf = ndf::ggx::trowbridge_reitz(a2, _cache.NdotH2);
 
@@ -181,11 +181,11 @@ float ggx_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo
     const float reflectance = fresnel::dielectric_common(orientedEta2, abs(_cache.VdotH));
 
     const float absNdotV = abs(interaction.NdotV);
-    return ggx_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, abs(_sample.NdotL), _sample.NdotL2, absNdotV, interaction.NdotV_squared, _cache.VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, a2);
+    return ggx_cos_quotient_and_pdf_wo_clamps(pdf, ndf, transmitted, abs(_sample.NdotL), _sample.NdotL2, absNdotV, interaction.NdotV_squared, _cache.VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, a2);
 }
 
 template <class IncomingRayDirInfo>
-float ggx_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float ax2, in float ay2)
+float ggx_aniso_cos_quotient_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float ax2, in float ay2)
 {
     const float devsh_v = geom_smith::ggx::devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
     pdf = ggx_pdf_wo_clamps(transmitted, reflectance, ndf, devsh_v, absNdotV, VdotH, LdotH, VdotHLdotH, orientedEta);
@@ -198,7 +198,7 @@ float ggx_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in 
 }
 
 template <class IncomingRayDirInfo>
-float ggx_aniso_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
+float ggx_aniso_cos_quotient_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
 {
     const float ax2 = ax * ax;
     const float ay2 = ay * ay;
@@ -224,7 +224,7 @@ float ggx_aniso_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayD
     const float reflectance = fresnel::dielectric_common(orientedEta2, abs(VdotH));
 
     const float absNdotV = abs(interaction.NdotV);
-    return ggx_aniso_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, abs(_sample.NdotL), _sample.NdotL2, TdotL2, BdotL2, absNdotV, TdotV2, BdotV2, interaction.NdotV_squared, VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, ax2, ay2);
+    return ggx_aniso_cos_quotient_and_pdf_wo_clamps(pdf, ndf, transmitted, abs(_sample.NdotL), _sample.NdotL2, TdotL2, BdotL2, absNdotV, TdotV2, BdotV2, interaction.NdotV_squared, VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, ax2, ay2);
 }
 
 }

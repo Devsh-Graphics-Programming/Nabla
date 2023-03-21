@@ -69,14 +69,20 @@ float lambertian_pdf(in LightSample<IncomingRayDirInfo> s, in surface_interactio
 }
 
 
-float lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in float maxNdotL)
+quotient_and_pdf_scalar lambertian_cos_quotient_and_pdf_wo_clamps(in float maxNdotL)
 {
-    return sampling::projected_hemisphere_remainder_and_pdf(pdf,maxNdotL);
+    float pdf;
+    float q = sampling::projected_hemisphere_quotient_and_pdf(pdf, maxNdotL);
+
+    return quotient_and_pdf_scalar::create(q, pdf);
 }
 template <class IncomingRayDirInfo>
-float lambertian_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> s)
+quotient_and_pdf_scalar lambertian_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> s)
 {
-    return sampling::projected_hemisphere_remainder_and_pdf(pdf,max(s.NdotL,0.0f));
+    float pdf;
+    float q = sampling::projected_hemisphere_quotient_and_pdf(pdf, max(s.NdotL,0.0f));
+
+    return quotient_and_pdf_scalar::create(q, pdf);
 }
 
 }

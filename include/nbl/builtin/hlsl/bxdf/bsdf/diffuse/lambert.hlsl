@@ -57,14 +57,18 @@ LightSample<IncomingRayDirInfo> lambertian_cos_generate(in surface_interactions:
 }
 
 template <class IncomingRayDirInfo>
-float lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in float absNdotL)
+quotient_and_pdf_scalar lambertian_cos_quotient_and_pdf_wo_clamps(in float absNdotL)
 {
-    return sampling::projected_sphere_remainder_and_pdf(pdf, absNdotL);
+    float pdf;
+    float q = sampling::projected_sphere_quotient_and_pdf(pdf, absNdotL);
+    return quotient_and_pdf_scalar::create(q, pdf);
 }
 template <class IncomingRayDirInfo>
-float lambertian_cos_remainder_and_pdf(out float pdf, in LightSample<IncomingRayDirInfo> s)
+quotient_and_pdf_scalar lambertian_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> s)
 {
-    return lambertian_cos_remainder_and_pdf_wo_clamps(pdf, abs(s.NdotL));
+    float pdf;
+    float q = lambertian_cos_quotient_and_pdf_wo_clamps(pdf, abs(s.NdotL));
+    return quotient_and_pdf_scalar::create(q, pdf);
 }
 
 float lambertian_pdf_wo_clamps(in float absNdotL)
