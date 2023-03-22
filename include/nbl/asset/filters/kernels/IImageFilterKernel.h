@@ -1,13 +1,14 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED_
+#define _NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUImage.h"
+
 
 namespace nbl::asset
 {
@@ -39,7 +40,7 @@ class IImageFilterKernel
 
 		// Whether we can break up the convolution in multiple dimensions as a separate convlution per dimension all followed after each other,this is very important for performance
 		// as it turns a convolution from a O(window_size.x*image_extent.x*window_size.y*image_extent.y...) to O(window_size.x*image_extent.x+window_size.y*image_extent.y+..)
-		virtual bool pIsSeparable() const = 0;
+		virtual inline bool pIsSeparable() const {return false;}
 		virtual bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const = 0;
 
 		// function to evaluate the kernel at a pixel position
@@ -60,8 +61,7 @@ class IImageFilterKernel
 		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCenterSampledCoord, core::vectorSIMDf& cornerSampledCoord) const
 		{
 			cornerSampledCoord = unnormCenterSampledCoord-core::vectorSIMDf(0.5f,0.5f,0.5f,0.f);
-			// We subtract negative_support here instead of adding because we store negative_support without sign, for example -0.5 will stored as 0.5.
-			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord-negative_support));
+			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord+negative_support));
 		}
 		// overload that does not return the cornern sampled coordinate of the given center sampled coordinate
 		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCeterSampledCoord) const
@@ -70,25 +70,32 @@ class IImageFilterKernel
 			return getWindowMinCoord(unnormCeterSampledCoord,dummy);
 		}
 
-		inline void stretch(const core::vectorSIMDf& s)
+		// stretch is per dimension
+		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s)
 		{
-			negative_support *= s;
-			positive_support *= s;
+			min_support *= s;
+			max_support *= s;
 
 			calculateWindowProperties();
 		}
 
+		// scale is per output channel
 		inline void scale(const core::vectorSIMDf& s)
 		{
-			assert((s != core::vectorSIMDf(0.f, 0.f, 0.f, 0.f)).all());
-			m_multipliedScale *= s.x*s.y*s.z;
+			m_multipliedScale *= s;
+		}
+		// monochromatic variant
+		inline void scale(float s)
+		{
+			scale(core::vectorSIMDf(s,s,s,s));
 		}
 
 		// This method will keep the integral of the kernel constant.
-		inline void stretchAndScale(const core::vectorSIMDf& stretchFactor)
+		inline void stretchAndScale(const core::vectorSIMDf/*vec3*/& stretchFactor)
 		{
 			stretch(stretchFactor);
-			scale(core::vectorSIMDf(1.f).preciseDivision(stretchFactor));
+			auto rcp = core::vectorSIMDf(1.f).preciseDivision(stretchFactor);
+			scale(rcp.x*rcp.y*rcp.z);
 		}
 
 		// get the kernel support (measured in pixels)
@@ -96,27 +103,17 @@ class IImageFilterKernel
 		{
 			return window_size;
 		}
-
-		core::vectorSIMDf		negative_support;
-		core::vectorSIMDf		positive_support;
-		core::vectorSIMDi32		window_size;
-		core::vectorSIMDi32		window_strides;
-
-		// We only need multiplied scale so only store that.
-		// Here by "multiplied" we mean that all channels are multiplied together to get a value
-		// which is then replicated across all channels.
-		core::vectorSIMDf		m_multipliedScale = core::vectorSIMDf(1.f);
 		
 	protected:
 		// derived classes need to let us know where the function starts and stops having non-zero values, this is measured in pixels
-		IImageFilterKernel(const float* _negative_support, const float* _positive_support) :
-			negative_support(_negative_support[0],_negative_support[1],_negative_support[2]),
-			positive_support(_positive_support[0],_positive_support[1],_positive_support[2])
+		IImageFilterKernel(const float* _min_support, const float* _max_support) :
+			min_support(_min_support[0],_min_support[1],_min_support[2]),
+			max_support(_max_support[0],_max_support[1],_max_support[2])
 		{
 			calculateWindowProperties();
 		}
-		IImageFilterKernel(const std::initializer_list<float>& _negative_support, const std::initializer_list<float>& _positive_support) :
-			IImageFilterKernel(_negative_support.begin(),_positive_support.begin())
+		IImageFilterKernel(const std::initializer_list<float>& _min_support, const std::initializer_list<float>& _max_support) :
+			IImageFilterKernel(_min_support.begin(),_max_support.begin())
 		{}
 
 	private:
@@ -130,10 +127,19 @@ class IImageFilterKernel
 			// (x=-0.5 and x=0.5), that is window_size will be 2.
 			// Note that the window_size can never exceed 2, in the above case, because for that to happen there should be more than 2 pixel centers in non-zero
 			// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
-			window_size = static_cast<core::vectorSIMDi32>(core::ceil<core::vectorSIMDf>(negative_support + positive_support));
+			window_size = static_cast<core::vectorSIMDi32>(core::ceil<core::vectorSIMDf>(max_support-min_support));
 
 			window_strides = core::vectorSIMDi32(1, window_size[0], window_size[0] * window_size[1]);
 		}
+	
+		// float3 when we get that HLSL lib
+		core::vectorSIMDf	min_support;
+		core::vectorSIMDf	max_support;
+		core::vectorSIMDi32	window_size;
+		core::vectorSIMDi32	window_strides;
+	
+		// We only need multiplied scale so only store that, per channel required
+		core::vectorSIMDf	m_multipliedScale = core::vectorSIMDf(1.f);
 };
 
 // statically polymorphic version of the interface for a kernel
@@ -151,20 +157,6 @@ class CImageFilterKernel : public IImageFilterKernel
 			{
 			}
 		};
-
-		// These are same as the functions declated here without the `p` prefix but allow us to use polymorphism at a higher level
-		inline bool pIsSeparable() const override
-		{
-			return CRTP::is_separable;
-		}
-		inline bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const override
-		{
-			return CRTP::validate(inImage, outImage);
-		}
-		void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override
-		{
-			static_cast<const CRTP*>(this)->evaluate(globalPos,preFilter,postFilter);
-		}
 
 
 		// `globalPos` is an unnormalized and center sampled pixel coordinate
@@ -194,6 +186,17 @@ class CImageFilterKernel : public IImageFilterKernel
 			}
 		}
 
+	private:
+		// These are same as the functions declated here without the `p` prefix but allow us to use polymorphism at a higher level
+		inline bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const override final
+		{
+			return CRTP::validate(inImage, outImage);
+		}
+		inline void pEvaluate(const core::vectorSIMDf& globalPos, std::function<sample_functor_operator_t>& preFilter, std::function<sample_functor_operator_t>& postFilter) const override final
+		{
+			static_cast<const CRTP*>(this)->evaluate(globalPos,preFilter,postFilter);
+		}
+
 		// This function is called once for each pixel in the kernel window, for explanation of `preFilter` and `postFilter` @see evaluate.
 		// The `windowSample` holds the temporary storage (channels) for the current pixel, but at the time its passed to this function the contents are garbage.
 		// Its the `preFilter` and `postFilter` that deals with actually loading and saving the pixel's value.
@@ -202,28 +205,5 @@ class CImageFilterKernel : public IImageFilterKernel
 		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord) const;
 };
 
-//use this whenever you have diamond inheritance and ambiguous resolves
-#define NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(BASENAME) \
-template<typename... Args> \
-inline core::vectorSIMDi32 getWindowMinCoord(Args&&... args) const \
-{ \
-	return BASENAME::getWindowMinCoord(std::forward<Args>(args)...); \
-} \
-inline const auto& getWindowSize() const \
-{ \
-	return BASENAME::getWindowSize(); \
-} \
-template<class PreFilter=const typename BASENAME::default_sample_functor_t, class PostFilter=const typename BASENAME::default_sample_functor_t> \
-inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const \
-{ \
-	BASENAME::evaluate(globalPos, preFilter, postFilter); \
-} \
-template<class PreFilter, class PostFilter> \
-inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale) const \
-{ \
-	BASENAME::evaluateImpl(preFilter, postFilter, windowSample, relativePos, globalTexelCoord, multipliedScale); \
-}
-
 } // end namespace nbl::asset
-
 #endif
