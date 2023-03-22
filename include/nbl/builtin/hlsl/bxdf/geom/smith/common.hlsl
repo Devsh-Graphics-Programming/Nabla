@@ -25,6 +25,10 @@ float G1(in float lambda)
     return 1.0 / (1.0 + lambda);
 }
 
+float G2(in float lambda_V, in float lambda_L)
+{
+    return 1.0 / (1.0 + lambda_V + lambda_L);
+}
 
 
 float VNDF_pdf_wo_clamps(in float ndf, in float lambda_V, in float maxNdotV, out float onePlusLambda_V)

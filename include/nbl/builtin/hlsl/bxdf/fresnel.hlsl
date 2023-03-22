@@ -123,6 +123,21 @@ float thindielectric_infinite_scatter(in float singleInterfaceReflectance)
     return doubleInterfaceReflectance>0.9999 ? 1.0:((singleInterfaceReflectance-doubleInterfaceReflectance)/(1.0-doubleInterfaceReflectance)*2.0);
 }
 
+
+// Utility class
+template <class Spectrum>
+struct FresnelBase
+{
+    // Fresnels must define such typenames:
+    using spectrum_t = Spectrum;
+
+    /**
+    * Fresnels must define following member functions:
+    *
+    * spectrum_t operator()(...); // TODO is there some paremeter list that can be universal for all fresnels ever needed?
+    */
+};
+
 }
 }
 }

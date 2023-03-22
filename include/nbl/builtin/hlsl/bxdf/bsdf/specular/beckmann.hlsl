@@ -102,13 +102,12 @@ quotient_and_pdf_scalar beckmann_cos_quotient_and_pdf(in LightSample<IncomingRay
     return beckmann_cos_quotient_and_pdf_wo_clamps(ndf, transmitted, _sample.NdotL2, absNdotV, interaction.NdotV_squared, _cache.VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, a2);
 }
 
-
 quotient_and_pdf_scalar beckmann_aniso_dielectric_cos_quotient_and_pdf_wo_clamps(in float ndf, in bool transmitted, in float NdotL2, in float TdotL2, in float BdotL2, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float ax2, in float ay2)
 {
     float onePlusLambda_V;
     const float pdf = beckmann_pdf_wo_clamps(transmitted,reflectance, ndf,absNdotV,TdotV2,BdotV2,NdotV2, VdotH,LdotH,VdotHLdotH, ax2,ay2,orientedEta,onePlusLambda_V);
 
-    return quotient_and_pdf_scalar::create( geom_smith::beckmann::G2_over_G1(onePlusLambda_V, TdotL2, BdotL2, NdotL2, ax2, ay2), pdf );
+    return quotient_and_pdf_scalar::create( geom_smith::beckmann::G2_over_G1(onePlusLambda_V, TdotL2, BdotL2, NdotL2, ax2, ay2 + d.x), pdf );
 }
 template <class IncomingRayDirInfo>
 quotient_and_pdf_scalar beckmann_aniso_dielectric_cos_quotient_and_pdf(in LightSample<IncomingRayDirInfo> _sample, in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, in AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
