@@ -15,7 +15,6 @@ core::smart_refctd_ptr<ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader
 		{
 		case IShader::E_CONTENT_TYPE::ECT_HLSL:
 		{
-
 #ifdef _NBL_PLATFORM_WINDOWS_
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
 			outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, options);
@@ -65,7 +64,7 @@ core::smart_refctd_ptr<ICPUShader> CCompilerSet::preprocessShader(const ICPUShad
 		case IShader::E_CONTENT_TYPE::ECT_SPIRV:
 			return core::smart_refctd_ptr<ICPUShader>(const_cast<ICPUShader*>(shader));
 		default:
-			return nullptr;
+			break;
 		}
 	}
 	return nullptr;

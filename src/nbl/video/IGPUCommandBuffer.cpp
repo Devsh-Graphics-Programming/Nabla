@@ -304,9 +304,6 @@ bool IGPUCommandBuffer::bindComputePipeline(const compute_pipeline_t* pipeline)
     if (!this->isCompatibleDevicewise(pipeline))
         return false;
 
-    if (pipeline->getAPIType() != getAPIType())
-        return false;
-
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
         return false;
 
@@ -320,11 +317,11 @@ bool IGPUCommandBuffer::updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size
     if (!checkStateBeforeRecording())
         return false;
 
-    if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
-        return false;
-
     if (!validate_updateBuffer(dstBuffer, dstOffset, dataSize, pData))
+    {
+        m_logger.log("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`.", system::ILogger::ELL_ERROR);
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;

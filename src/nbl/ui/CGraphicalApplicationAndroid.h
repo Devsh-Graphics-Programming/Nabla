@@ -5,7 +5,6 @@
 #include "nbl/system/CSystemAndroid.h"
 
 #include "nbl/ui/IGraphicalApplicationFramework.h"
-#include "nbl/ui/IWindow.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
 
 #ifdef _NBL_PLATFORM_ANDROID_
