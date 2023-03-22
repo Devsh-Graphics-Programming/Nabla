@@ -344,7 +344,10 @@ private:
         }
 
         CCommandSegment* m_head = nullptr;
-        core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, false, uint32_t> m_pool;
+        
+        template <typename T>
+        using pool_alignment = core::aligned_allocator<T,COMMAND_SEGMENT_ALIGNMENT>;
+        core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, pool_alignment, false, uint32_t> m_pool;
     };
 
     friend class IGPUCommandBuffer;

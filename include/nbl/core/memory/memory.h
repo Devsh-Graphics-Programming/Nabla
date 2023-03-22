@@ -49,7 +49,7 @@ namespace impl
         if (alignment < MIN_ALIGN) alignment = MIN_ALIGN;
         if (size == 0) return nullptr;
         void* p;
-        if (::posix_memalign(&p, alignment>alignof(std::max_align_t) ? alignof(std::max_align_t):alignment, size) != 0) p = nullptr;
+        if (::posix_memalign(&p, alignment, size) != 0) p = nullptr;
         return p;
     }
 }
