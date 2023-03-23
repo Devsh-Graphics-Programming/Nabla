@@ -46,9 +46,13 @@ CElementFactory::return_type CElementFactory::processRef(const char** _atts, Par
 	const char* id;
 	std::string name;
 	if (!IElement::getIDAndName(id,name,_atts))
+	{
+		os::Printer::log("[ERROR] Malformed `<ref>` element!", ELL_ERROR);
 		return CElementFactory::return_type(nullptr, std::move(name));
-
+	}
 	auto* original = _util->handles[id];
+	if (!original)
+		os::Printer::log(std::string("[ERROR] Used a `<ref name=\""+name+"\" id=\"")+id+"\">` element but referenced element not defined in preceeding XML!", ELL_ERROR);
 	return CElementFactory::return_type(original, std::move(name));
 }
 
