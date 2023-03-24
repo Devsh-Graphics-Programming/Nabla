@@ -124,7 +124,7 @@ public:
                     break;
 
                 auto* nextCmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
-                delete cmd;
+                cmd->~ICommand();
                 cmd = nextCmd;
             }
         }
