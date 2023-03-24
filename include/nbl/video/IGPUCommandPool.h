@@ -46,18 +46,19 @@ public:
         // static void* operator new(std::size_t size, std::align_val_t al) = delete;
         static void* operator new[](std::size_t size, std::align_val_t al) = delete;
 
+        static void operator delete[](void* ptr) = delete;
+        static void operator delete[](void* ptr, std::align_val_t al) = delete;
+        static void operator delete[](void* ptr, std::size_t sz) = delete;
+        static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
+
         inline uint32_t getSize() const { return m_size; }
 
     protected:
-        static void operator delete  (void* ptr) { assert(false); }
-        static void operator delete[](void* ptr) { assert(false); }
-        static void operator delete  (void* ptr, std::align_val_t al) { assert(false); }
-        static void operator delete[](void* ptr, std::align_val_t al) { assert(false); }
-        static void operator delete  (void* ptr, std::size_t sz) { assert(false); }
-        static void operator delete[](void* ptr, std::size_t sz) { assert(false); }
-        static void operator delete  (void* ptr, std::size_t sz, std::align_val_t al) { assert(false); }
-        static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) { assert(false); }
         
+        static void operator delete  (void* ptr) { assert(false); }
+        static void operator delete  (void* ptr, std::align_val_t al) { assert(false); }
+        static void operator delete  (void* ptr, std::size_t sz) { assert(false); }
+        static void operator delete  (void* ptr, std::size_t sz, std::align_val_t al) { assert(false); }
 
         ICommand(uint32_t size) : m_size(size)
         {
@@ -66,6 +67,7 @@ public:
         }
 
     private:
+
         friend CCommandSegment;
 
         const uint32_t m_size;
