@@ -26,8 +26,8 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
     std::tie(_element, scale) = unwindTextureScale(_element);
     if (!_element)
     {
-        os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 2x2 Magenta Checkerboard Error Texture.", ELL_ERROR);
-        return getErrorTexture();
+        os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 64x64 Magenta or Flat Error Texture.", ELL_ERROR);
+        return getErrorTexture(semantic);
     }
 
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
@@ -55,24 +55,92 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
     return { nullptr, nullptr, scale };
 }
 
-auto CMitsubaMaterialCompilerFrontend::getErrorTexture() const -> tex_ass_type
+CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend::getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const
 {
-    constexpr const char* ERR_TEX_CACHE_NAME = "nbl/builtin/image_view/dummy2d";
-    constexpr const char* ERR_SMPLR_CACHE_NAME = "nbl/builtin/sampler/default";
+    tex_ass_type retval = { nullptr,nullptr,1.f };
 
-    asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    auto bundle = m_loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, m_loaderContext->inner, 0u);
-    assert(!bundle.getContents().empty()); // this shouldnt ever happen since ERR_TEX_CACHE_NAME is builtin asset
-        
-    auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
+    {
+        const asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_SAMPLER, asset::IAsset::ET_TERMINATING_ZERO };
+        constexpr const char* ERR_SMPLR_CACHE_NAME = "nbl/builtin/sampler/default";
+        auto sbundle = m_loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, m_loaderContext->inner, 0u);
+        assert(!sbundle.getContents().empty()); // this shouldnt ever happen since ERR_SMPLR_CACHE_NAME is builtin asset
+        std::get<core::smart_refctd_ptr<asset::ICPUSampler>>(retval) = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(sbundle.getContents().begin()[0]);
+    }
+    
+    {
+        const bool isBump = semantic==EIVS_NORMAL_MAP||semantic==EIVS_BUMP_MAP;
+        const char* ERR_TEX_CACHE_NAME = isBump ? "nbl/builtin/image_view/perturb_not_found":"nbl/builtin/image_view/not_found";
+        const asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+        auto bundle = m_loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, m_loaderContext->inner, 0u);
 
-    types[0] = asset::IAsset::ET_SAMPLER;
-    auto sbundle = m_loaderContext->override_->findCachedAsset(ERR_SMPLR_CACHE_NAME, types, m_loaderContext->inner, 0u);
-    assert(!sbundle.getContents().empty()); // this shouldnt ever happen since ERR_SMPLR_CACHE_NAME is builtin asset
+        auto& outImageView = std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval);
+        if (bundle.getContents().empty())
+        {
+            constexpr auto format = asset::EF_R8G8B8A8_UNORM;
+            constexpr uint32_t dummyTexPOTSize = 6;
+            constexpr uint32_t resolution = 0x1u<<dummyTexPOTSize;
+            
+            auto image = asset::ICPUImage::create(asset::ICPUImage::SCreationParams{
+                /*.flags = */static_cast<asset::IImage::E_CREATE_FLAGS>(0u),
+                /*.type = */asset::IImage::ET_2D,
+                /*.format = */format,
+                /*.extent = */{resolution,resolution,1u},
+                /*.mipLevels = */1u,
+                /*.arrayLayers = */1u,
+                /*.samples = */asset::IImage::ESCF_1_BIT
+                //.tiling etc.
+            });
 
-    auto smplr = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(sbundle.getContents().begin()[0]);
+            // set contents
+            {
+                constexpr auto TexelSize = sizeof(uint32_t);
+                const auto& info = image->getCreationParameters();
+                auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(TexelSize*info.extent.width*info.extent.height);
 
-    return { view, smplr, 1.f };
+                // fill
+                {
+                    assert(asset::getTexelOrBlockBytesize(info.format)==TexelSize);
+                    constexpr uint32_t magenta = 0xffff00ffu;
+                    constexpr uint32_t transparent_blue = 0x0000ff00u;
+                    std::fill_n(reinterpret_cast<uint32_t*>(buf->getPointer()), buf->getSize()/TexelSize, isBump ? transparent_blue:magenta);
+                }
+
+                auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
+                asset::ICPUImage::SBufferCopy& region = regions->front();
+                region.imageSubresource.mipLevel = 0u;
+                region.imageSubresource.baseArrayLayer = 0u;
+                region.imageSubresource.layerCount = 1u;
+                region.bufferOffset = 0u;
+                region.bufferRowLength = info.extent.width;
+                region.bufferImageHeight = 0u;
+                region.imageOffset = { 0u, 0u, 0u };
+                region.imageExtent = { resolution, resolution, 1u };
+                image->setBufferAndRegions(std::move(buf), regions);
+            }
+
+            outImageView = core::make_smart_refctd_ptr<asset::ICPUImageView>(asset::ICPUImageView::SCreationParams{
+                /*.flags = */{},
+                /*.image = */std::move(image),
+                /*.viewType = */asset::ICPUImageView::ET_2D,
+                /*.format = */format,
+                /*.components = */{},
+                /*.subresourceRange = */{
+                    /*.aspectMask = */asset::IImage::EAF_COLOR_BIT,
+                    /*.baseMipLevel = */0u,
+                    /*.levelCount = */1u,
+                    /*.baseArrayLayer = */0u,
+                    /*.layerCount = */1u
+                }
+            });
+
+            // TODO: shouldn't be using an override, should be using asset manager directly and setting the mutability to immutable
+            m_loaderContext->override_->insertAssetIntoCache(asset::SAssetBundle(nullptr,{outImageView}), ERR_TEX_CACHE_NAME, m_loaderContext->inner, 0);
+        }
+        else
+            outImageView = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
+    }
+
+    return retval;
 }
 
     auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> IRNode*

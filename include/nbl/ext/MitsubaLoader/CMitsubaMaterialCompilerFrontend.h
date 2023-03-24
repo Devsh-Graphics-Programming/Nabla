@@ -48,7 +48,7 @@ class CMitsubaMaterialCompilerFrontend
 
         tex_ass_type getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) const;
 
-        tex_ass_type getErrorTexture() const;
+        tex_ass_type getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const;
 
         IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 };
