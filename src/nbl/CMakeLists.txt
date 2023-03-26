@@ -637,6 +637,13 @@ if(NOT NBL_STATIC_BUILD)
 		COMMENT "Launching defines.h generation script!"
 		VERBATIM
 	)
+	
+	add_custom_target(generate_nabla_defines ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
+        VERBATIM
+    )
+	
+	add_dependencies(Nabla generate_nabla_defines)
 endif()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
