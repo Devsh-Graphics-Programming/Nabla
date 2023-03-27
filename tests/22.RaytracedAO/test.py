@@ -68,31 +68,10 @@ def htmlHead(scenes_input: Inputs):
     <!DOCTYPE html>
     <html>
     <head>
-    <style>
-    table {
-      font-family: arial, sans-serif;
-      border-collapse: collapse;
-      width: 100%;
-    }
-    
-    td, th {
-      border: 1px solid #dddddd;
-      text-align: left;
-      padding: 8px;
-      text-align: center;
-    }
-    
-    tr:nth-child(even) {
-      background-color: #dddddd;
-    }
-    
-    table, th, td {
-        border: 1px solid black;
-    }
-    </style>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     </head>
     <body>
     
@@ -101,14 +80,15 @@ def htmlHead(scenes_input: Inputs):
     HTML += f'''
     <p>Relative error threshold is set to <strong>{float(NBL_ERROR_THRESHOLD)*100.0}%</strong></p>
     <p>Created at {datetime.now()} </p>
-    <table>
-      <tr>
+    <table class="table table-bordered">
+      <tr class="thead-dark">
         <th>Render</th>
         <th>Pass status</th>
         <th colspan="3" scope="colgroup">Input</th>
         <th colspan="3" scope="colgroup">Albedo</th>
         <th colspan="3" scope="colgroup">Normal</th>
         <th colspan="3" scope="colgroup">Denoised</th>
+        <th colspan="1" scope="colgroup">Options</th>
       </tr>
     '''
     htmlFile = open(scenes_input.summary_html_filepath, "w+")
@@ -129,6 +109,42 @@ def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
         HTML += f'''
         <h2 style="color: green;">LDS Cache hash: {hash}</h2>'''
     HTML += '''
+    <div id="exrPreview" style="height: 80%; padding-bottom: 61.4%; position: relative"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react-dom.js"></script>
+    <script src="https://artifactory.devsh.eu/Ditt/ci/data/js/jeri.js"></script>
+    <script>
+        async function configForImage(renderName) {
+            return {
+                title: 'exrPreview',
+                children: [
+                    { title: 'Render result', image: rendersUrl + '/Render_' + renderName + '.exr' },
+                    { title: 'Render denoised', image: rendersUrl + '/Render_' + renderName + '_denoised.exr' },
+                    { title: 'Render albedo', image: rendersUrl + '/Render_' + renderName + '_albedo.exr'},
+                    { title: 'Render normal', image: rendersUrl + '/Render_' + renderName + '_normal.exr'},
+                    { title: 'Reference result', image: referenceUrl + renderName+ '/Render_' + renderName + '.exr' },
+                    { title: 'Reference denoised', image: referenceUrl + renderName+ '/Render_' + renderName + '_denoised.exr' },
+                    { title: 'Reference albedo', image: referenceUrl + renderName+ '/Render_' + renderName + '_albedo.exr'},
+                    { title: 'Reference normal', image:referenceUrl + renderName+  '/Render_' + renderName + '_normal.exr'},
+                    { title: 'Difference noisy', image: differencesUrl + '/' + renderName + '/' + renderName + '_diff.exr' },
+                    { title: 'Difference denoised', image: differencesUrl + '/' + renderName + '/' + renderName + '_denoised_diff.exr' },
+                    { title: 'Difference albedo', image: differencesUrl + '/' + renderName + '/' + renderName + '_albedo_diff.exr'},
+                    { title: 'Difference normal', image: differencesUrl + '/' + renderName + '/' + renderName + '_normal_diff.exr'}
+                ]
+            };
+        }
+
+        const exrPreview = document.getElementById('exrPreview')
+        function compareImageBtnCallback(renderName) {
+            configForImage(renderName).then( (data)=>Jeri.renderViewer(exrPreview,data ));
+            exrPreview.scrollIntoView({ behavior: "smooth", block: "start"});
+        }
+    '''
+    HTML += f'''
+        const referenceUrl= '{scenes_input.result_imgs_url}/references/';
+        const rendersUrl= '{scenes_input.result_imgs_url}';
+        const differencesUrl= '{scenes_input.diff_imgs_url}';
+    </script>
     </body>
     </html>
     '''
@@ -244,6 +260,9 @@ def run_all_tests(inputParamList):
                                     '''
                                     HTML_CELLS.append(HTML_CELL)
                                     shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
+                                    #fix to CORS in preview
+                                    refStorageFilepathstr = (inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
+                                    shutil.move(imageRefFilepath, refStorageFilepathstr)
                                     continue
 
                                 if diffTerminator =='_denoised':
@@ -276,6 +295,10 @@ def run_all_tests(inputParamList):
                                     TAB3 = "Errors: " + str(errorPixelCount)
 
                                 shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
+                                
+                                #fix to CORS in preview
+                                refStorageFilepathstr = (inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
+                                shutil.move(imageRefFilepath, refStorageFilepathstr)
 
                                 Diff_Filename= renderName + diffTerminator + "_diff.exr"
                                 HTML_CELL = f'''
@@ -304,7 +327,9 @@ def run_all_tests(inputParamList):
                         <tr>
                         <td>{renderName}</td>
                         {'<td style="color: green;">PASSED</td>' if PASSED_ALL else '<td style="color: red;">FAILED</td>'}
-                        ''' + ' '.join(HTML_CELLS)  + '''
+                        ''' + ' '.join(HTML_CELLS)  + f'''
+                        <td scope="col"><button type="button" class="btn" onclick="compareImageBtnCallback('{renderName}');">Compare</button></td>
+
                         </tr>
                         '''
                         print (f'Overall {renderName}   {"PASSED" if PASSED_ALL else "FAILED"}')
