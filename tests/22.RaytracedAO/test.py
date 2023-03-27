@@ -50,7 +50,7 @@ NBL_SCENES_INPUTS = [
             storage_dir= f'{NBL_REFDATA_PATH}/renders/public'),
 
         Inputs(
-            input_file='@_NBL_PRIVATE_SCENES_INPUT_TXT_@', 
+            input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt',
             summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/private/index.html', 
             ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
             diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private/difference-images',
