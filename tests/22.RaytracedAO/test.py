@@ -122,10 +122,10 @@ def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
                     { title: 'Render denoised', image: rendersUrl + '/Render_' + renderName + '_denoised.exr' },
                     { title: 'Render albedo', image: rendersUrl + '/Render_' + renderName + '_albedo.exr'},
                     { title: 'Render normal', image: rendersUrl + '/Render_' + renderName + '_normal.exr'},
-                    { title: 'Reference result', image: referenceUrl + '/' + renderName+ '/Render_' + renderName + '.exr' },
-                    { title: 'Reference denoised', image: referenceUrl + '/' + renderName+ 'Render_' + renderName + '_denoised.exr' },
-                    { title: 'Reference albedo', image: referenceUrl + '/' + renderName+ 'Render_' + renderName + '_albedo.exr'},
-                    { title: 'Reference normal', image:referenceUrl + '/' + renderName+  'Render_' + renderName + '_normal.exr'},
+                    { title: 'Reference result', image: referenceUrl + renderName+ '/Render_' + renderName + '.exr' },
+                    { title: 'Reference denoised', image: referenceUrl + renderName+ '/Render_' + renderName + '_denoised.exr' },
+                    { title: 'Reference albedo', image: referenceUrl + renderName+ '/Render_' + renderName + '_albedo.exr'},
+                    { title: 'Reference normal', image:referenceUrl + renderName+  '/Render_' + renderName + '_normal.exr'},
                     { title: 'Difference noisy', image: differencesUrl + '/' + renderName + '/' + renderName + '_diff.exr' },
                     { title: 'Difference denoised', image: differencesUrl + '/' + renderName + '/' + renderName + '_denoised_diff.exr' },
                     { title: 'Difference albedo', image: differencesUrl + '/' + renderName + '/' + renderName + '_albedo_diff.exr'},
@@ -141,7 +141,7 @@ def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
         }
     '''
     HTML += f'''
-        const referenceUrl= '{scenes_input.ref_url}';
+        const referenceUrl= '{scenes_input.result_imgs_url}/references/';
         const rendersUrl= '{scenes_input.result_imgs_url}';
         const differencesUrl= '{scenes_input.diff_imgs_url}';
     </script>
@@ -260,6 +260,9 @@ def run_all_tests(inputParamList):
                                     '''
                                     HTML_CELLS.append(HTML_CELL)
                                     shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
+                                    #fix to CORS in preview
+                                    refStorageFilepathstr = (inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
+                                    shutil.move(imageRefFilepath, refStorageFilepathstr)
                                     continue
 
                                 if diffTerminator =='_denoised':
@@ -292,6 +295,10 @@ def run_all_tests(inputParamList):
                                     TAB3 = "Errors: " + str(errorPixelCount)
 
                                 shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
+                                
+                                #fix to CORS in preview
+                                refStorageFilepathstr = (inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
+                                shutil.move(imageRefFilepath, refStorageFilepathstr)
 
                                 Diff_Filename= renderName + diffTerminator + "_diff.exr"
                                 HTML_CELL = f'''
