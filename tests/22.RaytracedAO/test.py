@@ -197,7 +197,7 @@ def run_all_tests(inputParamList):
             cacheChanged = False
 
             sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
-            executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -TERMINATE'
+            executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
             subprocess.run(executor, capture_output=True)
                 
             # if we start the path tracer first time
@@ -233,7 +233,7 @@ def run_all_tests(inputParamList):
                         NBL_DUMMY_RENDER_CASE = not bool(Path(destinationReferenceUndenoisedTargetName + '.exr').is_file())
 
 
-                        executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -TERMINATE'
+                        executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
                         subprocess.run(executor, capture_output=True)
 
                         # fail CI if the reference cache is different that current generated cache
