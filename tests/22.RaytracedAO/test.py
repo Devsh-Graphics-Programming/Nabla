@@ -215,17 +215,7 @@ def run_all_tests(inputParamList):
                     
                         # dummy case executes when there is no reference image
                         NBL_DUMMY_RENDER_CASE = not bool(Path(destinationReferenceUndenoisedTargetName + '.exr').is_file())
-                        # if we render first time a scene then we need to have a reference of this scene for following ci checks
-                        if NBL_DUMMY_RENDER_CASE:
 
-                            HTML = f'''<tr><td>{renderName}</td>
-                            <td style="color: orange;">PASSED</td>
-                            <td colspan="12"> no references </td>
-                            '''
-                            htmlFile = open(inputParams.summary_html_filepath, "a")
-                            htmlFile.write(HTML)
-                            htmlFile.close()
-                            continue
 
                         executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
                         subprocess.run(executor, capture_output=True)
@@ -242,6 +232,19 @@ def run_all_tests(inputParamList):
                                 imageDiffFilePath = str(inputParams.diff_images_dir) + '/' + renderName + diffTerminator + "_diff.exr"
                                 imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
                                 imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
+                                                        # if we render first time a scene then we need to have a reference of this scene for following ci checks
+                                if NBL_DUMMY_RENDER_CASE:
+
+                                    HTML_CELL = f'''
+                                    <td scope="col">
+                                    <a href="{inputParams.result_imgs_url}/{undenoisedTargetName}{diffTerminator}.exr">(Result)</a>
+                                    <td scope="col">No references</td>
+                                    <td style="color: orange;">PASSED</td>
+                                    </td>
+                                    '''
+                                    HTML_CELLS.append(HTML_CELL)
+                                    shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
+                                    continue
 
                                 if diffTerminator =='_denoised':
                                     diffValueCommandParams = f' compare -metric SSIM "{imageRefFilepath}" "{imageGenFilepath}" "{imageDiffFilePath}"'
