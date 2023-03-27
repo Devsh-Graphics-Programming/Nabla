@@ -8,16 +8,16 @@ from pathlib import *
 
 NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
-NBL_CI_ROOT = '@_NBL_CI_ROOT_@' + "/22.RaytracedAO"
-NBL_CI_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
+NBL_REFDATA_PATH = '@NBL_ROOT_PATH@'+'/ci/22.RaytracedAO' # TODO: change `ci` to `tests/reference_data`
+NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 96   #TODO: make this relative to image resolution
  
 def get_git_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}" rev-parse origin/ditt').decode('ascii').strip()
+    return subprocess.check_output(f'git -C "{NBL_REFDATA_PATH}" rev-parse origin/ditt').decode('ascii').strip()
 
 def get_submodule_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_CI_ROOT}/references/private" rev-parse origin/master').decode('ascii').strip()
+    return subprocess.check_output(f'git -C "{NBL_REFDATA_PATH}/references/private" rev-parse origin/master').decode('ascii').strip()
 
 class Inputs:
     def __init__(self, 
@@ -40,24 +40,24 @@ class Inputs:
 
 NBL_SCENES_INPUTS = [ 
     Inputs(
-            input_file='@_NBL_SCENES_INPUT_TXT_@', # path to input txt
-            summary_html_filepath=f'{NBL_CI_ROOT}/renders/public/index.html', 
+            input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/mitsuba/public_test_scenes.txt',
+            summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/public/index.html', 
             ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() + '/22.RaytracedAO/references/public',
             diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public/difference-images',
             result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public',
-            references_dir=f'{NBL_CI_ROOT}/references/public',
-            diff_images_dir=f'{NBL_CI_ROOT}/renders/public/difference-images',
-            storage_dir= f'{NBL_CI_ROOT}/renders/public'),
+            references_dir=f'{NBL_REFDATA_PATH}/references/public',
+            diff_images_dir=f'{NBL_REFDATA_PATH}/renders/public/difference-images',
+            storage_dir= f'{NBL_REFDATA_PATH}/renders/public'),
 
         Inputs(
             input_file='@_NBL_PRIVATE_SCENES_INPUT_TXT_@', 
-            summary_html_filepath=f'{NBL_CI_ROOT}/renders/private/index.html', 
+            summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/private/index.html', 
             ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
             diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private/difference-images',
             result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private',
-            references_dir=f'{NBL_CI_ROOT}/references/private',
-            diff_images_dir=f'{NBL_CI_ROOT}/renders/private/difference-images',
-            storage_dir= f'{NBL_CI_ROOT}/renders/private') 
+            references_dir=f'{NBL_REFDATA_PATH}/references/private',
+            diff_images_dir=f'{NBL_REFDATA_PATH}/renders/private/difference-images',
+            storage_dir= f'{NBL_REFDATA_PATH}/renders/private') 
 ]
 CLOSE_TO_ZERO = "0.00001"         
 CI_PASS_STATUS = True
@@ -124,7 +124,7 @@ def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
         <h2 style="color: red;">FAILED PASS: Low Discrepancy Sequence Cache has been overwritten by a new one!</h2>
         '''
     else:
-        executor = f'git hash-object {scenes_input.references_dir}/{NBL_CI_LDS_CACHE_FILENAME}'
+        executor = f'git hash-object {scenes_input.references_dir}/{NBL_REF_LDS_CACHE_FILENAME}'
         hash = subprocess.run(executor, capture_output=True).stdout.decode().strip()
         HTML += f'''
         <h2 style="color: green;">LDS Cache hash: {hash}</h2>'''
@@ -175,9 +175,9 @@ def run_all_tests(inputParamList):
             if not inputParams.diff_images_dir.is_dir():
                 os.makedirs(inputParams.diff_images_dir)
 
-            NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_CI_LDS_CACHE_FILENAME).is_file())
-            generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_CI_LDS_CACHE_FILENAME
-            destinationReferenceCache = str(inputParams.references_dir) + '/' + NBL_CI_LDS_CACHE_FILENAME
+            NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).is_file())
+            generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_REF_LDS_CACHE_FILENAME
+            destinationReferenceCache = str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME
             cacheChanged = False
 
             sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
