@@ -261,7 +261,7 @@ def run_all_tests(inputParamList):
                                     HTML_CELLS.append(HTML_CELL)
                                     shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
                                     #fix to CORS in preview
-                                    refStorageFilepathstr = (inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
+                                    refStorageFilepathstr = str(inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
                                     shutil.move(imageRefFilepath, refStorageFilepathstr)
                                     continue
 
@@ -297,7 +297,7 @@ def run_all_tests(inputParamList):
                                 shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
                                 
                                 #fix to CORS in preview
-                                refStorageFilepathstr = (inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
+                                refStorageFilepathstr = str(inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
                                 shutil.move(imageRefFilepath, refStorageFilepathstr)
 
                                 Diff_Filename= renderName + diffTerminator + "_diff.exr"
