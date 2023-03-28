@@ -266,9 +266,9 @@ def run_all_tests(inputParamList):
                                     </td>
                                     '''
                                     HTML_CELLS.append(HTML_CELL)
-                                    shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
+                                    shutil.copy(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
                                     #fix to CORS in preview
-                                    shutil.move(imageRefFilepath, refStorageFilepathstr)
+                                    shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', refStorageFilepathstr)
                                     continue
 
                                 if diffTerminator =='_denoised':
@@ -303,7 +303,7 @@ def run_all_tests(inputParamList):
                                 shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
                                 
                                 #fix to CORS in preview
-                                shutil.move(imageRefFilepath, refStorageFilepathstr)
+                                shutil.copy(imageRefFilepath, refStorageFilepathstr)
 
                                 Diff_Filename= renderName + diffTerminator + "_diff.exr"
                                 HTML_CELL = f'''
