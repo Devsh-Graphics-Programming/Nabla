@@ -191,6 +191,7 @@ def run_all_tests(inputParamList):
             if not inputParams.diff_images_dir.is_dir():
                 os.makedirs(inputParams.diff_images_dir)
 
+         
             NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).is_file())
             generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_REF_LDS_CACHE_FILENAME
             destinationReferenceCache = str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME
@@ -243,12 +244,18 @@ def run_all_tests(inputParamList):
                         PASSED_ALL = True
                         storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
 
+                        referenceDir = str(inputParams.storage_dir) + '/references/' + renderName + '/'
+                        if not Path(referenceDir).is_dir():
+                            os.makedirs(referenceDir)
+
                         for diffTerminator in outputDiffTerminators:
                             try:
                                 imageDiffFilePath = str(inputParams.diff_images_dir) + '/' + renderName + diffTerminator + "_diff.exr"
                                 imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
                                 imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
-                                                        # if we render first time a scene then we need to have a reference of this scene for following ci checks
+                                refStorageFilepathstr = referenceDir + undenoisedTargetName + diffTerminator + '.exr' 
+
+                                # if we render first time a scene then we need to have a reference of this scene for following ci checks
                                 if NBL_DUMMY_RENDER_CASE:
 
                                     HTML_CELL = f'''
@@ -261,7 +268,6 @@ def run_all_tests(inputParamList):
                                     HTML_CELLS.append(HTML_CELL)
                                     shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
                                     #fix to CORS in preview
-                                    refStorageFilepathstr = str(inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
                                     shutil.move(imageRefFilepath, refStorageFilepathstr)
                                     continue
 
@@ -297,7 +303,6 @@ def run_all_tests(inputParamList):
                                 shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
                                 
                                 #fix to CORS in preview
-                                refStorageFilepathstr = str(inputParams.storage_dir) + '/references/' + renderName + '/' + undenoisedTargetName + diffTerminator + '.exr' 
                                 shutil.move(imageRefFilepath, refStorageFilepathstr)
 
                                 Diff_Filename= renderName + diffTerminator + "_diff.exr"
