@@ -53,6 +53,13 @@ public:
 
         inline uint32_t getSize() const { return m_size; }
 
+    protected:
+        ICommand(uint32_t size) : m_size(size)
+        {
+            assert(ptrdiff_t(this) % alignof(ICommand) == 0);
+            assert(m_size % alignof(ICommand) == 0);
+        }
+
         void operator delete(ICommand* ptr, std::destroying_delete_t) { ptr->~ICommand(); }
         void operator delete( ICommand* ptr, std::destroying_delete_t,
                                 std::align_val_t al ) { ptr->~ICommand(); }
@@ -60,12 +67,6 @@ public:
         void operator delete( ICommand* ptr, std::destroying_delete_t,
                                 std::size_t sz, std::align_val_t al ) { ptr->~ICommand(); }
 
-    protected:
-        ICommand(uint32_t size) : m_size(size)
-        {
-            assert(ptrdiff_t(this) % alignof(ICommand) == 0);
-            assert(m_size % alignof(ICommand) == 0);
-        }
 
     private:
 
