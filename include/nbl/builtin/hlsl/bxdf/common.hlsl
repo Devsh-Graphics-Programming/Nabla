@@ -403,12 +403,12 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 
 
 // finally fixed the semantic F-up, value/pdf = quotient not remainder
-template<typename SpectralBins>
+template<typename SpectralBins, typename Pdf>
 struct quotient_and_pdf
 {
-  static quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float _pdf)
+  static quotient_and_pdf<SpectralBins,Pdf> create(const SpectralBins _quotient, const Pdf _pdf)
   {
-    quotient_and_pdf<SpectralBins> retval;
+    quotient_and_pdf<SpectralBins,Pdf> retval;
     retval.quotient = _quotient;
     retval.pdf = _pdf;
     return retval;
@@ -420,11 +420,11 @@ struct quotient_and_pdf
   }
   
   SpectralBins quotient;
-  float pdf;
+  Pdf pdf;
 };
 
-using quotient_and_pdf_scalar = quotient_and_pdf<float>;
-using quotient_and_pdf_rgb = quotient_and_pdf<float3>;
+using quotient_and_pdf_scalar = quotient_and_pdf<float, float>;
+using quotient_and_pdf_rgb = quotient_and_pdf<float3, float>;
 
 
 // Utility class
@@ -435,7 +435,7 @@ struct BxDFBase
     // BxDFs must define such typenames:
     using spectrum_t =      Spectrum;
     using pdf_t =           Pdf;
-    using q_pdf_t =         quotient_and_pdf<spectrum_t>;
+    using q_pdf_t =         quotient_and_pdf<spectrum_t,pdf_t>;
 
     using sample_t =        Sample;
     using interaction_t =   Interaction;

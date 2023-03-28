@@ -8,7 +8,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_GEOM_SMITH_COMMON_INCLUDED_
 
 
-#include <nbl/builtin/hlsl/bxdf/ndf/common.hlsl>
+#include <nbl/builtin/hlsl/bxdf/ndf.hlsl>
 
 namespace nbl
 {

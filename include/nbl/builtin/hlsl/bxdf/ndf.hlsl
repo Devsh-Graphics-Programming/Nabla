@@ -3,10 +3,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_BXDF_NDF_COMMON_INCLUDED_
-#define _NBL_BUILTIN_HLSL_BXDF_NDF_COMMON_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_BXDF_NDF_INCLUDED_
+#define _NBL_BUILTIN_HLSL_BXDF_NDF_INCLUDED_
 
-#include <nbl/builtin/hlsl/bxdf/geom/smith/common.hlsl>
+#include <nbl/builtin/hlsl/bxdf/common.hlsl>
 
 namespace nbl
 {
@@ -93,12 +93,12 @@ namespace impl
     template<class ndf_t>
     struct ndf_traits
     {
-        using scalar_t = ndf_t::scalar_t;
+        using scalar_t = typename ndf_t::scalar_t;
 
-        scalar_t G1(in float NdotX2) const { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(NdotX2)); }
-        scalar_t G2(in float NdotV2, in float NdotL2) const { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(NdotV2) + ndf.Lambda(NdotL2)); }
+        scalar_t G1(in float NdotX2) { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(NdotX2)); }
+        scalar_t G2(in float NdotV2, in float NdotL2) { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(NdotV2) + ndf.Lambda(NdotL2)); }
 
-        scalar_t G2_over_G1(in float NdotV2, in float NdotL2) const
+        scalar_t G2_over_G1(in float NdotV2, in float NdotL2) 
         {
             const scalar_t lambdaV_plus_one = ndf.Lambda(NdotV2) + scalar_t(1);
             return lambdaV_plus_one / (ndf.Lambda(NdotL2) + lambdaV_plus_one);
@@ -122,22 +122,26 @@ namespace impl
         // VNDF functions
         //
         // Statics:
-        static scalar_t VNDF_static(in scalar_t d, in scalar_t lambda_V, in float maxNdotV, out onePlusLambda_V)
+        static scalar_t VNDF_static(in scalar_t d, in scalar_t lambda_V, in float maxNdotV, out scalar_t onePlusLambda_V)
         {
-            return geom_smith::VNDF_pdf_wo_clamps(d, lambda_V, maxNdotV, onePlusLambda_V);
+            onePlusLambda_V = scalar_t(1) + lambda_V;
+
+            return microfacet_to_light_measure_transform(d / onePlusLambda_V, maxNdotV);
         }
         static scalar_t VNDF_static(in scalar_t d, in scalar_t lambda_V, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta, in float reflectance, out float onePlusLambda_V)
         {
-            return geom_smith::VNDF_pdf_wo_clamps(d, lambda_V.absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta, reflectance, onePlusLambda_V);
+            onePlusLambda_V = scalar_t(1) + lambda_V;
+
+            return microfacet_to_light_measure_transform((transmitted ? (1.0 - reflectance) : reflectance) * d / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
         }
         static scalar_t VNDF_static(in scalar_t d, in scalar_t G1_over_2NdotV)
         {
-            return geom_smith::VNDF_pdf_wo_clamps(d, G1_over_2NdotV);
+            return d * 0.5 * G1_over_2NdotV;
         }
 
         static scalar_t VNDF_fromLambda_impl(in scalar_t d, in scalar_t lambda, in float maxNdotV)
         {
-            float dummy;
+            scalar_t dummy;
             return VNDF_static(d, lambda, maxNdotV, dummy);
         }
         static scalar_t VNDF_fromG1_over_2NdotV_impl(in scalar_t d, in scalar_t G1_over_2NdotV)
@@ -210,5 +214,6 @@ struct ndf_traits : impl::ndf_traits<ndf_t> {};
 }
 }
 
+#include <nbl/builtin/hlsl/bxdf/ndf/beckmann.hlsl>
 
 #endif

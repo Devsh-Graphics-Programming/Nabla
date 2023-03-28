@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_BRDF_SPECULAR_COMMON_INCLUDED_
 
 #include <nbl/builtin/hlsl/bxdf/common.hlsl>
-#include <nbl/builtin/hlsl/bxdf/ndf/common.hlsl>
+#include <nbl/builtin/hlsl/bxdf/ndf.hlsl>
 
 namespace nbl
 {
