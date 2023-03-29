@@ -444,7 +444,7 @@ struct BxDFBase
     * 
     * spectrum_t    eval(in sample_t, in interaction_t);
     * 
-    * sample_t      generate(in interaction_t, inout float3 u);
+    * sample_t      generate(in surface_interactions::Anisotropic, inout float3 u);
     * 
     * q_pdf_t       quotient_and_pdf(in sample_t, in interaction_t);
     */
@@ -469,7 +469,7 @@ struct MicrofacetBxDFBase : BxDFBase<Spectrum, Pdf, Sample, Interaction>
     * 
     * spectrum_t    eval(in sample_t, in interaction_t, in cache_t);
     * 
-    * sample_t      generate(in interaction_t, inout float3 u);
+    * sample_t      generate(in surface_interactions::Anisotropic, inout float3 u, out AnisotropicMicrofacetCache);
     * 
     * q_pdf_t       quotient_and_pdf(in sample_t, in interaction_t, in cache_t);
     */

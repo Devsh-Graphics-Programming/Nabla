@@ -112,7 +112,7 @@ struct Lambertian : BxDFBase<float, float, LightSample<IncomingRayDirInfo>, surf
         return LightSample<IncomingRayDirInfo>::createTangentSpace(tangentSpaceV, IncomingRayDirInfo::create(L), tangentFrame);
     }
 
-    typename base_t::quotient_and_pdf_t cos_quotient_and_pdf(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
+    typename base_t::q_pdf_t cos_quotient_and_pdf(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
     {
         float pdf;
         float q = sampling::projected_hemisphere_quotient_and_pdf(pdf, max(s.NdotL, 0.0f));

@@ -10,6 +10,7 @@
 #include <nbl/builtin/hlsl/bxdf/geom/smith/common.hlsl>
 #include <nbl/builtin/hlsl/bxdf/geom/smith/beckmann.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
+#include <nbl/builtin/hlsl/bxdf/brdf/specular/common.hlsl>
 
 namespace nbl
 {
@@ -272,6 +273,13 @@ float3 beckmann_aniso_height_correlated_cos_eval(in LightSample<RayDirInfo> _sam
         return float3(0.0, 0.0, 0.0);
     }
 }
+
+
+template <class IncomingRayDirInfo, class Fresnel>
+using IsotropicBeckmann = IsotropicCookTorrance<IncomingRayDirInfo, Fresnel, ndf::IsotropicBeckmann>;
+
+template <class IncomingRayDirInfo, class Fresnel>
+using AnisotropicBeckmann = AnisotropicCookTorrance<IncomingRayDirInfo, Fresnel, ndf::Beckmann>;
 
 }
 }

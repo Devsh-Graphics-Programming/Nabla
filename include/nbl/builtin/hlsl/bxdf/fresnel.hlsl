@@ -142,16 +142,16 @@ struct FresnelBase
 template <class Spectrum>
 struct FresnelSchlick : FresnelBase<Spectrum>
 {
-    spectrum_t F0;
+    Spectrum F0;
 
-    static FresnelSchlick<spectrum_t> create(in spectrum_t _F0)
+    static FresnelSchlick<Spectrum> create(in Spectrum _F0)
     {
-        FresnelSchlick<spectrum_t> fs;
+        FresnelSchlick<Spectrum> fs;
         fs.F0 = _F0;
         return fs;
     }
 
-    spectrum_t operator()(in float cosTheta)
+    Spectrum operator()(in float cosTheta)
     {
         float x = 1.0 - cosTheta;
         return F0 + (1.0 - F0) * x*x*x*x*x;
@@ -164,10 +164,10 @@ using FresnelSchlickRGB     = FresnelSchlick<float3>;
 template <class Spectrum>
 struct FresnelConductor : FresnelBase<Spectrum>
 {
-    spectrum_t eta;
-    spectrum_t etak;
+    Spectrum eta;
+    Spectrum etak;
 
-    static FresnelConductor<Spectrum> create(in spectrum_t _eta, in spectrum_t _etak)
+    static FresnelConductor<Spectrum> create(in Spectrum _eta, in Spectrum _etak)
     {
         FresnelConductor<Spectrum> f;
 
@@ -177,19 +177,19 @@ struct FresnelConductor : FresnelBase<Spectrum>
         return f;
     }
 
-    spectrum_t operator()(in float cosTheta)
+    Spectrum operator()(in float cosTheta)
     {
        const float CosTheta2 = cosTheta*cosTheta;
        const float SinTheta2 = 1.0 - CosTheta2;
 
-       const spectrum_t EtaLen2 = eta*eta + etak*etak;
-       const spectrum_t etaCosTwice = eta*cosTheta*2.0;
+       const Spectrum EtaLen2 = eta*eta + etak*etak;
+       const Spectrum etaCosTwice = eta*cosTheta*2.0;
 
-       const spectrum_t rs_common = EtaLen2 + (CosTheta2).xxx;
-       const spectrum_t rs2 = (rs_common - etaCosTwice)/(rs_common + etaCosTwice);
+       const Spectrum rs_common = EtaLen2 + (CosTheta2).xxx;
+       const Spectrum rs2 = (rs_common - etaCosTwice)/(rs_common + etaCosTwice);
 
-       const spectrum_t rp_common = EtaLen2*CosTheta2 + spectrum_t(1);
-       const spectrum_t rp2 = (rp_common - etaCosTwice)/(rp_common + etaCosTwice);
+       const Spectrum rp_common = EtaLen2*CosTheta2 + Spectrum(1);
+       const Spectrum rp2 = (rp_common - etaCosTwice)/(rp_common + etaCosTwice);
    
        return (rs2 + rp2)*0.5;
     }
@@ -201,9 +201,9 @@ using FresnelConductorRGB       = FresnelConductor<float3>;
 template <class Spectrum>
 struct FresnelDielectric : FresnelBase<Spectrum>
 {
-    spectrum_t eta;
+    Spectrum eta;
 
-    static FresnelDielectric<Spectrum> create(in spectrum_t _eta)
+    static FresnelDielectric<Spectrum> create(in Spectrum _eta)
     {
         FresnelDielectric<Spectrum> f;
 
@@ -212,22 +212,22 @@ struct FresnelDielectric : FresnelBase<Spectrum>
         return f;
     }
 
-    spectrum_t operator()(in float cosTheta)
+    Spectrum operator()(in float cosTheta)
     {
-        spectrum_t orientedEta, rcpOrientedEta;
-        math::getOrientedEtas<spectrum_t>(orientedEta, rcpOrientedEta, cosTheta, eta);
+        Spectrum orientedEta, rcpOrientedEta;
+        math::getOrientedEtas<Spectrum>(orientedEta, rcpOrientedEta, cosTheta, eta);
 
         const float AbsCosTheta = abs(cosTheta);
-        const spectrum_t orientedEta2 = orientedEta * orientedEta;
+        const Spectrum orientedEta2 = orientedEta * orientedEta;
 
         const float SinTheta2 = 1.0-AbsCosTheta*AbsCosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
-        const spectrum_t t0 = sqrt(max(orientedEta2-SinTheta2, spectrum_t(0)));
-        const spectrum_t rs = (AbsCosTheta - t0) / (AbsCosTheta + t0);
+        const Spectrum t0 = sqrt(max(orientedEta2-SinTheta2, Spectrum(0)));
+        const Spectrum rs = (AbsCosTheta - t0) / (AbsCosTheta + t0);
 
-        const spectrum_t t2 = orientedEta2*AbsCosTheta;
-        const spectrum_t rp = (t0 - t2) / (t0 + t2);
+        const Spectrum t2 = orientedEta2*AbsCosTheta;
+        const Spectrum rp = (t0 - t2) / (t0 + t2);
 
         return (rs*rs + rp*rp)*0.5;
     }

@@ -137,7 +137,7 @@ struct OrenNayar : BxDFBase<float, float, LightSample<IncomingRayDirInfo>, surfa
         return Lambertian<IncomingRayDirInfo>::generate(interaction, u);
     }
 
-    typename base_t::quotient_and_pdf_t cos_quotient_and_pdf(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
+    typename base_t::q_pdf_t cos_quotient_and_pdf(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
     {
         float maxNdotL;
         float q = quotient(s, interaction, maxNdotL);

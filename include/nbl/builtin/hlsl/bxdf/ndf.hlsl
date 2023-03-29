@@ -96,12 +96,29 @@ namespace impl
         using scalar_t = typename ndf_t::scalar_t;
 
         scalar_t G1(in float NdotX2) { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(NdotX2)); }
-        scalar_t G2(in float NdotV2, in float NdotL2) { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(NdotV2) + ndf.Lambda(NdotL2)); }
+        scalar_t G1(in float TdotX2, in float BdotX2, in float NdotX2) { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(TdotX2, BdotX2, NdotX2)); }
 
+        scalar_t G2(in float NdotV2, in float NdotL2) { return scalar_t(1) / (scalar_t(1) + ndf.Lambda(NdotV2) + ndf.Lambda(NdotL2)); }
+        scalar_t G2(in float TdotV2, in float BdotV2, in float NdotV2, in float TdotL2, in float BdotL2, in float NdotL2) 
+        { 
+            return  scalar_t(1) / (scalar_t(1) + ndf.Lambda(TdotV2, BdotV2, NdotV2) + ndf.Lambda(TdotL2, BdotL2, NdotL2));
+        }
+
+        static scalar_t G2_over_G1_common(in scalar_t lambdaV, in scalar_t lambdaL)
+        {
+            const scalar_t lambdaV_plus_one = lambdaV + scalar_t(1);
+            return lambdaV_plus_one / (lambdaL + lambdaV_plus_one);
+        }
         scalar_t G2_over_G1(in float NdotV2, in float NdotL2) 
         {
-            const scalar_t lambdaV_plus_one = ndf.Lambda(NdotV2) + scalar_t(1);
-            return lambdaV_plus_one / (ndf.Lambda(NdotL2) + lambdaV_plus_one);
+            return G2_over_G1_common(ndf.Lambda(NdotV2), ndf.Lambda(NdotL2));
+        }
+        scalar_t G2_over_G1(in float TdotV2, in float BdotV2, in float NdotV2, in float TdotL2, in float BdotL2, in float NdotL2)
+        {
+            return G2_over_G1_common(
+                ndf.Lambda(TdotV2, BdotV2, NdotV2), 
+                ndf.Lambda(TdotL2, BdotL2, NdotL2)
+            );
         }
 
         //
