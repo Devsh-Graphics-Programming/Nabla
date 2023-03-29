@@ -61,7 +61,7 @@ class IImageFilterKernel
 		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCenterSampledCoord, core::vectorSIMDf& cornerSampledCoord) const
 		{
 			cornerSampledCoord = unnormCenterSampledCoord-core::vectorSIMDf(0.5f,0.5f,0.5f,0.f);
-			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord+negative_support));
+			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord+min_support));
 		}
 		// overload that does not return the cornern sampled coordinate of the given center sampled coordinate
 		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCeterSampledCoord) const

@@ -246,7 +246,7 @@ set(NBL_ASSET_SOURCES
 # Images
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/filters/CBasicImageFilterCommon.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/filters/kernels/CConvolutionImageFilterKernel.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/filters/kernels/CConvolutionWeightFunction.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CDerivativeMapCreator.cpp
 
 # Image loaders

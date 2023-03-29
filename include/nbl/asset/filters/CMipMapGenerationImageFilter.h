@@ -23,7 +23,7 @@ namespace asset
 // the correct usage is to compute the first mip map with a 100% support kernel, then subsequent iterations with 50% smaller pixel supports
 // (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 
-template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, Blittable BlitUtilities = CBlitUtilities<CMitchellImageFilterKernel<>>>
+template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, typename BlitUtilities = CBlitUtilities<SMitchellFunction<>>>
 class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities>>, public CBasicImageFilterCommon
 {
 	public:
@@ -107,7 +107,9 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		{
 			const auto prevLevel = inMipLevel-1u;
 
-			typename pseudo_base_t::state_type blit;
+			auto convolutionKernels = pseudo_base_t::blit_utils_t::getConvolutionKernels(state->inOutImage->getMipSize(prevLevel), state->inOutImage->getMipSize(inMipLevel));
+
+			typename pseudo_base_t::state_type blit(std::move(convolutionKernels));
 			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
 			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
 			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);
@@ -119,7 +121,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
 			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
 
-			pseudo_base_t::blit_utils_t::computeScaledKernelPhasedLUT<pseudo_base_t::lut_value_t>(blit.scratchMemory + pseudo_base_t::getScratchOffset(&blit, pseudo_base_t::ESU_SCALED_KERNEL_PHASED_LUT), blit.inExtentLayerCount, blit.outExtentLayerCount, blit.inImage->getCreationParameters().type, blit.reconstructionX, blit.resamplingX, blit.reconstructionY, blit.resamplingY, blit.reconstructionZ, blit.resamplingZ);
+			pseudo_base_t::blit_utils_t::computeScaledKernelPhasedLUT<pseudo_base_t::lut_value_t>(blit.scratchMemory + pseudo_base_t::getScratchOffset(&blit, pseudo_base_t::ESU_SCALED_KERNEL_PHASED_LUT), blit.inExtentLayerCount, blit.outExtentLayerCount, blit.inImage->getCreationParameters().type, blit.kernels);
 			return blit;
 		}
 };

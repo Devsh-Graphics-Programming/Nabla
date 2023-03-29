@@ -27,17 +27,10 @@ inline void CImageFilterKernel<CRTP,value_type>::evaluateImpl(
 
 } // end namespace nbl::asset
 
-// Kernels
-#include "nbl/asset/filters/kernels/CDiracImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CBoxImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CTriangleImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CGaussianImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CKaiserImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CMitchellImageFilterKernel.h"
+#include "nbl/asset/filters/kernels/WeightFunctions.h"
 
-// Kernel Modifiers
-#include "nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CConvolutionImageFilterKernel.h"
+// Weight Function Modifiers
+#include "nbl/asset/filters/kernels/CChannelIndependentWeightFunction.h"
+#include "nbl/asset/filters/kernels/CConvolutionWeightFunction.h"
 
 #endif

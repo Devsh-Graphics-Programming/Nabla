@@ -83,7 +83,7 @@ template<
 	typename Dither					= CWhiteNoiseDither,
 	typename Normalization			= void,
 	bool Clamp						= true,
-	Blittable BlitUtilities			= CBlitUtilities<>,
+	typename BlitUtilities			= CBlitUtilities<>,
 	typename LutDataType			= float>
 class CBlitImageFilter :
 	public CImageFilter<CBlitImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities, LutDataType>>,
@@ -94,10 +94,17 @@ class CBlitImageFilter :
 		using lut_value_t = LutDataType;
 
 	private:
-		using value_t = blit_utils_t::value_t;
+		// TODO(achal): Get it from somewhere.
+		using value_t = float; // blit_utils_t::value_type;
 		using base_t = CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>;
 
-		static inline constexpr auto MaxChannels = blit_utils_t::MaxChannels;
+		// TODO(achal): Get it from somewhere.
+		static inline constexpr auto MaxChannels = 4u; // blit_utils_t::MaxChannels;
+
+		using convolution_kernels_t = std::pair<
+			CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction<blit_utils_t::reconstruction_x_t, blit_utils_t::resampling_x_t>,
+			CFlotingPointSeparableImageFilterKernel<CConvolutionWeightFunction<blit_utils_t::reconstruction_y_t, blit_utils_t::resampling_y_t>,
+			CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction<blit_utils_t::reconstruction_z_t, blit_utils_t::resampling_z_t>>;
 
 	public:
 		virtual ~CBlitImageFilter() {}
@@ -105,17 +112,7 @@ class CBlitImageFilter :
 		class CState : public IImageFilter::IState, public base_t::CStateBase
 		{
 			public:
-				CState(
-					blit_utils_t::reconstruction_x_t&&	_reconstructionX	= blit_utils_t::reconstruction_x_t(),
-					blit_utils_t::resampling_x_t&&		_resamplingX		= blit_utils_t::resampling_x_t(),
-					blit_utils_t::reconstruction_y_t&&	_reconstructionY	= blit_utils_t::reconstruction_y_t(),
-					blit_utils_t::resampling_y_t&&		_resamplingY		= blit_utils_t::resampling_y_t(),
-					blit_utils_t::reconstruction_z_t&&	_reconstructionZ	= blit_utils_t::reconstruction_z_t(),
-					blit_utils_t::resampling_z_t&&		_resamplingZ		= blit_utils_t::resampling_z_t())
-					:
-					reconstructionX(std::move(_reconstructionX)), resamplingX(std::move(_resamplingX)),
-					reconstructionY(std::move(_reconstructionY)), resamplingY(std::move(_resamplingY)),
-					reconstructionZ(std::move(_reconstructionZ)), resamplingZ(std::move(_resamplingZ))
+				CState(blit_utils_t::convolution_kernels_t&& _kernels) : kernels(std::move(_kernels))
 				{
 					inOffsetBaseLayer = core::vectorSIMDu32();
 					inExtentLayerCount = core::vectorSIMDu32();
@@ -123,17 +120,7 @@ class CBlitImageFilter :
 					outExtentLayerCount = core::vectorSIMDu32();
 				}
 
-				CState(
-					const typename blit_utils_t::reconstruction_x_t&	_reconstructionX,
-					const typename blit_utils_t::resampling_x_t&		_resamplingX,
-					const typename blit_utils_t::reconstruction_y_t&	_reconstructionY,
-					const typename blit_utils_t::resampling_y_t&		_resamplingY,
-					const typename blit_utils_t::reconstruction_z_t&	_reconstructionZ,
-					const typename blit_utils_t::resampling_z_t&		_resamplingZ)
-					:
-					reconstructionX(_reconstructionX), resamplingX(_resamplingX),
-					reconstructionY(_reconstructionY), resamplingY(_resamplingY),
-					reconstructionZ(_reconstructionZ), resamplingZ(_resamplingZ)
+				CState(const typename blit_utils_t::convolution_kernels_t& _kernels) : kernels(_kernels)
 				{
 					inOffsetBaseLayer = core::vectorSIMDu32();
 					inExtentLayerCount = core::vectorSIMDu32();
@@ -142,10 +129,7 @@ class CBlitImageFilter :
 				}
 
 				CState(const CState& other) : IImageFilter::IState(), base_t::CStateBase{other},
-					inMipLevel(other.inMipLevel), outMipLevel(other.outMipLevel), inImage(other.inImage), outImage(other.outImage),
-					reconstructionX(other.reconstructionX), resamplingX(other.resamplingX),
-					reconstructionY(other.reconstructionY), resamplingY(other.resamplingY),
-					reconstructionZ(other.reconstructionZ), resamplingZ(other.resamplingZ)
+					inMipLevel(other.inMipLevel), outMipLevel(other.outMipLevel), inImage(other.inImage), outImage(other.outImage), kernels(other.kernels)
 				{
 					inOffsetBaseLayer = other.inOffsetBaseLayer;
 					inExtentLayerCount = other.inExtentLayerCount;
@@ -192,17 +176,12 @@ class CBlitImageFilter :
 					};
 				};
 				
-				uint32_t							inMipLevel = 0u;
-				uint32_t							outMipLevel = 0u;
-				ICPUImage*							inImage = nullptr;
-				ICPUImage*							outImage = nullptr;
-				blit_utils_t::reconstruction_x_t	reconstructionX;
-				blit_utils_t::resampling_x_t		resamplingX;
-				blit_utils_t::reconstruction_y_t	reconstructionY;
-				blit_utils_t::resampling_y_t		resamplingY;
-				blit_utils_t::reconstruction_z_t	reconstructionZ;
-				blit_utils_t::resampling_z_t		resamplingZ;
-				uint32_t							alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
+				uint32_t								inMipLevel = 0u;
+				uint32_t								outMipLevel = 0u;
+				ICPUImage*								inImage = nullptr;
+				ICPUImage*								outImage = nullptr;
+				convolution_kernels_t					kernels;
+				uint32_t								alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
 		};
 		using state_type = CState;
 
@@ -225,15 +204,12 @@ class CBlitImageFilter :
 		{
 			const auto inType = state->inImage->getCreationParameters().type;
 			
-			auto [kernelX, kernelY, kernelZ] = blit_utils_t::getConvolutionKernels(state->inExtentLayerCount, state->outExtentLayerCount,
-				state->reconstructionX, state->resamplingX,
-				state->reconstructionY, state->resamplingY,
-				state->reconstructionZ, state->resamplingZ);
+			// TODO(achal): Aren't they already saved in the state?
+			auto convolutionKernels = blit_utils_t::getConvolutionKernels(state->inExtentLayerCount, state->outExtentLayerCount);
 
-			const size_t scaledKernelPhasedLUTSize = blit_utils_t::template getScaledKernelPhasedLUTSize<LutDataType>(state->inExtentLayerCount, state->outExtentLayerCount, inType,
-				kernelX, kernelY, kernelZ);
+			const size_t scaledKernelPhasedLUTSize = blit_utils_t::template getScaledKernelPhasedLUTSize<LutDataType>(state->inExtentLayerCount, state->outExtentLayerCount, inType, convolutionKernels);
 
-			const auto windowSize = blit_utils_t::getRealWindowSize(inType, kernelX, kernelY, kernelZ);
+			const auto windowSize = blit_utils_t::getRealWindowSize(inType, convolutionKernels);
 			core::vectorSIMDi32 intermediateExtent[3];
 			getIntermediateExtents(intermediateExtent, state, windowSize);
 			assert(intermediateExtent[0].x == intermediateExtent[2].x);
@@ -316,9 +292,11 @@ class CBlitImageFilter :
 			if (isBlockCompressionFormat(outFormat))
 				return false;
 
-			return (state->reconstructionX.validate(state->inImage, state->outImage) && state->resamplingX.validate(state->inImage, state->outImage) &&
-					state->reconstructionY.validate(state->inImage, state->outImage) && state->resamplingY.validate(state->inImage, state->outImage) &&
-					state->reconstructionZ.validate(state->inImage, state->outImage) && state->resamplingZ.validate(state->inImage, state->outImage));
+			const auto& kernelX = std::get<0>(state->kernels);
+			const auto& kernelY = std::get<1>(state->kernels);
+			const auto& kernelZ = std::get<2>(state->kernels);
+
+			return (kernelX.validate(state->inImage, state->outImage) && kernelY.validate(state->inImage, state->outImage) && kernelZ.validate(state->inImage, state->outImage));
 		}
 
 		// CBlitUtilities::computeScaledKernelPhasedLUT stores the kernel entries, in the LUT, in reverse, which are then forward iterated to compute the CONVOLUTION.

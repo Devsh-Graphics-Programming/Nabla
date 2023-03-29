@@ -132,8 +132,12 @@ public:
 
         upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
 
-        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false, asset::CBlitUtilities<asset::CMitchellImageFilterKernel<>>>;
-        blit_filter_t::state_type blit;
+        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false, asset::CBlitUtilities<asset::SMitchellFunction<>>>;
+        auto convolutionKernels = blit_filter_t::blit_utils_t::getConvolutionKernels(
+            core::vectorSIMDu32(params.extent.width, params.extent.height, params.extent.depth),
+            core::vectorSIMDu32(extent_upscaled.width, extent_upscaled.height, extent_upscaled.depth));
+
+        blit_filter_t::state_type blit(std::move(convolutionKernels));
         blit.inOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
         blit.inExtent = params.extent;
         blit.inLayerCount = 1u;
@@ -147,7 +151,7 @@ public:
 
         const core::vectorSIMDu32 inExtent(blit.inExtent.width, blit.inExtent.height, blit.inExtent.depth, 1);
         const core::vectorSIMDu32 outExtent(blit.outExtent.width, blit.outExtent.height, blit.outExtent.depth, 1);
-        if (!blit_filter_t::blit_utils_t::computeScaledKernelPhasedLUT<blit_filter_t::lut_value_t>(blit.scratchMemory + blit_filter_t::getScratchOffset(&blit, blit_filter_t::ESU_SCALED_KERNEL_PHASED_LUT), inExtent, outExtent, blit.inImage->getCreationParameters().type, blit.reconstructionX, blit.resamplingX, blit.reconstructionY, blit.resamplingY, blit.reconstructionZ, blit.resamplingZ))
+        if (!blit_filter_t::blit_utils_t::computeScaledKernelPhasedLUT<blit_filter_t::lut_value_t>(blit.scratchMemory + blit_filter_t::getScratchOffset(&blit, blit_filter_t::ESU_SCALED_KERNEL_PHASED_LUT), inExtent, outExtent, blit.inImage->getCreationParameters().type, blit.kernels))
             return nullptr;
 
         const bool blit_succeeded = blit_filter_t::execute(&blit);

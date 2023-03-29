@@ -16,32 +16,30 @@ namespace impl
 template<class Weight1DFunction>
 struct weight_function_value_type : protected Weight1DFunction
 {
-	using type = decltype(std::declval<Weight1DFunction>().weight<0>(0.f,0));
+	using type = decltype(std::declval<Weight1DFunction>().operator()<0>(0.f,0));
 };
 template<class Weight1DFunction>
-using weight_function_value_type_t = typename weight_function_value_type::type;
+using weight_function_value_type_t = typename weight_function_value_type<Weight1DFunction>::type;
 }
 
 // kernels that requires pixels and arithmetic to be done in precise floats AND are separable AND have the same kernel function in each dimension AND have a rational support
-template<class Weight1DFunction, int32_t derivative_order=0>
-class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloatingPointSeparableImageFilterKernel<Weight1DFunction,derivative_order>,weight_function_value_type_t<Weight1DFunction>>
+template<class Weight1DFunction, int32_t derivative=0>
+class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloatingPointSeparableImageFilterKernel<Weight1DFunction, derivative>, impl::weight_function_value_type_t<Weight1DFunction>>
 {
 	public:
-		using value_type = weight_function_value_type_t<Weight1DFunction>;
-		static_assert(std::is_same_v<value_type,double>,"should probably allow `float`s at some point!");
+		using value_type = impl::weight_function_value_type_t<Weight1DFunction>;
+		static_assert(std::is_same_v<value_type,float>,"should probably allow `double`s at some point!");
 		
 	private:
-		using this_t = CFloatingPointSeparableImageFilterKernel<Weight1DFunction,derivative_order>;
+		using this_t = CFloatingPointSeparableImageFilterKernel<Weight1DFunction,derivative>;
 		using base_t = CImageFilterKernel<this_t,value_type>;
 
 	public:
 		CFloatingPointSeparableImageFilterKernel(Weight1DFunction&& _func) :
-			StaticPolymorphicBase(
-				{func::min_support,func::min_support,func::min_support},
-				{func::max_support,func::max_support,func::max_support}
-			), func(std::move(_func))
+			base_t(
+				{ Weight1DFunction::min_support, Weight1DFunction::min_support, Weight1DFunction::min_support },
+				{ Weight1DFunction::max_support, Weight1DFunction::max_support, Weight1DFunction::max_support}), func(std::move(_func))
 		{}
-
 
 		inline bool pIsSeparable() const override final
 		{
@@ -59,38 +57,38 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 		template<class PreFilter, class PostFilter>
 		struct sample_functor_t
 		{
-				sample_functor_t(const this_t* _this_, PreFilter& _preFilter, PostFilter& _postFilter) :
-					_this(_this_), preFilter(_preFilter), postFilter(_postFilter) {}
+			sample_functor_t(const this_t* _this_, PreFilter& _preFilter, PostFilter& _postFilter) :
+				_this(_this_), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale)
+			inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale)
+			{
+				// this is programmable, but usually in the case of a convolution filter it would be loading the values from a temporary and decoded copy of the input image
+				preFilter(windowSample, relativePos, globalTexelCoord, scale);
+
+				// by default there's no optimization so operation is O(SupportExtent^3) even though the filter is separable
+				for (int32_t i=0; i<_this->MaxChannels; i++)
 				{
-					// this is programmable, but usually in the case of a convolution filter it would be loading the values from a temporary and decoded copy of the input image
-					preFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
-
-					// by default there's no optimization so operation is O(SupportExtent^3) even though the filter is separable
-					for (int32_t i=0; i<CRTP::MaxChannels; i++)
-					{
-						static_assert(derivative_order>=0,"We don't support integration (yet)");
-						static_assert(derivative_order<=Weight1DFunction::k_smoothness,"Derivative of higher order is not Well Undefined!");
-						// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
-						windowSample[i] *= (_this->weight<0>(relativePos,i)*_this->weight<1>(relativePos,i)*_this->weight<2>(relativePos,i))* multipliedScale[i];
-					}
-
-					// this is programmable, but usually in the case of a convolution filter it would be summing the values
-					postFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
+					static_assert(derivative>=0,"We don't support integration (yet)");
+					static_assert(derivative<=Weight1DFunction::k_smoothness,"Derivative of higher order is not Well Undefined!");
+					// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
+					windowSample[i] *= (_this->weight<derivative>(relativePos,i)*_this->weight<derivative>(relativePos,i)*_this->weight<derivative>(relativePos,i))*scale[i];
 				}
 
-			private:
-				const this_t* _this;
-				PreFilter& preFilter;
-				PostFilter& postFilter;
+				// this is programmable, but usually in the case of a convolution filter it would be summing the values
+				postFilter(windowSample, relativePos, globalTexelCoord, scale);
+			}
+
+		private:
+			const this_t* _this;
+			PreFilter& preFilter;
+			PostFilter& postFilter;
 		};
 
 		// this is the function that must be defined for each kernel
 		template<class PreFilter, class PostFilter>
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			return sample_functor_t<PreFilter,PostFilter>(static_cast<const CRTP*>(this),preFilter,postFilter);
+			return sample_functor_t<PreFilter,PostFilter>(static_cast<const this_t*>(this),preFilter,postFilter);
 		}
 
 		template<typename... Args>
@@ -112,8 +110,8 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s) override
 		{
 			m_invStretch /= s;
-			if constexpr(derivative_order) // a `core::pow` could be useful
-				scale(core::vectorSIMDf(pow(s.x,derivative_order),pow(s.y,derivative_order),pow(s.z,derivative_order),1.f));
+			if constexpr(derivative) // a `core::pow` could be useful
+				scale(core::vectorSIMDf(pow(s.x,derivative),pow(s.y,derivative),pow(s.z,derivative),1.f));
 			base_t::stretch(s);
 		}
 
@@ -121,7 +119,7 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 		CFloatingPointSeparableImageFilterKernel() {}
 		
 		Weight1DFunction func;
-		core::vectorSIMDf m_invStretch = {1.f,1.f,1.f,0.f};
+		core::vectorSIMDf m_invStretch = core::vectorSIMDf{1.f,1.f,1.f,0.f};
 		
 	private:
 		template<class PreFilter, class PostFilter>
@@ -132,11 +130,8 @@ class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloa
 		inline value_type weight(const core::vectorSIMDf& relativePos, const uint32_t channel)
 		{
 			const float ax = relativePos[dim];
-			// we dont evaluate `weight` function in children outside the support and just are able to return 0.f
-			if (ax<base_t::min_support[dim] || ax>=base_t::max_support[dim]) // TODO: unscrew the convention for negative supports?
-				return 0.f;
 			const float x = ax*m_invStretch[dim];
-			return func.operator()<derivative_order>(x,channel);
+			return func.operator()<derivative>(x,channel);
 		}
 };
 
