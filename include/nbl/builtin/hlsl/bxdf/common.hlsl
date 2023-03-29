@@ -426,10 +426,9 @@ struct quotient_and_pdf
 using quotient_and_pdf_scalar = quotient_and_pdf<float, float>;
 using quotient_and_pdf_rgb = quotient_and_pdf<float3, float>;
 
-
 // Utility class
 // Making it easier to conform your BxDFs to the concept
-template <class Spectrum, class Pdf, class Sample, class Interaction, class MicrofacetCache>
+template <class Spectrum, class Pdf, class Sample, class Interaction>
 struct BxDFBase
 {
     // BxDFs must define such typenames:
@@ -439,10 +438,34 @@ struct BxDFBase
 
     using sample_t =        Sample;
     using interaction_t =   Interaction;
-    using cache_t =         MicrofacetCache;
 
     /**
     * BxDFs (i.e. types derived from this base) must define following member functions:
+    * 
+    * spectrum_t    eval(in sample_t, in interaction_t);
+    * 
+    * sample_t      generate(in interaction_t, inout float3 u);
+    * 
+    * q_pdf_t       quotient_and_pdf(in sample_t, in interaction_t);
+    */
+};
+
+// Utility class
+// Making it easier to conform your BxDFs to the concept
+template <class Spectrum, class Pdf, class Sample, class Interaction, class MicrofacetCache>
+struct MicrofacetBxDFBase : BxDFBase<Spectrum, Pdf, Sample, Interaction>
+{
+    // Microfacet BxDFs must define such typenames:
+    //using spectrum_t =      Spectrum;
+    //using pdf_t =           Pdf;
+    //using q_pdf_t =         quotient_and_pdf<spectrum_t,pdf_t>;
+
+    //using sample_t =        Sample;
+    //using interaction_t =   Interaction;
+    using cache_t =         MicrofacetCache;
+
+    /**
+    * Microfacet BxDFs (i.e. types derived from this base) must define following member functions:
     * 
     * spectrum_t    eval(in sample_t, in interaction_t, in cache_t);
     * 

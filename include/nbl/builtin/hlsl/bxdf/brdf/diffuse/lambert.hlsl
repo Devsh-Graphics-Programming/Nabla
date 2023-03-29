@@ -85,6 +85,42 @@ quotient_and_pdf_scalar lambertian_cos_quotient_and_pdf(in LightSample<IncomingR
     return quotient_and_pdf_scalar::create(q, pdf);
 }
 
+template <class IncomingRayDirInfo>
+struct Lambertian : BxDFBase<float, float, LightSample<IncomingRayDirInfo>, surface_interactions::Isotropic<IncomingRayDirInfo> >
+{
+    using base_t = BxDFBase<float, float, LightSample<IncomingRayDirInfo>, surface_interactions::Isotropic<IncomingRayDirInfo> >;
+
+    static Lambertian create()
+    {
+        Lambertian lambertian;
+        return lambertian;
+    }
+
+    typename base_t::spectrum_t      cos_eval(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
+    {
+        return math::RECIPROCAL_PI * max(s.NdotL, 0.0f);
+    }
+
+    static
+    typename base_t::sample_t        generate(in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, inout float3 u)
+    {
+        float3 L = sampling::projected_hemisphere_generate(u.xy);
+
+        const float3 tangentSpaceV = interaction.getTangentSpaceV();
+        const float3x3 tangentFrame = interaction.getTangentFrame();
+
+        return LightSample<IncomingRayDirInfo>::createTangentSpace(tangentSpaceV, IncomingRayDirInfo::create(L), tangentFrame);
+    }
+
+    typename base_t::quotient_and_pdf_t cos_quotient_and_pdf(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
+    {
+        float pdf;
+        float q = sampling::projected_hemisphere_quotient_and_pdf(pdf, max(s.NdotL, 0.0f));
+
+        return quotient_and_pdf_scalar::create(q, pdf);
+    }
+};
+
 }
 }
 }

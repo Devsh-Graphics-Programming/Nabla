@@ -86,6 +86,66 @@ quotient_and_pdf_scalar oren_nayar_cos_quotient_and_pdf(in LightSample<IncomingR
     return oren_nayar_cos_quotient_and_pdf_wo_clamps(a2,dot(interaction.V.getDirection(),s.L), max(s.NdotL,0.0f), max(interaction.NdotV,0.0f));
 }
 
+
+template <class IncomingRayDirInfo>
+struct OrenNayar : BxDFBase<float, float, LightSample<IncomingRayDirInfo>, surface_interactions::Isotropic<IncomingRayDirInfo> >
+{
+    float a2;
+
+    using base_t = BxDFBase<float, float, LightSample<IncomingRayDirInfo>, surface_interactions::Isotropic<IncomingRayDirInfo> >;
+
+    static OrenNayar<IncomingRayDirInfo> create(in float _a2)
+    {
+        OrenNayar<IncomingRayDirInfo> orennayar;
+        orennayar.a2 = _a2;
+        return orennayar;
+    }
+
+    static 
+    float           quotient(in float _a2, in float VdotL, in float maxNdotL, in float maxNdotV)
+    {
+        // theta - polar angles
+        // phi - azimuth angles
+        float a2 = _a2 * 0.5; //todo read about this
+        float2 AB = float2(1.0, 0.0) + float2(-0.5, 0.45) * float2(a2, a2) / float2(a2 + 0.33, a2 + 0.09);
+        float C = 1.0 / max(maxNdotL, maxNdotV);
+
+        // should be equal to cos(phi)*sin(theta_i)*sin(theta_o)
+        // where `phi` is the angle in the tangent plane to N, between L and V
+        // and `theta_i` is the sine of the angle between L and N, similarily for `theta_o` but with V
+        float cos_phi_sin_theta = max(VdotL - maxNdotL * maxNdotV, 0.0f);
+
+        return (AB.x + AB.y * cos_phi_sin_theta * C);
+    }
+    float            quotient(in typename base_t::sample_t s, in typename base_t::interaction_t interaction, out float maxNdotL)
+    {
+        /*out*/maxNdotL = max(s.NdotL, 0.0f);
+        const float maxNdotV = max(interaction.NdotV, 0.0f);
+
+        return quotient(a2, s.VdotL, maxNdotL, maxNdotV);
+    }
+
+    typename base_t::spectrum_t      cos_eval(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
+    {
+        float maxNdotL;
+        float q = quotient(s, interaction, maxNdotL);
+        return math::RECIPROCAL_PI * maxNdotL * q;
+    }
+
+    typename base_t::sample_t        generate(in surface_interactions::Anisotropic<IncomingRayDirInfo> interaction, inout float3 u)
+    {
+        return Lambertian<IncomingRayDirInfo>::generate(interaction, u);
+    }
+
+    typename base_t::quotient_and_pdf_t cos_quotient_and_pdf(in typename base_t::sample_t s, in typename base_t::interaction_t interaction)
+    {
+        float maxNdotL;
+        float q = quotient(s, interaction, maxNdotL);
+
+        return quotient_and_pdf_scalar::create(q, maxNdotL * math::RECIPROCAL_PI);
+    }
+};
+
 }
 }
 }
