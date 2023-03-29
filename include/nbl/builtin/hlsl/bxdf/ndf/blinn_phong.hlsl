@@ -48,6 +48,13 @@ struct IsotropicBlinnPhong : NDFBase<>
 		return 2.0 / a2 - 2.0;
 	}
 
+	static IsotropicBlinnPhong create(in float _n)
+	{
+		IsotropicBlinnPhong bp;
+		bp.n = _n;
+		return bp;
+	}
+
 	template <class IncomingrayDirInfo>
 	static float3 generateH_impl(in surface_interactions::Anisotropic<IncomingrayDirInfo> interaction, inout float3 u, out AnisotropicMicrofacetCache cache, in float _ax, in float _ay)
 	{
@@ -75,10 +82,18 @@ struct IsotropicBlinnPhong : NDFBase<>
 	}
 };
 
-struct GGX : IsotropicBlinnPhong
+struct BlinnPhong : IsotropicBlinnPhong
 {
 	//float nx; // inherited from base as `n`
 	float ny;
+
+	static BlinnPhong create(in float _nx, in float _ny)
+	{
+		BlinnPhong bp;
+		bp.n = _nx;
+		bp.ny = _ny;
+		return bp;
+	}
 
 	template <class IncomingrayDirInfo>
 	float3 generateH(in surface_interactions::Anisotropic<IncomingrayDirInfo> interaction, inout float3 u, out AnisotropicMicrofacetCache cache)

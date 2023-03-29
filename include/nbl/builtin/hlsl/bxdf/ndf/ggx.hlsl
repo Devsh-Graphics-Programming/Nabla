@@ -53,6 +53,21 @@ struct IsotropicGGX : NDFBase<>
 	float a;
 	float a2;
 
+	static IsotropicGGX create(float _a)
+	{
+		IsotropicGGX b;
+		b.a = _a;
+		b.a2 = _a * _a;
+		return b;
+	}
+	static IsotropicGGX create(float _a, float _a2)
+	{
+		IsotropicGGX b;
+		b.a = _a;
+		b.a2 = _a2;
+		return b;
+	}
+
 	template <class IncomingrayDirInfo>
 	static float3 generateH_impl(in surface_interactions::Anisotropic<IncomingrayDirInfo> interaction, inout float3 u, out AnisotropicMicrofacetCache cache, in float _ax, in float _ay)
 	{
@@ -104,6 +119,20 @@ struct GGX : IsotropicGGX
 {
 	float ay;
 	float ay2;
+
+	static GGX create(float _ax, float _ay, float _ax2, float _ay2)
+	{
+		GGX b;
+		b.a = _ax;
+		b.ay = _ay;
+		b.a2 = _ax2;
+		b.ay2 = _ay2;
+		return b;
+	}
+	static GGX create(float _ax, float _ay)
+	{
+		return create(_ax, _ay, _ax*_ax, _ay*_ay);
+	}
 
 	template <class IncomingrayDirInfo>
 	float3 generateH(in surface_interactions::Anisotropic<IncomingrayDirInfo> interaction, inout float3 u, out AnisotropicMicrofacetCache cache)
