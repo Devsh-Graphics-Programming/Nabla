@@ -39,20 +39,16 @@ public:
         friend class CCommandSegment;
 
     public:
-        virtual ~ICommand() {}
+        virtual ~ICommand() = default;
 
         // static void* operator new(std::size_t size) = delete;
         static void* operator new[](std::size_t size) = delete;
         // static void* operator new(std::size_t size, std::align_val_t al) = delete;
         static void* operator new[](std::size_t size, std::align_val_t al) = delete;
 
-        // static void operator delete  (void* ptr) = delete;
         static void operator delete[](void* ptr) = delete;
-        static void operator delete  (void* ptr, std::align_val_t al) = delete;
         static void operator delete[](void* ptr, std::align_val_t al) = delete;
-        static void operator delete  (void* ptr, std::size_t sz) = delete;
         static void operator delete[](void* ptr, std::size_t sz) = delete;
-        static void operator delete  (void* ptr, std::size_t sz, std::align_val_t al) = delete;
         static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
 
         inline uint32_t getSize() const { return m_size; }
@@ -64,7 +60,16 @@ public:
             assert(m_size % alignof(ICommand) == 0);
         }
 
+        void operator delete(ICommand* ptr, std::destroying_delete_t) { ptr->~ICommand(); }
+        void operator delete( ICommand* ptr, std::destroying_delete_t,
+                                std::align_val_t al ) { ptr->~ICommand(); }
+        void operator delete( ICommand* ptr, std::destroying_delete_t, std::size_t sz )  { ptr->~ICommand(); }
+        void operator delete( ICommand* ptr, std::destroying_delete_t,
+                                std::size_t sz, std::align_val_t al ) { ptr->~ICommand(); }
+
+
     private:
+
         friend CCommandSegment;
 
         const uint32_t m_size;
@@ -88,6 +93,10 @@ public:
     {
         struct header_t
         {
+        public:
+            template<typename... Args>
+            inline header_t(Args&&... args) : commandAllocator(std::forward<Args>(args)...) {}
+
             core::LinearAddressAllocator<uint32_t> commandAllocator;
             CCommandSegment* next = nullptr;
 
@@ -98,12 +107,10 @@ public:
     public:
         static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
 
-        CCommandSegment(CCommandSegment* prev)
+        CCommandSegment(CCommandSegment* prev):
+            m_header(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE)
         {
             static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
-            m_header.commandAllocator = core::LinearAddressAllocator<uint32_t>(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE);
-            m_header.next = nullptr;
-
             wipeNextCommandSize();
 
             if (prev)
