@@ -68,15 +68,36 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
     }
     
     {
-        const bool isBump = semantic==EIVS_NORMAL_MAP||semantic==EIVS_BUMP_MAP;
-        const char* ERR_TEX_CACHE_NAME = isBump ? "nbl/builtin/image_view/perturb_not_found":"nbl/builtin/image_view/not_found";
+        auto format = asset::EF_R8G8B8A8_SRGB;
+        uint32_t fill_value = 0x80808080u; // mid-gray
+        std::string ERR_TEX_CACHE_NAME = "nbl/builtin/image_view/not_found";
+        switch (semantic)
+        {
+            case CMitsubaMaterialCompilerFrontend::EIVS_BLEND_WEIGHT:
+                ERR_TEX_CACHE_NAME += "?blend";
+                break;
+            case CMitsubaMaterialCompilerFrontend::EIVS_NORMAL_MAP:
+                ERR_TEX_CACHE_NAME += "?deriv?n";
+                format = asset::EF_R8G8_SNORM;
+                std::get<float>(retval) = 0.f;
+                break;
+            case CMitsubaMaterialCompilerFrontend::EIVS_BUMP_MAP:
+                ERR_TEX_CACHE_NAME += "?deriv?h";
+                format = asset::EF_R8G8_SNORM;
+                std::get<float>(retval) = 0.f;
+                break;
+            default:
+                fill_value = 0xffff00ffu; // magenta
+                break;
+        }
+        ERR_TEX_CACHE_NAME += "?view";
+
         const asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
         auto bundle = m_loaderContext->override_->findCachedAsset(ERR_TEX_CACHE_NAME, types, m_loaderContext->inner, 0u);
 
         auto& outImageView = std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval);
         if (bundle.getContents().empty())
         {
-            constexpr auto format = asset::EF_R8G8B8A8_UNORM;
             constexpr uint32_t dummyTexPOTSize = 6;
             constexpr uint32_t resolution = 0x1u<<dummyTexPOTSize;
             
@@ -93,17 +114,13 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
 
             // set contents
             {
-                constexpr auto TexelSize = sizeof(uint32_t);
+                const auto TexelSize = asset::getTexelOrBlockBytesize(format);
                 const auto& info = image->getCreationParameters();
                 auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(TexelSize*info.extent.width*info.extent.height);
 
                 // fill
-                {
-                    assert(asset::getTexelOrBlockBytesize(info.format)==TexelSize);
-                    constexpr uint32_t magenta = 0xffff00ffu;
-                    constexpr uint32_t transparent_blue = 0x0000ff00u;
-                    std::fill_n(reinterpret_cast<uint32_t*>(buf->getPointer()), buf->getSize()/TexelSize, isBump ? transparent_blue:magenta);
-                }
+                assert(asset::getTexelOrBlockBytesize(info.format)==TexelSize);
+                std::fill_n(reinterpret_cast<uint32_t*>(buf->getPointer()), buf->getSize()/sizeof(uint32_t), fill_value);
 
                 auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
                 asset::ICPUImage::SBufferCopy& region = regions->front();
