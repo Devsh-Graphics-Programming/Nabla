@@ -13,131 +13,75 @@ namespace nbl::asset
 
 namespace impl
 {
-template<class Weight1DFunction>
-struct weight_function_value_type : protected Weight1DFunction
+
+template<class WeightFunction1D>
+struct weight_function_value_type : protected WeightFunction1D
 {
-	using type = decltype(std::declval<Weight1DFunction>().operator()<0>(0.f,0));
+	using type = decltype(std::declval<WeightFunction1D>().operator()(0.f,0));
 };
-template<class Weight1DFunction>
-using weight_function_value_type_t = typename weight_function_value_type<Weight1DFunction>::type;
+
+template<class WeightFunction1D>
+using weight_function_value_type_t = typename weight_function_value_type<WeightFunction1D>::type;
+
 }
 
+// TODO(achal): It would probably be nice to make a concept here which ensures:
+// 1. WeightFunction1D has {min/max}_support and/or their getters.
 // kernels that requires pixels and arithmetic to be done in precise floats AND are separable AND have the same kernel function in each dimension AND have a rational support
-template<class Weight1DFunction, int32_t derivative=0>
-class CFloatingPointSeparableImageFilterKernel : public CImageFilterKernel<CFloatingPointSeparableImageFilterKernel<Weight1DFunction, derivative>, impl::weight_function_value_type_t<Weight1DFunction>>
+template<class WeightFunction1D>
+class CFloatingPointSeparableImageFilterKernel : public impl::weight_function_value_type_t<WeightFunction1D>
 {
-	public:
-		using value_type = impl::weight_function_value_type_t<Weight1DFunction>;
-		static_assert(std::is_same_v<value_type,float>,"should probably allow `double`s at some point!");
+public:
+	// TODO(achal): I don't know why but this makes value_type a float.
+	// using value_type = impl::weight_function_value_type_t<WeightFunction1D>; 
+	using value_type = double;
+	static_assert(std::is_same_v<value_type,double>,"should probably allow `float`s at some point!");
+
+	CFloatingPointSeparableImageFilterKernel(WeightFunction1D&& _func) : func(std::move(_func)) {}
+
+	static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
+	{
+		const auto& inParams = inImage->getCreationParameters();
+		const auto& outParams = inImage->getCreationParameters();
+		return !(isIntegerFormat(inParams.format)||isIntegerFormat(outParams.format));
+	}
+
+	//template<typename... Args> // TODO: later if needed
+	inline value_type weight(const float relativePos, const uint32_t channel) const
+	{
+		return func.operator()(relativePos, channel);
+	}
+
+	// given an unnormalized (measured in pixels), center sampled (sample at the center of the pixel) coordinate (origin is at the center of the first pixel),
+	// return corner sampled coordinate (origin at the very edge of the first pixel) as well as the
+	// corner sampled coordinate of the first pixel that lays inside the kernel's support when centered on the given pixel
+	inline int32_t getWindowMinCoord(const float unnormCenterSampledCoord, float& cornerSampledCoord) const
+	{
+		cornerSampledCoord = unnormCenterSampledCoord - 0.5f;
+		return static_cast<int32_t>(core::ceil<float>(cornerSampledCoord + func.getMinSupport()));
+	}
+
+	// overload that does not return the cornern sampled coordinate of the given center sampled coordinate
+	inline int32_t getWindowMinCoord(const float unnormCeterSampledCoord) const
+	{
+		float dummy;
+		return getWindowMinCoord(unnormCeterSampledCoord, dummy);
+	}
+
+	// get the kernel support (measured in pixels)
+	inline const int32_t getWindowSize() const
+	{
+		return m_windowSize;
+	}
+
+protected:
+	CFloatingPointSeparableImageFilterKernel() {}
 		
-	private:
-		using this_t = CFloatingPointSeparableImageFilterKernel<Weight1DFunction,derivative>;
-		using base_t = CImageFilterKernel<this_t,value_type>;
+	WeightFunction1D func;
 
-	public:
-		CFloatingPointSeparableImageFilterKernel(Weight1DFunction&& _func) :
-			base_t(
-				{ Weight1DFunction::min_support, Weight1DFunction::min_support, Weight1DFunction::min_support },
-				{ Weight1DFunction::max_support, Weight1DFunction::max_support, Weight1DFunction::max_support}), func(std::move(_func))
-		{}
-
-		inline bool pIsSeparable() const override final
-		{
-			return true;
-		}
-
-		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
-		{
-			const auto& inParams = inImage->getCreationParameters();
-			const auto& outParams = inImage->getCreationParameters();
-			return !(isIntegerFormat(inParams.format)||isIntegerFormat(outParams.format));
-		}
-
-		//
-		template<class PreFilter, class PostFilter>
-		struct sample_functor_t
-		{
-			sample_functor_t(const this_t* _this_, PreFilter& _preFilter, PostFilter& _postFilter) :
-				_this(_this_), preFilter(_preFilter), postFilter(_postFilter) {}
-
-			inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale)
-			{
-				// this is programmable, but usually in the case of a convolution filter it would be loading the values from a temporary and decoded copy of the input image
-				preFilter(windowSample, relativePos, globalTexelCoord, scale);
-
-				// by default there's no optimization so operation is O(SupportExtent^3) even though the filter is separable
-				for (int32_t i=0; i<_this->MaxChannels; i++)
-				{
-					static_assert(derivative>=0,"We don't support integration (yet)");
-					static_assert(derivative<=Weight1DFunction::k_smoothness,"Derivative of higher order is not Well Undefined!");
-					// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
-					windowSample[i] *= (_this->weight<derivative>(relativePos,i)*_this->weight<derivative>(relativePos,i)*_this->weight<derivative>(relativePos,i))*scale[i];
-				}
-
-				// this is programmable, but usually in the case of a convolution filter it would be summing the values
-				postFilter(windowSample, relativePos, globalTexelCoord, scale);
-			}
-
-		private:
-			const this_t* _this;
-			PreFilter& preFilter;
-			PostFilter& postFilter;
-		};
-
-		// this is the function that must be defined for each kernel
-		template<class PreFilter, class PostFilter>
-		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
-		{
-			return sample_functor_t<PreFilter,PostFilter>(static_cast<const this_t*>(this),preFilter,postFilter);
-		}
-
-		template<typename... Args>
-		inline core::vectorSIMDi32 getWindowMinCoord(Args&&... args) const
-		{
-			return base_t::getWindowMinCoord(std::forward<Args>(args)...);
-		}
-		inline const auto& getWindowSize() const
-		{
-			return base_t::getWindowSize();
-		}
-		
-		template<class PreFilter, class PostFilter>
-		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
-		{
-			base_t::evaluate(globalPos, preFilter, postFilter);
-		}
-
-		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s) override
-		{
-			m_invStretch /= s;
-			if constexpr(derivative) // a `core::pow` could be useful
-				scale(core::vectorSIMDf(pow(s.x,derivative),pow(s.y,derivative),pow(s.z,derivative),1.f));
-			base_t::stretch(s);
-		}
-
-	protected:
-		CFloatingPointSeparableImageFilterKernel() {}
-		
-		Weight1DFunction func;
-		core::vectorSIMDf m_invStretch = core::vectorSIMDf{1.f,1.f,1.f,0.f};
-		
-	private:
-		template<class PreFilter, class PostFilter>
-		friend struct sample_functor_t;
-		
-		template<uint32_t dim>
-		//template<typename... Args> // TODO: later if needed
-		inline value_type weight(const core::vectorSIMDf& relativePos, const uint32_t channel)
-		{
-			const float ax = relativePos[dim];
-			const float x = ax*m_invStretch[dim];
-			return func.operator()<derivative>(x,channel);
-		}
+private:
+	int32_t m_windowSize;
 };
-
-//
-template<class Weight1DFunction>
-using CDerivativeImageFilterKernel = CFloatingPointSeparableImageFilterKernel<Weight1DFunction,1>;
 
 } // end namespace nbl::asset
 

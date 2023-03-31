@@ -145,26 +145,19 @@ public:
 		return m_normalizationPipelines[key];
 	}
 
-	template <asset::Blittable BlitUtilities>
+	template <typename BlitUtilities>
 	core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(
-		const asset::E_FORMAT								outFormat,
-		const asset::IImage::E_TYPE							imageType,
-		const core::vectorSIMDu32&							inExtent,
-		const core::vectorSIMDu32&							outExtent,
-		const asset::IBlitUtilities::E_ALPHA_SEMANTIC		alphaSemantic,
-		const typename BlitUtilities::reconstruction_x_t&	reconstructionX,
-		const typename BlitUtilities::resampling_x_t&		resamplingX,
-		const typename BlitUtilities::reconstruction_y_t&	reconstructionY,
-		const typename BlitUtilities::resampling_y_t&		resamplingY,
-		const typename BlitUtilities::reconstruction_z_t&	reconstructionZ,
-		const typename BlitUtilities::resampling_z_t&		resamplingZ,
-		const uint32_t										workgroupSize = DefaultBlitWorkgroupSize,
-		const uint32_t										alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
+		const asset::E_FORMAT									outFormat,
+		const asset::IImage::E_TYPE								imageType,
+		const core::vectorSIMDu32&								inExtent,
+		const core::vectorSIMDu32&								outExtent,
+		const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
+		const typename BlitUtilities::convolution_kernels_t&	kernels,
+		const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
+		const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 	{
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
-
-		auto [kernelX, kernelY, kernelZ] = BlitUtilities::getConvolutionKernels(inExtent, outExtent, reconstructionX, resamplingX, reconstructionY, resamplingY, reconstructionZ, resamplingZ);
 
 		std::ostringstream shaderSourceStream;
 		shaderSourceStream
@@ -184,8 +177,8 @@ public:
 			<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
 			<< "#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
 
-		const core::vectorSIMDf minSupport(-kernelX.negative_support[0], -kernelY.negative_support[1], -kernelZ.negative_support[2]);
-		const core::vectorSIMDf maxSupport(kernelX.positive_support[0], kernelY.positive_support[1], kernelZ.positive_support[2]);
+		const core::vectorSIMDf minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
+		const core::vectorSIMDf maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
 
 		const uint32_t smemFloatCount = m_availableSharedMemory/(sizeof(float)*outChannelCount);
 		shaderSourceStream << "#define _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ " << smemFloatCount << "\n";
@@ -203,21 +196,16 @@ public:
 		return specShader;
 	}
 
-	template <asset::Blittable BlitUtilities>
+	template <typename BlitUtilities>
 	core::smart_refctd_ptr<video::IGPUComputePipeline> getBlitPipeline(
-		const asset::E_FORMAT								outFormat,
-		const asset::IImage::E_TYPE							imageType,
-		const core::vectorSIMDu32&							inExtent,
-		const core::vectorSIMDu32&							outExtent,
-		const asset::IBlitUtilities::E_ALPHA_SEMANTIC		alphaSemantic,
-		const typename BlitUtilities::reconstruction_x_t&	reconstructionX,
-		const typename BlitUtilities::resampling_x_t&		resamplingX,
-		const typename BlitUtilities::reconstruction_y_t&	reconstructionY,
-		const typename BlitUtilities::resampling_y_t&		resamplingY,
-		const typename BlitUtilities::reconstruction_z_t&	reconstructionZ,
-		const typename BlitUtilities::resampling_z_t&		resamplingZ,
-		const uint32_t										workgroupSize = DefaultBlitWorkgroupSize,
-		const uint32_t										alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
+		const asset::E_FORMAT									outFormat,
+		const asset::IImage::E_TYPE								imageType,
+		const core::vectorSIMDu32&								inExtent,
+		const core::vectorSIMDu32&								outExtent,
+		const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
+		const typename BlitUtilities::convolution_kernels_t&	kernels,
+		const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
+		const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 	{
 		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(core::vectorSIMDu32(workgroupSize, 1, 1, 1), alphaBinCount);
 
@@ -241,9 +229,7 @@ public:
 				inExtent,
 				outExtent,
 				alphaSemantic,
-				reconstructionX, resamplingX,
-				reconstructionY, resamplingY,
-				reconstructionZ, resamplingZ,
+				kernels,
 				workgroupSize,
 				paddedAlphaBinCount);
 
@@ -257,25 +243,19 @@ public:
 	//! @param outImageFormat is the format of output (of the blit step) image.
 	//! If a normalization step is involved then this will be the same as the format of normalization step's input image --which may differ from the
 	//! final output format, because we blit to a higher precision format for normalization.
-	template <asset::Blittable BlitUtilities>
+	template <typename BlitUtilities>
 	bool getOutputTexelsPerWorkGroup(
-		core::vectorSIMDu32&								outputTexelsPerWG,
-		const core::vectorSIMDu32&							inExtent,
-		const core::vectorSIMDu32&							outExtent,
-		const asset::E_FORMAT								outImageFormat,
-		const asset::IImage::E_TYPE							imageType,
-		const typename BlitUtilities::reconstruction_x_t&	reconstructionX,
-		const typename BlitUtilities::resampling_x_t&		resamplingX,
-		const typename BlitUtilities::reconstruction_y_t&	reconstructionY,
-		const typename BlitUtilities::resampling_y_t&		resamplingY,
-		const typename BlitUtilities::reconstruction_z_t&	reconstructionZ,
-		const typename BlitUtilities::resampling_z_t&		resamplingZ)
+		core::vectorSIMDu32&									outputTexelsPerWG,
+		const core::vectorSIMDu32&								inExtent,
+		const core::vectorSIMDu32&								outExtent,
+		const asset::E_FORMAT									outImageFormat,
+		const asset::IImage::E_TYPE								imageType,
+		const typename BlitUtilities::convolution_kernels_t&	kernels)
 	{
-		auto [kernelX, kernelY, kernelZ] = BlitUtilities::getConvolutionKernels(inExtent, outExtent, reconstructionX, resamplingX, reconstructionY, resamplingY, reconstructionZ, resamplingZ);
 		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inExtent).preciseDivision(static_cast<core::vectorSIMDf>(outExtent));
 
-		core::vectorSIMDf minSupport(-kernelX.negative_support[0], -kernelY.negative_support[1], -kernelZ.negative_support[2]);
-		core::vectorSIMDf maxSupport(kernelX.positive_support[0], kernelY.positive_support[1], kernelZ.positive_support[2]);
+		const core::vectorSIMDf minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
+		const core::vectorSIMDf maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
 
 		outputTexelsPerWG = core::vectorSIMDu32(1, 1, 1, 1);
 		size_t requiredSmem = getRequiredSharedMemorySize(outputTexelsPerWG, outExtent, imageType, minSupport, maxSupport, scale, asset::getFormatChannelCount(outImageFormat));
@@ -315,21 +295,16 @@ public:
 		return !failed;
 	}
 
-	template <asset::Blittable BlitUtilities>
+	template <typename BlitUtilities>
 	inline void buildParameters(
-		nbl_glsl_blit_parameters_t&							outPC,
-		const core::vectorSIMDu32&							inImageExtent,
-		const core::vectorSIMDu32&							outImageExtent,
-		const asset::IImage::E_TYPE							imageType,
-		const asset::E_FORMAT								inImageFormat,
-		const typename BlitUtilities::reconstruction_x_t&	reconstructionX,
-		const typename BlitUtilities::resampling_x_t&		resamplingX,
-		const typename BlitUtilities::reconstruction_y_t&	reconstructionY,
-		const typename BlitUtilities::resampling_y_t&		resamplingY,
-		const typename BlitUtilities::reconstruction_z_t&	reconstructionZ,
-		const typename BlitUtilities::resampling_z_t&		resamplingZ,
-		const uint32_t										layersToBlit = 1,
-		const float											referenceAlpha = 0.f)
+		nbl_glsl_blit_parameters_t&								outPC,
+		const core::vectorSIMDu32&								inImageExtent,
+		const core::vectorSIMDu32&								outImageExtent,
+		const asset::IImage::E_TYPE								imageType,
+		const asset::E_FORMAT									inImageFormat,
+		const typename BlitUtilities::convolution_kernels_t&	kernels,
+		const uint32_t											layersToBlit = 1,
+		const float												referenceAlpha = 0.f)
 	{
 		core::vectorSIMDu32 inDim(inImageExtent.x, inImageExtent.y, inImageExtent.z);
 		core::vectorSIMDu32 outDim(outImageExtent.x, outImageExtent.y, outImageExtent.z);
@@ -349,15 +324,13 @@ public:
 		outPC.dims.y = (outDim.y << 16) | inDim.y;
 		outPC.dims.z = (outDim.z << 16) | inDim.z;
 
-		auto [kernelX, kernelY, kernelZ] = BlitUtilities::getConvolutionKernels(inImageExtent, outImageExtent, reconstructionX, resamplingX, reconstructionY, resamplingY, reconstructionZ, resamplingZ);
-
 		core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
 
-		const core::vectorSIMDf minSupport(-kernelX.negative_support[0], -kernelY.negative_support[1], -kernelZ.negative_support[2]);
-		const core::vectorSIMDf maxSupport(kernelX.positive_support[0], kernelY.positive_support[1], kernelZ.positive_support[2]);
+		const core::vectorSIMDf minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
+		const core::vectorSIMDf maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
 
 		core::vectorSIMDu32 outputTexelsPerWG;
-		getOutputTexelsPerWorkGroup<BlitUtilities>(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, reconstructionX, resamplingX, reconstructionY, resamplingY, reconstructionZ, resamplingZ);
+		getOutputTexelsPerWorkGroup<BlitUtilities>(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernels);
 		const auto preloadRegion = getPreloadRegion(outputTexelsPerWG, imageType, minSupport, maxSupport, scale);
 
 		outPC.secondScratchOffset = core::max(preloadRegion.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x*outputTexelsPerWG.y*preloadRegion.z);
@@ -368,7 +341,7 @@ public:
 		outPC.negativeSupport.x = minSupport.x; outPC.negativeSupport.y = minSupport.y; outPC.negativeSupport.z = minSupport.z;
 		outPC.outPixelCount = outImageExtent.x*outImageExtent.y*outImageExtent.z;
 
-		const core::vectorSIMDi32 windowDim = core::max(BlitUtilities::getRealWindowSize(imageType, kernelX, kernelY, kernelZ), core::vectorSIMDi32(1, 1, 1, 1));
+		const core::vectorSIMDi32 windowDim = core::max(BlitUtilities::getWindowSize(imageType, kernels), core::vectorSIMDi32(1, 1, 1, 1));
 		assert((windowDim.x < maxImageDims.x) && (windowDim.y < maxImageDims.y) && (windowDim.z < maxImageDims.z));
 
 		const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
@@ -399,24 +372,19 @@ public:
 			outDispatchInfo.wgCount[2] = workgroupCount[2];
 	}
 
-	template <asset::Blittable BlitUtilities>
+	template <typename BlitUtilities>
 	inline void buildBlitDispatchInfo(
-		dispatch_info_t&									dispatchInfo,
-		const core::vectorSIMDu32&							inImageExtent,
-		const core::vectorSIMDu32&							outImageExtent,
-		const asset::E_FORMAT								inImageFormat,
-		const asset::IImage::E_TYPE							imageType,
-		const typename BlitUtilities::reconstruction_x_t&	reconstructionX,
-		const typename BlitUtilities::resampling_x_t&		resamplingX,
-		const typename BlitUtilities::reconstruction_y_t&	reconstructionY,
-		const typename BlitUtilities::resampling_y_t&		resamplingY,
-		const typename BlitUtilities::reconstruction_z_t&	reconstructionZ,
-		const typename BlitUtilities::resampling_z_t&		resamplingZ,
-		const uint32_t										workgroupSize = DefaultBlitWorkgroupSize,
-		const uint32_t										layersToBlit = 1)
+		dispatch_info_t&										dispatchInfo,
+		const core::vectorSIMDu32&								inImageExtent,
+		const core::vectorSIMDu32&								outImageExtent,
+		const asset::E_FORMAT									inImageFormat,
+		const asset::IImage::E_TYPE								imageType,
+		const typename BlitUtilities::convolution_kernels_t&	kernels,
+		const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
+		const uint32_t											layersToBlit = 1)
 	{
 		core::vectorSIMDu32 outputTexelsPerWG;
-		getOutputTexelsPerWorkGroup<BlitUtilities>(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, reconstructionX, resamplingX, reconstructionY, resamplingY, reconstructionZ, resamplingZ);
+		getOutputTexelsPerWorkGroup<BlitUtilities>(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernels);
 		const auto wgCount = (outImageExtent + outputTexelsPerWG - core::vectorSIMDu32(1, 1, 1)) / core::vectorSIMDu32(outputTexelsPerWG.x, outputTexelsPerWG.y, outputTexelsPerWG.z, 1);
 
 		dispatchInfo.wgCount[0] = wgCount[0];
@@ -576,37 +544,32 @@ public:
 
 	//! User is responsible for the memory barriers between previous writes and the first
 	//! dispatch on the input image, and future reads of output image and the last dispatch.
-	template <asset::Blittable BlitUtilities>
+	template <typename BlitUtilities>
 	inline void blit(
-		video::IGPUCommandBuffer*							cmdbuf,
-		const asset::IBlitUtilities::E_ALPHA_SEMANTIC		alphaSemantic,
-		video::IGPUDescriptorSet*							alphaTestDS,
-		video::IGPUComputePipeline*							alphaTestPipeline,
-		video::IGPUDescriptorSet*							blitDS,
-		video::IGPUDescriptorSet*							blitWeightsDS,
-		video::IGPUComputePipeline*							blitPipeline,
-		video::IGPUDescriptorSet*							normalizationDS,
-		video::IGPUComputePipeline*							normalizationPipeline,
-		const core::vectorSIMDu32&							inImageExtent,
-		const asset::IImage::E_TYPE							inImageType,
-		const asset::E_FORMAT								inImageFormat,
-		core::smart_refctd_ptr<video::IGPUImage>			normalizationInImage,
-		const typename BlitUtilities::reconstruction_x_t&	reconstructionX,
-		const typename BlitUtilities::resampling_x_t&		resamplingX,
-		const typename BlitUtilities::reconstruction_y_t&	reconstructionY,
-		const typename BlitUtilities::resampling_y_t&		resamplingY,
-		const typename BlitUtilities::reconstruction_z_t&	reconstructionZ,
-		const typename BlitUtilities::resampling_z_t&		resamplingZ,
-		const uint32_t										layersToBlit = 1,
-		core::smart_refctd_ptr<video::IGPUBuffer>			coverageAdjustmentScratchBuffer = nullptr,
-		const float											referenceAlpha = 0.f,
-		const uint32_t										alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount,
-		const uint32_t										workgroupSize = DefaultBlitWorkgroupSize)
+		video::IGPUCommandBuffer*								cmdbuf,
+		const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
+		video::IGPUDescriptorSet*								alphaTestDS,
+		video::IGPUComputePipeline*								alphaTestPipeline,
+		video::IGPUDescriptorSet*								blitDS,
+		video::IGPUDescriptorSet*								blitWeightsDS,
+		video::IGPUComputePipeline*								blitPipeline,
+		video::IGPUDescriptorSet*								normalizationDS,
+		video::IGPUComputePipeline*								normalizationPipeline,
+		const core::vectorSIMDu32&								inImageExtent,
+		const asset::IImage::E_TYPE								inImageType,
+		const asset::E_FORMAT									inImageFormat,
+		core::smart_refctd_ptr<video::IGPUImage>				normalizationInImage,
+		const typename BlitUtilities::convolution_kernels_t&	kernels,
+		const uint32_t											layersToBlit = 1,
+		core::smart_refctd_ptr<video::IGPUBuffer>				coverageAdjustmentScratchBuffer = nullptr,
+		const float												referenceAlpha = 0.f,
+		const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount,
+		const uint32_t											workgroupSize = DefaultBlitWorkgroupSize)
 	{
 		const core::vectorSIMDu32 outImageExtent(normalizationInImage->getCreationParameters().extent.width, normalizationInImage->getCreationParameters().extent.height, normalizationInImage->getCreationParameters().extent.depth, 1u);
 
 		nbl_glsl_blit_parameters_t pushConstants;
-		buildParameters<BlitUtilities>(pushConstants, inImageExtent, outImageExtent, inImageType, inImageFormat, reconstructionX, resamplingX, reconstructionY, resamplingY, reconstructionZ, resamplingZ, layersToBlit, referenceAlpha);
+		buildParameters<BlitUtilities>(pushConstants, inImageExtent, outImageExtent, inImageType, inImageFormat, kernels, layersToBlit, referenceAlpha);
 
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 		{
@@ -620,7 +583,7 @@ public:
 
 		{
 			dispatch_info_t dispatchInfo;
-			buildBlitDispatchInfo<BlitUtilities>(dispatchInfo, inImageExtent, outImageExtent, inImageFormat, inImageType, reconstructionX, resamplingX, reconstructionY, resamplingY, reconstructionZ, resamplingZ, workgroupSize, layersToBlit);
+			buildBlitDispatchInfo<BlitUtilities>(dispatchInfo, inImageExtent, outImageExtent, inImageFormat, inImageType, kernels, workgroupSize, layersToBlit);
 
 			video::IGPUDescriptorSet* ds_raw[] = { blitDS, blitWeightsDS };
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 2, ds_raw);
@@ -668,7 +631,7 @@ public:
 	}
 
 	//! WARNING: This function blocks and stalls the GPU!
-	template <asset::Blittable BlitUtilities, typename... Args>
+	template <typename BlitUtilities, typename... Args>
 	inline void blit(video::IGPUQueue* computeQueue, Args&&... args)
 	{
 		auto cmdpool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);

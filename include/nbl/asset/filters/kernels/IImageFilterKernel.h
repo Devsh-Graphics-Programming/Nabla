@@ -70,34 +70,6 @@ class IImageFilterKernel
 			return getWindowMinCoord(unnormCeterSampledCoord,dummy);
 		}
 
-		// stretch is per dimension
-		virtual inline void stretch(const core::vectorSIMDf&/*vec3*/ s)
-		{
-			min_support *= s;
-			max_support *= s;
-
-			calculateWindowProperties();
-		}
-
-		// scale is per output channel
-		inline void scale(const core::vectorSIMDf& s)
-		{
-			m_multipliedScale *= s;
-		}
-		// monochromatic variant
-		inline void scale(float s)
-		{
-			scale(core::vectorSIMDf(s,s,s,s));
-		}
-
-		// This method will keep the integral of the kernel constant.
-		inline void stretchAndScale(const core::vectorSIMDf/*vec3*/& stretchFactor)
-		{
-			stretch(stretchFactor);
-			auto rcp = core::vectorSIMDf(1.f).preciseDivision(stretchFactor);
-			scale(rcp.x*rcp.y*rcp.z);
-		}
-
 		// get the kernel support (measured in pixels)
 		inline const auto& getWindowSize() const
 		{

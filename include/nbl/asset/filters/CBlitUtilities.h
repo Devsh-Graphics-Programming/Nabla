@@ -34,8 +34,10 @@ public:
 	}
 };
 
+// TODO(achal): All the following typenames should be replaced by a C++20 concept, which ensures that:
+// 1. {Reconstruction/Resampling}Function* has a stretch method defined on it.
 template<
-	typename ReconstructionFunctionX	= SBoxFunction,
+	typename ReconstructionFunctionX	= CWeightFunction1D<SBoxFunction>,
 	typename ResamplingFunctionX		= ReconstructionFunctionX,
 	typename ReconstructionFunctionY	= ReconstructionFunctionX,
 	typename ResamplingFunctionY		= ResamplingFunctionX,
@@ -47,13 +49,36 @@ class CBlitUtilities : public IBlitUtilities
 	static inline constexpr uint32_t MaxChannels = 4;
 
 public:
+	using convolution_kernels_t = std::tuple<
+		CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction1D<ReconstructionFunctionX, ResamplingFunctionX>>,
+		CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction1D<ReconstructionFunctionY, ResamplingFunctionY>>,
+		CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction1D<ReconstructionFunctionZ, ResamplingFunctionZ>>>;
+
+	using convolution_kernel_x_t = std::tuple_element_t<0, convolution_kernels_t>;
+	using convolution_kernel_y_t = std::tuple_element_t<1, convolution_kernels_t>;
+	using convolution_kernel_z_t = std::tuple_element_t<2, convolution_kernels_t>;
+
+	// TODO(achal): static_assert that the value_type of other kernel is the same.
+	using value_type = convolution_kernel_x_t::value_type;
+
 	template <typename LutDataType>
 	static inline size_t getScaledKernelPhasedLUTSize(
 		const core::vectorSIMDu32&		inExtent,
 		const core::vectorSIMDu32&		outExtent,
-		const asset::IImage::E_TYPE		inImageType)
+		const asset::IImage::E_TYPE		inImageType,
+		const convolution_kernels_t&	kernels)
 	{
-		const auto windowSize = getWindowSize(inExtent, outExtent, inImageType);
+		const auto windowSize = getWindowSize(inImageType, kernels);
+		return getScaledKernelPhasedLUTSize<LutDataType>(inExtent, outExtent, inImageType, windowSize);
+	}
+
+	template <typename LutDataType>
+	static inline size_t getScaledKernelPhasedLUTSize(
+		const core::vectorSIMDu32&		inExtent,
+		const core::vectorSIMDu32&		outExtent,
+		const asset::IImage::E_TYPE		inImageType,
+		const core::vectorSIMDi32&		windowSize)
+	{
 		const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
 		return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(LutDataType) * MaxChannels;
 	}
@@ -63,7 +88,8 @@ public:
 		void*							outKernelWeights,
 		const core::vectorSIMDu32&		inExtent,
 		const core::vectorSIMDu32&		outExtent,
-		const asset::IImage::E_TYPE		inImageType)
+		const asset::IImage::E_TYPE		inImageType,
+		const convolution_kernels_t&	kernels)
 	{
 		const core::vectorSIMDu32 phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
 
@@ -73,47 +99,41 @@ public:
 				return false;
 		}
 
-		const auto windowSize = getWindowSize(inExtent, outExtent, inImageType);
+		const auto windowSize = getWindowSize(inImageType, kernels);
 		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets<LutDataType>(phaseCount, windowSize);
 
+		// TODO(achal): Isn't scale and rcp_c2 the same?
 		const core::vectorSIMDf inExtent_f32(inExtent);
 		const core::vectorSIMDf outExtent_f32(outExtent);
 		const auto scale = inExtent_f32.preciseDivision(outExtent_f32);
+		const auto rcp_c2 = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
 
-		auto computeForAxis = [&](const asset::IImage::E_TYPE axis, const auto& convWeightFunction, const int32_t windowSize, const float invStretchFactor)
+		auto computeForAxis = [&](const asset::IImage::E_TYPE axis, const auto& kernel, const int32_t _windowSize)
 		{
+			if (axis > inImageType)
+				return;
+
 			LutDataType* outKernelWeightsPixel = reinterpret_cast<LutDataType*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
 
 			// One phase corresponds to one window (not to say that every window has a unique phase, many will share the same phase) and one window gets
 			// reduced to one output pixel, so this for loop will run exactly the number of times as there are output pixels with unique phases.
 			for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
 			{
-				core::vectorSIMDf outPixelCenter(0.f);
-				outPixelCenter[axis] = float(i) + 0.5f; // output pixel center in output space
-				outPixelCenter *= scale; // output pixel center in input space
+				float outPixelCenter = (float(i) + 0.5f)*scale[axis]; // output pixel center in input space
 
-				const auto [minSupport, maxSupport] = getConvolutionWeightFunctionSupports(axis, 1.f/invStretchFactor);
+				const int32_t windowCoord = kernel.getWindowMinCoord(outPixelCenter, outPixelCenter);
 
-				// const int32_t windowCoord = kernel.getWindowMinCoord(outPixelCenter, outPixelCenter)[axis];
-				int32_t windowCoord;
+				float relativePos = outPixelCenter - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
+
+				for (int32_t j = 0; j < _windowSize; ++j)
 				{
-					outPixelCenter[axis] -= 0.5f;
-					windowCoord = static_cast<int32_t>(core::ceil(outPixelCenter[axis] + minSupport));
-				}
-
-				float relativePos = outPixelCenter[axis] - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
-
-				for (int32_t j = 0; j < windowSize; ++j)
-				{
-					const float domainScaledRelativePos = relativePos * invStretchFactor;
-
 					for (uint32_t ch = 0; ch < MaxChannels; ++ch)
 					{
-						const double weight = convWeightFunction<0>(domainScaledRelativePos, ch);
+						const double weight = static_cast<double>(kernel.weight(relativePos, ch));
 						if constexpr (std::is_same_v<LutDataType, uint16_t>)
-							outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = core::Float16Compressor::compress(float(weight));
+							outKernelWeightsPixel[(i * _windowSize + j) * MaxChannels + ch] = core::Float16Compressor::compress(float(weight));
 						else
-							outKernelWeightsPixel[(i * windowSize + j) * MaxChannels + ch] = LutDataType(weight);
+							outKernelWeightsPixel[(i * _windowSize + j) * MaxChannels + ch] = LutDataType(weight);
 					}
 					
 					relativePos -= 1.f;
@@ -121,59 +141,48 @@ public:
 			}
 		};
 
-		const auto rcp_c2 = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
-
-		if (inImageType >= asset::IImage::ET_1D)
-		{
-			CConvolutionWeightFunction<ReconstructionFunctionX, ResamplingFunctionX> convX({}, {}, rcp_c2.x);
-			computeForAxis(asset::IImage::ET_1D, convX, windowSize.x, 1.f/rcp_c2.x);
-		}
-
-		if (inImageType >= asset::IImage::ET_2D)
-		{
-			CConvolutionWeightFunction<ReconstructionFunctionY, ResamplingFunctionY> convY({}, {}, rcp_c2.y);
-			computeForAxis(asset::IImage::ET_2D, convY, windowSize.y, 1.f/rcp_c2.y);
-		}
-
-		if (inImageType == asset::IImage::ET_3D)
-		{
-			CConvolutionWeightFunction<ReconstructionFunctionZ, ResamplingFunctionZ> convZ({}, {}, rcp_c2.z);
-			computeForAxis(asset::IImage::ET_3D, convZ, windowSize.z, 1.f/rcp_c2.z);
-		}
+		computeForAxis(asset::IImage::ET_1D, std::get<0>(kernels), windowSize.x);
+		computeForAxis(asset::IImage::ET_2D, std::get<1>(kernels), windowSize.y);
+		computeForAxis(asset::IImage::ET_3D, std::get<2>(kernels), windowSize.z);
 
 		return true;
 	}
 
-	static inline core::vectorSIMDi32 getWindowSize(
+	static inline convolution_kernels_t getConvolutionKernels(
 		const core::vectorSIMDu32&	inExtent,
 		const core::vectorSIMDu32&	outExtent,
-		const asset::IImage::E_TYPE	inImageType)
+		ReconstructionFunctionX&&	reconstructionX		= ReconstructionFunctionX(),
+		ResamplingFunctionX&&		resamplingX			= ResamplingFunctionX(),
+		ReconstructionFunctionY&&	reconstructionY		= ReconstructionFunctionY(),
+		ResamplingFunctionY&&		resamplingY			= ResamplingFunctionY(),
+		ReconstructionFunctionZ&&	reconstructionZ		= ReconstructionFunctionZ(),
+		ResamplingFunctionZ&&		resamplingZ			= ResamplingFunctionZ())
 	{
 		// Stretch and scale the resampling kernels.
 		// we'll need to stretch the kernel support to be relative to the output image but in the input image coordinate system
 		// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
 
-		core::vectorSIMDi32 windowSize(0, 0, 0, 0);
-
 		const auto rcp_c2 = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
 
-		if (inImageType >= asset::IImage::E_TYPE::ET_1D)
-		{
-			const auto [minSupport, maxSupport] = getConvolutionWeightFunctionSupports(asset::IImage::E_TYPE::ET_1D, rcp_c2.x);
-			windowSize.x = static_cast<int32_t>(core::ceil(maxSupport - minSupport));
-		}
+		resamplingX.stretch(rcp_c2.x);
+		resamplingY.stretch(rcp_c2.y);
+		resamplingZ.stretch(rcp_c2.z);
 
-		if (inImageType >= asset::IImage::E_TYPE::ET_2D)
-		{
-			const auto [minSupport, maxSupport] = getConvolutionWeightFunctionSupports(asset::IImage::E_TYPE::ET_2D, rcp_c2.y);
-			windowSize.y = static_cast<int32_t>(core::ceil(maxSupport - minSupport));
-		}
+		return {
+			convolution_kernel_x_t({std::move(reconstructionX), std::move(resamplingX)}),
+			convolution_kernel_y_t({std::move(reconstructionY), std::move(resamplingY)}),
+			convolution_kernel_z_t({std::move(reconstructionZ), std::move(resamplingZ)}) };
+	}
 
-		if (inImageType == asset::IImage::E_TYPE::ET_3D)
-		{
-			const auto [minSupport, maxSupport] = getConvolutionWeightFunctionSupports(asset::IImage::E_TYPE::ET_3D, rcp_c2.z);
-			windowSize.z = static_cast<int32_t>(core::ceil(maxSupport - minSupport));
-		}
+	static inline core::vectorSIMDi32 getWindowSize(
+		const asset::IImage::E_TYPE	inImageType,
+		const convolution_kernels_t& kernels)
+	{
+		core::vectorSIMDi32 windowSize(std::get<0>(kernels).getWindowSize(), 0, 0, 0);
+		if (inImageType >= IImage::ET_2D)
+			windowSize.y = std::get<1>(kernels).getWindowSize();
+		if (inImageType == IImage::ET_3D)
+			windowSize.z = std::get<2>(kernels).getWindowSize();
 
 		return windowSize;
 	}
@@ -187,37 +196,6 @@ public:
 		result.y = (phaseCount[0] * windowSize.x);
 		result.z = ((phaseCount[0] * windowSize.x) + (phaseCount[1] * windowSize.y));
 		return result * sizeof(LutDataType) * MaxChannels;
-	}
-
-	inline std::pair<float, float> getConvolutionWeightFunctionSupports(const asset::IImage::E_TYPE axis, const float resamplingStretchFactor) const
-	{
-		switch (axis)
-		{
-		case asset::IImage::E_TYPE::ET_1D:
-		{
-			const auto minSupport = ReconstructionFunctionX::min_support + ResamplingFunctionX::min_support * resamplingStretchFactor;
-			const auto maxSupport = ReconstructionFunctionX::max_support + ResamplingFunctionX::max_support * resamplingStretchFactor;
-			return { minSupport, maxSupport };
-		}
-
-		case asset::IImage::E_TYPE::ET_2D:
-		{
-			const auto minSupport = ReconstructionFunctionY::min_support + ResamplingFunctionY::min_support * resamplingStretchFactor;
-			const auto maxSupport = ReconstructionFunctionY::max_support + ResamplingFunctionY::max_support * resamplingStretchFactor;
-			return { minSupport, maxSupport };
-		}
-
-		case asset::IImage::E_TYPE::ET_3D:
-		{
-			const auto minSupport = ReconstructionFunctionZ::min_support + ResamplingFunctionZ::min_support * resamplingStretchFactor;
-			const auto maxSupport = ReconstructionFunctionZ::max_support + ResamplingFunctionZ::max_support * resamplingStretchFactor;
-			return { minSupport, maxSupport };
-		}
-
-		default:
-			assert(!"Invalid code path");
-			return { 0.f, 0.f };
-		}
 	}
 };
 

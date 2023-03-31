@@ -14,20 +14,20 @@ struct SDiracFunction
 	constexpr static inline float max_support = +1e-6f;
 	constexpr static inline uint32_t k_smoothness = 0;
 
-	template<uint32_t derivative=0>
-	inline float operator()(float x, uint32_t channel) const
+	template<int32_t derivative=0>
+	inline double weight(float x, uint32_t channel) const
 	{
 		if (x != 0.f)
-			return 0.f;
+			return 0.0;
 
 		if constexpr (derivative == 0)
 		{
-			return std::numeric_limits<float>::infinity();
+			return std::numeric_limits<double>::infinity();
 		}
 		else
 		{
 			static_assert(false);
-			return core::nan<float>();
+			return core::nan<double>();
 		}
 	}
 };
@@ -39,22 +39,22 @@ struct SBoxFunction
 	constexpr static inline float max_support = +0.5f;
 	constexpr static inline uint32_t k_smoothness = 0;
 
-	template <uint32_t derivative = 0>
-	inline float operator()(float x, uint32_t channel) const
+	template <int32_t derivative = 0>
+	inline double weight(float x, uint32_t channel) const
 	{
 		if (x >= min_support && x < max_support)
 		{
 			if constexpr (derivative == 0)
 			{
-				return 1.f;
+				return 1.0;
 			}
 			else
 			{
 				static_assert(false);
-				return core::nan<float>();
+				return core::nan<double>();
 			}
 		}
-		return 0.f;
+		return 0.0;
 	}
 };
 
@@ -65,8 +65,8 @@ struct STriangleFunction
 	constexpr static inline float max_support = +1.f;
 	constexpr static inline uint32_t k_smoothness = 0;
 
-	template <uint32_t derivative = 0>
-	inline float operator()(float x, uint32_t channel) const
+	template <int32_t derivative = 0>
+	static inline double weight(float x, uint32_t channel)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -74,14 +74,14 @@ struct STriangleFunction
 			{
 				// Derivative at 0 not defined.
 				static_assert(false);
-				return core::nan<float>();
+				return core::nan<double>();
 			}
 			else
 			{
-				return 1.f - core::abs(x);
+				return 1.0 - core::abs(x);
 			}
 		}
-		return 0.f;
+		return 0.0;
 	}
 };
 
@@ -92,32 +92,32 @@ struct SGaussianFunction
 	constexpr static inline float max_support = +3.f;
 	constexpr static inline uint32_t k_smoothness = std::numeric_limits<uint32_t>::max();
 
-	template <uint32_t derivative = 0>
-	inline float operator()(float x, uint32_t channel) const
+	template <int32_t derivative = 0>
+	static inline double weight(float x, uint32_t channel)
 	{
 		if (x >= min_support && x < max_support)
 		{
 			if constexpr (derivative == 0)
 			{
-				const float normalizationFactor = core::inversesqrt(2.f * core::PI<float>()) / std::erff(core::sqrt<float>(2.f) * float(min_support.x));
-				return normalizationFactor * exp2f(-0.72134752f * x * x);
+				const double normalizationFactor = core::inversesqrt(2.0 * core::PI<double>()) / std::erff(core::sqrt<double>(2.0) * double(min_support));
+				return normalizationFactor * exp2(-0.72134752 * x * x);
 			}
 			else if constexpr (derivative == 1)
 			{
-				return -x * SGaussianFunction::operator()(x, channel);
+				return -x * SGaussianFunction::weight(x, channel);
 			}
 			else if constexpr (derivative == 2)
 			{
-				return x * (x + 1.f) * SGaussianFunction::operator()(x, channel);
+				return x * (x + 1.0) * SGaussianFunction::weight(x, channel);
 			}
 			else if constexpr (derivative == 3)
 			{
-				return (1.f - (x - 1.f) * (x + 1.f) * (x + 1.f)) * SGaussianFunction::operator()(x, channel);
+				return (1.0 - (x - 1.0) * (x + 1.0) * (x + 1.0)) * SGaussianFunction::weight(x, channel);
 			}
 			else
 			{
 				static_assert(false, "TODO");
-				return core::nan<float>();
+				return core::nan<double>();
 			}
 		}
 		return 0.f;
@@ -132,8 +132,8 @@ struct SMitchellFunction
 	constexpr static inline float max_support = +2.f;
 	constexpr static inline uint32_t k_smoothness = 3;
 
-	template <uint32_t derivative = 0>
-	inline float operator()(float x, uint32_t channel) const
+	template <int32_t derivative = 0>
+	static inline double weight(float x, uint32_t channel)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -143,41 +143,41 @@ struct SMitchellFunction
 			float retval;
 			if constexpr (derivative == 0)
 			{
-				return core::mix(p0 + x * x * (p2 + x * p3), q0 + x * (q1 + x * (q2 + x * q3)), x >= 1.f);
+				return core::mix(p0 + x * x * (p2 + x * p3), q0 + x * (q1 + x * (q2 + x * q3)), x >= 1.0);
 			}
 			else if constexpr (derivative == 1)
 			{
-				retval = core::mix(x * (2.f * p2 + 3.f * x * p3), q1 + x * (2.f * q2 + 3.f * x * q3), x >= 1.f);
+				retval = core::mix(x * (2.f * p2 + 3.f * x * p3), q1 + x * (2.f * q2 + 3.f * x * q3), x >= 1.0);
 			}
 			else if constexpr (derivative == 2)
 			{
-				retval = core::mix(2.f * p2 + 6.f * p3 * x, 2.f * q2 + 6.f * q3 * x, x >= 1.f);
+				retval = core::mix(2.f * p2 + 6.f * p3 * x, 2.f * q2 + 6.f * q3 * x, x >= 1.0);
 			}
 			else if constexpr (derivative == 3)
 			{
-				retval = core::mix(6.f * p3, 6.f * q3, x >= 1.f);
+				retval = core::mix(6.f * p3, 6.f * q3, x >= 1.0);
 			}
 			else
 			{
 				static_assert(false);
-				return core::nan<float>();
+				return core::nan<double>();
 			}
 
 			return neg ? -retval : retval;
 		}
-		return 0.f;
+		return 0.0;
 	}
 
 private:
-	static inline constexpr float b = float(B::num) / float(B::den);
-	static inline constexpr float c = float(C::num) / float(C::den);
-	static inline constexpr float p0 = (6.0f - 2.0f * b) / 6.0f;
-	static inline constexpr float p2 = (-18.0f + 12.0f * b + 6.0f * c) / 6.0f;
-	static inline constexpr float p3 = (12.0f - 9.0f * b - 6.0f * c) / 6.0f;
-	static inline constexpr float q0 = (8.0f * b + 24.0f * c) / 6.0f;
-	static inline constexpr float q1 = (-12.0f * b - 48.0f * c) / 6.0f;
-	static inline constexpr float q2 = (6.0f * b + 30.0f * c) / 6.0f;
-	static inline constexpr float q3 = (-b - 6.0f * c) / 6.0f;
+	static inline constexpr double b = double(B::num) / double(B::den);
+	static inline constexpr double c = double(C::num) / double(C::den);
+	static inline constexpr double p0 = (6.0 - 2.0 * b) / 6.0;
+	static inline constexpr double p2 = (-18.0 + 12.0 * b + 6.0 * c) / 6.0;
+	static inline constexpr double p3 = (12.0 - 9.0 * b - 6.0 * c) / 6.0;
+	static inline constexpr double q0 = (8.0 * b + 24.0 * c) / 6.0;
+	static inline constexpr double q1 = (-12.0 * b - 48.0 * c) / 6.0;
+	static inline constexpr double q2 = (6.0 * b + 30.0 * c) / 6.0;
+	static inline constexpr double q3 = (-b - 6.0 * c) / 6.0;
 };
 
 // Kaiser filter, basically a windowed sinc.
@@ -188,8 +188,8 @@ struct SKaiserFunction
 	// important constant, do not touch, do not tweak
 	static inline constexpr float alpha = 3.f;
 
-	template <uint32_t derivative = 0>
-	inline float operator()(float x, uint32_t channel) const
+	template <int32_t derivative = 0>
+	static inline double weight(float x, uint32_t channel)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -197,36 +197,40 @@ struct SKaiserFunction
 
 			if constexpr (derivative == 0)
 			{
-				const auto PI = core::PI<float>();
+				const auto PI = core::PI<double>();
 				return core::sinc(x * PI) * core::KaiserWindow(x, alpha, absMinSupport);
 			}
 			else if constexpr (derivative == 1)
 			{
-				const auto PIx = core::PI<float>() * x;
-				float f = core::sinc(PIx);
-				float df = core::PI<float>() * core::d_sinc(PIx);
-				float g = core::KaiserWindow(x, alpha, absMinSupport);
-				float dg = core::d_KaiserWindow(x, alpha, absMinSupport);
+				const auto PIx = core::PI<double>() * x;
+				double f = core::sinc(PIx);
+				double df = core::PI<double>() * core::d_sinc(PIx);
+				double g = core::KaiserWindow(x, alpha, absMinSupport);
+				double dg = core::d_KaiserWindow(x, alpha, absMinSupport);
 				return df * g + f * dg;
 			}
 			else
 			{
 				static_assert(false, "TODO");
-				return core::nan<float>();
+				return core::nan<double>();
 			}
 		}
-		return 0.f;
+		return 0.0;
 	}
 };
 
 // CConvolutionWeightFunction1D<CWeightFunction1D<SMitchellFunction>, CWeightFunction1D<SMitchellFunction>>
 template <typename Function1D, int32_t derivative = 0>
-class CWeightFunction1D final
+class CWeightFunction1D /*final*/ // TODO(achal): Cannot make it final just yet because `weight_function_value_type` inherits from this.
 {
 public:
+	constexpr static inline uint32_t k_smoothness = Function1D::k_smoothness;
+	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f };
+
 	inline void stretch(const float s)
 	{
 		assert(s != 0.f);
+
 		m_minSupport *= s;
 		m_maxSupport *= s;
 
@@ -249,8 +253,15 @@ public:
 		scale(1.f / stretchFactor);
 	}
 
+	// TODO(achal): It makes no sense to me as to why we take a channel param here.
+	inline double operator()(const float x, const uint32_t channel) const
+	{
+		return static_cast<double>(m_totalScale*Function1D::weight<derivative>(x*m_invStretch, channel));
+	}
+
 	inline float getMinSupport() const { m_minSupport; }
 	inline float getMaxSupport() const { m_maxSupport; }
+	inline float getInvStretch() const { m_invStretch; }
 
 private:
 	float m_minSupport = Function1D::min_support;

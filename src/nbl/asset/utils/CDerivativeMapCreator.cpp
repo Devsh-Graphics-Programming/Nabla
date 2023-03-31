@@ -1,9 +1,6 @@
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
-#include "nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CGaussianImageFilterKernel.h"
 #include "nbl/asset/filters/CBlitImageFilter.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
@@ -84,25 +81,25 @@ class SeparateOutXAxisKernel : public CFloatingPointSeparableImageFilterKernelBa
 		template<class PreFilter, class PostFilter>
 		struct sample_functor_t
 		{
-				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
-					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
+			sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+				_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale)
+			inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale)
+			{
+				preFilter(windowSample, relativePos, globalTexelCoord, scale);
+				for (int32_t i=0; i<MaxChannels; i++)
 				{
-					preFilter(windowSample, relativePos, globalTexelCoord, scale);
-					for (int32_t i=0; i<MaxChannels; i++)
-					{
-						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
-						windowSample[i] *= _this->kernel.weight(relativePos.x, i);
-						windowSample[i] *= scale[i];
-					}
-					postFilter(windowSample, relativePos, globalTexelCoord, scale);
+					// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
+					windowSample[i] *= _this->kernel.weight(relativePos.x, i);
+					windowSample[i] *= scale[i];
 				}
+				postFilter(windowSample, relativePos, globalTexelCoord, scale);
+			}
 
-			private:
-				const SeparateOutXAxisKernel<Kernel>* _this;
-				PreFilter& preFilter;
-				PostFilter& postFilter;
+		private:
+			const SeparateOutXAxisKernel<Kernel>* _this;
+			PreFilter& preFilter;
+			PostFilter& postFilter;
 		};
 
 		// the method all kernels must define and overload
@@ -121,26 +118,55 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 {
 	using namespace asset;
 
-	using ReconstructionKernel = CGaussianImageFilterKernel; // or Mitchell
-	using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
-	using DerivKernel = MyKernel<DerivKernel_>;
-	using XDerivKernel_ = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
-	using YDerivKernel_ = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
-	using XDerivKernel = SeparateOutXAxisKernel<XDerivKernel_>;
-	using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
+	// or Mitchell
+	using ReconstructionFunction = CWeightFunction1D<SGaussianFunction>;
+	using DerivativeFunction = CWeightFunction1D<SGaussianFunction, 1>;
+
+	using PartialDerivativeFunctionX = CChannelIndependentWeightFunction<DerivativeFunction, CWeightFunction1D<SBoxFunction>>;
+	using PartialDerivativeFunctionY = CChannelIndependentWeightFunction<CWeightFunction1D<SBoxFunction>, DerivativeFunction>;
+
 	using DerivativeMapFilter = CBlitImageFilter
 	<
 		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
 		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
-		CBlitUtilities<ReconstructionKernel, XDerivKernel, ReconstructionKernel, YDerivKernel, ReconstructionKernel, CBoxImageFilterKernel>
+		CBlitUtilities<ReconstructionFunction, PartialDerivativeFunctionX, ReconstructionFunction, PartialDerivativeFunctionY, ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
 	>;
 
-	const auto extent = _inImg->getCreationParameters().extent;
-	// derivative values should not change depending on resolution of the texture, so they need to be done w.r.t. normalized UV coordinates  
-	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), extent.width), CBoxImageFilterKernel()));
-	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
 
-	typename DerivativeMapFilter::state_type state(ReconstructionKernel(), std::move(xderiv), ReconstructionKernel(), std::move(yderiv), ReconstructionKernel(), CBoxImageFilterKernel());
+	// Previously:
+	// -> SeparateOutXAxisKernel defines its own sample_functor_t which gets called by the higher-ups (kernel.evaluateImpl in CBlitUtilities)
+	// This is exactly like CScaledImageFilterKernel used to do.
+	// 
+	// -> SeparateOutXAxisKernel seems to be just a wrapper around CChannelIndependentImageFilterKernel to make it callable from the higher-ups by adding a sample_functor_t
+	// because CChannelIndependentImageFilterKernel didn't have its own sample_functor_t. It seems that it was expected to be called via its `weight` function, always.
+	// 
+	// -> Now, as the name suggests, CChannelIndependentImageFilterKernel calls the appropriate kernel based on the channel param of its weight function.
+	// For XDerivKernel_, the kernel in Y was box (the default) and for YDerivKernel_, the kernel in X was box (the default).
+	// The non-default kernel of the above CChannelIndependentKernel is the MyKernel which is just used to scale the evaluted weight. Note we probably could'nt've used
+	// CScaledImageFilterKernel to scale it because CChannelIndependentKernel expects a `weight` function but CScaledImageFilterKernel didn't have one.
+
+	// Now:
+	// 1. The higher-ups have learnt to call the `weight` function directly. So they can directly use the kernel made out of CChannelIndependentWeightFunction1D
+	// i.e. CFloatingPointSeparableImageFilterKernel<CChannelIndependentWeightFunction1D<>> so we don't have a need for SeparateOutXAxisKernel anymore.
+	// 
+	// 2. MyKernel is not required anymore because its sole purpose was to apply a multiplier to the weight which now be easily done by calling CWeightFunction1D::scale method.
+
+	const auto extent = _inImg->getCreationParameters().extent;
+
+	// derivative values should not change depending on resolution of the texture, so they need to be done w.r.t. normalized UV coordinates  
+	DerivativeFunction derivX;
+	derivX.scale(extent.width);
+
+	DerivativeFunction derivY;
+	derivY.scale(extent.height);
+
+	auto convolutionKernels = DerivativeMapFilter::blit_utils_t::getConvolutionKernels(
+		inParams.extent,
+		inParams.extent,
+		ReconstructionFunction(), PartialDerivativeFunctionX(std::move(derivX), CWeightFunction1D<SBoxFunction>()),
+		ReconstructionFunction(), PartialDerivativeFunctionY(CWeightFunction1D<SBoxFunction>(), std::move(derivY)));
+
+	typename DerivativeMapFilter::state_type state(std::move(convolutionKernels));
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;

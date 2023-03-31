@@ -94,17 +94,11 @@ class CBlitImageFilter :
 		using lut_value_t = LutDataType;
 
 	private:
-		// TODO(achal): Get it from somewhere.
-		using value_t = float; // blit_utils_t::value_type;
+		using value_t = blit_utils_t::value_type;
 		using base_t = CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>;
 
 		// TODO(achal): Get it from somewhere.
 		static inline constexpr auto MaxChannels = 4u; // blit_utils_t::MaxChannels;
-
-		using convolution_kernels_t = std::pair<
-			CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction<blit_utils_t::reconstruction_x_t, blit_utils_t::resampling_x_t>,
-			CFlotingPointSeparableImageFilterKernel<CConvolutionWeightFunction<blit_utils_t::reconstruction_y_t, blit_utils_t::resampling_y_t>,
-			CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction<blit_utils_t::reconstruction_z_t, blit_utils_t::resampling_z_t>>;
 
 	public:
 		virtual ~CBlitImageFilter() {}
@@ -180,7 +174,7 @@ class CBlitImageFilter :
 				uint32_t								outMipLevel = 0u;
 				ICPUImage*								inImage = nullptr;
 				ICPUImage*								outImage = nullptr;
-				convolution_kernels_t					kernels;
+				blit_utils_t::convolution_kernels_t		kernels;
 				uint32_t								alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
 		};
 		using state_type = CState;
@@ -203,13 +197,10 @@ class CBlitImageFilter :
 		static inline uint32_t getScratchOffset(const state_type* state, const E_SCRATCH_USAGE usage)
 		{
 			const auto inType = state->inImage->getCreationParameters().type;
-			
-			// TODO(achal): Aren't they already saved in the state?
-			auto convolutionKernels = blit_utils_t::getConvolutionKernels(state->inExtentLayerCount, state->outExtentLayerCount);
 
-			const size_t scaledKernelPhasedLUTSize = blit_utils_t::template getScaledKernelPhasedLUTSize<LutDataType>(state->inExtentLayerCount, state->outExtentLayerCount, inType, convolutionKernels);
+			const auto windowSize = blit_utils_t::getWindowSize(inType, state->kernels);
+			const size_t scaledKernelPhasedLUTSize = blit_utils_t::template getScaledKernelPhasedLUTSize<LutDataType>(state->inExtentLayerCount, state->outExtentLayerCount, inType, windowSize);
 
-			const auto windowSize = blit_utils_t::getRealWindowSize(inType, convolutionKernels);
 			core::vectorSIMDi32 intermediateExtent[3];
 			getIntermediateExtents(intermediateExtent, state, windowSize);
 			assert(intermediateExtent[0].x == intermediateExtent[2].x);
@@ -344,16 +335,10 @@ class CBlitImageFilter :
 			const bool needsNormalization = !std::is_void_v<Normalization> || coverageSemantic;
 			const auto alphaRefValue = state->alphaRefValue;
 			const auto alphaChannel = state->alphaChannel;
-			
-			// prepare convolution kernels
-			auto [kernelX, kernelY, kernelZ] = blit_utils_t::getConvolutionKernels(inExtentLayerCount, outExtentLayerCount,
-				state->reconstructionX, state->resamplingX,
-				state->reconstructionY, state->resamplingY,
-				state->reconstructionZ, state->resamplingZ);
 
 			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
 			const auto inImageType = inParams.type;
-			const auto real_window_size = blit_utils_t::getRealWindowSize(inImageType,kernelX,kernelY,kernelZ);
+			const auto real_window_size = blit_utils_t::getWindowSize(inImageType,state->kernels);
 			core::vectorSIMDi32 intermediateExtent[3];
 			getIntermediateExtents(intermediateExtent, state, real_window_size);
 			const core::vectorSIMDi32 intermediateLastCoord[3] = {
@@ -459,9 +444,12 @@ class CBlitImageFilter :
 			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
 			const auto fScale = fInExtent.preciseDivision(fOutExtent);
 			const auto halfTexelOffset = fScale*0.5f-core::vectorSIMDf(0.f,0.f,0.f,0.5f);
-			const auto startCoord =  [&halfTexelOffset,&kernelX,&kernelY,&kernelZ]() -> core::vectorSIMDi32
+			const auto startCoord =  [&halfTexelOffset,state]() -> core::vectorSIMDi32
 			{
-				return core::vectorSIMDi32(kernelX.getWindowMinCoord(halfTexelOffset).x,kernelY.getWindowMinCoord(halfTexelOffset).y,kernelZ.getWindowMinCoord(halfTexelOffset).z,0);
+				return core::vectorSIMDi32(
+					std::get<0>(state->kernels).getWindowMinCoord(halfTexelOffset.x),
+					std::get<1>(state->kernels).getWindowMinCoord(halfTexelOffset.y),
+					std::get<2>(state->kernels).getWindowMinCoord(halfTexelOffset.z),0);
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 
@@ -491,7 +479,7 @@ class CBlitImageFilter :
 						return;
 
 					const bool lastPass = inImageType==axis;
-					const auto windowSize = kernel.getWindowSize()[axis];
+					const auto windowSize = kernel.getWindowSize();
 	
 					// z y x output along x
 					// z x y output along y
@@ -570,7 +558,7 @@ class CBlitImageFilter :
 							else
 								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel];
 
-							return kernelWeight * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + channel];
+							return kernelWeight * lineBuffer[(windowCoord - windowMinCoord[axis]) * MaxChannels + channel];
 						};
 
 						uint32_t phaseIndex = 0;
@@ -581,17 +569,15 @@ class CBlitImageFilter :
 							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
 
 							// do the filtering
-							core::vectorSIMDf tmp;
-							tmp[axis] = float(i)+0.5f;
-							core::vectorSIMDi32 windowCoord(0);
-							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
+							float tmp = float(i)+0.5f;
+							int32_t windowCoord = kernel.getWindowMinCoord(tmp*fScale[axis], tmp);
 
 							for (auto ch = 0; ch < MaxChannels; ++ch)
 								value[ch] = getWeightedSample(windowCoord, phaseIndex, 0, ch);
 
 							for (auto h=1; h<windowSize; h++)
 							{
-								windowCoord[axis]++;
+								windowCoord++;
 
 								for (auto ch = 0; ch < MaxChannels; ch++)
 									value[ch] += getWeightedSample(windowCoord, phaseIndex, h, ch);
@@ -622,9 +608,9 @@ class CBlitImageFilter :
 					}
 				};
 				
-				filterAxis(IImage::ET_1D,kernelX);
-				filterAxis(IImage::ET_2D,kernelY);
-				filterAxis(IImage::ET_3D,kernelZ);
+				filterAxis(IImage::ET_1D, std::get<0>(state->kernels));
+				filterAxis(IImage::ET_2D, std::get<1>(state->kernels));
+				filterAxis(IImage::ET_3D, std::get<2>(state->kernels));
 			}
 			return true;
 		}

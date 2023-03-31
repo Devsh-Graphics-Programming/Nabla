@@ -132,7 +132,7 @@ public:
 
         upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
 
-        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false, asset::CBlitUtilities<asset::SMitchellFunction<>>>;
+        using blit_filter_t = asset::CBlitImageFilter<asset::VoidSwizzle,asset::IdentityDither/*TODO: White Noise*/,void,false, asset::CBlitUtilities<asset::CWeightFunction1D<asset::SMitchellFunction<>>>>;
         auto convolutionKernels = blit_filter_t::blit_utils_t::getConvolutionKernels(
             core::vectorSIMDu32(params.extent.width, params.extent.height, params.extent.depth),
             core::vectorSIMDu32(extent_upscaled.width, extent_upscaled.height, extent_upscaled.depth));
