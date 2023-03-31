@@ -16,7 +16,7 @@ using namespace nbl::system;
 #if defined(_NBL_WINDOWS_API_)
 #define LIB reinterpret_cast<HMODULE&>(lib)
 #elif defined(_NBL_POSIX_API_)
-#define lib
+#define LIB lib
 #endif
 
 DefaultFuncPtrLoader::DefaultFuncPtrLoader(const char* name) : DefaultFuncPtrLoader()
