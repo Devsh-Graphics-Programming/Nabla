@@ -126,10 +126,10 @@ def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
                     { title: 'Reference denoised', image: referenceUrl + renderName+ '/Render_' + renderName + '_denoised.exr' },
                     { title: 'Reference albedo', image: referenceUrl + renderName+ '/Render_' + renderName + '_albedo.exr'},
                     { title: 'Reference normal', image:referenceUrl + renderName+  '/Render_' + renderName + '_normal.exr'},
-                    { title: 'Difference noisy', image: differencesUrl + '/' + renderName + '/' + renderName + '_diff.exr' },
-                    { title: 'Difference denoised', image: differencesUrl + '/' + renderName + '/' + renderName + '_denoised_diff.exr' },
-                    { title: 'Difference albedo', image: differencesUrl + '/' + renderName + '/' + renderName + '_albedo_diff.exr'},
-                    { title: 'Difference normal', image: differencesUrl + '/' + renderName + '/' + renderName + '_normal_diff.exr'}
+                    { title: 'Difference noisy', image: differencesUrl + '/' + renderName + '_diff.exr' },
+                    { title: 'Difference denoised', image: differencesUrl + '/' + renderName + '_denoised_diff.exr' },
+                    { title: 'Difference albedo', image: differencesUrl + '/' + renderName + '_albedo_diff.exr'},
+                    { title: 'Difference normal', image: differencesUrl + '/' + renderName + '_normal_diff.exr'}
                 ]
             };
         }
@@ -227,23 +227,21 @@ def run_all_tests(inputParamList):
                        
                         scene = line.strip()
 
-                        generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
                         destinationReferenceUndenoisedTargetName = str(inputParams.references_dir) + '/' + renderName + '/' + undenoisedTargetName
                     
-                        # dummy case executes when there is no reference image
                         NBL_DUMMY_RENDER_CASE = not bool(Path(destinationReferenceUndenoisedTargetName + '.exr').is_file())
-
 
                         executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
                         subprocess.run(executor, capture_output=True)
 
-                        # fail CI if the reference cache is different that current generated cache
-                    
                         outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
                         HTML_CELLS = []
                         PASSED_ALL = True
                         storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
 
+                        generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
+                        if not Path(generatedUndenoisedTargetName+".exr").is_file():
+                            generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + renderName
                         referenceDir = str(inputParams.storage_dir) + '/references/' + renderName + '/'
                         if not Path(referenceDir).is_dir():
                             os.makedirs(referenceDir)
@@ -254,15 +252,26 @@ def run_all_tests(inputParamList):
                                 imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
                                 imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
                                 refStorageFilepathstr = referenceDir + undenoisedTargetName + diffTerminator + '.exr' 
-
+                                
+                                if not Path(imageGenFilepath).is_file():
+                                    HTML_CELL = f'''
+                                    <td scope="col">
+                                        <td scope="col">Failed to produce render</td>
+                                        <td style="color: red;">CRITICAL</td>
+                                    </td>
+                                    '''
+                                    HTML_CELLS.append(HTML_CELL)
+                                    ci_pass_status = False
+                                    PASSED_ALL = False
+                                    continue
                                 # if we render first time a scene then we need to have a reference of this scene for following ci checks
                                 if NBL_DUMMY_RENDER_CASE:
 
                                     HTML_CELL = f'''
                                     <td scope="col">
-                                    <a href="{inputParams.result_imgs_url}/{undenoisedTargetName}{diffTerminator}.exr">(Result)</a>
-                                    <td scope="col">No references</td>
-                                    <td style="color: orange;">PASSED</td>
+                                        <a href="{inputParams.result_imgs_url}/{undenoisedTargetName}{diffTerminator}.exr">(Result)</a>
+                                        <td scope="col">No references</td>
+                                        <td style="color: orange;">PASSED</td>
                                     </td>
                                     '''
                                     HTML_CELLS.append(HTML_CELL)
@@ -304,7 +313,7 @@ def run_all_tests(inputParamList):
                                 
                                 #fix to CORS in preview
                                 shutil.copy(imageRefFilepath, refStorageFilepathstr)
-
+                                
                                 Diff_Filename= renderName + diffTerminator + "_diff.exr"
                                 HTML_CELL = f'''
                                 <td scope="col">
@@ -323,7 +332,6 @@ def run_all_tests(inputParamList):
                             except Exception as ex:
                                 
                                 print(f"Exception occured inside an innermost loop during rendering {renderName}{diffTerminator}: {str(ex)}")
-                                raise ex
 
                             HTML_CELLS.append(HTML_CELL)
                         
