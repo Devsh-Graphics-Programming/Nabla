@@ -228,7 +228,7 @@ class IAsyncQueueDispatcherBase
                         inline ~storage_lock_t()
                         {
                             if (m_future)
-                                m_future->state.exchangeNotify<true>(state_enum::READY,state_enum::LOCKED);
+                                m_future->state.template exchangeNotify<true>(state_enum::READY,state_enum::LOCKED);
                         }
 
                         //!
@@ -256,7 +256,7 @@ class IAsyncQueueDispatcherBase
                         {
                             assert(m_future);
                             m_future->destruct();
-                            m_future->state.exchangeNotify<true>(state_enum::INITIAL,state_enum::LOCKED);
+                            m_future->state.template exchangeNotify<true>(state_enum::INITIAL,state_enum::LOCKED);
                             m_future = nullptr;
                         }
                         //! Can only be called once!
