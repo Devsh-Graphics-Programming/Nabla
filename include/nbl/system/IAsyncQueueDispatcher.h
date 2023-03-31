@@ -319,7 +319,7 @@ class IAsyncQueueDispatcherBase
                         request.exchange(nullptr)->cancel();
 
                         // after doing everything, we can mark ourselves as cleaned up
-                        base_t::state.exchangeNotify<false>(base_t::STATE::INITIAL, base_t::STATE::EXECUTING);
+                        base_t::state.template exchangeNotify<false>(base_t::STATE::INITIAL, base_t::STATE::EXECUTING);
                         return true;
                     }
                     // we're here because either:
