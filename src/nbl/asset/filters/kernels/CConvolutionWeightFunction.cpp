@@ -3,7 +3,6 @@
 namespace nbl::asset::impl
 {
 
-template <int32_t derivative>
 float convolution_weight_function_helper<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
 {
 	assert(false);
@@ -21,7 +20,6 @@ float convolution_weight_function_helper<CWeightFunction1D<SBoxFunction>, CWeigh
 	return 0.f;
 }
 
-template <int32_t derivative>
 float convolution_weight_function_helper<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
 {
 	assert(false);
@@ -40,7 +38,6 @@ float convolution_weight_function_helper<CWeightFunction1D<SGaussianFunction>, C
 	return 0.f;
 }
 
-template <int32_t derivative>
 float convolution_weight_function_helper<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
 {
 	// return getKernelWidth(m_kernelA) > getKernelWidth(m_kernelB) ? m_kernelA.weight(x, channel) : m_kernelB.weight(x, channel);

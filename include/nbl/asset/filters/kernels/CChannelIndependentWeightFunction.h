@@ -15,58 +15,120 @@ namespace nbl::asset
 {
 
 // we always invoke the first channel of the kernel for each kernel assigned to a channel
-template <class FirstFunction, class... OtherFunctions>
+template <class FirstWeightFunction1D, class... OtherWeightFunctions>
 class CChannelIndependentWeightFunction
 {
-	static_assert(sizeof...(OtherFunctions) < 4u);
-	static inline constexpr size_t MaxChannels = 1 + sizeof...(OtherFunctions);
+	static_assert(sizeof...(OtherWeightFunctions) < 4u);
+	static inline constexpr size_t MaxChannels = 1 + sizeof...(OtherWeightFunctions);
 
-	constexpr static inline float min_supports[MaxChannels] = { FirstFunction::min_support,OtherFunctions::min_support... };
-	constexpr static inline float max_supports[MaxChannels] = { FirstFunction::max_support,OtherFunctions::max_support... };
-	constexpr static inline uint32_t _smoothnesses[MaxChannels] = { FirstFunction::k_smoothness,OtherFunctions::k_smoothness... };
+	constexpr static inline uint32_t _smoothnesses[MaxChannels] = { FirstWeightFunction1D::k_smoothness,OtherWeightFunctions::k_smoothness... };
 
 	template<uint8_t ch>
-	constexpr static inline bool has_kernel_v = ch < MaxChannels;
+	constexpr static inline bool has_function_v = ch < MaxChannels;
 
-	using functions_t = std::tuple<FirstFunction, OtherFunctions...>;
-	static_assert((std::is_same_v<impl::weight_function_value_type_t<FirstFunction>, impl::weight_function_value_type_t<OtherFunctions...>>), "Value Types neeed to be identical!");
+	using functions_t = std::tuple<FirstWeightFunction1D, OtherWeightFunctions...>;
+	static_assert((std::is_same_v<impl::weight_function_value_type_t<FirstWeightFunction1D>, impl::weight_function_value_type_t<OtherWeightFunctions...>>), "Value Types neeed to be identical!");
 	functions_t functions;
 
+	struct dummy_function_t {};
+	template <uint8_t ch>
+	using function_t = std::conditional_t<has_function_v<ch>, std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch), MaxChannels-1ull), functions_t>, dummy_function_t>;
+
+	template <uint8_t ch>
+	const function_t<ch>& getFunction() const { return std::get<static_cast<size_t>(ch)>(functions); }
+
 public:
-	// TODO: should we upgrade the whole API to allow for per-channel supports?
-	constexpr static inline float min_support = std::max_element(min_supports, min_supports + MaxChannels);
-	constexpr static inline float max_support = std::min_element(max_supports, max_supports + MaxChannels);
-	constexpr static inline uint32_t k_smoothness = std::min_element(_smoothnesses, _smoothnesses + MaxChannels);
+	constexpr static inline uint32_t k_smoothness = std::min_element(_smoothnesses, _smoothnesses + MaxChannels)[0];
+	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f }; // TODO(achal): Implement.
 
-	//
-	CChannelIndependentWeightFunction(FirstFunction&& firstFunc, OtherFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...) {}
+	CChannelIndependentWeightFunction(FirstWeightFunction1D&& firstFunc, OtherWeightFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...)
+	{
+		updateSupports();
+	}
 
-	//	
-	template <int32_t derivative>
 	inline float operator()(float x, uint8_t channel) const
 	{
 		switch (channel)
 		{
-			// TODO: if the `std::get` fails to compile then use the weird `kernel_t` trait trick
 		case 0:
-			return std::get<0>().operator() < derivative > (x, 0);
+			return getFunction<0>().operator()(x, 0);
 		case 1:
-			if constexpr (has_kernel_v<1>)
-				return std::get<1>().operator() < derivative > (x, 1);
+			if constexpr (has_function_v<1>)
+				return getFunction<1>().operator()(x, 1);
 			break;
 		case 2:
-			if constexpr (has_kernel_v<2>)
-				return std::get<2>().operator() < derivative > (x, 2);
+			if constexpr (has_function_v<2>)
+				return getFunction<2>().operator()(x, 2);
 			break;
 		case 3:
-			if constexpr (has_kernel_v<3>)
-				return std::get<3>().operator() < derivative > (x, 3);
+			if constexpr (has_function_v<3>)
+				return getFunction<3>().operator()(x, 3);
 			break;
 		default:
 			break;
 		}
 		return core::nan<float>();
 	}
+
+	inline void stretch(const float s)
+	{
+		auto stretch_ = [s](auto& element) {element.stretch(s); };
+		std::apply([&stretch_](auto&... elements) { (stretch_(elements), ...); }, functions);
+
+		updateSupports();
+	}
+
+	inline void scale(const float s)
+	{
+		auto scale_ = [s](auto& element) {element.scale(s); };
+		std::apply([&scale_](auto&... elements) { (scale_(elements), ...); }, functions);
+	}
+
+	inline void stretchAndScale(const float stretchFactor)
+	{
+		stretch(stretchFactor);
+		scale(1.f / stretchFactor);
+	}
+
+	inline float getMinSupport() const { return m_minSupport; }
+	inline float getMaxSupport() const { return m_maxSupport; }
+	inline float getInvStretch(const uint32_t channel = 0) const
+	{
+		switch (channel)
+		{
+		case 0:
+			return getFunction<0>().getInvStretch();
+		case 1:
+			if constexpr (has_function_v<1>)
+                return getFunction<1>().getInvStretch();
+            break;
+		case 2:
+			if constexpr (has_function_v<2>)
+                return getFunction<2>().getInvStretch();
+            break;
+		case 3:
+			if constexpr (has_function_v<3>)
+                return getFunction<3>().getInvStretch();
+            break;
+		default:
+			break;
+		}
+		return core::nan<float>();
+	}
+
+private:
+	inline void updateSupports()
+	{
+		auto getMinMax = [this](const auto& element)
+		{
+			m_minSupport = core::min(m_minSupport, element.getMinSupport());
+			m_maxSupport = core::max(m_maxSupport, element.getMaxSupport());
+		};
+		std::apply([&getMinMax](const auto&... elements) { (getMinMax(elements), ...); }, functions);
+	}
+
+	float m_minSupport = std::numeric_limits<float>::max();
+	float m_maxSupport = std::numeric_limits<float>::min();
 };
 
 } // end namespace nbl::asset

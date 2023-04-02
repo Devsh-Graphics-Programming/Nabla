@@ -4,114 +4,8 @@
 #include "nbl/asset/filters/CBlitImageFilter.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
-
 using namespace nbl;
 using namespace nbl::asset;
-
-
-namespace
-{
-
-template<class Kernel>
-class MyKernel : public CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
-{
-		using Base = CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
-
-		Kernel kernel;
-		float multiplier;
-
-	public:
-		using value_type = typename Base::value_type;
-
-		MyKernel(Kernel&& k, uint32_t _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(float(_imgExtent)) {}
-
-		inline float weight(float x, int32_t channel) const
-		{
-			return kernel.weight(x, channel) * multiplier;
-		}
-		
-		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
-		template<class PreFilter, class PostFilter>
-		struct sample_functor_t
-		{
-				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
-					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
-
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& multipliedScale)
-				{
-					preFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
-					for (int32_t i=0; i< Kernel::MaxChannels; i++)
-					{
-						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
-						windowSample[i] *= _this->weight(relativePos.x, i);
-						windowSample[i] *= multipliedScale[i];
-					}
-					postFilter(windowSample, relativePos, globalTexelCoord, multipliedScale);
-				}
-
-			private:
-				const MyKernel* _this;
-				PreFilter& preFilter;
-				PostFilter& postFilter;
-		};
-
-		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
-
-		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
-};
-	
-template<class Kernel>
-class SeparateOutXAxisKernel : public CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>
-{
-		using Base = CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>;
-
-		Kernel kernel;
-
-	public:
-		// passthrough everything
-		using value_type = typename Kernel::value_type;
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
-
-		SeparateOutXAxisKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
-
-		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
-					
-		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
-		template<class PreFilter, class PostFilter>
-		struct sample_functor_t
-		{
-			sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
-				_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
-
-			inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const core::vectorSIMDf& scale)
-			{
-				preFilter(windowSample, relativePos, globalTexelCoord, scale);
-				for (int32_t i=0; i<MaxChannels; i++)
-				{
-					// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
-					windowSample[i] *= _this->kernel.weight(relativePos.x, i);
-					windowSample[i] *= scale[i];
-				}
-				postFilter(windowSample, relativePos, globalTexelCoord, scale);
-			}
-
-		private:
-			const SeparateOutXAxisKernel<Kernel>* _this;
-			PreFilter& preFilter;
-			PostFilter& postFilter;
-		};
-
-		// the method all kernels must define and overload
-		template<class PreFilter, class PostFilter>
-		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
-		{
-			return sample_functor_t<PreFilter, PostFilter>(this,preFilter,postFilter);
-		}
-};
-
-}
-
 
 template<bool isotropicNormalization>
 core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFromHeightMap(ICPUImage* _inImg, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor)
@@ -132,25 +26,6 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 		CBlitUtilities<ReconstructionFunction, PartialDerivativeFunctionX, ReconstructionFunction, PartialDerivativeFunctionY, ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
 	>;
 
-
-	// Previously:
-	// -> SeparateOutXAxisKernel defines its own sample_functor_t which gets called by the higher-ups (kernel.evaluateImpl in CBlitUtilities)
-	// This is exactly like CScaledImageFilterKernel used to do.
-	// 
-	// -> SeparateOutXAxisKernel seems to be just a wrapper around CChannelIndependentImageFilterKernel to make it callable from the higher-ups by adding a sample_functor_t
-	// because CChannelIndependentImageFilterKernel didn't have its own sample_functor_t. It seems that it was expected to be called via its `weight` function, always.
-	// 
-	// -> Now, as the name suggests, CChannelIndependentImageFilterKernel calls the appropriate kernel based on the channel param of its weight function.
-	// For XDerivKernel_, the kernel in Y was box (the default) and for YDerivKernel_, the kernel in X was box (the default).
-	// The non-default kernel of the above CChannelIndependentKernel is the MyKernel which is just used to scale the evaluted weight. Note we probably could'nt've used
-	// CScaledImageFilterKernel to scale it because CChannelIndependentKernel expects a `weight` function but CScaledImageFilterKernel didn't have one.
-
-	// Now:
-	// 1. The higher-ups have learnt to call the `weight` function directly. So they can directly use the kernel made out of CChannelIndependentWeightFunction1D
-	// i.e. CFloatingPointSeparableImageFilterKernel<CChannelIndependentWeightFunction1D<>> so we don't have a need for SeparateOutXAxisKernel anymore.
-	// 
-	// 2. MyKernel is not required anymore because its sole purpose was to apply a multiplier to the weight which now be easily done by calling CWeightFunction1D::scale method.
-
 	const auto extent = _inImg->getCreationParameters().extent;
 
 	// derivative values should not change depending on resolution of the texture, so they need to be done w.r.t. normalized UV coordinates  
@@ -160,13 +35,15 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	DerivativeFunction derivY;
 	derivY.scale(extent.height);
 
+	const core::vectorSIMDu32 extent_vector(extent.width, extent.height, extent.depth);
+
 	auto convolutionKernels = DerivativeMapFilter::blit_utils_t::getConvolutionKernels(
-		inParams.extent,
-		inParams.extent,
+		extent_vector,
+		extent_vector,
 		ReconstructionFunction(), PartialDerivativeFunctionX(std::move(derivX), CWeightFunction1D<SBoxFunction>()),
 		ReconstructionFunction(), PartialDerivativeFunctionY(CWeightFunction1D<SBoxFunction>(), std::move(derivY)));
 
-	typename DerivativeMapFilter::state_type state(std::move(convolutionKernels));
+	typename DerivativeMapFilter::state_type state(convolutionKernels);
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;
@@ -205,7 +82,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	if (!DerivativeMapFilter::blit_utils_t:: template computeScaledKernelPhasedLUT<float>(state.scratchMemory + DerivativeMapFilter::getScratchOffset(&state, DerivativeMapFilter::ESU_SCALED_KERNEL_PHASED_LUT), state.inExtentLayerCount, state.outExtentLayerCount, state.inImage->getCreationParameters().type, state.reconstructionX, state.resamplingX, state.reconstructionY, state.resamplingY, state.reconstructionZ, state.resamplingZ))
+	if (!DerivativeMapFilter::blit_utils_t:: template computeScaledKernelPhasedLUT<float>(state.scratchMemory + DerivativeMapFilter::getScratchOffset(&state, DerivativeMapFilter::ESU_SCALED_KERNEL_PHASED_LUT), state.inExtentLayerCount, state.outExtentLayerCount, state.inImage->getCreationParameters().type, convolutionKernels))
 		return nullptr;
 
 	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);

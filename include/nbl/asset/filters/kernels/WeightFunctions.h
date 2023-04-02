@@ -15,7 +15,7 @@ struct SDiracFunction
 	constexpr static inline uint32_t k_smoothness = 0;
 
 	template<int32_t derivative=0>
-	inline double weight(float x, uint32_t channel) const
+	static inline double weight(float x, uint32_t channel)
 	{
 		if (x != 0.f)
 			return 0.0;
@@ -40,7 +40,7 @@ struct SBoxFunction
 	constexpr static inline uint32_t k_smoothness = 0;
 
 	template <int32_t derivative = 0>
-	inline double weight(float x, uint32_t channel) const
+	static inline double weight(float x, uint32_t channel)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -225,7 +225,7 @@ class CWeightFunction1D /*final*/ // TODO(achal): Cannot make it final just yet 
 {
 public:
 	constexpr static inline uint32_t k_smoothness = Function1D::k_smoothness;
-	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f };
+	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f }; // TODO(achal): Implement.
 
 	inline void stretch(const float s)
 	{
@@ -259,9 +259,9 @@ public:
 		return static_cast<double>(m_totalScale*Function1D::weight<derivative>(x*m_invStretch, channel));
 	}
 
-	inline float getMinSupport() const { m_minSupport; }
-	inline float getMaxSupport() const { m_maxSupport; }
-	inline float getInvStretch() const { m_invStretch; }
+	inline float getMinSupport() const { return m_minSupport; }
+	inline float getMaxSupport() const { return m_maxSupport; }
+	inline float getInvStretch(const uint32_t channel = 0) const { return m_invStretch; }
 
 private:
 	float m_minSupport = Function1D::min_support;
