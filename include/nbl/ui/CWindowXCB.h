@@ -31,7 +31,7 @@ public:
 
 	virtual IClipboardManager* getClipboardManager() override;
 	virtual ICursorControl* getCursorControl() override;
-	virtual IWindowManager* getManager() override;
+	virtual IWindowManager* getManager() const override;
 
 	virtual bool setWindowSize_impl(uint32_t width, uint32_t height) override;
 	virtual bool setWindowPosition_impl(int32_t x, int32_t y) override;

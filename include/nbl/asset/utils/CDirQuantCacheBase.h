@@ -317,11 +317,9 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			system->createFile(future,path,nbl::system::IFile::ECF_READ);
-			auto file = future.get();
-			if (!file) 
-				return false;
-
-			return loadCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
+			if (auto file=future.acquire())
+				return loadCacheFromFile<CacheFormat>(file->get(),replaceCurrentContents);
+			return false;
 		}
 
 		//!
@@ -363,11 +361,9 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			system->createFile(future, path, nbl::system::IFile::ECF_WRITE);
-			auto file = future.get();
-			if (!file)
-				return false;
-
-			return bool(saveCacheToFile<CacheFormat>(file.get()));
+			if (auto file=future.acquire())
+				return bool(saveCacheToFile<CacheFormat>(file->get()));
+			return false;
 		}
 
 		//!

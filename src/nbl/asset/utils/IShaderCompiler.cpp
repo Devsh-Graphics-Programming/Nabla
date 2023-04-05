@@ -158,9 +158,9 @@ std::string IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
         m_system->createFile(future, path.c_str(), system::IFile::ECF_READ);
-        f = future.get();
-        if (!f)
+        if (!future.wait())
             return {};
+        future.acquire().move_into(f);
     }
     const size_t size = f->getSize();
 

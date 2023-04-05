@@ -66,6 +66,7 @@
 #include "nbl/core/EventDeferredHandler.h"
 #include "nbl/core/IBuffer.h"
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/StorageTrivializer.h"
 #include "nbl/core/SRAIIBasedExiter.h"
 #include "nbl/core/SRange.h"
 #include "nbl/core/Byteswap.h"

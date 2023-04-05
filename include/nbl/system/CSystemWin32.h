@@ -5,7 +5,10 @@
 #include "nbl/system/ISystem.h"
 
 
+
 #ifdef _NBL_PLATFORM_WINDOWS_
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <delayimp.h>
 
 namespace nbl::system
