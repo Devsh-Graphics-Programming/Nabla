@@ -23,15 +23,8 @@ public:
 	CWindowXCB(core::smart_refctd_ptr<CWindowManagerXCB>&& winManager, SCreationParams&& params);
 	~CWindowXCB();
 
-
 	const native_handle_t* getNativeHandle() const override  {
 		return &m_handle;
-	}
-
-	// Display* getDisplay() const override { return m_dpy; }
-	xcb_window_t getXcbWindow() const override { return m_handle.m_window; }
-	xcb_connection_t* getXcbConnection() const override {
-		return m_connection->getRawConnection();
 	}
 
 	virtual IClipboardManager* getClipboardManager() override;

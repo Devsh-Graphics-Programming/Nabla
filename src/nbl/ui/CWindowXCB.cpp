@@ -34,6 +34,8 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
     }
     auto& xcb = m_window.m_windowManager->getXcbFunctionTable();
     auto& connection = m_window.m_connection;
+    auto& windowHandle = m_window.m_handle;
+    
 
     auto MW_DELETE_WINDOW = connection->resolveAtom(m_window.m_WM_DELETE_WINDOW);
     auto NET_WM_PING = connection->resolveAtom(m_window.m_NET_WM_PING);
@@ -62,7 +64,7 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
             }
             case XCB_DESTROY_WINDOW: {
                 xcb_destroy_window_request_t* dwr = reinterpret_cast<xcb_destroy_window_request_t*>(event);
-                if(dwr->window == m_window.m_handle.m_window) {
+                if(dwr->window == windowHandle.m_window) {
                     m_quit = true;
                     eventCallback->onWindowClosed(&m_window);
                 }
@@ -71,10 +73,10 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
             case XCB_CLIENT_MESSAGE: {
                 xcb_client_message_event_t* cme = reinterpret_cast<xcb_client_message_event_t*>(event);
                 if(cme->data.data32[0] == MW_DELETE_WINDOW) {
-                    xcb.pxcb_unmap_window(m_window.getXcbConnection(), m_window.m_handle.m_window);
-                    xcb.pxcb_destroy_window(m_window.getXcbConnection(), m_window.m_handle.m_window);
-                    xcb.pxcb_flush(m_window.getXcbConnection());
-                    m_window.m_handle.m_window = 0;
+                    xcb.pxcb_unmap_window(windowHandle.m_connection, windowHandle.m_window);
+                    xcb.pxcb_destroy_window(windowHandle.m_connection, windowHandle.m_window);
+                    xcb.pxcb_flush(windowHandle.m_connection);
+                    windowHandle.m_window = 0;
                     m_quit = true; // we need to quit the dispatch thread
                     eventCallback->onWindowClosed(&m_window);
                 } else if(cme->data.data32[0] == NET_WM_PING && cme->window != connection->primaryScreen()->root) {
@@ -82,8 +84,8 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
                     ev.response_type = XCB_CLIENT_MESSAGE;
                     ev.window = m_window.m_handle.m_window;
                     ev.type = NET_WM_PING;
-                    xcb.pxcb_send_event(m_window.getXcbConnection(), 0, m_window.m_handle.m_window, XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<const char*>(&ev));
-                    xcb.pxcb_flush(m_window.getXcbConnection());
+                    xcb.pxcb_send_event(windowHandle.m_connection, 0, m_window.m_handle.m_window, XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<const char*>(&ev));
+                    xcb.pxcb_flush(windowHandle.m_connection);
                 }
                 break;
             }

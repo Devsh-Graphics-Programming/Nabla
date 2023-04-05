@@ -29,9 +29,6 @@ class NBL_API2 IWindowXCB : public IWindow
 
         virtual const native_handle_t* getNativeHandle() const = 0;
 
-        virtual xcb_window_t getXcbWindow() const = 0;
-        virtual xcb_connection_t* getXcbConnection() const = 0;
-
         virtual bool setWindowSize_impl(uint32_t width, uint32_t height) = 0;
         virtual bool setWindowPosition_impl(int32_t x, int32_t y) = 0;
         virtual bool setWindowRotation_impl(bool landscape) = 0;
