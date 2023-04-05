@@ -1,5 +1,5 @@
-#ifndef __C_WINDOW_XCB_H_INCLUDED__
-#define __C_WINDOW_XCB_H_INCLUDED__
+#ifndef _NBL_UI_C_WINDOW_XCB_H_INCLUDED_
+#define _NBL_UI_C_WINDOW_XCB_H_INCLUDED_
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/ui/IClipboardManagerXCB.h"
@@ -23,8 +23,13 @@ public:
 	CWindowXCB(core::smart_refctd_ptr<CWindowManagerXCB>&& winManager, SCreationParams&& params);
 	~CWindowXCB();
 
+
+	const native_handle_t* getNativeHandle() const override  {
+		return &m_handle;
+	}
+
 	// Display* getDisplay() const override { return m_dpy; }
-	xcb_window_t getXcbWindow() const override { return m_xcbWindow; }
+	xcb_window_t getXcbWindow() const override { return m_handle.m_window; }
 	xcb_connection_t* getXcbConnection() const override {
 		return m_connection->getRawConnection();
 	}
@@ -52,13 +57,18 @@ private:
 	class CDispatchThread final : public system::IThreadHandler<CDispatchThread>
 	{
 	public:
+		using base_t = system::IThreadHandler<CDispatchThread>;
 
-		inline CDispatchThread(CWindowXCB& window);
+		inline CDispatchThread(CWindowXCB& window) : 
+			base_t(base_t::start_on_construction_t {}),
+			m_window(window) {
+
+		}
 		inline ~CDispatchThread() {
 		}
 
-		void init();
-		void exit();
+		inline void init() {}
+		inline void exit() {}
 		void work(lock_t& lock);
 
 		inline bool wakeupPredicate() const { return true; }
@@ -67,8 +77,8 @@ private:
 		CWindowXCB& m_window;
 		friend class CWindowXCB;
 	} m_dispatcher;
-
-	xcb_window_t m_xcbWindow = 0;
+	
+	native_handle_t m_handle = {{0}};
 
 	XCBConnection::XCBAtomToken<core::StringLiteral("WM_DELETE_WINDOW")> m_WM_DELETE_WINDOW;
 	XCBConnection::XCBAtomToken<core::StringLiteral("WM_PROTOCOLS")> m_WM_PROTOCOLS;

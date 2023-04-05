@@ -91,8 +91,8 @@ public:
         return m_connection;
     }
 
-    const Xcb& getXcbFunctionTable() const { return m_windowManager->getXcbFunctionTable(); }
-    const XcbIcccm& getXcbIcccmFunctionTable() const { return m_windowManager->getXcbIcccmFunctionTable(); }
+    const CWindowManagerXCB::Xcb& getXcbFunctionTable() const { return m_windowManager->getXcbFunctionTable(); }
+    const CWindowManagerXCB::XcbIcccm& getXcbIcccmFunctionTable() const { return m_windowManager->getXcbIcccmFunctionTable(); }
 
     const xcb_screen_t* primaryScreen();
 

@@ -33,6 +33,8 @@ namespace nbl::ui
         
         auto TARGETS = m_connection->resolveAtom(m_TARGETS);
 
+        const auto& native_handle = window->getNativeHandle();
+
         switch(event->response_type & ~0x80) {
             // XCB_ATOM
             // Somone is requesting the clipboard data
