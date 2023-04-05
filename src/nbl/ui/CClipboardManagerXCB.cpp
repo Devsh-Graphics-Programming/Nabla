@@ -30,17 +30,16 @@ namespace nbl::ui
 
     void CClipboardManagerXCB::process(const IWindowXCB* window, xcb_generic_event_t* event) {
         const auto& xcb = m_connection->getXcbFunctionTable();
-        
+        auto* windowHandle = window->getNativeHandle();
+		assert(windowHandle && windowHandle->m_window != XCB_WINDOW_NONE && windowHandle->m_connection != nullptr);
         auto TARGETS = m_connection->resolveAtom(m_TARGETS);
-
-        const auto& native_handle = window->getNativeHandle();
 
         switch(event->response_type & ~0x80) {
             // XCB_ATOM
             // Somone is requesting the clipboard data
             case XCB_SELECTION_REQUEST: {
                 auto* sne = reinterpret_cast<xcb_selection_request_event_t*>(event);
-                if(sne->requestor == window->getXcbWindow()) {
+                if(sne->requestor == windowHandle->m_window) {
                     if(sne->target == TARGETS) {
                             std::vector<xcb_atom_t> targets;
                             {
@@ -113,7 +112,7 @@ namespace nbl::ui
             // we've requested the clipboard data, and this is the reply
             case XCB_SELECTION_NOTIFY: {
                 auto* sne = reinterpret_cast<xcb_selection_notify_event_t*>(event);
-                if(sne->requestor == window->getXcbWindow()){
+                if(sne->requestor == windowHandle->m_window){
                     // xcb.pxcb_get_a
                     xcb_atom_t fieldType = XCB_ATOM;
                     if(sne->target != TARGETS) {

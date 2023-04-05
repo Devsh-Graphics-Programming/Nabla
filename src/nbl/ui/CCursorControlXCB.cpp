@@ -26,9 +26,10 @@ namespace nbl::ui
     void CCursorControlXCB::setRelativePosition(IWindow* window, SRelativePosition position) {
         auto* windowXcb = static_cast<IWindowXCB*>(window);
         auto& xcb = m_connection->getXcbFunctionTable();
-        auto xcbWindow = windowXcb->getXcbWindow();
-
-        xcb.pxcb_warp_pointer(m_connection->getRawConnection(), XCB_NONE, xcbWindow, 0, 0, 0, 0, position.x, position.y);
+        auto* handle = windowXcb->getNativeHandle();
+        assert(handle && handle->m_window != XCB_WINDOW_NONE);
+        
+        xcb.pxcb_warp_pointer(m_connection->getRawConnection(), XCB_NONE, handle->m_window, 0, 0, 0, 0, position.x, position.y);
         xcb.pxcb_flush(m_connection->getRawConnection());
     }
 
