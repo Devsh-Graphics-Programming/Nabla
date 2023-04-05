@@ -22,7 +22,13 @@ class NBL_API2 IWindowXCB : public IWindow
     public:
         using IWindow::IWindow;
 
-        const void* getNativeHandle() const { return nullptr; }
+        struct native_handle_t {
+            xcb_window_t m_window;
+            xcb_connection_t* m_connection;
+        };
+
+        virtual const native_handle_t* getNativeHandle() const = 0;
+
         virtual xcb_window_t getXcbWindow() const = 0;
         virtual xcb_connection_t* getXcbConnection() const = 0;
 

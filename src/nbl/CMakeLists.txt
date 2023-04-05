@@ -188,6 +188,7 @@ set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowXcb.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/XCBConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerXCB.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerXCB.cpp
