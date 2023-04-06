@@ -13,7 +13,7 @@ namespace impl
 template<class WeightFunction1D>
 struct weight_function_value_type : protected WeightFunction1D
 {
-	using type = decltype(std::declval<WeightFunction1D>().operator()(0.f,0));
+	using type = decltype(std::declval<WeightFunction1D>().weight(0.f,0));
 };
 
 template<class WeightFunction1D>
@@ -60,7 +60,7 @@ public:
 	inline value_type weight(const float x, const uint32_t channel) const
 	{
 		if ((x >= getMinSupport()) && (x < getMaxSupport()))
-			return func.operator()(x, channel);
+			return func.weight(x, channel);
 		else
 			return 0.f;
 	}

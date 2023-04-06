@@ -1,33 +1,36 @@
 #include "nbl/asset/filters/kernels/CConvolutionWeightFunction.h"
 
-namespace nbl::asset::impl
+namespace nbl::asset
 {
 
-float convolution_weight_function_helper<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
+template <>
+double CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::weight_impl(const float x, const uint32_t channel, const uint32_t) const
 {
-	const auto [minIntegrationLimit, maxIntegrationLimit] = _this.getIntegrationDomain(x);
+	const auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
 
-	if (_this.m_isFuncAWider)
-		return (maxIntegrationLimit - minIntegrationLimit) * _this.m_funcA(x, channel) * _this.m_funcB(0.f, channel);
+	if (m_isFuncAWider)
+		return (maxIntegrationLimit - minIntegrationLimit) * m_funcA.weight(x, channel) * m_funcB.weight(0.f, channel);
 	else
-		return (maxIntegrationLimit - minIntegrationLimit) * _this.m_funcB(x, channel) * _this.m_funcA(0.f, channel);
+		return (maxIntegrationLimit - minIntegrationLimit) * m_funcB.weight(x, channel) * m_funcA.weight(0.f, channel);
 }
 
-float convolution_weight_function_helper<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
+template <>
+double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>::weight_impl(const float x, const uint32_t channel, const uint32_t) const
 {
-	const float funcA_stddev = 1.f/(_this.m_funcA(0.f, channel)*core::sqrt(2.f*core::PI<float>()));
-	const float funcB_stddev = 1.f/(_this.m_funcB(0.f, channel)*core::sqrt(2.f*core::PI<float>()));
+	const float funcA_stddev = 1.f / (m_funcA.weight(0.f, channel) * core::sqrt(2.f * core::PI<float>()));
+	const float funcB_stddev = 1.f / (m_funcB.weight(0.f, channel) * core::sqrt(2.f * core::PI<float>()));
 
 	const float convolution_stddev = core::sqrt(funcA_stddev * funcA_stddev + funcB_stddev * funcB_stddev);
 	asset::CWeightFunction1D<asset::SGaussianFunction> weightFunction;
 	weightFunction.stretchAndScale(convolution_stddev);
 
-	return weightFunction(x, channel);
+	return weightFunction.weight(x, channel);
 }
 
-float convolution_weight_function_helper<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
+template <>
+double CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::weight_impl(const float x, const uint32_t channel, const uint32_t) const
 {
-	return _this.m_isFuncAWider ? _this.m_funcA(x, channel) : _this.m_funcB(x, channel);
+	return m_isFuncAWider ? m_funcA.weight(x, channel) : m_funcB.weight(x, channel);
 }
 
 } // end namespace nbl::asset

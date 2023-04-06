@@ -258,7 +258,7 @@ public:
 	}
 
 	// TODO(achal): It makes no sense to me as to why we take a channel param here.
-	inline double operator()(const float x, const uint32_t channel) const
+	inline double weight(const float x, const uint32_t channel) const
 	{
 		return static_cast<double>(m_totalScale*Function1D::weight<derivative>(x*m_invStretch, channel));
 	}

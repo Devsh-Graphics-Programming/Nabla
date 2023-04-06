@@ -46,23 +46,23 @@ public:
 		updateSupports();
 	}
 
-	inline float operator()(float x, uint8_t channel) const
+	inline float weight(float x, uint8_t channel) const
 	{
 		switch (channel)
 		{
 		case 0:
-			return getFunction<0>().operator()(x, 0);
+			return getFunction<0>().weight(x, 0);
 		case 1:
 			if constexpr (has_function_v<1>)
-				return getFunction<1>().operator()(x, 1);
+				return getFunction<1>().weight(x, 1);
 			break;
 		case 2:
 			if constexpr (has_function_v<2>)
-				return getFunction<2>().operator()(x, 2);
+				return getFunction<2>().weight(x, 2);
 			break;
 		case 3:
 			if constexpr (has_function_v<3>)
-				return getFunction<3>().operator()(x, 3);
+				return getFunction<3>().weight(x, 3);
 			break;
 		default:
 			break;
