@@ -225,7 +225,7 @@ template <typename Function1D, int32_t derivative = 0>
 class CWeightFunction1D /*final*/ // TODO(achal): Cannot make it final just yet because `weight_function_value_type` inherits from this.
 {
 public:
-	constexpr static inline uint32_t k_smoothness = Function1D::k_smoothness;
+	constexpr static inline uint32_t k_smoothness = Function1D::k_smoothness; // TODO(achal): I think, I should subtract `derivative` from this
 	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f }; // TODO(achal): Implement.
 
 	// Calling: f(x).stretch(2) will obviously give you f(x/2)
@@ -236,10 +236,12 @@ public:
 		m_minSupport *= s;
 		m_maxSupport *= s;
 
-		m_invStretch /= s;
+		const float rcp_s = 1.f / s;
+
+		m_invStretch *= rcp_s;
 
 		if constexpr (derivative != 0)
-			scale(pow(s, derivative));
+			scale(pow(rcp_s, derivative));
 	}
 
 	inline void scale(const float s)

@@ -30,8 +30,11 @@ struct convolution_weight_function_helper
 		}
 		else
 		{
-			// constexpr auto deriv_A = std::min(static_cast<int32_t>(WeightFunction1DA::k_smoothness), derivative);
-			// constexpr auto deriv_B = derivative - deriv_A;
+			// If we allow the user to specify a derivative of CConvolutionWeightFunction1D then there will be the follwing problem:
+			// There will be no way for us to evaluate the constituent functions (m_funcA, m_funcB) on an arbitrary derivative because
+			// `derivative` is a class template member not a function template member (done to handle chain rule) of CWeightFunction1D.
+			// So, we would have to create new `CWeightFunction1D`s entirely and use them (not just here, but in the various specializations
+			// of this function). Not sure if its worth it, both in terms of performance and code complexity.
 
 			auto [minIntegrationLimit, maxIntegrationLimit] = _this.getIntegrationDomain(x);
 
@@ -106,20 +109,37 @@ public:
 		m_maxSupport = m_funcA.getMaxSupport() + m_funcB.getMaxSupport();
 	}
 
-	// TODO(achal): I we want to allow taking derivative of CConvolutionWeightFunction1D then this template param have to go to the class i.e. CConvolutionWeightFunction1D
-	// and then the chain rule should be handled in the (not yet implemented) CConvolutionWeightFunction1D::stretch --if we want to allow stretching that is,
-	// much like CWeightFunction1D does.
-	// template<int32_t derivative>
+	inline void stretch(const float s)
+	{
+		assert(s != 0.f);
+
+		m_minSupport *= s;
+		m_maxSupport *= s;
+
+		const float rcp_s = 1.f / s;
+
+		m_invStretch *= rcp_s;
+	}
+
+	inline void scale(const float s)
+	{
+		assert(s != 0.f);
+        m_totalScale *= s;
+    }
+
+	inline void stretchAndScale(const float stretchFactor)
+	{
+		stretch(stretchFactor);
+		scale(1.f / stretchFactor);
+	}
+
 	double operator()(const float x, const uint32_t channel, const uint32_t sampleCount = 64u) const
 	{
-		return impl::convolution_weight_function_helper<WeightFunction1DA, WeightFunction1DB>::operator_impl(*this, x, channel, sampleCount);
+		return static_cast<double>(m_totalScale*impl::convolution_weight_function_helper<WeightFunction1DA, WeightFunction1DB>::operator_impl(*this, x*m_invStretch, channel, sampleCount));
 	}
 
 	inline float getMinSupport() const { return m_minSupport; }
 	inline float getMaxSupport() const { return m_maxSupport; }
-
-	// If we want to allow the user to stretch and scale the convolution function we have to implement those methods (stretch, scale and stretchAndScale) here separately
-	// in terms of WeightFunction1DA and WeightFunction1DB's corresponding methods.
 
 private:
 	friend struct impl::convolution_weight_function_helper<WeightFunction1DA, WeightFunction1DB>;
@@ -129,6 +149,8 @@ private:
 	const bool m_isFuncAWider;
 	float m_minSupport;
 	float m_maxSupport;
+	float m_invStretch = 1.f;
+	float m_totalScale = 1.f;
 
 	std::pair<double, double> getIntegrationDomain(const float x) const
 	{
