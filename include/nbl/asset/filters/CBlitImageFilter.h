@@ -15,8 +15,6 @@
 #include "nbl/asset/filters/dithering/CWhiteNoiseDither.h"
 #include "nbl/asset/filters/CBlitUtilities.h"
 
-#include "nbl/asset/filters/kernels/kernels.h"
-
 #include "nbl/asset/format/decodePixels.h"
 
 namespace nbl::asset

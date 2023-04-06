@@ -185,6 +185,7 @@ struct SKaiserFunction
 {
 	constexpr static inline float min_support = -3.f;
 	constexpr static inline float max_support = +3.f;
+	constexpr static inline uint32_t k_smoothness = 3; // TODO(achal): Figure out what this should be
 	// important constant, do not touch, do not tweak
 	static inline constexpr float alpha = 3.f;
 
@@ -227,6 +228,7 @@ public:
 	constexpr static inline uint32_t k_smoothness = Function1D::k_smoothness;
 	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f }; // TODO(achal): Implement.
 
+	// Calling: f(x).stretch(2) will obviously give you f(x/2)
 	inline void stretch(const float s)
 	{
 		assert(s != 0.f);
@@ -262,6 +264,7 @@ public:
 	inline float getMinSupport() const { return m_minSupport; }
 	inline float getMaxSupport() const { return m_maxSupport; }
 	inline float getInvStretch(const uint32_t channel = 0) const { return m_invStretch; }
+	inline float getTotalScale(const uint32_t channel = 0) const { return m_totalScale; }
 
 private:
 	float m_minSupport = Function1D::min_support;

@@ -5,7 +5,9 @@
 #ifndef __NBL_ASSET_C_BLIT_UTILITIES_H_INCLUDED__
 #define __NBL_ASSET_C_BLIT_UTILITIES_H_INCLUDED__
 
-#include "nbl/asset/filters/kernels/kernels.h"
+#include "nbl/asset/filters/kernels/WeightFunctions.h"
+#include "nbl/asset/filters/kernels/CConvolutionWeightFunction.h"
+#include "nbl/asset/filters/kernels/CChannelIndependentWeightFunction.h"
 
 namespace nbl::asset
 {
@@ -45,9 +47,6 @@ template<
 	typename ResamplingFunctionZ		= ResamplingFunctionX>
 class CBlitUtilities : public IBlitUtilities
 {
-	// TODO(achal): Get MaxChannels somehow.
-	static inline constexpr uint32_t MaxChannels = 4;
-
 public:
 	using convolution_kernels_t = std::tuple<
 		CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction1D<ReconstructionFunctionX, ResamplingFunctionX>>,
@@ -58,8 +57,9 @@ public:
 	using convolution_kernel_y_t = std::tuple_element_t<1, convolution_kernels_t>;
 	using convolution_kernel_z_t = std::tuple_element_t<2, convolution_kernels_t>;
 
-	// TODO(achal): static_assert that the value_type of other kernel is the same.
 	using value_type = convolution_kernel_x_t::value_type;
+	static_assert(std::is_same_v<value_type, convolution_kernel_y_t::value_type> && std::is_same_v<value_type, convolution_kernel_z_t::value_type>);
+	static inline constexpr uint32_t MaxChannels = convolution_kernel_x_t::MaxChannels;
 
 	template <typename LutDataType>
 	static inline size_t getScaledKernelPhasedLUTSize(
@@ -102,11 +102,9 @@ public:
 		const auto windowSize = getWindowSize(inImageType, kernels);
 		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets<LutDataType>(phaseCount, windowSize);
 
-		// TODO(achal): Isn't scale and rcp_c2 the same?
 		const core::vectorSIMDf inExtent_f32(inExtent);
 		const core::vectorSIMDf outExtent_f32(outExtent);
 		const auto scale = inExtent_f32.preciseDivision(outExtent_f32);
-		const auto rcp_c2 = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
 
 		auto computeForAxis = [&](const asset::IImage::E_TYPE axis, const auto& kernel, const int32_t _windowSize)
 		{
@@ -164,9 +162,9 @@ public:
 
 		const auto rcp_c2 = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
 
-		resamplingX.stretch(rcp_c2.x);
-		resamplingY.stretch(rcp_c2.y);
-		resamplingZ.stretch(rcp_c2.z);
+		resamplingX.stretchAndScale(rcp_c2.x);
+		resamplingY.stretchAndScale(rcp_c2.y);
+		resamplingZ.stretchAndScale(rcp_c2.z);
 
 		return {
 			convolution_kernel_x_t({std::move(reconstructionX), std::move(resamplingX)}),

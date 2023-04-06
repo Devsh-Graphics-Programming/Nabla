@@ -4,10 +4,6 @@
 #ifndef _NBL_ASSET_C_FLOATING_POINT_SEPARABLE_IMAGE_FILTER_KERNEL_H_INCLUDED_
 #define _NBL_ASSET_C_FLOATING_POINT_SEPARABLE_IMAGE_FILTER_KERNEL_H_INCLUDED_
 
-
-#include "nbl/asset/filters/kernels/IImageFilterKernel.h"
-
-
 namespace nbl::asset
 {
 
@@ -32,12 +28,26 @@ template<class WeightFunction1D>
 class CFloatingPointSeparableImageFilterKernel : public impl::weight_function_value_type_t<WeightFunction1D>
 {
 public:
+	// All kernels are by default, defined on max 4 channels
+	static inline constexpr auto MaxChannels = 4;
+
 	// TODO(achal): I don't know why but this makes value_type a float.
 	// using value_type = impl::weight_function_value_type_t<WeightFunction1D>; 
 	using value_type = double;
 	static_assert(std::is_same_v<value_type,double>,"should probably allow `float`s at some point!");
 
-	CFloatingPointSeparableImageFilterKernel(WeightFunction1D&& _func) : func(std::move(_func)) {}
+	CFloatingPointSeparableImageFilterKernel(WeightFunction1D&& _func) : func(std::move(_func))
+	{
+		// The reason we use a ceil for window_size:
+		// For a convolution operation, depending upon where you place the kernel center in the output image it can encompass different number of input pixel centers.
+		// For example, assume you have a 1D kernel with supports [-3/4, 3/4) and you place this at x=0.5, then kernel weights will be
+		// non-zero in [-3/4 + 0.5, 3/4 + 0.5) so there will be only one pixel center (at x=0.5) in the non-zero kernel domain, hence window_size will be 1.
+		// But if you place the same kernel at x=0, then the non-zero kernel domain will become [-3/4, 3/4) which now encompasses two pixel centers
+		// (x=-0.5 and x=0.5), that is window_size will be 2.
+		// Note that the window_size can never exceed 2, in the above case, because for that to happen there should be more than 2 pixel centers in non-zero
+		// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
+		m_windowSize = static_cast<int32_t>(core::ceil<float>(func.getMaxSupport() - func.getMinSupport()));
+	}
 
 	static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
 	{
@@ -47,9 +57,12 @@ public:
 	}
 
 	//template<typename... Args> // TODO: later if needed
-	inline value_type weight(const float relativePos, const uint32_t channel) const
+	inline value_type weight(const float x, const uint32_t channel) const
 	{
-		return func.operator()(relativePos, channel);
+		if ((x >= getMinSupport()) && (x < getMaxSupport()))
+			return func.operator()(x, channel);
+		else
+			return 0.f;
 	}
 
 	// given an unnormalized (measured in pixels), center sampled (sample at the center of the pixel) coordinate (origin is at the center of the first pixel),
@@ -69,10 +82,9 @@ public:
 	}
 
 	// get the kernel support (measured in pixels)
-	inline const int32_t getWindowSize() const
-	{
-		return m_windowSize;
-	}
+	inline const int32_t getWindowSize() const { return m_windowSize; }
+	inline float getMinSupport() const { return func.getMinSupport(); }
+	inline float getMaxSupport() const { return func.getMaxSupport(); }
 
 protected:
 	CFloatingPointSeparableImageFilterKernel() {}

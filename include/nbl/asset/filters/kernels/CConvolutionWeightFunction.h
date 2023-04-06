@@ -15,7 +15,6 @@ class CConvolutionWeightFunction1D;
 namespace impl
 {
 
-// TODO(achal): Since I have removed the derivative template param
 template <typename WeightFunction1DA, typename WeightFunction1DB>
 struct convolution_weight_function_helper
 {
@@ -35,31 +34,35 @@ struct convolution_weight_function_helper
 			// constexpr auto deriv_B = derivative - deriv_A;
 
 			auto [minIntegrationLimit, maxIntegrationLimit] = _this.getIntegrationDomain(x);
+
+			// TODO(achal): what ????
 			// if this happens, it means that `m_ratio=INF` and it degenerated into a dirac delta
 			if (minIntegrationLimit == maxIntegrationLimit)
 			{
+				assert(false);
 				assert(WeightFunction1DB::k_energy[channel] != 0.f); // TODO(achal): Remove.
 				return _this.m_funcA.operator()(x, channel) * WeightFunction1DB::k_energy[channel];
 			}
 
+			const double dtau = (maxIntegrationLimit - minIntegrationLimit) / sampleCount;
+			// TODO(achal): what ???
 			// if this happened then `m_ratio=0` and we have infinite domain, this is not a problem
-			const double dt = (maxIntegrationLimit - minIntegrationLimit) / sampleCount;
-			if (core::isnan<double>(dt))
-				return _this.m_funcA.operator()(x, channel) * _this.m_funcB.operator()(0.f, channel);
+			// if (core::isnan<double>(dt))
+			// 	return _this.m_funcA.operator()(x, channel) * _this.m_funcB.operator()(0.f, channel);
 
-			const auto ratio = _this.m_funcA.getInvStretch(channel) / _this.m_funcB.getInvStretch(channel); // TODO(achal): Check this again!
 			double result = 0.0;
 			for (uint32_t i = 0u; i < sampleCount; ++i)
 			{
-				const double t = minIntegrationLimit + i * dt;
-				result += _this.m_funcA.operator()(x - t, channel) * _this.m_funcB.operator()(t * ratio, channel) * dt;
+				const double tau = minIntegrationLimit + i * dtau;
+				if (_this.m_isFuncAWider)
+					result += _this.m_funcA.operator()(tau, channel) * _this.m_funcB.operator()(x-tau, channel) * dtau;
+				else
+					result += _this.m_funcB.operator()(tau, channel) * _this.m_funcA.operator()(x-tau, channel) * dtau;
 			}
 			return static_cast<float>(result);
 		}
 	}
 };
-
-// TODO: redo all to account for `m_ratio`
 
 template <>
 struct convolution_weight_function_helper<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>
@@ -92,34 +95,12 @@ class CConvolutionWeightFunction1D
 	// TODO(achal): Not passing.
 	// static_assert(std::is_same_v<impl::weight_function_value_type_t<WeightFunction1DA>, impl::weight_function_value_type_t<WeightFunction1DB>>, "Both functions must use the same Value Type!");
 
-	friend struct impl::convolution_weight_function_helper<WeightFunction1DA, WeightFunction1DB>;
-	const WeightFunction1DA m_funcA;
-	const WeightFunction1DB m_funcB;
-
-	std::pair<double, double> getIntegrationDomain(const float x) const
-	{
-		// TODO(achal): Why would I need their widths?
-		// constexpr float WidthA = WeightFunction1DA::max_support - WeightFunction1DA::min_support;
-		// const float WidthB = (WeightFunction1DB::max_support - WeightFunction1DB::min_support) / m_ratio;
-
-		double minIntegrationLimit = 1.0;
-		double maxIntegrationLimit = 0.0;
-
-		// TODO: redo to account for `m_ratio`
-		assert(minIntegrationLimit <= maxIntegrationLimit);
-
-		return { minIntegrationLimit, maxIntegrationLimit };
-	}
-
 public:
 	constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
 
-	// `_ratio` is the width ratio between kernel A and B, our operator() computes `a(x) \conv b(x*_ratio)`
-	// if you want to compute `f(x) = a(x/c_1) \conv b(x/c_2)` then you can compute `f(x) = c_1 g(u)` where `u=x/c_1` and `_ratio = c_1/c_2`
-	// so `g(u) = a(u) \conv b(u*_ratio) = Integrate[a(u-t)*b(t*_ratio),dt]` and there's no issue with uniform scaling.
-	// NOTE: Blit Utils want `f(x) = a(x/c_1)/c_1 \conv b(x/c_2)/c_2` where often `c_1 = 1`
 	inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA, WeightFunction1DB&& funcB)
-		: m_funcA(std::move(funcA)), m_funcB(std::move(funcB))
+		: m_funcA(std::move(funcA)), m_funcB(std::move(funcB)),
+		m_isFuncAWider((m_funcA.getMaxSupport() - m_funcA.getMinSupport()) > (m_funcB.getMaxSupport() - m_funcB.getMinSupport()))
 	{
 		m_minSupport = m_funcA.getMinSupport() + m_funcB.getMinSupport();
 		m_maxSupport = m_funcA.getMaxSupport() + m_funcB.getMaxSupport();
@@ -141,8 +122,53 @@ public:
 	// in terms of WeightFunction1DA and WeightFunction1DB's corresponding methods.
 
 private:
+	friend struct impl::convolution_weight_function_helper<WeightFunction1DA, WeightFunction1DB>;
+	const WeightFunction1DA m_funcA;
+	const WeightFunction1DB m_funcB;
+
+	const bool m_isFuncAWider;
 	float m_minSupport;
 	float m_maxSupport;
+
+	std::pair<double, double> getIntegrationDomain(const float x) const
+	{
+		// The following if-else checks to figure out integration domain assumes that the wider function
+		// is stationary while the narrow one is "moving".
+		// We assume that the wider kernel is stationary (not shifting as `x` changes) while the narrower kernel is the one which shifts, such that it is always centered at x.
+
+		const float funcNarrowMinSupport = m_isFuncAWider ? m_funcB.getMinSupport() : m_funcA.getMinSupport();
+		const float funcNarrowMaxSupport = m_isFuncAWider ? m_funcB.getMaxSupport() : m_funcA.getMaxSupport();
+
+		const float funcWideMinSupport = m_isFuncAWider ? m_funcA.getMinSupport() : m_funcB.getMinSupport();
+		const float funcWideMaxSupport = m_isFuncAWider ? m_funcA.getMaxSupport() : m_funcB.getMaxSupport();
+
+		const float funcNarrowWidth = funcNarrowMaxSupport - funcNarrowMinSupport;
+		const float funcWideWidth = funcWideMaxSupport - funcWideMinSupport;
+
+		const float funcNarrowWidth_half = funcNarrowWidth * 0.5;
+
+		double minIntegrationLimit = 0.0, maxIntegrationLimit = 0.0;
+		{
+			if ((x >= (funcWideMinSupport - funcNarrowWidth_half)) && (x <= (funcWideMinSupport + funcNarrowWidth_half)))
+			{
+				minIntegrationLimit = funcWideMinSupport;
+				maxIntegrationLimit = x + funcNarrowWidth_half;
+			}
+			else if ((x >= (funcWideMinSupport + funcNarrowWidth_half)) && (x <= (funcWideMaxSupport - funcNarrowWidth_half)))
+			{
+				minIntegrationLimit = x - funcNarrowWidth_half;
+				maxIntegrationLimit = x + funcNarrowWidth_half;
+			}
+			else if ((x >= (funcWideMaxSupport - funcNarrowWidth_half)) && (x <= (funcWideMaxSupport + funcNarrowWidth_half)))
+			{
+				minIntegrationLimit = x - funcNarrowWidth_half;
+				maxIntegrationLimit = funcWideMaxSupport;
+			}
+		}
+		assert(minIntegrationLimit <= maxIntegrationLimit);
+
+		return { minIntegrationLimit, maxIntegrationLimit };
+	}
 };
 
 } // end namespace nbl::asset

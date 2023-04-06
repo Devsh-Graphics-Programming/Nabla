@@ -5,43 +5,29 @@ namespace nbl::asset::impl
 
 float convolution_weight_function_helper<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
 {
-	assert(false);
-
 	const auto [minIntegrationLimit, maxIntegrationLimit] = _this.getIntegrationDomain(x);
 
-	// const float kernelAWidth = getKernelWidth(m_kernelA);
-	// const float kernelBWidth = getKernelWidth(m_kernelB);
-
-	// const auto& kernelNarrow = kernelAWidth < kernelBWidth ? m_kernelA : m_kernelB;
-	// const auto& kernelWide = kernelAWidth > kernelBWidth ? m_kernelA : m_kernelB;
-
-	// We assume that the wider kernel is stationary (not shifting as `x` changes) while the narrower kernel is the one which shifts, such that it is always centered at x.
-	// return (maxIntegrationLimit - minIntegrationLimit) * kernelWide.weight(x, channel) * kernelNarrow.weight(0.f, channel);
-	return 0.f;
+	if (_this.m_isFuncAWider)
+		return (maxIntegrationLimit - minIntegrationLimit) * _this.m_funcA(x, channel) * _this.m_funcB(0.f, channel);
+	else
+		return (maxIntegrationLimit - minIntegrationLimit) * _this.m_funcB(x, channel) * _this.m_funcA(0.f, channel);
 }
 
 float convolution_weight_function_helper<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
 {
-	assert(false);
+	const float funcA_stddev = 1.f/(_this.m_funcA(0.f, channel)*core::sqrt(2.f*core::PI<float>()));
+	const float funcB_stddev = 1.f/(_this.m_funcB(0.f, channel)*core::sqrt(2.f*core::PI<float>()));
 
-#if 0
-	const float kernelA_stddev = m_kernelA.m_multipliedScale[channel];
-	const float kernelB_stddev = m_kernelB.m_multipliedScale[channel];
-	const float convolution_stddev = core::sqrt(kernelA_stddev * kernelA_stddev + kernelB_stddev * kernelB_stddev);
+	const float convolution_stddev = core::sqrt(funcA_stddev * funcA_stddev + funcB_stddev * funcB_stddev);
+	asset::CWeightFunction1D<asset::SGaussianFunction> weightFunction;
+	weightFunction.stretchAndScale(convolution_stddev);
 
-	const auto stretchFactor = core::vectorSIMDf(convolution_stddev, 1.f, 1.f, 1.f);
-	auto convolutionKernel = asset::CGaussianImageFilterKernel();
-	convolutionKernel.stretchAndScale(stretchFactor);
-
-	return convolutionKernel(x, channel);
-#endif
-	return 0.f;
+	return weightFunction(x, channel);
 }
 
 float convolution_weight_function_helper<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::operator_impl(const CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>& _this, const float x, const uint32_t channel, const uint32_t sampleCount)
 {
-	// return getKernelWidth(m_kernelA) > getKernelWidth(m_kernelB) ? m_kernelA.weight(x, channel) : m_kernelB.weight(x, channel);
-	return 0.f;
+	return _this.m_isFuncAWider ? _this.m_funcA(x, channel) : _this.m_funcB(x, channel);
 }
 
 } // end namespace nbl::asset
