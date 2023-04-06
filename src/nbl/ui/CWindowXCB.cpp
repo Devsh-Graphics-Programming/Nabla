@@ -36,8 +36,6 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
     // auto& connection = m_window.m_handle;
     auto& windowHandle = m_window.m_handle;
 
-    // auto MW_DELETE_WINDOW = xcb::resolveAtom(m_handle, m_window.m_WM_DELETE_WINDOW);
-    // auto NET_WM_PING = xcb::resolveAtom(m_handle, m_window.m_NET_WM_PING);
 
     if(auto event = xcb.pxcb_wait_for_event(*windowHandle.m_connection)) {
         auto* eventCallback = m_window.getEventCallback();
@@ -71,18 +69,18 @@ void CWindowXCB::CDispatchThread::work(lock_t& lock){
             }
             case XCB_CLIENT_MESSAGE: {
                 xcb_client_message_event_t* cme = reinterpret_cast<xcb_client_message_event_t*>(event);
-                if(cme->data.data32[0] == windowHandle.m_connection->WM_DELETE_WINDOW.fetch()) {
+                if(cme->data.data32[0] == windowHandle.m_connection->WM_DELETE_WINDOW) {
                     xcb.pxcb_unmap_window(*windowHandle.m_connection, windowHandle.m_window);
                     xcb.pxcb_destroy_window(*windowHandle.m_connection, windowHandle.m_window);
                     xcb.pxcb_flush(*windowHandle.m_connection);
                     windowHandle.m_window = 0;
                     m_quit = true; // we need to quit the dispatch thread
                     eventCallback->onWindowClosed(&m_window);
-                } else if(cme->data.data32[0] == windowHandle.m_connection->_NET_WM_PING.fetch() && cme->window != xcb::primaryScreen(*windowHandle.m_connection)->root) {
+                } else if(cme->data.data32[0] == windowHandle.m_connection->_NET_WM_PING && cme->window != xcb::primaryScreen(*windowHandle.m_connection)->root) {
                     xcb_client_message_event_t ev = *cme;
                     ev.response_type = XCB_CLIENT_MESSAGE;
                     ev.window = m_window.m_handle.m_window;
-                    ev.type = windowHandle.m_connection->_NET_WM_PING.fetch();
+                    ev.type = windowHandle.m_connection->_NET_WM_PING;
                     xcb.pxcb_send_event(*windowHandle.m_connection, 0, m_window.m_handle.m_window, XCB_EVENT_MASK_NO_EVENT, reinterpret_cast<const char*>(&ev));
                     xcb.pxcb_flush(*windowHandle.m_connection);
                 }
