@@ -53,7 +53,10 @@ class IWindowManagerXCB : public IWindowManager
 			xcb_icccm_set_wm_normal_hints
 		);
 
+
 		NBL_API2 static core::smart_refctd_ptr<IWindowManagerXCB> create();
+		virtual const Xcb& getXcbFunctionTable() const = 0;
+		virtual const XcbIcccm& getXcbIcccmFunctionTable() const = 0;
 };
 
 } // namespace nbl::ui

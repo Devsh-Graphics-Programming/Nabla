@@ -2,16 +2,11 @@
 #define _NBL_UI_C__WINDOWMANAGER_XCB_INCLUDED_
 
 #ifdef _NBL_PLATFORM_LINUX_
-#include "nbl/core/decl/Types.h"
 
-#include "nbl/system/DefaultFuncPtrLoader.h"
+#include "nbl/core/decl/Types.h"
 
 #include "nbl/ui/IWindow.h"
 #include "nbl/ui/IWindowManagerXCB.h"
-
-#include <functional>
-#include <memory>
-#include <string>
 
 namespace nbl::ui
 {
@@ -19,7 +14,7 @@ namespace nbl::ui
 class CWindowManagerXCB final : public IWindowManagerXCB
 {
 public:
-    
+
 	bool setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) override;
 	bool setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) override;
 	bool setWindowRotation_impl(IWindow* window, bool landscape) override;
@@ -32,13 +27,13 @@ public:
 
     CWindowManagerXCB();
     ~CWindowManagerXCB() override = default;
-
+	
 	core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) override;
 
 	void destroyWindow(IWindow* wnd) override final {}
 
-    const Xcb& getXcbFunctionTable() const { return m_xcb; }
-    const XcbIcccm& getXcbIcccmFunctionTable() const { return m_xcbIcccm; }
+    const Xcb& getXcbFunctionTable() const override { return m_xcb; }
+    const XcbIcccm& getXcbIcccmFunctionTable() const override { return m_xcbIcccm; }
 
 private:
 	Xcb m_xcb = Xcb("xcb"); // function tables

@@ -12,9 +12,7 @@ class XCBConnection;
 class NBL_API2 CCursorControlXCB final : public ICursorControl
 {
     public:
-        inline CCursorControlXCB(
-        core::smart_refctd_ptr<XCBConnection>&& xcbConnection) : 
-            m_connection(std::move(xcbConnection)) {}
+        inline CCursorControlXCB() {}
 
         void setVisible(bool visible) override;
         bool isVisible() const override;
@@ -25,7 +23,7 @@ class NBL_API2 CCursorControlXCB final : public ICursorControl
         SPosition getPosition() override;
         SRelativePosition getRelativePosition(IWindow* window) override;
     private: 
-        core::smart_refctd_ptr<XCBConnection> m_connection;
+        // core::smart_refctd_ptr<XCBConnection> m_connection;
 };
 }
 

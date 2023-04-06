@@ -185,6 +185,7 @@ set(NBL_SYSTEM_SOURCES
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowXCB.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowXcb.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/XCBConnection.cpp

@@ -152,11 +152,11 @@ namespace nbl::video
 			return nullptr;
 
 		auto* handle = window->getNativeHandle();
-		assert(handle && handle->m_window != XCB_WINDOW_NONE && handle->m_connection != nullptr);
+		// assert(handle && handle->m_window != XCB_WINDOW_NONE && handle->m_connection != nullptr);
 		VkXcbSurfaceCreateInfoKHR createInfo { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
 		createInfo.pNext = nullptr;
 		createInfo.flags = 0;
-		createInfo.connection = handle->m_connection;
+		createInfo.connection = *handle->m_connection;
 		createInfo.window = handle->m_window;
 		VkSurfaceKHR vk_surface;
 		if (vkCreateXcbSurfaceKHR(api->getInternalObject(), &createInfo, nullptr, &vk_surface) == VK_SUCCESS)
