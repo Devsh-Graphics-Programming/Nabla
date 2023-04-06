@@ -48,12 +48,12 @@ core::smart_refctd_ptr<IWindow> CWindowManagerXCB::createWindow(IWindow::SCreati
         return nullptr;
     }
 
-    const std::array atoms {windowHandle.m_connection->WM_DELETE_WINDOW.fetch(), windowHandle.m_connection->_NET_WM_PING.fetch()};
+    const std::array atoms {windowHandle.m_connection->WM_DELETE_WINDOW, windowHandle.m_connection->_NET_WM_PING};
     m_xcb.pxcb_change_property(
             *windowHandle.m_connection, 
             XCB_PROP_MODE_REPLACE, 
             windowHandle.m_window, 
-            windowHandle.m_connection->WM_PROTOCOLS.fetch(), XCB_ATOM_ATOM, 32, atoms.size(), atoms.data());
+            windowHandle.m_connection->WM_PROTOCOLS, XCB_ATOM_ATOM, 32, atoms.size(), atoms.data());
 
     auto motifHints = xcb::createFlagsToMotifWmHints(creationParams.flags);
     xcb::setMotifWmHints(*windowHandle.m_connection, windowHandle.m_window, motifHints);
@@ -63,7 +63,7 @@ core::smart_refctd_ptr<IWindow> CWindowManagerXCB::createWindow(IWindow::SCreati
             primaryScreen->root, 
             windowHandle.m_window, 
             windowHandle.m_window, 
-            windowHandle.m_connection->NET_WM_STATE_ABOVE.fetch());
+            windowHandle.m_connection->NET_WM_STATE_ABOVE);
     }
 
     std::string title = std::string(creationParams.windowCaption);
