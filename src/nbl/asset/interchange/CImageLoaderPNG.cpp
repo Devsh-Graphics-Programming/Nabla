@@ -61,9 +61,9 @@ void PNGAPI user_read_data_fcn(png_structp png_pt, png_bytep data, png_size_t le
 
 	system::IFile* file=(system::IFile*)png_get_io_ptr(png_pt);
 
-	system::ISystem::future_t<size_t> future;
-	file->read(future, data, file_pos, length);
-	check = future.get();
+	system::IFile::success_t success;
+	file->read(success, data, file_pos, length);
+	check = success.getBytesProcessed();
 	file_pos += length;
 	updateFilePos(png_pt, file_pos);
 

@@ -3,6 +3,10 @@
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/utilities/renderdoc.h"
 
+#if defined(_NBL_POSIX_API_)
+    #include <dlfcn.h>
+#endif
+
 namespace nbl::video
 {
 

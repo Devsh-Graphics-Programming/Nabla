@@ -380,7 +380,7 @@ public:
                 bnd->binding = binding;
                 bnd->count = count;
                 bnd->stageFlags = asset::ISpecializedShader::ESS_ALL;
-                bnd->type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+                bnd->type = asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
                 bnd->samplers = nullptr;
                 bnd++;
             };
@@ -434,7 +434,7 @@ public:
             write->binding = binding;
             write->arrayElement = 0u;
             write->count = count;
-            write->descriptorType = asset::EDT_UNIFORM_TEXEL_BUFFER;
+            write->descriptorType = asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
             write->dstSet = dstSet;
             write->info = info;
             write++;
@@ -517,7 +517,7 @@ public:
                 bnd->binding = binding;
                 bnd->count = 1u;
                 bnd->stageFlags = asset::ISpecializedShader::ESS_ALL;
-                bnd->type = asset::EDT_STORAGE_BUFFER;
+                bnd->type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
                 bnd->samplers = nullptr;
                 bnd++;
             };
@@ -552,7 +552,7 @@ public:
             write->binding = binding;
             write->arrayElement = 0u;
             write->count = 1u;
-            write->descriptorType = EDT_STORAGE_BUFFER;
+            write->descriptorType = IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
             write->dstSet = dstSet;
             write->info = info;
             write++;

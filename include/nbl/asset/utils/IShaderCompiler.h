@@ -20,6 +20,9 @@ namespace nbl::asset
 class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 {
 	public:
+		//string to be replaced with all "#" except those in "#include"
+		static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
+		static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
 
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
@@ -254,11 +257,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 		}
 
+		static std::string escapeFilename(std::string&& code);
+
 		static void disableAllDirectivesExceptIncludes(std::string& _code);
 
 		static void reenableDirectives(std::string& _code);
 
 		static std::string encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier);
+
+		static uint32_t encloseWithinExtraInclGuardsLeadingLines(uint32_t _maxInclusions);
 
 		virtual IShader::E_CONTENT_TYPE getCodeContentType() const = 0;
 

@@ -271,8 +271,8 @@ class CScanner final : public core::IReferenceCounted
 
 			const asset::SPushConstantRange pc_range = { asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
 			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
-				{ 0u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUShader::ESS_COMPUTE, nullptr }, // main buffer
-				{ 1u, asset::EDT_STORAGE_BUFFER, 1u, video::IGPUShader::ESS_COMPUTE, nullptr } // scratch
+				{ 0u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr }, // main buffer
+				{ 1u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr } // scratch
 			};
 
 			m_ds_layout = m_device->createDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
@@ -343,9 +343,9 @@ class CScanner final : public core::IReferenceCounted
 		{
 			IGPUDescriptorSet::SDescriptorInfo infos[2];
 			infos[0].desc = input_range.buffer;
-			infos[0].buffer = {input_range.offset,input_range.size};
+			infos[0].info.buffer = {input_range.offset,input_range.size};
 			infos[1].desc = scratch_range.buffer;
-			infos[1].buffer = {scratch_range.offset,scratch_range.size};
+			infos[1].info.buffer = {scratch_range.offset,scratch_range.size};
 
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[2];
 			for (auto i=0u; i<2u; i++)
@@ -354,15 +354,11 @@ class CScanner final : public core::IReferenceCounted
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 
-			device->updateDescriptorSets(2,writes,0u,nullptr);
-		}
-		inline void updateDescriptorSet(IGPUDescriptorSet* set, const asset::SBufferRange<IGPUBuffer>& input_range, const asset::SBufferRange<IGPUBuffer>& scratch_range)
-		{
-			updateDescriptorSet(m_device.get(),set,input_range,scratch_range);
+			device->updateDescriptorSets(2, writes, 0u, nullptr);
 		}
 
 		// Half and sizeof(uint32_t) of the scratch buffer need to be cleared to 0s

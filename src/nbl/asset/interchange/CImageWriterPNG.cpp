@@ -57,7 +57,7 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 	if (!success)
 		png_error(png_ptr, "Write Error");
 
-	usrData->file_pos += success.getSizeToProcess();
+	usrData->file_pos += success.getBytesToProcess();
 	png_set_read_user_chunk_fn(png_ptr, usrData, nullptr);
 }
 #endif // _NBL_COMPILE_WITH_LIBPNG_

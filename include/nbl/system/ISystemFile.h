@@ -31,7 +31,7 @@ class ISystemFile : public IFile
 			params.file = this;
 			params.offset = offset;
 			params.size = sizeToRead;
-			m_system->m_dispatcher.request(fut,params);
+			m_system->m_dispatcher.request(&fut,params);
 		}
 		inline void unmappedWrite(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite) override final
 		{
@@ -40,12 +40,13 @@ class ISystemFile : public IFile
 			params.file = this;
 			params.offset = offset;
 			params.size = sizeToWrite;
-			m_system->m_dispatcher.request(fut,params);
+			m_system->m_dispatcher.request(&fut,params);
 		}
 
 		//
-		friend class ISystem::CAsyncQueue;
+		friend struct ISystem::SRequestParams_READ;
 		virtual size_t asyncRead(void* buffer, size_t offset, size_t sizeToRead) = 0;
+		friend struct ISystem::SRequestParams_WRITE;
 		virtual size_t asyncWrite(const void* buffer, size_t offset, size_t sizeToWrite) = 0;
 
 

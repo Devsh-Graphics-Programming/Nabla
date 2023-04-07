@@ -1,6 +1,8 @@
 #ifndef _NBL_UI_I_GRAPHICAL_APPLICATION_FRAMEWORK_H_INCLUDED_
 #define _NBL_UI_I_GRAPHICAL_APPLICATION_FRAMEWORK_H_INCLUDED_
 
+#include "nbl/ui/IWindow.h"
+
 #include <vector>
 #include <string>
 

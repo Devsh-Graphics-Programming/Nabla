@@ -84,6 +84,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC "${NBL_ROOT_PATH}/examples_tests/common"
+		PUBLIC "${NBL_ROOT_PATH_BINARY}/include"
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
 	)

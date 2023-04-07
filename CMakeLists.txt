@@ -12,6 +12,7 @@ include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla LANGUAGES CXX C)
+enable_language(C CXX ASM)
 
 option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
@@ -259,6 +260,8 @@ endif()
 
 #uncomment in the future
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
+
+option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 
 option(NBL_PCH "Enable pre-compiled header" ON)
 

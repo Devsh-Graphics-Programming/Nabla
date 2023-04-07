@@ -26,4 +26,12 @@ void CVulkanCommandPool::setObjectDebugName(const char* label) const
 	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
 }
 
+bool CVulkanCommandPool::reset_impl()
+{
+    const auto* vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    const auto vk = vk_device->getFunctionTable();
+    const VkResult result = vk->vk.vkResetCommandPool(*((VkDevice*)vk_device->getNativeHandle()), m_vkCommandPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+    return result == VK_SUCCESS;
+}
+
 }

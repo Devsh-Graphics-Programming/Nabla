@@ -169,7 +169,7 @@ class COIT
                 bnd.count = 1u;
                 bnd.samplers = nullptr;
                 bnd.stageFlags = asset::IShader::ESS_FRAGMENT;
-                bnd.type = asset::EDT_STORAGE_IMAGE;
+                bnd.type = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
             }
 
             return bindingCount;
@@ -192,7 +192,7 @@ class COIT
                 w.arrayElement = 0u;
                 w.binding = b[i];
                 w.count = 1u;
-                w.descriptorType = asset::EDT_STORAGE_IMAGE;
+                w.descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
                 w.dstSet = dstset;
                 w.info = &info;
 

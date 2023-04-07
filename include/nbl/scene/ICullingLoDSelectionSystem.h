@@ -167,7 +167,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
 			{
 				bindings[i].binding = i;
-				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
@@ -189,7 +189,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)
 			{
 				bindings[i].binding = i;
-				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
@@ -214,7 +214,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createDescriptorSet(pool,std::move(layout));
+			auto ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[InputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[InputDescriptorBindingCount] =
@@ -234,11 +234,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				uint32_t count = InputDescriptorBindingCount;
-				if (_layout->getBindings().size()==InputDescriptorBindingCount)
+				if (_layout->getTotalBindingCount()==InputDescriptorBindingCount)
 				{
 					assert(drawCountsToScan.buffer && drawCountsToScan.size!=0ull);
 				}
@@ -259,7 +259,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createDescriptorSet(pool,std::move(layout));
+			auto ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[OutputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[OutputDescriptorBindingCount] =
@@ -275,11 +275,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				uint32_t count = OutputDescriptorBindingCount;
-				if (_layout->getBindings().size()==OutputDescriptorBindingCount)
+				if (_layout->getTotalBindingCount()==OutputDescriptorBindingCount)
 				{
 					assert(drawCallCounts.buffer && drawCallCounts.size!=0ull);
 				}
@@ -430,7 +430,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 #			if 0
 			// drawcall compaction
-			if (params.transientOutputDS->getLayout()->getBindings().size()==OutputDescriptorBindingCount)
+			if (params.transientOutputDS->getLayout()->getTotalBindingCount()==OutputDescriptorBindingCount)
 			{
 				cmdbuf->bindComputePipeline(drawCompact.get());
 				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,drawCompact));
