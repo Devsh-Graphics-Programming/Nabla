@@ -220,12 +220,25 @@ struct SKaiserFunction
 	}
 };
 
-// CConvolutionWeightFunction1D<CWeightFunction1D<SMitchellFunction>, CWeightFunction1D<SMitchellFunction>>
+// This is the interface for 1D weight functions that can be used to create a `CFloatingPointSeparableImageFilterKernel`.
+// Current implementations of this interface are:
+// - `CWeightFunction1D`
+// - `CChannelIndependentWeightFunction1D`
+// - `CConvolutionWeightFunction1D`
+template<typename T>
+concept KernelWeightFunction1D = requires(T t, const float x, const uint8_t channel)
+{
+	{ t.weight(x, channel) }	-> std::same_as<double>;
+	{ t.getMinSupport() }		-> std::same_as<float>;
+	{ t.getMaxSupport() }		-> std::same_as<float>;
+};
+
 template <typename Function1D, int32_t derivative = 0>
 class CWeightFunction1D /*final*/ // TODO(achal): Cannot make it final just yet because `weight_function_value_type` inherits from this.
 {
+	static_assert(derivative <= Function1D::k_smoothness);
 public:
-	constexpr static inline uint32_t k_smoothness = Function1D::k_smoothness; // TODO(achal): I think, I should subtract `derivative` from this
+	constexpr static inline uint32_t k_smoothness = Function1D::k_smoothness-derivative;
 	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f }; // TODO(achal): Implement.
 
 	// Calling: f(x).stretch(2) will obviously give you f(x/2)
@@ -273,6 +286,20 @@ private:
 	float m_invStretch = 1.f;
 	float m_totalScale = 1.f;
 };
+
+namespace impl
+{
+
+template<class WeightFunction1D>
+struct weight_function_value_type : protected WeightFunction1D
+{
+	using type = decltype(std::declval<WeightFunction1D>().weight(0.f, 0));
+};
+
+template<class WeightFunction1D>
+using weight_function_value_type_t = typename weight_function_value_type<WeightFunction1D>::type;
+
+}
 
 } // end namespace nbl::asset
 #endif

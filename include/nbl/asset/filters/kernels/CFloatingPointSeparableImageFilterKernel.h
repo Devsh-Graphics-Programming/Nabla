@@ -7,24 +7,8 @@
 namespace nbl::asset
 {
 
-namespace impl
-{
-
-template<class WeightFunction1D>
-struct weight_function_value_type : protected WeightFunction1D
-{
-	using type = decltype(std::declval<WeightFunction1D>().weight(0.f,0));
-};
-
-template<class WeightFunction1D>
-using weight_function_value_type_t = typename weight_function_value_type<WeightFunction1D>::type;
-
-}
-
-// TODO(achal): It would probably be nice to make a concept here which ensures:
-// 1. WeightFunction1D has {min/max}_support and/or their getters.
 // kernels that requires pixels and arithmetic to be done in precise floats AND are separable AND have the same kernel function in each dimension AND have a rational support
-template<class WeightFunction1D>
+template<KernelWeightFunction1D WeightFunction1D>
 class CFloatingPointSeparableImageFilterKernel : public impl::weight_function_value_type_t<WeightFunction1D>
 {
 public:

@@ -9,8 +9,6 @@
 namespace nbl::asset
 {
 
-// TODO(achal): I can also make a concept for WeightFunction1D here so that it only allows the type CWeightFunction1D.
-
 // If we allow the user to specify a derivative of CConvolutionWeightFunction1D then there will be the follwing problem:
 // There will be no way for us to evaluate the constituent functions (m_funcA, m_funcB) on an arbitrary derivative because
 // `derivative` is a class template member not a function template member (done to handle chain rule) of CWeightFunction1D.
@@ -18,11 +16,10 @@ namespace nbl::asset
 // of this function). Not sure if its worth it, both in terms of performance and code complexity.
 
 // this is the horribly slow generic version that you should not use (only use the specializations or when one of the weights is a dirac)
-template<typename WeightFunction1DA, typename WeightFunction1DB>
+template<KernelWeightFunction1D WeightFunction1DA, KernelWeightFunction1D WeightFunction1DB>
 class CConvolutionWeightFunction1D
 {
-	// TODO(achal): Not passing.
-	// static_assert(std::is_same_v<impl::weight_function_value_type_t<WeightFunction1DA>, impl::weight_function_value_type_t<WeightFunction1DB>>, "Both functions must use the same Value Type!");
+	static_assert(std::is_same_v<impl::weight_function_value_type_t<WeightFunction1DA>, impl::weight_function_value_type_t<WeightFunction1DB>>, "Both functions must use the same Value Type!");
 
 public:
 	constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
