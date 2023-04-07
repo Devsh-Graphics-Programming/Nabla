@@ -16,8 +16,8 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	using ReconstructionFunction = CWeightFunction1D<SGaussianFunction>;
 	using DerivativeFunction = CWeightFunction1D<SGaussianFunction, 1>;
 
-	using PartialDerivativeFunctionX = CChannelIndependentWeightFunction<DerivativeFunction, CWeightFunction1D<SBoxFunction>>;
-	using PartialDerivativeFunctionY = CChannelIndependentWeightFunction<CWeightFunction1D<SBoxFunction>, DerivativeFunction>;
+	using PartialDerivativeFunctionX = CChannelIndependentWeightFunction1D<DerivativeFunction, CWeightFunction1D<SBoxFunction>>;
+	using PartialDerivativeFunctionY = CChannelIndependentWeightFunction1D<CWeightFunction1D<SBoxFunction>, DerivativeFunction>;
 
 	using DerivativeMapFilter = CBlitImageFilter
 	<

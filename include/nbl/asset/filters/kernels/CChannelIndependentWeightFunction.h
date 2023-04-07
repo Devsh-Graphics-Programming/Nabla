@@ -16,7 +16,7 @@ namespace nbl::asset
 
 // we always invoke the first channel of the kernel for each kernel assigned to a channel
 template <class FirstWeightFunction1D, class... OtherWeightFunctions>
-class CChannelIndependentWeightFunction
+class CChannelIndependentWeightFunction1D
 {
 	static_assert(sizeof...(OtherWeightFunctions) < 4u);
 	static inline constexpr size_t MaxChannels = 1 + sizeof...(OtherWeightFunctions);
@@ -41,12 +41,12 @@ public:
 	constexpr static inline uint32_t k_smoothness = std::min_element(_smoothnesses, _smoothnesses + MaxChannels)[0];
 	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f }; // TODO(achal): Implement.
 
-	CChannelIndependentWeightFunction(FirstWeightFunction1D&& firstFunc, OtherWeightFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...)
+	CChannelIndependentWeightFunction1D(FirstWeightFunction1D&& firstFunc, OtherWeightFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...)
 	{
 		updateSupports();
 	}
 
-	inline float weight(float x, uint8_t channel) const
+	inline double weight(const float x, const uint8_t channel) const
 	{
 		switch (channel)
 		{

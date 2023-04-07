@@ -15,7 +15,7 @@ struct SDiracFunction
 	constexpr static inline uint32_t k_smoothness = 0;
 
 	template<int32_t derivative=0>
-	static inline double weight(float x, uint32_t channel)
+	static inline double weight(float x)
 	{
 		if (x != 0.f)
 			return 0.0;
@@ -40,7 +40,7 @@ struct SBoxFunction
 	constexpr static inline uint32_t k_smoothness = 0;
 
 	template <int32_t derivative = 0>
-	static inline double weight(float x, uint32_t channel)
+	static inline double weight(float x)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -66,7 +66,7 @@ struct STriangleFunction
 	constexpr static inline uint32_t k_smoothness = 0;
 
 	template <int32_t derivative = 0>
-	static inline double weight(float x, uint32_t channel)
+	static inline double weight(float x)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -93,7 +93,7 @@ struct SGaussianFunction
 	constexpr static inline uint32_t k_smoothness = std::numeric_limits<uint32_t>::max();
 
 	template <int32_t derivative = 0>
-	static inline double weight(float x, uint32_t channel)
+	static inline double weight(float x)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -104,15 +104,15 @@ struct SGaussianFunction
 			}
 			else if constexpr (derivative == 1)
 			{
-				return -x * SGaussianFunction::weight(x, channel);
+				return -x * SGaussianFunction::weight(x);
 			}
 			else if constexpr (derivative == 2)
 			{
-				return x * (x + 1.0) * SGaussianFunction::weight(x, channel);
+				return x * (x + 1.0) * SGaussianFunction::weight(x);
 			}
 			else if constexpr (derivative == 3)
 			{
-				return (1.0 - (x - 1.0) * (x + 1.0) * (x + 1.0)) * SGaussianFunction::weight(x, channel);
+				return (1.0 - (x - 1.0) * (x + 1.0) * (x + 1.0)) * SGaussianFunction::weight(x);
 			}
 			else
 			{
@@ -133,7 +133,7 @@ struct SMitchellFunction
 	constexpr static inline uint32_t k_smoothness = 3;
 
 	template <int32_t derivative = 0>
-	static inline double weight(float x, uint32_t channel)
+	static inline double weight(float x)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -190,7 +190,7 @@ struct SKaiserFunction
 	static inline constexpr float alpha = 3.f;
 
 	template <int32_t derivative = 0>
-	static inline double weight(float x, uint32_t channel)
+	static inline double weight(float x)
 	{
 		if (x >= min_support && x < max_support)
 		{
@@ -257,10 +257,9 @@ public:
 		scale(1.f / stretchFactor);
 	}
 
-	// TODO(achal): It makes no sense to me as to why we take a channel param here.
-	inline double weight(const float x, const uint32_t channel) const
+	inline double weight(const float x, const uint8_t channel) const
 	{
-		return static_cast<double>(m_totalScale*Function1D::weight<derivative>(x*m_invStretch, channel));
+		return static_cast<double>(m_totalScale*Function1D::weight<derivative>(x*m_invStretch));
 	}
 
 	inline float getMinSupport() const { return m_minSupport; }

@@ -31,9 +31,7 @@ public:
 	// All kernels are by default, defined on max 4 channels
 	static inline constexpr auto MaxChannels = 4;
 
-	// TODO(achal): I don't know why but this makes value_type a float.
-	// using value_type = impl::weight_function_value_type_t<WeightFunction1D>; 
-	using value_type = double;
+	using value_type = impl::weight_function_value_type_t<WeightFunction1D>; 
 	static_assert(std::is_same_v<value_type,double>,"should probably allow `float`s at some point!");
 
 	CFloatingPointSeparableImageFilterKernel(WeightFunction1D&& _func) : func(std::move(_func))

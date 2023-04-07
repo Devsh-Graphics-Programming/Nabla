@@ -59,7 +59,7 @@ public:
 		scale(1.f / stretchFactor);
 	}
 
-	inline double weight(const float x, const uint32_t channel, const uint32_t sampleCount = 64u) const
+	inline double weight(const float x, const uint8_t channel, const uint32_t sampleCount = 64u) const
 	{
 		return static_cast<double>(m_totalScale * weight_impl(x * m_invStretch, channel, sampleCount));
 	}
