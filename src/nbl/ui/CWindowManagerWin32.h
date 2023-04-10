@@ -9,7 +9,7 @@
 namespace nbl::ui
 {
 
-class CWindowManagerWin32 final : public IWindowManagerWin32, public ICursorControl
+class NBL_API2 CWindowManagerWin32 final : public IWindowManagerWin32, public ICursorControl
 {
 	public:
 		inline CWindowManagerWin32() = default;

@@ -264,7 +264,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             > params = SRequestParams_NOOP();
         };
         static inline constexpr uint32_t CircularBufferSize = 256u;
-        class CAsyncQueue final : public IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
+        class NBL_API2 CAsyncQueue final : public IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>
         {
                 using base_t = IAsyncQueueDispatcher<CAsyncQueue,SRequestType,CircularBufferSize>;
 
