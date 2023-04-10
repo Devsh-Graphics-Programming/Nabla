@@ -28,6 +28,17 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
             
             // VK_LAYER_KHRONOS_validation (instance layer) 
             bool validations = false;
+                // VK_LAYER_KHRONOS_validation (instance extension) 
+                /* TODO: Possibly bring in all as Validation extensions enum
+                typedef enum VkValidationFeatureEnableEXT {
+                    VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT = 0,
+                    VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT = 1,
+                    VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT = 2,
+                    VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT = 3,
+                    VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT = 4,
+                } VkValidationFeatureEnableEXT;
+                */
+                bool synchronizationValidation = false;
 
             // VK_EXT_debug_utils
             // When combined with validation layers, even more detailed feedback on the application�s use of Vulkan will be provided.
