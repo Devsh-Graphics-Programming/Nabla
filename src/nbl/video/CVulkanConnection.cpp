@@ -190,25 +190,7 @@ namespace nbl::video
         };
 
 
-        std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
-        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
-        if (logger && enabledFeatures.debugUtils)
-        {
-            auto logLevelMask = logger->getLogLevelMask();
-            debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
-
-            debugMessengerCreateInfo.pNext = nullptr;
-            debugMessengerCreateInfo.flags = 0;
-            auto debugCallbackFlags = getDebugCallbackFlagsFromLogLevelMask(logLevelMask);
-            debugMessengerCreateInfo.messageSeverity = debugCallbackFlags.first;
-            debugMessengerCreateInfo.messageType = debugCallbackFlags.second;
-            debugMessengerCreateInfo.pfnUserCallback = CVulkanDebugCallback::defaultCallback;
-            debugMessengerCreateInfo.pUserData = debugCallback.get();
-
-            addStructToChain(&debugMessengerCreateInfo);
-        }
-
-        VkValidationFeaturesEXT validationFeaturesEXT = { VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
+        VkValidationFeaturesEXT validationFeaturesEXT = { VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT, nullptr };
         VkValidationFeatureEnableEXT validationsEnable[16u] = {};
         VkValidationFeatureDisableEXT validationsDisable[16u] = {};
         validationFeaturesEXT.pEnabledValidationFeatures = validationsEnable;
@@ -227,6 +209,23 @@ namespace nbl::video
         {
             assert(false);
             return nullptr;
+        }
+
+        std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
+        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
+        if (logger && enabledFeatures.debugUtils)
+        {
+            auto logLevelMask = logger->getLogLevelMask();
+            debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
+
+            debugMessengerCreateInfo.flags = 0;
+            auto debugCallbackFlags = getDebugCallbackFlagsFromLogLevelMask(logLevelMask);
+            debugMessengerCreateInfo.messageSeverity = debugCallbackFlags.first;
+            debugMessengerCreateInfo.messageType = debugCallbackFlags.second;
+            debugMessengerCreateInfo.pfnUserCallback = CVulkanDebugCallback::defaultCallback;
+            debugMessengerCreateInfo.pUserData = debugCallback.get();
+
+            addStructToChain(&debugMessengerCreateInfo);
         }
 
         VkInstance vk_instance;
