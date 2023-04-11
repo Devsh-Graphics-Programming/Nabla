@@ -1,0 +1,27 @@
+stage('CMake')
+{
+	bat returnStatus: true, script: "cmake -DNBL_COMPILE_WITH_CUDA:BOOL=ON -DNBL_BUILD_OPTIX:BOOL=ON -DNBL_BUILD_MITSUBA_LOADER:BOOL=ON -DNBL_BUILD_RADEON_RAYS:BOOL=ON -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build -T v142"
+	bat "git -C ./3rdparty/gli reset --hard" // due to gli build system bug
+	bat "cmake -DNBL_COMPILE_WITH_CUDA:BOOL=ON -DNBL_BUILD_OPTIX:BOOL=ON -DNBL_BUILD_MITSUBA_LOADER:BOOL=ON -DNBL_BUILD_RADEON_RAYS:BOOL=ON -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build -T v142"
+}
+
+stage('Compile Nabla')
+{
+	bat "cmake --build ./build --target Nabla --config Release -j12 -v"
+}
+
+stage('Compile programs')
+{
+	bat "cmake --build ./build --target examples_tests/22.RaytracedAO/raytracedao --config Release -j12 -v"
+	bat "cmake --build ./build --target examples_tests/39.DenoiserTonemapper/denoisertonemapper --config Release -j12 -v"
+}
+
+stage('Run all tests')
+{
+	bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py"
+}
+
+stage('Pack artifacts')
+{
+	bat "cmake --build ./build --target pack_artifact_ditt --config Release -j12 -v"
+}
