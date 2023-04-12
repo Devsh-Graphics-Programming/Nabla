@@ -49,7 +49,7 @@ namespace impl
         if (alignment < MIN_ALIGN) alignment = MIN_ALIGN;
         if (size == 0) return nullptr;
         void* p;
-        if (::posix_memalign(&p, alignment>alignof(std::max_align_t) ? alignof(std::max_align_t):alignment, size) != 0) p = nullptr;
+        if (::posix_memalign(&p, alignment, size) != 0) p = nullptr;
         return p;
     }
 }
@@ -91,6 +91,12 @@ constexpr inline bool is_aligned_to(size_t value, size_t alignment)
 inline bool is_aligned_to(const void* value, size_t alignment)
 {
     return core::is_aligned_to(reinterpret_cast<size_t>(value),alignment);
+}
+
+template <typename T>
+constexpr inline bool is_aligned_ptr(T* ptr)
+{
+    return is_aligned_to(ptr, alignof(T));
 }
 
 }

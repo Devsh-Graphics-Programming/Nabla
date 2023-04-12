@@ -4,6 +4,8 @@
 #ifndef _NBL_CORE_STRING_LITERAL_H_INCLUDED_
 #define _NBL_CORE_STRING_LITERAL_H_INCLUDED_
 
+#include <algorithm>
+
 namespace nbl::core
 {
 

@@ -48,7 +48,7 @@ public:
 		struct SBinding
 		{
 			uint32_t binding;
-			E_DESCRIPTOR_TYPE type;
+			IDescriptor::E_TYPE type;
 			uint32_t count;
 			asset::IShader::E_SHADER_STAGE stageFlags;
 			//TODO currently IDescriptorSetLayout::isIdentificallyDefined() compares just pointers of immutable samplers

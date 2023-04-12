@@ -754,12 +754,11 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 	else
 	{
 		// read data from the file
-		system::ISystem::future_t<size_t> future;
-		_ctx.inner.mainFile->read(future, _ctx.EndPointer, _ctx.fileOffset, PLY_INPUT_BUFFER_SIZE - length);
-		const auto bytesRead = future.get();
+		system::IFile::success_t success;
+		_ctx.inner.mainFile->read(success, _ctx.EndPointer, _ctx.fileOffset, PLY_INPUT_BUFFER_SIZE - length);
+		const size_t bytesRead = success.getBytesProcessed();
 
 		_ctx.fileOffset += bytesRead;
-
 		// increment the end pointer by the number of bytes read
 		_ctx.EndPointer += bytesRead;
 

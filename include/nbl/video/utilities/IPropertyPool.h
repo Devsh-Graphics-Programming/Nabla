@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_I_PROPERTY_POOL_H_INCLUDED__
-#define __NBL_VIDEO_I_PROPERTY_POOL_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_PROPERTY_POOL_H_INCLUDED_
+#define _NBL_VIDEO_I_PROPERTY_POOL_H_INCLUDED_
 
 
 #include "nbl/asset/asset.h"
@@ -17,7 +16,7 @@ namespace nbl::video
 
 
 // property pool is inherently single threaded
-class IPropertyPool : public core::IReferenceCounted
+class NBL_API2 IPropertyPool : public core::IReferenceCounted
 {
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
@@ -194,7 +193,7 @@ class IPropertyPool : public core::IReferenceCounted
 		template<typename DescriptorSetLayoutType, uint32_t PropertyCount>
 		static inline void fillDescriptorLayoutBindings(typename DescriptorSetLayoutType::SBinding* bindings, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
-            DescriptorSetLayoutType::fillBindingsSameType(bindings,PropertyCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+            DescriptorSetLayoutType::fillBindingsSameType(bindings,PropertyCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 		}
         template<uint32_t PropertyCount>
 		static inline core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> createDescriptorSetLayout(asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)

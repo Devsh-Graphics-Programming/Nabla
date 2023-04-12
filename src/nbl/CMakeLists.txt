@@ -166,6 +166,7 @@ set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
 )
 set(NBL_SYSTEM_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/system/DefaultFuncPtrLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/IFileBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
@@ -173,6 +174,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CAPKResourcesArchive.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CColoredStdoutLoggerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CStdoutLoggerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorPOSIX.cpp
@@ -181,12 +183,12 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemAndroid.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/ISystemPOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemLinux.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CGraphicalApplicationAndroid.cpp
 )
@@ -194,6 +196,7 @@ set(NBL_ASSET_SOURCES
 # Assets
 	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
@@ -281,8 +284,12 @@ set(NBL_VIDEO_SOURCES
 
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
 	
@@ -304,6 +311,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanComputePipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
@@ -432,7 +440,7 @@ target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashm
 # TCPP
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/tcpp)
 # oneDPL for clang C++17 parallelism
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(_NBL_BUILD_DPL_)
 	add_dependencies(Nabla oneDPL)
 	target_include_directories(Nabla PUBLIC ${ONETBB_INSTALL_DIR}/include)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
@@ -444,6 +452,7 @@ if (UNIX)
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
 	)
+	target_link_libraries(Nabla PUBLIC atomic)
 endif()
 # OpenSSL
 if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
@@ -703,7 +712,7 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(zlibstatic)
 	nbl_install_lib(simdjson)
 	nbl_install_lib(volk)
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if(_NBL_BUILD_DPL_)
 		nbl_install_program(tbb)
 		nbl_install_program(tbbmalloc)
 		nbl_install_program(tbbmalloc_proxy)
