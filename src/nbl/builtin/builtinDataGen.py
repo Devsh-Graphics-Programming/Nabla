@@ -17,6 +17,7 @@ else:
     cmakeSourceDir = sys.argv[2]
     resourcesFile  = sys.argv[3]
     resourcesNamespace = sys.argv[4]
+    correspondingHeaderFile = sys.argv[5]
 
     with open(resourcesFile, "r") as f:
         resourcePaths = f.read().rstrip().split(',')
