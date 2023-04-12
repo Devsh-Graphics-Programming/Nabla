@@ -1,3 +1,15 @@
+stage('Git')
+{
+	bat "git fetch origin ditt"
+	bat "git reset --hard origin/ditt"
+	bat "git clean -fdx"
+	
+	bat "git submodule update --init --recursive ./3rdparty"
+	bat "git submodule update --init ./ci"
+	bat "git submodule update --init ./examples_tests"
+	bat "git ./examples_tests submodule update --init ./media"
+}
+
 stage('CMake')
 {
 	bat returnStatus: true, script: "cmake -DNBL_COMPILE_WITH_CUDA:BOOL=ON -DNBL_BUILD_OPTIX:BOOL=ON -DNBL_BUILD_MITSUBA_LOADER:BOOL=ON -DNBL_BUILD_RADEON_RAYS:BOOL=ON -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build -T v142"
@@ -18,7 +30,7 @@ stage('Compile programs')
 
 stage('Run all tests')
 {
-	bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py"
+	bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py" // don't fail the build if unstable
 }
 
 stage('Pack artifacts')
