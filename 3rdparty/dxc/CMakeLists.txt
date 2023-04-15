@@ -122,24 +122,40 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_subdirectory(CT CT)
 endif()
 
-include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/debug.cmake")
-include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/release.cmake")
+if(GENERATOR_IS_MULTI_CONFIG)
+    include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/debug.cmake")
+    include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/release.cmake")
+else()
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+        include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/debug.cmake")
+    else()
+        include("${DXC_BUILD_DIR}/nbl/generate/dxc/config/release.cmake")
+    endif()
+endif()
 
 set(DXC_INCLUDE_DIRECTORIES
-	$<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_INCLUDE_DIRECTORIES},${NBL_DXC_RELEASE_INCLUDE_DIRECTORIES}>
+    $<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_INCLUDE_DIRECTORIES},${NBL_DXC_RELEASE_INCLUDE_DIRECTORIES}>
 CACHE INTERNAL "")
 
 set(DXC_LIB
-	$<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_LIB},${NBL_DXC_RELEASE_LIB}>
+    $<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_LIB},${NBL_DXC_RELEASE_LIB}>
 CACHE INTERNAL "")
 
-set(DXC_DLL 
-	$<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_DLL},${NBL_DXC_RELEASE_DLL}>
+set(DXC_DLL
+    $<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_DLL},${NBL_DXC_RELEASE_DLL}>
 CACHE INTERNAL "")
 
-cmake_path(GET NBL_DXC_DEBUG_DLL FILENAME _NBL_DXC_DEBUG_DLL_NAME_)
-cmake_path(GET NBL_DXC_RELEASE_DLL FILENAME _NBL_DXC_RELEASE_DLL_NAME_)
+if(GENERATOR_IS_MULTI_CONFIG)
+    cmake_path(GET NBL_DXC_DEBUG_DLL FILENAME _NBL_DXC_DEBUG_DLL_NAME_)
+    cmake_path(GET NBL_DXC_RELEASE_DLL FILENAME _NBL_DXC_RELEASE_DLL_NAME_)
+else()
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+        cmake_path(GET NBL_DXC_DEBUG_DLL FILENAME _NBL_DXC_DEBUG_DLL_NAME_)
+    else()
+        cmake_path(GET NBL_DXC_RELEASE_DLL FILENAME _NBL_DXC_RELEASE_DLL_NAME_)
+    endif()
+endif()
 
-set(DXC_DLL_NAME 
-	$<IF:$<CONFIG:Debug>,${_NBL_DXC_DEBUG_DLL_NAME_},${_NBL_DXC_RELEASE_DLL_NAME_}>
+set(DXC_DLL_NAME
+    $<IF:$<CONFIG:Debug>,${_NBL_DXC_DEBUG_DLL_NAME_},${_NBL_DXC_RELEASE_DLL_NAME_}>
 CACHE INTERNAL "")

@@ -5,6 +5,7 @@
 cmake_minimum_required(VERSION 3.26)
 #policies
 cmake_policy(SET CMP0112 NEW)
+cmake_policy(SET CMP0042 NEW)
 
 set(NBL_BUILD_ANDROID OFF)
 
@@ -110,7 +111,7 @@ macro(nbl_adjust_flags)
 		option(NBL_SANITIZE_THREAD OFF)
 	endif()
 
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
