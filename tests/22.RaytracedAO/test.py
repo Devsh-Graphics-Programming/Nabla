@@ -1,10 +1,55 @@
-from operator import eq
-import os
-import subprocess
-import shutil
-import filecmp
-from datetime import datetime
-from pathlib import *
+from CITest import *
+
+
+CLOSE_TO_ZERO = "0.00001"         
+CI_PASS_STATUS = True
+
+
+class RendersTest(CITest):
+    # self.executable 
+    # self.input 
+    # self.print_warnings
+    # self.nabla_repo_root_dir
+    
+    # overwrite a function called in ctor 
+    # make sure all needed dirs are created
+    def _validate_filepaths(self):
+        if not CITest._validate_filepaths():
+            return False
+        if not self.references_dir.is_dir():
+            os.makedirs(self.references_dir)
+
+        if not self.storage_dir.is_dir():
+            os.makedirs(self.storage_dir)
+                
+        if not self.diff_images_dir.is_dir():
+            os.makedirs(self.diff_images_dir)
+
+
+    def __call_executor(self):
+        executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
+        subprocess.run(executor, capture_output=True)
+    
+    
+    def _impl_run_dummy_case(self):
+        NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).is_file())
+        generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_REF_LDS_CACHE_FILENAME
+        destinationReferenceCache = str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME
+        sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
+        executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
+        subprocess.run(executor, capture_output=True)
+
+        if NBL_DUMMY_CACHE_CASE:
+                shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
+        elif not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
+                cacheChanged = True
+                ci_pass_status = False
+
+
+    # must override 
+    def _impl_run_single(self, input_args) -> dict:
+        pass
+
 
 NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
 NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
@@ -13,165 +58,29 @@ NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
 NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
 NBL_ERROR_TOLERANCE_COUNT = 96   #TODO: make this relative to image resolution
  
-def get_git_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_REFDATA_PATH}" rev-parse origin/ditt').decode('ascii').strip()
 
-def get_submodule_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_REFDATA_PATH}/references/private" rev-parse origin/master').decode('ascii').strip()
+#path to dir containing Nabla source
+ROOT_PATH =  '@NBL_ROOT_PATH@'
+input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/mitsuba/public_test_scenes.txt',
+summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/public/index.html', 
+ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() + '/22.RaytracedAO/references/public',
+diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public/difference-images',
+result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public',
+references_dir=f'{NBL_REFDATA_PATH}/references/public',
+diff_images_dir=f'{NBL_REFDATA_PATH}/renders/public/difference-images',
+storage_dir= f'{NBL_REFDATA_PATH}/renders/public'
 
-class Inputs:
-    def __init__(self, 
-                input_file: Path,
-                ref_url: str,
-                diff_imgs_url: str,
-                result_imgs_url: str,
-                summary_html_filepath: Path,
-                references_dir: str,
-                diff_images_dir: str,
-                storage_dir: str) -> None:
-        self.input_file_path = Path(input_file).absolute()
-        self.ref_url = ref_url
-        self.diff_imgs_url = diff_imgs_url
-        self.result_imgs_url = result_imgs_url
-        self.summary_html_filepath = Path(summary_html_filepath).absolute()
-        self.references_dir = Path(references_dir).absolute()
-        self.diff_images_dir = Path(diff_images_dir).absolute()
-        self.storage_dir = Path(storage_dir).absolute()
 
-NBL_SCENES_INPUTS = [ 
-    Inputs(
-            input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/mitsuba/public_test_scenes.txt',
-            summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/public/index.html', 
-            ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() + '/22.RaytracedAO/references/public',
-            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public/difference-images',
-            result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public',
-            references_dir=f'{NBL_REFDATA_PATH}/references/public',
-            diff_images_dir=f'{NBL_REFDATA_PATH}/renders/public/difference-images',
-            storage_dir= f'{NBL_REFDATA_PATH}/renders/public'),
-
-        Inputs(
-            input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt',
-            summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/private/index.html', 
-            ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
-            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private/difference-images',
-            result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private',
-            references_dir=f'{NBL_REFDATA_PATH}/references/private',
-            diff_images_dir=f'{NBL_REFDATA_PATH}/renders/private/difference-images',
-            storage_dir= f'{NBL_REFDATA_PATH}/renders/private') 
+input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt',
+summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/private/index.html', 
+ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
+diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private/difference-images',
+result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private',
+references_dir=f'{NBL_REFDATA_PATH}/references/private',
+diff_images_dir=f'{NBL_REFDATA_PATH}/renders/private/difference-images',
+storage_dir= f'{NBL_REFDATA_PATH}/renders/private'
 ]
-CLOSE_TO_ZERO = "0.00001"         
-CI_PASS_STATUS = True
 
-
-def htmlHead(scenes_input: Inputs):
-    HTML = '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    </head>
-    <body>
-    
-    <h2>Ditt Render Scenes job status</h2>
-    '''
-    HTML += f'''
-    <p>Relative error threshold is set to <strong>{float(NBL_ERROR_THRESHOLD)*100.0}%</strong></p>
-    <p>Created at {datetime.now()} </p>
-    <table class="table table-bordered">
-      <tr class="thead-dark">
-        <th>Render</th>
-        <th>Pass status</th>
-        <th colspan="3" scope="colgroup">Input</th>
-        <th colspan="3" scope="colgroup">Albedo</th>
-        <th colspan="3" scope="colgroup">Normal</th>
-        <th colspan="3" scope="colgroup">Denoised</th>
-        <th colspan="1" scope="colgroup">Options</th>
-      </tr>
-    '''
-    htmlFile = open(scenes_input.summary_html_filepath, "w+")
-    htmlFile.write(HTML)
-
-    return HTML
-
-def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
-    HTML = '</table>'
-
-    if _cacheChanged:
-        HTML += '''
-        <h2 style="color: red;">FAILED PASS: Low Discrepancy Sequence Cache has been overwritten by a new one!</h2>
-        '''
-    else:
-        executor = f'git hash-object {scenes_input.references_dir}/{NBL_REF_LDS_CACHE_FILENAME}'
-        hash = subprocess.run(executor, capture_output=True).stdout.decode().strip()
-        HTML += f'''
-        <h2 style="color: green;">LDS Cache hash: {hash}</h2>'''
-    HTML += '''
-    <div id="exrPreview" style="height: 80%; padding-bottom: 61.4%; position: relative"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react-dom.js"></script>
-    <script src="https://artifactory.devsh.eu/Ditt/ci/data/js/jeri.js"></script>
-    <script>
-        async function configForImage(renderName) {
-            return {
-                title: 'exrPreview',
-                children: [
-                    { title: 'Render result', image: rendersUrl + '/Render_' + renderName + '.exr' },
-                    { title: 'Render denoised', image: rendersUrl + '/Render_' + renderName + '_denoised.exr' },
-                    { title: 'Render albedo', image: rendersUrl + '/Render_' + renderName + '_albedo.exr'},
-                    { title: 'Render normal', image: rendersUrl + '/Render_' + renderName + '_normal.exr'},
-                    { title: 'Reference result', image: referenceUrl + renderName+ '/Render_' + renderName + '.exr' },
-                    { title: 'Reference denoised', image: referenceUrl + renderName+ '/Render_' + renderName + '_denoised.exr' },
-                    { title: 'Reference albedo', image: referenceUrl + renderName+ '/Render_' + renderName + '_albedo.exr'},
-                    { title: 'Reference normal', image:referenceUrl + renderName+  '/Render_' + renderName + '_normal.exr'},
-                    { title: 'Difference noisy', image: differencesUrl + '/' + renderName + '_diff.exr' },
-                    { title: 'Difference denoised', image: differencesUrl + '/' + renderName + '_denoised_diff.exr' },
-                    { title: 'Difference albedo', image: differencesUrl + '/' + renderName + '_albedo_diff.exr'},
-                    { title: 'Difference normal', image: differencesUrl + '/' + renderName + '_normal_diff.exr'}
-                ]
-            };
-        }
-
-        const exrPreview = document.getElementById('exrPreview')
-        function compareImageBtnCallback(renderName) {
-            configForImage(renderName).then( (data)=>Jeri.renderViewer(exrPreview,data ));
-            exrPreview.scrollIntoView({ behavior: "smooth", block: "start"});
-        }
-    '''
-    HTML += f'''
-        const referenceUrl= '{scenes_input.result_imgs_url}/references/';
-        const rendersUrl= '{scenes_input.result_imgs_url}';
-        const differencesUrl= '{scenes_input.diff_imgs_url}';
-    </script>
-    </body>
-    </html>
-    '''
-    htmlFile = open(scenes_input.summary_html_filepath, "a")
-    htmlFile.write(HTML)
-    htmlFile.close()
-
-def get_render_filename(line : str):
-    words = line.replace('"', '').strip().split(" ")
-    zip = (os.path.splitext(str(Path(" ".join(words[0:-1])).name))[0] + "_") if len(words) > 1 else "" 
-    return zip + os.path.splitext(Path(words[-1]).name)[0]
-
-
-def cmp_files(inputParams, destinationReferenceCache, generatedReferenceCache, cmpSavedHash=False, cmpByteByByte = False):
-    if cmpByteByByte:
-        return  filecmp.cmp(destinationReferenceCache, generatedReferenceCache)
-    executor1 = f'git hash-object {generatedReferenceCache}'
-    executor2 = f'git hash-object {destinationReferenceCache}'
-    hgen = subprocess.run(executor1, capture_output=True).stdout.decode().strip()
-    href = subprocess.run(executor2, capture_output=True).stdout.decode().strip()
-    res = hgen == href
-    if cmpSavedHash:
-        file = str(inputParams.references_dir)+'/LDSCacheHash.txt'
-        if Path(file).is_file():
-            with open(file, "r") as f:
-                res = res and hgen == f.readline().strip()
-    return res
 
 
 def run_all_tests(inputParamList):
@@ -368,10 +277,16 @@ def run_all_tests(inputParamList):
         exit(-1)
     return ci_pass_status
 
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
     CI_PASS_STATUS=run_all_tests(NBL_SCENES_INPUTS)
     print('CI done')
-
-
-if not CI_PASS_STATUS:
-    exit(-2)
+    if not CI_PASS_STATUS:
+        exit(-2)
