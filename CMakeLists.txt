@@ -136,8 +136,10 @@ macro(nbl_adjust_flags)
 			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
 			$<$<CONFIG:DEBUG>:-fstack-protector-strong>
 		)
-		
-		if(ANDROID)
+
+        if(APPLE)
+            include_directories(BEFORE SYSTEM "${_NBL_MACOS_PATCH_INCLUDE_}")
+		elseif(ANDROID)
 			add_compile_options(
 				$<$<CONFIG:DEBUG>:-glldb>
 			)
@@ -219,7 +221,7 @@ macro(nbl_adjust_flags)
 		
 		#reason for INCREMENTAL:NO: https://docs.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=vs-2019 /LTCG is not valid for use with /INCREMENTAL.
 		set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO /LTCG:incremental")
-	else()
+    else()
 		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
 	endif()
 endmacro()

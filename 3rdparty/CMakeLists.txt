@@ -50,7 +50,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
 
-
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
@@ -62,11 +61,16 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E rename zconf.h.included zconf.h
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 
+if(APPLE)
+    target_compile_options(zlibstatic PUBLIC "-includeunistd.h")
+endif()
+
 get_target_property(ZLIB_SOURCE_DIR zlibstatic "SOURCE_DIR")
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
 get_filename_component(_ORIGINAL_SOURCE_ "${ZLIB_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(_COPY_BIN_SOURCE_ "${ZLIB_BINARY_DIR}/copy_source" ABSOLUTE)
 
+# TODO: add coresponding custom command and mark proper dependencies [zlib_copy]
 add_custom_target(zlib_copy
 	COMMAND ${CMAKE_COMMAND} -E rm -Rf "${_COPY_BIN_SOURCE_}"
 	COMMAND ${CMAKE_COMMAND} -E copy_directory "${_ORIGINAL_SOURCE_}" "${_COPY_BIN_SOURCE_}"
@@ -240,6 +244,32 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+
+# MacOS patches
+if(APPLE)
+    set(_NBL_MACOS_PATCH_INCLUDE_ "${CMAKE_CURRENT_BINARY_DIR}/macos/include" CACHE INTERNAL "")
+
+    set(_NBL_MACOS_BYTESWAP_H_
+"#if defined(__APPLE__)\n\
+// Mac OS X / Darwin features\n\
+#include <libkern/OSByteOrder.h>\n\n\
+#define bswap_16(x) OSSwapInt16(x)\n\
+#define bswap_32(x) OSSwapInt32(x)\n\
+#define bswap_64(x) OSSwapInt64(x)\n\
+#endif // __APPLE__"
+    )
+
+    set(_NBL_MACOS_ENDIAN_H_
+"#if defined(__APPLE__)\n\
+#include <machine/endian.h>\n\
+#endif // __APPLE__"
+    )
+
+    file(WRITE "${_NBL_MACOS_PATCH_INCLUDE_}/byteswap.h" "${_NBL_MACOS_BYTESWAP_H_}")
+    file(WRITE "${_NBL_MACOS_PATCH_INCLUDE_}/endian.h" "${_NBL_MACOS_ENDIAN_H_}")
+
+    include_directories(BEFORE SYSTEM "${_NBL_MACOS_PATCH_INCLUDE_}")
+endif()
 
 option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
 option(GLM_TEST_ENABLE "Build unit tests" OFF)
