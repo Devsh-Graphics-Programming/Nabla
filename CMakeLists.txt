@@ -7,6 +7,10 @@ cmake_minimum_required(VERSION 3.26)
 cmake_policy(SET CMP0112 NEW)
 cmake_policy(SET CMP0042 NEW)
 
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "" FORCE)
+endif()
+
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)
@@ -112,18 +116,14 @@ macro(nbl_adjust_flags)
 	endif()
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-        if(NOT CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64")
-            add_compile_options(
-                -msse4.2
-                -mfpmath=sse
-                $<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
-            )
-        endif()
-
         add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
 			-fno-strict-aliasing
+                            
+            -msse4.2
+            -mfpmath=sse
+            $<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 			
 			-Wextra
 			-Wno-sequence-point
