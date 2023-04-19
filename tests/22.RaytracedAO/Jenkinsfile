@@ -14,6 +14,7 @@ stage('CMake')
 {
 	bat returnStatus: true, script: "cmake -DNBL_COMPILE_WITH_CUDA:BOOL=ON -DNBL_BUILD_OPTIX:BOOL=ON -DNBL_BUILD_MITSUBA_LOADER:BOOL=ON -DNBL_BUILD_RADEON_RAYS:BOOL=ON -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build -T v142"
 	bat "git -C ./3rdparty/gli reset --hard" // due to gli build system bug
+	bat "rmdir /s /q build" // prevent half-configured files
 	bat "cmake -DNBL_COMPILE_WITH_CUDA:BOOL=ON -DNBL_BUILD_OPTIX:BOOL=ON -DNBL_BUILD_MITSUBA_LOADER:BOOL=ON -DNBL_BUILD_RADEON_RAYS:BOOL=ON -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build -T v142"
 }
 
