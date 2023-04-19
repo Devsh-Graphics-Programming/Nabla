@@ -26,7 +26,7 @@ else:
     outp = open(outputFilename,"w+")
 
     outp.write("#ifndef _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
-    outp.write("#define _" + guardSuffix + "_BUILTINRESOURCEDATA_H\n")
+    outp.write("#define _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
     outp.write("#include <stdlib.h>\n")
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
