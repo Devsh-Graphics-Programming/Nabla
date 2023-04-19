@@ -18,7 +18,19 @@ stage('Compile programs')
 
 stage('Run all tests')
 {
-	bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py" // don't fail the build if unstable
+	status = bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py"
+	
+	if(status != "0")
+	{
+		if(status == "-2")
+		{
+			unstable "Some of RaytracedAO test's scenes have not passed the check!"
+		}
+		else
+		{
+			error "RaytracedAO test has failed!"
+		}
+	}
 }
 
 stage('Pack artifacts')
