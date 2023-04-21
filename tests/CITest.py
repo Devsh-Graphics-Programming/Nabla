@@ -12,14 +12,17 @@ def get_git_revision_hash(repo_dir, branch = "ditt") -> str:
 class CITest:
 
     # here are the methods that need to be implemented in a derived class
-    # optional override
-    def _impl_run_dummy_case(self):
-        return True
-
     # must override 
     def _impl_run_single(self, input_args) -> dict:
         pass
 
+    # optional override
+    def _impl_run_dummy_case(self):
+        return True
+
+    # optional override
+    def _impl_append_summary(self, summary: dict):
+        pass
 
 
     def _get_input_lines(self) :
@@ -63,8 +66,7 @@ class CITest:
         self.executable = Path(executable_filepath)
         self.input = Path(input_filepath)
         self.print_warnings = print_warnings
-        self.nabla_repo_root_dir = nabla_repo_root_dir
-        self._validate_filepaths()
+        self.nabla_repo_root_dir = Path(nabla_repo_root_dir)
 
    
     def _change_working_dir(self):
@@ -90,39 +92,55 @@ class CITest:
         file.close()
 
 
-    def run(self, inputParamList):
+    def run(self):
         self._change_working_dir()
+        self._validate_filepaths()
         summary = { 
             "commit": self.__get_commit_data(),
             "datetime": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
         }
         test_results = []
+        failures = 0
         ci_pass_status = True
-        if not self._impl_run_dummy_case():
+
+        dummy_run_result = self._impl_run_dummy_case()
+        summary["dummy_run_status"] = dummy_run_result 
+        if not dummy_run_result:
             ci_pass_status = False
         else:
             input_lines = self._get_input_lines()
             summary["num_of_tests"] = len(input_lines)
-            failures = 0
             testnum = 0
             for line in input_lines:
                 try:
+                    #update index of the test
                     testnum = testnum + 1
+
+                    # run the test
                     result = self._impl_run_single(line)
-                    result["index"] = testnum
+
+                    # result is a dictionary, add additional fields
+                    result["index"] = testnum 
+                    is_failure = not result["status"]
+
+                    # save the result of a single step to a json file
                     self._save_json(f"result_{self.alphanumeric_only_test_name}_{testnum}.json", result)
-                    is_failure = not result["pass_status"]
                     if is_failure:
                         failures = failures + 1
+                        if self.print_warnings:
+                            print(f"[INFO] Render input {line} is not passing the tests!")
+
                     test_results.append(result)
                 except Exception as ex:
                     print(f"[ERROR] Critical exception occured during testing input {line}: {str(ex)}")
                     ci_pass_status = False
                     summary["critical_errors"] = f"{line}: {str(ex)}"
+                    raise ex
                     break
         summary["failure_count"] = failures 
         summary["pass_status"] = ci_pass_status 
         summary["results"] = test_results
+        self._impl_append_summary(summary)
         self._save_json(f"summary_{self.alphanumeric_only_test_name}.json",summary)
         return ci_pass_status
 

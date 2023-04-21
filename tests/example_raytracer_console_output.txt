@@ -1,0 +1,130 @@
+PS W:\Work\Nabla\examples_tests\22.RaytracedAO\bin> W:\\Work\\Nabla\\examples_tests\\22.RaytracedAO\\bin\\raytracedao.exe -SCENE="../../media/mitsuba/bathroom.zip scene.xml" -PROCESS_SENSORS RenderAllThenTerminate 0
+Nabla Engine version 0.3.0-beta2
+Professional Edition  (Build 9200)
+default IrrlichtBAW material, defaultMaterial: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead
+NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2: NVIDIA Corporation
+GLSL version: 46.0
+Using renderer: OpenGL 4.6.0
+Resizing window (1920 1080)
+[INFO]: Loading XML file: bathroom/scene.xml
+Parse status: XML_STATUS_OK
+Total number of Sensors = 1
+Sensors[0] =
+         SamplesPerPixelNeeded = 64
+         Type = PERSPECTIVE
+         Camera Rotate Speed = 300 = [Default Value]
+         Camera Step Zoom Speed [Linear] = [Value will be deduced from Scene Bounds]
+         Camera Move Speed = [Value will be deduced from Scene Bounds]
+         IsRightHanded=TRUE
+         Camera Position = <0.00724053,0.912405,-0.227584>
+[WARN] Depth Range is too big: nearClip = 0.01, farClip = 10000
+         Camera Target = <-0.744638,0.927876,-0.886703>
+Scene Bound: -4.201400,-0.010631,-2.500000 -> 2.500000,2.792432,-0.049594
+
+Scene Resources Initialized:
+        lightCDF = 4 bytes
+        lights = 48 bytes
+        indexBuffer = 43747524 bytes
+        Indirect Draw Buffers[0] = 17920 bytes
+        Indirect Draw Buffers[1] = 17920 bytes
+        maxPathDepth = 17
+        noRussianRouletteDepth = 4
+        maxSamples = 65536
+
+[INFO] Sensor[0] Camera Step Zoom Speed deduced from scene bounds = 0.153324 [Linear], 1.041577 [Logarithmic]
+[INFO] Sensor[0] Camera Move Speed deduced from scene bounds = 15.332373
+[INFO] Rendering bathroom/scene.xml - Sensor(0) to file.
+Final Luminance Directionality = -nan(ind)
+New Regularization Factor based on Directionality = 0
+Re-Weighting Monte Carlo = DISABLED
+[INFO] Using 3 samples (per pixel) per dispatch
+
+Screen Sized Resources have been initialized (1024x1024)
+        StaticViewData = 48 bytes
+        ScrambleBuffer = 8388608 bytes
+        SampleSequence = 16777216 bytes
+        RayCount Buffer = 16 bytes
+        Intersection Buffer[0] = 100663296 bytes
+        Intersection Buffer[1] = 100663296 bytes
+        Ray Buffer[0] = 301989888 bytes
+        Ray Buffer[1] = 301989888 bytes
+
+Compute info
+------------
+0(3182) : warning C7050: "param_6" might be used before being initialized
+0(313) : warning C7050: "dUVdBary[0]" might be used before being initialized
+0(313) : warning C7050: "dUVdBary[1]" might be used before being initialized
+0(3210) : warning C7050: "param_26" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.isotropic.V.dir" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.isotropic.N" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.isotropic.NdotV" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.isotropic.NdotV_squared" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.T" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.B" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.TdotV" might be used before being initialized
+0(311) : warning C7050: "currInteraction.inner.BdotV" might be used before being initialized
+0(311) : warning C7050: "currInteraction.TdotV2" might be used before being initialized
+0(311) : warning C7050: "currInteraction.BdotV2" might be used before being initialized
+0(3225) : warning C7050: "param_28.color" might be used before being initialized
+0(3225) : warning C7050: "param_28.albedo" might be used before being initialized
+0(3225) : warning C7050: "param_28.worldspaceNormal" might be used before being initialized
+
+Compute info
+------------
+0(3206) : warning C7050: "param_5" might be used before being initialized
+0(327) : warning C7050: "dUVdBary[0]" might be used before being initialized
+0(327) : warning C7050: "dUVdBary[1]" might be used before being initialized
+0(3263) : warning C7050: "param_28" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.isotropic.V.dir" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.isotropic.N" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.isotropic.NdotV" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.isotropic.NdotV_squared" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.T" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.B" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.TdotV" might be used before being initialized
+0(325) : warning C7050: "currInteraction.inner.BdotV" might be used before being initialized
+0(325) : warning C7050: "currInteraction.TdotV2" might be used before being initialized
+0(325) : warning C7050: "currInteraction.BdotV2" might be used before being initialized
+0(3277) : warning C7050: "param_30.color" might be used before being initialized
+0(3277) : warning C7050: "param_30.albedo" might be used before being initialized
+0(3277) : warning C7050: "param_30.worldspaceNormal" might be used before being initialized
+
+[INFO] Rendering in progress - 14% Progress = 9/64 SamplesPerPixel.
+[INFO] Rendering in progress - 51% Progress = 33/64 SamplesPerPixel.
+[INFO] Rendering in progress - 79% Progress = 51/64 SamplesPerPixel.
+
+---[DENOISER_BEGIN]---
+
+W:\Work\Nabla\examples_tests\22.RaytracedAO\bin>pushd "W:\Work\Nabla\examples_tests\22.RaytracedAO\../39.DenoiserTonemapper/bin"
+
+W:\Work\Nabla\examples_tests\39.DenoiserTonemapper\bin>denoisertonemapper.exe -COLOR_FILE="W:\Work\Nabla\examples_tests\22.RaytracedAO\bin\Render_bathroom_scene.exr" -ALBEDO_FILE="W:\Work\Nabla\examples_tests\22.RaytracedAO\bin\Render_bathroom_scene_albedo.exr" -NORMAL_FILE="W:\Work\Nabla\examples_tests\22.RaytracedAO\bin\Render_bathroom_scene_normal.exr" -OUTPUT="W:\Work\Nabla\examples_tests\22.RaytracedAO\bin\Render_bathroom_scene_denoised.exr" -DENOISER_EXPOSURE_BIAS=0.0 -DENOISER_BLEND_FACTOR=0.0 -BLOOM_PSF_FILE=W:\Work\Nabla\examples_tests\media\kernels\physical_flare_512.exr -BLOOM_RELATIVE_SCALE=0.1 -BLOOM_INTENSITY=0.1 -TONEMAPPER=ACES=0.4,0.8 -CAMERA_TRANSFORM=1,0,0,0,1,0,0,0,1
+Nabla Engine version 0.3.0-beta2
+Professional Edition  (Build 9200)
+default IrrlichtBAW material, defaultMaterial: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead
+NVIDIA GeForce GTX 1060 6GB/PCIe/SSE2: NVIDIA Corporation
+GLSL version: 46.0
+Using renderer: OpenGL 4.6.0
+Resizing window (1280 720)
+Guess input from Commandline arguments
+Confirm input from Commandline arguments
+LOAD EXR: loading  RGBA file: physical_flare_512exr
+LOAD EXR: loading  RGBA file: Render_bathroom_sceneexr
+LOAD EXR: loading  RGBA file: Render_bathroom_scene_albedoexr
+LOAD EXR: loading  RGBA file: Render_bathroom_scene_normalexr
+WARNING (995): User did not specify channel choice for Image Input #0 called "W:\Work\Nabla\examples_tests\22.RaytracedAO\bin\Render_bathroom_scene.exr using the default (first).
+WARNING (995): User did not specify channel choice for Image Input #0 called "W:\Work\Nabla\examples_tests\22.RaytracedAO\bin\Render_bathroom_scene.exr using the default (first).
+WARNING (995): User did not specify channel choice for Image Input #0 called "W:\Work\Nabla\examples_tests\22.RaytracedAO\bin\Render_bathroom_scene.exr using the default (first).
+Total VRAM consumption for Denoiser algorithm: 394826240
+
+W:\Work\Nabla\examples_tests\39.DenoiserTonemapper\bin>popd
+
+---[DENOISER_END]---
+[INFO] Rendered Successfully - 103% Progress = 66/64 SamplesPerPixel - FileName = Render_bathroom_scene.png.
+
+[JSON] {
+    "output_tonemap" : "Render_bathroom_scene.exr",
+    "output_albedo" : "Render_bathroom_scene_albedo.exr",
+    "output_normal" : "Render_bathroom_scene_normal.exr",
+    "output_denoised" : "Render_bathroom_scene_denoised.exr"
+}
+[ENDJSON]
