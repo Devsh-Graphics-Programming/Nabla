@@ -360,7 +360,7 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-# just gather all the header files and later put them into project so it's easy to search for things using IDE
+# just gather all the header files and later put them into project so its easy to search for things using IDE
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
@@ -722,9 +722,9 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(simdjson)
 	nbl_install_lib(volk)
 	if(_NBL_BUILD_DPL_)
-		nbl_install_program(tbb)
-		nbl_install_program(tbbmalloc)
-		nbl_install_program(tbbmalloc_proxy)
+		#nbl_install_program(tbb)
+		#nbl_install_program(tbbmalloc)
+		#nbl_install_program(tbbmalloc_proxy)
 	endif()
 else()
 	nbl_install_program(Nabla)

@@ -69,7 +69,7 @@
 	url = https://github.com/Devsh-Graphics-Programming/oneTBB.git
 [submodule "3rdparty/pstl/oneDPL/oneDPL"]
 	path = 3rdparty/pstl/oneDPL/oneDPL
-	url = https://github.com/Devsh-Graphics-Programming/oneDPL.git
+	url = git@github.com:Devsh-Graphics-Programming/oneDPL.git
 [submodule "3rdparty/Vulkan-Headers"]
 	path = 3rdparty/Vulkan-Headers
 	url = git@github.com:KhronosGroup/Vulkan-Headers.git

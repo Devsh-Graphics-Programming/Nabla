@@ -5,7 +5,7 @@
 #ifndef _NBL_CORE_EXECUTION_H_INCLUDED_
 #define _NBL_CORE_EXECUTION_H_INCLUDED_
 
-#if __has_include (<execution>)
+#if __has_include (<execution>) and not defined(__clang__)
 #include <execution>
 #include <algorithm>
 #else

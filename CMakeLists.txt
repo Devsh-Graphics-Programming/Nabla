@@ -275,8 +275,6 @@ endif()
 #uncomment in the future
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
-option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
-
 option(NBL_PCH "Enable pre-compiled header" ON)
 
 option(NBL_FAST_MATH "Enable fast low-precision math" ON)

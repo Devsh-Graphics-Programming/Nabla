@@ -431,7 +431,7 @@ macro(nbl_android_create_apk _TARGET)
 	set(NBL_APK_OBJ_DIR obj)
 	set(NBL_APK_BIN_DIR bin)
 	set(NBL_APK_ASSETS_DIR assets)
-	
+
 	if(EXISTS ${ASSET_SOURCE_DIR})
 		add_custom_command(
 			OUTPUT ${APK_FILE}
@@ -444,10 +444,10 @@ macro(nbl_android_create_apk _TARGET)
 			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_OBJ_DIR}
 			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_BIN_DIR}
 			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_ASSETS_DIR}
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbb> libs/lib/x86_64/$<TARGET_FILE_NAME:tbb>
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc>
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc_proxy> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc_proxy>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbb> libs/lib/x86_64/$<TARGET_FILE_NAME:tbb>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc_proxy> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc_proxy>
 			COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSET_SOURCE_DIR} ${NBL_APK_ASSETS_DIR}
 			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
 			COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
@@ -472,10 +472,10 @@ macro(nbl_android_create_apk _TARGET)
 			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_LIBRARY_DIR}
 			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_OBJ_DIR}
 			COMMAND ${CMAKE_COMMAND} -E make_directory ${NBL_APK_BIN_DIR}
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbb> libs/lib/x86_64/$<TARGET_FILE_NAME:tbb>
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc>
-			COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc_proxy> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc_proxy>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${_TARGET}> libs/lib/x86_64/$<TARGET_FILE_NAME:${_TARGET}>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbb> libs/lib/x86_64/$<TARGET_FILE_NAME:tbb>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc>
+			#COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tbbmalloc_proxy> libs/lib/x86_64/$<TARGET_FILE_NAME:tbbmalloc_proxy>
 			COMMAND ${ANDROID_BUILD_TOOLS}/aapt package -f -m -J src -M AndroidManifest.xml -I ${ANDROID_JAR}
 			COMMAND ${ANDROID_JAVA_BIN}/javac -d ./obj -source 1.7 -target 1.7 -bootclasspath ${ANDROID_JAVA_RT_JAR} -classpath "${ANDROID_JAR}" -sourcepath src ${NBL_ANDROID_LOADER_JAVA}
 			COMMAND ${DEX_COMMAND}
