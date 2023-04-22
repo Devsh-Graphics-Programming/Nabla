@@ -9,6 +9,12 @@ cmake_policy(SET CMP0042 NEW)
 
 if(APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "" FORCE)
+    
+    if("${CMAKE_GENERATOR}" STREQUAL "Xcode")
+        if(NOT "${CMAKE_GENERATOR_TOOLSET}" STREQUAL "buildsystem=1")
+            message("Nabla build isn't supported with new Xcode buildsystem, you must specify CMake generator toolset as '-T buildsystem=1' in order to use legacy Xcode build system")
+        endif()
+    endif()
 endif()
 
 set(NBL_BUILD_ANDROID OFF)
