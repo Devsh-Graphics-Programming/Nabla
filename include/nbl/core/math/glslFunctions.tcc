@@ -10,6 +10,10 @@
 #include "nbl/core/math/floatutil.tcc"
 #include "matrix4SIMD.h"
 
+#if defined(__clang__)
+#include <boost/math/special_functions/bessel.hpp>
+#endif //__clang__
+
 #include <cmath>
 #include <numeric>
 
@@ -482,7 +486,11 @@ NBL_FORCE_INLINE vectorSIMDf cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, con
 template<typename T>
 NBL_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x)
 {
-	return std::cyl_bessel_i(double(v),double(x));
+    #if defined(__clang__)
+    return boost::math::cyl_bessel_i(double(v),double(x));
+    #else
+    return std::cyl_bessel_i(double(v),double(x));
+    #endif
 }
 
 template<>
@@ -493,7 +501,11 @@ NBL_FORCE_INLINE vectorSIMDf d_cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, c
 template<typename T>
 NBL_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x)
 {
-	return 0.5*(std::cyl_bessel_i(double(v)-1.0,double(x))+std::cyl_bessel_i(double(v)+1.0,double(x)));
+    #if defined(__clang__)
+    return 0.5*(boost::math::cyl_bessel_i(double(v)-1.0,double(x))+boost::math::cyl_bessel_i(double(v)+1.0,double(x)));
+    #else
+    return 0.5*(std::cyl_bessel_i(double(v)-1.0,double(x))+std::cyl_bessel_i(double(v)+1.0,double(x)));
+    #endif
 }
 #endif
 

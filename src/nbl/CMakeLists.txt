@@ -554,6 +554,11 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
+# Clang special math functions (libc++ shipped on MacOSes doesnt implement some of the special functions)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+	target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/boost/standalone/math/include")
+endif()
+
 # DXC
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)

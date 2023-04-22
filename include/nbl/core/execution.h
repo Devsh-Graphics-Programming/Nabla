@@ -26,8 +26,10 @@ inline auto highLevelF(Args&&... args) -> decltype(lowLevelF(std::forward<Args>(
 
 namespace nbl::core
 {
-#if __has_include(<execution>)
+#if __has_include(<execution>) and not defined(__clang__)
 namespace execution = std::execution;
+
+#include <execution>
 
 ALIAS_TEMPLATE_FUNCTION(for_each_n, std::for_each_n)
 ALIAS_TEMPLATE_FUNCTION(for_each, std::for_each)
@@ -42,7 +44,7 @@ ALIAS_TEMPLATE_FUNCTION(nth_element, std::nth_element)
 //template <class _ExPo, class _FwdIt1, class _FwdIt2>
 //const auto swap_ranges = std::swap_ranges<_ExPo, _FwdIt1, _FwdIt2>;
 #else
-namespace execution = oneapi::dpl::execution;
+namespace execution = oneapi::dpl::execution; // TODO: fix those targets it in order to make Nabla compile again with any clang
 
 ALIAS_TEMPLATE_FUNCTION(for_each_n, oneapi::dpl::for_each_n)
 ALIAS_TEMPLATE_FUNCTION(for_each, oneapi::dpl::for_each)

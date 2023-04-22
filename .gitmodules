@@ -84,3 +84,6 @@
 [submodule "3rdparty/tcpp"]
 	path = 3rdparty/tcpp
 	url = git@github.com:Erfan-Ahmadi/tcpp.git
+[submodule "3rdparty/boost/standalone/math"]
+	path = 3rdparty/boost/standalone/math
+	url = git@github.com:boostorg/math.git
