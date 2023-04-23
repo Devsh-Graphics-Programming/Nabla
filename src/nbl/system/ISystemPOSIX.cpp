@@ -9,13 +9,20 @@ using namespace nbl::system;
 #if defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
 
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 
 core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile(const std::filesystem::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags)
 {	
     const bool writeAccess = flags.value&IFile::ECF_WRITE;
-	int createFlags = O_LARGEFILE|(writeAccess ? O_CREAT:0);
+    
+#if defined(__APPLE__)
+    int createFlags = (writeAccess ? O_CREAT:0);
+#else
+    int createFlags = O_LARGEFILE|(writeAccess ? O_CREAT:0);
+#endif
+    
 	switch (flags.value&IFile::ECF_READ_WRITE)
 	{
 		case IFile::ECF_READ:
