@@ -26,9 +26,13 @@ set(ONETBB_INSTALL_DIR ${ONETBB_BUILD}/install CACHE STRING "oneTBB install dire
 add_custom_target(onetbb_build 
 	COMMAND ${CMAKE_COMMAND} --install ${ONETBB_BUILD} --component devel -v --config $<CONFIG> --prefix ${ONETBB_INSTALL_DIR}
 	COMMAND ${CMAKE_COMMAND} --install ${ONETBB_BUILD} --component runtime -v --config $<CONFIG> --prefix ${ONETBB_INSTALL_DIR}
-	DEPENDS tbb tbbmalloc #tbbmalloc_proxy
 	COMMENT "Building oneTBB..."
 )
+add_dependencies(onetbb_build tbb tbbmalloc)
+
+if(NOT (APPLE AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang"))
+    add_dependencies(onetbb_build tbbmalloc_proxy)
+endif()
 
 set(ONEDPL_BUILD ${CCBD_ABSOLUTE}/oneDPL/build)
 set(ONEDPL_INSTALL_DIR ${ONEDPL_BUILD}/install CACHE STRING "oneDPL install directory" FORCE)
