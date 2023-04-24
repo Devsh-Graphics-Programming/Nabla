@@ -70,7 +70,8 @@ class CITest:
 
    
     def _change_working_dir(self):
-        os.chdir(self.executable.parent.absolute()) 
+        self.working_dir = self.executable.parent.absolute()
+        os.chdir(self.working_dir) 
 
 
     def _validate_filepaths(self):
@@ -97,14 +98,18 @@ class CITest:
         self._validate_filepaths()
         summary = { 
             "commit": self.__get_commit_data(),
-            "datetime": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+            "datetime": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
+            "pass_status": 'pending'
         }
+        self._impl_append_summary(summary)
         test_results = []
         failures = 0
         ci_pass_status = True
 
         dummy_run_result = self._impl_run_dummy_case()
-        summary["dummy_run_status"] = dummy_run_result 
+        summary["dummy_run_status"] = 'passed' if dummy_run_result else 'failed' 
+        summary["results"] = test_results
+
         if not dummy_run_result:
             ci_pass_status = False
         else:
@@ -121,16 +126,16 @@ class CITest:
 
                     # result is a dictionary, add additional fields
                     result["index"] = testnum 
-                    is_failure = not result["status"]
+                    is_failure = result["status"] == 'failed'
 
-                    # save the result of a single step to a json file
-                    self._save_json(f"result_{self.alphanumeric_only_test_name}_{testnum}.json", result)
                     if is_failure:
                         failures = failures + 1
                         if self.print_warnings:
                             print(f"[INFO] Render input {line} is not passing the tests!")
 
                     test_results.append(result)
+                    # save the result of a single step to a json file
+                    self._save_json(f"summary_{self.alphanumeric_only_test_name}.json",summary)
                 except Exception as ex:
                     print(f"[ERROR] Critical exception occured during testing input {line}: {str(ex)}")
                     ci_pass_status = False
@@ -138,9 +143,7 @@ class CITest:
                     raise ex
                     break
         summary["failure_count"] = failures 
-        summary["pass_status"] = ci_pass_status 
-        summary["results"] = test_results
-        self._impl_append_summary(summary)
+        summary["pass_status"] = 'passed' if ci_pass_status else 'failed'  
         self._save_json(f"summary_{self.alphanumeric_only_test_name}.json",summary)
         return ci_pass_status
 

@@ -19,6 +19,7 @@ sys.path.append(parent)
 from CITest import *
 
 EPSILON = "0.00001"         
+NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
 
 class ErrorThresholdType(Enum):
     ABSOLUTE = 1
@@ -63,7 +64,7 @@ class RendersTest(CITest):
                 diff_images_dir_name = "diff_images",
                 error_threshold_type = ErrorThresholdType.ABSOLUTE,
                 error_threshold_value = 0.05,
-                allowed_error_pixel_count = 100,
+                allowed_error_pixel_count = 100.0,
                 ssim_error_threshold_value = 0.001,
                 print_warnings = True
                 ):
@@ -71,7 +72,7 @@ class RendersTest(CITest):
         self.references_repo_dir = Path(references_repo_dir)
         self.data_dir = Path(str(self.nabla_repo_root_dir.absolute()) + data_dir)
         self.data_renders_rel_dir = "/" + renders_dir_name + "/" + profile
-        self.data_renders_abs_dir = Path(str(self.data_dir.absolute())+ self.data_renders_rel_dir)
+        self.data_renders_abs_dir = Path(str(self.data_dir.absolute()) + self.data_renders_rel_dir)
         self.data_references_rel_dir = "/" + references_dir_name + "/" + profile
         self.data_references_abs_dir = Path(str(self.data_dir.absolute())+ self.data_references_rel_dir)
         self.data_diffs_rel_dir = "/" + diff_images_dir_name + "/" + profile
@@ -83,9 +84,11 @@ class RendersTest(CITest):
         self.ssim_error_threshold_value = float(ssim_error_threshold_value)
         self.cout_json_regex = re.compile(r"(?<=\[JSON\] )(.+[\n\r]*)+(?=[\n\r]*\[ENDJSON\])")
 
+    def __get_lds_hash(self):
+        executor = f'git hash-object {NBL_REF_LDS_CACHE_FILENAME}'
+        return subprocess.run(executor, capture_output=True).stdout.decode().strip()
 
     def _impl_run_dummy_case(self):
-        NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
         reference_lds_cache_exists = bool(Path(str(self.data_references_abs_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).exists())
 
         generatedReferenceCache = NBL_REF_LDS_CACHE_FILENAME
@@ -140,7 +143,7 @@ class RendersTest(CITest):
     
     
     def __image_pixel_count(self, image):
-        params = f'magick convert {image} -format "%[fx:w]" info:'
+        params = f' convert "{image}" -format "%[fx:w*h]" info:'
         executor =  self.image_magick_exe + params
         pixel_count = float(subprocess.run(executor, capture_output=True).stdout.decode().strip())
         return pixel_count
@@ -158,12 +161,13 @@ class RendersTest(CITest):
 
         if self.error_threshold_type == ErrorThresholdType.ABSOLUTE:
             passing = float(error_pixel_count) <= self.allowed_error_pixel_count
-            details = f"Errors: {error_pixel_count}"
+            details = f"Errors: {error_pixel_count} / {self.allowed_error_pixel_count}"
         if self.error_threshold_type == ErrorThresholdType.RELATIVE_TO_RESOLUTION:
-            pixel_count = self.__image_pixel_count(render)
+            pixel_count = self.__image_pixel_count(str(self.working_dir)+"/"+render)
             error_ratio = float(error_pixel_count) / pixel_count
             passing = error_ratio <= self.allowed_error_pixel_count
-            details = f"Errors: {error_pixel_count} ({error_ratio*100.0}%)"
+            allowed_error_count = self.allowed_error_pixel_count * pixel_count
+            details = f"Errors: {error_pixel_count} ({error_ratio*100.0}%) / {allowed_error_count} ({self.allowed_error_pixel_count*100}%)"
         return passing, details
 
 
@@ -177,6 +181,7 @@ class RendersTest(CITest):
         input_args = input_args.strip("\n\r ")
         results_images = []
         result_status = True
+        result_color = "green"
         scene_name = None
         raytracer_bash_command = str(self.executable.absolute()) + ' -SCENE=' + input_args + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
         console_output = subprocess.run(raytracer_bash_command, capture_output=True).stdout.decode().strip()
@@ -213,9 +218,10 @@ class RendersTest(CITest):
                 if not reference_exists:
                     if self.print_warnings:
                         print(f"[WARNING] File {filepath} does not have a reference")
-                    results_image["status"] = "PASSED"
+                    results_image["status"] = "passed"
                     results_image["status_color"] = "orange"
                     results_image["details"] = "Missing reference" 
+                    result_color = "orange"
                     results_image["render"] = str(render_store_filepath_rel) 
                 
                     shutil.copy(filepath, reference_store_filepath)
@@ -234,21 +240,48 @@ class RendersTest(CITest):
                     results_image["reference"] = reference_store_filepath_rel
                     results_image["differnce"] = difference_store_filepath_rel
                     if not status:
-                        results_image["status"] = "FAILED"
+                        results_image["status"] = "failed"
                         results_image["status_color"] = "red"
                         result_status = False
+                        result_color = "red"
                     else:
-                        results_image["status"] = "PASSED"
+                        results_image["status"] = "passed"
                         results_image["status_color"] = "green"
                     shutil.copy(reference_filepath, reference_store_filepath)
                     shutil.move(filepath, render_storage_filepath)
                 results_images.append(results_image)
                 #move files
         return {
-            'status': result_status,
-            'scene_name' : scene_name,
-            'array' : results_images
+            'status': 'passed' if result_status else 'failed',
+            'status_color': result_color,
+            'scene_name': scene_name,
+            'array': results_images
         }
+    
+    def _impl_append_summary(self, summary: dict):
+        summary["lds_cache_hash"] = self.__get_lds_hash()
+        summary["error_threshold_type"] =  "absolute" if self.error_threshold_type == ErrorThresholdType.ABSOLUTE else "relative"
+        summary["error_threshold_value"] = str(self.error_threshold_value)
+        summary["allowed_error_pixel_count"] = str(self.allowed_error_pixel_count)
+        summary["ssim_error_threshold_value"] = str(self.ssim_error_threshold_value)
+    
+    
+
+
+def run_all_tests(args):
+    CI_PASS_STATUS=RendersTest(test_name="public",
+                    executable_filepath=args[1],
+                    input_filepath=args[2],
+                    nabla_repo_root_dir=args[3],
+                    image_magick_exe=args[4],
+                    references_repo_dir=args[5],
+                    data_dir=args[6],
+                    error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
+                    allowed_error_pixel_count=0.001
+                    ).run()
+    print('CI done')
+    if not CI_PASS_STATUS:
+        exit(-2)
 
 
 if __name__ == '__main__':
@@ -259,21 +292,12 @@ if __name__ == '__main__':
         "W:/Work/Nabla/examples_tests/media/mitsuba/public_test_scenes.txt",
         "W:/Work/Nabla",
         "D:/Programs/ImageMagick-7.1.0-Q16-HDRI/magick.exe",
-        "W:/Work/Nabla/ci/22.RaytracedAO/references/public",
-        "examples_tests/22.RaytracedAO/bin"
-        ]
+        "W:/Work/Nabla/examples_tests/22.RaytracedAO/bin/test_references/public",
+        "/examples_tests/22.RaytracedAO/bin",
 
+        ]
 
     for i, arg in enumerate(sys.argv):
         print(f"{i:>6}: {arg}")
-    CI_PASS_STATUS=RendersTest(test_name="public",
-                executable_filepath=args[1],
-                input_filepath=args[2],
-                nabla_repo_root_dir=args[3],
-                image_magick_exe=args[4],
-                references_repo_dir=args[5],
-                data_dir=args[6]
-                ).run()
-    print('CI done')
-    if not CI_PASS_STATUS:
-        exit(-2)
+    run_all_tests(args)
+    
