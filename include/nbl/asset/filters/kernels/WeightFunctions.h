@@ -231,6 +231,9 @@ concept KernelWeightFunction1D = requires(T t, const float x, const uint8_t chan
 	{ t.weight(x, channel) }	-> std::same_as<double>;
 	{ t.getMinSupport() }		-> std::same_as<float>;
 	{ t.getMaxSupport() }		-> std::same_as<float>;
+	{ t.stretch(x) }			-> std::same_as<void>;
+	{ t.scale(x) }				-> std::same_as<void>;
+	{ t.stretchAndScale(x) }	-> std::same_as<void>;
 };
 
 template <typename Function1D, int32_t derivative = 0>

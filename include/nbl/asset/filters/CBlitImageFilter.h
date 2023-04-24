@@ -95,8 +95,7 @@ class CBlitImageFilter :
 		using value_t = blit_utils_t::value_type;
 		using base_t = CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>;
 
-		// TODO(achal): Get it from somewhere.
-		static inline constexpr auto MaxChannels = 4u; // blit_utils_t::MaxChannels;
+		static inline constexpr auto MaxChannels = blit_utils_t::MaxChannels;
 
 	public:
 		virtual ~CBlitImageFilter() {}

@@ -36,15 +36,13 @@ public:
 	}
 };
 
-// TODO(achal): All the following typenames should be replaced by a C++20 concept, which ensures that:
-// 1. {Reconstruction/Resampling}Function* has a stretch method defined on it.
 template<
-	typename ReconstructionFunctionX	= CWeightFunction1D<SBoxFunction>,
-	typename ResamplingFunctionX		= ReconstructionFunctionX,
-	typename ReconstructionFunctionY	= ReconstructionFunctionX,
-	typename ResamplingFunctionY		= ResamplingFunctionX,
-	typename ReconstructionFunctionZ	= ReconstructionFunctionX,
-	typename ResamplingFunctionZ		= ResamplingFunctionX>
+	KernelWeightFunction1D ReconstructionFunctionX	= CWeightFunction1D<SBoxFunction>,
+	KernelWeightFunction1D ResamplingFunctionX		= ReconstructionFunctionX,
+	KernelWeightFunction1D ReconstructionFunctionY	= ReconstructionFunctionX,
+	KernelWeightFunction1D ResamplingFunctionY		= ResamplingFunctionX,
+	KernelWeightFunction1D ReconstructionFunctionZ	= ReconstructionFunctionX,
+	KernelWeightFunction1D ResamplingFunctionZ		= ResamplingFunctionX>
 class CBlitUtilities : public IBlitUtilities
 {
 public:
@@ -185,7 +183,6 @@ public:
 		return windowSize;
 	}
 
-	// TODO(achal): This can be just a simple lambda in computeScaledKernelPhasedLUT.
 	template <typename LutDataType>
 	static inline core::vectorSIMDu32 getScaledKernelPhasedLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& windowSize)
 	{

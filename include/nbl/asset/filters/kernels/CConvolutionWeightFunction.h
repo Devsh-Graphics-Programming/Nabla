@@ -9,7 +9,7 @@
 namespace nbl::asset
 {
 
-// If we allow the user to specify a derivative of CConvolutionWeightFunction1D then there will be the follwing problem:
+// If we allow the user to specify a derivative of CConvolutionWeightFunction1D then there will be the following problem:
 // There will be no way for us to evaluate the constituent functions (m_funcA, m_funcB) on an arbitrary derivative because
 // `derivative` is a class template member not a function template member (done to handle chain rule) of CWeightFunction1D.
 // So, we would have to create new `CWeightFunction1D`s entirely and use them (not just here, but in the various specializations
@@ -122,9 +122,7 @@ private:
 
 	std::pair<double, double> getIntegrationDomain(const float x) const
 	{
-		// The following if-else checks to figure out integration domain assumes that the wider function
-		// is stationary while the narrow one is "moving".
-		// We assume that the wider kernel is stationary (not shifting as `x` changes) while the narrower kernel is the one which shifts, such that it is always centered at x.
+		// We assume that the wider function is stationary (not shifting as `x` changes) while the narrower function is the one which shifts, such that it is always centered at x.
 
 		const float funcNarrowMinSupport = m_isFuncAWider ? m_funcB.getMinSupport() : m_funcA.getMinSupport();
 		const float funcNarrowMaxSupport = m_isFuncAWider ? m_funcB.getMaxSupport() : m_funcA.getMaxSupport();
