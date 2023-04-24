@@ -6,7 +6,7 @@
 namespace nbl::system
 {
 
-#if defined(_NBL_PLATFORM_ANDROID_) | defined(_NBL_PLATFORM_LINUX_)
+#if defined(_NBL_PLATFORM_ANDROID_) || defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_MACOS_)
 class CFilePOSIX : public ISystemFile
 {
 	public:

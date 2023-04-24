@@ -9,7 +9,7 @@
 namespace nbl::system
 {
 
-#if defined(_NBL_PLATFORM_LINUX_) || defined (_NBL_PLATFORM_ANDROID_)
+#if defined(_NBL_PLATFORM_LINUX_) || defined (_NBL_PLATFORM_ANDROID_) || defined (_NBL_PLATFORM_MACOS_)
 class ISystemPOSIX : public ISystem
 {
     protected:

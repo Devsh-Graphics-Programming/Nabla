@@ -28,8 +28,8 @@ IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures)
     if (HMODULE mod = GetModuleHandleA("renderdoc.dll"))
 #elif defined(_NBL_PLATFORM_ANDROID_)
     if (void* mod = dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
-#elif defined(_NBL_PLATFORM_LINUX_)
-    if (void* mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
+#elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_MACOS_)
+    if (void* mod = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD)) // TODO: check it on MacOS
 #else
 #error "Nabla Unsupported Platform!"
 #endif
@@ -39,8 +39,8 @@ IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures)
             (pRENDERDOC_GetAPI)GetProcAddress(mod, "RENDERDOC_GetAPI");
         int ret = RENDERDOC_GetAPI(MinRenderdocVersion, (void**)&m_rdoc_api);
         assert(ret == 1);
-    #elif defined(_NBL_PLATFORM_ANDROID_) || defined(_NBL_PLATFORM_LINUX_)
-        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI");
+    #elif defined(_NBL_PLATFORM_ANDROID_) || defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_MACOS_)
+        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod, "RENDERDOC_GetAPI"); // TODO: check it on MacOS
         int ret = RENDERDOC_GetAPI(MinRenderdocVersion, (void**)&m_rdoc_api);
         assert(ret == 1);
     #endif

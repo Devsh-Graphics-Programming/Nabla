@@ -49,6 +49,8 @@ class NBL_API2 CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32, ISu
 // TODO: later, not this week
 #elif defined _NBL_PLATFORM_ANDROID_
 // TODO: later, not this week
+#elif defined(_NBL_PLATFORM_MACOS_)
+// TODO: later, not this week ( ͡° ͜ʖ ͡°)
 #endif
 }
 

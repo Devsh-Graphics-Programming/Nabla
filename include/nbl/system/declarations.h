@@ -27,6 +27,8 @@
 #elif defined(_NBL_PLATFORM_LINUX_)
 #	include "nbl/system/CColoredStdoutLoggerANSI.h"
 #	include "nbl/system/CSystemLinux.h"
+#elif defined(_NBL_PLATFORM_MACOS_)
+#   include "nbl/system/CSystemMacOS.h"
 #else
 	#error "Unsupported Platform"
 #endif // TODO more platforms (android)

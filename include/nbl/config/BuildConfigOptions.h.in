@@ -18,6 +18,7 @@
 #cmakedefine _NBL_PLATFORM_LINUX_
 #cmakedefine _NBL_PLATFORM_OSX_
 #cmakedefine _NBL_PLATFORM_ANDROID_
+#cmakedefine _NBL_PLATFORM_MACOS_
 
 // graphics API backend
 #cmakedefine _NBL_COMPILE_WITH_VULKAN_
