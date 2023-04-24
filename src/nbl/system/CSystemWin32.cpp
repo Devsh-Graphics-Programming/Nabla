@@ -5,7 +5,6 @@ using namespace nbl;
 using namespace nbl::system;
 
 #ifdef _NBL_PLATFORM_WINDOWS_
-#include <windows.h>
 #include <powerbase.h>
 
 //LOL the struct definition wasn't added to winapi headers do they ask to declare them yourself

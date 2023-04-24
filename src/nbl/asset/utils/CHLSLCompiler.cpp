@@ -15,6 +15,7 @@
 #include <sstream>
 #include <regex>
 #include <iterator>
+#include <codecvt>
 
 #define TCPP_IMPLEMENTATION
 #include <tcpp/source/tcppLibrary.hpp>

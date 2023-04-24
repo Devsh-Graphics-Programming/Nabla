@@ -166,6 +166,7 @@ set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
 )
 set(NBL_SYSTEM_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/system/DefaultFuncPtrLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/IFileBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
@@ -173,6 +174,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CAPKResourcesArchive.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CColoredStdoutLoggerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CStdoutLoggerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorPOSIX.cpp
@@ -186,8 +188,7 @@ set(NBL_SYSTEM_SOURCES
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CGraphicalApplicationAndroid.cpp
 )

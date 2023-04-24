@@ -65,10 +65,9 @@ namespace nbl::asset::impl
 
 			virtual void write(const char c[/*n*/], int n) override
 			{
-				system::ISystem::future_t<size_t> future;
-				nblFile->write(future, c, fileOffset, n);
-				const auto bytesWritten = future.get();
-				fileOffset += bytesWritten;
+				system::IFile::success_t success;
+				nblFile->write(success, c, fileOffset, n);
+				fileOffset += success.getBytesProcessed();
 			}
 
 			//---------------------------------------------------------

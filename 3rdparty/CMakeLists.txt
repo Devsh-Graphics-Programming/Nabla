@@ -51,10 +51,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
 
-# TODO: redo
-# find_package(Wayland)  # TODO: remove, load Wayland dynamically
-
-
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
