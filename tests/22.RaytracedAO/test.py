@@ -65,7 +65,7 @@ class RendersTest(CITest):
                 error_threshold_type = ErrorThresholdType.ABSOLUTE,
                 error_threshold_value = 0.05,
                 allowed_error_pixel_count = 100.0,
-                ssim_error_threshold_value = 0.001,
+                ssim_error_threshold_value = 0.0001,
                 print_warnings = True
                 ):
         super().__init__(test_name, executable_filepath, input_filepath, nabla_repo_root_dir, print_warnings)
@@ -166,8 +166,8 @@ class RendersTest(CITest):
             pixel_count = self.__image_pixel_count(str(self.working_dir)+"/"+render)
             error_ratio = float(error_pixel_count) / pixel_count
             passing = error_ratio <= self.allowed_error_pixel_count
-            allowed_error_count = self.allowed_error_pixel_count * pixel_count
-            details = f"Errors: {error_pixel_count} ({error_ratio*100.0}%) / {allowed_error_count} ({self.allowed_error_pixel_count*100}%)"
+            allowed_error_count = int(self.allowed_error_pixel_count * pixel_count)
+            details = f"Errors: {error_pixel_count} ({error_ratio*100.0:.4f}%) / {allowed_error_count} ({self.allowed_error_pixel_count*100:.4f}%)"
         return passing, details
 
 
@@ -230,7 +230,7 @@ class RendersTest(CITest):
                     status = True
                     if render_type == "denoised":
                         ssim_diff = self.__ssim_test(filepath, reference_filepath)
-                        results_image["details"] = "Difference (SSIM): " + str(ssim_diff)
+                        results_image["details"] = "Difference (SSIM): " + f'{ssim_diff:.4f}'
                         status = self.ssim_error_threshold_value > ssim_diff
                     else:
                         status, details = self.__histogram_test(filepath, reference_filepath)
@@ -277,7 +277,7 @@ def run_all_tests(args):
                     references_repo_dir=args[5],
                     data_dir=args[6],
                     error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
-                    allowed_error_pixel_count=0.001
+                    allowed_error_pixel_count=0.0001
                     ).run()
     print('CI done')
     if not CI_PASS_STATUS:
