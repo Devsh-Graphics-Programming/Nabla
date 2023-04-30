@@ -99,7 +99,8 @@ class CITest:
         summary = { 
             "commit": self.__get_commit_data(),
             "datetime": datetime.datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
-            "pass_status": 'pending'
+            "pass_status": 'pending',
+            "identifier": self.test_name
         }
         self._impl_append_summary(summary)
         test_results = []
@@ -129,6 +130,8 @@ class CITest:
                     is_failure = result["status"] == 'failed'
 
                     if is_failure:
+                        ci_pass_status = False
+                        summary["pass_status"] = "pending/failed"
                         failures = failures + 1
                         if self.print_warnings:
                             print(f"[INFO] Render input {line} is not passing the tests!")
@@ -140,7 +143,6 @@ class CITest:
                     print(f"[ERROR] Critical exception occured during testing input {line}: {str(ex)}")
                     ci_pass_status = False
                     summary["critical_errors"] = f"{line}: {str(ex)}"
-                    raise ex
                     break
         summary["failure_count"] = failures 
         summary["pass_status"] = 'passed' if ci_pass_status else 'failed'  

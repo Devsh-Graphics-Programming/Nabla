@@ -87,7 +87,10 @@ class RendersTest(CITest):
     def __get_lds_hash(self):
         executor = f'git hash-object {NBL_REF_LDS_CACHE_FILENAME}'
         return subprocess.run(executor, capture_output=True).stdout.decode().strip()
-
+    
+    def __get_ref_repo_hash(self):
+        return get_git_revision_hash(self.references_repo_dir)
+        
     def _impl_run_dummy_case(self):
         reference_lds_cache_exists = bool(Path(str(self.data_references_abs_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).exists())
 
@@ -264,6 +267,7 @@ class RendersTest(CITest):
         summary["error_threshold_value"] = str(self.error_threshold_value)
         summary["allowed_error_pixel_count"] = str(self.allowed_error_pixel_count)
         summary["ssim_error_threshold_value"] = str(self.ssim_error_threshold_value)
+        summary["reference_repo_hash"] = self.__get_ref_repo_hash()
     
     
 
