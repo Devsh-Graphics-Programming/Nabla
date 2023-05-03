@@ -30,7 +30,7 @@ public:
             return *file;
     }
     
-    core::vector<SListEntry> populateItemList(const path& p) {
+    void populateItemList(const path& p) {
         std::unique_lock lock(itemMutex);
         auto items = m_system->listItemsInDirectory(m_defaultAbsolutePath/p);
         m_items.clear();
