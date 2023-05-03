@@ -39,8 +39,8 @@ public:
         {
             if (item.has_extension())
             {
-                auto p2 = item.lexically_relative(m_defaultAbsolutePath);
-                auto entry = SListEntry{ p2,0xdeadbeefu,0xdeadbeefu,0xdeadbeefu ,EAT_NONE };
+                auto relpath = std::filesystem::relative(m_defaultAbsolutePath, item);
+                auto entry = SListEntry{ relpath, 0xdeadbeefu, 0xdeadbeefu, 0xdeadbeefu, EAT_NONE };
                 m_items.push_back(entry);
             }
         }
