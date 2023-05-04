@@ -20,6 +20,10 @@ from CITest import *
 
 EPSILON = "0.00001"         
 NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
+PUT_REFERENCES_IN_FOLDERS = True
+PUT_DIFFERENCES_IN_FOLDERS = False
+PUT_RENDERS_IN_FOLDERS = False
+
 
 class ErrorThresholdType(Enum):
     ABSOLUTE = 1
@@ -197,24 +201,27 @@ class RendersTest(CITest):
                     "filename": filepath.split("/")[-1].split("\\")[-1]
                 }
                 if scene_name is None:
-                    scene_name = results_image["filename"].split(".")[0]
-                reference_filepath = Path(str(self.references_repo_dir) + '/' + filepath)
+                    scene_name = results_image["filename"].split(".")[0].replace('/', '_').replace('\\','_').removeprefix("Render_")
+                    ref_subdir = (('/'+scene_name) if PUT_REFERENCES_IN_FOLDERS else '') 
+                    diff_subdir = (('/'+scene_name) if PUT_DIFFERENCES_IN_FOLDERS else '') 
+                    render_subdir = (('/'+scene_name) if PUT_RENDERS_IN_FOLDERS else '') 
+                reference_filepath = Path(str(self.references_repo_dir) + ref_subdir + '/' + filepath)
 
-                reference_store_filepath = Path(str(self.data_references_abs_dir) + '/' + filepath)
+                reference_store_filepath = Path(str(self.data_references_abs_dir) + ref_subdir + '/' + filepath)
                 if not reference_store_filepath.parent.exists():
                     os.makedirs(reference_store_filepath.parent)
-                reference_store_filepath_rel = self.data_references_rel_dir + '/' + filepath
+                reference_store_filepath_rel = self.data_references_rel_dir + ref_subdir + '/' + filepath
 
-                render_storage_filepath = Path(str(self.data_renders_abs_dir) + '/' + filepath)
+                render_storage_filepath = Path(str(self.data_renders_abs_dir) + render_subdir + '/' + filepath)
                 if not render_storage_filepath.parent.exists():
                     os.makedirs(render_storage_filepath.parent)
-                render_store_filepath_rel = self.data_renders_rel_dir + '/' + filepath
+                render_store_filepath_rel = self.data_renders_rel_dir + render_subdir + '/' + filepath
 
                 difference_filename = self.__append_before_extension(filepath,"_diff")
-                difference_filepath = Path(str(self.data_diffs_abs_dir) + '/' + difference_filename)
+                difference_filepath = Path(str(self.data_diffs_abs_dir) + diff_subdir + '/' + difference_filename)
                 if not difference_filepath.parent.exists():
                     os.makedirs(difference_filepath.parent)
-                difference_store_filepath_rel = self.data_diffs_rel_dir + '/' + difference_filename
+                difference_store_filepath_rel = self.data_diffs_rel_dir + diff_subdir + '/' + difference_filename
 
                 reference_exists = reference_filepath.exists()
 
