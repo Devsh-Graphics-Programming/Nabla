@@ -64,10 +64,10 @@ class IFileArchive : public core::IReferenceCounted
 		};
 
 		//
-		core::SRange<const SListEntry> listAssets() const {return {m_items.data(),m_items.data()+m_items.size()};}
+		virtual core::SRange<const SListEntry> listAssets() const {return {m_items.data(),m_items.data()+m_items.size()};}
 
 		// List all files and directories in a specific dir of the archive
-		core::SRange<const SListEntry> listAssets(const path& asset_path) const;
+		virtual core::SRange<const SListEntry> listAssets(const path& asset_path) const;
 
 		//
 		virtual core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) = 0;
@@ -88,10 +88,10 @@ class IFileArchive : public core::IReferenceCounted
 			return &(*found);
 		}
 
-		std::mutex itemMutex; // TODO: update to readers writer lock
+		mutable std::mutex itemMutex; // TODO: update to readers writer lock
 		path m_defaultAbsolutePath;
 		// files and directories
-		core::vector<SListEntry> m_items;
+		mutable core::vector<SListEntry> m_items;
 		//
 		system::logger_opt_smart_ptr m_logger;
 };

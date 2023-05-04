@@ -29,8 +29,18 @@ public:
         if (auto file = future.acquire())
             return *file;
     }
-    
-    void populateItemList(const path& p) {
+
+    core::SRange<const IFileArchive::SListEntry> listAssets(const path& asset_path) const override
+    {
+        populateItemList(asset_path);
+        return IFileArchive::listAssets(asset_path);
+    }
+    virtual core::SRange<const SListEntry> listAssets() const override {
+        populateItemList(path());
+        return IFileArchive::listAssets();
+    }
+
+    void populateItemList(const path& p) const {
         std::unique_lock lock(itemMutex);
         auto items = m_system->listItemsInDirectory(m_defaultAbsolutePath/p);
         m_items.clear();
@@ -39,12 +49,12 @@ public:
         {
             if (item.has_extension())
             {
-                auto relpath = std::filesystem::relative(m_defaultAbsolutePath, item);
+                auto relpath = item.lexically_relative(m_defaultAbsolutePath);
                 auto entry = SListEntry{ relpath, 0xdeadbeefu, 0xdeadbeefu, 0xdeadbeefu, EAT_NONE };
                 m_items.push_back(entry);
             }
         }
-      
+        lock.unlock();
     }
 };
 
