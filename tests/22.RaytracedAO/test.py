@@ -280,7 +280,7 @@ class RendersTest(CITest):
 
 
 def run_all_tests(args):
-    CI_PASS_STATUS=RendersTest(test_name="public",
+    CI_PASS_STATUS=RendersTest(test_name=args[0],
                     executable_filepath=args[1],
                     input_filepath=args[2],
                     nabla_repo_root_dir=args[3],
@@ -288,27 +288,14 @@ def run_all_tests(args):
                     references_repo_dir=args[5],
                     data_dir=args[6],
                     error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
-                    allowed_error_pixel_count=0.0001
-                    ).run()
-    print('CI done')
+                    allowed_error_pixel_count=0.0001).run()
     if not CI_PASS_STATUS:
+        print('CI failed')
         exit(-2)
+    print('CI done')
+    exit()
 
 
 if __name__ == '__main__':
-    #args = sys.argv
-    args = [
-        "",
-        "W:/Work/Nabla/examples_tests/22.RaytracedAO/bin/raytracedao.exe",
-        "W:/Work/Nabla/examples_tests/media/mitsuba/public_test_scenes.txt",
-        "W:/Work/Nabla",
-        "D:/Programs/ImageMagick-7.1.0-Q16-HDRI/magick.exe",
-        "W:/Work/Nabla/examples_tests/22.RaytracedAO/bin/test_references/public",
-        "/examples_tests/22.RaytracedAO/bin",
-
-        ]
-
-    for i, arg in enumerate(sys.argv):
-        print(f"{i:>6}: {arg}")
-    run_all_tests(args)
+    run_all_tests(sys.argv[1::])
     
