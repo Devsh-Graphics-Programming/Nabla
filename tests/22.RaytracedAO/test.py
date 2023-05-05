@@ -61,8 +61,8 @@ class RendersTest(CITest):
                 nabla_repo_root_dir: str, 
                 image_magick_exe: str,
                 references_repo_dir: str,
+                profile,
                 data_dir = "/examples_tests/22.RaytracedAO/bin",
-                profile = "public",
                 renders_dir_name = "renders",
                 references_dir_name = "references",
                 diff_images_dir_name = "diff_images",
@@ -280,15 +280,26 @@ class RendersTest(CITest):
 
 
 def run_all_tests(args):
-    CI_PASS_STATUS=RendersTest(test_name=args[0],
-                    executable_filepath=args[1],
-                    input_filepath=args[2],
+    CI_PASS_STATUS=RendersTest(test_name="public",
+                    profile="public",
+                    executable_filepath=args[0],
+                    input_filepath=args[1],
                     nabla_repo_root_dir=args[3],
                     image_magick_exe=args[4],
                     references_repo_dir=args[5],
-                    data_dir=args[6],
+                    error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
+                    allowed_error_pixel_count=0.0001).run() and \
+                        RendersTest(test_name="private",
+                    profile="private",
+                    executable_filepath=args[0],
+                    input_filepath=args[2],
+                    nabla_repo_root_dir=args[3],
+                    image_magick_exe=args[4],
+                    references_repo_dir=args[6],
                     error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
                     allowed_error_pixel_count=0.0001).run()
+
+
     if not CI_PASS_STATUS:
         print('CI failed')
         exit(-2)
