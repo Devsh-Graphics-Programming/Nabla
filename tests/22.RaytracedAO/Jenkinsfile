@@ -18,7 +18,17 @@ stage('Compile programs')
 
 stage('Run all tests')
 {
-	status = bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py"
+	def currentABSDirectory = pwd()
+	
+	def exe = "${currentABSDirectory}/examples_tests/22.raytracedao/bin/raytracedao.exe"
+	def publicInputFilePath = "${currentABSDirectory}/examples_tests/media/mitsuba/public_test_scenes.txt"
+	def privateInputFilePath = "${currentABSDirectory}/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt"
+	def nablaRepoDir = currentABSDirectory
+	def imageMagicExePath = "C:/Program Files/ImageMagick-7.1.1-Q16-HDRI/magick.exe"
+	def publicReferencesRepoDir = "${nablaRepoDir}/ci/22.RaytracedAO/references/public"
+	def privateReferencesRepoDir = "${nablaRepoDir}/ci/22.RaytracedAO/references/private"
+	
+ 	status = bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py ${exe} ${publicInputFilePath} ${privateInputFilePath} ${nablaRepoDir} \"${imageMagicExePath}\" ${publicReferencesRepoDir} ${privateReferencesRepoDir}"
 	
 	if("${status}" != "0")
 	{
