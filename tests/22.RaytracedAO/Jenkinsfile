@@ -1,7 +1,7 @@
 stage('Git')
 {
-	bat "git fetch origin ditt"
-	bat "git reset --hard origin/ditt"
+	bat "git fetch origin ci"
+	bat "git reset --hard origin/ci"
 	bat "git clean -fdx"
 	
 	bat "git submodule update --init --recursive ./3rdparty"
@@ -30,7 +30,29 @@ stage('Compile programs')
 
 stage('Run all tests')
 {
-	bat returnStatus: true, script: "py -u ./build/examples_tests/22.RaytracedAO/test.py" // don't fail the build if unstable
+	def currentABSDirectory = pwd()
+	
+	def exe = "${currentABSDirectory}/examples_tests/22.raytracedao/bin/raytracedao.exe"
+	def publicInputFilePath = "${currentABSDirectory}/examples_tests/media/mitsuba/public_test_scenes.txt"
+	def privateInputFilePath = "${currentABSDirectory}/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt"
+	def nablaRepoDir = currentABSDirectory
+	def imageMagicExePath = "C:/Program Files/ImageMagick-7.1.1-Q16-HDRI/magick.exe"
+	def publicReferencesRepoDir = "${nablaRepoDir}/ci/22.RaytracedAO/references/public"
+	def privateReferencesRepoDir = "${nablaRepoDir}/ci/22.RaytracedAO/references/private"
+	
+ 	status = bat returnStatus: true, script: "py -u ./tests/22.RaytracedAO/test.py ${exe} ${publicInputFilePath} ${privateInputFilePath} ${nablaRepoDir} \"${imageMagicExePath}\" ${publicReferencesRepoDir} ${privateReferencesRepoDir}"
+	
+	if("${status}" != "0")
+	{
+		if("${status}" == "-2")
+		{
+			unstable "Some of RaytracedAO test's scenes have not passed the check!"
+		}
+		else
+		{
+			error "RaytracedAO test has failed!"
+		}
+	}
 }
 
 stage('Pack artifacts')
