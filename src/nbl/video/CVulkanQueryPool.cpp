@@ -9,9 +9,10 @@ CVulkanQueryPool::~CVulkanQueryPool()
 {
     if(VK_NULL_HANDLE != m_queryPool)
     {
-        const auto originDevice = getOriginDevice();
-        VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(originDevice)->getInternalObject();
-        vkDestroyQueryPool(vk_device, m_queryPool, nullptr);
+        const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+        auto* vk = vulkanDevice->getFunctionTable();
+        VkDevice vk_device = vulkanDevice->getInternalObject();
+        vk->vk.vkDestroyQueryPool(vk_device, m_queryPool, nullptr);
     }
 }
 
