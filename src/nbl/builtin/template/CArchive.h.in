@@ -1,7 +1,7 @@
 #ifndef _@_GUARD_SUFFIX_@_C_ARCHIVE_H_
 #define _@_GUARD_SUFFIX_@_C_ARCHIVE_H_
 
-#include <nbl/system/CFileArchive.h>
+#include "nbl/system/CFileArchive.h"
 #include "@NBL_BS_HEADER_FILENAME@"
 
 namespace @_NAMESPACE_@

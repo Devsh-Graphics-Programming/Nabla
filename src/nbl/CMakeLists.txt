@@ -116,7 +116,7 @@ nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
 if(NBL_EMBED_BUILTIN_RESOURCES)	
 	add_subdirectory(builtin)
-	NBL_ADD_BUILTIN_RESOURCES()
+	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData)
 endif()
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
@@ -661,6 +661,10 @@ if(NOT NBL_STATIC_BUILD)
 endif()
 nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
+
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	nbl_install_builtin_resources(nblBuiltinResourceData)
+endif()
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
 macro(nbl_install_program _TRGT)

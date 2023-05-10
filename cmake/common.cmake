@@ -339,6 +339,13 @@ function(nbl_install_file _FILE _RELATIVE_DESTINATION)
 	install(FILES ${_FILE} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
+function(nbl_install_builtin_resources _TARGET_)
+	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
+	
+	nbl_install_headers("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+endfunction()
+
 function(nbl_install_config_header _CONF_HDR_NAME)
 	nbl_get_conf_dir(dir_deb Debug)
 	nbl_get_conf_dir(dir_rel Release)
