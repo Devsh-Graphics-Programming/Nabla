@@ -6,7 +6,7 @@ import filecmp
 import json
 from pathlib import *
 
-def get_git_revision_hash(repo_dir, branch = "ditt") -> str:
+def get_git_revision_hash(repo_dir, branch = "ci") -> str: #change branch back to ditt once merged
     return subprocess.check_output(f'git -C "{repo_dir}" rev-parse origin/{branch}').decode('ascii').strip()
 
 class CITest:
