@@ -139,9 +139,10 @@ class CITest:
                         failures = failures + 1
                         if self.print_warnings:
                             print(f"[INFO] Render input {line} is not passing the tests!")
-
+                    else:
+                        if self.print_warnings:
+                            print(f"[INFO] Render input {line} PASSED")
                     test_results.append(result)
-                    # save the result of a single step to a json file
                     self._save_json(f"summary_{self.alphanumeric_only_test_name}.json",summary)
                 except Exception as ex:
                     print(f"[ERROR] Critical exception occured during testing input {line}: {str(ex)}")
