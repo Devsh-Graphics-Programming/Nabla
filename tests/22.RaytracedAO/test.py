@@ -280,7 +280,7 @@ class RendersTest(CITest):
 
 
 def run_all_tests(args):
-    CI_PASS_STATUS=RendersTest(test_name="public",
+    CI_PASS_STATUS_1 = RendersTest(test_name="public",
                     profile="public",
                     executable_filepath=args[0],
                     input_filepath=args[1],
@@ -288,8 +288,9 @@ def run_all_tests(args):
                     image_magick_exe=args[4],
                     references_repo_dir=args[5],
                     error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
-                    allowed_error_pixel_count=0.0001).run() and \
-                        RendersTest(test_name="private",
+                    allowed_error_pixel_count=0.0001).run()
+    
+    CI_PASS_STATUS_2 = RendersTest(test_name="private",
                     profile="private",
                     executable_filepath=args[0],
                     input_filepath=args[2],
@@ -299,7 +300,7 @@ def run_all_tests(args):
                     error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
                     allowed_error_pixel_count=0.0001).run()
 
-
+    CI_PASS_STATUS = CI_PASS_STATUS_1 and CI_PASS_STATUS_2
     if not CI_PASS_STATUS:
         print('CI failed')
         exit(-2)
