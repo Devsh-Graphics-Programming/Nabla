@@ -248,7 +248,7 @@ class RendersTest(CITest):
                     self.__create_diff_image(filepath, reference_filepath, difference_filepath)
                     results_image["render"] = render_store_filepath_rel
                     results_image["reference"] = reference_store_filepath_rel
-                    results_image["differnce"] = difference_store_filepath_rel
+                    results_image["difference"] = difference_store_filepath_rel
                     if not status:
                         results_image["status"] = "failed"
                         results_image["status_color"] = "red"
