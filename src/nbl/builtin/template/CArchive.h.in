@@ -6,6 +6,7 @@
 
 namespace @_NAMESPACE_@
 {
+    constexpr std::string_view path = "@_NAMESPACE_@/@_PATH_PREFIX_@"
 	constexpr std::string_view pathPrefix = "@_PATH_PREFIX_@";
 	constexpr bool hasPathPrefix(std::string_view str) { return str.find(pathPrefix) == 0ull; }
 	
@@ -14,8 +15,8 @@ namespace @_NAMESPACE_@
 	class CArchive final : public nbl::system::CFileArchive
 	{
 		public:
-			inline CArchive(nbl::system::path _path, nbl::system::logger_opt_smart_ptr&& logger)
-				: nbl::system::CFileArchive(std::move(_path),std::move(logger), getItemList()) {}
+			inline CArchive(nbl::system::logger_opt_smart_ptr&& logger)
+				: nbl::system::CFileArchive(std::move(nbl::system::path(path.data())),std::move(logger), getItemList()) {}
 			
 		protected:
 			file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SListEntry* item) override

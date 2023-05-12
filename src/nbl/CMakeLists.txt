@@ -369,10 +369,12 @@ source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
 
 set(NABLA_HEADERS "${NBL_ROOT_PATH}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
+get_target_property(_BUILTIN_RESOURCES_HEADER_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_HEADER_DIRECTORY)
+
 set(NBL_LIBRARY_CREATION_SOURCES 
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
-	${_NBL_BUILTIN_RESOURCES_ARCHIVE_APK_SOURCES_}
+	${_BUILTIN_RESOURCES_HEADER_DIRECTORY_}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
@@ -421,15 +423,15 @@ if(NOT NBL_STATIC_BUILD)
 endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_dependencies(Nabla ${_NBL_BUILTIN_RESOURCES_LIBRARIES_})
+	add_dependencies(Nabla nblBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
 		target_link_libraries(Nabla INTERFACE
-			${_NBL_BUILTIN_RESOURCES_LIBRARIES_}
+			nblBuiltinResourceData
 		)
 	else()
 		target_link_libraries(Nabla PRIVATE 
-			${_NBL_BUILTIN_RESOURCES_LIBRARIES_}
+			nblBuiltinResourceData
 		)
 	endif()
 endif()
