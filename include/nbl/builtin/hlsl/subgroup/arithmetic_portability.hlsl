@@ -1,3 +1,6 @@
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 
@@ -16,11 +19,11 @@ namespace subgroup
 namespace native
 {
 
-template<class Binop>
+template<typename T, class Binop>
 struct reduction;
-template<class Binop>
+template<typename T, class Binop>
 struct exclusive_scan;
-template<class Binop>
+template<typename T, class Binop>
 struct inclusive_scan;
 
 }
@@ -30,53 +33,53 @@ namespace portability
 {
 
 // PORTABILITY BINOP DECLARATIONS
-template<class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor>
 struct reduction;
-template<class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor>
 struct inclusive_scan;
-template<class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor>
 struct exclusive_scan;
 
 }
 
-template<class Binop>
+template<typename T, class Binop, class ScratchAccessor>
 struct reduction
 {
-    template<class ScratchAccessor, typename T>
     T operator()(const T x)
     { // REVIEW: Should these extension headers have the GL name?
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-        return native::reduction<Binop>()(x);
+        native::reduction<T, Binop> reduce;
+        return reduce(x);
     #else
-        return portability::reduction<Binop,ScratchAccessor>::create()(x);
+        return portability::reduction<Binop, ScratchAccessor>::create()(x);
     #endif
     }
 };
 
-template<class Binop>
+template<typename T, class Binop, class ScratchAccessor>
 struct exclusive_scan
 {
-    template<class ScratchAccessor, typename T>
     T operator()(const T x)
     {
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-        return native::exclusive_scan<Binop>()(x);
+        native::exclusive_scan<T, Binop> scan;
+        return scan(x);
     #else
-        portability::exclusive_scan<Binop,ScratchAccessor>::create()(x);
+        portability::exclusive_scan<Binop, ScratchAccessor>::create()(x);
     #endif
     }
 };
 
-template<class Binop>
+template<typename T, class Binop, class ScratchAccessor>
 struct inclusive_scan
 {
-    template<class ScratchAccessor, typename T>
     T operator()(const T x)
     {
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-        return native::inclusive_scan<Binop>()(x);
+        native::inclusive_scan<T, Binop> scan;
+        return scan(x);
     #else
-        portability::inclusive_scan<Binop,ScratchAccessor>::create()(x);
+        portability::inclusive_scan<Binop, ScratchAccessor>::create()(x);
     #endif
     }
 };

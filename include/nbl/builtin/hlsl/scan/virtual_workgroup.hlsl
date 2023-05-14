@@ -11,6 +11,7 @@
 
 const uint gl_LocalInvocationIndex: SV_GroupIndex;
 
+#if 0
 namespace nbl
 {
 namespace hlsl
@@ -24,20 +25,21 @@ namespace scan
 		const Parameters_t params = getParameters();
 		const uint levelInvocationIndex = localWorkgroupIndex * _NBL_HLSL_WORKGROUP_SIZE_ + gl_LocalInvocationIndex;
 		const bool lastInvocationInGroup = gl_LocalInvocationIndex == (_NBL_HLSL_WORKGROUP_SIZE_ - 1);
-		
+
 		const uint lastLevel = params.topLevel << 1u;
 		const uint pseudoLevel = levelInvocationIndex <= params.lastElement[pseudoLevel];
-		
+
 		const bool inRange = levelInvocationIndex <= params.lastElement[pseudoLevel];
-		
+
 		Storage_t data = binop.identity();
 		if(inRange)
 		{
 			getData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel);
 		}
-		
+
 		if(treeLevel < params.topLevel) 
 		{
+			#error "Must also define some scratch accessor when calling operation()"
 			data = workgroup::reduction<binop>()(data);
 		}
 		// REVIEW: missing _TYPE_ check and extra case here
@@ -85,6 +87,8 @@ namespace scan
 }
 }
 }
+#endif
+
 #define _NBL_HLSL_SCAN_MAIN_DEFINED_
 #endif
 

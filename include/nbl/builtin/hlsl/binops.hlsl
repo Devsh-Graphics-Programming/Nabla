@@ -80,54 +80,6 @@ struct mul
 	}
 };
 
-template<typename T, class Comparator>
-struct min
-{
-    T operator()(const T lhs, const T rhs, inout Comparator comp)
-    {
-        return comp(lhs, rhs) ? lhs : rhs;
-    }
-};
-
-template<typename T>
-struct min
-{
-    T operator()(const T lhs, const T rhs)
-    {
-		comparator_lt_t comp;
-        return bitwise_min(lhs, rhs, comp);
-    }
-	
-	T identity()
-	{
-		return ~0;
-	}
-};
-
-template<typename T, class Comparator>
-struct max
-{
-    T operator()(const T lhs, const T rhs, inout Comparator comp)
-    {
-        return comp(lhs, rhs) ? lhs : rhs;
-    }
-};
-
-template<typename T>
-struct max
-{
-    T operator()(const T lhs, const T rhs)
-    {
-		comparator_gt_t comp;
-        return bitwise_max(lhs, rhs, comp);
-    }
-	
-	T identity()
-	{
-		return 0; // REVIEW: This assumes T = unsigned but what if we got T = signed ?
-	}
-};
-
 template<typename T>
 struct comparator_lt_t
 {
@@ -162,6 +114,36 @@ struct comparator_gte_t
     {
         return lhs>=rhs;
     }
+};
+
+template<typename T>
+struct min
+{
+    T operator()(const T lhs, const T rhs)
+    {
+		comparator_lt_t<T> comp;
+        return comp(lhs, rhs) ? lhs : rhs;
+    }
+
+	T identity()
+	{
+		return ~0;
+	}
+};
+
+template<typename T>
+struct max
+{
+    T operator()(const T lhs, const T rhs)
+    {
+		comparator_gt_t<T> comp;
+        return comp(lhs, rhs) ? lhs : rhs;
+    }
+
+	T identity()
+	{
+		return 0;
+	}
 };
 
 }

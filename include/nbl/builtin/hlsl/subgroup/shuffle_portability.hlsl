@@ -1,7 +1,15 @@
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_SHUFFLE_PORTABILITY_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_SHUFFLE_PORTABILITY_INCLUDED_
 
 #include <nbl/builtin/hlsl/subgroup/basic_portability.hlsl>
+
+#ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
+#define _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
+const uint gl_LocalInvocationIndex : SV_GroupIndex;
+#endif
 
 namespace nbl
 {
@@ -9,45 +17,51 @@ namespace hlsl
 {
 namespace subgroup
 {
-	template<typename T>
-	T Shuffle(T value, uint index)
-	{
-	#ifdef NBL_GL_KHR_shader_subgroup_shuffle
-		return native::Shuffle<T>(value, index); // TODO (PentaKon): Maybe change to functor, depending on portability implementation
-	#else
-		return portability::Shuffle<T>(value, index);
-	#endif
-	}
-	
-	template<typename T>
-	T ShuffleUp(T value, uint delta)
-	{
-	  return Shuffle(value, ID() - delta);
-	}
-	
-	template<typename T>
-	T ShuffleDown(T value, uint delta)
-	{
-	  return Shuffle(value, ID() + delta);
-	}
-	
-namespace native 
+namespace native
 {
 	template<typename T>
 	T Shuffle(T value, uint index)
 	{
-		return WaveReadLaneFirst(value, index);
+		return WaveReadLaneAt(value, index);
 	}
-}	
+}
+
+#ifndef NBL_GL_KHR_shader_subgroup_shuffle
 namespace portability
 {
-	template<typename T>
+	template<typename T, class ScratchAccessor>
 	T Shuffle(T value, uint index)
 	{
-		// TODO (PentaKon): Implement
-		return value; // placeholder
+		ScratchAccessor scratch;
+		scratch.set(gl_LocalInvocationIndex, value);
+		Barrier();
+		return scratch.get(index); // placeholder
 	}
-}	
+}
+#endif
+
+template<typename T, class ScratchAccessor>
+T Shuffle(T value, uint index)
+{
+#ifdef NBL_GL_KHR_shader_subgroup_shuffle
+	return native::Shuffle<T>(value, index);
+#else
+	return portability::Shuffle<T, ScratchAccessor>(value, index);
+#endif
+}
+
+template<typename T, class ScratchAccessor>
+T ShuffleUp(T value, uint delta)
+{
+  return Shuffle<T, ScratchAccessor>(value, InvocationID() - delta);
+}
+
+template<typename T, class ScratchAccessor>
+T ShuffleDown(T value, uint delta)
+{
+  return Shuffle<T, ScratchAccessor>(value, InvocationID() + delta);
+}
+
 }
 }
 }
