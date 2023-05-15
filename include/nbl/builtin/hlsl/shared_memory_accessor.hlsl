@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 
-#include <nbl/builtin/hlsl/atomics.hlsl>
+#include "nbl/builtin/hlsl/atomics.hlsl"
 
 // REVIEW: Where would _NBL_HLSL_WORKGROUP_SIZE_ be defined?
 

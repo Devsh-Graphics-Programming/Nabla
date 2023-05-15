@@ -2,12 +2,12 @@
 #define _NBL_HLSL_SCAN_VIRTUAL_WORKGROUP_INCLUDED_
 
 // TODO (PentaKon): Decide if these are needed once we have a clearer picture of the refactor
-#include <nbl/builtin/hlsl/limits/numeric.hlsl>
-#include <nbl/builtin/hlsl/math/typeless_arithmetic.hlsl>
-#include <nbl/builtin/hlsl/workgroup/arithmetic.hlsl> // This is where all the nbl_glsl_workgroupOPs are defined
-#include <nbl/builtin/hlsl/scan/declarations.hlsl>
+#include "nbl/builtin/hlsl/limits/numeric.hlsl"
+#include "nbl/builtin/hlsl/math/typeless_arithmetic.hlsl"
+#include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl" // This is where all the nbl_glsl_workgroupOPs are defined
+#include "nbl/builtin/hlsl/scan/declarations.hlsl"
 
-#include <nbl/builtin/hlsl/binops.hlsl>
+#include "nbl/builtin/hlsl/binops.hlsl"
 
 const uint gl_LocalInvocationIndex: SV_GroupIndex;
 
@@ -58,7 +58,7 @@ namespace scan
 }
 
 #ifndef _NBL_HLSL_SCAN_MAIN_DEFINED_ // TODO REVIEW: Are these needed, can this logic be refactored?
-#include <nbl/builtin/hlsl/scan/default_scheduler.hlsl>
+#include "nbl/builtin/hlsl/scan/default_scheduler.hlsl"
 namespace nbl
 {
 namespace hlsl

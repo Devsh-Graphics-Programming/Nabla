@@ -1,7 +1,7 @@
 #ifndef _NBL_HLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
 #define _NBL_HLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
 
-#include <nbl/builtin/hlsl/scan/parameters_struct.hlsl>
+#include "nbl/builtin/hlsl/scan/parameters_struct.hlsl"
 
 #ifdef __cplusplus
 #define uint uint32_t

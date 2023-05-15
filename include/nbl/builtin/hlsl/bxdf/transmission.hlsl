@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_TRANSMISSION_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_TRANSMISSION_INCLUDED_
 
-#include <nbl/builtin/hlsl/bxdf/common.hlsl>
+#include "nbl/builtin/hlsl/bxdf/common.hlsl"
 
 namespace nbl
 {

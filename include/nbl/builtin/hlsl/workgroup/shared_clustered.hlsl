@@ -4,6 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_CLUSTERED_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_CLUSTERED_INCLUDED_
 
-#include <nbl/builtin/hlsl/workgroup/shared_ballot.hlsl>
+#include "nbl/builtin/hlsl/workgroup/shared_ballot.hlsl"
 
 #endif

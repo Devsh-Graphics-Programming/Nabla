@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_SHUFFLE_PORTABILITY_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_SHUFFLE_PORTABILITY_INCLUDED_
 
-#include <nbl/builtin/hlsl/subgroup/basic_portability.hlsl>
+#include "nbl/builtin/hlsl/subgroup/basic_portability.hlsl"
 
 #ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
 #define _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_

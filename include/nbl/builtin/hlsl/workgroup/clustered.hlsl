@@ -4,8 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_CLUSTERED_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_CLUSTERED_INCLUDED_
 
-#include <nbl/builtin/hlsl/workgroup/shared_clustered.hlsl>
-#include <nbl/builtin/hlsl/workgroup/ballot.hlsl>
+#include "nbl/builtin/hlsl/workgroup/shared_clustered.hlsl"
+#include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 
 /** TODO: @Hazardu or @Przemog or lets have it as a recruitment task
 // `clusterSize` needs to be Power of Two, but the workgroup size does not!

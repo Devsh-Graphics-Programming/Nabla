@@ -1,5 +1,5 @@
-#include <nbl/builtin/hlsl/shapes/line.hlsl>
-#include <nbl/builtin/hlsl/shapes/circle.hlsl>
+#include "nbl/builtin/hlsl/shapes/line.hlsl"
+#include "nbl/builtin/hlsl/shapes/circle.hlsl"
 
 namespace nbl
 {

@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 
-#include <nbl/builtin/hlsl/format/decode.hlsl>
+#include "nbl/builtin/hlsl/format/decode.hlsl"
 
 
 namespace nbl

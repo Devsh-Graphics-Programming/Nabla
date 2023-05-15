@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
-#include <nbl/builtin/hlsl/subgroup/scratch.hlsl>
+#include "nbl/builtin/hlsl/subgroup/scratch.hlsl"
 
 // REVIEW:  Location and need of these. They need to be over a function but
 //          there's no need to have them over every subgroup func.

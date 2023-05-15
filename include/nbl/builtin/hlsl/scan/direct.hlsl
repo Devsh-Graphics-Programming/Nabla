@@ -2,9 +2,9 @@
 #define _NBL_HLSL_WORKGROUP_SIZE_ 256
 #endif
 
-#include <nbl/builtin/hlsl/scan/descriptors.hlsl>
-#include <nbl/builtin/hlsl/scan/virtual_workgroup.hlsl>
-#include <nbl/builtin/hlsl/scan/default_scheduler.hlsl>
+#include "nbl/builtin/hlsl/scan/descriptors.hlsl"
+#include "nbl/builtin/hlsl/scan/virtual_workgroup.hlsl"
+#include "nbl/builtin/hlsl/scan/default_scheduler.hlsl"
 
 namespace nbl
 {

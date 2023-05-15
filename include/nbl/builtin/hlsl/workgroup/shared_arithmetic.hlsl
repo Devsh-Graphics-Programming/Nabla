@@ -4,6 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_ARITHMETIC_INCLUDED_
 
-#include <nbl/builtin/hlsl/workgroup/shared_clustered.hlsl>
+#include "nbl/builtin/hlsl/workgroup/shared_clustered.hlsl"
 
 #endif

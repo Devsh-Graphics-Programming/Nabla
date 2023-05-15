@@ -3,7 +3,7 @@
 
 // REVIEW: Not sure if this file is needed in HLSL implementation
 
-#include <nbl/builtin/hlsl/scan/parameters_struct.hlsl>
+#include "nbl/builtin/hlsl/scan/parameters_struct.hlsl"
 
 
 #ifndef _NBL_HLSL_SCAN_GET_PARAMETERS_DECLARED_

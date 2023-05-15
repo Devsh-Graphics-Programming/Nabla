@@ -4,9 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
 
-#include <nbl/builtin/hlsl/limits.hlsl>
-#include <nbl/builtin/hlsl/numbers.hlsl>
-#include <nbl/builtin/hlsl/math/functions.glsl>
+#include "nbl/builtin/hlsl/limits.hlsl"
+#include "nbl/builtin/hlsl/numbers.hlsl"
+#include "nbl/builtin/hlsl/math/functions.glsl>
 
 namespace nbl
 {

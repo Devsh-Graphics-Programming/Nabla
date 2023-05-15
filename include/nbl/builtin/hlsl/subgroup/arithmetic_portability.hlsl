@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 
 #ifndef NBL_GL_KHR_shader_subgroup_arithmetic
-#include <nbl/builtin/hlsl/subgroup/basic_portability.hlsl>
+#include "nbl/builtin/hlsl/subgroup/basic_portability.hlsl"
 #endif
 
 namespace nbl
@@ -51,7 +51,7 @@ struct reduction
         native::reduction<T, Binop> reduce;
         return reduce(x);
     #else
-        return portability::reduction<Binop, ScratchAccessor>::create()(x);
+        return portability::reduction<T, Binop, ScratchAccessor>::create()(x);
     #endif
     }
 };
@@ -65,7 +65,7 @@ struct exclusive_scan
         native::exclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-        portability::exclusive_scan<Binop, ScratchAccessor>::create()(x);
+        portability::exclusive_scan<T, Binop, ScratchAccessor>::create()(x);
     #endif
     }
 };
@@ -79,7 +79,7 @@ struct inclusive_scan
         native::inclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-        portability::inclusive_scan<Binop, ScratchAccessor>::create()(x);
+        portability::inclusive_scan<T, Binop, ScratchAccessor>::create()(x);
     #endif
     }
 };
@@ -88,6 +88,6 @@ struct inclusive_scan
 }
 }
 
-#include <nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl>
+#include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
 
 #endif

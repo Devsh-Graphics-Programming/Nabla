@@ -4,9 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 
-#include <nbl/builtin/hlsl/workgroup/shared_arithmetic.hlsl>
-#include <nbl/builtin/hlsl/workgroup/shared_scan.hlsl>
-#include <nbl/builtin/hlsl/workgroup/clustered.hlsl>
+#include "nbl/builtin/hlsl/workgroup/shared_arithmetic.hlsl"
+#include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
+#include "nbl/builtin/hlsl/workgroup/clustered.hlsl"
 
 #ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
 #define _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
