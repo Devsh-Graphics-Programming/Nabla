@@ -6,29 +6,13 @@
 namespace nbl::system
 {
 #ifdef _NBL_PLATFORM_WINDOWS_
-//instead of #include <Windows.h>
-#include "nbl/system/DefaultFuncPtrLoader.h"
-
-class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
+class NBL_API2 CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 {
-		HANDLE m_native_console;
+		void* m_native_console;
 
-	public:
-		CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask)
-		{
-			m_native_console = GetStdHandle(STD_OUTPUT_HANDLE);
-		}
+		void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override;
 
-	private:
-		virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
-		{
-			SetConsoleTextAttribute(m_native_console, getConsoleColor(logLevel));
-			printf(constructLogString(fmt, logLevel, args).data());
-			fflush(stdout);
-			SetConsoleTextAttribute(m_native_console, 15); // restore to white
-		}
-
-		int getConsoleColor(E_LOG_LEVEL level)
+		inline int getConsoleColor(E_LOG_LEVEL level)
 		{
 			switch (level)
 			{
@@ -60,6 +44,9 @@ class CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 			}
 			return 0;
 		}
+
+	public:
+		CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask());
 };
 
 #endif

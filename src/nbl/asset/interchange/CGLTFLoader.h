@@ -12,6 +12,7 @@
 #include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CGLTFMetadata.h"
 
 namespace nbl::asset

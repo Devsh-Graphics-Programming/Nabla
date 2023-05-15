@@ -17,7 +17,7 @@
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 
-#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CCompilerSet.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
 
 
@@ -45,7 +45,7 @@ std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* con
 	@see IAsset
 
 */
-class IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
+class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
 {
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
@@ -119,14 +119,15 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
         core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
         core::smart_refctd_ptr<IMeshManipulator> m_meshManipulator;
-        core::smart_refctd_ptr<IGLSLCompiler> m_glslCompiler;
+        core::smart_refctd_ptr<CCompilerSet> m_compilerSet;
         // called as a part of constructor only
         void initializeMeshTools();
 
     public:
         //! Constructor
-        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& _s) :
-            m_system(std::move(_s)),
+        explicit IAssetManager(core::smart_refctd_ptr<system::ISystem>&& system, core::smart_refctd_ptr<CCompilerSet>&& compilerSet = nullptr) :
+            m_system(std::move(system)),
+            m_compilerSet(std::move(compilerSet)),
             m_defaultLoaderOverride(this)
         {
             initializeMeshTools();
@@ -144,7 +145,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
         const IGeometryCreator* getGeometryCreator() const;
         IMeshManipulator* getMeshManipulator();
-        IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
+        CCompilerSet* getCompilerSet() const { return m_compilerSet.get(); }
 
     protected:
 		virtual ~IAssetManager()
@@ -329,14 +330,12 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 filePath = _params.workingDirectory/filePath;
                 _override->getLoadFilename(filePath, m_system.get(), ctx, _hierarchyLevel);
             }
-
+            
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
             m_system->createFile(future, filePath, system::IFile::ECF_READ);
-            auto file = future.get();
-            if (!file)
-                return SAssetBundle(0);
-
-            return getAssetInHierarchy_impl<RestoreWholeBundle>(file.get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+            if (auto file=future.acquire())
+                return getAssetInHierarchy_impl<RestoreWholeBundle>(file->get(), filePath.string(), ctx.params, _hierarchyLevel, _override);
+            return SAssetBundle(0);
         }
 
         //TODO change name
@@ -651,15 +650,10 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 _override = &defOverride;
 
             system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            m_system->createFile(future, (_params.workingDirectory.generic_string() + _filename).c_str(), system::IFile::ECF_WRITE);
-            auto file = future.get();
-			if (file) // could fail creating file (lack of permissions)
-			{
-				bool res = writeAsset(file.get(), _params, _override);
-				return res;
-			}
-			else
-				return false;
+            m_system->createFile(future, (_params.workingDirectory.generic_string()+_filename).c_str(), system::IFile::ECF_WRITE);
+            if (auto file=future.acquire())
+                return writeAsset(file->get(), _params, _override);
+            return false;
         }
         bool writeAsset(system::IFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {

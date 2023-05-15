@@ -145,8 +145,8 @@ void CPLYMeshFileLoader::initialize()
 
 			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 			{
-				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
-				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
+				mbPipeline->setShaderAtStage(asset::IShader::ESS_VERTEX, mbVertexShader.get());
+				mbPipeline->setShaderAtStage(asset::IShader::ESS_FRAGMENT, mbFragmentShader.get());
 			
 				asset::SAssetBundle newPipelineBundle(nullptr, { core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(mbPipeline) });
 				defaultOverride.insertAssetIntoCache(newPipelineBundle, pipelineCacheHash, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
@@ -754,12 +754,11 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 	else
 	{
 		// read data from the file
-		system::ISystem::future_t<size_t> future;
-		_ctx.inner.mainFile->read(future, _ctx.EndPointer, _ctx.fileOffset, PLY_INPUT_BUFFER_SIZE - length);
-		const auto bytesRead = future.get();
+		system::IFile::success_t success;
+		_ctx.inner.mainFile->read(success, _ctx.EndPointer, _ctx.fileOffset, PLY_INPUT_BUFFER_SIZE - length);
+		const size_t bytesRead = success.getBytesProcessed();
 
 		_ctx.fileOffset += bytesRead;
-
 		// increment the end pointer by the number of bytes read
 		_ctx.EndPointer += bytesRead;
 

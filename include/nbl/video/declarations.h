@@ -16,14 +16,13 @@
 //#include "nbl/video/asset_traits.h"
 
 // alloc
-#include "nbl/video/alloc/StreamingGPUBufferAllocator.h"
-#include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
+#include "nbl/video/alloc/CStreamingBufferAllocator.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // platform and API specific stuff
-#include "nbl/video/COpenGL_Connection.h"
 #include "nbl/video/CVulkanConnection.h"
-#include "nbl/video/surface/CSurfaceGL.h"
+#include "nbl/video/CVulkanSwapchain.h"
+#include "nbl/video/CVulkanImage.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
 // CUDA

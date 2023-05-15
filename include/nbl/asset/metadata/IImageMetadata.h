@@ -8,6 +8,8 @@
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/format/EColorSpace.h"
 
+#include <compare>
+
 namespace nbl::asset
 {
 
@@ -25,12 +27,19 @@ class IImageMetadata : public core::Interface
 		{
 			E_COLOR_PRIMARIES colorSpace;
 			ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
+
+			auto operator<=>(const ColorSemantic&) const = default;
 		};
 
 		inline IImageMetadata() : colorSemantic{ECP_COUNT,EOTF_UNKNOWN} {}
 		inline IImageMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
 
 		ColorSemantic colorSemantic;
+
+		inline bool operator!=(const IImageMetadata& other) const
+		{
+			return colorSemantic != other.colorSemantic;
+		}
 
 	protected:
 		virtual ~IImageMetadata() = default;

@@ -40,7 +40,7 @@ class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPi
 		struct SCreationParams
 		{
 			core::smart_refctd_ptr<IGPUPipelineLayout> layout;
-			core::smart_refctd_ptr<const IGPUSpecializedShader> shaders[SHADER_STAGE_COUNT];
+			core::smart_refctd_ptr<const IGPUSpecializedShader> shaders[GRAPHICS_SHADER_STAGE_COUNT];
 			asset::SVertexInputParams vertexInput;
 			asset::SBlendParams blend;
 			asset::SPrimitiveAssemblyParams primitiveAssembly;

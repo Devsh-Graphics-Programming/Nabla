@@ -12,14 +12,12 @@
 
 namespace nbl::video
 {
-class CVulkanConnection final : public IAPIConnection
+class NBL_API2 CVulkanConnection final : public IAPIConnection
 {
 public:
     static core::smart_refctd_ptr<CVulkanConnection> create(
         core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-        const uint32_t requiredFeatureCount, video::IAPIConnection::E_FEATURE* requiredFeatures,
-        const uint32_t optionalFeatureCount, video::IAPIConnection::E_FEATURE* optionalFeatures,
-        core::smart_refctd_ptr<system::ILogger>&& logger, bool enableValidation = true);
+        core::smart_refctd_ptr<system::ILogger>&& logger, const SFeatures& featuresToEnable);
 
     VkInstance getInternalObject() const { return m_vkInstance; }
 
@@ -30,6 +28,7 @@ public:
 protected:
     explicit CVulkanConnection(
         VkInstance instance,
+        const SFeatures& enabledFeatures,
         std::unique_ptr<CVulkanDebugCallback>&& debugCallback,
         VkDebugUtilsMessengerEXT vk_debugMessenger);
 
@@ -52,8 +51,6 @@ private:
 
         return true;
     }
-
-    static void getVulkanExtensionNamesFromFeature(const IAPIConnection::E_FEATURE feature, uint32_t& extNameCount, const char** extNames);
 
     VkInstance m_vkInstance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT = VK_NULL_HANDLE;

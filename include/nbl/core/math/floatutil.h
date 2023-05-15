@@ -49,21 +49,21 @@ NBL_FORCE_INLINE matrix4SIMD ROUNDING_ERROR<matrix4SIMD>();
 #endif
 //! Constant for PI.
 template<typename T>
-NBL_FORCE_INLINE T PI()
+NBL_FORCE_INLINE constexpr T PI()
 {
 	return T(3.14159265358979323846);
 }
 
 //! Constant for reciprocal of PI.
 template<typename T>
-NBL_FORCE_INLINE T RECIPROCAL_PI()
+NBL_FORCE_INLINE constexpr T RECIPROCAL_PI()
 {
 	return T(1.0) / PI<T>();
 }
 
 //! Constant for half of PI.
 template<typename T>
-NBL_FORCE_INLINE T HALF_PI()
+NBL_FORCE_INLINE constexpr T HALF_PI()
 {
 	return PI<T>() * T(0.5);
 }

@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class CDumbPresentationOracle : public IPresentationOracle 
+class CDumbPresentationOracle : public IPresentationOracle
 {
 	public:
 		CDumbPresentationOracle()

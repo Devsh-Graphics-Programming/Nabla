@@ -3,14 +3,12 @@
 
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/video/ISwapchain.h"
 
 namespace nbl::video
 {
 
 class IGPUFence;
 class IGPUSemaphore;
-class ISwapchain;
 
 class IGPUQueue : public core::Interface, public core::Unmovable
 {
@@ -29,14 +27,17 @@ class IGPUQueue : public core::Interface, public core::Unmovable
             IGPUSemaphore*const * pSignalSemaphores = nullptr;
             uint32_t commandBufferCount = 0u;
             IGPUCommandBuffer*const * commandBuffers = nullptr;
-        };
-        struct SPresentInfo
-        {
-            uint32_t waitSemaphoreCount;
-            IGPUSemaphore*const * waitSemaphores;
-            uint32_t swapchainCount;
-            ISwapchain*const * swapchains;
-            const uint32_t* imgIndices;
+
+            inline bool isValid() const
+            {
+                if (waitSemaphoreCount > 0u && (pWaitSemaphores == nullptr || pWaitDstStageMask == nullptr))
+                    return false;
+                if (signalSemaphoreCount > 0u && pSignalSemaphores == nullptr)
+                    return false;
+                if (commandBufferCount > 0u && commandBuffers == nullptr)
+                    return false;
+                return true;
+            }
         };
 
         //! `flags` takes bits from E_CREATE_FLAGS
@@ -52,9 +53,6 @@ class IGPUQueue : public core::Interface, public core::Unmovable
 
         //
         virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
-
-        //
-        virtual ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) = 0;
 
         // getters
         float getPriority() const { return m_priority; }
@@ -108,37 +106,11 @@ class IGPUQueue : public core::Interface, public core::Unmovable
             return true;
         }
 
-
         const uint32_t m_familyIndex;
         const E_CREATE_FLAGS m_flags;
         const float m_priority;
         ILogicalDevice* m_originDevice;
 };
-
-inline bool IGPUQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
-{
-    if(_submits == nullptr)
-        return false;
-
-    for (uint32_t i = 0u; i < _count; ++i)
-    {
-        auto& submit = _submits[i];
-        for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
-        {
-            if(submit.commandBuffers[j] == nullptr)
-                return false;
-
-            assert(submit.commandBuffers[j]->getLevel() == IGPUCommandBuffer::EL_PRIMARY);
-            assert(submit.commandBuffers[j]->getState() == IGPUCommandBuffer::ES_EXECUTABLE);
-
-            if (submit.commandBuffers[j]->getLevel() != IGPUCommandBuffer::EL_PRIMARY)
-                return false;
-            if (submit.commandBuffers[j]->getState() != IGPUCommandBuffer::ES_EXECUTABLE)
-                return false;
-        }
-    }
-    return true;
-}
 
 }
 

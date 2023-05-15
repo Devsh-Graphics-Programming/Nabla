@@ -18,7 +18,7 @@ namespace nbl::asset
 //! An enum for the color format of textures used by the Nabla.
 // @Crisspl it would be dandy if the values (or at least ordering) of our enums matched vulkan's
 /** A color format specifies how color information is stored. */
-enum E_FORMAT : uint32_t
+enum E_FORMAT : uint8_t
 {
     //! Custom shizz we wont ever use
     EF_D16_UNORM,
@@ -225,11 +225,12 @@ enum E_FORMAT : uint32_t
     EF_G8_B8R8_2PLANE_422_UNORM,
     EF_G8_B8_R8_3PLANE_444_UNORM,
 
-	//! Unknown color format:
-	EF_UNKNOWN
+    //! Unknown color format:
+    EF_UNKNOWN,
+    EF_COUNT = EF_UNKNOWN
 };
 
-enum E_FORMAT_CLASS : uint32_t
+enum E_FORMAT_CLASS : uint8_t
 {
     EFC_8_BIT,
     EFC_16_BIT,
@@ -240,8 +241,39 @@ enum E_FORMAT_CLASS : uint32_t
     EFC_96_BIT,
     EFC_128_BIT,
     EFC_192_BIT,
-    EFC_256_BIT
-    // TODO: and many more for block compression and planar formats... but dont want to waste time on it now
+    EFC_256_BIT,
+
+    EFC_BC1_RGB,
+    EFC_BC1_RGBA,
+    EFC_BC2,
+    EFC_BC3,
+    EFC_BC4,
+    EFC_BC5,
+    EFC_BC6,
+    EFC_BC7,
+
+    EFC_ETC2_RGB,
+    EFC_ETC2_RGBA,
+    EFC_ETC2_EAC_RGBA,
+    EFC_ETC2_EAC_R,
+    EFC_ETC2_EAC_RG,
+
+    EFC_ASTC_4X4,
+    EFC_ASTC_5X4,
+    EFC_ASTC_5X5,
+    EFC_ASTC_6X5,
+    EFC_ASTC_6X6,
+    EFC_ASTC_8X5,
+    EFC_ASTC_8X6,
+    EFC_ASTC_8X8,
+    EFC_ASTC_10X5,
+    EFC_ASTC_10X6,
+    EFC_ASTC_10X8,
+    EFC_ASTC_10X10,
+    EFC_ASTC_12X10,
+    EFC_ASTC_12X12,
+
+    // [TODO] there are still more format classes; https://registry.khronos.org/vulkan/specs/1.2-extensions/html/chap43.html#formats-compatibility-classes
 };
 
 enum E_FORMAT_FEATURE : uint32_t
@@ -524,8 +556,6 @@ constexpr const uint8_t getBitsPerChannel()
 }
 */
 
-
-
 /*
     It provides some useful functions for dealing
     with texel-block conversions, rounding up
@@ -538,7 +568,7 @@ struct TexelBlockInfo
     public:
         TexelBlockInfo(E_FORMAT format) :
             dimension(getBlockDimensions(format)),
-            maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u)),
+            maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u, 1u)),
             blockByteSize(getTexelOrBlockBytesize(format))
         {}
             
@@ -564,10 +594,10 @@ struct TexelBlockInfo
             @see convertTexelsToBlocks
         */
 
-		inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
-		{
-			return (coord+maxCoord)/dimension;
-		}
+        inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+        {
+            return (coord+maxCoord)/dimension;
+        }
 
         //! It converts input texels strides to compute multiples of block sizes
         /*
@@ -591,10 +621,10 @@ struct TexelBlockInfo
         }
 
 
-        inline auto	convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
+        inline core::vector4du32_SIMD convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
         {
             // shuffle and put a 1 in the first element
-            auto& retval = blockStrides;
+            core::vector4du32_SIMD retval = blockStrides;
             retval = retval.wxyz();
             // byte stride for x+ step
             retval[0] = blockByteSize;
@@ -607,7 +637,7 @@ struct TexelBlockInfo
             return retval;
         }
 
-        inline auto	convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
+        inline core::vector4du32_SIMD convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
         {
             return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
         }
@@ -624,8 +654,8 @@ struct TexelBlockInfo
 
 inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
 {
-	auto dims = getBlockDimensions(_fmt);
-	return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
+    auto dims = getBlockDimensions(_fmt);
+    return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
 }
 
 
@@ -688,14 +718,16 @@ inline bool isBGRALayoutFormat(asset::E_FORMAT _fmt)
 {
     switch (_fmt)
     {
-    //case EF_B8G8R8_UNORM:
-    //case EF_B8G8R8_SNORM:
-    //case EF_B8G8R8_USCALED:
-    //case EF_B8G8R8_SSCALED:
-    //case EF_B8G8R8_UINT:
-    //case EF_B8G8R8_SINT:
-    //case EF_B8G8R8_SRGB:
-    case EF_A1R5G5B5_UNORM_PACK16:
+    case EF_B4G4R4A4_UNORM_PACK16:
+    case EF_B5G6R5_UNORM_PACK16:
+    case EF_B5G5R5A1_UNORM_PACK16:
+    case EF_B8G8R8_UNORM:
+    case EF_B8G8R8_SNORM:
+    case EF_B8G8R8_USCALED:
+    case EF_B8G8R8_SSCALED:
+    case EF_B8G8R8_UINT:
+    case EF_B8G8R8_SINT:
+    case EF_B8G8R8_SRGB:
     case EF_B8G8R8A8_UNORM:
     case EF_B8G8R8A8_SNORM:
     case EF_B8G8R8A8_USCALED:
@@ -703,12 +735,21 @@ inline bool isBGRALayoutFormat(asset::E_FORMAT _fmt)
     case EF_B8G8R8A8_UINT:
     case EF_B8G8R8A8_SINT:
     case EF_B8G8R8A8_SRGB:
-    case EF_A2R10G10B10_UNORM_PACK32:
-    case EF_A2R10G10B10_SNORM_PACK32:
-    case EF_A2R10G10B10_USCALED_PACK32:
-    case EF_A2R10G10B10_SSCALED_PACK32:
-    case EF_A2R10G10B10_UINT_PACK32:
-    case EF_A2R10G10B10_SINT_PACK32:
+    case EF_A8B8G8R8_UNORM_PACK32:
+    case EF_A8B8G8R8_SNORM_PACK32:
+    case EF_A8B8G8R8_USCALED_PACK32:
+    case EF_A8B8G8R8_SSCALED_PACK32:
+    case EF_A8B8G8R8_UINT_PACK32:
+    case EF_A8B8G8R8_SINT_PACK32:
+    case EF_A8B8G8R8_SRGB_PACK32:
+    case EF_A2B10G10R10_UNORM_PACK32:
+    case EF_A2B10G10R10_SNORM_PACK32:
+    case EF_A2B10G10R10_USCALED_PACK32:
+    case EF_A2B10G10R10_SSCALED_PACK32:
+    case EF_A2B10G10R10_UINT_PACK32:
+    case EF_A2B10G10R10_SINT_PACK32:
+    case EF_B10G11R11_UFLOAT_PACK32:
+    case EF_E5B9G9R9_UFLOAT_PACK32:
         return true;
     default:
         return false;
@@ -720,14 +761,16 @@ constexpr bool isBGRALayoutFormat()
 {
     switch (_fmt)
     {
-        //case EF_B8G8R8_UNORM:
-        //case EF_B8G8R8_SNORM:
-        //case EF_B8G8R8_USCALED:
-        //case EF_B8G8R8_SSCALED:
-        //case EF_B8G8R8_UINT:
-        //case EF_B8G8R8_SINT:
-        //case EF_B8G8R8_SRGB:
-    case EF_A1R5G5B5_UNORM_PACK16:
+    case EF_B4G4R4A4_UNORM_PACK16:
+    case EF_B5G6R5_UNORM_PACK16:
+    case EF_B5G5R5A1_UNORM_PACK16:
+    case EF_B8G8R8_UNORM:
+    case EF_B8G8R8_SNORM:
+    case EF_B8G8R8_USCALED:
+    case EF_B8G8R8_SSCALED:
+    case EF_B8G8R8_UINT:
+    case EF_B8G8R8_SINT:
+    case EF_B8G8R8_SRGB:
     case EF_B8G8R8A8_UNORM:
     case EF_B8G8R8A8_SNORM:
     case EF_B8G8R8A8_USCALED:
@@ -735,12 +778,21 @@ constexpr bool isBGRALayoutFormat()
     case EF_B8G8R8A8_UINT:
     case EF_B8G8R8A8_SINT:
     case EF_B8G8R8A8_SRGB:
-    case EF_A2R10G10B10_UNORM_PACK32:
-    case EF_A2R10G10B10_SNORM_PACK32:
-    case EF_A2R10G10B10_USCALED_PACK32:
-    case EF_A2R10G10B10_SSCALED_PACK32:
-    case EF_A2R10G10B10_UINT_PACK32:
-    case EF_A2R10G10B10_SINT_PACK32:
+    case EF_A8B8G8R8_UNORM_PACK32:
+    case EF_A8B8G8R8_SNORM_PACK32:
+    case EF_A8B8G8R8_USCALED_PACK32:
+    case EF_A8B8G8R8_SSCALED_PACK32:
+    case EF_A8B8G8R8_UINT_PACK32:
+    case EF_A8B8G8R8_SINT_PACK32:
+    case EF_A8B8G8R8_SRGB_PACK32:
+    case EF_A2B10G10R10_UNORM_PACK32:
+    case EF_A2B10G10R10_SNORM_PACK32:
+    case EF_A2B10G10R10_USCALED_PACK32:
+    case EF_A2B10G10R10_SSCALED_PACK32:
+    case EF_A2B10G10R10_UINT_PACK32:
+    case EF_A2B10G10R10_SINT_PACK32:
+    case EF_B10G11R11_UFLOAT_PACK32:
+    case EF_E5B9G9R9_UFLOAT_PACK32:
         return true;
     default:
         return false;
@@ -1180,28 +1232,34 @@ constexpr bool isBGRALayoutFormat()
         case EF_R16_SNORM:
         case EF_R16_SSCALED:
         case EF_R16_SINT:
+        case EF_R16_SFLOAT:
         case EF_R16G16_SNORM:
         case EF_R16G16_SSCALED:
         case EF_R16G16_SINT:
+        case EF_R16G16_SFLOAT:
         case EF_R16G16B16_SNORM:
         case EF_R16G16B16_SSCALED:
         case EF_R16G16B16_SINT:
+        case EF_R16G16B16_SFLOAT:
         case EF_R16G16B16A16_SNORM:
         case EF_R16G16B16A16_SSCALED:
         case EF_R16G16B16A16_SINT:
+        case EF_R16G16B16A16_SFLOAT:
         case EF_R32_SINT:
+        case EF_R32_SFLOAT:
         case EF_R32G32_SINT:
+        case EF_R32G32_SFLOAT:
         case EF_R32G32B32_SINT:
-        case EF_R32G32B32A32_SINT:
-        case EF_R64_SINT:
-        case EF_R64G64_SINT:
-        case EF_R64G64B64_SINT:
-        case EF_R64G64B64A64_SINT:
-        case EF_R16G16B16_SFLOAT:
         case EF_R32G32B32_SFLOAT:
+        case EF_R32G32B32A32_SINT:
+        case EF_R32G32B32A32_SFLOAT:
+        case EF_R64_SINT: 
         case EF_R64_SFLOAT:
+        case EF_R64G64_SINT:
         case EF_R64G64_SFLOAT:
+        case EF_R64G64B64_SINT:
         case EF_R64G64B64_SFLOAT:
+        case EF_R64G64B64A64_SINT:
         case EF_R64G64B64A64_SFLOAT:
         case EF_EAC_R11_SNORM_BLOCK:
         case EF_EAC_R11G11_SNORM_BLOCK:
@@ -1216,6 +1274,7 @@ constexpr bool isBGRALayoutFormat()
     {
         switch (_fmt)
         {
+            case EF_S8_UINT:
             case EF_R8_SINT:
             case EF_R8_UINT:
             case EF_R8G8_SINT:
@@ -1230,7 +1289,6 @@ constexpr bool isBGRALayoutFormat()
             case EF_B8G8R8A8_UINT:
             case EF_A8B8G8R8_UINT_PACK32:
             case EF_A8B8G8R8_SINT_PACK32:
-            case EF_A8B8G8R8_SRGB_PACK32:
             case EF_A2R10G10B10_UINT_PACK32:
             case EF_A2R10G10B10_SINT_PACK32:
             case EF_A2B10G10R10_UINT_PACK32:
@@ -1268,6 +1326,7 @@ constexpr bool isBGRALayoutFormat()
     {
         switch (_fmt)
         {
+        case EF_D32_SFLOAT:
         case EF_R16_SFLOAT:
         case EF_R16G16_SFLOAT:
         case EF_R16G16B16_SFLOAT:
@@ -1293,6 +1352,10 @@ constexpr bool isBGRALayoutFormat()
     {
         switch (_fmt)
         {
+        case EF_D16_UNORM:
+        case EF_X8_D24_UNORM_PACK32:
+        case EF_D16_UNORM_S8_UINT:
+        case EF_D24_UNORM_S8_UINT:
         case EF_R4G4_UNORM_PACK8:
         case EF_R4G4B4A4_UNORM_PACK16:
         case EF_B4G4R4A4_UNORM_PACK16:
@@ -1656,6 +1719,17 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
     const bool _signed = isSignedFormat(format);
     if (isIntegerFormat(format) || isScaledFormat(format))
     {
+        switch (format)
+        {
+        case EF_A2R10G10B10_UINT_PACK32:
+        case EF_A2B10G10R10_UINT_PACK32:
+            return (channel == 3u) ? 3 : 1023;
+        case EF_A2R10G10B10_SINT_PACK32:
+        case EF_A2B10G10R10_SINT_PACK32:
+            return (channel == 3u) ? 3 : 1023;
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         if (_signed)
         {
@@ -1686,6 +1760,13 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
     }
     else if (isFloatingPointFormat(format))
     {
+        switch (format)
+        {
+        case EF_BC6H_SFLOAT_BLOCK: return 32767;
+        case EF_BC6H_UFLOAT_BLOCK: return 65504;
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
@@ -1706,6 +1787,14 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
         return 0;
     if (isIntegerFormat(format) || isScaledFormat(format))
     {
+        switch (format)
+        {
+        case EF_A2R10G10B10_SINT_PACK32:
+        case EF_A2B10G10R10_SINT_PACK32:
+            return (channel == 3u) ? 0 : -1023;
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
@@ -1722,6 +1811,12 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
     }
     else if (isFloatingPointFormat(format))
     {
+        switch (format)
+        {
+        case EF_BC6H_SFLOAT_BLOCK: return -32767;
+        default: break;
+        }
+
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
@@ -1740,7 +1835,7 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
 {
     _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
 
-    if (isIntegerFormat(format))
+    if (isIntegerFormat(format) || isScaledFormat(format))
         return 1;
 
     if (isSRGBFormat(format))
@@ -1778,9 +1873,9 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
         switch (bytesPerChannel)
         {
         case 1u:
-            return 1.0/255.0;
+            return isSignedFormat(format) ? 1.0/127.0 : 1.0/255.0;
         case 2u:
-            return 1.0/65535.0;
+            return isSignedFormat(format) ? 1.0/32765.0 : 1.0/65535.0;
         default: break;
         }
     }
@@ -1789,7 +1884,17 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
         switch (format)
         {
         case EF_B10G11R11_UFLOAT_PACK32:
-            return 0; //TODO
+        {
+            // unsigned values are always ordered as + 1
+            float f = std::abs(static_cast<float>(value));
+            int bitshft = channel == 2u ? 6 : 5;
+
+            uint16_t f16 = core::Float16Compressor::compress(f);
+            uint16_t enc = f16 >> bitshft;
+            uint16_t next_f16 = (enc + 1) << bitshft;
+
+            return core::Float16Compressor::decompress(next_f16) - f;
+        }
         case EF_E5B9G9R9_UFLOAT_PACK32:
             return 0; //TODO
         default: break;

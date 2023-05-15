@@ -10,6 +10,10 @@ struct nbl_glsl_BuildRangeInfo {
     uint    primitiveOffset;
     uint    firstVertex;
     uint    transformOffset;
+
+    #ifdef __cplusplus
+    auto operator<=>(const nbl_glsl_BuildRangeInfo&) const = default;
+    #endif // __cplusplus
 };
 
 #endif

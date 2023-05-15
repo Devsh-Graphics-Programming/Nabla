@@ -6,7 +6,9 @@
 
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
+#include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
 
 #include "simdjson/singleheader/simdjson.h"
 #include <algorithm>
@@ -49,9 +51,9 @@ using namespace nbl::asset;
 				auto glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 
-				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::ICPUShader::buffer_contains_glsl, stage, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
+				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), stage, asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
 				if (extraDefine)
-					unspecializedShader = IGLSLCompiler::createOverridenCopy(unspecializedShader.get(),"%s",extraDefine);
+					unspecializedShader = CGLSLCompiler::createOverridenCopy(unspecializedShader.get(),"%s",extraDefine);
 
 				ICPUSpecializedShader::SInfo specInfo({},nullptr,"main");
 				auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
@@ -83,7 +85,7 @@ using namespace nbl::asset;
 			for (auto i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; i++)
 			{
 				combinedSamplerBindings[i].binding = i;
-				combinedSamplerBindings[i].type = EDT_COMBINED_IMAGE_SAMPLER;
+				combinedSamplerBindings[i].type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
 				combinedSamplerBindings[i].count = 1u;
 				combinedSamplerBindings[i].stageFlags = IShader::ESS_FRAGMENT;
 				combinedSamplerBindings[i].samplers = nullptr;
@@ -322,18 +324,19 @@ using namespace nbl::asset;
 				auto defaultSampler = _override->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",context.loadContext,0u).first;
 				for (uint16_t i=0u; i<SGLTF::SGLTFMaterial::EGT_COUNT; ++i)
 				{
-					auto desc = material.descriptorSet->getDescriptors(i).begin();
-					desc->desc = defaultImageView;
-					desc->image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
-					desc->image.sampler = defaultSampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = defaultImageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = defaultSampler;
 				}
 				auto setImage = [&cpuTextures,&material](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
 				{
 					const auto& [imageView,sampler] = cpuTextures[globalTextureIndex];
 
-					auto desc = material.descriptorSet->getDescriptors(localTextureIndex).begin();
-					desc->desc = imageView;
-					desc->image.sampler = sampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(localTextureIndex, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = imageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				};
 
 				auto& pushConstants = material.pushConstants;
@@ -372,9 +375,10 @@ using namespace nbl::asset;
 					auto imageView = CDerivativeMapCreator::createDerivativeMapViewFromNormalMap<false>(cpuTextures[normalTextureID].first->getCreationParameters().image.get(), scales);
 					auto& sampler = cpuTextures[normalTextureID].second;
 
-					auto desc = material.descriptorSet->getDescriptors(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE).begin();
-					desc->desc = std::move(imageView);
-					desc->image.sampler = sampler;
+					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+					descriptorInfos.begin()[0].desc = imageView;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				}
 				if (glTFMaterial.occlusionTexture.has_value() && glTFMaterial.occlusionTexture.value().index.has_value())
 				{
@@ -619,10 +623,13 @@ using namespace nbl::asset;
 						}
 					}
 
-					//
 					skins[index].skeleton = skeletons[skeletonNodes[globalRootNode].skeletonID];
-					skins[index].translationTable = {sizeof(ICPUSkeleton::joint_id_t)*skinJointRefCount,sizeof(ICPUSkeleton::joint_id_t)*jointCount,vertexJointToSkeletonJoint};
-					skins[index].inverseBindPose = {sizeof(core::matrix3x4SIMD)*skinJointRefCount,sizeof(core::matrix3x4SIMD)*jointCount,inverseBindPose};
+					skins[index].translationTable.offset = sizeof(ICPUSkeleton::joint_id_t) * skinJointRefCount;
+					skins[index].translationTable.size = sizeof(ICPUSkeleton::joint_id_t) * jointCount;
+					skins[index].translationTable.buffer = core::smart_refctd_ptr(vertexJointToSkeletonJoint);
+					skins[index].inverseBindPose.offset = sizeof(core::matrix3x4SIMD) * skinJointRefCount;
+					skins[index].inverseBindPose.size = sizeof(core::matrix3x4SIMD) * jointCount;
+					skins[index].inverseBindPose.buffer = core::smart_refctd_ptr(inverseBindPose);
 					skins[index].jointCount = jointCount;
 
 					auto translationTableIt = reinterpret_cast<ICPUSkeleton::joint_id_t*>(skins[index].translationTable.buffer->getPointer())+skinJointRefCount;
@@ -680,7 +687,7 @@ using namespace nbl::asset;
 
 						for (const auto& glTFprimitive : glTFMesh.primitives)
 						{
-							typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
+							std::remove_reference_t<decltype(glTFprimitive)> SGLTFPrimitive;
 
 							auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 							cpuMeshBuffer->setPositionAttributeIx(SAttributes::POSITION_ATTRIBUTE_LAYOUT_ID);
@@ -707,7 +714,7 @@ using namespace nbl::asset;
 								const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
 								const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
 
-								typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
+								std::remove_reference_t<decltype(glTFbufferView)> SGLTFBufferView;
 
 								auto setBufferBinding = [&](uint32_t target) -> void
 								{
@@ -1081,7 +1088,6 @@ using namespace nbl::asset;
 											};
 
 											std::vector<VertexInfluenceData> vertexInfluenceDataContainer;
-
 											for (uint16_t i = 0; i < overrideReferencesCount; ++i)
 											{
 												VertexInfluenceData& vertexInfluenceData = vertexInfluenceDataContainer.emplace_back();
@@ -1104,13 +1110,13 @@ using namespace nbl::asset;
 											std::vector<typename VertexInfluenceData::ComponentData> skinComponentUnlimitedStream;
 											{
 												for (const auto& vertexInfluenceData : vertexInfluenceDataContainer)
-													for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
-													{
-														auto& data = skinComponentUnlimitedStream.emplace_back();
+												for (const auto& skinComponent : vertexInfluenceData.perVertexComponentsData)
+												{
+													auto& data = skinComponentUnlimitedStream.emplace_back();
 
-														data.joint = skinComponent.joint;
-														data.weight = skinComponent.weight;
-													}
+													data.joint = skinComponent.joint;
+													data.weight = skinComponent.weight;
+												}
 											}
 
 											//! sort, cache and keep only biggest influencers
@@ -1144,16 +1150,10 @@ using namespace nbl::asset;
 											maxJointsPerVertex = std::max(maxJointsPerVertex == 0xdeadbeef ? 0u : maxJointsPerVertex, validWeights);
 										}
 
-										using REPACK_JOINTS_FORMAT = E_FORMAT;
-										using REPACK_WEIGHTS_FORMAT = E_FORMAT;
-
-										auto getRepackFormats = [&]() -> std::pair<REPACK_JOINTS_FORMAT, REPACK_WEIGHTS_FORMAT>
+										E_FORMAT repackJointsFormat = EF_UNKNOWN;
+										E_FORMAT repackWeightsFormat = EF_UNKNOWN;
+										switch (maxJointsPerVertex)
 										{
-											E_FORMAT repackJointsFormat = EF_UNKNOWN;
-											E_FORMAT repackWeightsFormat = EF_UNKNOWN;
-
-											switch (maxJointsPerVertex)
-											{
 											case 1u:
 											{
 												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
@@ -1183,9 +1183,23 @@ using namespace nbl::asset;
 												else if (std::is_same<WeightCompomentT, float>::value)
 													repackWeightsFormat = EF_R32G32_SFLOAT;
 											} break;
+/*
+											// just rely on format promotion to fix these up
+											case 3u:
+											{
+												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
+													repackJointsFormat = EF_R8G8B8_UINT;
+												else if (std::is_same<JointComponentT, uint16_t>::value)
+													repackJointsFormat = EF_R16G16B16_UINT;
 
-											// TODO: what about the 3 joint case with less than 1024 joints?
-
+												if constexpr (std::is_same<WeightCompomentT, uint8_t>::value)
+													repackWeightsFormat = EF_R8G8B8_UINT;
+												else if (std::is_same<WeightCompomentT, uint16_t>::value)
+													repackWeightsFormat = EF_R16G16B16_UINT;
+												else if (std::is_same<WeightCompomentT, float>::value)
+													repackWeightsFormat = EF_R32G32B32_SFLOAT;
+											} break;
+*/
 											default:
 											{
 												if constexpr (std::is_same<JointComponentT, uint8_t>::value)
@@ -1200,12 +1214,8 @@ using namespace nbl::asset;
 												else if (std::is_same<WeightCompomentT, float>::value)
 													repackWeightsFormat = EF_R32G32B32A32_SFLOAT;
 											} break; //! vertex formats need to be PoT
-											}
+										}
 
-											return std::make_pair(repackJointsFormat, repackWeightsFormat);
-										};
-
-										const auto [repackJointsFormat, repackWeightsFormat] = getRepackFormats();
 										{
 											const size_t repackJointsTexelByteSize = asset::getTexelOrBlockBytesize(repackJointsFormat);
 											const size_t repackWeightsTexelByteSize = asset::getTexelOrBlockBytesize(repackWeightsFormat);
@@ -1216,8 +1226,7 @@ using namespace nbl::asset;
 											memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
 											memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
 											{ //! pack buffers and quantize weights buffer
-
-												_NBL_STATIC_INLINE_CONSTEXPR uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
+												constexpr uint16_t MAX_INFLUENCE_WEIGHTS_PER_VERTEX = 4;
 
 												struct QuantRequest
 												{
@@ -1245,6 +1254,7 @@ using namespace nbl::asset;
 													} bestWeightsFit;
 												} quantRequest;
 
+#if 1 // TODO: rewrite this complex as F function
 												for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
 												{
 													auto* unpackedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideJointsBuffer->getPointer()) + vAttributeIx * vJointsTexelByteSize);
@@ -1412,6 +1422,7 @@ using namespace nbl::asset;
 													overrideSkinningBuffers.weightsAttributes.cpuBuffer = std::move(vOverrideQuantizedWeightsBuffer);
 													overrideSkinningBuffers.weightsAttributes.format = weightsQuantizeFormat;
 												}
+#endif
 											}
 										}
 									};

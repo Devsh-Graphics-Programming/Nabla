@@ -5,6 +5,7 @@
 #ifndef __NBL_CORE_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 #define __NBL_CORE_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 
+#include "nbl/core/decl/Types.h"
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/alloc/AlignedBase.h"
 #include "nbl/core/containers/dynamic_array.h"

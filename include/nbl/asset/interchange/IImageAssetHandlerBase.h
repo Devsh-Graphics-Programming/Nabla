@@ -92,6 +92,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				{
 					auto& region = newRegions->operator[](i);
 					region.bufferOffset = bufferSize;
+					region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
 					region.imageSubresource.mipLevel = i;
 					region.imageSubresource.baseArrayLayer = 0;
 					region.imageSubresource.layerCount = newImageParams.arrayLayers;
@@ -169,74 +170,6 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 			return newImage;
 		}
-
-		/*
-			Patch for not supported by OpenGL R8_SRGB formats.
-			Input image needs to have all the regions filled 
-			and texel buffer attached as well.
-		*/
-
-		static inline core::smart_refctd_ptr<ICPUImage> convertR8ToR8G8B8Image(core::smart_refctd_ptr<ICPUImage> image, const system::logger_opt_ptr logger)
-		{
-			constexpr auto inputFormat = EF_R8_SRGB;
-			constexpr auto outputFormat = EF_R8G8B8_SRGB;
-		
-			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat,outputFormat>;
-
-			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
-			{
-				auto referenceImageParams = image->getCreationParameters();
-				auto referenceBuffer = image->getBuffer();
-				auto referenceRegions = image->getRegions();
-				auto referenceRegion = referenceRegions.begin();
-				const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outputFormat);
-
-				auto newImageParams = referenceImageParams;
-				auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceBuffer->getSize() * newTexelOrBlockByteSize);
-				auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
-
-				for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
-				{
-					*newRegion = *(referenceRegion++);
-					newRegion->bufferOffset = newRegion->bufferOffset * newTexelOrBlockByteSize;
-				}
-
-				newImageParams.format = outputFormat;
-				newConvertedImage = ICPUImage::create(std::move(newImageParams));
-				newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-				CONVERSION_SWIZZLE_FILTER convertFilter;
-				CONVERSION_SWIZZLE_FILTER::state_type state;
-
-				ICPUImageView::SComponentMapping mapping;
-				mapping.r = ICPUImageView::SComponentMapping::ES_R;
-				mapping.g = ICPUImageView::SComponentMapping::ES_R;
-				mapping.b = ICPUImageView::SComponentMapping::ES_R;
-				mapping.a = ICPUImageView::SComponentMapping::ES_ONE;
-				
-				state.swizzle = mapping;
-				state.inImage = image.get();
-				state.outImage = newConvertedImage.get();
-				state.inOffset = { 0, 0, 0 };
-				state.inBaseLayer = 0;
-				state.outOffset = { 0, 0, 0 };
-				state.outBaseLayer = 0;
-
-				for (auto itr = 0; itr < newConvertedImage->getCreationParameters().mipLevels; ++itr)
-				{
-					auto regionWithMipMap = newConvertedImage->getRegions(itr).begin();
-
-					state.extent = regionWithMipMap->getExtent();
-					state.layerCount = regionWithMipMap->imageSubresource.layerCount;
-					state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
-					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
-				
-					if (!convertFilter.execute(core::execution::par_unseq,&state))
-						logger.log("Something went wrong while converting from R8 to R8G8B8 format!", system::ILogger::ELL_WARNING);
-				}
-			}
-			return newConvertedImage;
-		};
 
 		/*
 			Performs image's texel flip. A processing image must

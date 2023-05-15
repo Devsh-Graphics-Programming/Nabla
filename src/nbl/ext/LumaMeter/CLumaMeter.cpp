@@ -69,13 +69,13 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefa
 				ISampler::ECO_ALWAYS
 			}
 		};
-		sampler = driver->createGPUSampler(params);
+		sampler = driver->createSampler(params);
 	}
 	return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
 core::smart_refctd_ptr<asset::ICPUSpecializedShader> CLumaMeter::createShader(
-	asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
+	asset::CGLSLCompiler* compilerToAddBuiltinIncludeTo,
 	const std::tuple<E_FORMAT,E_COLOR_PRIMARIES,ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 	E_METERING_MODE meterMode, float minLuma, float maxLuma
 )

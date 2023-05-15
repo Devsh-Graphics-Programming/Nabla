@@ -6,8 +6,9 @@
 #include "nbl/core/math/glslFunctions.tcc"
 
 #include "nbl/asset/IImage.h"
-#include "nbl/asset/EImageLayout.h"
 #include "nbl/asset/ECommonEnums.h"
+
+#include <compare>
 
 namespace nbl::asset
 {
@@ -43,8 +44,10 @@ public:
             IImage::E_SAMPLE_COUNT_FLAGS samples = IImage::ESCF_1_BIT;
             E_LOAD_OP loadOp = ELO_DONT_CARE;
             E_STORE_OP storeOp = ESO_DONT_CARE;
-            E_IMAGE_LAYOUT initialLayout = EIL_UNDEFINED;
-            E_IMAGE_LAYOUT finalLayout = EIL_UNDEFINED;
+            IImage::E_LAYOUT initialLayout = IImage::EL_UNDEFINED;
+            IImage::E_LAYOUT finalLayout = IImage::EL_UNDEFINED;
+
+            auto operator<=>(const SAttachmentDescription&) const = default;
         };
 
         struct SSubpassDescription
@@ -52,7 +55,9 @@ public:
             struct SAttachmentRef
             {
                 uint32_t attachment = ATTACHMENT_UNUSED;
-                E_IMAGE_LAYOUT layout = EIL_UNDEFINED;
+                IImage::E_LAYOUT layout = IImage::EL_UNDEFINED;
+
+                auto operator<=>(const SAttachmentRef&) const = default;
             };
 
             E_SUBPASS_DESCRIPTION_FLAGS flags = ESDF_NONE;
@@ -66,6 +71,8 @@ public:
             const SAttachmentRef* resolveAttachments;
             uint32_t preserveAttachmentCount;
             const uint32_t* preserveAttachments;
+
+            auto operator<=>(const SSubpassDescription&) const = default;
         };
 
         struct SSubpassDependency
@@ -77,6 +84,8 @@ public:
             E_ACCESS_FLAGS srcAccessMask;
             E_ACCESS_FLAGS dstAccessMask;
             E_DEPENDENCY_FLAGS dependencyFlags;
+
+            auto operator<=>(const SSubpassDependency&) const = default;
         };
 
         static inline constexpr auto MaxColorAttachments = 8u;
@@ -140,8 +149,6 @@ public:
                 sb._array = refs+refOffset;\
                 refOffset += sb._count;
 
-                // Todo(achal): It is probably wise to do the existence check on colorAttachements
-                // as well since it could be NULL according to the Vulkan spec
                 _COPY_ATTACHMENT_REFS(colorAttachments, colorAttachmentCount);
                 if (sb.inputAttachments)
                 {

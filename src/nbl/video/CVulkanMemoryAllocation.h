@@ -1,6 +1,6 @@
 #ifndef __NBL_C_VULKAN_MEMORY_ALLOCATION_H_INCLUDED__
 
-#include "nbl/video/IDriverMemoryAllocation.h"
+#include "nbl/video/IDeviceMemoryAllocation.h"
 
 #include <volk.h>
 
@@ -9,11 +9,17 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class CVulkanMemoryAllocation : public IDriverMemoryAllocation
+class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 {
 public:
-    CVulkanMemoryAllocation(ILogicalDevice* dev, size_t size, bool isDedicated, VkDeviceMemory deviceMemoryHandle, core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
-        : IDriverMemoryAllocation(dev, flags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
+    CVulkanMemoryAllocation(
+        ILogicalDevice* dev,
+        size_t size,
+        bool isDedicated, 
+        VkDeviceMemory deviceMemoryHandle,
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags,
+        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
+        : IDeviceMemoryAllocation(dev, flags, memoryPropertyFlags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
     {}
 
     ~CVulkanMemoryAllocation();
@@ -25,12 +31,6 @@ public:
     size_t getAllocationSize() const override { return m_size; }
 
     inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
-
-    inline void setMembersPostMap(void* ptr, MemoryRange rng, E_MAPPING_CPU_ACCESS_FLAG access)
-    {
-        // Probably should just make this public
-        postMapSetMembers(ptr, rng, access);
-    }
 
 private:
     VkDeviceMemory m_deviceMemoryHandle;

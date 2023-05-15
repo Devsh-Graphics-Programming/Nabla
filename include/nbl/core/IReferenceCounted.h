@@ -124,8 +124,7 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 
 	protected:
 		//! Constructor.
-		IReferenceCounted()
-			: DebugName(0), ReferenceCounter(1)
+		inline IReferenceCounted() : DebugName(0), ReferenceCounter(1)
 		{
 			_NBL_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
 			static_assert(decltype(ReferenceCounter)::is_always_lock_free,"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");
@@ -134,7 +133,7 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 		// Old destructor, but needed virtual for abstractness!
 		// _NBL_INTERFACE_CHILD_DEFAULT(IReferenceCounted);
 		//! Destructor, no need to define really, but make it pure virtual to truly prevent instantiation.
-		virtual ~IReferenceCounted() = 0;
+		NBL_API2 virtual ~IReferenceCounted() = 0;
 
 		//! Sets the debug name of the object.
 		/** The Debugname may only be set and changed by the object

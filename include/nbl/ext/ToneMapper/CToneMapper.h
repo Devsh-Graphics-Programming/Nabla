@@ -94,9 +94,9 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		{
 			auto pcRange = getDefaultPushConstantRanges(usingLumaMeter);
 			auto bindings = getDefaultBindings(driver,usingLumaMeter);
-			return driver->createGPUPipelineLayout(
+			return driver->createPipelineLayout(
 				pcRange.begin(),pcRange.end(),
-				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+				driver->createDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 			);
 		}
 
@@ -141,7 +141,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			pInfos[1].buffer.size = getParameterBufferSize<_operator,MeterMode>(arrayLayers);
 			pInfos[1].buffer.offset = 0u;
 			pInfos[2].desc = inputImageDescriptor;
-			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[2].image.imageLayout = static_cast<asset::IImage::E_LAYOUT>(0u);
 			pInfos[2].image.sampler = nullptr;
 
 			uint32_t outputImageIx;
@@ -156,29 +156,29 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t<MeterMode>);
 
 				pWrites[0].binding = lumaUniformsBinding;
-				pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
+				pWrites[0].descriptorType = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC;
 			}
 			else
 				outputImageIx = 0u;
 
 			pInfos[outputImageIx].desc = outputImageDescriptor;
-			pInfos[outputImageIx].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[outputImageIx].image.imageLayout = static_cast<asset::IImage::E_LAYOUT>(0u);
 			pInfos[outputImageIx].image.sampler = nullptr;
 
 
 			pWrites[1].binding = inputParameterBinding;
-			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER_DYNAMIC;
+			pWrites[1].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC;
 			pWrites[2].binding = inputImageBinding;
-			pWrites[2].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+			pWrites[2].descriptorType = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
 			pWrites[outputImageIx].binding = outputImageBinding;
-			pWrites[outputImageIx].descriptorType = asset::EDT_STORAGE_IMAGE;
+			pWrites[outputImageIx].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
 
 			driver->updateDescriptorSets(lumaUniformsDescriptor ? 4u:3u, pWrites, 0u, nullptr);
 		}
 		
 		//
 		static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createShader(
-			asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
+			asset::CGLSLCompiler* compilerToAddBuiltinIncludeTo,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
 			E_OPERATOR _operator,
@@ -205,7 +205,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			params.format = usedAsInput ? getInputViewFormat(nativeFormat):getOutputViewFormat(nativeFormat);
 			params.components = {};
 			params.subresourceRange = subresource;
-			return driver->createGPUImageView(std::move(params));
+			return driver->createImageView(std::move(params));
 		}
 
 		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves

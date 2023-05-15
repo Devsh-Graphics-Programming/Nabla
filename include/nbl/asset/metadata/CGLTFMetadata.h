@@ -5,6 +5,7 @@
 #ifndef _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_
 #define _NBL_ASSET_C_GLTF_METADATA_H_INCLUDED_
 
+#include "nbl/asset/ICPUSkeleton.h"
 #include "nbl/asset/metadata/IAssetMetadata.h"
 #include "nbl/asset/metadata/CGLTFPipelineMetadata.h"
 

@@ -5,7 +5,11 @@
 #include "nbl/asset/asset.h"
 
 #include "nbl/asset/interchange/CGLSLLoader.h"
+#include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
+
+#include <array>
+#include <nbl/core/string/StringLiteral.h>	
 
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
@@ -121,7 +125,8 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-    m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
+    if (!m_compilerSet)
+        m_compilerSet = core::make_smart_refctd_ptr<CCompilerSet>(core::smart_refctd_ptr(m_system));
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
@@ -171,6 +176,7 @@ void IAssetManager::addLoadersAndWriters()
 #endif
     addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CHLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
@@ -224,9 +230,12 @@ void IAssetManager::insertBuiltinAssets()
 									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{
-            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
+            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize() + 1u);
             memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
-            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, type, paths.begin()[0]);
+            char* bufferAsChar = reinterpret_cast<char*>(buffer->getPointer());
+            bufferAsChar[data->getSize()] = '\0';
+
+            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
 			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
@@ -280,7 +289,7 @@ void IAssetManager::insertBuiltinAssets()
     binding1.count = 1u;
     binding1.binding = 0u;
     binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-    binding1.type = asset::EDT_UNIFORM_BUFFER;
+    binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
     addBuiltInToCaches(ds1Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/1");
@@ -291,7 +300,7 @@ void IAssetManager::insertBuiltinAssets()
 
     asset::ICPUDescriptorSetLayout::SBinding binding3;
     binding3.binding = 0u;
-    binding3.type = EDT_COMBINED_IMAGE_SAMPLER;
+    binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
     binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
     binding3.samplers = nullptr;
@@ -357,6 +366,7 @@ void IAssetManager::insertBuiltinAssets()
 
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
         asset::ICPUImage::SBufferCopy& region = regions->front();
+        region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
         region.imageSubresource.mipLevel = 0u;
         region.imageSubresource.baseArrayLayer = 0u;
         region.imageSubresource.layerCount = 1u;
@@ -394,7 +404,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
     }
@@ -403,14 +413,15 @@ void IAssetManager::insertBuiltinAssets()
     {
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
-            auto desc = ds1->getDescriptors(0u).begin();
-            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
             auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
-            desc->desc = std::move(ubo);
-            desc->buffer.offset = 0ull;
-            desc->buffer.size = UBO_SZ;
+
+            auto descriptorInfos = ds1->getDescriptorInfos(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+            descriptorInfos.begin()[0].desc = std::move(ubo);
+            descriptorInfos.begin()[0].info.buffer.offset = 0ull;
+            descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
         }
         addBuiltInToCaches(ds1, "nbl/builtin/descriptor_set/basic_view_parameters");
         addBuiltInToCaches(defaultDs1Layout, "nbl/builtin/descriptor_set_layout/basic_view_parameters");
@@ -423,7 +434,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);

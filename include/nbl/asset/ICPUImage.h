@@ -20,17 +20,17 @@ namespace asset
 class ICPUImage final : public IImage, public IAsset
 {
 	public:
-		inline static core::smart_refctd_ptr<ICPUImage> create(SCreationParams&& _params)
+		inline static core::smart_refctd_ptr<ICPUImage> create(const SCreationParams& _params)
 		{
 			if (!validateCreationParameters(_params))
 				return nullptr;
 
-			return core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(_params)), core::dont_grab);
+			return core::smart_refctd_ptr<ICPUImage>(new ICPUImage(_params), core::dont_grab);
 		}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            auto par = params;
+            auto par = m_creationParams;
             auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
             clone_common(cp.get());
 
@@ -176,7 +176,10 @@ class ICPUImage final : public IImage, public IAsset
 			assert(!isImmutable_debug());
 
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
+			{
+				assert(false);
 				return false;
+			}
 		
 			buffer = std::move(_buffer);
 			regions = _regions;
@@ -187,22 +190,22 @@ class ICPUImage final : public IImage, public IAsset
 		
 		inline core::bitflag<E_USAGE_FLAGS> getImageUsageFlags() const
 		{
-			return params.usage;
+			return m_creationParams.usage;
 		}
 
 		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
 			if(isImmutable_debug())
-				return ((params.usage & usage).value == usage.value);
-			params.usage = usage;
+				return ((m_creationParams.usage & usage).value == usage.value);
+			m_creationParams.usage = usage;
 			return true;
 		}
 
 		inline bool addImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
 			if(isImmutable_debug())
-				return ((params.usage & usage).value == usage.value);
-			params.usage |= usage;
+				return ((m_creationParams.usage & usage).value == usage.value);
+			m_creationParams.usage |= usage;
 			return true;
 		}
 
@@ -211,7 +214,7 @@ class ICPUImage final : public IImage, public IAsset
 			auto* other = static_cast<const ICPUImage*>(_other);
 			if (info != other->info)
 				return false;
-			if (params != other->params)
+			if (m_creationParams != other->m_creationParams)
 				return false;
 			if (!buffer->canBeRestoredFrom(other->buffer.get()))
 				return false;
@@ -239,7 +242,7 @@ class ICPUImage final : public IImage, public IAsset
 			return buffer->isAnyDependencyDummy(_levelsBelow);
 		}
 
-		ICPUImage(SCreationParams&& _params) : IImage(std::move(_params))
+		ICPUImage(const SCreationParams& _params) : IImage(_params)
 		{
 		}
 

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_SHADER_H_INCLUDED__
-#define __NBL_ASSET_I_SHADER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_SHADER_H_INCLUDED_
+#define _NBL_ASSET_I_SHADER_H_INCLUDED_
 
 #include <algorithm>
 #include <string>
@@ -13,9 +13,9 @@
 
 namespace spirv_cross
 {
-    class ParsedIR;
-    class Compiler;
-    struct SPIRType;
+	class ParsedIR;
+	class Compiler;
+	struct SPIRType;
 }
 
 namespace nbl::asset
@@ -32,11 +32,13 @@ namespace nbl::asset
 class IShader : public virtual core::IReferenceCounted
 {
 	public:
+		// TODO: make this enum class
 		enum E_SHADER_STAGE : uint32_t
 		{
+			ESS_UNKNOWN = 0,
 			ESS_VERTEX = 1 << 0,
-			ESS_TESSELATION_CONTROL = 1 << 1,
-			ESS_TESSELATION_EVALUATION = 1 << 2,
+			ESS_TESSELLATION_CONTROL = 1 << 1,
+			ESS_TESSELLATION_EVALUATION = 1 << 2,
 			ESS_GEOMETRY = 1 << 3,
 			ESS_FRAGMENT = 1 << 4,
 			ESS_COMPUTE = 1 << 5,
@@ -48,13 +50,17 @@ class IShader : public virtual core::IReferenceCounted
 			ESS_MISS = 1 << 11,
 			ESS_INTERSECTION = 1 << 12,
 			ESS_CALLABLE = 1 << 13,
-			ESS_UNKNOWN = 0,
-			ESS_ALL_GRAPHICS = 0x1f,
-			ESS_ALL = 0xffffffff
+			ESS_ALL_GRAPHICS = 0x0000001F,
+			ESS_ALL = 0x7fffffff
 		};
 
-		struct buffer_contains_glsl_t {};
-		_NBL_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
+		enum class E_CONTENT_TYPE : uint8_t
+		{
+			ECT_UNKNOWN = 0,
+			ECT_GLSL,
+			ECT_HLSL,
+			ECT_SPIRV,
+		};
 
 		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
 			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint))
@@ -64,59 +70,12 @@ class IShader : public virtual core::IReferenceCounted
 
 		inline const std::string& getFilepathHint() const { return m_filepathHint; }
 
-		static inline void insertDefines(std::string& _glsl, const core::SRange<const char* const>& _defines)
-		{
-            if (_defines.empty())
-                return;
-
-			std::ostringstream insertion;
-			for (auto def : _defines)
-			{
-				insertion << "#define "<<def<<"\n";
-			}
-			insertAfterVersionAndPragmaShaderStage(_glsl,std::move(insertion));
-		}
-
-	// TODO: can make it protected again AFTER we get rid of `COpenGLShader::k_openGL2VulkanExtensionMap`
-	//protected:
-		static inline void insertAfterVersionAndPragmaShaderStage(std::string& _glsl, std::ostringstream&& _ins)
-		{
-			auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl] () -> size_t
-			{
-				size_t hashPos = _glsl.find_first_of('#');
-				if (hashPos >= _glsl.length())
-					return _glsl.npos;
-				if (_glsl.compare(hashPos, 8, "#version"))
-					return _glsl.npos;
-
-				size_t searchPos = hashPos + 8ull;
-
-				size_t hashPos2 = _glsl.find_first_of('#', hashPos + 8ull);
-				if (hashPos2 < _glsl.length())
-				{
-					char pragma_stage_str[] = "#pragma shader_stage";
-					if (_glsl.compare(hashPos2, sizeof(pragma_stage_str) - 1ull, pragma_stage_str) == 0)
-						searchPos = hashPos2 + sizeof(pragma_stage_str) - 1ull;
-				}
-				size_t nlPos = _glsl.find_first_of('\n', searchPos);
-
-				return (nlPos >= _glsl.length()) ? _glsl.npos : nlPos + 1ull;
-			};
-
-			const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();
-			if (pos == _glsl.npos)
-				return;
-
-			const size_t ln = std::count(_glsl.begin(), _glsl.begin() + pos, '\n') + 1;//+1 to count from 1
-
-			_ins << "#line "<<std::to_string(ln)<<"\n";
-			_glsl.insert(pos,_ins.str());
-		}
-
 protected:
 	E_SHADER_STAGE m_shaderStage;
 	std::string m_filepathHint;
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IShader::E_SHADER_STAGE)
 
 }
 

@@ -17,6 +17,7 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/IImage.h"
+#include "nbl/asset/IShader.h"
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -249,7 +250,6 @@ struct SRasterizationParams
     E_POLYGON_MODE polygonMode = EPM_FILL;
     E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
 	E_COMPARE_OP depthCompareOp = ECO_GREATER;
-    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT; //TODO depr
 	uint32_t sampleMask[2] = {~0u,~0u};
     float minSampleShading = 0.f;
     float depthBiasSlopeFactor = 0.f;
@@ -293,7 +293,7 @@ struct SRasterizationParams
         reinterpret_cast<uint16_t*>(bf_dst)[0] = bf;
     }
 } PACK_STRUCT;
-static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
+static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 2u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
 
 enum E_LOGIC_OP : uint8_t
 {
@@ -509,16 +509,7 @@ template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
-
-		enum E_SHADER_STAGE_IX : uint32_t
-		{
-			ESSI_VERTEX_SHADER_IX = 0,
-			ESSI_TESS_CTRL_SHADER_IX = 1,
-			ESSI_TESS_EVAL_SHADER_IX = 2,
-			ESSI_GEOMETRY_SHADER_IX = 3,
-			ESSI_FRAGMENT_SHADER_IX = 4
-		};
+		_NBL_STATIC_INLINE_CONSTEXPR size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
 		IRenderpassIndependentPipeline(
 			core::smart_refctd_ptr<LayoutType>&& _layout,
@@ -537,7 +528,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 			for (auto shdr : shaders)
 			{
 				const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-				assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
+				assert(ix < static_cast<int32_t>(GRAPHICS_SHADER_STAGE_COUNT));
 				assert(!m_shaders[ix]);//must be maximum of 1 for each stage
 				m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
 			}
@@ -548,7 +539,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 		inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
 		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
+        inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
 		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
 		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
@@ -556,7 +547,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
 	protected:
-		core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
+		core::smart_refctd_ptr<SpecShaderType> m_shaders[GRAPHICS_SHADER_STAGE_COUNT];
 
 		SBlendParams m_blendParams;
 		SPrimitiveAssemblyParams m_primAsmParams;

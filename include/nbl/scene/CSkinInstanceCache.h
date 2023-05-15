@@ -27,21 +27,30 @@ class CSkinInstanceCache final : public ISkinInstanceCache
             ExplicitCreationParameters explicit_params;
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             {
-                video::IGPUBuffer::SCreationParams creationParams = {};
-                creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-            
+                auto createAndAllocateSkinningBuffer = [&](size_t size) -> auto
+                {
+                    video::IGPUBuffer::SCreationParams creationParams = {};
+                    creationParams.size = size;
+                    creationParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+                    auto buffer = params.device->createBuffer(std::move(creationParams));	
+                    auto mreqs = buffer->getMemoryReqs();
+                    mreqs.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+                    auto gpubufMem = params.device->allocate(mreqs, buffer.get());
+                    return buffer;
+                };
+
                 explicit_params.jointNodeBuffer.offset = 0ull;
-                explicit_params.jointNodeBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(joint_t),limits.SSBOAlignment);
-                explicit_params.jointNodeBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams,explicit_params.jointNodeBuffer.size);
+                explicit_params.jointNodeBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(joint_t),limits.minSSBOAlignment);
+                explicit_params.jointNodeBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.jointNodeBuffer.size);
                 explicit_params.skinningMatrixBuffer.offset = 0ull;
-                explicit_params.skinningMatrixBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(skinning_matrix_t),limits.SSBOAlignment);
-                explicit_params.skinningMatrixBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams,explicit_params.skinningMatrixBuffer.size);
+                explicit_params.skinningMatrixBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(skinning_matrix_t),limits.minSSBOAlignment);
+                explicit_params.skinningMatrixBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.skinningMatrixBuffer.size);
                 explicit_params.recomputedTimestampBuffer.offset = 0ull;
-                explicit_params.recomputedTimestampBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(recomputed_stamp_t),limits.SSBOAlignment);
-                explicit_params.recomputedTimestampBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams,explicit_params.recomputedTimestampBuffer.size);
+                explicit_params.recomputedTimestampBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(recomputed_stamp_t),limits.minSSBOAlignment);
+                explicit_params.recomputedTimestampBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.recomputedTimestampBuffer.size);
                 explicit_params.inverseBindPoseOffsetBuffer.offset = 0ull;
-                explicit_params.inverseBindPoseOffsetBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(inverse_bind_pose_offset_t),limits.SSBOAlignment);
-                explicit_params.inverseBindPoseOffsetBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams,explicit_params.inverseBindPoseOffsetBuffer.size);
+                explicit_params.inverseBindPoseOffsetBuffer.size = core::roundUp<size_t>(params.jointCapacity*sizeof(inverse_bind_pose_offset_t),limits.minSSBOAlignment);
+                explicit_params.inverseBindPoseOffsetBuffer.buffer = createAndAllocateSkinningBuffer(explicit_params.inverseBindPoseOffsetBuffer.size);
             }
             explicit_params.inverseBindPosePool = video::CPropertyPool<core::allocator,inverse_bind_pose_t>::create(params.device,params.inverseBindPoseCapacity);
             return create(std::move(explicit_params),std::move(alloc));
@@ -68,7 +77,7 @@ class CSkinInstanceCache final : public ISkinInstanceCache
             const auto* transformTree = params.associatedTransformTree.get();
             assert(transformTree->getRenderDescriptorSetBindingCount()<=ITransformTreeWithNormalMatrices::RenderDescriptorSetBindingCount);
             const auto poolSizeCount = CacheDescriptorSetBindingCount+ITransformTreeWithNormalMatrices::RenderDescriptorSetBindingCount+1u;
-			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,poolSizeCount};
+			video::IDescriptorPool::SDescriptorPoolSize size = {asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,poolSizeCount};
 			auto dsp = params.device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,2u,1u,&size);
 			if (!dsp)
 				return nullptr;
@@ -78,7 +87,7 @@ class CSkinInstanceCache final : public ISkinInstanceCache
 			for (auto i=0u; i<CacheDescriptorSetBindingCount; i++)
 			{
 				writes[i].binding = i;
-				writes[i].descriptorType = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].count = 1u;
 			}
 			auto cacheUpdateLayout = createCacheDescriptorSetLayout(params.device);
@@ -90,8 +99,8 @@ class CSkinInstanceCache final : public ISkinInstanceCache
 			if (!cacheUpdateLayout || !renderLayout)
 				return false;
 
-            auto cacheUpdateDescriptorSet = params.device->createGPUDescriptorSet(dsp.get(),std::move(cacheUpdateLayout));
-            auto renderDescriptorSet = params.device->createGPUDescriptorSet(dsp.get(),std::move(renderLayout));
+            auto cacheUpdateDescriptorSet = params.device->createDescriptorSet(dsp.get(),std::move(cacheUpdateLayout));
+            auto renderDescriptorSet = params.device->createDescriptorSet(dsp.get(),std::move(renderLayout));
 			if (!cacheUpdateDescriptorSet || !renderDescriptorSet)
 				return nullptr;
 

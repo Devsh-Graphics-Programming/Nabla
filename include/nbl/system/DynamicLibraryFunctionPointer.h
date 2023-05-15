@@ -1,12 +1,12 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
-#define __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
+#ifndef _NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED_
+#define _NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED_
 
 
 #include "nbl/core/declarations.h"
+#include "nbl/core/string/StringLiteral.h"
 
 #include <functional>
 
@@ -14,19 +14,19 @@
 namespace nbl::system
 {
 
-template<typename FuncT, class UniqueStringType>
+template<typename FuncT, core::StringLiteral name>
 class DynamicLibraryFunctionPointer
 {
 	public:
 		using result_type = typename std::function<FuncT>::result_type;
 
-		DynamicLibraryFunctionPointer() : p(nullptr) {}
-		DynamicLibraryFunctionPointer(DynamicLibraryFunctionPointer&& other) : DynamicLibraryFunctionPointer()
+		inline DynamicLibraryFunctionPointer() : p(nullptr) {}
+		inline DynamicLibraryFunctionPointer(DynamicLibraryFunctionPointer&& other) : DynamicLibraryFunctionPointer()
 		{
 			operator=(std::move(other));
 		}
-		DynamicLibraryFunctionPointer(void* ptr) : p(reinterpret_cast<FuncT*>(ptr)) {}
-		~DynamicLibraryFunctionPointer()
+		inline DynamicLibraryFunctionPointer(void* ptr) : p(reinterpret_cast<FuncT*>(ptr)) {}
+		inline ~DynamicLibraryFunctionPointer()
 		{
 			p = nullptr;
 		}
@@ -45,7 +45,7 @@ class DynamicLibraryFunctionPointer
 			if (p)
 				return p(std::forward<T>(args)...);
 			assert(error);
-			return error(name);
+			return error(name.value);
 		}*/
 
 		template<typename... T>
@@ -54,7 +54,7 @@ class DynamicLibraryFunctionPointer
 			if (p)
 				return p(std::forward<T>(args)...);
 			else if (error)
-				error(name);
+				error(name.value);
 			if constexpr (!std::is_void_v<result_type>)
 			{
 				return result_type{};
@@ -81,8 +81,6 @@ class DynamicLibraryFunctionPointer
 
 	protected:
 		FuncT* p;
-
-		const char* name = UniqueStringType::value;
 };
 
 }

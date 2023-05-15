@@ -122,6 +122,8 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			//not all kernels are default-constructible, this is going to be a problem (i already added appropriate ctor for blit filter state class though)
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
 			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
+
+			pseudo_base_t::blit_utils_t::computeScaledKernelPhasedLUT(blit.scratchMemory + pseudo_base_t::getScratchOffset(&blit, pseudo_base_t::ESU_SCALED_KERNEL_PHASED_LUT), blit.inExtentLayerCount, blit.outExtentLayerCount, blit.inImage->getCreationParameters().type, blit.kernelX, blit.kernelY, blit.kernelZ);
 			return blit;
 		}
 };

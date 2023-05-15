@@ -11,6 +11,7 @@
 #include "nbl/asset/format/EFormat.h"
 #include "aabbox3d.h"
 #define uint uint32_t
+#include <compare>
 #include "nbl/builtin/glsl/utils/acceleration_structures.glsl"
 #undef uint
 
@@ -140,6 +141,11 @@ class IAccelerationStructure : public IDescriptor
 			E_GEOM_TYPE					type;
 			E_GEOM_FLAGS				flags; // change to core::bitflags later
 			GeometryData<AddressType>	data;
+
+			inline bool operator!=(const Geometry& other) const
+			{
+				return !std::memcmp(this, &other, sizeof(other));
+			}
 		};
 
 		// For Filling the Instances/AABBs Buffer

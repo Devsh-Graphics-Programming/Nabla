@@ -36,8 +36,8 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 			static_assert(alignof(LoDChoiceParams)==alignof(uint32_t));
 		};
 
-        static inline core::smart_refctd_ptr<CLevelOfDetailLibrary> create(const ImplicitBufferCreationParameters& params, allocator<uint8_t>&& _alloc=allocator<uint8_t>())
-        {
+		static inline core::smart_refctd_ptr<CLevelOfDetailLibrary> create(const ImplicitBufferCreationParameters& params, allocator<uint8_t>&& _alloc=allocator<uint8_t>())
+		{
 			assert(params.tableCapacity && params.lodCapacity && params.drawcallCapacity);
 			const uint32_t tableBufferSize = params.tableCapacity*(sizeof(LoDTableInfo)+(params.lodCapacity-1u)/params.tableCapacity*sizeof(uint32_t)+alignof(LoDTableInfo));
 			const uint32_t lodBufferSize = params.lodCapacity*(sizeof(LoDInfo)+(params.drawcallCapacity-1u)/params.lodCapacity*sizeof(DrawcallInfo)+alignof(LoDInfo));
@@ -45,18 +45,35 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 			ExplicitBufferCreationParameters explicitParams;
 			{
 				static_cast<CreationParametersBase&>(explicitParams) = params;
+				const uint32_t deviceLocalMemTypeBits = params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 
-				video::IGPUBuffer::SCreationParams bufferParams;
-				bufferParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
-				explicitParams.lodTableInfoBuffer = {0ull,tableBufferSize,params.device->createDeviceLocalGPUBufferOnDedMem(bufferParams,tableBufferSize)};
+				video::IGPUBuffer::SCreationParams lodTableInfoBufferParams;
+				lodTableInfoBufferParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+				lodTableInfoBufferParams.size = tableBufferSize;
+				auto lodTableInfoBuffer = params.device->createBuffer(std::move(lodTableInfoBufferParams));
+				auto lodTableInfoMReqs = lodTableInfoBuffer->getMemoryReqs();
+				lodTableInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
+				params.device->allocate(lodTableInfoMReqs, lodTableInfoBuffer.get());
+
+				explicitParams.lodTableInfoBuffer = {0ull,tableBufferSize,lodTableInfoBuffer};
 				explicitParams.lodTableInfoBuffer.buffer->setObjectDebugName("LoD Table Infos");
-				explicitParams.lodInfoBuffer = {0ull,lodBufferSize,params.device->createDeviceLocalGPUBufferOnDedMem(bufferParams,lodBufferSize)};
+
+				// 
+				video::IGPUBuffer::SCreationParams lodInfoBufferParams = {};
+				lodInfoBufferParams.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT;
+				lodInfoBufferParams.size = lodBufferSize;
+				auto lodInfoBuffer = params.device->createBuffer(std::move(lodInfoBufferParams));
+				auto lodInfoMReqs = lodInfoBuffer->getMemoryReqs();
+				lodInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
+				params.device->allocate(lodInfoMReqs, lodInfoBuffer.get());
+
+				explicitParams.lodInfoBuffer = {0ull,lodBufferSize,lodInfoBuffer};
 				explicitParams.lodInfoBuffer.buffer->setObjectDebugName("LoD Infos");
 			}
 			return create(std::move(explicitParams),std::move(_alloc));
 		}
-        static inline core::smart_refctd_ptr<CLevelOfDetailLibrary> create(ExplicitBufferCreationParameters&& params, allocator<uint8_t>&& _alloc=allocator<uint8_t>())
-        {
+		static inline core::smart_refctd_ptr<CLevelOfDetailLibrary> create(ExplicitBufferCreationParameters&& params, allocator<uint8_t>&& _alloc=allocator<uint8_t>())
+		{
 			if (!params.device || !params.lodTableInfoBuffer.isValid() || !params.lodInfoBuffer.isValid())
 				return nullptr;
 
@@ -69,8 +86,8 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 			if (!lodl) // TODO: redo this, allocate the memory for the object, if fail, then dealloc, we cannot free from a moved allocator
 				std::allocator_traits<allocator<uint8_t>>::deallocate(_alloc,allocatorReserved,allocatorReservedSize);
 
-            return core::smart_refctd_ptr<CLevelOfDetailLibrary>(lodl,core::dont_grab);
-        }
+			return core::smart_refctd_ptr<CLevelOfDetailLibrary>(lodl,core::dont_grab);
+		}
 
 		//
 		inline bool allocateLoDs(Allocation& params)
@@ -90,20 +107,20 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 		}
 		~CLevelOfDetailLibrary()
 		{
-            std::allocator_traits<allocator<uint8_t>>::deallocate(
-                m_alloc,reinterpret_cast<uint8_t*>(m_allocatorReserved),
+			std::allocator_traits<allocator<uint8_t>>::deallocate(
+				m_alloc,reinterpret_cast<uint8_t*>(m_allocatorReserved),
 				computeReservedSize(m_lodTableInfos.size,m_lodInfos.size)
-            );
+			);
 		}
 
 		static inline uint32_t maxInfoCapacity(const uint64_t lodBufferSize)
 		{
 			return lodBufferSize/sizeof(LoDInfo);
 		}
-        static inline size_t computeReservedSize(const uint64_t tableBufferSize, const uint64_t lodBufferSize)
-        {
-            return computeTableReservedSize(tableBufferSize)+core::roundUp(AddressAllocator::reserved_size(1u,maxInfoCapacity(lodBufferSize),1u),_NBL_SIMD_ALIGNMENT);
-        }
+		static inline size_t computeReservedSize(const uint64_t tableBufferSize, const uint64_t lodBufferSize)
+		{
+			return computeTableReservedSize(tableBufferSize)+core::roundUp(AddressAllocator::reserved_size(1u,maxInfoCapacity(lodBufferSize),1u),_NBL_SIMD_ALIGNMENT);
+		}
 
 		allocator<uint8_t> m_alloc;
 };

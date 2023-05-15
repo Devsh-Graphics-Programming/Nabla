@@ -4,12 +4,12 @@
 
 namespace nbl::video
 {
-	bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
+	bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t _queueFamIx) const
 	{
-		if (dev->getAPIType() != EAT_VULKAN)
+		if (physicalDevice->getAPIType() != EAT_VULKAN)
 			return false;
 
-		VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
+		VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(physicalDevice)->getInternalObject();
 
 		VkBool32 supported;
 		if (vkGetPhysicalDeviceSurfaceSupportKHR(vk_physicalDevice, _queueFamIx, m_vkSurfaceKHR, &supported) == VK_SUCCESS)
@@ -118,4 +118,30 @@ namespace nbl::video
 
 		return true;
 	}
+
+#ifdef _NBL_PLATFORM_WINDOWS_
+	core::smart_refctd_ptr<CSurfaceVulkanWin32> CSurfaceVulkanWin32::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowWin32>&& window)
+	{
+		if (!api || !window)
+			return nullptr;
+
+		VkWin32SurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+		createInfo.pNext = nullptr; // pNext must be NULL
+		createInfo.flags = static_cast<VkWin32SurfaceCreateFlagsKHR>(0);
+		createInfo.hinstance = GetModuleHandle(NULL);
+		createInfo.hwnd = static_cast<HWND>(window->getNativeHandle());
+
+		VkSurfaceKHR vk_surface;
+		// `vkCreateWin32SurfaceKHR` is taken from `volk` (cause it uses `extern` globals like a n00b)
+		if (vkCreateWin32SurfaceKHR(api->getInternalObject(), &createInfo, nullptr, &vk_surface) == VK_SUCCESS)
+		{
+			auto retval = new this_t(std::move(window), std::move(api), vk_surface);
+			return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
+#endif
 }

@@ -9,90 +9,6 @@
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<ISwapchain> CVulkanLogicalDevice::createSwapchain(ISwapchain::SCreationParams&& params)
-{
-    constexpr uint32_t MAX_SWAPCHAIN_IMAGE_COUNT = 100u;
-
-    if (params.surface->getAPIType() != EAT_VULKAN)
-        return nullptr;
-
-#ifdef _NBL_PLATFORM_WINDOWS_
-    // Todo(achal): not sure yet, how would I handle multiple platforms without making
-    // this function templated
-    VkSurfaceKHR vk_surface = static_cast<const CSurfaceVulkanWin32*>(params.surface.get())->getInternalObject();
-#endif
-
-    VkPresentModeKHR vkPresentMode;
-    if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
-        vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-    else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_MAILBOX) == ISurface::E_PRESENT_MODE::EPM_MAILBOX)
-        vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-    else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO) == ISurface::E_PRESENT_MODE::EPM_FIFO)
-        vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-    else if((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
-        vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-
-    VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
-#ifdef _NBL_PLATFORM_WINDOWS_
-    vk_createInfo.surface = vk_surface;
-#endif        
-    vk_createInfo.minImageCount = params.minImageCount;
-    vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
-    vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
-    vk_createInfo.imageExtent = { params.width, params.height };
-    vk_createInfo.imageArrayLayers = params.arrayLayers;
-    vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage);
-    vk_createInfo.imageSharingMode = static_cast<VkSharingMode>(params.imageSharingMode);
-    vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
-    vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-    vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
-    vk_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(params.compositeAlpha);
-    vk_createInfo.presentMode = vkPresentMode;
-    vk_createInfo.clipped = VK_FALSE;
-    vk_createInfo.oldSwapchain = VK_NULL_HANDLE;
-    if (params.oldSwapchain && (params.oldSwapchain->getAPIType() == EAT_VULKAN))
-        vk_createInfo.oldSwapchain = IBackendObject::device_compatibility_cast<CVulkanSwapchain*>(params.oldSwapchain.get(), this)->getInternalObject();
-
-    VkSwapchainKHR vk_swapchain;
-    if (m_devf.vk.vkCreateSwapchainKHR(m_vkdev, &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)
-        return nullptr;
-
-    uint32_t imageCount;
-    VkResult retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, nullptr);
-    if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-        return nullptr;
-
-    assert(imageCount <= MAX_SWAPCHAIN_IMAGE_COUNT);
-
-    VkImage vk_images[MAX_SWAPCHAIN_IMAGE_COUNT];
-    retval = m_devf.vk.vkGetSwapchainImagesKHR(m_vkdev, vk_swapchain, &imageCount, vk_images);
-    if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-        return nullptr;
-
-    ISwapchain::images_array_t images = core::make_refctd_dynamic_array<ISwapchain::images_array_t>(imageCount);
-
-    uint32_t i = 0u;
-    for (auto& image : (*images))
-    {
-        CVulkanForeignImage::SCreationParams creationParams;
-        creationParams.arrayLayers = params.arrayLayers;
-        creationParams.extent = { params.width, params.height, 1u };
-        creationParams.flags = static_cast<CVulkanForeignImage::E_CREATE_FLAGS>(0); // Todo(achal)
-        creationParams.format = params.surfaceFormat.format;
-        creationParams.mipLevels = 1u;
-        creationParams.samples = CVulkanImage::ESCF_1_BIT; // Todo(achal)
-        creationParams.type = CVulkanImage::ET_2D;
-
-        image = core::make_smart_refctd_ptr<CVulkanForeignImage>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams),
-            vk_images[i++]);
-    }
-
-    return core::make_smart_refctd_ptr<CVulkanSwapchain>(
-        core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
-        std::move(images), vk_swapchain);
-}
-
 core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
 {
     VkEventCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_EVENT_CREATE_INFO };
@@ -149,148 +65,93 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
         return IGPUEvent::ES_FAILURE;
 }
 
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDeviceLocalMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
+IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDeviceLocalGPUMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+    IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
 
-    return allocateGPUMemory(additionalReqs);
-}
+    core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
 
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateSpilloverMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    if (additionalReqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
-        return nullptr;
+    VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+    VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
+    VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
 
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getSpilloverGPUMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
+    if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_MASK_BIT))
+        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
+    else if(allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+    vk_allocateFlagsInfo.deviceMask = 0u; // unused
+    
+    vk_allocateInfo.allocationSize = info.size;
+    vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateUpStreamingMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getUpStreamingMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
-
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateDownStreamingMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getDownStreamingMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
-
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateCPUSideGPUVisibleMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs)
-{
-    if (additionalReqs.memoryHeapLocation != IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL)
-        return nullptr;
-
-    IDriverMemoryBacked::SDriverMemoryRequirements memoryReqs = getCPUSideGPUVisibleGPUMemoryReqs();
-    memoryReqs.vulkanReqs.alignment = core::max(memoryReqs.vulkanReqs.alignment, additionalReqs.vulkanReqs.alignment);
-    memoryReqs.vulkanReqs.size = core::max(memoryReqs.vulkanReqs.size, additionalReqs.vulkanReqs.size);
-    memoryReqs.vulkanReqs.memoryTypeBits &= additionalReqs.vulkanReqs.memoryTypeBits;
-    memoryReqs.mappingCapability = additionalReqs.mappingCapability;
-    memoryReqs.memoryHeapLocation = additionalReqs.memoryHeapLocation;
-    memoryReqs.prefersDedicatedAllocation = additionalReqs.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = additionalReqs.requiresDedicatedAllocation;
-
-    return allocateGPUMemory(memoryReqs);
-}
-
-core::smart_refctd_ptr<IDriverMemoryAllocation> CVulkanLogicalDevice::allocateGPUMemory(
-    const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-    core::bitflag<IDriverMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags)
-{
-    VkMemoryPropertyFlags desiredMemoryProperties = static_cast<VkMemoryPropertyFlags>(0u);
-
-    if (reqs.memoryHeapLocation == IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-    if ((reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) ||
-        (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE))
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-
-    if (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_COHERENT)
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-    if (reqs.mappingCapability & IDriverMemoryAllocation::EMCF_CACHED)
-        desiredMemoryProperties |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-
-    const IPhysicalDevice::SMemoryProperties& memoryProperties = m_physicalDevice->getMemoryProperties();
-
-    uint32_t compatibleMemoryTypeCount = 0u;
-    uint32_t compatibleMemoryTypeIndices[VK_MAX_MEMORY_TYPES];
-
-    for (uint32_t i = 0u; i < memoryProperties.memoryTypeCount; ++i)
+    VkDeviceMemory vk_deviceMemory;
+    bool isDedicated = (info.dedication != nullptr);
+    if(isDedicated)
     {
-        const bool memoryTypeSupportedForResource = (reqs.vulkanReqs.memoryTypeBits & (1 << i));
+        // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
+        static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
+        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
 
-        const bool memoryHasDesirableProperties = (memoryProperties.memoryTypes[i].propertyFlags
-            & desiredMemoryProperties) == desiredMemoryProperties;
-
-        if (memoryTypeSupportedForResource && memoryHasDesirableProperties)
-            compatibleMemoryTypeIndices[compatibleMemoryTypeCount++] = i;
+        if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
+            vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
+        else if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
+            vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
     }
 
-    for (uint32_t i = 0u; i < compatibleMemoryTypeCount; ++i)
+    auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
+    if (vk_res == VK_SUCCESS)
     {
-        // Todo(achal): Make use of requiresDedicatedAllocation and prefersDedicatedAllocation
-        VkMemoryAllocateFlagsInfo vk_allocateFlags = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
-        if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_MASK_BIT))
-            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
-        else if(allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
-            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-        else if (allocateFlags.hasValue(IDriverMemoryAllocation::EMAF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT))
-            vk_allocateFlags.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT;
-        vk_allocateFlags.deviceMask = 0u; // unused
-
-        VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-        vk_allocateInfo.pNext = &vk_allocateFlags; // No extensions for now
-        vk_allocateInfo.allocationSize = reqs.vulkanReqs.size;
-        vk_allocateInfo.memoryTypeIndex = compatibleMemoryTypeIndices[i];
-
-        VkDeviceMemory vk_deviceMemory;
-        if (m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory) == VK_SUCCESS)
+        if(info.memoryTypeIndex < m_physicalDevice->getMemoryProperties().memoryTypeCount)
         {
-            // Todo(achal): Change dedicate to not always be false
-            return core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, reqs.vulkanReqs.size, false, vk_deviceMemory, allocateFlags);
+            auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
+            ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags, memoryPropertyFlags);
+            ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
+
+            if(info.dedication)
+            {
+                bool dedicationSuccess = false;
+                switch (info.dedication->getObjectType())
+                {
+                case IDeviceMemoryBacked::EOT_BUFFER:
+                {
+                    SBindBufferMemoryInfo bindBufferInfo = {};
+                    bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
+                    bindBufferInfo.memory = ret.memory.get();
+                    bindBufferInfo.offset = ret.offset;
+                    dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
+                }
+                    break;
+                case IDeviceMemoryBacked::EOT_IMAGE:
+                {
+                    SBindImageMemoryInfo bindImageInfo = {};
+                    bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
+                    bindImageInfo.memory = ret.memory.get();
+                    bindImageInfo.offset = ret.offset;
+                    dedicationSuccess = bindImageMemory(1u, &bindImageInfo);
+                }
+                    break;
+                default:
+                    assert(false);
+                }
+
+                if(!dedicationSuccess)
+                {
+                    // automatically allocation goes out of scope and frees itself
+                    ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+                }
+            }
+        }
+        else
+        {
+            assert(false);
+            // and probably log memoryTypeIndex is invalid
         }
     }
+    // TODO: Log errors:
+    // else if(vk_res == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+    // else if(vk_res == VK_ERROR_OUT_OF_HOST_MEMORY)
 
-    return nullptr;
+    return ret;
 }
 
 bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
@@ -316,9 +177,12 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     {
         for (uint32_t i = 0u; i < count; ++i)
         {
+            const auto* debugCb = m_physicalDevice->getDebugCallback();
+
             outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
                 core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
-                core::smart_refctd_ptr<IGPUCommandPool>(cmdPool));
+                core::smart_refctd_ptr<IGPUCommandPool>(cmdPool),
+                debugCb ? core::smart_refctd_ptr<system::ILogger>(debugCb->getLogger()) : nullptr);
         }
 
         return true;
@@ -329,11 +193,11 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     }
 }
 
-core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::IImage::SCreationParams&& params)
+core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::SCreationParams&& params)
 {
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     vk_createInfo.pNext = nullptr; // there are a lot of extensions
-    vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
+    vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags.value);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
     vk_createInfo.format = getVkFormatFromFormat(params.format);
     vk_createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
@@ -342,7 +206,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::II
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
     vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
     vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
-    vk_createInfo.sharingMode = static_cast<VkSharingMode>(params.sharingMode);
+    vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
     vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
@@ -360,18 +224,18 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::II
 
         m_devf.vk.vkGetImageMemoryRequirements2(m_vkdev, &vk_memReqsInfo, &vk_memReqs);
 
-        IDriverMemoryBacked::SDriverMemoryRequirements imageMemReqs = {};
-        imageMemReqs.vulkanReqs.alignment = vk_memReqs.memoryRequirements.alignment;
-        imageMemReqs.vulkanReqs.size = vk_memReqs.memoryRequirements.size;
-        imageMemReqs.vulkanReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
-        imageMemReqs.memoryHeapLocation = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
-        imageMemReqs.mappingCapability = 0u; // doesn't matter, would get overwritten during memory allocation for this resource anyway
+        IDeviceMemoryBacked::SDeviceMemoryRequirements imageMemReqs = {};
+        imageMemReqs.size = vk_memReqs.memoryRequirements.size;
+        imageMemReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
+        imageMemReqs.alignmentLog2 = std::log2(vk_memReqs.memoryRequirements.alignment);
         imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
         imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
 
         return core::make_smart_refctd_ptr<CVulkanImage>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params),
-            vk_image, imageMemReqs);
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+            imageMemReqs,
+            std::move(params), vk_image
+        );
     }
     else
     {
@@ -379,18 +243,18 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createGPUImage(asset::II
     }
 }
 
-core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGPUGraphicsPipeline_impl(
+core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGraphicsPipeline_impl(
     IGPUPipelineCache* pipelineCache,
     IGPUGraphicsPipeline::SCreationParams&& params)
 {
     core::smart_refctd_ptr<IGPUGraphicsPipeline> result;
-    if (createGPUGraphicsPipelines_impl(pipelineCache, { &params, &params + 1 }, &result))
+    if (createGraphicsPipelines_impl(pipelineCache, { &params, &params + 1 }, &result))
         return result;
     else
         return nullptr;
 }
 
-bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
+bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
     IGPUPipelineCache* pipelineCache,
     core::SRange<const IGPUGraphicsPipeline::SCreationParams> params,
     core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
@@ -403,7 +267,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
 
     // Shader stages
     uint32_t shaderStageCount_total = 0u;
-    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT);
     uint32_t specInfoCount_total = 0u;
     core::vector<VkSpecializationInfo> vk_specInfos(vk_shaderStages.size());
     constexpr uint32_t MAX_MAP_ENTRIES_PER_SHADER = 100u;
@@ -452,7 +316,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
         vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(creationParams[i].createFlags.value);
 
         uint32_t shaderStageCount = 0u;
-        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
         {
             const IGPUSpecializedShader* shader = rpIndie->getShaderAtIndex(ss);
             if (!shader || shader->getAPIType() != EAT_VULKAN)
@@ -606,7 +470,7 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
             vk_multisampleStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
             vk_multisampleStates[i].pNext = nullptr;
             vk_multisampleStates[i].flags = 0u;
-            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(rasterizationParams.rasterizationSamplesHint);            
+            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(creationParams[i].rasterizationSamples);
             vk_multisampleStates[i].sampleShadingEnable = rasterizationParams.sampleShadingEnable;
             vk_multisampleStates[i].minSampleShading = rasterizationParams.minSampleShading;
             vk_multisampleStates[i].pSampleMask = rasterizationParams.sampleMask;
@@ -723,10 +587,9 @@ bool CVulkanLogicalDevice::createGPUGraphicsPipelines_impl(
     }
 }
 
-core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createGPUAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
+core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     
     if(!features.accelerationStructure)
     {
@@ -752,8 +615,7 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
     const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
     IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructure)
     {
         assert(false && "device acceleration structures is not enabled.");
@@ -801,8 +663,7 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
 
 bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
     {
         assert(false && "device accelerationStructuresHostCommands is not enabled.");
@@ -831,8 +692,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
     
 bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
     {
         assert(false && "device accelerationStructuresHostCommands is not enabled.");
@@ -862,8 +722,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_
 
 bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
     {
         assert(false && "device accelerationStructuresHostCommands is not enabled.");

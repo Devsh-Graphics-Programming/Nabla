@@ -278,7 +278,7 @@ class CBasicImageFilterCommon
 				// compute new offset
 				{
 					const auto strides = referenceRegion->getByteStrides(blockInfo);
-					const core::vector3du32_SIMD offsetInOffset = offset-resultOffset;
+					const core::vector3du32_SIMD offsetInOffset = blockInfo.convertTexelsToBlocks(offset-resultOffset);
 					newRegion.bufferOffset += referenceRegion->getLocalByteOffset(offsetInOffset,strides);
 				}
 
@@ -332,7 +332,7 @@ class CBasicImageFilterCommon
 		}
 
 	protected:
-		virtual ~CBasicImageFilterCommon() =0;
+		virtual NBL_API2 ~CBasicImageFilterCommon() =0;
 
 		static inline bool validateSubresourceAndRange(	const ICPUImage::SSubresourceLayers& subresource,
 														const IImageFilter::IState::TexelRange& range,
@@ -360,7 +360,6 @@ class CBasicImageFilterCommon
 			return true;
 		}
 };
-
 
 class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 {

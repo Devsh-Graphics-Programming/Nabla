@@ -1,7 +1,6 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef __NBL_CORE_BASE_CLASSES_H_INCLUDED__
 #define __NBL_CORE_BASE_CLASSES_H_INCLUDED__
 
@@ -13,9 +12,7 @@
 #define _NBL_INTERFACE_CHILD_DEFAULT(TYPE) \
             _NBL_NO_PUBLIC_DELETE_DEFAULT(TYPE)
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 class NBL_FORCE_EBO NBL_NO_VTABLE Uncopyable
@@ -58,7 +55,7 @@ class NBL_FORCE_EBO NBL_NO_VTABLE TotalInterfaceUnmovable : public TotalInterfac
         _NBL_INTERFACE_CHILD_DEFAULT(TotalInterfaceUnmovable);
 };
 
-}
+
 }
 
 #endif

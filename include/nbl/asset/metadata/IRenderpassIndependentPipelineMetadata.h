@@ -11,6 +11,10 @@
 */
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
+#include "nbl/asset/IDescriptor.h"
+#include "nbl/core/util/to_underlying.h"
+
+#include <compare>
 
 //#include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 
@@ -54,49 +58,62 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 			{
 				uint32_t set;
 				uint32_t binding;
+
+				auto operator<=>(const DescriptorCommon&) const = default;
 			};
 
 			struct CombinedImageSampler : DescriptorCommon
 			{
 				IImageView<ICPUImage>::E_TYPE viewType;
 				// TODO: some info about format class
+
+				auto operator<=>(const CombinedImageSampler&) const = default;
 			};
 			struct StorageImage : DescriptorCommon
 			{
 				E_FORMAT format;
+
+				auto operator<=>(const StorageImage&) const = default;
 			};
 			struct TexelBuffer : DescriptorCommon
 			{
 				// relative to the start of the IBufferView
 				uint32_t relByteoffset;
 				// TODO: some info about format class
+
+				auto operator<=>(const TexelBuffer&) const = default;
 			};
 			struct StorageTexelBuffer : DescriptorCommon
 			{
 				// relative to the start of the IBufferView
 				uint32_t relByteoffset;
 				E_FORMAT format;
+
+				auto operator<=>(const StorageTexelBuffer&) const = default;
 			};
 			struct Buffer : DescriptorCommon
 			{
 				// relative to the offset of the descriptor when bound (true byteoffset = static descriptor-set defined + dynamic [if enabled] + this value)
 				uint32_t relByteoffset;
                 uint32_t bytesize;
+
+				auto operator<=>(const Buffer&) const = default;
 			};
 			struct PushConstant
 			{
 				uint32_t byteOffset;
-			};
 
-			enum E_TYPE
+				auto operator<=>(const PushConstant&) const = default;
+			};
+			enum class E_TYPE: uint8_t 
 			{
-				ET_COMBINED_IMAGE_SAMPLER = EDT_COMBINED_IMAGE_SAMPLER,
-				ET_STORAGE_IMAGE = EDT_STORAGE_IMAGE,
-				ET_UNIFORM_TEXEL_BUFFER = EDT_UNIFORM_TEXEL_BUFFER,
-				ET_STORAGE_TEXEL_BUFFER = EDT_STORAGE_TEXEL_BUFFER,
-				ET_UNIFORM_BUFFER = EDT_UNIFORM_BUFFER,
-				ET_STORAGE_BUFFER = EDT_STORAGE_BUFFER,
-				ET_INPUT_ATTACHMENT = EDT_INPUT_ATTACHMENT,
+				ET_COMBINED_IMAGE_SAMPLER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER),
+				ET_STORAGE_IMAGE = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_IMAGE),
+				ET_UNIFORM_TEXEL_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER),
+				ET_STORAGE_TEXEL_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER),
+				ET_UNIFORM_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_UNIFORM_BUFFER),
+				ET_STORAGE_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_BUFFER),
+				ET_INPUT_ATTACHMENT = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT),
 				ET_PUSH_CONSTANT = 11
 			};
 			E_TYPE type;
@@ -111,6 +128,11 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 				Buffer					storageBufferObject;
 				PushConstant			pushConstant;
 			};
+
+			inline bool operator!=(const ShaderInput& other) const
+			{
+				return !std::memcmp(this, &other, sizeof(other));
+			}
 		};
 
 		//! A non exhaustive list of commonly used shader input semantics
@@ -158,8 +180,25 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 		{
 			E_COMMON_SHADER_INPUT type;
 			ShaderInput descriptorSection;
+
+			inline bool operator!=(const ShaderInputSemantic& other) const
+			{
+				return type != other.type || descriptorSection != other.descriptorSection;
+			}
 		};
 		core::SRange<const ShaderInputSemantic> m_inputSemantics;
+
+		inline bool operator!=(const IRenderpassIndependentPipelineMetadata& other) const
+		{
+			if (m_inputSemantics.empty())
+				return false;
+
+			bool status = false;
+			for (size_t i = 0; i < m_inputSemantics.size(); ++i)
+				status = m_inputSemantics.begin()[i] != other.m_inputSemantics.begin()[i];
+
+			return status;
+		}
 
 	protected:
 		IRenderpassIndependentPipelineMetadata() : m_inputSemantics(nullptr,nullptr) {}

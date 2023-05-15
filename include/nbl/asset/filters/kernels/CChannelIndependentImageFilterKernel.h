@@ -62,7 +62,7 @@ class CChannelIndependentImageFilterKernelBase
 }
 
 template<class... Kernels>
-class CChannelIndependentImageFilterKernel : 
+class CChannelIndependentImageFilterKernel :
 	public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<Kernels...>>, public impl::CChannelIndependentImageFilterKernelBase<Kernels...>
 {
 	static_assert(sizeof...(Kernels) <= 4u);

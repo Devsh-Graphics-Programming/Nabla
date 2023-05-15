@@ -1046,7 +1046,7 @@ protected:
             bnd.binding = _binding;
             bnd.count = _count;
             bnd.stageFlags = asset::IShader::ESS_ALL;
-            bnd.type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+            bnd.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             bnd.samplers = _samplers;
         };
 
@@ -1086,12 +1086,12 @@ protected:
         writes[0].binding = _pgtBinding;
         writes[0].arrayElement = 0u;
         writes[0].count = 1u;
-        writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+        writes[0].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
         writes[0].dstSet = _dstSet;
         writes[0].info = info;
         info[0].desc = core::smart_refctd_ptr<image_view_t>(getPageTableView());
-        info[0].image.imageLayout = EIL_UNDEFINED;
-        info[0].image.sampler = nullptr; //samplers are left for user to specify at will
+        info[0].info.image.imageLayout = IImage::EL_UNDEFINED;
+        info[0].info.image.sampler = nullptr; //samplers are left for user to specify at will
 
         uint32_t i = 1u, j = 1u;
         if (getFloatViews().size())
@@ -1099,14 +1099,14 @@ protected:
             writes[i].binding = _fsamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getFloatViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getFloatViews().begin()[j-j0].view;
-                info[j].image.imageLayout = EIL_UNDEFINED;
-                info[j].image.sampler = nullptr;
+                info[j].info.image.imageLayout = IImage::EL_UNDEFINED;
+                info[j].info.image.sampler = nullptr;
             }
             ++i;
         }
@@ -1115,14 +1115,14 @@ protected:
             writes[i].binding = _isamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getIntViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getIntViews().begin()[j-j0].view;
-                info[j].image.imageLayout = EIL_UNDEFINED;
-                info[j].image.sampler = nullptr;
+                info[j].info.image.imageLayout = IImage::EL_UNDEFINED;
+                info[j].info.image.sampler = nullptr;
             }
             ++i;
         }
@@ -1131,14 +1131,14 @@ protected:
             writes[i].binding = _usamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getUintViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getUintViews().begin()[j-j0].view;
-                info[j].image.imageLayout = EIL_UNDEFINED;
-                info[j].image.sampler = nullptr;
+                info[j].info.image.imageLayout = IImage::EL_UNDEFINED;
+                info[j].info.image.sampler = nullptr;
             }
             ++i;
         }

@@ -9,8 +9,8 @@ using namespace video;
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
 {
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
-	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageSSBOs-2u)/2u,MaxPropertiesPerDispatch);
-	m_alignment = core::max(deviceLimits.SSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
+	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
+	m_alignment = core::max(deviceLimits.minSSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
 
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
@@ -20,9 +20,9 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 	}
 
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "????");
-	auto gpushader = m_device->createGPUShader(asset::IGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
-	auto specshader = m_device->createGPUSpecializedShader(gpushader.get(), { nullptr,nullptr,"main"});
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "????");
+	auto gpushader = m_device->createShader(asset::CGLSLCompiler::createOverridenCopy(cpushader.get(), "\n#define NBL_BUILTIN_MAX_PROPERTIES_PER_PASS %d\n", m_maxPropertiesPerPass));
+	auto specshader = m_device->createSpecializedShader(gpushader.get(), { nullptr,nullptr,"main"});
 
 	const auto maxStreamingAllocations = 2u*m_maxPropertiesPerPass+2u;
 	//m_tmpAddressRanges = reinterpret_cast<AddressUploadRange*>(malloc((sizeof(AddressUploadRange)+sizeof(uint32_t)*3u)*maxStreamingAllocations));
@@ -31,19 +31,19 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	for (auto j=0; j<4; j++)
 	{
 		bindings[j].binding = j;
-		bindings[j].type = asset::EDT_STORAGE_BUFFER;
+		bindings[j].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		bindings[j].count = j<2u ? 1u:m_maxPropertiesPerPass;
 		bindings[j].stageFlags = asset::IShader::ESS_COMPUTE;
 		bindings[j].samplers = nullptr;
 	}
-	auto dsLayout = m_device->createGPUDescriptorSetLayout(bindings,bindings+4);
+	auto dsLayout = m_device->createDescriptorSetLayout(bindings,bindings+4);
 	// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
 	auto descPool = m_device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	m_dsCache = core::make_smart_refctd_ptr<TransferDescriptorSetCache>(m_device.get(),std::move(descPool),core::smart_refctd_ptr(dsLayout));
 	
 	const asset::SPushConstantRange baseDWORD = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)*2u};
-	auto layout = m_device->createGPUPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
-	m_pipeline = m_device->createGPUComputePipeline(nullptr,std::move(layout),std::move(specshader));
+	auto layout = m_device->createPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
+	m_pipeline = m_device->createComputePipeline(nullptr,std::move(layout),std::move(specshader));
 }
 
 
@@ -56,7 +56,7 @@ bool CPropertyPoolHandler::transferProperties(
 {
 	if (requestsBegin==requestsEnd)
 		return true;
-	if (!scratch.buffer || !scratch.buffer->getCachedCreationParams().canUpdateSubRange)
+	if (!scratch.buffer || !scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
 	{
 		logger.log("CPropertyPoolHandler: Need a valid scratch buffer which can have updates staged from the commandbuffer!",system::ILogger::ELL_ERROR);
 		return false;
@@ -98,7 +98,7 @@ bool CPropertyPoolHandler::transferProperties(
 		
 		// update desc sets (TODO: handle acquire failure, by using push descriptors!)
 		// TODO: acquire the set just once for all streaming chunked dispatches (scratch, addresses, and destinations dont change)
-		// however this will require the usage of EDT_STORAGE_BUFFER_DYNAMIC for the source data bindings
+		// however this will require the usage of IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC for the source data bindings
 		auto setIx = m_dsCache->acquireSet(this,scratch,addresses,localRequests,propertiesThisPass);
 		if (setIx==IDescriptorSetCache::invalid_index)
 		{
@@ -349,12 +349,12 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			}
 		}
 
-		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
+		constexpr auto invalid_address = video::StreamingTransientDataBufferMT<>::invalid_value;
 		auto addr = invalid_address;
 		const auto size = static_cast<uint32_t>(core::alignUp(memoryUsage.getUsage()+worstCasePadding,m_alignment));
 		// because right now the GPUEventWrapper cant distinguish between placeholder fences and fences which will actually be signalled
 		auto waitUntil = std::min(video::GPUEventWrapper::default_wait(),maxWaitPoint);
-		upBuff->multi_alloc(waitUntil,1u,&addr,&size,&m_alignment);
+		upBuff->multi_allocate(waitUntil,1u,&addr,&size,&m_alignment);
 		if (addr!=invalid_address)
 		{
 			const auto endDWORD = baseDWORDs+doneDWORDs;
@@ -423,7 +423,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			// flush if needed
 			if (upBuff->needsManualFlushOrInvalidate())
 			{
-				IDriverMemoryAllocation::MappedMemoryRange flushRange;
+				IDeviceMemoryAllocation::MappedMemoryRange flushRange;
 				flushRange.memory = uploadBuffer.buffer->getBoundMemory();
 				flushRange.range = {addr,size};
 				m_device->flushMappedMemoryRanges(1u,&flushRange);
@@ -431,10 +431,10 @@ uint32_t CPropertyPoolHandler::transferProperties(
 			// no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
 			if (transferProperties(cmdbuf,fence,scratch,uploadBuffer,xfers,xfers+propertiesThisPass,logger,baseDWORDs,endDWORD))
 			{
-				upBuff->multi_free(1u,&addr,&size,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
+				upBuff->multi_deallocate(1u,&addr,&size,core::smart_refctd_ptr<IGPUFence>(fence),&cmdbuf);
 				return doneDWORDs;
 			}
-			upBuff->multi_free(1u,&addr,&size);
+			upBuff->multi_deallocate(1u,&addr,&size);
 		}
 		return 0u;
 	};
@@ -534,7 +534,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertiesPerDispatch*2u+2u];
 	infos[0] = scratch;
-	infos[0].buffer.size = sizeof(nbl_glsl_property_pool_transfer_t)*propertyCount;
+	infos[0].info.buffer.size = sizeof(nbl_glsl_property_pool_transfer_t)*propertyCount;
 	infos[1] = addresses;
 	auto* inDescInfo = infos+2;
 	auto* outDescInfo = infos+2+maxPropertiesPerPass;
@@ -569,7 +569,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 		writes[i].dstSet = set;
 		writes[i].binding = i;
 		writes[i].arrayElement = 0u;
-		writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 	}
 	writes[0].count = 1u;
 	writes[0].info = infos;
@@ -579,7 +579,7 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 	writes[2].info = inDescInfo;
 	writes[3].count = maxPropertiesPerPass;
 	writes[3].info = outDescInfo;
-	device->updateDescriptorSets(4u,writes,0u,nullptr);
+	device->updateDescriptorSets(4u, writes, 0u, nullptr);
 
 	return retval;
 }

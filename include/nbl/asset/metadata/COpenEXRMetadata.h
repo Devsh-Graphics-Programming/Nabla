@@ -24,6 +24,11 @@ class COpenEXRMetadata final : public IAssetMetadata
                     return *this;
                 }
 
+                inline bool operator!=(const CImage& other) const
+                {
+                    return m_name != other.m_name || IImageMetadata::operator!=(other);
+                }
+
                 std::string m_name;
         };
 

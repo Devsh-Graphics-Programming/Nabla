@@ -336,6 +336,28 @@ static inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPres
     }
 }
 
+static inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
+{
+    VkShaderStageFlags ret = 0u;
+    if(in.hasFlags(asset::IShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(in.hasFlags(asset::IShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(in.hasFlags(asset::IShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(in.hasFlags(asset::IShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(in.hasFlags(asset::IShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    return ret;
+}
+
 static inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
 {
     switch (in)
@@ -614,6 +636,28 @@ static inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorS
     return VK_COLOR_SPACE_MAX_ENUM_KHR;
 }
 
+static inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<asset::IBuffer::E_USAGE_FLAGS> in)
+{
+    VkBufferUsageFlags ret = 0u;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDIRECT_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT)) ret |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_CONDITIONAL_RENDERING_BIT_EXT)) ret |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_BINDING_TABLE_BIT)) ret |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+    return ret;
+}
+
 static inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISampler::E_TEXTURE_CLAMP in)
 {
     switch (in)
@@ -686,6 +730,113 @@ static inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(c
 static inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags(const asset::E_PIPELINE_STAGE_FLAGS in)
 {
     return static_cast<VkPipelineStageFlags>(in);
+}
+
+static inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> in)
+{
+    VkMemoryPropertyFlags ret = 0u;
+    if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT))
+        ret |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT) || in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT))
+        ret |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT))
+        ret |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_CACHED_BIT))
+        ret |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+    //if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_LAZILY_ALLOCATED_BIT))
+    //    ret |= VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
+    //if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_PROTECTED_BIT))
+    //    ret |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
+    //if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_COHERENT_BIT_AMD))
+    //    ret |= VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD;
+    //if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_UNCACHED_BIT_AMD))
+    //    ret |= VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD;
+    //if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_RDMA_CAPABLE_BIT_NV))
+    //    ret |= VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV;
+    return ret;
+}
+
+static inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlagsFromVkMemoryPropertyFlags(const VkMemoryPropertyFlags in)
+{
+    core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> ret(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE);
+
+    if((in & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0)
+        ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT;
+    if((in & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
+        ret |= core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_READABLE_BIT) | IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_WRITABLE_BIT;
+    if((in & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0)
+        ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_COHERENT_BIT;
+    if((in & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) != 0)
+        ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_HOST_CACHED_BIT;
+    
+    //if((in & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT) != 0)
+    //    ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_LAZILY_ALLOCATED_BIT;
+    //if((in & VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0)
+    //    ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_PROTECTED_BIT;
+    //if((in & VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD) != 0)
+    //    ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_COHERENT_BIT_AMD;
+    //if((in & VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD) != 0)
+    //    ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_UNCACHED_BIT_AMD;
+    //if((in & VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV) != 0)
+    //    ret |= IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_RDMA_CAPABLE_BIT_NV;
+
+    return ret;
+}
+
+static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const asset::IDescriptor::E_TYPE descriptorType)
+{
+    switch (descriptorType)
+    {
+        case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+            return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
+            return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
+            return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
+            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+        case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
+            return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        case asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE:
+            return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        default:
+            assert(!"Invalid code path.");
+            return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+    }
+}
+static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
+{
+    if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;
+    if (in == VK_DRIVER_ID_AMD_OPEN_SOURCE) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
+    if (in == VK_DRIVER_ID_MESA_RADV) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_RADV;
+    if (in == VK_DRIVER_ID_NVIDIA_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY;
+    if (in == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) return IPhysicalDevice::E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS;
+    if (in == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA) return IPhysicalDevice::E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA;
+    if (in == VK_DRIVER_ID_IMAGINATION_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_IMAGINATION_PROPRIETARY;
+    if (in == VK_DRIVER_ID_QUALCOMM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_QUALCOMM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_ARM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_ARM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_GOOGLE_SWIFTSHADER) return IPhysicalDevice::E_DRIVER_ID::EDI_GOOGLE_SWIFTSHADER;
+    if (in == VK_DRIVER_ID_GGP_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_GGP_PROPRIETARY;
+    if (in == VK_DRIVER_ID_BROADCOM_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_BROADCOM_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_LLVMPIPE) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_LLVMPIPE;
+    if (in == VK_DRIVER_ID_MOLTENVK) return IPhysicalDevice::E_DRIVER_ID::EDI_MOLTENVK;                  
+    if (in == VK_DRIVER_ID_COREAVI_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_COREAVI_PROPRIETARY;
+    if (in == VK_DRIVER_ID_JUICE_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_JUICE_PROPRIETARY;         
+    if (in == VK_DRIVER_ID_VERISILICON_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_VERISILICON_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_TURNIP) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_TURNIP;
+    if (in == VK_DRIVER_ID_MESA_V3DV) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_V3DV;
+    if (in == VK_DRIVER_ID_MESA_PANVK) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_PANVK;                
+    if (in == VK_DRIVER_ID_SAMSUNG_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_SAMSUNG_PROPRIETARY;
+    if (in == VK_DRIVER_ID_MESA_VENUS) return IPhysicalDevice::E_DRIVER_ID::EDI_MESA_VENUS; 
+    return IPhysicalDevice::E_DRIVER_ID::EDI_UNKNOWN;
 }
 
 }

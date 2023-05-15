@@ -4,7 +4,6 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
-#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include <utility>
@@ -29,30 +28,33 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     IRenderpassIndependentPipelineLoader(_am), m_system(std::move(sys))
 {
     //create vertex shaders and insert them into cache
-    auto registerShader = [&](auto constexprStringType, ICPUShader::E_SHADER_STAGE stage) -> void
+    auto registerShader = [&]<core::StringLiteral Path>(ICPUShader::E_SHADER_STAGE stage) -> void
     {
-        core::smart_refctd_ptr<const system::IFile> data = m_assetMgr->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
-        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
-        memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
+        core::smart_refctd_ptr<const system::IFile> data = m_assetMgr->getSystem()->loadBuiltinData<Path>();
+        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize()+1u);
+        char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
+        memcpy(bufferPtr, data->getMappedPointer(), data->getSize());
+        bufferPtr[data->getSize()] = '\0';
+
         auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
             std::move(buffer),
-            asset::IShader::buffer_contains_glsl_t{},
             stage,
+            asset::IShader::E_CONTENT_TYPE::ECT_GLSL,
             stage != ICPUShader::ESS_VERTEX
-            ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?"
-            : "?IrrlichtBAW PipelineLoaderMTL VertexShader?");
+            ? "?Nabla PipelineLoaderMTL FragmentShader?"
+            : "?Nabla PipelineLoaderMTL VertexShader?");
         
         ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main");
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
-        const char* cacheKey = decltype(constexprStringType)::value;
+        const char* cacheKey = Path.value;
         auto assetbundle = SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) });
         insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, cacheKey);
     };
 
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUShader::ESS_VERTEX);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY){}, ICPUShader::ESS_VERTEX);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUShader::ESS_FRAGMENT);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUShader::ESS_FRAGMENT);
+    registerShader.operator()<core::StringLiteral(VERT_SHADER_NO_UV_CACHE_KEY)>(ICPUShader::ESS_VERTEX);
+    registerShader.operator()<core::StringLiteral(VERT_SHADER_UV_CACHE_KEY)>(ICPUShader::ESS_VERTEX);
+    registerShader.operator()<core::StringLiteral(FRAG_SHADER_NO_UV_CACHE_KEY)>(ICPUShader::ESS_FRAGMENT);
+    registerShader.operator()<core::StringLiteral(FRAG_SHADER_UV_CACHE_KEY)>(ICPUShader::ESS_FRAGMENT);
 }
 
 void CGraphicsPipelineLoaderMTL::initialize()
@@ -236,7 +238,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
                     ICPUDescriptorSetLayout::SBinding bnd;
                     bnd.count = 1u;
                     bnd.stageFlags = ICPUShader::ESS_FRAGMENT;
-                    bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
+                    bnd.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
                     bnd.binding = 0u;
                     std::fill(bindings->begin(), bindings->end(), bnd);
 
@@ -707,11 +709,9 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     auto dummy2d = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW).first;
     for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
     {
-        auto desc = ds->getDescriptors(i).begin();
-
-        desc->desc = _views[i] ? std::move(_views[i]) : dummy2d;
-        desc->image.imageLayout = EIL_UNDEFINED;
-        desc->image.sampler = nullptr; //not needed, immutable (in DS layout) samplers are used
+        auto descriptorInfos = ds->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+        descriptorInfos.begin()[0].desc = _views[i] ? std::move(_views[i]) : dummy2d;
+        descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
     }
 
     return ds;

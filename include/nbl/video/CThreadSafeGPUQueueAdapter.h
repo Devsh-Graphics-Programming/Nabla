@@ -1,6 +1,7 @@
 #ifndef __IRR_GPU_QUEUE_THREADSAFE_ADAPTER_H_INCLUDED__
 #define __IRR_GPU_QUEUE_THREADSAFE_ADAPTER_H_INCLUDED__
 #include "IGPUQueue.h"
+#include "nbl/video/CVulkanSwapchain.h"
 
 namespace nbl::video
 {
@@ -11,6 +12,7 @@ namespace nbl::video
 */
 class CThreadSafeGPUQueueAdapter : public IGPUQueue
 {
+    friend class CVulkanSwapchain;
     protected:
         IGPUQueue* originalQueue = nullptr;
         std::mutex m;
@@ -32,12 +34,6 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
         {
             std::lock_guard g(m);
             return originalQueue->submit(_count, _submits, _fence);
-        }
-
-        virtual ISwapchain::E_PRESENT_RESULT present(const SPresentInfo& info) override
-        {
-            std::lock_guard g(m);
-            return originalQueue->present(info);
         }
 
         virtual bool startCapture() override 

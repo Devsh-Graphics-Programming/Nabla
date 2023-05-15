@@ -18,13 +18,23 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
         using this_t = CDrawIndirectAllocator<allocator>;
 
     public:
+
+        static void enableRequiredFeautres(SPhysicalDeviceFeatures& featuresToEnable)
+        {
+        }
+
+        static void enablePreferredFeatures(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& featuresToEnable)
+        {
+            featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
+        }
+
         // easy dont care creation
         static inline core::smart_refctd_ptr<this_t> create(ImplicitBufferCreationParameters&& params, allocator<uint8_t>&& alloc=allocator<uint8_t>())
         {
             if (!params.device || params.drawCommandCapacity==0u)
                 return nullptr;
 
-            const auto& features = params.device->getPhysicalDevice()->getFeatures();
+            const auto& features = params.device->getEnabledFeatures();
             if (!features.drawIndirectCount)
                 params.drawCountCapacity = 0;
             const auto& limits = params.device->getPhysicalDevice()->getLimits();
@@ -38,14 +48,23 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             static_cast<CreationParametersBase&>(explicit_params) = std::move(params);
             explicit_params.drawCommandBuffer.offset = 0ull;
             // need to add a little padding, because generalpurpose allocator doesnt allow for allocations that would leave freeblocks smaller than the minimum allocation size
-            explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.SSBOAlignment);
-            explicit_params.drawCommandBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, explicit_params.drawCommandBuffer.size);
+            explicit_params.drawCommandBuffer.size = core::roundUp<size_t>(params.drawCommandCapacity*params.maxDrawCommandStride+params.maxDrawCommandStride,limits.minSSBOAlignment);
+
+            creationParams.size = explicit_params.drawCommandBuffer.size;
+            explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(std::move(creationParams));
+            auto mreqsDrawCmdBuf = explicit_params.drawCommandBuffer.buffer->getMemoryReqs();
+            mreqsDrawCmdBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, explicit_params.drawCommandBuffer.buffer.get());
+
             explicit_params.drawCountBuffer.offset = 0ull;
-            explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.SSBOAlignment);
+            explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.minSSBOAlignment);
             if (explicit_params.drawCountBuffer.size)
             {
-                const size_t bufferSize = explicit_params.drawCountBuffer.size;
-                explicit_params.drawCountBuffer.buffer = params.device->createDeviceLocalGPUBufferOnDedMem(creationParams, bufferSize);
+                creationParams.size = explicit_params.drawCountBuffer.size;
+                explicit_params.drawCountBuffer.buffer = params.device->createBuffer(std::move(creationParams));
+                auto mreqsDrawCountBuf = explicit_params.drawCountBuffer.buffer->getMemoryReqs();
+                mreqsDrawCountBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+                auto gpubufMem = params.device->allocate(mreqsDrawCountBuf, explicit_params.drawCountBuffer.buffer.get());
             }
             else
                 explicit_params.drawCountBuffer.buffer = nullptr;

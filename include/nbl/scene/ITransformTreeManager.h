@@ -33,7 +33,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUDescriptorSetLayout::SBinding bnd[BindingCount];
 			bnd[0].binding = 0u;
 			bnd[0].count = 1u;
-			bnd[0].type = asset::EDT_STORAGE_BUFFER;
+			bnd[0].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			bnd[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bnd[0].samplers = nullptr;
 			for (auto i = 1u; i < BindingCount; i++)
@@ -41,7 +41,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				bnd[i] = bnd[i - 1u];
 				bnd[i].binding = i;
 			}
-			return device->createGPUDescriptorSetLayout(bnd, bnd + BindingCount);
+			return device->createDescriptorSetLayout(bnd, bnd + BindingCount);
 		}
 		template<uint32_t BindingCount>
 		static inline void updateDescriptorSet(
@@ -54,13 +54,13 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			for (auto i = 0u; i < BindingCount; i++)
 			{
 				infos[i].desc = std::move(bufferBindings[i].buffer);
-				infos[i].buffer.offset = bufferBindings[i].offset;
-				infos[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
+				infos[i].info.buffer.offset = bufferBindings[i].offset;
+				infos[i].info.buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
 				writes[i].dstSet = set;
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
@@ -102,27 +102,27 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
-        {
+		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
+		{
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
-			auto createShader = [&system,&device](auto uniqueString, asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+			auto createShader = [&system,&device]<core::StringLiteral Path>(asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
+				auto glslFile = system->loadBuiltinData<Path>();
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, "????"));
-				return device->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
+				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "????"));
+				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
-			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
-			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
-			auto recomputeGlobalAndNormalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")());
-			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::IShader::ESS_VERTEX);
-			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::IShader::ESS_FRAGMENT);
+			auto updateRelativeSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")>();
+			auto recomputeGlobalSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/global_transform_update.comp")>();
+			auto recomputeGlobalAndNormalSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")>();
+			auto debugDrawVertexSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/debug.vert")>(asset::IShader::ESS_VERTEX);
+			auto debugDrawFragmentSpec = createShader.operator()<core::StringLiteral("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(asset::IShader::ESS_FRAGMENT);
 			if (!updateRelativeSpec || !recomputeGlobalSpec || !recomputeGlobalAndNormalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
 				return nullptr;
 
@@ -134,8 +134,12 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				*reinterpret_cast<ITransformTree::relative_transform_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::relative_transform_prop_ix)) = core::matrix3x4SIMD();
 				*reinterpret_cast<ITransformTree::modified_stamp_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::modified_stamp_prop_ix)) = ITransformTree::initial_modified_timestamp;
 				*reinterpret_cast<ITransformTree::recomputed_stamp_t*>(fillData+getDefaultValueBufferOffset(limits,ITransformTree::recomputed_stamp_prop_ix)) = ITransformTree::initial_recomputed_timestamp;
-			}
-			auto defaultFillValues = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
+			}			
+			
+			video::IGPUBuffer::SCreationParams defaultFillValuesBufferCreationParams = {};
+			defaultFillValuesBufferCreationParams.size = tmp.size();
+			defaultFillValuesBufferCreationParams.usage = core::bitflag<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT);
+			auto defaultFillValues = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(defaultFillValuesBufferCreationParams),fillData);
 			defaultFillValues->setObjectDebugName("ITransformTreeManager::m_defaultFillValues");
 			tmp.resize(sizeof(uint16_t)*DebugIndexCount);
 			uint16_t* debugIndices = reinterpret_cast<uint16_t*>(tmp.data());
@@ -168,7 +172,11 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				debugIndices[24] = 8u;
 				debugIndices[25] = 9u;
 			}
-			auto debugIndexBuffer = utils->createFilledDeviceLocalGPUBufferOnDedMem(uploadQueue,tmp.size(),fillData);
+			
+			video::IGPUBuffer::SCreationParams debugIndexBufferCreationParams = {};
+			debugIndexBufferCreationParams.size = tmp.size();
+			debugIndexBufferCreationParams.usage = core::bitflag(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT) | video::IGPUBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT;
+			auto debugIndexBuffer = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(debugIndexBufferCreationParams),fillData);
 
 			auto updateLocalDsLayout = createUpdateLocalTransformsDescriptorSetLayout(device);
 			auto recomputeGlobalDsLayout = createRecomputeGlobalTransformsDescriptorSetLayout(device);
@@ -192,8 +200,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				std::move(pipelinesWithoutNormalMatrices),std::move(pipelinesWithNormalMatrices),
 				std::move(defaultFillValues),std::move(debugIndexBuffer)
 			);
-            return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
-        }
+			return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
+		}
 
 		static inline constexpr uint32_t TransferCount = 4u;
 		struct RequestBase
@@ -718,7 +726,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			nbl::video::IGPUGraphicsPipeline::SCreationParams graphicsPipelineParams;
 			graphicsPipelineParams.renderpassIndependent = choosePipelines<TransformTree>().debugDraw;
 			graphicsPipelineParams.renderpass = std::move(renderpass);
-			return m_device->createGPUGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
+			return m_device->createGraphicsPipeline(nullptr,std::move(graphicsPipelineParams));
 		}
 
 		//
@@ -780,16 +788,16 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+3u);
 
 			DescriptorSets descSets;
-			descSets.updateLocal = device->createGPUDescriptorSet(pool.get(),std::move(layouts[0]));
-			descSets.recomputeGlobal = device->createGPUDescriptorSet(pool.get(),std::move(layouts[1]));
-			descSets.debugDraw = device->createGPUDescriptorSet(pool.get(),std::move(layouts[2]));
+			descSets.updateLocal = pool->createDescriptorSet(std::move(layouts[0]));
+			descSets.recomputeGlobal = pool->createDescriptorSet(std::move(layouts[1]));
+			descSets.debugDraw = pool->createDescriptorSet(std::move(layouts[2]));
 			return descSets;
 		}
 	protected:
 		static inline uint64_t getDefaultValueBufferOffset(const video::IPhysicalDevice::SLimits& limits, uint32_t prop_ix)
 		{
 			uint64_t offset = 0u;
-			const uint64_t ssboOffsetAlignment = limits.SSBOAlignment;
+			const uint64_t ssboOffsetAlignment = limits.minSSBOAlignment;
 			if (prop_ix!=ITransformTree::relative_transform_prop_ix)
 			{
 				offset = core::roundUp(offset+sizeof(ITransformTree::relative_transform_t),ssboOffsetAlignment);
@@ -835,16 +843,16 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 
 			auto poolLayout = TransformTree::createPoolDescriptorSetLayout(device);
 			
-			auto updateRelativeLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(updateLocalDsLayout));
-			auto recomputeGlobalLayout = device->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(recomputeGlobalDsLayout));
+			auto updateRelativeLayout = device->createPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(updateLocalDsLayout));
+			auto recomputeGlobalLayout = device->createPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(recomputeGlobalDsLayout));
 			asset::SPushConstantRange pcRange;
 			pcRange.offset = 0u;
 			pcRange.size = sizeof(DebugPushConstants);
 			pcRange.stageFlags = asset::IShader::ESS_VERTEX;
-			auto debugDrawLayout = device->createGPUPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
+			auto debugDrawLayout = device->createPipelineLayout(&pcRange,&pcRange+1u,core::smart_refctd_ptr(poolLayout),core::smart_refctd_ptr(debugDrawDsLayout));
 
-			retval.updateRelative = device->createGPUComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
-			retval.recomputeGlobal = device->createGPUComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));
+			retval.updateRelative = device->createComputePipeline(nullptr,std::move(updateRelativeLayout),core::smart_refctd_ptr(updateRelativeSpec));
+			retval.recomputeGlobal = device->createComputePipeline(nullptr,std::move(recomputeGlobalLayout),core::smart_refctd_ptr(recomputeGlobalSpec));
 			core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> debugDrawIndepenedentPipeline;
 			{
 				asset::SVertexInputParams vertexInputParams = {};
@@ -870,7 +878,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				rasterizationParams.depthTestEnable = false;
 
 				video::IGPUSpecializedShader* const debugDrawShaders[] = {debugDrawVertexSpec.get(),debugDrawFragmentSpec.get()};
-				retval.debugDraw = device->createGPURenderpassIndependentPipeline(
+				retval.debugDraw = device->createRenderpassIndependentPipeline(
 					nullptr,std::move(debugDrawLayout),debugDrawShaders,debugDrawShaders+2u,vertexInputParams,blendParams,primitiveAssemblyParams,rasterizationParams
 				);
 			}

@@ -39,6 +39,7 @@ class COIT
             asset::SPrimitiveAssemblyParams primAsm;
             asset::SBlendParams blend;
             asset::SRasterizationParams raster;
+            asset::SPushConstantRange pushConstants;
         };
 
         bool initialize(video::ILogicalDevice* dev, uint32_t w, uint32_t h,
@@ -54,22 +55,23 @@ class COIT
                     params.extent = { w, h, 1u };
                     params.flags = static_cast<video::IGPUImage::E_CREATE_FLAGS>(0);
                     params.format = fmt;
-                    params.initialLayout = asset::EIL_UNDEFINED;
+                    params.initialLayout = asset::IImage::EL_UNDEFINED;
                     params.mipLevels = 1u;
                     //indices
                     params.queueFamilyIndexCount = 0;
                     params.queueFamilyIndices = nullptr;
                     params.samples = asset::IImage::ESCF_1_BIT;
-                    params.sharingMode = asset::ESM_CONCURRENT;
                     params.tiling = asset::IImage::ET_OPTIMAL;
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
 
-                    video::IDriverMemoryBacked::SDriverMemoryRequirements mreq; //ignored on GL
-
-                    img = dev->createGPUImageOnDedMem(std::move(params), mreq);
+                    img = dev->createImage(std::move(params));
                     assert(img);
-                    if (!img)
+                    auto mreq = img->getMemoryReqs();
+                    mreq.memoryTypeBits &= dev->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+                    auto imgMem = dev->allocate(mreq, img.get());
+
+                    if (!img || !imgMem.isValid())
                         return nullptr;
 
                     video::IGPUImageView::SCreationParams vparams;
@@ -81,7 +83,7 @@ class COIT
                     vparams.subresourceRange.baseMipLevel = 0u;
                     vparams.subresourceRange.levelCount = 1u;
                     vparams.image = img;
-                    view = dev->createGPUImageView(std::move(vparams));
+                    view = dev->createImageView(std::move(vparams));
                     assert(view);
                 }
                 return view;
@@ -105,7 +107,7 @@ class COIT
             resolve_glsl += "#define NBL_GLSL_SPINLOCK_IMAGE_BINDING " + std::to_string(spinlockBnd) + "\n";
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
-            const bool hasInterlock = dev->getPhysicalDevice()->getFeatures().fragmentShaderPixelInterlock;
+            const bool hasInterlock = dev->getEnabledFeatures().fragmentShaderPixelInterlock;
             // TODO bring back
 #if 0
             if (hasInterlock)
@@ -114,8 +116,8 @@ class COIT
 #endif
                 m_images.spinlock = createOITImage(SpinlockImageFormat);
 
-            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, "oit_resolve.frag");
-            auto shader = dev->createGPUShader(std::move(cpushader));
+            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "oit_resolve.frag");
+            auto shader = dev->createShader(std::move(cpushader));
             if (!shader)
                 return false;
 
@@ -124,8 +126,9 @@ class COIT
                 m_proto_pipeline.vtx,
                 m_proto_pipeline.primAsm,
                 m_proto_pipeline.blend,
-                m_proto_pipeline.raster
-            ) = ext::FullScreenTriangle::createProtoPipeline(c2gparams);
+                m_proto_pipeline.raster,
+                m_proto_pipeline.pushConstants
+            ) = ext::FullScreenTriangle::createProtoPipeline(c2gparams, 0u);
 
             m_proto_pipeline.blend.blendParams[0].blendEnable = 1;
             m_proto_pipeline.blend.blendParams[0].srcColorFactor = asset::EBF_ONE;
@@ -142,7 +145,7 @@ class COIT
             info.entryPoint = "main";
             info.m_backingBuffer = nullptr;
             info.m_entries = nullptr;
-            m_proto_pipeline.fs = dev->createGPUSpecializedShader(shader.get(), info);
+            m_proto_pipeline.fs = dev->createSpecializedShader(shader.get(), info);
             if (!m_proto_pipeline.fs)
                 return false;
 
@@ -166,7 +169,7 @@ class COIT
                 bnd.count = 1u;
                 bnd.samplers = nullptr;
                 bnd.stageFlags = asset::IShader::ESS_FRAGMENT;
-                bnd.type = asset::EDT_STORAGE_IMAGE;
+                bnd.type = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
             }
 
             return bindingCount;
@@ -189,13 +192,13 @@ class COIT
                 w.arrayElement = 0u;
                 w.binding = b[i];
                 w.count = 1u;
-                w.descriptorType = asset::EDT_STORAGE_IMAGE;
+                w.descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
                 w.dstSet = dstset;
                 w.info = &info;
 
                 info.desc = images[i];
                 info.image.sampler = nullptr;
-                info.image.imageLayout = asset::EIL_GENERAL; // TODO for Vulkan
+                info.image.imageLayout = asset::IImage::EL_GENERAL; // TODO for Vulkan
             }
 
             return bindingCount;
@@ -208,7 +211,7 @@ class COIT
             video::IGPUDescriptorSetLayout::SBinding b[MaxImgBindingCount];
             const auto bindingCount = getDSLayoutBindings<video::IGPUDescriptorSetLayout>(b, _colorBinding, _depthBinding, _visBinding, _spinlockBinding);
 
-            return dev->createGPUDescriptorSetLayout(b,b+bindingCount);
+            return dev->createDescriptorSetLayout(b,b+bindingCount);
         }
 
         // should be required in first frame only
@@ -220,13 +223,13 @@ class COIT
             clearval.float32[2] = 1.f;
             clearval.float32[3] = 1.f;
             asset::IImage::SSubresourceRange subres = m_images.vis->getCreationParameters().subresourceRange;
-            cmdbuf->clearColorImage(m_images.vis->getCreationParameters().image.get(), asset::EIL_UNDEFINED, &clearval, 1u, &subres);
+            cmdbuf->clearColorImage(m_images.vis->getCreationParameters().image.get(), asset::IImage::EL_UNDEFINED, &clearval, 1u, &subres);
 
             if (m_images.spinlock)
             {
                 clearval.uint32[0] = 0u;
                 subres = m_images.spinlock->getCreationParameters().subresourceRange;
-                cmdbuf->clearColorImage(m_images.spinlock->getCreationParameters().image.get(), asset::EIL_UNDEFINED, &clearval, 1u, &subres);
+                cmdbuf->clearColorImage(m_images.spinlock->getCreationParameters().image.get(), asset::IImage::EL_UNDEFINED, &clearval, 1u, &subres);
             }
             // TODO barrier?
         }
@@ -240,8 +243,8 @@ class COIT
                 imgbarrier[i].barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
                 imgbarrier[i].dstQueueFamilyIndex = qfam;
                 imgbarrier[i].srcQueueFamilyIndex = qfam;
-                imgbarrier[i].oldLayout = asset::EIL_GENERAL;
-                imgbarrier[i].newLayout = asset::EIL_GENERAL;
+                imgbarrier[i].oldLayout = asset::IImage::EL_GENERAL;
+                imgbarrier[i].newLayout = asset::IImage::EL_GENERAL;
             }
             imgbarrier[0].image = m_images.color->getCreationParameters().image;
             imgbarrier[0].subresourceRange = m_images.color->getCreationParameters().subresourceRange;
@@ -273,8 +276,8 @@ class COIT
             imgbarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
             imgbarrier.dstQueueFamilyIndex = qfam;
             imgbarrier.srcQueueFamilyIndex = qfam;
-            imgbarrier.oldLayout = asset::EIL_GENERAL;
-            imgbarrier.newLayout = asset::EIL_GENERAL;
+            imgbarrier.oldLayout = asset::IImage::EL_GENERAL;
+            imgbarrier.newLayout = asset::IImage::EL_GENERAL;
             imgbarrier.image = m_images.vis->getCreationParameters().image;
             imgbarrier.subresourceRange = m_images.vis->getCreationParameters().subresourceRange;
 

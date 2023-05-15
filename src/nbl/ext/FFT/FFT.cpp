@@ -32,10 +32,10 @@ FFT::FFT(IDriver* driver, uint32_t maxDimensionSize, bool useHalfStorage) : m_ma
 			nullptr
 		},
 	};
-	m_dsLayout = driver->createGPUDescriptorSetLayout(bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
+	m_dsLayout = driver->createDescriptorSetLayout(bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
 
 	auto pcRange = getDefaultPushConstantRanges();
-	m_pplnLayout = driver->createGPUPipelineLayout(pcRange.begin(),pcRange.end(),core::smart_refctd_ptr(m_dsLayout));
+	m_pplnLayout = driver->createPipelineLayout(pcRange.begin(),pcRange.end(),core::smart_refctd_ptr(m_dsLayout));
 
 	if (m_maxFFTLen < MINIMUM_FFT_SIZE)
 		m_maxFFTLen = MINIMUM_FFT_SIZE;
@@ -62,14 +62,14 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) i
 		useHalfStorage ? 1u:0u
 	);
 
-	auto shader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(std::move(source),asset::ICPUShader::buffer_contains_glsl));
+	auto shader = driver->createShader(core::make_smart_refctd_ptr<ICPUShader>(std::move(source),asset::ICPUShader::buffer_contains_glsl));
 	
-	auto specializedShader = driver->createGPUSpecializedShader(
+	auto specializedShader = driver->createSpecializedShader(
 		shader.get(),
 		ISpecializedShader::SInfo{nullptr, nullptr, "main", ISpecializedShader::ESS_COMPUTE}
 	);
 
-	m_ppln = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_pplnLayout),std::move(specializedShader));
+	m_ppln = driver->createComputePipeline(nullptr,core::smart_refctd_ptr(m_pplnLayout),std::move(specializedShader));
 }
 
 core::SRange<const SPushConstantRange> FFT::getDefaultPushConstantRanges()

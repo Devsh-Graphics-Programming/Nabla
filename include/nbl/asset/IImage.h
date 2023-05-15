@@ -13,16 +13,17 @@
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/ICPUBuffer.h"
-#include "nbl/asset/EImageLayout.h"
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/system/ILogger.h"
+
+#include <compare>
 
 namespace nbl::asset
 {
 
-// Todo(achal): Vulkan's VkOffset3D has int32_t members, getting rid of this
-// produces a bunch of errors in the filtering APIs and core::vectorSIMD**,
-// gotta do it carefully
+// TODO: Vulkan's VkOffset3D has int32_t members, getting rid of this
+// produces a bunch of errors in the filtering APIs and core::vectorSIMD**.
+// When we have our own HLSL lib, replace these types with `uvec3`. 
 
 //placeholder until we configure Vulkan SDK
 typedef struct VkOffset3D {
@@ -58,8 +59,9 @@ inline bool operator==(const VkExtent3D& v1, const VkExtent3D& v2)
 class IImage : public IDescriptor
 {
 	public:
-		enum E_ASPECT_FLAGS
+		enum E_ASPECT_FLAGS : uint16_t
 		{
+			EAF_NONE				= 0u,
 			EAF_COLOR_BIT			= 0x1u << 0u,
 			EAF_DEPTH_BIT			= 0x1u << 1u,
 			EAF_STENCIL_BIT			= 0x1u << 2u,
@@ -72,13 +74,14 @@ class IImage : public IDescriptor
 			EAF_MEMORY_PLANE_2_BIT	= 0x1u << 9u,
 			EAF_MEMORY_PLANE_3_BIT	= 0x1u << 10u
 		};
-		enum E_CREATE_FLAGS : uint32_t
+		enum E_CREATE_FLAGS : uint16_t
 		{
+			ECF_NONE									= 0x0u,
 			//! irrelevant now - no support for sparse or aliased resources
 			ECF_SPARSE_BINDING_BIT						= 0x1u << 0u,
 			ECF_SPARSE_RESIDENCY_BIT					= 0x1u << 1u,
 			ECF_SPARSE_ALIASED_BIT						= 0x1u << 2u,
-			//! irrelevant now - no support for planar images
+			//! if you want to be able to create an ImageView with a different format later
 			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u,
 			//! whether can fashion a cubemap out of the image
 			ECF_CUBE_COMPATIBLE_BIT						= 0x1u << 4u,
@@ -100,13 +103,14 @@ class IImage : public IDescriptor
 			//! whether image can be used as  depth/stencil attachment with custom MSAA sample locations
 			ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT	= 0x1u << 12u
 		};
-		enum E_TYPE : uint32_t
+		enum E_TYPE : uint8_t
 		{
-			ET_1D,
+			ET_1D = 0,
 			ET_2D,
-			ET_3D
+			ET_3D,
+			ET_COUNT
 		};
-		enum E_SAMPLE_COUNT_FLAGS : uint32_t
+		enum E_SAMPLE_COUNT_FLAGS : uint8_t
 		{
 			ESCF_1_BIT = 0x00000001,
 			ESCF_2_BIT = 0x00000002,
@@ -116,14 +120,9 @@ class IImage : public IDescriptor
 			ESCF_32_BIT = 0x00000020,
 			ESCF_64_BIT = 0x00000040
 		};
-		enum E_TILING : uint32_t
+		enum E_USAGE_FLAGS : uint16_t
 		{
-			ET_OPTIMAL,
-			ET_LINEAR
-		};
-		enum E_USAGE_FLAGS : uint32_t
-		{
-            EUF_NONE = 0x00000000,
+			EUF_NONE = 0x00000000,
 			EUF_TRANSFER_SRC_BIT = 0x00000001,
 			EUF_TRANSFER_DST_BIT = 0x00000002,
 			EUF_SAMPLED_BIT = 0x00000004,
@@ -137,7 +136,7 @@ class IImage : public IDescriptor
 		};
 		struct SSubresourceRange
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		baseMipLevel = 0u;
 			uint32_t		levelCount = 0u;
 			uint32_t		baseArrayLayer = 0u;
@@ -145,10 +144,12 @@ class IImage : public IDescriptor
 		};
 		struct SSubresourceLayers
 		{
-			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t		mipLevel = 0u;
 			uint32_t		baseArrayLayer = 0u;
 			uint32_t		layerCount = 0u;
+
+			auto operator<=>(const SSubresourceLayers&) const = default;
 		};
 		struct SBufferCopy
 		{
@@ -156,7 +157,7 @@ class IImage : public IDescriptor
 			{
 				// TODO: more complex check of compatible aspects
 				// Image Extent must be a mutiple of texel block dims OR offset + extent = image subresourceDims
- 				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
+				// bufferOffset must be multiple of the compressed texel block size in bytes (matters in IGPU?)
 				// If planar subresource aspectMask should be PLANE_{0,1,2}
 				if (false)
 					return false;
@@ -188,7 +189,7 @@ class IImage : public IDescriptor
 			{
 				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
 			}
-			static inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
+			static inline uint64_t		getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
 			{
 				return core::dot(localXYZLayerOffset,byteStrides)[0];
 			}
@@ -197,15 +198,16 @@ class IImage : public IDescriptor
 				return bufferOffset+getLocalByteOffset(localXYZLayerOffset,byteStrides);
 			}
 
-
 			size_t				bufferOffset = 0ull;
 			// setting this to different from 0 can fail an image copy on OpenGL
 			uint32_t			bufferRowLength = 0u;
 			// setting this to different from 0 can fail an image copy on OpenGL
 			uint32_t			bufferImageHeight = 0u;
-			SSubresourceLayers	imageSubresource;
+			SSubresourceLayers	imageSubresource = {};
 			VkOffset3D			imageOffset = {0u,0u,0u};
 			VkExtent3D			imageExtent = {0u,0u,0u};
+
+			auto operator<=>(const SBufferCopy&) const = default;
 		};
 		struct SImageCopy
 		{
@@ -225,45 +227,44 @@ class IImage : public IDescriptor
 			inline const VkOffset3D&	getDstOffset() const { return dstOffset; }
 			inline const VkExtent3D&	getExtent() const { return extent; }
 
-			SSubresourceLayers	srcSubresource;
+			SSubresourceLayers	srcSubresource = {};
 			VkOffset3D			srcOffset = {0u,0u,0u};
-			SSubresourceLayers	dstSubresource;
+			SSubresourceLayers	dstSubresource = {};
 			VkOffset3D			dstOffset = {0u,0u,0u};
 			VkExtent3D			extent = {0u,0u,0u};
 		};
 		struct SCreationParams
 		{
-			E_CREATE_FLAGS								flags;
 			E_TYPE										type;
+			E_SAMPLE_COUNT_FLAGS						samples;
 			E_FORMAT									format;
 			VkExtent3D									extent;
 			uint32_t									mipLevels;
 			uint32_t									arrayLayers;
-			E_SAMPLE_COUNT_FLAGS						samples;
-			// stuff below is irrelevant in OpenGL backend
-			E_TILING									tiling = ET_OPTIMAL;
-			core::bitflag<E_USAGE_FLAGS>				usage = static_cast<E_USAGE_FLAGS>(0);
-			// TODO: @achal sharing mode and queue family lists shouldn't be in ICPUImage's creation params!
-			E_SHARING_MODE								sharingMode = ESM_EXCLUSIVE;
-			uint32_t									queueFamilyIndexCount = 0u;
-			const uint32_t*								queueFamilyIndices = nullptr;
-			E_IMAGE_LAYOUT								initialLayout = EIL_UNDEFINED;
-			bool operator==(const SCreationParams& rhs) const
+			core::bitflag<E_CREATE_FLAGS>				flags = ECF_NONE;
+			core::bitflag<E_USAGE_FLAGS>				usage = EUF_NONE;
+
+			inline bool operator==(const SCreationParams& rhs) const
 			{
-				return flags == rhs.flags && type == rhs.type && format == rhs.format &&
-					extent == rhs.extent && mipLevels == rhs.mipLevels && arrayLayers == rhs.arrayLayers &&
-					samples == rhs.samples;
+				return !operator!=(rhs);
 			}
-			bool operator!=(const SCreationParams& rhs) const
+			inline bool operator!=(const SCreationParams& rhs) const
 			{
-				return !operator==(rhs);
+				return type!=rhs.type ||
+					samples!=rhs.samples ||
+					format!=rhs.format ||
+					extent!=rhs.extent ||
+					mipLevels!=rhs.mipLevels ||
+					arrayLayers!=rhs.arrayLayers ||
+					flags.value!=rhs.flags.value ||
+					usage.value!=rhs.usage.value;
 			}
 		};
 
-				//!
+		//!
 		inline const auto& getCreationParameters() const
 		{
-			return params;
+			return m_creationParams;
 		}
 
 		//!
@@ -281,7 +282,12 @@ class IImage : public IDescriptor
 				default:
 					break;
 			}
-			return 1u + uint32_t(floorf(log2(float(maxSideLen))));
+			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
+			return core::findLSB(round);
+		}
+		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
+		{
+			return calculateMaxMipLevel(extent,type)+1u;
 		}
 
 		//!
@@ -317,7 +323,7 @@ class IImage : public IDescriptor
 			if (core::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
 				return false;
 
-			if (_params.flags & ECF_CUBE_COMPATIBLE_BIT)
+			if (_params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT))
 			{
 				if (_params.type != ET_2D)
 					return false;
@@ -328,28 +334,28 @@ class IImage : public IDescriptor
 				if (_params.samples != ESCF_1_BIT)
 					return false;
 			}
-			if ((_params.flags & ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
+			if (_params.flags.hasFlags(ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
 				return false;
-			if ((_params.flags & ECF_SPARSE_RESIDENCY_BIT) || (_params.flags & ECF_SPARSE_ALIASED_BIT))
+			if (_params.flags.hasFlags(ECF_SPARSE_RESIDENCY_BIT) || _params.flags.hasFlags(ECF_SPARSE_ALIASED_BIT))
 			{
-				if (!(_params.flags & ECF_SPARSE_BINDING_BIT))
+				if (!_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT))
 					return false;
-				if (_params.flags & ECF_PROTECTED_BIT)
+				if (_params.flags.hasFlags(ECF_PROTECTED_BIT))
 					return false;
 			}
-			if ((_params.flags & ECF_SPARSE_BINDING_BIT) && (_params.flags & ECF_PROTECTED_BIT))
+			if (_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT) && _params.flags.hasFlags(ECF_PROTECTED_BIT))
 				return false;
-			if (_params.flags & ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
+			if (_params.flags.hasFlags(ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT))
 			{
 				if (_params.mipLevels > 1u || _params.arrayLayers > 1u || _params.type != ET_2D)
 					return false;
 			}
-			if (_params.flags & ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
+			if (_params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT))
 			{
-				if (!isBlockCompressionFormat(_params.format) || !(_params.flags & ECF_MUTABLE_FORMAT_BIT))
+				if (!isBlockCompressionFormat(_params.format) || !_params.flags.hasFlags(ECF_MUTABLE_FORMAT_BIT))
 					return false;
 			}
-			if ((_params.flags & ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
+			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
 				return false;
 
 			if (_params.samples != ESCF_1_BIT && _params.type != ET_2D)
@@ -378,11 +384,11 @@ class IImage : public IDescriptor
 			}
 			else
 			{
-				if (!(_params.flags & ECF_ALIAS_BIT) && (_params.flags & ECF_DISJOINT_BIT))
+				if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
 					return false;
 			}
 
-			if (_params.mipLevels > calculateMaxMipLevel(_params.extent, _params.type))
+			if (_params.mipLevels > calculateFullMipPyramidLevelCount(_params.extent, _params.type))
 				return false;
 
 			return true;
@@ -486,20 +492,20 @@ class IImage : public IDescriptor
 		//! Returns bits per pixel.
 		inline core::rational<uint32_t> getBytesPerPixel() const
 		{
-			return asset::getBytesPerPixel(params.format);
+			return asset::getBytesPerPixel(m_creationParams.format);
 		}
 
 		//!
 		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
 		{
-			return	core::max<core::vector3du32_SIMD>(
-						core::vector3du32_SIMD(
-							params.extent.width,
-							params.extent.height,
-							params.extent.depth
-						)/(0x1u<<level),
-						core::vector3du32_SIMD(1u,1u,1u)
-					);      
+			return core::max<core::vector3du32_SIMD>(
+				core::vector3du32_SIMD(
+					m_creationParams.extent.width,
+					m_creationParams.extent.height,
+					m_creationParams.extent.depth
+				)/(0x1u<<level),
+				core::vector3du32_SIMD(1u,1u,1u)
+			);      
 		}
 
 		//! Returns image data size in bytes
@@ -507,29 +513,39 @@ class IImage : public IDescriptor
 		{
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
 			size_t memreq = 0ull;
-			for (uint32_t i=0u; i<params.mipLevels; i++)
+			for (uint32_t i=0u; i<m_creationParams.mipLevels; i++)
 			{
 				auto levelSize = info.roundToBlockSize(getMipSize(i));
-				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * params.arrayLayers)*bytesPerPixel;
+				auto memsize = size_t(levelSize[0]*levelSize[1])*size_t(levelSize[2]*m_creationParams.arrayLayers)*bytesPerPixel;
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
 			}
 			return memreq;
 		}
 
-    protected:
-		IImage() :	params{	static_cast<E_CREATE_FLAGS>(0u),ET_2D,EF_R8G8B8A8_SRGB,
-							{0u,0u,0u},0u,0u,static_cast<E_SAMPLE_COUNT_FLAGS>(0u) },
-					info(params.format)
-			
+		//! leaving here as might be useful for a future `ICPUCommandBuffer`
+		enum E_LAYOUT : uint32_t
 		{
-			//tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
-			//queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)
-		}
-		IImage(SCreationParams&& _params) : params(std::move(_params)), info(params.format) {}
+			EL_UNDEFINED = 0,
+			EL_GENERAL = 1,
+			EL_COLOR_ATTACHMENT_OPTIMAL = 2,
+			EL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL = 3,
+			EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL = 4,
+			EL_SHADER_READ_ONLY_OPTIMAL = 5,
+			EL_TRANSFER_SRC_OPTIMAL = 6,
+			EL_TRANSFER_DST_OPTIMAL = 7,
+			EL_PREINITIALIZED = 8,
+			EL_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
+			EL_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = 1000117001,
+			EL_PRESENT_SRC = 1000001002,
+			EL_SHARED_PRESENT = 1000111000,
+			EL_SHADING_RATE_OPTIMAL_NV = 1000164003,
+			EL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
+		};
+	protected:
+		IImage(const SCreationParams& _params) : m_creationParams(_params), info(_params.format) {}
 
-		virtual ~IImage()
-		{}
+		virtual ~IImage() {}
 		
 		template<typename CopyStructIt, class SourceType>
 		inline bool validateCopies_template(CopyStructIt pRegionsBegin, CopyStructIt pRegionsEnd, const SourceType* src) const
@@ -543,16 +559,16 @@ class IImage : public IDescriptor
 			bool die = false;
 			if constexpr(std::is_base_of<IImage, SourceType>::value)
 			{
-				if (params.samples!=src->getCreationParameters().samples)
+				if (m_creationParams.samples!=src->getCreationParameters().samples)
 					die = true;
 
 				// tackle when we handle aspects
-				//if (!asset::areFormatsCompatible(params.format,src->format))
+				//if (!asset::areFormatsCompatible(m_creationParams.format,src->format))
 					//die = true;
 			}
 			else
 			{
-				if (params.samples!=ESCF_1_BIT)
+				if (m_creationParams.samples!=ESCF_1_BIT)
 					die = true;
 			}
 			
@@ -561,23 +577,26 @@ class IImage : public IDescriptor
 
 
 			const core::vector3du32_SIMD zero(0u,0u,0u,0u);
-			auto extentSIMD = core::vector3du32_SIMD(params.extent.width,params.extent.height,params.extent.depth);
-			auto blockByteSize = asset::getTexelOrBlockBytesize(params.format);
-			auto dstBlockDims = asset::getBlockDimensions(params.format);
+			auto extentSIMD = core::vector3du32_SIMD(m_creationParams.extent.width,m_creationParams.extent.height,m_creationParams.extent.depth);
+			auto blockByteSize = asset::getTexelOrBlockBytesize(m_creationParams.format);
+			auto dstBlockDims = asset::getBlockDimensions(m_creationParams.format);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				// check rectangles countained in destination
 				const auto& subresource = it->getDstSubresource();
-				//if (!formatHasAspects(params.format,subresource.aspectMask))
+				//if (!formatHasAspects(m_creationParams.format,subresource.aspectMask))
 					//return false;
-				if (subresource.mipLevel >= params.mipLevels)
+				// The aspectMask member of imageSubresource must only have a single bit set
+				if (!core::bitCount(static_cast<uint32_t>(subresource.aspectMask)) == 1u)
 					return false;
-				if (subresource.baseArrayLayer+subresource.layerCount > params.arrayLayers)
+				if (subresource.mipLevel >= m_creationParams.mipLevels)
+					return false;
+				if (subresource.baseArrayLayer+subresource.layerCount > m_creationParams.arrayLayers)
 					return false;
 
 				const auto& off2 = it->getDstOffset();
 				const auto& ext2 = it->getExtent();
-				switch (params.type)
+				switch (m_creationParams.type)
 				{
 					case ET_1D:
 						if (off2.y>0u||ext2.height>1u)
@@ -604,7 +623,7 @@ class IImage : public IDescriptor
 				bool die = false;
 				if constexpr(std::is_base_of<IImage,SourceType>::value)
 				{
-					//if (!formatHasAspects(src->params.format,it->srcSubresource.aspectMask))
+					//if (!formatHasAspects(src->m_creationParams.format,it->srcSubresource.aspectMask))
 						//die = true;
 
 					auto getRealDepth = [](auto _type, auto _extent, auto subresource) -> uint32_t
@@ -615,10 +634,10 @@ class IImage : public IDescriptor
 							return 0u;
 						return _extent.depth;
 					};
-					if (getRealDepth(params.type, it->extent, subresource) != getRealDepth(src->params.type, it->extent, it->srcSubresource))
+					if (getRealDepth(m_creationParams.type, it->extent, subresource) != getRealDepth(src->m_creationParams.type, it->extent, it->srcSubresource))
 						die = true;
 
-					auto srcBlockDims = asset::getBlockDimensions(src->params.format);
+					auto srcBlockDims = asset::getBlockDimensions(src->m_creationParams.format);
 
 					/** Vulkan 1.1 Spec: When copying between compressed and uncompressed formats the extent members
 					represent the texel dimensions of the source image and not the destination. */
@@ -667,7 +686,7 @@ class IImage : public IDescriptor
 		}
 
 
-		SCreationParams params;
+		SCreationParams m_creationParams;
 		TexelBlockInfo  info;
 
 	private:
@@ -719,6 +738,8 @@ class IImage : public IDescriptor
 		}
 };
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_USAGE_FLAGS)
 
 } // end namespace nbl::asset
 

@@ -6,7 +6,7 @@
 The name change to Nabla allows for using Nabla side by side with the legacy Irrlicht and IrrlichtBaW engines. 
 The project currently aims for a thread-able and *Vulkan*-centered API, the Vulkan backend is almost complete, and OpenGL and ES backends are currently in maintenance mode. 
 
-This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and was almost entirely sponsored by **Build A World Aps**. in it's early days, and now has been picked up by the **[Ditt](https://www.ditt.nl/)** company.
+This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and was almost entirely sponsored by **Build A World Aps** in its early days, now it has been picked up by **[Ditt B.V.](https://www.ditt.nl/)**.
 
 ## (Get Hired) Jobs and Internships
 
@@ -54,85 +54,15 @@ Contact `newclients@devsh.eu` with inquires into contracting.
 
 ### Screenshots
 
-##### <u>Path-tracing without MIS</u>
+### <u>Our Production Mitsuba Compatible Path Tracer made for Ditt B.V.</u>
 
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render5.png)
+Currently working on the `ditt` branch, in the process of being ported to Vulkan KHR Raytracing.
 
-#####  <u>Path-tracing without MIS</u>
+You can download a stable build [here](https://artifactory.devsh.eu/Ditt/ci/data/artifacts/public/Ditt.tar.bz2)
 
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render4.png)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/17d76d294c46b4f3f3b98e9c4c6fd37c8396e502/site_media/readme/screenshots/4e86cf2b-3f8e-40eb-9835-6553ea205df2.jpg)
 
-##### <u>Path-tracing without MIS </u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render.png?raw=true)
-
-##### <u>Path-tracing without MIS</u>
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render3.png)
-
-##### <u>Bathroom scene</u>
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/6e8c37ca0132ae9bf84359be3faeed649341e434/site_media/readme/screenshots/render6.png)
-
-##### <u>1 Megapixel, 1 Million Samples</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
-
-##### <u>Raytracing sample</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
-
-**<u>Stairs raytracing</u>** 
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/f3771793d54bff6e6c7dd1f4231f7323fc103b5c/site_media/readme/screenshots/render2.png)
-
-##### <u>Thindielectric</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
-
-##### <u>BRDF Explorer</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
-
-##### <u>Different Shape Area Light emitters</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
-
-### Videos
-
-##### [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%201.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%202.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%203.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%204.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%205.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
-
-##### [Bathroom Scene Raytracing](https://www.youtube.com/watch?t=28&v=vqKZKP1hYcc&feature=youtu.be)
-
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%207.gif)
-
-##### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
-
-##### Tonemapping with AutoExposure and Temporal Adaptation
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
-
-##### [Stairs Scene Raytracing](https://www.youtube.com/watch?v=2uRBiLdvva4)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%206.gif?raw=true)
-
-##### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
+### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
 
@@ -177,6 +107,22 @@ Contact `newclients@devsh.eu` with inquires into contracting.
 
 - [ ] **iOS**
 
+## Build summary
+
+|    ![][BUILD_STATUS]     |   Release    |     RWDI     |    Debug     |
+| :----------------------: | :----------: | :----------: | :----------: |
+|   **Windows MSVC x64**   | ![][MSVC_1]  | ![][MSVC_2]  | ![][MSVC_3]  |
+| **Android Clang x86_64** | ![][CLANG_1] | ![][CLANG_2] | ![][CLANG_3] |
+|    **Linux GCC x64**     |   ![][NA]    |   ![][NA]    |   ![][NA]    |
+
+[MSVC_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[MSVC_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[MSVC_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
+[CLANG_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[CLANG_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[CLANG_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
+[NA]: https://img.shields.io/badge/free%20slot-n%2Fa-red
+[BUILD_STATUS]: https://img.shields.io/badge/build-status-blueviolet
 
 ## Required Build Tools and SDK's
 
@@ -201,7 +147,7 @@ So basically first remove your driver, then install *CUDA SDK*.
 
 #### CMake warnings in reference CUDA and notes
 
-On Windows *CMake* has trouble finding new packages installed after *CMake*, so its the perfect time to visit **[it's website](https://cmake.org/)** and check for a new version installer after installing *CUDA SDK*.
+On Windows *CMake* has trouble finding new packages installed after *CMake*, so its the perfect time to visit **[its website](https://cmake.org/)** and check for a new version installer after installing *CUDA SDK*.
 
 You can also thank NVidia for making the CUDA SDK a whole whopping 2.5 GB on Windows.
 
@@ -311,12 +257,6 @@ on each submodule's directory required!
 
 ### CMake notes
 
-#### Make sure Python's executable is found
-
-- The paragraph concerns *Windows system* only
-
-Unfortunately on Windows there are often troubles with **Python 3.0+** versions, because it isn't able to find and determine `PYTHON_EXECUTABLE` variable, so you have to fill it manually. If you use **CMake-GUI** you will find it in advanced options.
-
 #### Consider CMake and Visual Studio version, **important**! 
 
 - The paragraph concerns *Visual Studio* only
@@ -403,6 +343,59 @@ addNablaModule(executableTest "${NBL_INSTALL_DIR}")
 If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
 
 I recommend you use `ExternalProject_Add` instead of `add_subdirectory` for **Nabla** as we haven't  tested its use by *3rdparty* applications that use *CMake* to build themselves yet.
+
+# Caveats and Particular Behaviour
+
+## Hardcoded Caps
+
+### Max Descriptor Sets is always 4
+
+## Debugging with RenderDoc
+
+###  Non-programmatic OpenGL catpures will be delimited inconsistently
+
+Due to our no-pollution opengl state isolation policy, we have 1 queue or swapchain = 1 thread = 1 gl context + 1 master context and thread for device calls.
+
+Renderdoc therefore serializes all calls, and presents them inside the capture in interleaved order (records them on a single timeline "as they happened").
+
+Furthermore it has no idea what constitutes a frame, because swap-buffers call happens on a separate thread than all the other API calls. **So use the `IGPUQueue` start/end capture methods!**
+
+### RenderDoc flips images for display in the ImageViewer tab on OpenGL captures
+
+Ctrl+F `localRenderer in https://github.com/baldurk/renderdoc/blob/4103f6a5455b9734e9bf74e254577f5c03188136/renderdoc/core/image_viewer.cpp
+
+### OpenGL/Vulkan Inconsistencies
+
+In certain cases same calls to Vulkan and OpenGL might result in y-flipped image relevant to the other API.
+
+Both APIs write (-1,-1) in NDC space to (0,0) in image space (two wrongs make right), and memory-wise (0,0) always represents the lowest byte in memory.
+
+This inconsistency comes from swapchain presentation. When presenting the swapchain, the image location (0,0) corresponds to **bottom-left** in OpenGL and **top-left** in Vulkan.
+
+#### Solution by Surface Transforms
+
+We solve this inconsistency by using [surface transforms](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceTransformFlagBitsKHR.html); This transforms are relative to `presentation engine’s natural orientation`. and we report `HORIZONTAL_MIRROR_180` support in our OpenGL backend and defer handling these rotations (relative to natural orientaion) to the user.
+
+We provide helper functions in both GLSL and C++ Nabla codebase to consider surface transforms, See [surface_transform.glsl](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+
+Note that it is common to apply surface transformation to projection matrices to account for this fact. See [getSurfaceTransformationMatrix](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h) and [Android Developers Guide to Pre-rotation](https://developer.android.com/games/optimize/vulkan-prerotation)
+
+Use [`ISwapchain getSurfaceTransform()`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/ISwapchain.h) to get the transformation from swapchain.
+
+- When generating projection matricies, take into account the aspect ratio (which is changed when rotating 90 or 270 degrees). For this, we have helper functions in both GLSL and the ISurface class:
+    - [`float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
+    - [`nbl_glsl_surface_transform_transformedExtents`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+
+- On the swapchain rendering pass, perform **one** of the following transforms:
+    - If rendering **directly to the swapchain**, you can apply the (post) transform matrix to your projection or combined view-projection matrix **for rendering** (don't pre-multiply with projection matrix for use outside rendering):
+        - [`matrix4SIMD ISurface::getSurfaceTransformationMatrix(const E_SURFACE_TRANSFORM_FLAGS transform)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
+        - [`nbl_glsl_surface_transform_applyToNDC`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl) (This takes in an NDC coordinate and multiplies it with the transform matrix in one function)
+
+    - If using `imageStore` to write **directly to the swapchain**, you can either:
+        - Apply a transform to the screen-space coordinates being written to the swapchain:
+            - [`nbl_glsl_surface_transform_applyToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+        - Apply an **inverse** transform to the screen-space coordinates (taken from `gl_GlobalInvocationID.xy`) before turning them into UV/world-space coordinates for rendering:
+            - [`nbl_glsl_surface_transform_applyInverseToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
 
 ## Automated Builds (TODO)
 

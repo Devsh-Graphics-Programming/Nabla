@@ -5,27 +5,34 @@
 #ifndef _NBL_CORE_C_BITFLAG_H_INCLUDED_
 #define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
+#include "BuildConfigOptions.h"
+
 namespace nbl::core
 {
 
 template <typename ENUM_TYPE>
 struct bitflag final
 {
+	using UNDERLYING_TYPE = std::underlying_type_t<ENUM_TYPE>;
+
 	static_assert(std::is_enum<ENUM_TYPE>::value);
 
 	ENUM_TYPE value = static_cast<ENUM_TYPE>(0);
 
 	bitflag() = default;
 	bitflag(const ENUM_TYPE value) : value(value) {}
+	template<typename Integer, std::enable_if_t<std::is_integral<Integer>::value, bool> = true, std::enable_if_t<std::is_unsigned<Integer>::value, bool> = true>
+	explicit bitflag(const Integer value) : value(static_cast<ENUM_TYPE>(value)) {}
 
-	inline bitflag<ENUM_TYPE> operator~() { return static_cast<ENUM_TYPE>(~value); }
-	inline bitflag<ENUM_TYPE> operator|(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(value | rhs.value); }
-	inline bitflag<ENUM_TYPE> operator&(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(value & rhs.value); }
-	inline bitflag<ENUM_TYPE> operator^(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(value ^ rhs.value); }
-	inline bitflag<ENUM_TYPE>& operator|=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value | rhs.value); return *this; }
-	inline bitflag<ENUM_TYPE>& operator&=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value & rhs.value); return *this; }
-	inline bitflag<ENUM_TYPE>& operator^=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(value ^ rhs.value); return *this; }
-	inline bool hasValue(bitflag<ENUM_TYPE> val) const { return (value & val.value) != 0; }
+	inline bitflag<ENUM_TYPE> operator~() { return static_cast<ENUM_TYPE>(~static_cast<UNDERLYING_TYPE>(value)); }
+	inline bitflag<ENUM_TYPE> operator|(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) | static_cast<UNDERLYING_TYPE>(rhs.value)); }
+	inline bitflag<ENUM_TYPE> operator&(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(rhs.value)); }
+	inline bitflag<ENUM_TYPE> operator^(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) ^ static_cast<UNDERLYING_TYPE>(rhs.value)); }
+	inline bitflag<ENUM_TYPE>& operator|=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) | static_cast<UNDERLYING_TYPE>(rhs.value)); return *this; }
+	inline bitflag<ENUM_TYPE>& operator&=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(rhs.value)); return *this; }
+	inline bitflag<ENUM_TYPE>& operator^=(bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) ^ static_cast<UNDERLYING_TYPE>(rhs.value)); return *this; }
+
+	inline bool hasFlags(bitflag<ENUM_TYPE> val) const { return (static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(val.value)) == static_cast<UNDERLYING_TYPE>(val.value); }
 };
 
 }

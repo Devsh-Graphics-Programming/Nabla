@@ -1,9 +1,3 @@
-[submodule "3rdparty/SPIRV-Headers"]
-	path = 3rdparty/SPIRV-Headers
-	url = https://github.com/KhronosGroup/SPIRV-Headers.git
-[submodule "3rdparty/SPIRV-Tools"]
-	path = 3rdparty/SPIRV-Tools
-	url = https://github.com/KhronosGroup/SPIRV-Tools.git
 [submodule "3rdparty/glslang"]
 	path = 3rdparty/glslang
 	url = https://github.com/devshgraphicsprogramming/glslang.git
@@ -55,19 +49,12 @@
 [submodule "3rdparty/parallel-hashmap"]
 	path = 3rdparty/parallel-hashmap
 	url = https://github.com/greg7mdp/parallel-hashmap
-[submodule "3rdparty/radeonrays"]
-	path = 3rdparty/radeonrays
-	url = git@github.com:devshgraphicsprogramming/RadeonRays_SDK.git
-	branch = baw
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = https://github.com/NVIDIA/jitify
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git
-[submodule "3rdparty/EGL"]
-	path = 3rdparty/EGL
-	url = https://github.com/Crisspl/EGL.git
 [submodule "3rdparty/simdjson"]
 	path = 3rdparty/simdjson
 	url = https://github.com/simdjson/simdjson.git
@@ -87,3 +74,13 @@
 	path = 3rdparty/Vulkan-Headers
 	url = git@github.com:KhronosGroup/Vulkan-Headers.git
 	branch = main
+[submodule "examples_tests"]
+	path = examples_tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
+[submodule "3rdparty/dxc/dxc"]
+	path = 3rdparty/dxc/dxc
+	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
+	branch = devshFixes
+[submodule "3rdparty/tcpp"]
+	path = 3rdparty/tcpp
+	url = git@github.com:Erfan-Ahmadi/tcpp.git

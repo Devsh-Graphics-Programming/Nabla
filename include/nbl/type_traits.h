@@ -18,20 +18,18 @@ using bool_constant = std::bool_constant<B>;
 template <bool... Vals>
 using bool_sequence = std::integer_sequence<bool, Vals...>;
 
+template <typename T, typename... Us>
+inline constexpr bool is_any_of_v = (... || std::is_same<T, Us>::value);
 
-template<typename T, typename U, typename... Us>
-struct is_any_of : std::integral_constant<bool,
-	std::conditional<
-		std::is_same<T, U>::value,
-		std::true_type,
-		nbl::is_any_of<T, Us...>
-	>::type::value
->
-{};
+template<typename T, typename... Us>
+struct is_any_of : std::integral_constant<bool, is_any_of_v<T, Us...>> {};
 
-template<typename T, typename U>
-struct is_any_of<T, U> : std::is_same<T, U>::type { };
-
+static_assert(is_any_of<bool, bool>::value == true, "is_any_of test");
+static_assert(is_any_of<bool, int>::value == false, "is_any_of test");
+static_assert(is_any_of<bool, int, bool>::value == true, "is_any_of test");
+static_assert(is_any_of<bool, int, double>::value == false, "is_any_of test");
+static_assert(is_any_of<bool, int, double, bool>::value == true, "is_any_of test");
+static_assert(is_any_of<bool, int, double, float>::value == false, "is_any_of test");
 
 template<auto cf, decltype(cf) cmp, decltype(cf)... searchtab>
 struct is_any_of_values : is_any_of_values<cf,searchtab...> {};

@@ -1,28 +1,24 @@
-#ifndef __NBL_I_WINDOW_WIN32_H_INCLUDED__
-#define __NBL_I_WINDOW_WIN32_H_INCLUDED__
+#ifndef _NBL_I_WINDOW_WIN32_H_INCLUDED_
+#define _NBL_I_WINDOW_WIN32_H_INCLUDED_
 
-#include "nbl/system/DefaultFuncPtrLoader.h"
-
-#include "nbl/ui/IWindow.h"
-
+#include "nbl/ui/IWindowManagerWin32.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
+// forward declare HWND
+struct HWND__;
 
 namespace nbl::ui
 {
 
-class IWindowWin32 : public IWindow
+class NBL_API2 IWindowWin32 : public IWindow
 {
-    protected:
-        virtual ~IWindowWin32() = default;
-        IWindowWin32(SCreationParams&& params) : IWindow(std::move(params)) {}
-
     public:
-        using IWindow::IWindow;
-
-        using native_handle_t = HWND;
-
+        using native_handle_t = HWND__*;
         virtual const native_handle_t& getNativeHandle() const = 0;
+        
+    protected:
+        inline IWindowWin32(SCreationParams&& params) : IWindow(std::move(params)) {}
+        virtual ~IWindowWin32() = default;
 };
 
 }
