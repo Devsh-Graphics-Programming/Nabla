@@ -3,13 +3,25 @@
 # _LBR_PATH_ is a path to builtin resource
 
 macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
-	set(_OPTIONAL_ALIAS_ "${ARGV2}")
+	math(EXPR _ALIAS_C_ "${ARGC} - 2" OUTPUT_FORMAT DECIMAL)
+	set(_ALIAS_ARGS_ ${ARGV})
+	
+	if("${_ALIAS_C_}" GREATER "0")
+		list(SUBLIST _ALIAS_ARGS_ "2" "${_ALIAS_C_}" _ALIAS_ARGS_)
+		
+		foreach(_ALIAS_ IN LISTS _ALIAS_ARGS_)
+			string(APPEND _OPTIONAL_ALIASES_ ",${_ALIAS_}")
+		endforeach()
+	endif()
 	
 	list(APPEND ${_BUNDLE_NAME_} "${_LBR_PATH_}")
 	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}} PARENT_SCOPE) # override
 	
-	list(APPEND _LBR_${_BUNDLE_NAME_}_ "${_LBR_PATH_},${_OPTIONAL_ALIAS_}")
+	list(APPEND _LBR_${_BUNDLE_NAME_}_ "${_LBR_PATH_}${_OPTIONAL_ALIASES_}")
 	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_} PARENT_SCOPE) # override
+	
+	unset(_OPTIONAL_ALIASES_)
+	unset(_ALIAS_ARGS_)
 endmacro()
 
 # Creates a library with builtin resources for given bundle
@@ -47,8 +59,16 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		set(_CURRENT_ITEM_ "${X}")
 		string(FIND "${_CURRENT_ITEM_}" "," _FOUND_ REVERSE)
 		
-		string(REGEX REPLACE ",.*" "" _CURRENT_PATH_ "${_CURRENT_ITEM_}") # _LBR_PATH_ path for given bundle
-		string(REGEX REPLACE ".*," "" _CURRENT_ALIAS_ "${_CURRENT_ITEM_}") # optional alias for given builtin resource
+		
+		string(REPLACE "," ";" _ITEM_DATA_ "${_CURRENT_ITEM_}")
+		list(LENGTH _ITEM_DATA_ _ITEM_D_SIZE_)
+		list(GET _ITEM_DATA_ 0 _CURRENT_PATH_) # _LBR_PATH_ path for given bundle
+		
+		if(_ITEM_D_SIZE_ GREATER 1)
+			list(SUBLIST _ITEM_DATA_ "1" "${_ITEM_D_SIZE_}" _ITEM_ALIASES_) # optional aliases for given builtin resource
+		else()
+			unset(_ITEM_ALIASES_)
+		endif()
 		
 		set(NBL_BUILTIN_RESOURCE_ABS_PATH "${_BUNDLE_SEARCH_DIRECTORY_}/${_CURRENT_PATH_}") # an absolute path to a builtin resource
 		list(APPEND NBL_BUILTIN_RESOURCES "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
@@ -63,9 +83,9 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 			
 			LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_PATH_}" "${_FILE_SIZE_}" "${_ITR_}")
 			
-			if(_CURRENT_ALIAS_) # if an alias is present list it with the same ID of the current handled builtin resource
+			foreach(_CURRENT_ALIAS_ IN LISTS _ITEM_ALIASES_)
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
-			endif()
+			endforeach()
 		else()
 			message(FATAL_ERROR "!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
 		endif()	
