@@ -238,12 +238,18 @@ if(NBL_BUILD_IMGUI)
 		"imgui/imgui_widgets.cpp"
 		"imgui/imgui.cpp"
 		"imgui/imgui.h"
-		"imgui/imgui_stdlib.cpp"
-		"imgui/imgui_stdlib.h"
+		"imgui/misc/cpp/imgui_stdlib.cpp"
+		"imgui/misc/cpp/imgui_stdlib.h"
 		"imgui/imstb_rectpack.h"
 		"imgui/imstb_textedit.h"
 		"imgui/imstb_truetype.h"
 	)
+	target_include_directories(imgui
+		PUBLIC "imgui"
+		PUBLIC "imgui/misc/cpp"
+		PUBLIC "imgui/backends"
+	)
+
 endif()
 
 add_library(aesGladman OBJECT

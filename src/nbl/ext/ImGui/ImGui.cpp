@@ -1,7 +1,7 @@
 #include "../../../include/nbl/ext/ImGui/ImGui.h"
 
 #include "imgui/imgui.h"
-#include "imgui/imgui_stdlib.h"
+#include "imgui/misc/cpp/imgui_stdlib.h"
 
 using namespace nbl::video;
 using namespace nbl::core;
@@ -131,16 +131,15 @@ namespace nbl::ext::imgui
 	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::CreateDescriptorSetLayout()
 	{
 		static constexpr int Count = 1;
-		IGPUDescriptorSetLayout::SBinding bindings[1]{
-			IGPUDescriptorSetLayout::SBinding {
-				.binding = 0,
-				.type = EDT_COMBINED_IMAGE_SAMPLER,
-				.count = 1,
-				.stageFlags = IShader::ESS_FRAGMENT,
-				.samplers = &m_fontSampler,
-			}
+		IGPUDescriptorSetLayout::SBinding bindings[1];
+		{
+			bindings[0].binding = 0;
+			bindings[0].type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
+			bindings[0].count = 1;
+			bindings[0].stageFlags = IShader::ESS_FRAGMENT;
+			bindings[0].samplers = &m_fontSampler;
 		};
-		return m_device->createGPUDescriptorSetLayout(bindings, bindings + Count);
+		return m_device->createDescriptorSetLayout(bindings, bindings + Count);
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -163,12 +162,10 @@ namespace nbl::ext::imgui
 		auto descriptorSetLayout = CreateDescriptorSetLayout();
 
 		// Create Descriptor Set:
-		m_gpuDescriptorSet = m_device->createGPUDescriptorSet(
-			m_descriptorPool.get(),
-			descriptorSetLayout
-		); // Original number was 1 , Now it creates as many as swap_chain_image_count
+		// Original number was 1 , Now it creates as many as swap_chain_image_count
+		m_gpuDescriptorSet = m_descriptorPool->createDescriptorSet(descriptorSetLayout); 
 
-		auto pipelineLayout = m_device->createGPUPipelineLayout(
+		auto pipelineLayout = m_device->createPipelineLayout(
 			pushConstantRanges,
 			pushConstantRanges + PushConstantCount,
 			std::move(descriptorSetLayout)
@@ -180,11 +177,11 @@ namespace nbl::ext::imgui
 
 		memcpy(vertCpuBuffer->getPointer(), vertexShaderSpv, vertCpuBuffer->getSize());   // TODO: Can we avoid this copy ?
 
-		smart_refctd_ptr<ICPUShader> cpuVertShader = make_smart_refctd_ptr<ICPUShader>(std::move(vertCpuBuffer), IShader::ESS_VERTEX, "");
+		smart_refctd_ptr<ICPUShader> cpuVertShader = make_smart_refctd_ptr<ICPUShader>(std::move(vertCpuBuffer), IShader::ESS_VERTEX, IShader::E_CONTENT_TYPE::ECT_GLSL, "");
 
-		auto const unSpecVertexShader = m_device->createGPUShader(std::move(cpuVertShader));
+		auto const unSpecVertexShader = m_device->createShader(std::move(cpuVertShader));
 
-		auto const vertexShader = m_device->createGPUSpecializedShader(
+		auto const vertexShader = m_device->createSpecializedShader(
 			unSpecVertexShader.get(),
 			IGPUSpecializedShader::SInfo(nullptr, nullptr, "main")
 		);
@@ -196,11 +193,11 @@ namespace nbl::ext::imgui
 
 		memcpy(cpuFragBuffer->getPointer(), fragmentShaderSpv, cpuFragBuffer->getSize());   // TODO: Can we avoid this copy ?
 
-		smart_refctd_ptr<ICPUShader> cpuFragShader = make_smart_refctd_ptr<ICPUShader>(std::move(cpuFragBuffer), IShader::ESS_FRAGMENT, "");
+		smart_refctd_ptr<ICPUShader> cpuFragShader = make_smart_refctd_ptr<ICPUShader>(std::move(cpuFragBuffer), IShader::ESS_FRAGMENT, IShader::E_CONTENT_TYPE::ECT_GLSL, "");
 
-		auto const unSpecFragmentShader = m_device->createGPUShader(std::move(cpuFragShader));
+		auto const unSpecFragmentShader = m_device->createShader(std::move(cpuFragShader));
 
-		auto const fragmentShader = m_device->createGPUSpecializedShader(
+		auto const fragmentShader = m_device->createSpecializedShader(
 			unSpecFragmentShader.get(),
 			IGPUSpecializedShader::SInfo(nullptr, nullptr, "main")
 		);
@@ -245,12 +242,11 @@ namespace nbl::ext::imgui
 		rasterizationParams.depthWriteEnable = false;
 		rasterizationParams.depthBoundsTestEnable = false;
 		rasterizationParams.stencilTestEnable = false;
-		rasterizationParams.rasterizationSamplesHint = IImage::ESCF_1_BIT;
 
 		SPrimitiveAssemblyParams primitiveAssemblyParams{};
 		primitiveAssemblyParams.primitiveType = EPT_TRIANGLE_LIST;
 
-		m_independentPipeline = m_device->createGPURenderpassIndependentPipeline(
+		m_independentPipeline = m_device->createRenderpassIndependentPipeline(
 			pipelineCache,
 			std::move(pipelineLayout),
 			shaders,
@@ -263,10 +259,9 @@ namespace nbl::ext::imgui
 
 		IGPUGraphicsPipeline::SCreationParams creationParams{
 			.renderpassIndependent = smart_refctd_ptr<IGPURenderpassIndependentPipeline>(m_independentPipeline.get()),
-			.rasterizationSamplesHint = IImage::ESCF_1_BIT,
 			.renderpass = renderPass,
 		};
-		m_pipeline = m_device->createGPUGraphicsPipeline(pipelineCache, std::move(creationParams));
+		m_pipeline = m_device->createGraphicsPipeline(pipelineCache, std::move(creationParams));
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -310,14 +305,9 @@ namespace nbl::ext::imgui
 		creationParams.mipLevels = 1;
 		creationParams.arrayLayers = 1u;
 		creationParams.samples = IImage::ESCF_1_BIT;
-		creationParams.tiling = IImage::ET_OPTIMAL;
 
 		// TODO: Check usage
 		creationParams.usage = bitflag(IImage::EUF_SAMPLED_BIT) | IImage::EUF_TRANSFER_DST_BIT;
-		creationParams.sharingMode = ESM_EXCLUSIVE;
-		creationParams.queueFamilyIndexCount = 1u;
-		creationParams.queueFamilyIndices = nullptr;
-		creationParams.initialLayout = EIL_UNDEFINED;
 
 		auto const imageRegions = make_refctd_dynamic_array<smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);
 		imageRegions->begin()->bufferOffset = 0ull;
@@ -355,7 +345,7 @@ namespace nbl::ext::imgui
 		viewParams.subresourceRange.layerCount = 1u;
 		viewParams.image = gpuImage->begin()[0];
 
-		m_fontTexture = m_device->createGPUImageView(std::move(viewParams));
+		m_fontTexture = m_device->createImageView(std::move(viewParams));
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -405,8 +395,8 @@ namespace nbl::ext::imgui
 		IGPUDescriptorSet::SDescriptorInfo info;
 		{
 			info.desc = m_fontTexture;
-			info.image.sampler = m_fontSampler;
-			info.image.imageLayout = nbl::asset::EIL_SHADER_READ_ONLY_OPTIMAL;
+			info.info.image.sampler = m_fontSampler;
+			info.info.image.imageLayout = nbl::asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
 		}
 
 		IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet{};
@@ -414,7 +404,7 @@ namespace nbl::ext::imgui
 		writeDescriptorSet.binding = 0;
 		writeDescriptorSet.arrayElement = 0;
 		writeDescriptorSet.count = 1;
-		writeDescriptorSet.descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		writeDescriptorSet.descriptorType = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
 		writeDescriptorSet.info = &info;
 
 		m_device->updateDescriptorSets(
@@ -438,7 +428,7 @@ namespace nbl::ext::imgui
 		params.TextureWrapV = ISampler::ETC_REPEAT;
 		params.TextureWrapW = ISampler::ETC_REPEAT;
 
-		m_fontSampler = m_device->createGPUSampler(params);
+		m_fontSampler = m_device->createSampler(params);
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -446,16 +436,12 @@ namespace nbl::ext::imgui
 	void UI::CreateDescriptorPool()
 	{
 		static constexpr int TotalSetCount = 1;
-		IDescriptorPool::SDescriptorPoolSize const poolSize{
-			.type = EDT_COMBINED_IMAGE_SAMPLER,
-			.count = TotalSetCount,
-		};
-		m_descriptorPool = m_device->createDescriptorPool(
-			IDescriptorPool::E_CREATE_FLAGS::ECF_NONE,
-			TotalSetCount,
-			1,
-			&poolSize
-		);
+		IDescriptorPool::SCreateInfo createInfo;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)] = TotalSetCount;
+		createInfo.maxSets = 1;
+		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_NONE;
+
+		m_descriptorPool = m_device->createDescriptorPool(std::move(createInfo));
 	}
 	
 	//-------------------------------------------------------------------------------------------------
@@ -598,51 +584,56 @@ namespace nbl::ext::imgui
 			size_t const indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
 
 			IGPUBuffer::SCreationParams vertexCreationParams = {};
-			vertexCreationParams.usage = nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT;
-			vertexCreationParams.canUpdateSubRange = true;
+			vertexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+			vertexCreationParams.size = vertexSize;
 
 			auto & vertexBuffer = m_vertexBuffers[frameIndex];
 
 			if (static_cast<bool>(vertexBuffer) == false || vertexBuffer->getSize() < vertexSize)
 			{
-				vertexBuffer = m_device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-					vertexCreationParams,
-					vertexSize
-				);
+				vertexBuffer = m_device->createBuffer(std::move(vertexCreationParams));
+
+				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = vertexBuffer->getMemoryReqs();
+				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+				auto memOffset = m_device->allocate(memReq, vertexBuffer.get());
+				assert(memOffset.isValid());
+				video::IDeviceMemoryAllocation::MappedMemoryRange range;
+				{
+					range.memory = vertexBuffer->getBoundMemory();
+					range.offset = 0u;
+					range.length = vertexSize;
+				}
+				m_device->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
+				assert(vertexBuffer->getBoundMemory()->isCurrentlyMapped());
 			}
 
 			IGPUBuffer::SCreationParams indexCreationParams = {};
-			indexCreationParams.usage = nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT;
-			indexCreationParams.canUpdateSubRange = true;
+			vertexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+			vertexCreationParams.size = indexSize;
 
 			auto & indexBuffer = m_indexBuffers[frameIndex];
 
 			if (static_cast<bool>(indexBuffer) == false || indexBuffer->getSize() < indexSize)
 			{
-				indexBuffer = m_device->createCPUSideGPUVisibleGPUBufferOnDedMem(
-					indexCreationParams,
-					indexSize
-				);
+				indexBuffer = m_device->createBuffer(std::move(indexCreationParams));
+
+				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = indexBuffer->getMemoryReqs();
+				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+				auto memOffset = m_device->allocate(memReq, indexBuffer.get());
+				assert(memOffset.isValid());
+				video::IDeviceMemoryAllocation::MappedMemoryRange range;
+				{
+					range.memory = indexBuffer->getBoundMemory();
+					range.offset = 0u;
+					range.length = indexSize;
+				}
+				m_device->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
+				assert(indexBuffer->getBoundMemory()->isCurrentlyMapped());
 			}
 
 			{
-				IDriverMemoryAllocation::MappedMemoryRange const vertexMappedMemory(
-					vertexBuffer->getBoundMemory(),
-					vertexBuffer->getBoundMemoryOffset(),
-					vertexBuffer->getSize()
-				);
-
-				IDriverMemoryAllocation::MappedMemoryRange const indexMappedMemory(
-					indexBuffer->getBoundMemory(),
-					indexBuffer->getBoundMemoryOffset(),
-					indexBuffer->getSize()
-				);
-
-				m_device->mapMemory(vertexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
-				m_device->mapMemory(indexMappedMemory, IDriverMemoryAllocation::EMCAF_WRITE);
-
-				auto* vertex_ptr = static_cast<ImDrawVert*>(vertexMappedMemory.memory->getMappedPointer());
-				auto* index_ptr = static_cast<ImDrawIdx*>(indexMappedMemory.memory->getMappedPointer());
+				auto* vertex_ptr = static_cast<ImDrawVert*>(vertexBuffer->getBoundMemory()->getMappedPointer());
+				auto* index_ptr = static_cast<ImDrawIdx*>(indexBuffer->getBoundMemory()->getMappedPointer());
 
 
 				for (int n = 0; n < drawData->CmdListsCount; n++)
@@ -654,8 +645,8 @@ namespace nbl::ext::imgui
 					index_ptr += cmd->IdxBuffer.Size;
 				}
 
-				m_device->unmapMemory(vertexMappedMemory.memory);
-				m_device->unmapMemory(indexMappedMemory.memory);
+				m_device->unmapMemory(vertexBuffer->getBoundMemory());
+				m_device->unmapMemory(indexBuffer->getBoundMemory());
 			}
 
 			commandBuffer.bindIndexBuffer(
