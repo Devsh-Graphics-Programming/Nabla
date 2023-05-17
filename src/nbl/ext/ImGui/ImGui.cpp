@@ -131,13 +131,13 @@ namespace nbl::ext::imgui
 	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::CreateDescriptorSetLayout()
 	{
 		static constexpr int Count = 1;
-		IGPUDescriptorSetLayout::SBinding bindings[1];
+		IGPUDescriptorSetLayout::SBinding bindings[Count] = {};
 		{
 			bindings[0].binding = 0;
 			bindings[0].type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
 			bindings[0].count = 1;
 			bindings[0].stageFlags = IShader::ESS_FRAGMENT;
-			bindings[0].samplers = &m_fontSampler;
+			//bindings[0].samplers = &m_fontSampler;
 		};
 		return m_device->createDescriptorSetLayout(bindings, bindings + Count);
 	}
@@ -164,6 +164,7 @@ namespace nbl::ext::imgui
 		// Create Descriptor Set:
 		// Original number was 1 , Now it creates as many as swap_chain_image_count
 		m_gpuDescriptorSet = m_descriptorPool->createDescriptorSet(descriptorSetLayout); 
+		assert(m_gpuDescriptorSet);
 
 		auto pipelineLayout = m_device->createPipelineLayout(
 			pushConstantRanges,
@@ -177,7 +178,7 @@ namespace nbl::ext::imgui
 
 		memcpy(vertCpuBuffer->getPointer(), vertexShaderSpv, vertCpuBuffer->getSize());   // TODO: Can we avoid this copy ?
 
-		smart_refctd_ptr<ICPUShader> cpuVertShader = make_smart_refctd_ptr<ICPUShader>(std::move(vertCpuBuffer), IShader::ESS_VERTEX, IShader::E_CONTENT_TYPE::ECT_GLSL, "");
+		smart_refctd_ptr<ICPUShader> cpuVertShader = make_smart_refctd_ptr<ICPUShader>(std::move(vertCpuBuffer), IShader::ESS_VERTEX, IShader::E_CONTENT_TYPE::ECT_SPIRV, "");
 
 		auto const unSpecVertexShader = m_device->createShader(std::move(cpuVertShader));
 
@@ -193,7 +194,7 @@ namespace nbl::ext::imgui
 
 		memcpy(cpuFragBuffer->getPointer(), fragmentShaderSpv, cpuFragBuffer->getSize());   // TODO: Can we avoid this copy ?
 
-		smart_refctd_ptr<ICPUShader> cpuFragShader = make_smart_refctd_ptr<ICPUShader>(std::move(cpuFragBuffer), IShader::ESS_FRAGMENT, IShader::E_CONTENT_TYPE::ECT_GLSL, "");
+		smart_refctd_ptr<ICPUShader> cpuFragShader = make_smart_refctd_ptr<ICPUShader>(std::move(cpuFragBuffer), IShader::ESS_FRAGMENT, IShader::E_CONTENT_TYPE::ECT_SPIRV, "");
 
 		auto const unSpecFragmentShader = m_device->createShader(std::move(cpuFragShader));
 
@@ -436,12 +437,13 @@ namespace nbl::ext::imgui
 	void UI::CreateDescriptorPool()
 	{
 		static constexpr int TotalSetCount = 1;
-		IDescriptorPool::SCreateInfo createInfo;
+		IDescriptorPool::SCreateInfo createInfo = {};
 		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)] = TotalSetCount;
 		createInfo.maxSets = 1;
 		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_NONE;
 
 		m_descriptorPool = m_device->createDescriptorPool(std::move(createInfo));
+		assert(m_descriptorPool);
 	}
 	
 	//-------------------------------------------------------------------------------------------------
@@ -594,22 +596,15 @@ namespace nbl::ext::imgui
 				vertexBuffer = m_device->createBuffer(std::move(vertexCreationParams));
 
 				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = vertexBuffer->getMemoryReqs();
-				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 				auto memOffset = m_device->allocate(memReq, vertexBuffer.get());
 				assert(memOffset.isValid());
-				video::IDeviceMemoryAllocation::MappedMemoryRange range;
-				{
-					range.memory = vertexBuffer->getBoundMemory();
-					range.offset = 0u;
-					range.length = vertexSize;
-				}
-				m_device->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
-				assert(vertexBuffer->getBoundMemory()->isCurrentlyMapped());
 			}
 
 			IGPUBuffer::SCreationParams indexCreationParams = {};
-			vertexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-			vertexCreationParams.size = indexSize;
+			indexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT
+				| nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+			indexCreationParams.size = indexSize;
 
 			auto & indexBuffer = m_indexBuffers[frameIndex];
 
@@ -618,20 +613,30 @@ namespace nbl::ext::imgui
 				indexBuffer = m_device->createBuffer(std::move(indexCreationParams));
 
 				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = indexBuffer->getMemoryReqs();
-				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getDownStreamingMemoryTypeBits();
+				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 				auto memOffset = m_device->allocate(memReq, indexBuffer.get());
 				assert(memOffset.isValid());
-				video::IDeviceMemoryAllocation::MappedMemoryRange range;
-				{
-					range.memory = indexBuffer->getBoundMemory();
-					range.offset = 0u;
-					range.length = indexSize;
-				}
-				m_device->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
-				assert(indexBuffer->getBoundMemory()->isCurrentlyMapped());
 			}
 
 			{
+				{
+					video::IDeviceMemoryAllocation::MappedMemoryRange range;
+					range.memory = vertexBuffer->getBoundMemory();
+					range.offset = 0u;
+					range.length = vertexSize;
+					m_device->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
+				}
+				{
+					video::IDeviceMemoryAllocation::MappedMemoryRange range;
+					range.memory = indexBuffer->getBoundMemory();
+					range.offset = 0u;
+					range.length = indexSize;
+					m_device->mapMemory(range, video::IDeviceMemoryAllocation::EMCAF_READ);
+				}
+
+				assert(indexBuffer->getBoundMemory()->isCurrentlyMapped());
+				assert(vertexBuffer->getBoundMemory()->isCurrentlyMapped());
+
 				auto* vertex_ptr = static_cast<ImDrawVert*>(vertexBuffer->getBoundMemory()->getMappedPointer());
 				auto* index_ptr = static_cast<ImDrawIdx*>(indexBuffer->getBoundMemory()->getMappedPointer());
 
