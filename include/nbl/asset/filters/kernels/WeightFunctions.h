@@ -307,7 +307,7 @@ class IWeightFunction1D
 }
 
 template <Function1D _function_t, uint32_t derivative = 0>
-class CWeightFunction1D final : public IWeightFunction1D<decltype(std::declval<function_t>().weight(0.f))>
+class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::declval<function_t>().weight(0.f))>
 {
 	public:
 		using function_t = _function_t;
@@ -317,7 +317,7 @@ class CWeightFunction1D final : public IWeightFunction1D<decltype(std::declval<f
 		constexpr static inline uint32_t k_smoothness = function_t::k_smoothness-k_derivative;
 		constexpr static inline value_t k_energy = 0.0; // TODO(achal): Implement.
 
-		CWeightFunction1D() : IWeightFunction1D(function_t::min_support,function_t::max_support) {}
+		CWeightFunction1D() : impl::IWeightFunction1D<value_t>(function_t::min_support,function_t::max_support) {}
 		
 		// Calling: f(x).stretch(2) will obviously give you f(x/2)
 		inline void stretch(const float s)
@@ -343,27 +343,22 @@ concept WeightFunction1D = requires(T t, const float x, const T::value_t s)
 {
 	std::derived_from<T,IWeightFunction1D<T::value_t>>;
 
-	{ T::k_derivative }	-> std::same_as<const uint32_t&>;
 	{ T::k_smoothness }	-> std::same_as<const uint32_t&>;
 	{ T::k_energy }		-> std::same_as<const typename T::value_t&>;
 
 	{ t.stretch(x) }	-> std::same_as<void>;
-	{ t.scale(s) }		-> std::same_as<void>;
-	{ t.stretchAndScale(x) }-> std::same_as<void>;
 
 	{ t.weight(x) }		-> std::same_as<typename T::value_t>;
-	
-	{ t.getMinSupport() }	-> std::same_as<float>;
-	{ t.getMaxSupport() }	-> std::same_as<float>;
-	{ t.getInvStretch() }	-> std::same_as<float>;
-	{ t.getTotalScale() }	-> std::same_as<typename T::value_t>;
 };
 
+// This is for detecting `CWeightFunction1D` only
 template<typename T>
 concept SimpleWeightFunction1D = requires(T t)
 {
 	WeightFunction1D<T>;
+	
 	Function1D<typename T::function_t>;
+	{ T::k_derivative }	-> std::same_as<const uint32_t&>;
 };
 
 } // end namespace nbl::asset
