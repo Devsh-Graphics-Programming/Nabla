@@ -16,72 +16,41 @@ namespace nbl::asset
 // of this function). Not sure if its worth it, both in terms of performance and code complexity.
 
 // this is the horribly slow generic version that you should not use (only use the specializations or when one of the weights is a dirac)
-template<WeightFunction1D WeightFunction1DA, WeightFunction1D WeightFunction1DB>
-class CConvolutionWeightFunction1D
+template<SimpleWeightFunction1D WeightFunction1DA, SimpleWeightFunction1D WeightFunction1DB>
+class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<WeightFunction1DA::value_t>
 {
-public:
-	static_assert(std::is_same_v<WeightFunction1DA::value_t,WeightFunction1DB::value_t>, "Both functions must use the same Value Type!");
-	using value_t = WeightFunction1DA::value_t;
+		static_assert(std::is_same_v<WeightFunction1DA::value_t,WeightFunction1DB::value_t>, "Both functions must use the same Value Type!");
+	public:
+		constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
+		// https://math.stackexchange.com/questions/1548933/area-under-the-convolution-proof
+		constexpr static inline value_t k_energy = WeightFunction1DA::k_energy + WeightFunction1DB::k_energy;
 
-	constexpr static inline uint32_t k_derivative = WeightFunction1DA::k_derivative + WeightFunction1DB::k_derivative;
-	constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
-	// https://math.stackexchange.com/questions/1548933/area-under-the-convolution-proof
-	constexpr static inline value_t k_energy = WeightFunction1DA::k_energy + WeightFunction1DB::k_energy;
+		inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA, WeightFunction1DB&& funcB)
+			: impl::IWeightFunction1D<WeightFunction1DA::value_t>(
+				m_funcA.getMinSupport()+m_funcB.getMinSupport(),
+				m_funcA.getMaxSupport()+m_funcB.getMaxSupport()
+			), m_funcA(std::move(funcA)), m_funcB(std::move(funcB)),
+			m_isFuncAWider((m_funcA.getMaxSupport() - m_funcA.getMinSupport()) > (m_funcB.getMaxSupport() - m_funcB.getMinSupport()))
+		{
+		}
 
-	inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA, WeightFunction1DB&& funcB)
-		: m_funcA(std::move(funcA)), m_funcB(std::move(funcB)),
-		m_isFuncAWider((m_funcA.getMaxSupport() - m_funcA.getMinSupport()) > (m_funcB.getMaxSupport() - m_funcB.getMinSupport()))
-	{
-		m_minSupport = m_funcA.getMinSupport() + m_funcB.getMinSupport();
-		m_maxSupport = m_funcA.getMaxSupport() + m_funcB.getMaxSupport();
-	}
+		inline void stretch(const float s) {impl_stretch(s);}
 
-	inline void stretch(const float s)
-	{
-		assert(s != 0.f);
+		inline value_t weight(const float x, const uint32_t sampleCount = 64u) const
+		{
+			if constexpr (std::is_same_v<WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative)
+				return m_funcA.weight(x);
+			else if (std::is_same_v<WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative)
+				return m_funcB.weight(x);
+			else
+				return m_totalScale * weight_impl(x * m_invStretch, sampleCount);
+		}
 
-		m_minSupport *= s;
-		m_maxSupport *= s;
+	private:
+		const WeightFunction1DA m_funcA;
+		const WeightFunction1DB m_funcB;
 
-		const float rcp_s = 1.f / s;
-
-		m_invStretch *= rcp_s;
-	}
-
-	inline void scale(const value_t s)
-	{
-		assert(s != 0.f);
-		m_totalScale *= s;
-	}
-
-	inline void stretchAndScale(const float stretchFactor)
-	{
-		stretch(stretchFactor);
-		scale(1.f / stretchFactor);
-	}
-
-	inline value_t weight(const float x, const uint32_t sampleCount = 64u) const
-	{
-		if constexpr (std::is_same_v<WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative)
-			return m_funcA.weight(x);
-		else if (std::is_same_v<WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative)
-			return m_funcB.weight(x);
-		else
-			return m_totalScale * weight_impl(x * m_invStretch, sampleCount);
-	}
-
-	inline float getMinSupport() const { return m_minSupport; }
-	inline float getMaxSupport() const { return m_maxSupport; }
-
-private:
-	const WeightFunction1DA m_funcA;
-	const WeightFunction1DB m_funcB;
-
-	const bool m_isFuncAWider;
-	float m_minSupport;
-	float m_maxSupport;
-	float m_invStretch = 1.f;
-	value_t m_totalScale = 1.f;
+		const bool m_isFuncAWider;
 
 	value_t weight_impl(const float x, const uint32_t sampleCount) const
 	{
@@ -158,15 +127,15 @@ private:
 };
 
 template <>
-double CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::weight_impl(const float x, const uint32_t channel, const uint32_t) const;
+double CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::weight_impl(const float x, const uint32_t) const;
 
 template <>
-double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>::weight_impl(const float x, const uint32_t channel, const uint32_t) const;
+double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>::weight_impl(const float x, const uint32_t) const;
 
 // TODO: Specialization: CConvolutionWeightFunction1D<CWeightFunction1D<STriangleFunction>, CWeightFunction1D<STriangleFunction>> = this is tricky but feasible
 
 template <>
-double CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::weight_impl(const float x, const uint32_t channel, const uint32_t) const;
+double CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::weight_impl(const float x, const uint32_t) const;
 
 } // end namespace nbl::asset
 
