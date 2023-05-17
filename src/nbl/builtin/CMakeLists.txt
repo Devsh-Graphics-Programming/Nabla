@@ -136,6 +136,7 @@ set(NBL_RESOURCES_TO_EMBED
 	"nbl/builtin/hlsl/shapes/ellipse.hlsl"
 	"nbl/builtin/hlsl/shapes/line.hlsl"
 	"nbl/builtin/hlsl/shapes/rounded_line.hlsl"
+	"nbl/builtin/hlsl/shapes/beziers.hlsl"
 	# skinning
 	"nbl/builtin/glsl/skinning/cache_descriptor_set.glsl"
 	"nbl/builtin/glsl/skinning/cache_update.comp"
