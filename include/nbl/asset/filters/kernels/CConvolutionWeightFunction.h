@@ -16,13 +16,17 @@ namespace nbl::asset
 // of this function). Not sure if its worth it, both in terms of performance and code complexity.
 
 // this is the horribly slow generic version that you should not use (only use the specializations or when one of the weights is a dirac)
-template<KernelWeightFunction1D WeightFunction1DA, KernelWeightFunction1D WeightFunction1DB>
+template<WeightFunction1D WeightFunction1DA, WeightFunction1D WeightFunction1DB>
 class CConvolutionWeightFunction1D
 {
-	static_assert(std::is_same_v<impl::weight_function_value_type_t<WeightFunction1DA>, impl::weight_function_value_type_t<WeightFunction1DB>>, "Both functions must use the same Value Type!");
-
 public:
+	static_assert(std::is_same_v<WeightFunction1DA::value_t,WeightFunction1DB::value_t>, "Both functions must use the same Value Type!");
+	using value_t = WeightFunction1DA::value_t;
+
+	constexpr static inline uint32_t k_derivative = WeightFunction1DA::k_derivative + WeightFunction1DB::k_derivative;
 	constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
+	// https://math.stackexchange.com/questions/1548933/area-under-the-convolution-proof
+	constexpr static inline value_t k_energy = WeightFunction1DA::k_energy + WeightFunction1DB::k_energy;
 
 	inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA, WeightFunction1DB&& funcB)
 		: m_funcA(std::move(funcA)), m_funcB(std::move(funcB)),
@@ -44,11 +48,11 @@ public:
 		m_invStretch *= rcp_s;
 	}
 
-	inline void scale(const float s)
+	inline void scale(const value_t s)
 	{
 		assert(s != 0.f);
-        m_totalScale *= s;
-    }
+		m_totalScale *= s;
+	}
 
 	inline void stretchAndScale(const float stretchFactor)
 	{
@@ -56,9 +60,14 @@ public:
 		scale(1.f / stretchFactor);
 	}
 
-	inline double weight(const float x, const uint8_t channel, const uint32_t sampleCount = 64u) const
+	inline value_t weight(const float x, const uint32_t sampleCount = 64u) const
 	{
-		return static_cast<double>(m_totalScale * weight_impl(x * m_invStretch, channel, sampleCount));
+		if constexpr (std::is_same_v<WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative)
+			return m_funcA.weight(x);
+		else if (std::is_same_v<WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative)
+			return m_funcB.weight(x);
+		else
+			return m_totalScale * weight_impl(x * m_invStretch, sampleCount);
 	}
 
 	inline float getMinSupport() const { return m_minSupport; }
@@ -72,52 +81,41 @@ private:
 	float m_minSupport;
 	float m_maxSupport;
 	float m_invStretch = 1.f;
-	float m_totalScale = 1.f;
+	value_t m_totalScale = 1.f;
 
-	double weight_impl(const float x, const uint32_t channel, const uint32_t sampleCount) const
+	value_t weight_impl(const float x, const uint32_t sampleCount) const
 	{
-		if constexpr (std::is_same_v<WeightFunction1DB, CWeightFunction1D<SDiracFunction>>)
+		auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
+
+		// TODO(achal): what ????
+		// if this happens, it means that `m_ratio=INF` and it degenerated into a dirac delta
+		if (minIntegrationLimit == maxIntegrationLimit)
 		{
-			return m_funcA.weight(x, channel);
+			assert(false);
+			assert(WeightFunction1DB::k_energy[channel] != 0.f); // TODO(achal): Remove.
+			return m_funcA.weight(x, channel) * WeightFunction1DB::k_energy[channel];
 		}
-		else if (std::is_same_v<WeightFunction1DA, CWeightFunction1D<SDiracFunction>>)
+
+		const double dtau = (maxIntegrationLimit - minIntegrationLimit) / sampleCount;
+
+		// TODO(achal): what ???
+		// if this happened then `m_ratio=0` and we have infinite domain, this is not a problem
+		if (core::isnan<double>(dtau))
 		{
-			return m_funcB.weight(x, channel);
+			assert(false);
+			return m_funcA.weight(x, channel) * m_funcB.weight(0.f, channel);
 		}
-		else
+
+		double result = 0.0;
+		for (uint32_t i = 0u; i < sampleCount; ++i)
 		{
-			auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
-
-			// TODO(achal): what ????
-			// if this happens, it means that `m_ratio=INF` and it degenerated into a dirac delta
-			if (minIntegrationLimit == maxIntegrationLimit)
-			{
-				assert(false);
-				assert(WeightFunction1DB::k_energy[channel] != 0.f); // TODO(achal): Remove.
-				return m_funcA.weight(x, channel) * WeightFunction1DB::k_energy[channel];
-			}
-
-			const double dtau = (maxIntegrationLimit - minIntegrationLimit) / sampleCount;
-
-			// TODO(achal): what ???
-			// if this happened then `m_ratio=0` and we have infinite domain, this is not a problem
-			if (core::isnan<double>(dtau))
-			{
-				assert(false);
-				return m_funcA.weight(x, channel) * m_funcB.weight(0.f, channel);
-			}
-
-			double result = 0.0;
-			for (uint32_t i = 0u; i < sampleCount; ++i)
-			{
-				const double tau = minIntegrationLimit + i * dtau;
-				if (m_isFuncAWider)
-					result += m_funcA.weight(tau, channel) * m_funcB.weight(x - tau, channel) * dtau;
-				else
-					result += m_funcB.weight(tau, channel) * m_funcA.weight(x - tau, channel) * dtau;
-			}
-			return static_cast<float>(result);
+			const double tau = minIntegrationLimit + i * dtau;
+			if (m_isFuncAWider)
+				result += m_funcA.weight(tau, channel) * m_funcB.weight(x - tau, channel) * dtau;
+			else
+				result += m_funcB.weight(tau, channel) * m_funcA.weight(x - tau, channel) * dtau;
 		}
+		return static_cast<float>(result);
 	}
 
 	std::pair<double, double> getIntegrationDomain(const float x) const
