@@ -126,11 +126,16 @@ set(NBL_RESOURCES_TO_EMBED
 	"nbl/builtin/glsl/scene/animation.glsl"
 	"nbl/builtin/glsl/scene/keyframe.glsl"
 	"nbl/builtin/glsl/scene/node.glsl"
-	# shapes
+	# shapes glsl
 	"nbl/builtin/glsl/shapes/aabb.glsl"
 	"nbl/builtin/glsl/shapes/frustum.glsl"
 	"nbl/builtin/glsl/shapes/rectangle.glsl"
 	"nbl/builtin/glsl/shapes/triangle.glsl"
+	# shapes hlsl
+	"nbl/builtin/hlsl/shapes/circle.hlsl"
+	"nbl/builtin/hlsl/shapes/ellipse.hlsl"
+	"nbl/builtin/hlsl/shapes/line.hlsl"
+	"nbl/builtin/hlsl/shapes/rounded_line.hlsl"
 	# skinning
 	"nbl/builtin/glsl/skinning/cache_descriptor_set.glsl"
 	"nbl/builtin/glsl/skinning/cache_update.comp"
