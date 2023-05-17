@@ -236,6 +236,7 @@ set(NBL_RESOURCES_TO_EMBED
 	"nbl/builtin/glsl/blit/normalization/normalization.glsl"
 	"nbl/builtin/glsl/blit/normalization/descriptors.glsl"
 	"nbl/builtin/glsl/blit/normalization/shared_normalization.glsl"
+	"nbl/builtin/hlsl/shapes/line.hlsl"
 PARENT_SCOPE)
 
 function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _NAMESPACE_ _CUSTOM_RESOURCES_TO_EMBED_ _OUTPUT_DIRECTORY_)
