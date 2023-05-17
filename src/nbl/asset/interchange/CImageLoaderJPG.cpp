@@ -274,7 +274,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
 			break;
 		case JCS_CMYK:
-			_params.logger.log("CMYK color space is unsupported:", system::ILogger::ELL_ERROR, _file->getFileName().string());
+			_params.logger.log("CMYK color space is unsupported:", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
 			break;
 		case JCS_YCCK: // this I have no resources on

@@ -13,6 +13,7 @@
 #elif defined(_NBL_BUILD_WITH_WAYLAND) && defined(_NBL_TEST_WAYLAND)
 #	include "nbl/ui/CWindowManagerWayland.h"
 #elif defined(_NBL_PLATFORM_LINUX_)
+#elif defined(_NBL_PLATFORM_MACOS_)
 #endif // TODO more platforms (android)
 
 // clipboards

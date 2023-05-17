@@ -173,7 +173,13 @@ public:
 			core::bitflag<typename SBinding::E_CREATE_FLAGS> createFlags;
 			core::bitflag<IShader::E_SHADER_STAGE> stageFlags;
 			uint32_t count;
-
+            
+            SBuildInfo(uint32_t _binding, core::bitflag<typename SBinding::E_CREATE_FLAGS> _createFlags, core::bitflag<IShader::E_SHADER_STAGE> _stageFlags, uint32_t _count)
+                    : binding(_binding), createFlags(_createFlags), stageFlags(_stageFlags), count(_count) {}
+            SBuildInfo(SBuildInfo&& other)
+                    : binding(other.binding), createFlags(other.createFlags), stageFlags(other.stageFlags), count(other.count) {}
+            
+            SBuildInfo& operator=(const SBuildInfo& other) = default;
 			inline bool operator< (const SBuildInfo& other) const { return binding < other.binding; }
 		};
 

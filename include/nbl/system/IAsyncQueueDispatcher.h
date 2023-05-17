@@ -438,7 +438,7 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
 
     public:
         inline IAsyncQueueDispatcher() {}
-        inline IAsyncQueueDispatcher(base_t::start_on_construction_t) : base_t(base_t::start_on_construction) {}
+        inline IAsyncQueueDispatcher(typename base_t::start_on_construction_t) : base_t(base_t::start_on_construction) {}
 
         using mutex_t = typename base_t::mutex_t;
         using lock_t = typename base_t::lock_t;

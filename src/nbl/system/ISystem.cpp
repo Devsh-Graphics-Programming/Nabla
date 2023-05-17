@@ -314,7 +314,7 @@ ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolut
 void ISystem::CAsyncQueue::process_request(base_t::future_base_t* _future_base, SRequestType& req)
 {
     std::visit([=](auto& visitor) {
-        using retval_t = std::remove_reference_t<decltype(visitor)>::retval_t;
+        using retval_t = typename std::remove_reference_t<decltype(visitor)>::retval_t;
         visitor(base_t::future_storage_cast<retval_t>(_future_base),m_caller.get());
     }, req.params);
 }

@@ -438,7 +438,7 @@ macro(nbl_android_create_apk _TARGET)
 	set(NBL_APK_OBJ_DIR obj)
 	set(NBL_APK_BIN_DIR bin)
 	set(NBL_APK_ASSETS_DIR assets)
-	
+
 	if(EXISTS ${ASSET_SOURCE_DIR})
 		add_custom_command(
 			OUTPUT ${APK_FILE}

@@ -267,6 +267,110 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         };
         struct SRequestType
         {
+            
+            SRequestType()
+            {
+                std::memset(this, 0, sizeof(SRequestType));
+            }
+            
+            ~SRequestType() {}
+            
+            //! SRequestParams_READ to SRequestType because of std::variant type-safe union
+            
+            SRequestType(SRequestParams_READ& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_READ));
+            }
+
+            SRequestType(const SRequestParams_READ& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_READ));
+            }
+
+            SRequestType& operator=(SRequestParams_READ& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_READ));
+                return *this;
+            }
+
+            SRequestType& operator=(const SRequestParams_READ& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_READ));
+                return *this;
+            }
+            
+            //! SRequestParams_WRITE to SRequestType because of std::variant type-safe union
+            
+            SRequestType(SRequestParams_WRITE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_WRITE));
+            }
+
+            SRequestType(const SRequestParams_WRITE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_WRITE));
+            }
+
+            SRequestType& operator=(SRequestParams_WRITE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_WRITE));
+                return *this;
+            }
+
+            SRequestType& operator=(const SRequestParams_WRITE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_WRITE));
+                return *this;
+            }
+            
+            //! SRequestParams_CREATE_FILE to SRequestType because of std::variant type-safe union
+            
+            SRequestType(SRequestParams_CREATE_FILE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_CREATE_FILE));
+            }
+
+            SRequestType(const SRequestParams_CREATE_FILE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_CREATE_FILE));
+            }
+
+            SRequestType& operator=(SRequestParams_CREATE_FILE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_CREATE_FILE));
+                return *this;
+            }
+
+            SRequestType& operator=(const SRequestParams_CREATE_FILE& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_CREATE_FILE));
+                return *this;
+            }
+            
+            //! SRequestParams_NOOP to SRequestType because of std::variant type-safe union
+            
+            SRequestType(SRequestParams_NOOP& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_NOOP));
+            }
+
+            SRequestType(const SRequestParams_NOOP& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_NOOP));
+            }
+
+            SRequestType& operator=(SRequestParams_NOOP& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_NOOP));
+                return *this;
+            }
+
+            SRequestType& operator=(const SRequestParams_NOOP& copy)
+            {
+                std::memmove(this, &copy, sizeof(SRequestParams_NOOP));
+                return *this;
+            }
+            
             std::variant<
                 SRequestParams_NOOP,
                 SRequestParams_CREATE_FILE,

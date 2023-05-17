@@ -5,6 +5,17 @@
 cmake_minimum_required(VERSION 3.26)
 #policies
 cmake_policy(SET CMP0112 NEW)
+cmake_policy(SET CMP0042 NEW)
+
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "" FORCE)
+    
+    if("${CMAKE_GENERATOR}" STREQUAL "Xcode")
+        if(NOT "${CMAKE_GENERATOR_TOOLSET}" STREQUAL "buildsystem=1")
+            message("Nabla build isn't supported with new Xcode buildsystem, you must specify CMake generator toolset as '-T buildsystem=1' in order to use legacy Xcode build system")
+        endif()
+    endif()
+endif()
 
 set(NBL_BUILD_ANDROID OFF)
 
@@ -110,13 +121,15 @@ macro(nbl_adjust_flags)
 		option(NBL_SANITIZE_THREAD OFF)
 	endif()
 
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		add_compile_options(
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+        add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
 			-fno-strict-aliasing
-			-msse4.2
-			-mfpmath=sse
+                            
+            -msse4.2
+            -mfpmath=sse
+            $<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 			
 			-Wextra
 			-Wno-sequence-point
@@ -124,15 +137,15 @@ macro(nbl_adjust_flags)
 			-Wno-error=unused-function
 			-Wno-error=unused-variable
 			-Wno-error=unused-parameter
-
-			$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 			
 			$<$<CONFIG:DEBUG>:-Wall>
 			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
 			$<$<CONFIG:DEBUG>:-fstack-protector-strong>
 		)
-		
-		if(ANDROID)
+
+        if(APPLE)
+            include_directories(BEFORE SYSTEM "${_NBL_MACOS_PATCH_INCLUDE_}")
+		elseif(ANDROID)
 			add_compile_options(
 				$<$<CONFIG:DEBUG>:-glldb>
 			)
@@ -214,7 +227,7 @@ macro(nbl_adjust_flags)
 		
 		#reason for INCREMENTAL:NO: https://docs.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=vs-2019 /LTCG is not valid for use with /INCREMENTAL.
 		set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO /LTCG:incremental")
-	else()
+    else()
 		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
 	endif()
 endmacro()
@@ -248,6 +261,8 @@ if(WIN32)
 	set(_NBL_PLATFORM_WINDOWS_ 1)
 elseif(ANDROID)
 	set(_NBL_PLATFORM_ANDROID_ 1)
+elseif(APPLE)
+    set(_NBL_PLATFORM_MACOS_ 1)
 elseif(UNIX)
 	set(_NBL_PLATFORM_LINUX_ 1)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
@@ -261,8 +276,6 @@ endif()
 
 #uncomment in the future
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
-
-option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 
 option(NBL_PCH "Enable pre-compiled header" ON)
 

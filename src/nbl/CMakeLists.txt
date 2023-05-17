@@ -63,12 +63,16 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 			set(PLATFORM android-gcc)
 		endif()
-	elseif (UNIX AND NOT APPLE)
+	elseif (UNIX)
 		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 			set(PLATFORM linux-clang)
 		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 			set(PLATFORM linux-gcc)
 		endif()
+    elseif(APPLE)
+        if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+            set(PLATFORM macos-clang)
+        endif()
 	endif()
 	
 	if ("${PLATFORM}" STREQUAL "NOTFOUND")
@@ -185,6 +189,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystemPOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemLinux.cpp
+    ${NBL_ROOT_PATH}/src/nbl/system/CSystemMacOS.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -356,7 +361,7 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-# just gather all the header files and later put them into project so it's easy to search for things using IDE
+# just gather all the header files and later put them into project so its easy to search for things using IDE
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
@@ -552,6 +557,11 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
+# Clang special math functions (libc++ shipped on MacOSes doesnt implement some of the special functions)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+	target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/boost/standalone/math/include")
+endif()
+
 # DXC
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
@@ -721,7 +731,10 @@ if(NBL_STATIC_BUILD)
 	if(_NBL_BUILD_DPL_)
 		nbl_install_program(tbb)
 		nbl_install_program(tbbmalloc)
-		nbl_install_program(tbbmalloc_proxy)
+  
+        if(NOT (APPLE AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang"))
+            nbl_install_program(tbbmalloc_proxy)
+        endif()
 	endif()
 else()
 	nbl_install_program(Nabla)
