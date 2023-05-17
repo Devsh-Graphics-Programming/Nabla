@@ -15,120 +15,108 @@ namespace nbl::asset
 {
 
 // we always invoke the first channel of the kernel for each kernel assigned to a channel
-template <class FirstWeightFunction1D, class... OtherWeightFunctions>
-class CChannelIndependentWeightFunction1D
+template <WeightFunction1D FirstWeightFunction1D, WeightFunction1D... OtherWeightFunctions>
+class CChannelIndependentWeightFunction1D final
 {
-	static_assert(sizeof...(OtherWeightFunctions) < 4u);
-	static inline constexpr size_t MaxChannels = 1 + sizeof...(OtherWeightFunctions);
+	public:
+		using value_t = FirstWeightFunction1D::value_t;
+		static_assert(std::is_same_v<value_type,float>,"should probably allow `float`s at some point!");
+	
+		static_assert(sizeof...(OtherWeightFunctions) < 4u);
+		static inline constexpr size_t MaxChannels = 1 + sizeof...(OtherWeightFunctions);
 
-	constexpr static inline uint32_t _smoothnesses[MaxChannels] = { FirstWeightFunction1D::k_smoothness,OtherWeightFunctions::k_smoothness... };
+	private:
+		using functions_t = std::tuple<FirstWeightFunction1D,OtherWeightFunctions...>;
+		static_assert((std::is_same_v<value_t,typename OtherWeightFunctions::value_t> && ...), "Value Types neeed to be identical!");
+		functions_t functions;
+		float m_minSupport = std::numeric_limits<float>::max();
+		float m_maxSupport = std::numeric_limits<float>::min();
+		uint32_t m_windowSize;
 
-	template<uint8_t ch>
-	constexpr static inline bool has_function_v = ch < MaxChannels;
+		// stuff needed for type deduction in `getFunction`
+		template<uint8_t ch>
+		constexpr static inline bool has_function_v = ch < MaxChannels;
+		struct dummy_function_t {};
+		template <uint8_t ch>
+		using function_t = std::conditional_t<has_function_v<ch>, std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch), MaxChannels-1ull), functions_t>, dummy_function_t>;
 
-	using functions_t = std::tuple<FirstWeightFunction1D, OtherWeightFunctions...>;
-	static_assert((std::is_same_v<impl::weight_function_value_type_t<FirstWeightFunction1D>, impl::weight_function_value_type_t<OtherWeightFunctions...>>), "Value Types neeed to be identical!");
-	functions_t functions;
-
-	struct dummy_function_t {};
-	template <uint8_t ch>
-	using function_t = std::conditional_t<has_function_v<ch>, std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch), MaxChannels-1ull), functions_t>, dummy_function_t>;
-
-	template <uint8_t ch>
-	const function_t<ch>& getFunction() const { return std::get<static_cast<size_t>(ch)>(functions); }
-
-public:
-	constexpr static inline uint32_t k_smoothness = std::min_element(_smoothnesses, _smoothnesses + MaxChannels)[0];
-	constexpr static inline float k_energy[4] = { 0.f, 0.f, 0.f, 0.f }; // TODO(achal): Implement.
-
-	CChannelIndependentWeightFunction1D(FirstWeightFunction1D&& firstFunc, OtherWeightFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...)
-	{
-		updateSupports();
-	}
-
-	inline double weight(const float x, const uint8_t channel) const
-	{
-		switch (channel)
+	public:
+		CChannelIndependentWeightFunction1D(FirstWeightFunction1D&& firstFunc, OtherWeightFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...)
 		{
-		case 0:
-			return getFunction<0>().weight(x, 0);
-		case 1:
-			if constexpr (has_function_v<1>)
-				return getFunction<1>().weight(x, 1);
-			break;
-		case 2:
-			if constexpr (has_function_v<2>)
-				return getFunction<2>().weight(x, 2);
-			break;
-		case 3:
-			if constexpr (has_function_v<3>)
-				return getFunction<3>().weight(x, 3);
-			break;
-		default:
-			break;
+			auto getMinMax = [this](const auto& element)
+			{
+				m_minSupport = core::min(m_minSupport, element.getMinSupport());
+				m_maxSupport = core::max(m_maxSupport, element.getMaxSupport());
+			};
+			std::apply([&getMinMax](const auto&... elements) { (getMinMax(elements), ...); }, functions);
+			
+			// The reason we use a ceil for window_size:
+			// For a convolution operation, depending upon where you place the kernel center in the output image it can encompass different number of input pixel centers.
+			// For example, assume you have a 1D kernel with supports [-3/4, 3/4) and you place this at x=0.5, then kernel weights will be
+			// non-zero in [-3/4 + 0.5, 3/4 + 0.5) so there will be only one pixel center (at x=0.5) in the non-zero kernel domain, hence window_size will be 1.
+			// But if you place the same kernel at x=0, then the non-zero kernel domain will become [-3/4, 3/4) which now encompasses two pixel centers
+			// (x=-0.5 and x=0.5), that is window_size will be 2.
+			// Note that the window_size can never exceed 2, in the above case, because for that to happen there should be more than 2 pixel centers in non-zero
+			// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
+			m_windowSize = static_cast<int32_t>(core::ceil<float>(m_maxSupport-m_minSupport));
 		}
-		return core::nan<float>();
-	}
 
-	inline void stretch(const float s)
-	{
-		auto stretch_ = [s](auto& element) {element.stretch(s); };
-		std::apply([&stretch_](auto&... elements) { (stretch_(elements), ...); }, functions);
+		template <uint8_t ch>
+		const function_t<ch>& getFunction() const { return std::get<static_cast<size_t>(ch)>(functions); }
 
-		updateSupports();
-	}
-
-	inline void scale(const float s)
-	{
-		auto scale_ = [s](auto& element) {element.scale(s); };
-		std::apply([&scale_](auto&... elements) { (scale_(elements), ...); }, functions);
-	}
-
-	inline void stretchAndScale(const float stretchFactor)
-	{
-		stretch(stretchFactor);
-		scale(1.f / stretchFactor);
-	}
-
-	inline float getMinSupport() const { return m_minSupport; }
-	inline float getMaxSupport() const { return m_maxSupport; }
-	inline float getInvStretch(const uint32_t channel = 0) const
-	{
-		switch (channel)
+		inline value_t weight(const float x, const uint8_t channel) const
 		{
-		case 0:
-			return getFunction<0>().getInvStretch();
-		case 1:
-			if constexpr (has_function_v<1>)
-                return getFunction<1>().getInvStretch();
-            break;
-		case 2:
-			if constexpr (has_function_v<2>)
-                return getFunction<2>().getInvStretch();
-            break;
-		case 3:
-			if constexpr (has_function_v<3>)
-                return getFunction<3>().getInvStretch();
-            break;
-		default:
-			break;
+			switch (channel)
+			{
+				case 0:
+					return getFunction<0>().weight(x);
+				case 1:
+					if constexpr (has_function_v<1>)
+						return getFunction<1>().weight(x);
+					break;
+				case 2:
+					if constexpr (has_function_v<2>)
+						return getFunction<2>().weight(x);
+					break;
+				case 3:
+					if constexpr (has_function_v<3>)
+						return getFunction<3>().weight(x);
+					break;
+				default:
+					break;
+			}
+			return core::nan<float>();
 		}
-		return core::nan<float>();
-	}
 
-private:
-	inline void updateSupports()
-	{
-		auto getMinMax = [this](const auto& element)
+		inline float getMinSupport() const { return m_minSupport; }
+		inline float getMaxSupport() const { return m_maxSupport; }
+
+		// given an unnormalized (measured in pixels), center sampled (sample at the center of the pixel) coordinate (origin is at the center of the first pixel),
+		// return corner sampled coordinate (origin at the very edge of the first pixel) as well as the
+		// corner sampled coordinate of the first pixel that lays inside the kernel's support when centered on the given pixel
+		inline int32_t getWindowMinCoord(const float unnormCenterSampledCoord, float& cornerSampledCoord) const
 		{
-			m_minSupport = core::min(m_minSupport, element.getMinSupport());
-			m_maxSupport = core::max(m_maxSupport, element.getMaxSupport());
-		};
-		std::apply([&getMinMax](const auto&... elements) { (getMinMax(elements), ...); }, functions);
-	}
+			cornerSampledCoord = unnormCenterSampledCoord - 0.5f;
+			return static_cast<int32_t>(core::ceil<float>(cornerSampledCoord + m_minSupport));
+		}
 
-	float m_minSupport = std::numeric_limits<float>::max();
-	float m_maxSupport = std::numeric_limits<float>::min();
+		// overload that does not return the cornern sampled coordinate of the given center sampled coordinate
+		inline int32_t getWindowMinCoord(const float unnormCeterSampledCoord) const
+		{
+			float dummy;
+			return getWindowMinCoord(unnormCeterSampledCoord, dummy);
+		}
+
+		// get the kernel support (measured in pixels)
+		inline const int32_t getWindowSize() const { return m_windowSize; }
+
+		// TODO: Do we even need to keep this function around!?
+		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
+		{
+			const auto& inParams = inImage->getCreationParameters();
+			const auto& outParams = inImage->getCreationParameters();
+			return !(isIntegerFormat(inParams.format)||isIntegerFormat(outParams.format));
+		}
 };
 
 } // end namespace nbl::asset
