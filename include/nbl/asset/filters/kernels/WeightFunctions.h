@@ -314,10 +314,9 @@ class CWeightFunction1D final
 // This is the interface for 1D weight functions that can be used to create a `CFloatingPointSeparableImageFilterKernel`.
 // Current implementations of this interface are:
 // - `CWeightFunction1D`
-// - `CChannelIndependentWeightFunction1D`
 // - `CConvolutionWeightFunction1D`
 template<typename T>
-concept KernelWeightFunction1D = requires(T t, const float x, const T::value_t s)
+concept WeightFunction1D = requires(T t, const float x, const T::value_t s)
 {
 	Function1D<typename T::function_t>;
 	{ T::k_derivative }	-> std::same_as<const uint32_t&>;
