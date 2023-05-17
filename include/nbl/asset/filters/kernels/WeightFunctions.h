@@ -55,14 +55,9 @@ struct SDiracFunction final
 			return 0.0;
 
 		if constexpr (derivative == 0)
-		{
 			return std::numeric_limits<double>::infinity();
-		}
 		else
-		{
-			static_assert(false);
 			return core::nan<double>();
-		}
 	}
 };
 
@@ -79,14 +74,9 @@ struct SBoxFunction final
 		if (x >= min_support && x < max_support)
 		{
 			if constexpr (derivative == 0)
-			{
 				return 1.0;
-			}
 			else
-			{
-				static_assert(false);
-				return core::nan<double>();
-			}
+				return core::nan<double>(); // a bit overkill, but better people don't cut themselves
 		}
 		return 0.0;
 	}
@@ -97,6 +87,7 @@ struct STriangleFunction final
 {
 	constexpr static inline float min_support = -1.f;
 	constexpr static inline float max_support = +1.f;
+	// Derivative at 0 not defined.
 	constexpr static inline uint32_t k_smoothness = 0;
 
 	template <int32_t derivative = 0>
@@ -104,27 +95,21 @@ struct STriangleFunction final
 	{
 		if (x >= min_support && x < max_support)
 		{
-			if constexpr (derivative > 0)
-			{
-				// Derivative at 0 not defined.
-				static_assert(false);
-				return core::nan<double>();
-			}
-			else
-			{
+			if constexpr (derivative == 0)
 				return 1.0 - core::abs(x);
-			}
+			else
+				return core::nan<double>(); // a bit overkill, but better people don't cut themselves
 		}
 		return 0.0;
 	}
 };
 
 // Truncated Gaussian function, with stddev = 1.0, if you want a different stddev then you need to scale it.
-template<float support=3.f>
+template<class support=std::ratio<3,1>>
 struct SGaussianFunction final
 {
-	constexpr static inline float min_support = -support;
-	constexpr static inline float max_support = +support;
+	constexpr static inline float max_support = double(support::num)/double(support::den);
+	constexpr static inline float min_support = -max_support;
 	// normally it would be INF, but we overflow on the compile-time polynomials
 	constexpr static inline uint32_t k_smoothness = 32;
 
@@ -133,7 +118,7 @@ struct SGaussianFunction final
 	{
 		if (x >= min_support && x < max_support)
 		{
-			double retval = exp2(-0.72134752*x*x)*core::inversesqrt(2.0*core::PI<double>()) / std::erff(core::inversesqrt<double>(2.0)*support);
+			double retval = exp2(-0.72134752*x*x)*core::inversesqrt(2.0*core::PI<double>()) / std::erff(core::inversesqrt<double>(2.0)*max_support);
 			if constexpr (derivative != 0)
 				retval *= differentialPolynomialFactor<derivative>().evaluate(x);
 			return retval;
@@ -248,10 +233,7 @@ struct SKaiserFunction final
 				return df * g + f * dg;
 			}
 			else
-			{
-				static_assert(false, "Only implemented up to `k_smoothness`!");
 				return core::nan<double>();
-			}
 		}
 		return 0.0;
 	}
@@ -263,23 +245,24 @@ struct SKaiserFunction final
 // - `CChannelIndependentWeightFunction1D`
 // - `CConvolutionWeightFunction1D`
 template<typename T>
-concept Function1D = requires(T t, const float x, constexpr int32_t derivative)
+concept Function1D = requires(T t, const float x)
 {
-	{ T::min_support }	-> std::same_as<float>;
-	{ T::max_support }	-> std::same_as<float>;
-	{ T::k_smoothness }	-> std::same_as<uint32_t>;
-	{ T::weight<derivative>(x) }	-> std::same_as<double>;
+	{ T::min_support }	    -> std::same_as<const float&>;
+	{ T::max_support }	    -> std::same_as<const float&>;
+	{ T::k_smoothness }	    -> std::same_as<const uint32_t&>;
+	{ T::template weight<0>(x) }-> std::floating_point;
 };
 
-template <Function1D function_t, int32_t derivative = 0>
+template <Function1D _function_t, uint32_t derivative = 0>
 class CWeightFunction1D final
 {
-		static_assert(derivative <= function_t::k_smoothness);
-
 	public:
+		using function_t = _function_t;
 		using value_t = decltype(std::declval<function_t>().weight(0.f));
+		constexpr static inline uint32_t k_derivative = derivative;
 
-		constexpr static inline uint32_t k_smoothness = function_t::k_smoothness-derivative;
+		static_assert(function_t::k_smoothness>k_derivative);
+		constexpr static inline uint32_t k_smoothness = function_t::k_smoothness-k_derivative;
 		constexpr static inline value_t k_energy = 0.0; // TODO(achal): Implement.
 
 		// Calling: f(x).stretch(2) will obviously give you f(x/2)
@@ -311,15 +294,15 @@ class CWeightFunction1D final
 			scale(value_t(1)/stretchFactor);
 		}
 
-		inline value_t weight(const float x, const uint8_t channel) const
+		inline value_t weight(const float x) const
 		{
 			return static_cast<double>(m_totalScale*function_t::weight<derivative>(x*m_invStretch));
 		}
 
 		inline float getMinSupport() const { return m_minSupport; }
 		inline float getMaxSupport() const { return m_maxSupport; }
-		inline float getInvStretch(const uint32_t channel = 0) const { return m_invStretch; }
-		inline value_t getTotalScale(const uint32_t channel = 0) const { return m_totalScale; }
+		inline float getInvStretch() const { return m_invStretch; }
+		inline value_t getTotalScale() const { return m_totalScale; }
 
 	private:
 		float m_minSupport = function_t::min_support;
@@ -334,13 +317,18 @@ class CWeightFunction1D final
 // - `CChannelIndependentWeightFunction1D`
 // - `CConvolutionWeightFunction1D`
 template<typename T>
-concept KernelWeightFunction1D = requires(T t, const float x, const T::value_t s, constexpr int32_t derivative)
+concept KernelWeightFunction1D = requires(T t, const float x, const T::value_t s)
 {
+	Function1D<typename T::function_t>;
+	{ T::k_derivative }	-> std::same_as<const uint32_t&>;
+	{ T::k_smoothness }	-> std::same_as<const uint32_t&>;
+	{ T::k_energy }		-> std::same_as<const typename T::value_t&>;
+
 	{ t.stretch(x) }	-> std::same_as<void>;
 	{ t.scale(s) }		-> std::same_as<void>;
 	{ t.stretchAndScale(x) }-> std::same_as<void>;
 
-	{ t.weight(x,3) }-> std::same_as<typename T::value_t>;
+	{ t.weight(x) }		-> std::same_as<typename T::value_t>;
 	
 	{ t.getMinSupport() }	-> std::same_as<float>;
 	{ t.getMaxSupport() }	-> std::same_as<float>;
