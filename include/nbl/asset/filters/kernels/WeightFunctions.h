@@ -208,8 +208,6 @@ struct SKaiserFunction final
 	constexpr static inline float max_support = +3.f;
 	// we only implemented the derivative once
 	constexpr static inline uint32_t k_smoothness = 1;
-	// important constant, do not touch, do not tweak
-	static inline constexpr float alpha = 3.f;
 
 	template <int32_t derivative = 0>
 	static inline double weight(float x)
@@ -237,13 +235,13 @@ struct SKaiserFunction final
 		}
 		return 0.0;
 	}
+	
+private:
+	// important constant, do not touch, do not tweak
+	static inline constexpr float alpha = 3.f;
 };
 
-// This is the interface for 1D weight functions that can be used to create a `CFloatingPointSeparableImageFilterKernel`.
-// Current implementations of this interface are:
-// - `CWeightFunction1D`
-// - `CChannelIndependentWeightFunction1D`
-// - `CConvolutionWeightFunction1D`
+// This is the interface for canonical unscaled 1D weight functions that can be used to create a `CWeightFunction1D`
 template<typename T>
 concept Function1D = requires(T t, const float x)
 {
@@ -253,34 +251,17 @@ concept Function1D = requires(T t, const float x)
 	{ T::template weight<0>(x) }-> std::floating_point;
 };
 
-template <Function1D _function_t, uint32_t derivative = 0>
-class CWeightFunction1D final
+
+namespace impl
+{
+
+template<typename value_type>
+class IWeightFunction1D
 {
 	public:
-		using function_t = _function_t;
-		using value_t = decltype(std::declval<function_t>().weight(0.f));
-		constexpr static inline uint32_t k_derivative = derivative;
-
-		static_assert(function_t::k_smoothness>k_derivative);
-		constexpr static inline uint32_t k_smoothness = function_t::k_smoothness-k_derivative;
-		constexpr static inline value_t k_energy = 0.0; // TODO(achal): Implement.
-
-		// Calling: f(x).stretch(2) will obviously give you f(x/2)
-		inline void stretch(const float s)
-		{
-			assert(s != 0.f);
-
-			m_minSupport *= s;
-			m_maxSupport *= s;
-
-			const float rcp_s = 1.f / s;
-
-			m_invStretch *= rcp_s;
-
-			if constexpr (derivative != 0)
-				scale(pow(rcp_s, derivative));
-		}
-
+		using value_t = value_type;
+		
+		//
 		inline void scale(const value_t s)
 		{
 			assert(s != 0.f);
@@ -294,31 +275,74 @@ class CWeightFunction1D final
 			scale(value_t(1)/stretchFactor);
 		}
 
-		inline value_t weight(const float x) const
-		{
-			return static_cast<double>(m_totalScale*function_t::weight<derivative>(x*m_invStretch));
-		}
-
+		// getters
 		inline float getMinSupport() const { return m_minSupport; }
 		inline float getMaxSupport() const { return m_maxSupport; }
 		inline float getInvStretch() const { return m_invStretch; }
 		inline value_t getTotalScale() const { return m_totalScale; }
 
 	private:
-		float m_minSupport = function_t::min_support;
-		float m_maxSupport = function_t::max_support;
+		inline IWeightFunction1D(const float _minSupport, const float _maxSupport) : m_minSupport(_minSupport), m_maxSupport(_maxSupport) {}
+		
+		inline float impl_stretch(const float s)
+		{
+			assert(s != 0.f);
+
+			m_minSupport *= s;
+			m_maxSupport *= s;
+
+			const float rcp_s = 1.f / s;
+			m_invStretch *= rcp_s;
+			
+			return rcp_s;
+		}
+
+
+		float m_minSupport;
+		float m_maxSupport;
 		float m_invStretch = 1.f;
 		value_t m_totalScale = 1.f;
 };
 
-// This is the interface for 1D weight functions that can be used to create a `CFloatingPointSeparableImageFilterKernel`.
+}
+
+template <Function1D _function_t, uint32_t derivative = 0>
+class CWeightFunction1D final : public IWeightFunction1D<decltype(std::declval<function_t>().weight(0.f))>
+{
+	public:
+		using function_t = _function_t;
+		constexpr static inline uint32_t k_derivative = derivative;
+
+		static_assert(function_t::k_smoothness>k_derivative);
+		constexpr static inline uint32_t k_smoothness = function_t::k_smoothness-k_derivative;
+		constexpr static inline value_t k_energy = 0.0; // TODO(achal): Implement.
+
+		CWeightFunction1D() : IWeightFunction1D(function_t::min_support,function_t::max_support) {}
+		
+		// Calling: f(x).stretch(2) will obviously give you f(x/2)
+		inline void stretch(const float s)
+		{
+			const auto rcp_s = impl_stretch(s);
+
+			if constexpr (derivative != 0)
+				scale(pow(rcp_s,k_derivative));
+		}
+
+		inline value_t weight(const float x) const
+		{
+			return static_cast<double>(m_totalScale*function_t::weight<derivative>(x*m_invStretch));
+		}
+};
+
+// This is the interface for 1D weight functions that can be used to create a `CChannelIndependentWeightFunction`.
 // Current implementations of this interface are:
 // - `CWeightFunction1D`
 // - `CConvolutionWeightFunction1D`
 template<typename T>
 concept WeightFunction1D = requires(T t, const float x, const T::value_t s)
 {
-	Function1D<typename T::function_t>;
+	std::derived_from<T,IWeightFunction1D<T::value_t>>;
+
 	{ T::k_derivative }	-> std::same_as<const uint32_t&>;
 	{ T::k_smoothness }	-> std::same_as<const uint32_t&>;
 	{ T::k_energy }		-> std::same_as<const typename T::value_t&>;
@@ -333,6 +357,13 @@ concept WeightFunction1D = requires(T t, const float x, const T::value_t s)
 	{ t.getMaxSupport() }	-> std::same_as<float>;
 	{ t.getInvStretch() }	-> std::same_as<float>;
 	{ t.getTotalScale() }	-> std::same_as<typename T::value_t>;
+};
+
+template<typename T>
+concept SimpleWeightFunction1D = requires(T t)
+{
+	WeightFunction1D<T>;
+	Function1D<typename T::function_t>;
 };
 
 } // end namespace nbl::asset
