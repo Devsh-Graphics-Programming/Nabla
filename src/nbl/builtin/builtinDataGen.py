@@ -20,8 +20,8 @@ else:
     correspondingHeaderFile = sys.argv[5]
 
     with open(resourcesFile, "r") as f:
-        resourcePaths = f.read().rstrip().split(',')
-
+        resourcePaths = f.read().rstrip().readlines()
+       
     #opening a file
     outp = open(outputFilename,"w+")
     
@@ -32,7 +32,10 @@ else:
     outp.write("const std::pair<const uint8_t*, size_t> get_resource();")
   
     # writing binary  data of all files in a loop
-    for x in resourcePaths:
+    for z in resourcePaths:
+        itemData = z.split(',')
+        x = itemData[0]
+    
         outp.write('\n\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % x)
         outp.write('\n\t{')
         outp.write('\n\t\tstatic const uint8_t data[] = {\n\t\t\t')
@@ -56,20 +59,40 @@ else:
         outp.write('\n\t\t};')
         outp.write('\n\t\treturn { data, sizeof(data) };')
         outp.write('\n\t}')
-
-
+        
+        if len(itemData) > 1:
+            for alias in range(1, len(itemData)):
+                outp.write('\n\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % alias)
+                outp.write('\n\t{')
+                outp.write('\n\t\treturn get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+                outp.write('\n\t{')
+            
     outp.write("\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename) {\n")
     outp.write("\t\tstatic std::unordered_map<std::string, int> resourcesByFilename( {\n")
     counter = 1
-    for x in resourcePaths:
+    
+    for z in resourcePaths:
+        itemData = z.split(',')
+        x = itemData[0]
+        
         outp.write("\t\t\t{\"%s\", %d},\n" % (x,counter))
+        
+        if len(itemData) > 1:
+            for alias in range(1, len(itemData)):
+                outp.write("\t\t\t{\"%s\", %d},\n" % (alias,counter))
+                
         counter+= 1
+        
     outp.write("\t\t});\n\n")
     outp.write("\t\tauto resource = resourcesByFilename.find(filename);\n")
     outp.write("\t\tif(resource == resourcesByFilename.end()) return { nullptr,0ull };\n")
     outp.write("\t\tswitch (resource->second) \n\t\t\t{\n")
     counter = 1
-    for x in resourcePaths:
+    
+    for z in resourcePaths:
+        itemData = z.split(',')
+        x = itemData[0]
+        
         outp.write("\t\t\tcase %d:\n\t\t\t\t\treturn get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(\"%s\")>();\n" % (counter,x))
         counter+= 1
   

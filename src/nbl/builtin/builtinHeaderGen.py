@@ -20,7 +20,7 @@ else:
     guardSuffix = sys.argv[5]
 
     with open(resourcesFile, "r") as f:
-        resourcePaths = f.read().rstrip().split(',')
+        resourcePaths = f.read().rstrip().readlines()
 
     #opening a file
     outp = open(outputFilename,"w+")
@@ -37,8 +37,15 @@ else:
     outp.write("\t\tconst std::pair<const uint8_t*, size_t> get_resource();\n")
     
     #Iterating through input list
-    for x in resourcePaths:
+    for z in resourcePaths:
+        itemData = z.split(',')
+        x = itemData[0]
+        
         outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        
+        if len(itemData) > 1:
+            for alias in range(1, len(itemData)):
+                outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % alias)
 
     outp.write("\n\t}")
     outp.write("\n#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")

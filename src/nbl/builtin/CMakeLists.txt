@@ -239,6 +239,6 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "nbl/builtin/glsl/blit/normalizatio
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "nbl/builtin/glsl/blit/normalization/shared_normalization.glsl")
 
 macro(NBL_ADD_BUILTIN_RESOURCES _TARGET_) # internal for Nabla only
-	ADD_CUSTOM_BUILTIN_RESOURCES("${_TARGET_}" NBL_RESOURCES_TO_EMBED "${NBL_ROOT_PATH}/include" "nbl::builtin" "${NBL_ROOT_PATH_BINARY}/include")
+	ADD_CUSTOM_BUILTIN_RESOURCES("${_TARGET_}" NBL_RESOURCES_TO_EMBED "${NBL_ROOT_PATH}/include" "nbl::builtin" "${NBL_ROOT_PATH_BINARY}/include" "${NBL_ROOT_PATH_BINARY}/src")
 endmacro()
 
