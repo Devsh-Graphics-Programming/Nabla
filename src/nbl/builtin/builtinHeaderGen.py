@@ -19,8 +19,8 @@ else:
     resourcesNamespace = sys.argv[4]
     guardSuffix = sys.argv[5]
 
-    with open(resourcesFile, "r") as f:
-        resourcePaths = f.read().rstrip().readlines()
+    file = open(resourcesFile, 'r')
+    resourcePaths = file.readlines()
 
     #opening a file
     outp = open(outputFilename,"w+")
@@ -39,13 +39,13 @@ else:
     #Iterating through input list
     for z in resourcePaths:
         itemData = z.split(',')
-        x = itemData[0]
+        x = itemData[0].rstrip()
         
-        outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
         
         if len(itemData) > 1:
-            for alias in range(1, len(itemData)):
-                outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % alias)
+            for i in range(1, len(itemData)):
+                outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
 
     outp.write("\n\t}")
     outp.write("\n#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")

@@ -19,9 +19,9 @@ else:
     resourcesNamespace = sys.argv[4]
     correspondingHeaderFile = sys.argv[5]
 
-    with open(resourcesFile, "r") as f:
-        resourcePaths = f.read().rstrip().readlines()
-       
+    file = open(resourcesFile, 'r')
+    resourcePaths = file.readlines()
+
     #opening a file
     outp = open(outputFilename,"w+")
     
@@ -34,7 +34,7 @@ else:
     # writing binary  data of all files in a loop
     for z in resourcePaths:
         itemData = z.split(',')
-        x = itemData[0]
+        x = itemData[0].rstrip()
     
         outp.write('\n\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % x)
         outp.write('\n\t{')
@@ -58,14 +58,14 @@ else:
 
         outp.write('\n\t\t};')
         outp.write('\n\t\treturn { data, sizeof(data) };')
-        outp.write('\n\t}')
+        outp.write('\n\t}\n')
         
         if len(itemData) > 1:
-            for alias in range(1, len(itemData)):
-                outp.write('\n\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % alias)
+            for i in range(1, len(itemData)):
+                outp.write('\n\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % itemData[i].rstrip())
                 outp.write('\n\t{')
                 outp.write('\n\t\treturn get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
-                outp.write('\n\t{')
+                outp.write('\n\t}\n')
             
     outp.write("\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename) {\n")
     outp.write("\t\tstatic std::unordered_map<std::string, int> resourcesByFilename( {\n")
@@ -73,13 +73,13 @@ else:
     
     for z in resourcePaths:
         itemData = z.split(',')
-        x = itemData[0]
+        x = itemData[0].rstrip()
         
         outp.write("\t\t\t{\"%s\", %d},\n" % (x,counter))
         
         if len(itemData) > 1:
-            for alias in range(1, len(itemData)):
-                outp.write("\t\t\t{\"%s\", %d},\n" % (alias,counter))
+            for i in range(1, len(itemData)):
+                outp.write("\t\t\t{\"%s\", %d},\n" % (itemData[i].rstrip(),counter))
                 
         counter+= 1
         
@@ -91,7 +91,7 @@ else:
     
     for z in resourcePaths:
         itemData = z.split(',')
-        x = itemData[0]
+        x = itemData[0].rstrip()
         
         outp.write("\t\t\tcase %d:\n\t\t\t\t\treturn get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(\"%s\")>();\n" % (counter,x))
         counter+= 1

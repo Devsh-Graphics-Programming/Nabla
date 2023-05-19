@@ -15,7 +15,7 @@ namespace @_NAMESPACE_@
 	{
 		public:
 			inline CArchive(nbl::system::logger_opt_smart_ptr&& logger)
-				: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), getItemList()) {}
+				: nbl::system::CFileArchive(nbl::system::path("@_DEFAULT_ABSOLUTE_BUNDLE_SEARCH_DIRECTORY_@"),std::move(logger), getItemList()) {}
 			
 		protected:
 			file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SListEntry* item) override
