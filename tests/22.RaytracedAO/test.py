@@ -156,25 +156,24 @@ class RendersTest(CITest):
         return pixel_count
 
 
-    def __histogram_test(self, render, reference):
-        params = f" {render} {reference} -define histogram:unique-colors=true -fx \"(min(u,v)>{EPSILON})?((abs(u-v)/min(u,v))>{self.error_threshold_value}):(max(u,v)>{EPSILON})\" -format %c histogram:info:" 
+    def __histogram_test(self, render, reference, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type):
+        params = f" {render} {reference} -define histogram:unique-colors=true -fx \"(min(u,v)>{epsilon})?((abs(u-v)/min(u,v))>{error_threshold_value}):(max(u,v)>{epsilon})\" -format %c histogram:info:" 
         executor = self.image_magick_exe + params
         error_counter_process = subprocess.run(executor, capture_output=True)
 
-        #first histogram line is the amount of black pixels - the correct ones
-        #second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
+        # first histogram line is the amount of black pixels - the correct ones
+        # second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
         histogram_output_lines = error_counter_process.stdout.decode().splitlines()
         error_pixel_count = histogram_output_lines[-1].split()[0][:-1] if len(histogram_output_lines) > 1 else "0"
-
-        if self.error_threshold_type == ErrorThresholdType.ABSOLUTE:
-            passing = float(error_pixel_count) <= self.allowed_error_pixel_count
-            details = f"Errors: {error_pixel_count} / {self.allowed_error_pixel_count}"
+        if error_threshold_type == ErrorThresholdType.ABSOLUTE:
+            passing = float(error_pixel_count) <= float(allowed_error_pixel_count)
+            details = f"Errors: {error_pixel_count} / {allowed_error_pixel_count}"
         if self.error_threshold_type == ErrorThresholdType.RELATIVE_TO_RESOLUTION:
             pixel_count = self.__image_pixel_count(str(self.working_dir)+"/"+render)
             error_ratio = float(error_pixel_count) / pixel_count
-            passing = error_ratio <= self.allowed_error_pixel_count
-            allowed_error_count = int(self.allowed_error_pixel_count * pixel_count)
-            details = f"Errors: {error_pixel_count} ({error_ratio*100.0:.4f}%) / {allowed_error_count} ({self.allowed_error_pixel_count*100:.4f}%)"
+            passing = error_ratio <= float(allowed_error_pixel_count)
+            allowed_error_count = int(float(allowed_error_pixel_count) * pixel_count)
+            details = f"Errors: {error_pixel_count} ({error_ratio*100.0:.3f}%) / {allowed_error_count} ({float(allowed_error_pixel_count)*100:.3f}%)"
         return passing, details
 
 
@@ -184,17 +183,50 @@ class RendersTest(CITest):
         subprocess.run(command, capture_output=False)
 
 
+    def __parse_input_line(self, input_line : str):
+        OPTION_PREFIX = "--"
+        options = {}
+        available_options = [('abs',0),('rel',0),('errcount',1),('errpixel',1),('errssim',1),('epsilon',1)]
+        while (input_line.startswith(OPTION_PREFIX)):
+            input_line = input_line[len(OPTION_PREFIX)::]
+            #parse option
+            for op in available_options:
+                if input_line.startswith(op[0]):
+                    input_line = input_line[len(op[0])::].strip()
+                    argv = None
+                    if op[1] > 0:
+                        index = 0
+                        for _ in range(op[1]):
+                            index = input_line.index(" ", index) + 1
+                        argv = input_line.split(" ",)[::op[1]]
+                        input_line = input_line[index::].strip()
+                    options[op[0]] = argv
+                    break
+        return input_line.strip("\n\r "), options            
+
+    # run a test for a single line of input for pathtracer
     def _impl_run_single(self, input_args:str) -> dict:
-        input_args = input_args.strip("\n\r ")
+        executable_arg, options = self.__parse_input_line(input_args)
+
+        # get scene options, either custom or default 
+        epsilon = options.get('epsilon', [EPSILON])[0]
+        error_threshold_value = options.get('errpixel',[self.error_threshold_value])[0]
+        allowed_error_pixel_count = options.get('errcount',[self.allowed_error_pixel_count])[0]
+        ssim_error_threshold_value = options.get('errssim',[self.ssim_error_threshold_value])[0]
+        error_threshold_type = ErrorThresholdType.RELATIVE_TO_RESOLUTION if 'rel' in options else ErrorThresholdType.ABSOLUTE if 'abs' in options else self.error_threshold_type
+        if 'abs' in options and 'rel' in options: # idiot check
+            if self.print_warnings:
+                print(f"[ERROR] Scene option contain both --rel and bot --abs.")
+
         results_images = []
         result_status = True
         result_color = "green"
         scene_name = None
-        raytracer_bash_command = str(self.executable.absolute()) + ' -SCENE=' + input_args + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
+        raytracer_bash_command = str(self.executable.absolute()) + ' -SCENE=' + executable_arg + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
         console_output = subprocess.run(raytracer_bash_command, capture_output=True).stdout.decode().strip()
-        raytracer_outputs = self.__find_json_in_console_output(console_output)
-        if raytracer_outputs is not None:
-            for render_type, filepath in raytracer_outputs.items():
+        raytracer_generated_files = self.__find_json_in_console_output(console_output)
+        if raytracer_generated_files is not None:
+            for render_type, filepath in raytracer_generated_files.items():
                 render_type = render_type.strip().removeprefix("output_")
                 results_image = {
                     "identifier": render_type,
@@ -241,9 +273,9 @@ class RendersTest(CITest):
                     if render_type == "denoised":
                         ssim_diff = self.__ssim_test(filepath, reference_filepath)
                         results_image["details"] = "Difference (SSIM): " + f'{ssim_diff:.4f}'
-                        status = self.ssim_error_threshold_value > ssim_diff
+                        status = ssim_error_threshold_value > ssim_diff
                     else:
-                        status, details = self.__histogram_test(filepath, reference_filepath)
+                        status, details = self.__histogram_test(filepath, reference_filepath, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type)
                         results_image["details"] = details
                     self.__create_diff_image(filepath, reference_filepath, difference_filepath)
                     results_image["render"] = render_store_filepath_rel
@@ -260,7 +292,6 @@ class RendersTest(CITest):
                     shutil.copy(reference_filepath, reference_store_filepath)
                     shutil.move(filepath, render_storage_filepath)
                 results_images.append(results_image)
-                #move files
         return {
             'status': 'passed' if result_status else 'failed',
             'status_color': result_color,
@@ -268,6 +299,8 @@ class RendersTest(CITest):
             'array': results_images
         }
     
+
+    # add additional information to the json
     def _impl_append_summary(self, summary: dict):
         summary["lds_cache_hash"] = self.__get_lds_hash()
         summary["error_threshold_type"] =  "absolute" if self.error_threshold_type == ErrorThresholdType.ABSOLUTE else "relative"
@@ -280,6 +313,7 @@ class RendersTest(CITest):
 
 
 def run_all_tests(args):
+    # test public scenes
     CI_PASS_STATUS_1 = RendersTest(test_name="public",
                     profile="public",
                     executable_filepath=args[0],
@@ -290,6 +324,7 @@ def run_all_tests(args):
                     error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
                     allowed_error_pixel_count=0.0001).run()
     
+    #test private scenes
     CI_PASS_STATUS_2 = RendersTest(test_name="private",
                     profile="private",
                     executable_filepath=args[0],
@@ -300,8 +335,8 @@ def run_all_tests(args):
                     error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
                     allowed_error_pixel_count=0.0001).run()
 
-    CI_PASS_STATUS = CI_PASS_STATUS_1 and CI_PASS_STATUS_2
-    if not CI_PASS_STATUS:
+    # check if both were successful
+    if not (CI_PASS_STATUS_1 and CI_PASS_STATUS_2):
         print('CI failed')
         exit(-2)
     print('CI done')
@@ -310,4 +345,3 @@ def run_all_tests(args):
 
 if __name__ == '__main__':
     run_all_tests(sys.argv[1::])
-    
