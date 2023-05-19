@@ -30,31 +30,29 @@ public:
             return *file;
     }
 
-    core::SRange<const IFileArchive::SListEntry> listAssets(const path& asset_path) const override
+    SFileList listAssets(const path& asset_path) const override
     {
         populateItemList(asset_path);
         return IFileArchive::listAssets(asset_path);
     }
-    virtual core::SRange<const SListEntry> listAssets() const override {
+    SFileList listAssets() const override {
         populateItemList(path());
         return IFileArchive::listAssets();
     }
 
     void populateItemList(const path& p) const {
-        std::unique_lock lock(itemMutex);
         auto items = m_system->listItemsInDirectory(m_defaultAbsolutePath/p);
-        m_items.clear();
-
+        auto new_entries = std::make_shared< std::vector<SFileList::SEntry>>();
         for (auto item : items)
         {
             if (item.has_extension())
             {
                 auto relpath = item.lexically_relative(m_defaultAbsolutePath);
-                auto entry = SListEntry{ relpath, 0xdeadbeefu, 0xdeadbeefu, 0xdeadbeefu, EAT_NONE };
-                m_items.push_back(entry);
+                auto entry = SFileList::SEntry{ relpath, 0xdeadbeefu, 0xdeadbeefu, 0xdeadbeefu, EAT_NONE };
+                new_entries->push_back(entry);
             }
         }
-        lock.unlock();
+        m_items.store({new_entries});
     }
 };
 
