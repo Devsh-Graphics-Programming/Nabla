@@ -5,15 +5,14 @@
 #include "nbl/core/declarations.h"
 #include "nbl/core/util/bitflag.h"
 
-//#include "nbl/system/ICancellableAsyncQueueDispatcher.h"
-//#include "nbl/system/IFileArchive.h"
-
-#include "nbl/builtin/common.h"
-
 #include <variant>
 
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
+
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#include "nbl/builtin/builtinResources.h"
+#endif
 
 namespace nbl::system
 {
@@ -60,21 +59,6 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             return retval;
         }
 		#endif
-
-        //! Compile time resource ID
-        template<nbl::core::StringLiteral Path>
-        inline core::smart_refctd_ptr<const IFile> loadBuiltinData()
-        {
-        #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-            return impl_loadEmbeddedBuiltinData(Path.value,nbl::builtin::get_resource<Path>());
-        #else
-            future_t<core::smart_refctd_ptr<IFile>> future;
-            createFile(future,system::path(Path.value),core::bitflag(IFileBase::ECF_READ)|IFileBase::ECF_MAPPABLE);
-            if (future.wait())
-                return future.copy();
-            return nullptr;
-        #endif
-        }
 
         //
         inline void addArchiveLoader(core::smart_refctd_ptr<IArchiveLoader>&& loader)
@@ -208,9 +192,6 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         //
         explicit ISystem(core::smart_refctd_ptr<ICaller>&& caller);
         virtual ~ISystem() {}
-
-        //
-        core::smart_refctd_ptr<const IFile> impl_loadEmbeddedBuiltinData(const std::string& builtinPath, const std::pair<const uint8_t*,size_t>& found) const;
 
         // given an `absolutePath` find the archive it belongs to
         struct FoundArchiveFile

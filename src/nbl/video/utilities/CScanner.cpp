@@ -8,10 +8,19 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	core::smart_refctd_ptr<const system::IFile> glsl;
 	{
+		auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+		{
+			nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+			system->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+			if (future.wait())
+				return future.copy();
+			return nullptr;
+		};
+
 		if(indirect)
-			glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/indirect.comp")>();
+			glsl = loadBuiltinData("nbl/builtin/glsl/scan/indirect.comp");
 		else
-			glsl = system->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/scan/direct.comp")>();
+			glsl = loadBuiltinData("nbl/builtin/glsl/scan/direct.comp");
 	}
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glsl->getSize());
 	memcpy(buffer->getPointer(), glsl->getMappedPointer(), glsl->getSize());
