@@ -358,6 +358,18 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
+# links builtin resource target to a target
+# @_TARGET_@ is target name builtin resource target will be linked to
+# @_BS_TARGET_@ is a builtin resource target
+
+function(LINK_BUILTIN_RESOURCES_TO_TARGET _TARGET_ _BS_TARGET_)
+	add_dependencies(${EXECUTABLE_NAME} systemTestBuiltinResourceData)
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC systemTestBuiltinResourceData)
+	
+	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_BS_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	target_include_directories(${EXECUTABLE_NAME} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+endfunction()
+
 macro(nbl_android_create_apk _TARGET)
 	get_target_property(TARGET_NAME ${_TARGET} NAME)
 	# TARGET_NAME_IDENTIFIER is identifier that can be used in code
