@@ -229,7 +229,7 @@ add_library(spirv_cross OBJECT
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 if(NBL_BUILD_IMGUI)
-	add_library(imgui
+	add_library(imgui STATIC
 		"imgui/imconfig.h"
 		"imgui/imgui_demo.cpp"
 		"imgui/imgui_draw.cpp"
