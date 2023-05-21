@@ -1,5 +1,5 @@
 # Assigns builtin resources to a bundle a target library will be created with
-# _BUNDLE_NAME_ is a bundle name, must be a valid CMake variable
+# _BUNDLE_NAME_ is a bundle name, must be a valid CMake list variable
 # _LBR_PATH_ is a path to builtin resource
 
 macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
@@ -26,7 +26,7 @@ endmacro()
 
 # Creates a library with builtin resources for given bundle
 # _TARGET_NAME_ is name of a target library that will be created
-# _BUNDLE_NAME_ is a bundle name builtin resources are associated with
+# _BUNDLE_NAME_ a list variable populated using LIST_BUILTIN_RESOURCE
 # _BUNDLE_SEARCH_DIRECTORY_ is an absolute search directory path for builtin resorces for given bundle
 # _BUNDLE_ARCHIVE_ABSOLUTE_PATH_ is a "absolute path" for an archive which will store a given bundle of builtin resources, must be relative _BUNDLE_SEARCH_DIRECTORY_
 # _NAMESPACE_ is a C++ namespace builtin resources will be wrapped into
@@ -38,7 +38,7 @@ endmacro()
 # and then create builtin resource target with the resource above using
 # ADD_CUSTOM_BUILTIN_RESOURCES("aTarget" SOME_RESOURCES_TO_EMBED "${NBL_ROOT_PATH}/include" "nbl/builtin" "myns::builtin" "${NBL_ROOT_PATH_BINARY}/include" "${NBL_ROOT_PATH_BINARY}/src")
 # a real absolute path to the resource on the disk would be ${NBL_ROOT_PATH}/include/nbl/builtin/glsl/blit/default_compute_normalization.comp
-# the builtin resource path seen in an archive would be "nbl/builtin/builtin/glsl/blit/default_compute_normalization.comp" where "nbl/builtin" would be an absolute path for an archive
+# the builtin resource path seen in Nabla filesystem would be "nbl/builtin/builtin/glsl/blit/default_compute_normalization.comp" where "nbl/builtin" would be an absolute path for an archive
 
 function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH_DIRECTORY_ _BUNDLE_ARCHIVE_ABSOLUTE_PATH_ _NAMESPACE_ _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ _OUTPUT_SOURCE_DIRECTORY_)
 	if(NOT DEFINED _Python3_EXECUTABLE)
