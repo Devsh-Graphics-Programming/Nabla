@@ -112,7 +112,6 @@ class IFileArchive : public core::IReferenceCounted
 			return &(*found);
 		}
 
-		mutable std::mutex itemMutex; // TODO: update to readers writer lock
 		path m_defaultAbsolutePath;
 		// files and directories
 		mutable std::atomic<SFileList::refctd_storage_t> m_items;

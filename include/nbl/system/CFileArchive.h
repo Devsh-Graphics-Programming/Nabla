@@ -76,8 +76,6 @@ class CFileArchive : public IFileArchive
 	public:
 		inline core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) override
 		{
-			std::unique_lock lock(itemMutex);
-
 			const auto* item = getItemFromPath(pathRelativeToArchive);
 			if (!item)
 				return nullptr;
@@ -127,7 +125,7 @@ class CFileArchive : public IFileArchive
 		}
 		
 		template<class Allocator>
-		inline core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SListEntry* item)
+		inline core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SFileList::SEntry* item)
 		{
 			auto* file = reinterpret_cast<CInnerArchiveFile<Allocator>*>(m_filesBuffer+item->ID*SIZEOF_INNER_ARCHIVE_FILE);
 			// NOTE: Intentionally calling grab() on maybe-not-existing object!
@@ -160,7 +158,7 @@ class CFileArchive : public IFileArchive
 			size_t size;
 			void* allocatorState;
 		};
-		virtual file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) = 0;
+		virtual file_buffer_t getFileBuffer(const IFileArchive::SFileList::SEntry* item) = 0;
 
 		std::atomic_flag* m_fileFlags = nullptr;
 		std::byte* m_filesBuffer = nullptr;

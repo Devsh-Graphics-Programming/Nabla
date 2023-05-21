@@ -18,7 +18,7 @@ class CArchiveLoaderTar final : public IArchiveLoader
 					CFileArchive(path(_file->getFileName()),std::move(logger),std::move(_items)), m_file(std::move(_file)) {}
 
 			protected:
-				file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) override;
+				file_buffer_t getFileBuffer(const IFileArchive::SFileList::SEntry* item) override;
 
 				core::smart_refctd_ptr<IFile> m_file;
 		};

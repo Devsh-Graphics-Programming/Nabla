@@ -41,7 +41,7 @@ struct STarHeader
 using namespace nbl;
 using namespace nbl::system;
 
-CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
 {
 	assert(item->allocatorType==EAT_NULL);
 	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset,item->size,nullptr};
@@ -98,7 +98,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 	if (!file || !(file->getFlags()&IFileBase::ECF_MAPPABLE))
 		return nullptr;
 
-	core::vector<IFileArchive::SListEntry> items;
+	core::vector<IFileArchive::SFileList::SEntry> items;
 	for (size_t pos=0ull; true; )
 	{
 		STarHeader fHead;

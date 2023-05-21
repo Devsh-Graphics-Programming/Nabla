@@ -106,7 +106,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			return nullptr;
 	}
 
-	core::vector<IFileArchive::SListEntry> items;
+	core::vector<IFileArchive::SFileList::SEntry> items;
 	core::vector<SZIPFileHeader> itemsMetadata;
 	// load file entries
 	{
@@ -367,7 +367,7 @@ bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
 }
 #endif
 
-CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
 {
 	const auto& header = m_itemsMetadata[item->ID];
 	// Nabla supports 0, 8, 12, 14, 99

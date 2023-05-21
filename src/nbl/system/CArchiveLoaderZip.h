@@ -46,7 +46,7 @@ class CArchiveLoaderZip final : public IArchiveLoader
 				{}
 
 			private:
-				file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) override;
+				file_buffer_t getFileBuffer(const IFileArchive::SFileList::SEntry* item) override;
 
 				core::smart_refctd_ptr<IFile> m_file;
 				core::vector<SZIPFileHeader> m_itemsMetadata;

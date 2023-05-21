@@ -63,7 +63,7 @@ core::vector<system::path> ISystem::listItemsInDirectory(const system::path& p) 
         const auto archives = m_cachedArchiveFiles.findRange(archPath);
         for (auto& arch : archives)
         {
-            const auto assets = arch.second->listAssets(std::filesystem::relative(dirPath,archPath));
+            const auto assets = static_cast<IFileArchive::SFileList::range_t>(arch.second->listAssets(std::filesystem::relative(dirPath,archPath)));
             for (auto& item : assets)
                 res.push_back(archPath/item.pathRelativeToArchive);
         }
@@ -244,9 +244,9 @@ ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolut
         for (auto& archive : archives)
         {
             const auto relative = std::filesystem::relative(absolutePath,path);
-            const auto items = archive.second->listAssets();
+            const auto items = static_cast<IFileArchive::SFileList::range_t>(archive.second->listAssets());
 
-            const IFileArchive::SListEntry itemToFind = { relative };
+            const IFileArchive::SFileList::SEntry itemToFind = { relative };
             auto found = std::lower_bound(items.begin(), items.end(), itemToFind);
             if (found!=items.end() && found->pathRelativeToArchive==relative)
                 return {archive.second.get(),relative};
