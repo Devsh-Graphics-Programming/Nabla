@@ -105,10 +105,11 @@ class CFileArchive : public IFileArchive
 		}
 
 	protected:
-		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<IFileArchive::SFileList::SEntry>&& _items) :
+		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<SFileList::SEntry> _items) :
 			IFileArchive(std::move(_defaultAbsolutePath),std::move(logger))
 		{
-			auto itemsSharedPtr = std::make_shared<std::vector<IFileArchive::SFileList::SEntry>>(std::move(_items));
+			//should _items be rvalue reference?
+			auto itemsSharedPtr = std::make_shared<core::vector<IFileArchive::SFileList::SEntry>>(std::move(_items));
 			std::sort(itemsSharedPtr->begin(), itemsSharedPtr->end());
 			m_items.store(itemsSharedPtr);
 
