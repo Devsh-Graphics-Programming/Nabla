@@ -15,7 +15,7 @@ namespace @_NAMESPACE_@
 	{
 		public:
 			inline CArchive(nbl::system::logger_opt_smart_ptr&& logger)
-				: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), getItemList()) {}
+				: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), resources) {}
 			
 		protected:
 			file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SListEntry* item) override
@@ -24,15 +24,10 @@ namespace @_NAMESPACE_@
 					return { const_cast<uint8_t*>(found.first), found.second, nullptr };
 			}
 
-			nbl::core::vector<nbl::system::IFileArchive::SListEntry> getItemList()
+			inline static const nbl::core::vector<nbl::system::IFileArchive::SListEntry> resources
 			{
-				static nbl::core::vector<nbl::system::IFileArchive::SListEntry> resources
-				{
 @_RESOURCES_INIT_LIST_@
-				};
-				
-				return resources;
-			}
+			};			
 	};
 }
 
