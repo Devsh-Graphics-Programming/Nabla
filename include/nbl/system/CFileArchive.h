@@ -105,13 +105,14 @@ class CFileArchive : public IFileArchive
 		}
 
 	protected:
-		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<SListEntry> _items) :
+		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<IFileArchive::SFileList::SEntry> _items) :
 			IFileArchive(std::move(_defaultAbsolutePath),std::move(logger))
 		{
-			m_items = std::move(_items);
-			std::sort(m_items.begin(),m_items.end());
+			auto itemsSharedPtr = std::make_shared<std::vector<IFileArchive::SFileList::SEntry>>(std::move(_items));
+			std::sort(itemsSharedPtr->begin(), itemsSharedPtr->end());
+			m_items.store(itemsSharedPtr);
 
-			const auto fileCount = m_items.size();
+			const auto fileCount = itemsSharedPtr->size();
 			m_filesBuffer = (std::byte*)_NBL_ALIGNED_MALLOC(fileCount*SIZEOF_INNER_ARCHIVE_FILE, ALIGNOF_INNER_ARCHIVE_FILE);
 			m_fileFlags = (std::atomic_flag*)_NBL_ALIGNED_MALLOC(fileCount*sizeof(std::atomic_flag), alignof(std::atomic_flag));
 			for (size_t i=0u; i<fileCount; i++)
