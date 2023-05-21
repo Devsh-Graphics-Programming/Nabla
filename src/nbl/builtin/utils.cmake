@@ -28,11 +28,19 @@ endmacro()
 # _TARGET_NAME_ is name of a target library that will be created
 # _BUNDLE_NAME_ is a bundle name builtin resources are associated with
 # _BUNDLE_SEARCH_DIRECTORY_ is an absolute search directory path for builtin resorces for given bundle
+# _BUNDLE_ARCHIVE_ABSOLUTE_PATH_ is a "absolute path" for an archive which will store a given bundle of builtin resources, must be relative _BUNDLE_SEARCH_DIRECTORY_
 # _NAMESPACE_ is a C++ namespace builtin resources will be wrapped into
 # _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ is an absolute path to output directory for builtin resources header files which will be a search directory for generated headers outputed to ${_OUTPUT_HEADER_DIRECTORY_}/${_PATH_PREFIX_} where path prefix is the namespace turned into a path
 # _OUTPUT_SOURCE_DIRECTORY_ is an absolute path to output directory for builtin resources source files
+#
+# As an example one could list a resource as following
+# LIST_BUILTIN_RESOURCE(SOME_RESOURCES_TO_EMBED "glsl/blit/default_compute_normalization.comp")
+# and then create builtin resource target with the resource above using
+# ADD_CUSTOM_BUILTIN_RESOURCES("aTarget" SOME_RESOURCES_TO_EMBED "${NBL_ROOT_PATH}/include" "nbl/builtin" "myns::builtin" "${NBL_ROOT_PATH_BINARY}/include" "${NBL_ROOT_PATH_BINARY}/src")
+# a real absolute path to the resource on the disk would be ${NBL_ROOT_PATH}/include/nbl/builtin/glsl/blit/default_compute_normalization.comp
+# the builtin resource path seen in an archive would be "nbl/builtin/builtin/glsl/blit/default_compute_normalization.comp" where "nbl/builtin" would be an absolute path for an archive
 
-function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH_DIRECTORY_ _NAMESPACE_ _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ _OUTPUT_SOURCE_DIRECTORY_)
+function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH_DIRECTORY_ _BUNDLE_ARCHIVE_ABSOLUTE_PATH_ _NAMESPACE_ _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ _OUTPUT_SOURCE_DIRECTORY_)
 	if(NOT DEFINED _Python3_EXECUTABLE)
 		message(FATAL_ERROR "_Python3_EXECUTABLE must be defined - call find_package(Python3 COMPONENTS Interpreter REQUIRED)")
 	endif()
@@ -70,8 +78,8 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 			unset(_ITEM_ALIASES_)
 		endif()
 		
-		set(_DEFAULT_ABSOLUTE_BUNDLE_SEARCH_DIRECTORY_ "${_BUNDLE_SEARCH_DIRECTORY_}")
-		set(NBL_BUILTIN_RESOURCE_ABS_PATH "${_BUNDLE_SEARCH_DIRECTORY_}/${_CURRENT_PATH_}") # an absolute path to a builtin resource
+		set(_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ "${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}")
+		set(NBL_BUILTIN_RESOURCE_ABS_PATH "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${_CURRENT_PATH_}") # an absolute path to a resource a builtin resource will be created as
 		list(APPEND NBL_BUILTIN_RESOURCES "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
 		
 		if(EXISTS "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
@@ -82,7 +90,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 				string(APPEND _RESOURCES_INIT_LIST_ "\t\t\t\t\t{\"${_LBR_PATH_}\", ${_LBR_FILE_SIZE_}, 0xdeadbeefu, ${_LBR_ID_}, nbl::system::IFileArchive::E_ALLOCATOR_TYPE::EAT_NULL},\n") # initializer list
 			endmacro()
 			
-			LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_PATH_}" "${_FILE_SIZE_}" "${_ITR_}")
+			LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_PATH_}" "${_FILE_SIZE_}" "${_ITR_}") # pass builtin resource path to an archive without _BUNDLE_ARCHIVE_ABSOLUTE_PATH_ 
 			
 			foreach(_CURRENT_ALIAS_ IN LISTS _ITEM_ALIASES_)
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
@@ -109,8 +117,8 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 
 	add_custom_command(
 		OUTPUT "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
-		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" "${NBL_BUILTIN_RESOURCES_HEADER}" "${_BUNDLE_SEARCH_DIRECTORY_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${_GUARD_SUFFIX_}"
-		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}" "${_BUNDLE_SEARCH_DIRECTORY_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${NBL_BS_HEADER_FILENAME}"
+		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" "${NBL_BUILTIN_RESOURCES_HEADER}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${_GUARD_SUFFIX_}"
+		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${NBL_BS_HEADER_FILENAME}"
 		COMMENT "Generating built-in resources"
 		DEPENDS ${NBL_DEPENDENCY_FILES}
 		VERBATIM  
@@ -158,6 +166,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	_ADD_PROPERTY_(BUILTIN_RESOURCES NBL_BUILTIN_RESOURCES)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_BUNDLE_NAME _BUNDLE_NAME_)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_BUNDLE_SEARCH_DIRECTORY _BUNDLE_SEARCH_DIRECTORY_)
+	_ADD_PROPERTY_(BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH _BUNDLE_ARCHIVE_ABSOLUTE_PATH_)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_NAMESPACE _NAMESPACE_)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_HEADER_DIRECTORY _OUTPUT_HEADER_DIRECTORY_)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_SOURCE_DIRECTORY _OUTPUT_SOURCE_DIRECTORY_)
