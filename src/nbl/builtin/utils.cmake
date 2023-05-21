@@ -30,7 +30,7 @@ endmacro()
 # _BUNDLE_SEARCH_DIRECTORY_ is an absolute search directory path for builtin resorces for given bundle
 # _BUNDLE_ARCHIVE_ABSOLUTE_PATH_ is a "absolute path" for an archive which will store a given bundle of builtin resources, must be relative _BUNDLE_SEARCH_DIRECTORY_
 # _NAMESPACE_ is a C++ namespace builtin resources will be wrapped into
-# _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ is an absolute path to output directory for builtin resources header files which will be a search directory for generated headers outputed to ${_OUTPUT_HEADER_DIRECTORY_}/${_PATH_PREFIX_} where path prefix is the namespace turned into a path
+# _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ is an absolute path to output directory for builtin resources header files which will be a search directory for generated headers outputed to ${_OUTPUT_HEADER_DIRECTORY_}/${_NAMESPACE_PREFIX_} where namespace prefix is the namespace turned into a path
 # _OUTPUT_SOURCE_DIRECTORY_ is an absolute path to output directory for builtin resources source files
 #
 # As an example one could list a resource as following
@@ -51,14 +51,14 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	set(NBL_BS_HEADER_FILENAME "builtinResources.h")
 	set(NBL_BS_DATA_SOURCE_FILENAME "builtinResourceData.cpp")
 	
-	string(REPLACE "::" "/" _PATH_PREFIX_ "${_NAMESPACE_}")
+	string(REPLACE "::" "/" _NAMESPACE_PREFIX_ "${_NAMESPACE_}")
 	string(REPLACE "::" "_" _GUARD_SUFFIX_ "${_NAMESPACE_}")
 	string(REGEX REPLACE "^[0-9]+\." "" _GUARD_SUFFIX_ ${_GUARD_SUFFIX_})
 	string(TOUPPER ${_GUARD_SUFFIX_} _GUARD_SUFFIX_)
 	string(MAKE_C_IDENTIFIER ${_GUARD_SUFFIX_} _GUARD_SUFFIX_)
 	
 	set(_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ "${_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
-	set(_OUTPUT_HEADER_DIRECTORY_ "${_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}/${_PATH_PREFIX_}")
+	set(_OUTPUT_HEADER_DIRECTORY_ "${_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}/${_NAMESPACE_PREFIX_}")
 	
 	file(MAKE_DIRECTORY "${_OUTPUT_HEADER_DIRECTORY_}")
 	file(MAKE_DIRECTORY "${_OUTPUT_SOURCE_DIRECTORY_}")
