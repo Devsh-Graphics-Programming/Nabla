@@ -105,7 +105,7 @@ class CFileArchive : public IFileArchive
 		}
 
 	protected:
-		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<IFileArchive::SFileList::SEntry> _items) :
+		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<IFileArchive::SFileList::SEntry>&& _items) :
 			IFileArchive(std::move(_defaultAbsolutePath),std::move(logger))
 		{
 			auto itemsSharedPtr = std::make_shared<std::vector<IFileArchive::SFileList::SEntry>>(std::move(_items));

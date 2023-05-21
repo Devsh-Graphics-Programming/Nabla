@@ -39,7 +39,7 @@ class CArchiveLoaderZip final : public IArchiveLoader
 				CArchive(
 					core::smart_refctd_ptr<IFile>&& _file,
 					system::logger_opt_smart_ptr&& logger,
-					core::vector<SListEntry>&& _items,
+					core::vector<SFileList::SEntry>&& _items,
 					core::vector<SZIPFileHeader>&& _itemsMetadata
 				) : CFileArchive(path(_file->getFileName()),std::move(logger),std::move(_items)),
 					m_file(std::move(_file)), m_itemsMetadata(std::move(_itemsMetadata)), m_password("")
