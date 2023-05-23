@@ -32,6 +32,7 @@ endmacro()
 # _NAMESPACE_ is a C++ namespace builtin resources will be wrapped into
 # _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ is an absolute path to output directory for builtin resources header files which will be a search directory for generated headers outputed to ${_OUTPUT_HEADER_DIRECTORY_}/${_NAMESPACE_PREFIX_} where namespace prefix is the namespace turned into a path
 # _OUTPUT_SOURCE_DIRECTORY_ is an absolute path to output directory for builtin resources source files
+# _STATIC_ optional last argument is a bool, if true then add_library will use STATIC, SHARED otherwise. Pay attention that MSVC runtime is controlled by NBL_DYNAMIC_MSVC_RUNTIME which is not an argument of this function
 #
 # As an example one could list a resource as following
 # LIST_BUILTIN_RESOURCE(SOME_RESOURCES_TO_EMBED "glsl/blit/default_compute_normalization.comp")
@@ -114,20 +115,34 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 
 	set(NBL_BUILTIN_RESOURCES_HEADER "${_OUTPUT_HEADER_DIRECTORY_}/${NBL_BS_HEADER_FILENAME}")
 	set(NBL_BUILTIN_RESOURCE_DATA_SOURCE "${_OUTPUT_SOURCE_DIRECTORY_}/${NBL_BS_DATA_SOURCE_FILENAME}")
+	
+	if("${ARGV7}" STREQUAL "SHARED")
+		set(_LIB_TYPE_ SHARED)
+		set(_SHARED_ True)
+	else()
+		set(_LIB_TYPE_ STATIC)
+		set(_SHARED_ False)
+	endif()
 
 	add_custom_command(
 		OUTPUT "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
-		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" "${NBL_BUILTIN_RESOURCES_HEADER}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${_GUARD_SUFFIX_}"
+		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" "${NBL_BUILTIN_RESOURCES_HEADER}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${_GUARD_SUFFIX_}" "${_SHARED_}"
 		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${NBL_BS_HEADER_FILENAME}"
 		COMMENT "Generating built-in resources"
 		DEPENDS ${NBL_DEPENDENCY_FILES}
 		VERBATIM  
 	)
 	
-	add_library(${_TARGET_NAME_} STATIC
+	add_library(${_TARGET_NAME_} ${_LIB_TYPE_}
 		"${NBL_BUILTIN_RESOURCES_HEADER}"
 		"${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
 	)
+	
+	if(_LIB_TYPE_ STREQUAL SHARED)
+		target_compile_definitions(${_TARGET_NAME_} 
+			PRIVATE __NBL_BUILDING_TARGET__
+		)
+	endif()
 	
 	target_include_directories(${_TARGET_NAME_} PUBLIC 
 		"${NBL_ROOT_PATH}/include"
