@@ -21,7 +21,7 @@ namespace nbl::system
 class IFile;
 
 //! The FileArchive manages archives and provides access to files inside them.
-class IFileArchive : public core::IReferenceCounted
+class NBL_API2 IFileArchive : public core::IReferenceCounted
 {
 	public:
 		enum E_ALLOCATOR_TYPE

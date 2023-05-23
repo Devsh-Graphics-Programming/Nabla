@@ -8,8 +8,6 @@ namespace @_NAMESPACE_@
 {
 	constexpr std::string_view pathPrefix = "@_BUNDLE_ARCHIVE_ABSOLUTE_PATH_@";
 	constexpr bool hasPathPrefix(std::string_view str) { return str.find(pathPrefix) == 0ull; }
-	
-	std::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);
 
 	class CArchive final : public nbl::system::CFileArchive
 	{
