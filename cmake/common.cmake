@@ -221,6 +221,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	add_dependencies(${LIB_NAME} Nabla)
 	
 	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
+	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 
 	target_include_directories(${LIB_NAME}
 		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
@@ -230,6 +231,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		PUBLIC ${CMAKE_SOURCE_DIR}/include
 		PUBLIC ${CMAKE_SOURCE_DIR}/src
 		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
+		PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
 		PRIVATE ${LIB_INCLUDES}
 	)
 	add_dependencies(${LIB_NAME} Nabla)
