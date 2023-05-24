@@ -21,6 +21,7 @@ struct WorkgroupScanHead
 {
     bool isScan;
     T identity;
+	T firstLevelScan;
     uint itemCount;
     uint lastInvocation;
     uint lastInvocationInLevel;
@@ -43,7 +44,7 @@ struct WorkgroupScanHead
         subgroup::scratchInitialize<ScratchAccessor, T>(value, identity, itemCount);
         lastInvocationInLevel = lastInvocation;
         SubgroupOp subgroupOp;
-        T firstLevelScan = subgroupOp(value);
+        firstLevelScan = subgroupOp(value);
         T scan = firstLevelScan;
         const bool possibleProp = offsetsAndMasks.subgroupInvocation == offsetsAndMasks.subgroupMask; // last invocation in subgroup
         const uint subgroupId = gl_LocalInvocationIndex >> subgroup::SizeLog2();

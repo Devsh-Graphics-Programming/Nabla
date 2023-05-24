@@ -6,9 +6,8 @@
 
 #include "nbl/builtin/hlsl/atomics.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
-#include "nbl/builtin/hlsl/workgroup/shared_ballot.hlsl"
+#include "nbl/builtin/hlsl/subgroup/scratch.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
-#include "nbl/builtin/hlsl/subgroup/basic_portability.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
 
 #ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
@@ -102,7 +101,7 @@ bool inverseBallot()
  * into uint then back again. We use the converter template for this, 
  * which also contains the source type.
  */
-template<class ScratchAccessor, typename T>
+template<typename T, class ScratchAccessor>
 T broadcast(in T val, in uint id)
 {
 // REVIEW: Check if we need edge barriers
@@ -115,7 +114,7 @@ T broadcast(in T val, in uint id)
 }
 
 // REVIEW: Should we have broadcastFirst and broadcastElected?
-template<class ScratchAccessor, typename T>
+template<typename T, class ScratchAccessor>
 T broadcastFirst(in T val)
 {
 	ScratchAccessor scratch;
@@ -171,7 +170,7 @@ uint ballotScanBitCount(in bool exclusive)
 		// scan hierarchically, invocations with `gl_LocalInvocationIndex >= bitfieldDWORDs` will have garbage here
 		Barrier();
 		
-        using WSHT = WorkgroupScanHead<uint, subgroup::inclusive_scan<binops::add<uint> >, ScratchAccessor>;
+        using WSHT = WorkgroupScanHead<uint, subgroup::inclusive_scan<uint, binops::add<uint>, ScratchAccessor >, ScratchAccessor>;
 		WSHT wsh = WSHT::create(true, 0u, bitfieldDWORDs);
 		wsh();
 

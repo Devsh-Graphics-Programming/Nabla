@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
+#include "nbl/builtin/hlsl/binops.hlsl"
 #include "nbl/builtin/hlsl/subgroup/scratch.hlsl"
 
 // REVIEW:  Location and need of these. They need to be over a function but
@@ -24,7 +25,8 @@ void fake_for_capability_and_extension(){}
 const uint gl_LocalInvocationIndex : SV_GroupIndex; // REVIEW: Discuss proper placement of SV_* values. They are not allowed to be defined inside a function scope, only as arguments of main() or global variables in the shader.
 #endif
 
-const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
+//const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
+#define LastWorkgroupInvocation (_NBL_HLSL_WORKGROUP_SIZE_-1U)
 
 namespace nbl
 {
@@ -361,15 +363,12 @@ struct exclusive_scan<uint, binops::max<float> >
 namespace portability
 {
 
-template<class Binop, class ScratchAccessor>
-struct inclusive_scan;
-
 struct scan_base
 {
-    template<class Binop, class ScratchAccessor>
-	static inclusive_scan<Binop, ScratchAccessor> create()
+    template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
+	static inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> create()
 	{
-		inclusive_scan<Binop, ScratchAccessor> retval;
+		inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> retval;
 		retval.offsetsAndMasks = ScratchOffsetsAndMasks::WithDefaults();
 		return retval;
     }
@@ -378,15 +377,14 @@ struct scan_base
     ScratchOffsetsAndMasks offsetsAndMasks;
 };
 
-template<class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
 struct inclusive_scan : scan_base
 {
-    static inclusive_scan<Binop,ScratchAccessor> create()
+    static inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> create()
     {    
-		return scan_base::create<Binop,ScratchAccessor>(); // REVIEW: Is this correct?
+		return scan_base::create<T, Binop, ScratchAccessor, initializeScratch>();
     }
 
-    template<typename T, bool initializeScratch>
     T operator()(T value)
     {
 		Binop op;
@@ -434,27 +432,20 @@ struct inclusive_scan : scan_base
 		}
 		return value;
     }
-
-    template<typename T>
-    T operator()(const T value)
-    {
-        return operator()<T,true>(value);
-    }
 // protected:
 	ScratchAccessor scratchAccessor;
 };
 
-template<class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
 struct exclusive_scan
 {
-    static exclusive_scan<Binop,ScratchAccessor> create()
+    static exclusive_scan<T, Binop, ScratchAccessor, initializeScratch> create()
     {
-        exclusive_scan<Binop, ScratchAccessor> retval;
-        retval.impl = inclusive_scan<Binop, ScratchAccessor>::create();
+        exclusive_scan<T, Binop, ScratchAccessor, initializeScratch> retval;
+        retval.impl = inclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create();
         return retval;
     }
 
-    template<typename T, bool initializeScratch>
     T operator()(T value)
     {
 		value = impl(value);
@@ -475,27 +466,20 @@ struct exclusive_scan
 		return value;
     }
 
-    template<typename T>
-    T operator()(const T value)
-    {
-		return operator()<T,true>(value);
-    }
-
 // protected:
-	inclusive_scan<Binop,ScratchAccessor> impl;
+	inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> impl;
 };
 
-template<class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
 struct reduction
 {
-    static reduction<Binop,ScratchAccessor> create()
+    static reduction<T, Binop, ScratchAccessor, initializeScratch> create()
     {
-        reduction<Binop,ScratchAccessor> retval;
-        retval.impl = inclusive_scan<Binop,ScratchAccessor>::create();
+        reduction<T, Binop, ScratchAccessor, initializeScratch> retval;
+        retval.impl = inclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create();
         return retval;
     }
 
-    template<typename T, bool initializeScratch>
     T operator()(T value)
     {
 		value = impl(value);
@@ -513,7 +497,6 @@ struct reduction
 		impl.scratchAccessor.set(impl.offsetsAndMasks.scanStoreOffset, value);
 		Barrier();
 		MemoryBarrierShared();
-
 		value = impl.scratchAccessor.get(reductionResultOffset);
 		Barrier();
 		MemoryBarrierShared();
@@ -521,15 +504,8 @@ struct reduction
 		// return it
 		return value;
     }
-
-    template<typename T>
-    T operator()(const T value)
-    {
-        return operator()<T,true>(value);
-    }
-
 // protected:
-    inclusive_scan<Binop,ScratchAccessor> impl;
+    inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> impl;
 };
 }
 

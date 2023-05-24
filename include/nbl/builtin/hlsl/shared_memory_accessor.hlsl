@@ -78,6 +78,7 @@ struct SharedMemoryAdaptor
 {
 	NumberSharedMemoryAccessor accessor;
 
+    uint get(const uint ix) { return accessor.get(ix); }
 	void get(const uint ix, out uint value) { value = accessor.get(ix);}
     void get(const uint ix, out uint2 value) { value = uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_));}
     void get(const uint ix, out uint3 value) { value = uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_));}

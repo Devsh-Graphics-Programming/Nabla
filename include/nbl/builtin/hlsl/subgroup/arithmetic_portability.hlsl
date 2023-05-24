@@ -33,16 +33,16 @@ namespace portability
 {
 
 // PORTABILITY BINOP DECLARATIONS
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
 struct reduction;
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
 struct inclusive_scan;
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
 struct exclusive_scan;
 
 }
 
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch = true>
 struct reduction
 {
     T operator()(const T x)
@@ -51,12 +51,12 @@ struct reduction
         native::reduction<T, Binop> reduce;
         return reduce(x);
     #else
-        return portability::reduction<T, Binop, ScratchAccessor>::create()(x);
+        return portability::reduction<T, Binop, ScratchAccessor, initializeScratch>::create()(x);
     #endif
     }
 };
 
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch = true>
 struct exclusive_scan
 {
     T operator()(const T x)
@@ -65,12 +65,12 @@ struct exclusive_scan
         native::exclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-        portability::exclusive_scan<T, Binop, ScratchAccessor>::create()(x);
+        return portability::exclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create()(x);
     #endif
     }
 };
 
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class ScratchAccessor, bool initializeScratch = true>
 struct inclusive_scan
 {
     T operator()(const T x)
@@ -79,7 +79,7 @@ struct inclusive_scan
         native::inclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-        portability::inclusive_scan<T, Binop, ScratchAccessor>::create()(x);
+        return portability::inclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create()(x);
     #endif
     }
 };
