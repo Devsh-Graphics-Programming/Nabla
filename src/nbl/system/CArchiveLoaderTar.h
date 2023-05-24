@@ -14,7 +14,7 @@ class CArchiveLoaderTar final : public IArchiveLoader
 		class CArchive final : public CFileArchive
 		{
 			public:
-				CArchive(core::smart_refctd_ptr<IFile>&& _file, system::logger_opt_smart_ptr&& logger, core::vector<SFileList::SEntry>&& _items) :
+				CArchive(core::smart_refctd_ptr<IFile>&& _file, system::logger_opt_smart_ptr&& logger, std::vector<SFileList::SEntry>&& _items) :
 					CFileArchive(path(_file->getFileName()),std::move(logger),std::move(_items)), m_file(std::move(_file)) {}
 
 			protected:

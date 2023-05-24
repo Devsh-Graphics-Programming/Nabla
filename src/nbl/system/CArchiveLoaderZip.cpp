@@ -106,7 +106,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			return nullptr;
 	}
 
-	core::vector<IFileArchive::SFileList::SEntry> items;
+	std::vector<IFileArchive::SFileList::SEntry> items;
 	core::vector<SZIPFileHeader> itemsMetadata;
 	// load file entries
 	{

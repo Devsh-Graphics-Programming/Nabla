@@ -42,7 +42,7 @@ public:
 
     void populateItemList(const path& p) const {
         auto items = m_system->listItemsInDirectory(m_defaultAbsolutePath/p);
-        auto new_entries = std::make_shared<core::vector<SFileList::SEntry>>();
+        auto new_entries = std::make_shared<std::vector<SFileList::SEntry>>();
         for (auto item : items)
         {
             if (item.has_extension())

@@ -65,7 +65,7 @@ class IFileArchive : public core::IReferenceCounted
 					return pathRelativeToArchive < other.pathRelativeToArchive;
 				}
 			};
-			using refctd_storage_t = std::shared_ptr<const core::vector<SEntry>>;
+			using refctd_storage_t = std::shared_ptr<const std::vector<SEntry>>;
 			using range_t = core::SRange<const SEntry>;
 
 			inline operator range_t() const { return m_range; }

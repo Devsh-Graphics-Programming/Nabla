@@ -98,7 +98,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 	if (!file || !(file->getFlags()&IFileBase::ECF_MAPPABLE))
 		return nullptr;
 
-	core::vector<IFileArchive::SFileList::SEntry> items;
+	std::vector<IFileArchive::SFileList::SEntry> items;
 	for (size_t pos=0ull; true; )
 	{
 		STarHeader fHead;

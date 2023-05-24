@@ -12,7 +12,7 @@ CAPKResourcesArchive::CAPKResourcesArchive(const path& _path, system::logger_opt
 {
 }
 
-core::vector<IFileArchive::SFileList::SEntry> CAPKResourcesArchive::computeItems(const std::string& asset_path, ANativeActivity* activity, JNIEnv* jniEnv)
+std::vector<IFileArchive::SFileList::SEntry> CAPKResourcesArchive::computeItems(const std::string& asset_path, ANativeActivity* activity, JNIEnv* jniEnv)
 {
 	auto context_object = activity->clazz;
 	auto getAssets_method = jniEnv->GetMethodID(jniEnv->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
@@ -27,7 +27,7 @@ core::vector<IFileArchive::SFileList::SEntry> CAPKResourcesArchive::computeItems
 
 	auto length = jniEnv->GetArrayLength(files_object);
 	
-	core::vector<IFileArchive::SFileList::SEntry> result;
+	std::vector<IFileArchive::SFileList::SEntry> result;
 	for (decltype(length) i=0; i<length; i++)
 	{
 		jstring jstr = (jstring)jniEnv->GetObjectArrayElement(files_object,i);
