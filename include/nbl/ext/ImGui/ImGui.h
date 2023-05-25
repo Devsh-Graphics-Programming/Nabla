@@ -1,8 +1,6 @@
 #ifndef NBL_EXT_IMGUI_UI_H
 #define NBL_EXT_IMGUI_UI_H
 
-#include <glm/vec3.hpp>
-
 namespace nbl::ext::imgui
 {
 	class NBL_API2 UI final : public core::IReferenceCounted{
@@ -52,7 +50,7 @@ namespace nbl::ext::imgui
 
 		void InputFloat4(char const* label, float* value);
 
-		void InputFloat3(char const* label, glm::vec3& value);
+		void InputFloat3(char const* label, nbl::core::vector3df& value);
 
 		bool Combo(
 			char const* label,

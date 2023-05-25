@@ -879,14 +879,14 @@ namespace nbl::ext::imgui
 
 	//-------------------------------------------------------------------------------------------------
 
-	void UI::InputFloat3(char const* label, glm::vec3& value)
+	void UI::InputFloat3(char const* label, nbl::core::vector3df&value)
 	{
-		float tempValue[3]{ value.x, value.y, value.z };
+		float tempValue[3]{ value.X, value.Y, value.Z };
 		InputFloat3(label, tempValue);
 
-		if (memcmp(tempValue, &value[0], sizeof(float) * 3) != 0)
+		if (memcmp(tempValue, &value.X, sizeof(float) * 3) != 0)
 		{
-			memcpy(&value[0], tempValue, sizeof(float) * 3);
+			memcpy(&value.X, tempValue, sizeof(float) * 3);
 		}
 	}
 
