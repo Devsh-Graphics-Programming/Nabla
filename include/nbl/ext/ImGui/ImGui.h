@@ -1,12 +1,13 @@
 #ifndef NBL_EXT_IMGUI_UI_H
 #define NBL_EXT_IMGUI_UI_H
 
+
 namespace nbl::ext::imgui
 {
 	class NBL_API2 UI final : public core::IReferenceCounted{
 	public:
 
-		explicit UI(
+		UI(
 			core::smart_refctd_ptr<video::ILogicalDevice> device,
 			int maxFramesInFlight,
 			core::smart_refctd_ptr<video::IGPURenderpass>& renderPass,
