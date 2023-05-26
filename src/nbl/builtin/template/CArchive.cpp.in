@@ -8,7 +8,7 @@ static const auto k_builtinArchiveFileList = new nbl::core::vector<nbl::system::
 };
 
 CArchive::CArchive(nbl::system::logger_opt_smart_ptr&& logger)
-	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), k_builtinArchiveFileList)) 
+	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), k_builtinArchiveFileList)
 {
 
 }
