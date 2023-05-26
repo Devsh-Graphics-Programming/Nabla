@@ -15,7 +15,7 @@ namespace @_NAMESPACE_@
 			CArchive(nbl::system::logger_opt_smart_ptr&& logger);
 			
 		protected:
-			file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SListEntry* item) override
+			file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SFileList::SEntry* item) override
 			{
 					auto found = get_resource_runtime(item->pathRelativeToArchive.string());
 					return { const_cast<uint8_t*>(found.first), found.second, nullptr };

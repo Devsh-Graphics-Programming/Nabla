@@ -106,7 +106,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			return nullptr;
 	}
 
-	std::vector<IFileArchive::SFileList::SEntry> items;
+	core::vector<IFileArchive::SFileList::SEntry>* items = new core::vector<IFileArchive::SFileList::SEntry>();
 	core::vector<SZIPFileHeader> itemsMetadata;
 	// load file entries
 	{
@@ -119,7 +119,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			if (_path.empty())
 				return;
 
-			auto& item = items.emplace_back();
+			auto& item = items->emplace_back();
 			item.pathRelativeToArchive = _path;
 			item.size = meta.DataDescriptor.UncompressedSize;
 			item.offset = offset;
@@ -316,7 +316,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 						if (!success)
 							return nullptr;
 					}
-					items.reserve(dirEnd.TotalEntries);
+					items->reserve(dirEnd.TotalEntries);
 					itemsMetadata.reserve(dirEnd.TotalEntries);
 					offset = dirEnd.Offset;
 					#if 0
@@ -333,11 +333,11 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 		}
 	}
 
-	assert(items.size()==itemsMetadata.size());
-	if (items.empty())
+	assert(items->size()==itemsMetadata.size());
+	if (items->empty())
 		return nullptr;
 
-	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()),std::move(items),std::move(itemsMetadata));
+	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()),items,std::move(itemsMetadata));
 }
 
 #if 0
