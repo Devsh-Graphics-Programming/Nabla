@@ -4,7 +4,7 @@
 
 namespace nbl::ext::imgui
 {
-	class NBL_API2 UI final : public core::IReferenceCounted{
+	class UI final : public core::IReferenceCounted{
 	public:
 
 		UI(
