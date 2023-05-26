@@ -3,12 +3,12 @@
 
 using namespace @_NAMESPACE_@;
 
-static const auto k_builtinArchiveFileList = std::make_shared<const nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>>(nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>{
+static const auto k_builtinArchiveFileList = new nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>{
 @_RESOURCES_INIT_LIST_@
 });
 
 CArchive::CArchive(nbl::system::logger_opt_smart_ptr&& logger)
-	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), const_cast<nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>*>(k_builtinArchiveFileList.get())) 
+	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), k_builtinArchiveFileList)) 
 {
 
 }
