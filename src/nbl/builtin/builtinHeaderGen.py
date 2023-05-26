@@ -37,22 +37,22 @@ else:
     if isSharedLibrary:   
         outp.write("#if defined(__NBL_BUILDING_TARGET__) // currently compiling the target, this define is passed through the commandline\n")
         outp.write("#if defined(_MSC_VER)\n")
-        outp.write("#define BR_API __declspec(dllexport)\n")
+        outp.write("#define NBL_BR_API __declspec(dllexport)\n")
         outp.write("#elif defined(__GNUC__)\n")
-        outp.write('#define BR_API __attribute__ ((visibility ("default")))' + "\n")
+        outp.write('#define NBL_BR_API __attribute__ ((visibility ("default")))' + "\n")
         outp.write("#endif\n")
         outp.write("#else\n")
         outp.write("#if defined(_MSC_VER)\n")
-        outp.write("#define BR_API __declspec(dllimport)\n")
+        outp.write("#define NBL_BR_API __declspec(dllimport)\n")
         outp.write("#else\n")
-        outp.write("#define BR_API\n")
+        outp.write("#define NBL_BR_API\n")
         outp.write("#endif\n")
         outp.write("#endif\n\n")
     
     outp.write("namespace " + resourcesNamespace + " { \n")
     
     if isSharedLibrary:
-        outp.write("\t\tBR_API std::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);\n\n")
+        outp.write("\t\tNBL_BR_API std::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);\n\n")
     else:
         outp.write("\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);\n\n")
     
@@ -65,14 +65,14 @@ else:
         x = itemData[0].rstrip()
         
         if isSharedLibrary:
-            outp.write('\n\t\ttemplate<> BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+            outp.write('\n\t\ttemplate<> NBL_BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
         else:
             outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
         
         if len(itemData) > 1:
             for i in range(1, len(itemData)):
                 if isSharedLibrary:
-                    outp.write('\n\t\ttemplate<> BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
+                    outp.write('\n\t\ttemplate<> NBL_BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
                 else:
                     outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
 

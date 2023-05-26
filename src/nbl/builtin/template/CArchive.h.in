@@ -9,23 +9,17 @@ namespace @_NAMESPACE_@
 	constexpr std::string_view pathPrefix = "@_BUNDLE_ARCHIVE_ABSOLUTE_PATH_@";
 	constexpr bool hasPathPrefix(std::string_view str) { return str.find(pathPrefix) == 0ull; }
 
-	class CArchive final : public nbl::system::CFileArchive
+	class @_NBL_BR_API_@ CArchive final : public nbl::system::CFileArchive
 	{
 		public:
-			inline CArchive(nbl::system::logger_opt_smart_ptr&& logger)
-				: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), resources) {}
+			CArchive(nbl::system::logger_opt_smart_ptr&& logger);
 			
 		protected:
 			file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SListEntry* item) override
 			{
 					auto found = get_resource_runtime(item->pathRelativeToArchive.string());
 					return { const_cast<uint8_t*>(found.first), found.second, nullptr };
-			}
-
-			inline static const nbl::core::vector<nbl::system::IFileArchive::SListEntry> resources
-			{
-@_RESOURCES_INIT_LIST_@
-			};			
+			}			
 	};
 }
 
