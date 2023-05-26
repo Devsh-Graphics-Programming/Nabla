@@ -228,6 +228,29 @@ add_library(spirv_cross OBJECT
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
+if(NBL_BUILD_IMGUI)
+	add_library(imgui STATIC
+		"imgui/imconfig.h"
+		"imgui/imgui_demo.cpp"
+		"imgui/imgui_draw.cpp"
+		"imgui/imgui_internal.h"
+		"imgui/imgui_tables.cpp"
+		"imgui/imgui_widgets.cpp"
+		"imgui/imgui.cpp"
+		"imgui/imgui.h"
+		"imgui/misc/cpp/imgui_stdlib.cpp"
+		"imgui/misc/cpp/imgui_stdlib.h"
+		"imgui/imstb_rectpack.h"
+		"imgui/imstb_textedit.h"
+		"imgui/imstb_truetype.h"
+	)
+	target_include_directories(imgui
+		PUBLIC "imgui"
+		PUBLIC "imgui/misc/cpp"
+		PUBLIC "imgui/backends"
+	)
+
+endif()
 
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
@@ -335,6 +358,9 @@ endif()
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
+endif()
+if (NBL_BUILD_IMGUI)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui)
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)

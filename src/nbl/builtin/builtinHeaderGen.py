@@ -18,6 +18,7 @@ else:
     resourcesFile  = sys.argv[3]
     resourcesNamespace = sys.argv[4]
     guardSuffix = sys.argv[5]
+    isSharedLibrary = True if sys.argv[6] == "True" else False
 
     file = open(resourcesFile, 'r')
     resourcePaths = file.readlines()
@@ -32,7 +33,29 @@ else:
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
     outp.write("#include <utility>\n#include <nbl/core/string/StringLiteral.h>\n\n")
+    
+    if isSharedLibrary:   
+        outp.write("#if defined(__NBL_BUILDING_TARGET__) // currently compiling the target, this define is passed through the commandline\n")
+        outp.write("#if defined(_MSC_VER)\n")
+        outp.write("#define NBL_BR_API __declspec(dllexport)\n")
+        outp.write("#elif defined(__GNUC__)\n")
+        outp.write('#define NBL_BR_API __attribute__ ((visibility ("default")))' + "\n")
+        outp.write("#endif\n")
+        outp.write("#else\n")
+        outp.write("#if defined(_MSC_VER)\n")
+        outp.write("#define NBL_BR_API __declspec(dllimport)\n")
+        outp.write("#else\n")
+        outp.write("#define NBL_BR_API\n")
+        outp.write("#endif\n")
+        outp.write("#endif\n\n")
+    
     outp.write("namespace " + resourcesNamespace + " { \n")
+    
+    if isSharedLibrary:
+        outp.write("\t\tNBL_BR_API std::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);\n\n")
+    else:
+        outp.write("\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);\n\n")
+    
     outp.write("\t\ttemplate<nbl::core::StringLiteral Path>\n")
     outp.write("\t\tconst std::pair<const uint8_t*, size_t> get_resource();\n")
     
@@ -41,11 +64,17 @@ else:
         itemData = z.split(',')
         x = itemData[0].rstrip()
         
-        outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        if isSharedLibrary:
+            outp.write('\n\t\ttemplate<> NBL_BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        else:
+            outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
         
         if len(itemData) > 1:
             for i in range(1, len(itemData)):
-                outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
+                if isSharedLibrary:
+                    outp.write('\n\t\ttemplate<> NBL_BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
+                else:
+                    outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
 
     outp.write("\n\t}")
     outp.write("\n#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")

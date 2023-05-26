@@ -1,0 +1,15 @@
+#include "CArchive.h"
+#include <memory>
+
+using namespace @_NAMESPACE_@;
+
+static const auto k_builtinArchiveFileList = std::make_shared<const nbl::core::vector<nbl::system::IFileArchive::SListEntry>>(nbl::core::vector<nbl::system::IFileArchive::SListEntry>{
+@_RESOURCES_INIT_LIST_@
+});
+
+CArchive::CArchive(nbl::system::logger_opt_smart_ptr&& logger)
+	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), *const_cast<nbl::core::vector<nbl::system::IFileArchive::SListEntry>*>(k_builtinArchiveFileList.get())) 
+{
+
+}
+

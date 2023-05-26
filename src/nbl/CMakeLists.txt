@@ -114,10 +114,6 @@ endif()
 
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
-if(NBL_EMBED_BUILTIN_RESOURCES)	
-	add_subdirectory(builtin)
-	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
-endif()
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 if (NBL_COMPILE_WITH_CUDA)
@@ -360,21 +356,11 @@ set(COMMON_INCLUDE_DIRS
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
-#always install builtins (some may be included in cpp regardless if embedded or not)
-foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
-	list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${X}")
-endforeach()
-list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
-source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
-
 set(NABLA_HEADERS "${NBL_ROOT_PATH}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
-
-get_target_property(_BUILTIN_RESOURCES_HEADER_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_HEADER_DIRECTORY)
 
 set(NBL_LIBRARY_CREATION_SOURCES 
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
-	${_BUILTIN_RESOURCES_HEADER_DIRECTORY_}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
@@ -420,20 +406,6 @@ endif()
 if(NOT NBL_STATIC_BUILD)
 	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
-endif()
-
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_dependencies(Nabla nblBuiltinResourceData)
-	
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE
-			nblBuiltinResourceData
-		)
-	else()
-		target_link_libraries(Nabla PRIVATE 
-			nblBuiltinResourceData
-		)
-	endif()
 endif()
 
 ## Set up 3rdparty deps
@@ -621,6 +593,36 @@ target_compile_definitions(Nabla
 	PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
+
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	add_subdirectory(builtin)
+	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
+	add_dependencies(Nabla nblBuiltinResourceData)
+	
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE
+			nblBuiltinResourceData
+		)
+	else()
+		target_link_libraries(Nabla PRIVATE 
+			nblBuiltinResourceData
+		)
+	endif()
+	
+	# always install builtins (some may be included in cpp regardless if embedded or not)
+	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
+	foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
+		list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${X}")
+	endforeach()
+	
+	target_sources(Nabla PRIVATE 
+		${NABLA_RESOURCES_TO_EMBED_PUBLIC}
+	)
+	
+	list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
+	source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
+	set_source_files_properties(${NABLA_RESOURCES_TO_EMBED_PUBLIC} PROPERTIES HEADER_FILE_ONLY TRUE)
+endif()
 
 # generate Nabla definitions to a header
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
