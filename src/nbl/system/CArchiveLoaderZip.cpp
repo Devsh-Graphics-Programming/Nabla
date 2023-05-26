@@ -106,7 +106,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			return nullptr;
 	}
 
-	core::vector<IFileArchive::SFileList::SEntry>* items = new core::vector<IFileArchive::SFileList::SEntry>();
+	std::shared_ptr<core::vector<IFileArchive::SFileList::SEntry>> items = std::make_shared<core::vector<IFileArchive::SFileList::SEntry>>();
 	core::vector<SZIPFileHeader> itemsMetadata;
 	// load file entries
 	{
@@ -337,7 +337,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 	if (items->empty())
 		return nullptr;
 
-	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()),items,std::move(itemsMetadata));
+	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()), items, std::move(itemsMetadata));
 }
 
 #if 0
