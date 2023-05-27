@@ -21,7 +21,7 @@ namespace nbl::system
 class IFile;
 
 //! The FileArchive manages archives and provides access to files inside them.
-class IFileArchive : public core::IReferenceCounted
+class NBL_API2 IFileArchive : public core::IReferenceCounted
 {
 	public:
 		enum E_ALLOCATOR_TYPE
@@ -33,41 +33,64 @@ class IFileArchive : public core::IReferenceCounted
 			EAT_MALLOC // decompress to RAM
 		};
 		//! An entry in a list of items, can be a folder or a file.
-		struct SListEntry
+		struct SFileList
 		{
-			//! The name of the file including the path relative to archive root
-			system::path pathRelativeToArchive;
-
-			//! The size of the file in bytes
-			size_t size;
-
-			//! FileOffset inside an archive
-			size_t offset;
-
-			//! The ID of the file in an archive, it maps it to a memory pool entry for CFileView
-			uint32_t ID;
-
-			// `EAT_NONE` for directories
-			E_ALLOCATOR_TYPE allocatorType;
-
-			//! The == operator is provided so that CFileList can slowly search the list!
-			inline bool operator==(const struct SListEntry& other) const
+			struct SEntry
 			{
-				return pathRelativeToArchive.string()==other.pathRelativeToArchive.string();
-			}
+				//same stuff as `SListEntry` right now
+				//! The name of the file including the path relative to archive root
+				system::path pathRelativeToArchive;
 
-			//! The < operator is provided so that CFileList can sort and quickly search the list.
-			inline bool operator<(const struct SListEntry& other) const
-			{
-				return pathRelativeToArchive<other.pathRelativeToArchive;
-			}
+				//! The size of the file in bytes
+				size_t size;
+
+				//! FileOffset inside an archive
+				size_t offset;
+
+				//! The ID of the file in an archive, it maps it to a memory pool entry for CFileView
+				uint32_t ID;
+
+				// `EAT_NONE` for directories
+				IFileArchive::E_ALLOCATOR_TYPE allocatorType;
+
+				//! The == operator is provided so that CFileList can slowly search the list!
+				inline bool operator==(const struct SEntry& other) const
+				{
+					return pathRelativeToArchive.string() == other.pathRelativeToArchive.string();
+				}
+
+				//! The < operator is provided so that CFileList can sort and quickly search the list.
+				inline bool operator<(const struct SEntry& other) const
+				{
+					return pathRelativeToArchive < other.pathRelativeToArchive;
+				}
+			};
+			using refctd_storage_t = std::shared_ptr<const core::vector<SEntry>>;
+			using range_t = core::SRange<const SEntry>;
+
+			inline operator range_t() const { return m_range; }
+
+			SFileList(const SFileList&) = default;
+			SFileList(SFileList&&) = default;
+			SFileList& operator=(const SFileList&) = default;
+			SFileList& operator=(SFileList&&) = default;
+
+		private:
+			// default ctor full range
+			SFileList(refctd_storage_t _data) : m_data(_data), m_range({ _data->data(),_data->data() + _data->size() }) {}
+
+			friend class IFileArchive;
+			refctd_storage_t m_data;
+			range_t m_range;
 		};
 
 		//
-		core::SRange<const SListEntry> listAssets() const {return {m_items.data(),m_items.data()+m_items.size()};}
+		virtual inline SFileList listAssets() const {
+			return { m_items.load() };
+		}
 
 		// List all files and directories in a specific dir of the archive
-		core::SRange<const SListEntry> listAssets(const path& asset_path) const;
+		virtual SFileList listAssets(const path& pathRelativeToArchive) const;
 
 		//
 		virtual core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) = 0;
@@ -79,19 +102,19 @@ class IFileArchive : public core::IReferenceCounted
 		IFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger) :
 			m_defaultAbsolutePath(std::move(_defaultAbsolutePath)), m_logger(std::move(logger)) {}
 
-		inline const SListEntry* getItemFromPath(const system::path& pathRelativeToArchive) const
+		inline const SFileList::SEntry* getItemFromPath(const system::path& pathRelativeToArchive) const
 		{
-            const IFileArchive::SListEntry itemToFind = { pathRelativeToArchive };
-			const auto found = std::lower_bound(m_items.begin(),m_items.end(),itemToFind);
-			if (found==m_items.end() || found->pathRelativeToArchive!=pathRelativeToArchive)
+            const  SFileList::SEntry itemToFind = { pathRelativeToArchive };
+			auto items = m_items.load();
+			const auto found = std::lower_bound(items->begin(), items->end(),itemToFind);
+			if (found== items->end() || found->pathRelativeToArchive != pathRelativeToArchive)
 				return nullptr;
 			return &(*found);
 		}
 
-		std::mutex itemMutex; // TODO: update to readers writer lock
 		path m_defaultAbsolutePath;
 		// files and directories
-		core::vector<SListEntry> m_items;
+		mutable std::atomic<SFileList::refctd_storage_t> m_items;
 		//
 		system::logger_opt_smart_ptr m_logger;
 };

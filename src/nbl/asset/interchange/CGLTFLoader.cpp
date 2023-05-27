@@ -47,7 +47,18 @@ using namespace nbl::asset;
 		{
 			auto registerShader = [&](auto constexprStringType, IShader::E_SHADER_STAGE stage, const char* extraDefine=nullptr) -> void
 			{
-				core::smart_refctd_ptr<const system::IFile> glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				auto fileSystem = assetManager->getSystem();
+
+				auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+				{
+					nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+					fileSystem->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+					if (future.wait())
+						return future.copy();
+					return nullptr;
+				};
+
+				core::smart_refctd_ptr<const system::IFile> glslFile = loadBuiltinData(decltype(constexprStringType)::value);
 				auto glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 

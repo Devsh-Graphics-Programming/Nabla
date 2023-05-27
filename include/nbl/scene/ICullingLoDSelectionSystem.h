@@ -490,7 +490,17 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			auto getShader = [device]<core::StringLiteral Path>() -> shader_source_and_path
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
-				auto glslFile = system->loadBuiltinData<Path>();
+
+				auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+				{
+					nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+					system->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+					if (future.wait())
+						return future.copy();
+					return nullptr;
+				};
+
+				auto glslFile = loadBuiltinData(Path.value);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());

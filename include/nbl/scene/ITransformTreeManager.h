@@ -108,7 +108,16 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			auto system = device->getPhysicalDevice()->getSystem();
 			auto createShader = [&system,&device]<core::StringLiteral Path>(asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
-				auto glslFile = system->loadBuiltinData<Path>();
+				auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+				{
+					nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+					system->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+					if (future.wait())
+						return future.copy();
+					return nullptr;
+				};
+
+				auto glslFile = loadBuiltinData(Path.value);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());

@@ -3,11 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#include "nbl/builtin/CArchive.h"
 
 #include <sstream>
 #include <regex>
 #include <iterator>
-
 
 using namespace nbl;
 using namespace nbl::asset;
