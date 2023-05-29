@@ -4,4 +4,5 @@
 */
 
 #define _NABLA_DLL_NAME_ "@_NABLA_DLL_NAME_@"
+#define _DXC_DLL_NAME_ "@_DXC_DLL_NAME_@"
 #define _NABLA_INSTALL_DIR_ @_NABLA_INSTALL_DIR_@

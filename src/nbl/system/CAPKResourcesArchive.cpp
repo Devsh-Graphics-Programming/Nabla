@@ -12,7 +12,7 @@ CAPKResourcesArchive::CAPKResourcesArchive(const path& _path, system::logger_opt
 {
 }
 
-core::vector<IFileArchive::SListEntry> CAPKResourcesArchive::computeItems(const std::string& asset_path, ANativeActivity* activity, JNIEnv* jniEnv)
+core::vector<IFileArchive::SFileList::SEntry> CAPKResourcesArchive::computeItems(const std::string& asset_path, ANativeActivity* activity, JNIEnv* jniEnv)
 {
 	auto context_object = activity->clazz;
 	auto getAssets_method = jniEnv->GetMethodID(jniEnv->GetObjectClass(context_object), "getAssets", "()Landroid/content/res/AssetManager;");
@@ -27,7 +27,7 @@ core::vector<IFileArchive::SListEntry> CAPKResourcesArchive::computeItems(const 
 
 	auto length = jniEnv->GetArrayLength(files_object);
 	
-	core::vector<IFileArchive::SListEntry> result;
+	core::vector<IFileArchive::SFileList::SEntry> result;
 	for (decltype(length) i=0; i<length; i++)
 	{
 		jstring jstr = (jstring)jniEnv->GetObjectArrayElement(files_object,i);
@@ -54,7 +54,7 @@ core::vector<IFileArchive::SListEntry> CAPKResourcesArchive::computeItems(const 
 	return result;
 }
 
-CFileArchive::file_buffer_t CAPKResourcesArchive::getFileBuffer(const IFileArchive::SListEntry* item)
+CFileArchive::file_buffer_t CAPKResourcesArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
 {
 	AAsset* asset = AAssetManager_open(m_mgr,item->pathRelativeToArchive.string().c_str(),AASSET_MODE_BUFFER);
 	return {const_cast<void*>(AAsset_getBuffer(asset)),static_cast<size_t>(AAsset_getLength(asset)),asset};

@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#include "nbl/builtin/CArchive.h"
 
 
 #ifdef _NBL_PLATFORM_WINDOWS_

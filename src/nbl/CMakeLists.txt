@@ -114,10 +114,6 @@ endif()
 
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
-if(NBL_EMBED_BUILTIN_RESOURCES)	
-	add_subdirectory(builtin)
-	NBL_ADD_BUILTIN_RESOURCES()
-endif()
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 if (NBL_COMPILE_WITH_CUDA)
@@ -360,15 +356,6 @@ set(COMMON_INCLUDE_DIRS
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
-#always install builtins (some may be included in cpp regardless if embedded or not)
-foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
-	list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${X}")
-endforeach()
-list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
-source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
-set_source_files_properties(${NABLA_RESOURCES_TO_EMBED_PUBLIC}
-                            PROPERTIES HEADER_FILE_ONLY TRUE)
-
 set(NABLA_HEADERS "${NBL_ROOT_PATH}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 set(NBL_LIBRARY_CREATION_SOURCES 
@@ -485,7 +472,7 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
 endif()
-target_include_directories(Nabla PUBLIC BEFORE ${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include)
+target_include_directories(Nabla PUBLIC BEFORE "${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include")
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)
@@ -607,6 +594,36 @@ target_compile_definitions(Nabla
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	add_subdirectory(builtin)
+	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
+	add_dependencies(Nabla nblBuiltinResourceData)
+	
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE
+			nblBuiltinResourceData
+		)
+	else()
+		target_link_libraries(Nabla PRIVATE 
+			nblBuiltinResourceData
+		)
+	endif()
+	
+	# always install builtins (some may be included in cpp regardless if embedded or not)
+	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
+	foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
+		list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${X}")
+	endforeach()
+	
+	target_sources(Nabla PRIVATE 
+		${NABLA_RESOURCES_TO_EMBED_PUBLIC}
+	)
+	
+	list(APPEND NABLA_HEADERS_PUBLIC ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
+	source_group("Resources to embed" FILES ${NABLA_RESOURCES_TO_EMBED_PUBLIC})
+	set_source_files_properties(${NABLA_RESOURCES_TO_EMBED_PUBLIC} PROPERTIES HEADER_FILE_ONLY TRUE)
+endif()
+
 # generate Nabla definitions to a header
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
@@ -622,12 +639,6 @@ if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	add_dependencies(Nabla nblBuiltinResourceData)
-	target_link_libraries(Nabla PUBLIC nblBuiltinResourceData)
-	target_include_directories(Nabla PUBLIC "${NBL_BUILTIN_RESOURCES_HEADER}")
-endif()
-
 # extensions
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
@@ -635,10 +646,17 @@ propagate_changed_variables_to_parent_scope()
 
 if(NOT NBL_STATIC_BUILD)
 	add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
-		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
+		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
 		COMMENT "Launching defines.h generation script!"
 		VERBATIM
 	)
+	
+	add_custom_target(generate_nabla_defines ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
+        VERBATIM
+    )
+	
+	add_dependencies(Nabla generate_nabla_defines)
 endif()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
@@ -647,6 +665,10 @@ if(NOT NBL_STATIC_BUILD)
 endif()
 nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
+
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	nbl_install_builtin_resources(nblBuiltinResourceData)
+endif()
 
 # TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
 macro(nbl_install_program _TRGT)

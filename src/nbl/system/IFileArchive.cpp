@@ -6,35 +6,17 @@ using namespace nbl;
 using namespace nbl::system;
 
 
-core::SRange<const IFileArchive::SListEntry> IFileArchive::listAssets(const path& asset_path) const
+IFileArchive::SFileList IFileArchive::listAssets(const path& pathRelativeToArchive) const
 {
-	// TODO: use something from ISystem for this?
-	constexpr auto isSubDir = [](path p, path root) -> bool
-	{
-		while (p != path())
+		auto trimmedList = listAssets();
 		{
-			if (p==root)
-				return true;
-			p = p.parent_path();
+			auto begin = trimmedList.m_data->begin();
+			auto end = trimmedList.m_data->end();
+			const SFileList::SEntry itemToFind = { pathRelativeToArchive };
+			trimmedList.m_range = { &(*std::lower_bound(begin,end,itemToFind)),&(*std::upper_bound(begin,end,itemToFind)) };
 		}
-		return false;
-	};
+		return trimmedList;
 
-	const IFileArchive::SListEntry* begin = nullptr;
-	const IFileArchive::SListEntry* end = nullptr;
-	for (auto& entry : m_items)
-	{
-		if (isSubDir(entry.pathRelativeToArchive, asset_path))
-		{
-			if (begin)
-				end = &entry;
-			else
-				begin = &entry;
-		}
-		else if (end)
-			break;
-	}
-	return {begin,end};
 
 	/*
 	// future, cause lower/upper bound don't work like that
