@@ -43,22 +43,25 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 			scale(value_t(1)/stretchFactor);
 		}
 
-		inline value_t weight(const float x, const uint32_t sampleCount = 64u) const
+		inline value_t weight(float x, const uint32_t sampleCount = 64u) const
 		{
+			value_t retval;
+			// handle global stretch before we do anything
+			x *= m_invStretch;
 			if constexpr (std::is_same_v<WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative==0)
-				return m_funcA.weight(x);
+				retval = m_funcA.weight(x);
 			else if (std::is_same_v<WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative==0)
-				return m_funcB.weight(x);
+				retval = m_funcB.weight(x);
 			else
 			{
-				// handle generate cases of constituent function degenerate scaling
-				// https://github.com/Devsh-Graphics-Programming/Nabla/pull/435/files#r1206984286
-				value_t retval = 0.0/0.0; // special value to indicate `A.m_invStretch` is finite
+				// Handle generate cases of constituent function degenerate scaling: https://github.com/Devsh-Graphics-Programming/Nabla/pull/435/files#r1206984286
 				// A 
 				if (core::is_inf(m_funcA.m_invStretch))
 					retval = m_funcA.energy();
 				else if (core::abs(m_funcA.m_invStretch)<=std::numeric_limits<value_t>::min())
 					retval = m_funcA.weight(0.f);
+				else
+					retval = 0.0/0.0; // abuse NaN to indicate `A.m_invStretch` is finite
 				// B
 				if (core::is_inf(m_funcB.m_invStretch))
 				{
@@ -73,12 +76,11 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 					retval *= m_funcB.weight(0.f);
 				}
 				else if (core::isnan(retval)) // NaN means scale was finite
-					retval = weight_impl(x * m_invStretch, sampleCount);
+					retval = weight_impl(x, sampleCount);
 				else
 					retval *= m_funcB.weight(x);
-
-				return m_totalScale * retval;
 			}
+			return m_totalScale * retval;
 		}
 
 	private:
