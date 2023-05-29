@@ -1,8 +1,7 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
-
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.26)
 #policies
 cmake_policy(SET CMP0112 NEW)
 
@@ -56,6 +55,7 @@ endif()
 
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include")
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)

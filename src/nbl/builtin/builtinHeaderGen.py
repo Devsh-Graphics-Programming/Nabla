@@ -17,29 +17,66 @@ else:
     cmakeSourceDir = sys.argv[2]
     resourcesFile  = sys.argv[3]
     resourcesNamespace = sys.argv[4]
+    guardSuffix = sys.argv[5]
+    isSharedLibrary = True if sys.argv[6] == "True" else False
 
-    with open(resourcesFile, "r") as f:
-        resourcePaths = f.read().rstrip().split(',')
+    file = open(resourcesFile, 'r')
+    resourcePaths = file.readlines()
 
     #opening a file
     outp = open(outputFilename,"w+")
 
-    outp.write("#ifndef BUILTINRESOURCEDATA_H\n")
-    outp.write("#define BUILTINRESOURCEDATA_H\n")
+    outp.write("#ifndef _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
+    outp.write("#define _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
     outp.write("#include <stdlib.h>\n")
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
     outp.write("#include <utility>\n#include <nbl/core/string/StringLiteral.h>\n\n")
+    
+    if isSharedLibrary:   
+        outp.write("#if defined(__NBL_BUILDING_TARGET__) // currently compiling the target, this define is passed through the commandline\n")
+        outp.write("#if defined(_MSC_VER)\n")
+        outp.write("#define NBL_BR_API __declspec(dllexport)\n")
+        outp.write("#elif defined(__GNUC__)\n")
+        outp.write('#define NBL_BR_API __attribute__ ((visibility ("default")))' + "\n")
+        outp.write("#endif\n")
+        outp.write("#else\n")
+        outp.write("#if defined(_MSC_VER)\n")
+        outp.write("#define NBL_BR_API __declspec(dllimport)\n")
+        outp.write("#else\n")
+        outp.write("#define NBL_BR_API\n")
+        outp.write("#endif\n")
+        outp.write("#endif\n\n")
+    
     outp.write("namespace " + resourcesNamespace + " { \n")
+    
+    if isSharedLibrary:
+        outp.write("\t\tNBL_BR_API std::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);\n\n")
+    else:
+        outp.write("\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename);\n\n")
+    
     outp.write("\t\ttemplate<nbl::core::StringLiteral Path>\n")
     outp.write("\t\tconst std::pair<const uint8_t*, size_t> get_resource();\n")
     
     #Iterating through input list
-    for x in resourcePaths:
-        outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+    for z in resourcePaths:
+        itemData = z.split(',')
+        x = itemData[0].rstrip()
+        
+        if isSharedLibrary:
+            outp.write('\n\t\ttemplate<> NBL_BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        else:
+            outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
+        
+        if len(itemData) > 1:
+            for i in range(1, len(itemData)):
+                if isSharedLibrary:
+                    outp.write('\n\t\ttemplate<> NBL_BR_API const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
+                else:
+                    outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
 
     outp.write("\n\t}")
-    outp.write("\n#endif")
+    outp.write("\n#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")
 
     outp.close()
