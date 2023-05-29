@@ -9,21 +9,21 @@
 namespace nbl::asset
 {
 
-// If we allow the user to specify a derivative of CConvolutionWeightFunction1D then there will be the following problem:
-// There will be no way for us to evaluate the constituent functions (m_funcA, m_funcB) on an arbitrary derivative because
+// We don't allow the user to specify a derivative of CConvolutionWeightFunction1D as a template parameter on the `weight` function
+// because there would be no way for us to evaluate the constituent functions (m_funcA, m_funcB) on an arbitrary derivative because
 // `derivative` is a class template member not a function template member (done to handle chain rule) of CWeightFunction1D.
-// So, we would have to create new `CWeightFunction1D`s entirely and use them (not just here, but in the various specializations
-// of this function). Not sure if its worth it, both in terms of performance and code complexity.
+// So, we would have to create new `CWeightFunction1D`s entirely and use them in the various specializations of the `weight_impl`.
 
-// this is the horribly slow generic version that you should not use (only use the specializations or when one of the weights is a dirac)
+// If you want a Nth order derivative of `Conv<CWeightFunction<A>,CWeightFunction<B>>` then create a `Conv<CWeightFunction<Ai,>,CWeightFunction<B,j>>`
+// which satisfies `i<A::k_smoothness && j<B::k_smoothness && (i+j)==n` which is basically applying the derivative property of convolution.
+
+// This is the horribly slow generic version that you should not use (only use the specializations or when one of the weights is a dirac)
 template<SimpleWeightFunction1D WeightFunction1DA, SimpleWeightFunction1D WeightFunction1DB>
 class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<WeightFunction1DA::value_t>
 {
 		static_assert(std::is_same_v<WeightFunction1DA::value_t,WeightFunction1DB::value_t>, "Both functions must use the same Value Type!");
 	public:
 		constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
-		// https://math.stackexchange.com/questions/1548933/area-under-the-convolution-proof
-		constexpr static inline value_t k_energy = WeightFunction1DA::k_energy + WeightFunction1DB::k_energy;
 
 		inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA, WeightFunction1DB&& funcB)
 			: impl::IWeightFunction1D<WeightFunction1DA::value_t>(
@@ -36,14 +36,49 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 
 		inline void stretch(const float s) {impl_stretch(s);}
 
+		// This method will keep the integral of the weight function without derivatives constant.
+		inline void stretchAndScale(const float stretchFactor)
+		{
+			stretch(stretchFactor);
+			scale(value_t(1)/stretchFactor);
+		}
+
 		inline value_t weight(const float x, const uint32_t sampleCount = 64u) const
 		{
-			if constexpr (std::is_same_v<WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative)
+			if constexpr (std::is_same_v<WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative==0)
 				return m_funcA.weight(x);
-			else if (std::is_same_v<WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative)
+			else if (std::is_same_v<WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative==0)
 				return m_funcB.weight(x);
 			else
-				return m_totalScale * weight_impl(x * m_invStretch, sampleCount);
+			{
+				// handle generate cases of constituent function degenerate scaling
+				// https://github.com/Devsh-Graphics-Programming/Nabla/pull/435/files#r1206984286
+				value_t retval = 0.0/0.0; // special value to indicate `A.m_invStretch` is finite
+				// A 
+				if (core::is_inf(m_funcA.m_invStretch))
+					retval = m_funcA.energy();
+				else if (core::abs(m_funcA.m_invStretch)<=std::numeric_limits<value_t>::min())
+					retval = m_funcA.weight(0.f);
+				// B
+				if (core::is_inf(m_funcB.m_invStretch))
+				{
+					if (core::isnan(retval))
+						retval = m_funcA.weight(x);
+					retval *= m_funcB.energy();
+				}
+				else if (core::abs(m_funcB.m_invStretch)<=std::numeric_limits<value_t>::min())
+				{
+					if (core::isnan(retval))
+						retval = m_funcA.weight(x);
+					retval *= m_funcB.weight(0.f);
+				}
+				else if (core::isnan(retval)) // NaN means scale was finite
+					retval = weight_impl(x * m_invStretch, sampleCount);
+				else
+					retval *= m_funcB.weight(x);
+
+				return m_totalScale * retval;
+			}
 		}
 
 	private:
@@ -52,40 +87,21 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 
 		const bool m_isFuncAWider;
 
-	value_t weight_impl(const float x, const uint32_t sampleCount) const
-	{
-		auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
-
-		// TODO(achal): what ????
-		// if this happens, it means that `m_ratio=INF` and it degenerated into a dirac delta
-		if (minIntegrationLimit == maxIntegrationLimit)
+		value_t weight_impl(const float x, const uint32_t sampleCount) const
 		{
-			assert(false);
-			assert(WeightFunction1DB::k_energy[channel] != 0.f); // TODO(achal): Remove.
-			return m_funcA.weight(x, channel) * WeightFunction1DB::k_energy[channel];
+			value_t result = 0.0;
+			auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
+			const double dtau = (maxIntegrationLimit-minIntegrationLimit)/double(sampleCount);
+			for (uint32_t i = 0u; i < sampleCount; ++i)
+			{
+				const double tau = minIntegrationLimit + i * dtau;
+				if (m_isFuncAWider)
+					result += m_funcA.weight(tau, channel) * m_funcB.weight(x - tau, channel) * dtau;
+				else
+					result += m_funcB.weight(tau, channel) * m_funcA.weight(x - tau, channel) * dtau;
+			}
+			return static_cast<float>(result);
 		}
-
-		const double dtau = (maxIntegrationLimit - minIntegrationLimit) / sampleCount;
-
-		// TODO(achal): what ???
-		// if this happened then `m_ratio=0` and we have infinite domain, this is not a problem
-		if (core::isnan<double>(dtau))
-		{
-			assert(false);
-			return m_funcA.weight(x, channel) * m_funcB.weight(0.f, channel);
-		}
-
-		double result = 0.0;
-		for (uint32_t i = 0u; i < sampleCount; ++i)
-		{
-			const double tau = minIntegrationLimit + i * dtau;
-			if (m_isFuncAWider)
-				result += m_funcA.weight(tau, channel) * m_funcB.weight(x - tau, channel) * dtau;
-			else
-				result += m_funcB.weight(tau, channel) * m_funcA.weight(x - tau, channel) * dtau;
-		}
-		return static_cast<float>(result);
-	}
 
 	std::pair<double, double> getIntegrationDomain(const float x) const
 	{
