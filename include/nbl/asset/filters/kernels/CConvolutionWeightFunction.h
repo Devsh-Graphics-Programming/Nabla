@@ -88,9 +88,7 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 
 		value_t weight_impl(const float x, const uint32_t sampleCount) const
 		{
-			// simple AABB intersection, note that 
-			const double minIntegrationLimit = std::max(m_funcA.getMinSupport(),x-m_funcB.getMaxSupport());
-			const double maxIntegrationLimit = std::min(m_funcB.getMaxSupport(),x-m_funcB.getMinSupport());
+			const auto [minIntegrationLimit,maxIntegrationLimit] = getIntegrationDomain(x);
 			const double dtau = (maxIntegrationLimit-minIntegrationLimit)/double(sampleCount);
 			// only proceed with integration if integration domain is valid (non zero size and correct orientation)
 			value_t result = 0.0;
@@ -102,6 +100,12 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 				result += m_funcA.weight(tau, channel) * m_funcB.weight(x-tau, channel) * dtau;
 			}
 			return static_cast<value_t>(result);
+		}
+
+		inline std::pair<double,double> getIntegrationDomain() const
+		{
+			// simple AABB intersection, note that because funcB is sampled as `x-tau` the `-tau` flips the AABB around so [Min,Max] becomes [-Max,-Min]
+			return {std::max(m_funcA.getMinSupport(),x-m_funcB.getMaxSupport()),std::min(m_funcB.getMaxSupport(),x-m_funcB.getMinSupport())};
 		}
 };
 
