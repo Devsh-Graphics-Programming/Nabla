@@ -47,6 +47,7 @@ struct SDiracFunction final
 	constexpr static inline float min_support = -1e-6f;
 	constexpr static inline float max_support = +1e-6f;
 	constexpr static inline uint32_t k_smoothness = 0;
+	constexpr static inline double k_energy[1] = {1.0};
 
 	template<int32_t derivative=0>
 	static inline double weight(float x)
@@ -67,6 +68,7 @@ struct SBoxFunction final
 	constexpr static inline float min_support = -0.5f;
 	constexpr static inline float max_support = +0.5f;
 	constexpr static inline uint32_t k_smoothness = 0;
+	constexpr static inline double k_energy[1] = {1.0};
 
 	template <int32_t derivative = 0>
 	static inline double weight(float x)
@@ -89,6 +91,7 @@ struct STriangleFunction final
 	constexpr static inline float max_support = +1.f;
 	// Derivative at 0 not defined.
 	constexpr static inline uint32_t k_smoothness = 0;
+	constexpr static inline double k_energy[1] = {1.0};
 
 	template <int32_t derivative = 0>
 	static inline double weight(float x)
@@ -112,6 +115,8 @@ struct SGaussianFunction final
 	constexpr static inline float min_support = -max_support;
 	// normally it would be INF, but we overflow on the compile-time polynomials
 	constexpr static inline uint32_t k_smoothness = 32;
+	// even though function is smooth, integrals of derivatives are always 0 by construction
+	constexpr static inline double k_energy[1] = {1.0};
 
 	template <int32_t derivative = 0>
 	static inline double weight(float x)
@@ -155,6 +160,9 @@ struct SMitchellFunction final
 	constexpr static inline float min_support = -2.f;
 	constexpr static inline float max_support = +2.f;
 	constexpr static inline uint32_t k_smoothness = std::numeric_limits<uint32_t>::max();
+	// even though function is infinitely smooth, its 0 valued after the 3rd derivative
+	// also any function with finite support will cause its derivatives to have 0 infinite integrals
+	constexpr static inline double k_energy[1] = {1.0};
 
 	template <int32_t derivative = 0>
 	static inline double weight(float x)
@@ -208,6 +216,8 @@ struct SKaiserFunction final
 	constexpr static inline float max_support = +3.f;
 	// we only implemented the derivative once
 	constexpr static inline uint32_t k_smoothness = 1;
+	// any function with finite support will cause its derivatives to have 0 infinite integrals
+	constexpr static inline double k_energy[1] = {1.0};
 
 	template <int32_t derivative = 0>
 	static inline double weight(float x)
@@ -245,10 +255,11 @@ private:
 template<typename T>
 concept Function1D = requires(T t, const float x)
 {
-	{ T::min_support }	    -> std::same_as<const float&>;
-	{ T::max_support }	    -> std::same_as<const float&>;
-	{ T::k_smoothness }	    -> std::same_as<const uint32_t&>;
+	{ T::min_support }          -> std::same_as<const float&>;
+	{ T::max_support }          -> std::same_as<const float&>;
+	{ T::k_smoothness }         -> std::same_as<const uint32_t&>;
 	{ T::template weight<0>(x) }-> std::floating_point;
+	{ T::k_energy[0] }	    -> std::same_as<const decltype(T::template weight<0>(x))&>;
 };
 
 
@@ -266,13 +277,6 @@ class IWeightFunction1D
 		{
 			assert(s != 0.f);
 			m_totalScale *= s;
-		}
-
-		// This method will keep the integral of the weight function constant.
-		inline void stretchAndScale(const float stretchFactor)
-		{
-			stretch(stretchFactor);
-			scale(value_t(1)/stretchFactor);
 		}
 
 		// getters
@@ -315,7 +319,6 @@ class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::dec
 
 		static_assert(function_t::k_smoothness>k_derivative);
 		constexpr static inline uint32_t k_smoothness = function_t::k_smoothness-k_derivative;
-		constexpr static inline value_t k_energy = 0.0; // TODO(achal): Implement.
 
 		CWeightFunction1D() : impl::IWeightFunction1D<value_t>(function_t::min_support,function_t::max_support) {}
 		
@@ -328,9 +331,28 @@ class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::dec
 				scale(pow(rcp_s,k_derivative));
 		}
 
+		// This method will keep the integral of the weight function without derivatives constant.
+		inline void stretchAndScale(const float stretchFactor)
+		{
+			stretch(stretchFactor);
+			scale(value_t(1)/stretchFactor);
+		}
+
 		inline value_t weight(const float x) const
 		{
 			return static_cast<double>(m_totalScale*function_t::weight<derivative>(x*m_invStretch));
+		}
+
+		// Integral of `weight(x) dx` from -INF to +INF
+		inline value_t energy() const
+		{
+			if constexpr(sizeof(function_t::k_energy)/sizeof(value_t)>k_derivative)
+			{
+				// normally it would be `scale*invStretch^(derivative+1)*k_energy[k_derivative]`
+				// but `scale` already contains precomputed `invStretch^derivative` factor when we call `stretch`
+				return m_totalScale*m_invStretch*function_t::k_energy[k_derivative];
+			}
+			return 0.0;
 		}
 };
 
@@ -344,7 +366,6 @@ concept WeightFunction1D = requires(T t, const float x, const T::value_t s)
 	std::derived_from<T,IWeightFunction1D<T::value_t>>;
 
 	{ T::k_smoothness }	-> std::same_as<const uint32_t&>;
-	{ T::k_energy }		-> std::same_as<const typename T::value_t&>;
 
 	{ t.stretch(x) }	-> std::same_as<void>;
 
@@ -359,6 +380,9 @@ concept SimpleWeightFunction1D = requires(T t)
 	
 	Function1D<typename T::function_t>;
 	{ T::k_derivative }	-> std::same_as<const uint32_t&>;
+	std::same_as<CWeightFunction1D<typename T::function_t,T::k_derivative>,T>;
+
+	{ t.energy() }		-> std::same_as<typename T::value_t>;
 };
 
 } // end namespace nbl::asset
