@@ -6,12 +6,11 @@ namespace nbl::asset
 template <>
 double CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::weight_impl(const float x, const uint32_t) const
 {
-	const auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
-
-	if (m_isFuncAWider)
-		return (maxIntegrationLimit - minIntegrationLimit) * m_funcA.weight(x) * m_funcB.weight(0.f);
-	else
-		return (maxIntegrationLimit - minIntegrationLimit) * m_funcB.weight(x) * m_funcA.weight(0.f);
+	const auto [minIntegrationLimit,maxIntegrationLimit] = getIntegrationDomain(x);
+	if (minIntegrationLimit<maxIntegrationLimit)
+		return (maxIntegrationLimit-minIntegrationLimit)*m_funcA.getTotalScale()*m_funcB.getTotalScale();
+	// else no overlap
+	return 0.0;
 }
 
 template <>
@@ -35,7 +34,7 @@ template <>
 double CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::weight_impl(const float x, const uint32_t) const
 {
 	const double true_scale = m_funcA.getTotalScale()*m_funcB.getTotalScale()/(m_funcA.getInvStretch()*m_funcB.getInvStretch());
-	if (m_isFuncAWider)
+	if (m_funcA.getSupportWidth()>m_funcB.getSupportWidth())
 		return true_scale*m_funcA.weight(x);
 	else
 		return true_scale*m_funcB.weight(x);
