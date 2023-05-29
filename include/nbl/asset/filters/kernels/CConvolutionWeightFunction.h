@@ -29,8 +29,7 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 			: impl::IWeightFunction1D<WeightFunction1DA::value_t>(
 				m_funcA.getMinSupport()+m_funcB.getMinSupport(),
 				m_funcA.getMaxSupport()+m_funcB.getMaxSupport()
-			), m_funcA(std::move(funcA)), m_funcB(std::move(funcB)),
-			m_isFuncAWider((m_funcA.getMaxSupport() - m_funcA.getMinSupport()) > (m_funcB.getMaxSupport() - m_funcB.getMinSupport()))
+			), m_funcA(std::move(funcA)), m_funcB(std::move(funcB))
 		{
 		}
 
@@ -87,61 +86,23 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<Weight
 		const WeightFunction1DA m_funcA;
 		const WeightFunction1DB m_funcB;
 
-		const bool m_isFuncAWider;
-
 		value_t weight_impl(const float x, const uint32_t sampleCount) const
 		{
-			value_t result = 0.0;
-			auto [minIntegrationLimit, maxIntegrationLimit] = getIntegrationDomain(x);
+			// simple AABB intersection, note that 
+			const double minIntegrationLimit = std::max(m_funcA.getMinSupport(),x-m_funcB.getMaxSupport());
+			const double maxIntegrationLimit = std::min(m_funcB.getMaxSupport(),x-m_funcB.getMinSupport());
 			const double dtau = (maxIntegrationLimit-minIntegrationLimit)/double(sampleCount);
-			for (uint32_t i = 0u; i < sampleCount; ++i)
+			// only proceed with integration if integration domain is valid (non zero size and correct orientation)
+			value_t result = 0.0;
+			// otherwise no overlap between the two functions when shifted by x
+			if (dtau>std::numeric_limits<value_t>::min())
+			for (uint32_t i=0u; i<sampleCount; ++i)
 			{
-				const double tau = minIntegrationLimit + i * dtau;
-				if (m_isFuncAWider)
-					result += m_funcA.weight(tau, channel) * m_funcB.weight(x - tau, channel) * dtau;
-				else
-					result += m_funcB.weight(tau, channel) * m_funcA.weight(x - tau, channel) * dtau;
+				const double tau = dtau*double(i)+minIntegrationLimit;
+				result += m_funcA.weight(tau, channel) * m_funcB.weight(x-tau, channel) * dtau;
 			}
-			return static_cast<float>(result);
+			return static_cast<value_t>(result);
 		}
-
-	std::pair<double, double> getIntegrationDomain(const float x) const
-	{
-		// We assume that the wider function is stationary (not shifting as `x` changes) while the narrower function is the one which shifts, such that it is always centered at x.
-
-		const float funcNarrowMinSupport = m_isFuncAWider ? m_funcB.getMinSupport() : m_funcA.getMinSupport();
-		const float funcNarrowMaxSupport = m_isFuncAWider ? m_funcB.getMaxSupport() : m_funcA.getMaxSupport();
-
-		const float funcWideMinSupport = m_isFuncAWider ? m_funcA.getMinSupport() : m_funcB.getMinSupport();
-		const float funcWideMaxSupport = m_isFuncAWider ? m_funcA.getMaxSupport() : m_funcB.getMaxSupport();
-
-		const float funcNarrowWidth = funcNarrowMaxSupport - funcNarrowMinSupport;
-		const float funcWideWidth = funcWideMaxSupport - funcWideMinSupport;
-
-		const float funcNarrowWidth_half = funcNarrowWidth * 0.5;
-
-		double minIntegrationLimit = 0.0, maxIntegrationLimit = 0.0;
-		{
-			if ((x >= (funcWideMinSupport - funcNarrowWidth_half)) && (x <= (funcWideMinSupport + funcNarrowWidth_half)))
-			{
-				minIntegrationLimit = funcWideMinSupport;
-				maxIntegrationLimit = x + funcNarrowWidth_half;
-			}
-			else if ((x >= (funcWideMinSupport + funcNarrowWidth_half)) && (x <= (funcWideMaxSupport - funcNarrowWidth_half)))
-			{
-				minIntegrationLimit = x - funcNarrowWidth_half;
-				maxIntegrationLimit = x + funcNarrowWidth_half;
-			}
-			else if ((x >= (funcWideMaxSupport - funcNarrowWidth_half)) && (x <= (funcWideMaxSupport + funcNarrowWidth_half)))
-			{
-				minIntegrationLimit = x - funcNarrowWidth_half;
-				maxIntegrationLimit = funcWideMaxSupport;
-			}
-		}
-		assert(minIntegrationLimit <= maxIntegrationLimit);
-
-		return { minIntegrationLimit, maxIntegrationLimit };
-	}
 };
 
 template <>
