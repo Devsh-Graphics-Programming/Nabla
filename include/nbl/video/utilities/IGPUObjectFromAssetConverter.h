@@ -1035,34 +1035,55 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
 
         if (cpuimg->getRegions().size())
-        {
             params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
-        }
-
-        if (needToCompMipsForThisImg(cpuimg))
+        
+        const bool computeMips = needToCompMipsForThisImg(cpuimg);
+        if (computeMips)
         {
             params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT; // this is for blit
             // I'm already adding usage flags for mip-mapping compute shader
             params.usage |= asset::IImage::EUF_SAMPLED_BIT; // to read source mips
-            params.usage |= asset::IImage::EUF_STORAGE_BIT; // to write dst mips
+            // but we don't add the STORAGE USAGE
             // TODO: will change when we do the blit on compute shader.
             promotionRequest.usages.blitDst = true;
             promotionRequest.usages.blitSrc = true;
         }
         
+        auto physDev = _params.device->getPhysicalDevice();
         promotionRequest.usages = promotionRequest.usages | params.usage;
-        auto newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
+        auto newFormat = physDev->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
+        auto newFormatIsStorable = physDev->getImageFormatUsagesOptimalTiling()[newFormat].storageImage;
         
         // If Format Promotion failed try the same usages but with linear tiling.
-        if (params.format == asset::EF_UNKNOWN)
-            newFormat = _params.utilities->getLogicalDevice()->getPhysicalDevice()->promoteImageFormat(promotionRequest, video::IGPUImage::ET_LINEAR);
+        if (newFormat == asset::EF_UNKNOWN)
+        {
+            newFormat = physDev->promoteImageFormat(promotionRequest, video::IGPUImage::ET_LINEAR);
+            newFormatIsStorable = physDev->getImageFormatUsagesLinearTiling()[newFormat].storageImage;
+        }
 
-        assert(params.format != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
+        assert(newFormat != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
         params.format = newFormat;
+
+#if 0 // TODO: Bump our minimum Vulkan version to 1.2, then implement https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageFormatListCreateInfo.html in our API
+        // now add the STORAGE USAGE
+        if (computeMips)
+        {
+            // formats like SRGB etc. can't be stored to
+            params.usage |= asset::IImage::EUF_STORAGE_BIT;
+            // but image views with formats that are store-able can be created
+            if (!newFormatIsStorable)
+            {
+                params.flags |= asset::IImage::ECF_MUTABLE_FORMAT_BIT;
+                params.flags |= asset::IImage::ECF_EXTENDED_USAGE_BIT;
+                if (asset::isBlockCompressionFormat(newFormat))
+                    params.flags |= asset::IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
+            }
+        }
+#endif
 
         auto gpuimg = _params.device->createImage(std::move(params));
         auto gpuimgMemReqs = gpuimg->getMemoryReqs();
-        gpuimgMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        gpuimgMemReqs.memoryTypeBits &= physDev->getDeviceLocalMemoryTypeBits();
         auto gpuimgMem = _params.device->allocate(gpuimgMemReqs, gpuimg.get());
 
 		res->operator[](i) = std::move(gpuimg);
