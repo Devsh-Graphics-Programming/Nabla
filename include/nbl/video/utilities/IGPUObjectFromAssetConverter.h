@@ -847,11 +847,16 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         }
     }
 
-    auto needToCompMipsForThisImg = [](const asset::ICPUImage* img) -> bool {
-        if (img->getRegions().size() == 0u)
+    auto needToCompMipsForThisImg = [](const asset::ICPUImage* img) -> bool
+    {
+        if (img->getRegions().empty())
             return false;
         auto format = img->getCreationParameters().format;
         if (asset::isIntegerFormat(format) || asset::isBlockCompressionFormat(format))
+            return false;
+        // its enough to define a single mipmap region above the base level to prevent automatic computation
+        for (auto& region : img->getRegions())
+        if (region.imageSubresource.mipLevel)
             return false;
         return true;
     };
@@ -1025,8 +1030,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         promotionRequest.originalFormat = params.format;
         promotionRequest.usages = {};
 
-        const bool integerFmt = asset::isIntegerFormat(params.format);
-        if (!integerFmt)
+        // override the mip-count if its not an integer format and there was no mip-pyramid specified 
+        if (params.mipLevels==1u && !asset::isIntegerFormat(params.format))
             params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
 
         if (cpuimg->getRegions().size())
@@ -1036,7 +1041,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
         if (needToCompMipsForThisImg(cpuimg))
         {
-            params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
+            params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT; // this is for blit
+            // I'm already adding usage flags for mip-mapping compute shader
+            params.usage |= asset::IImage::EUF_SAMPLED_BIT; // to read source mips
+            params.usage |= asset::IImage::EUF_STORAGE_BIT; // to write dst mips
             // TODO: will change when we do the blit on compute shader.
             promotionRequest.usages.blitDst = true;
             promotionRequest.usages.blitSrc = true;
@@ -1095,12 +1103,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
             if (needToCompMipsForThisImg(cpuimg))
             {
-                // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
-                if (_params.device->getAPIType() == EAT_VULKAN)
-                {
-                    assert(_params.device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[gpuimg->getCreationParameters().format].sampledImage);
-                    assert(asset::isFloatingPointFormat(gpuimg->getCreationParameters().format) || asset::isNormalizedFormat(gpuimg->getCreationParameters().format)); // // for blits, can lift are polyphase compute
-                }
+                assert(_params.device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[gpuimg->getCreationParameters().format].sampledImage);
+                assert(asset::isFloatingPointFormat(gpuimg->getCreationParameters().format) || asset::isNormalizedFormat(gpuimg->getCreationParameters().format));
                 cmdComputeMip(cpuimg, gpuimg, newLayout);
             }
             else
