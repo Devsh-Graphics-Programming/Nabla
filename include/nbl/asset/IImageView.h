@@ -15,8 +15,8 @@ template<class ImageType>
 class IImageView : public IDescriptor
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_mip_levels = ~static_cast<size_t>(0u);
-		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_array_layers = ~static_cast<size_t>(0u);
+		static inline constexpr size_t remaining_mip_levels = ~static_cast<size_t>(0u);
+		static inline constexpr size_t remaining_array_layers = ~static_cast<size_t>(0u);
 
 		// no flags for now, yet
 		enum E_CREATE_FLAGS
