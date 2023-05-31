@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
-#define __NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED_
+#define _NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
@@ -18,7 +17,7 @@
 namespace nbl::asset
 {
 
-
+// TODO (devsh): remove Normalization states from these bases, doesn't really belong here, should stay in Blit 
 namespace impl
 {
 
