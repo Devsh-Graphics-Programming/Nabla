@@ -90,7 +90,7 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 		}
 
 		// List all files and directories in a specific dir of the archive
-		SFileList listAssets(const path& pathRelativeToArchive) const;
+		SFileList listAssets(path pathRelativeToArchive) const;
 
 		//
 		virtual core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) = 0;
