@@ -49,7 +49,6 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 				return false;
 
 			return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
-			return true;
 		}
 
 		template<class ExecutionPolicy>
