@@ -19,7 +19,6 @@ CWindowManagerXCB::CWindowManagerXCB() {
 
 core::smart_refctd_ptr<IWindow> CWindowManagerXCB::createWindow(IWindow::SCreationParams&& creationParams)
 {
-    // const auto* primaryScreen = m_connection.primaryScreen();
     IWindowXCB::native_handle_t windowHandle = {
         0,
         core::make_smart_refctd_ptr<xcb::XCBHandle>(core::smart_refctd_ptr<CWindowManagerXCB>(this))
@@ -74,19 +73,32 @@ core::smart_refctd_ptr<IWindow> CWindowManagerXCB::createWindow(IWindow::SCreati
 
 bool CWindowManagerXCB::setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) {
     auto wnd = static_cast<IWindowXCB*>(window);
-    wnd->setWindowSize(width, height);
+    auto* nativeHandle = wnd->getNativeHandle();
+    
+    xcb_size_hints_t hints = {0};
+    m_xcbIcccm.pxcb_icccm_size_hints_set_size(&hints, true, width, height);
+    m_xcbIcccm.pxcb_icccm_size_hints_set_min_size(&hints, width, height);
+    m_xcbIcccm.pxcb_icccm_size_hints_set_max_size(&hints, width, height);
+    m_xcbIcccm.pxcb_icccm_set_wm_normal_hints(*nativeHandle->m_connection, nativeHandle->m_window, &hints);
     return true;
 }
 
 bool CWindowManagerXCB::setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) {
     auto wnd = static_cast<IWindowXCB*>(window);
-    wnd->setWindowPosition(x, y);
-    return true;
+    auto* nativeHandle = wnd->getNativeHandle();
+    
+    const int32_t values[] = { x, y };
+    auto cookie = m_xcb.pxcb_configure_window_checked(*nativeHandle->m_connection, nativeHandle->m_window, XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y, values);
+    bool check = xcb::checkCookie(*nativeHandle->m_connection, cookie);
+    m_xcb.pxcb_flush(*nativeHandle->m_connection);
+
+    return check;
 }
 
 bool CWindowManagerXCB::setWindowRotation_impl(IWindow* window, bool landscape) {
     auto wnd = static_cast<IWindowXCB*>(window);
-    auto* handle = wnd->getNativeHandle();
+    auto* nativeHandle = wnd->getNativeHandle();
+    
 
     return true;
 }
@@ -94,23 +106,36 @@ bool CWindowManagerXCB::setWindowRotation_impl(IWindow* window, bool landscape) 
 bool CWindowManagerXCB::setWindowVisible_impl(IWindow* window, bool visible) {
     auto wnd = static_cast<IWindowXCB*>(window);
     auto* handle = wnd->getNativeHandle();
-    // auto conn = handle->m_connection->getXcbFunctionTable();
 
-    // if(visible) {
-    //     xcb.pxcb_map_window(m_connection->getNativeHandle(), m_handle.m_window);
-    //     xcb.pxcb_flush(m_connection->getNativeHandle());
-    // } else {
-    //     xcb.pxcb_unmap_window(m_connection->getNativeHandle(), m_handle.m_window);
-    //     xcb.pxcb_flush(m_connection->getNativeHandle());
-    // }
+    if(visible) {
+        m_xcb.pxcb_map_window(*handle->m_connection, handle->m_window);
+        m_xcb.pxcb_flush(*handle->m_connection);
+    } else {
+        m_xcb.pxcb_unmap_window(*handle->m_connection, handle->m_window);
+        m_xcb.pxcb_flush(*handle->m_connection);
+    }
 
-    wnd->setWindowVisible(visible);
     return true;
 }
 
 bool CWindowManagerXCB::setWindowMaximized_impl(IWindow* window, bool maximized) {
     auto wnd = static_cast<IWindowXCB*>(window);
-    wnd->setWindowMaximized(maximized);
+    auto* handle = wnd->getNativeHandle();
+    const auto* primaryScreen = xcb::primaryScreen(*handle->m_connection);
+
+    xcb::setNetMWState(
+        *handle->m_connection,
+        primaryScreen->root,
+            handle->m_window, maximized && !wnd->isBorderless(), handle->m_connection->_NET_WM_STATE_FULLSCREEN);
+
+    xcb::setNetMWState(
+        *handle->m_connection,
+        primaryScreen->root,
+            handle->m_window, maximized && wnd->isBorderless(), 
+            handle->m_connection->_NET_WM_STATE_MAXIMIZED_VERT,
+            handle->m_connection->_NET_WM_STATE_MAXIMIZED_HORZ);
+
+    m_xcb.pxcb_flush(*handle->m_connection);
     return true;
 }
 

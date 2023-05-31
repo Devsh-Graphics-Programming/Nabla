@@ -28,11 +28,6 @@ class NBL_API2 IWindowXCB : public IWindow
         };
 
         virtual const native_handle_t* getNativeHandle() const = 0;
-        virtual bool setWindowSize(uint32_t width, uint32_t height) = 0;
-        virtual bool setWindowPosition(int32_t x, int32_t y) = 0;
-        virtual bool setWindowRotation(bool landscape) = 0;
-        virtual bool setWindowVisible(bool visible) = 0;
-        virtual bool setWindowMaximized(bool maximized) = 0;
 };
 
 }

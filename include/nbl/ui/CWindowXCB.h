@@ -31,12 +31,6 @@ public:
 	virtual ICursorControl* getCursorControl() override;
 	virtual IWindowManager* getManager() override;
 
-	virtual bool setWindowSize(uint32_t width, uint32_t height) override;
-	virtual bool setWindowPosition(int32_t x, int32_t y) override;
-	virtual bool setWindowRotation(bool landscape) override;
-	virtual bool setWindowVisible(bool visible) override;
-	virtual bool setWindowMaximized(bool maximized) override;
-
 	virtual void setCaption(const std::string_view& caption) override;
 	
 private:

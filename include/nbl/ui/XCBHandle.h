@@ -210,6 +210,17 @@ namespace nbl::ui::xcb
 			xcb_screen_t *screen = xcb.pxcb_setup_roots_iterator(setup).data;
 			return screen;
 		}
+
+		inline bool checkCookie(XCBHandle& handle, xcb_void_cookie_t cookie) {
+			auto& xcb = handle.getXcbFunctionTable();
+			if (xcb_generic_error_t* error = xcb.pxcb_request_check(handle, cookie))
+			{
+				printf("XCB error: %d", error->error_code);
+				return false;
+			}
+			return true;
+		}
+
 }
 
 #endif
