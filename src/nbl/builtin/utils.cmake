@@ -55,6 +55,12 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		set(_SHARED_ False)
 		unset(NBL_BR_API)
 	endif()
+	
+	if("${ARGV8}" STREQUAL "INTERNAL")
+		set(_NBL_INTERNAL_BR_CREATION_ ON)
+	else()
+		set(_NBL_INTERNAL_BR_CREATION_ OFF)
+	endif()
 
 	set(NBL_TEMPLATE_RESOURCES_ARCHIVE_HEADER "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/CArchive.h.in")
 	set(NBL_TEMPLATE_RESOURCES_ARCHIVE_SOURCE "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/CArchive.cpp.in")
@@ -152,6 +158,10 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	
 	if(TARGET Nabla)
 		get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
+		
+		if(NOT _NBL_INTERNAL_BR_CREATION_)
+			target_link_libraries(${_TARGET_NAME_} Nabla) # be aware Nabla must be linked to the BRs
+		endif()
 	endif()
 	
 	if(NOT DEFINED _NABLA_INCLUDE_DIRECTORIES_) # TODO, validate by populating generator expressions if any and checking whether a path to the BuildConfigOptions.h exists per config
