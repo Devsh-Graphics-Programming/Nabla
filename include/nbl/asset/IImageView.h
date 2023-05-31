@@ -85,7 +85,7 @@ class IImageView : public IDescriptor
 			// ONLY useful when creating multiple views of an image created with EXTENDED_USAGE to use different view formats.
 			// Example: Create SRGB image with usage STORAGE, and two views with formats SRGB and R32_UINT. Then the SRGB view
 			// CANNOT have STORAGE usage because the format doesn't support it, but the R32_UINT can.
-			core::bitflag<IImage::E_USAGE_FLAGS>	subUsages = EUF_NONE;
+			core::bitflag<IImage::E_USAGE_FLAGS>	subUsages = IImage::EUF_NONE;
 			core::smart_refctd_ptr<ImageType>		image;
 			E_TYPE									viewType;
 			E_FORMAT								format;

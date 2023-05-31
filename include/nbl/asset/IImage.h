@@ -717,7 +717,7 @@ class IImage : public IDescriptor
 			for (auto it2=it+1u; it2!=pRegionsEnd; it2++)
 			{
 				const auto& subresource2 = it2->getDstSubresource();
-				if (!(subresource2.aspectMask&subresource.aspectMask))
+				if (!(subresource2.aspectMask&subresource.aspectMask).value)
 					continue;
 				if (subresource2.mipLevel!=subresource.mipLevel)
 					continue;
