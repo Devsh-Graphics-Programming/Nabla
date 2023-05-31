@@ -29,7 +29,7 @@ public:
 
 	virtual IClipboardManager* getClipboardManager() override;
 	virtual ICursorControl* getCursorControl() override;
-	virtual IWindowManager* getManager() override;
+	virtual IWindowManager* getManager() const override;
 
 	virtual void setCaption(const std::string_view& caption) override;
 	
@@ -64,8 +64,6 @@ private:
 		CWindowXCB& m_window;
 		friend class CWindowXCB;
 	} m_dispatcher;
-
-
 };
 
 }

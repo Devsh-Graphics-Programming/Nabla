@@ -170,6 +170,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CAPKResourcesArchive.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
+	${NBL_ROOT_PATH}/src/nbl/system/CColoredStdoutLoggerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CStdoutLoggerAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorPOSIX.cpp
@@ -177,21 +178,15 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/ISystemPOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystemPOSIX.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemLinux.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowXCB.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowXcb.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/XCBConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp	
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerXCB.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerWin32.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CClipboardManagerXCB.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CCursorControlXCB.cpp
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
@@ -564,7 +559,7 @@ endif()
 
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
-	target_include_directories(Nabla PUBLIC
+	target_include_directories(Nabla PUBLIC 
 		${X11_xcb_INCLUDE_PATH}
 		${X11_xcb_icccm_INCLUDE_PATH}
 	)

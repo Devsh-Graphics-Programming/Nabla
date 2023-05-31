@@ -117,7 +117,7 @@ ICursorControl* CWindowXCB::getCursorControl() {
     return m_cursorControl.get();
 }
 
-IWindowManager* CWindowXCB::getManager() {
+IWindowManager* CWindowXCB::getManager() const {
     return m_windowManager.get();
 }
 
