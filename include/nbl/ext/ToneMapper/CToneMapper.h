@@ -198,8 +198,9 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 
 			auto nativeFormat = image->getCreationParameters().format;
 
-			video::IGPUImageView::SCreationParams params;
+			video::IGPUImageView::SCreationParams params = {};
 			params.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
+			//params.subUsages = ? ? ? ; TODO
 			params.image = std::move(image);
 			params.viewType = video::IGPUImageView::ET_2D_ARRAY;
 			params.format = usedAsInput ? getInputViewFormat(nativeFormat):getOutputViewFormat(nativeFormat);

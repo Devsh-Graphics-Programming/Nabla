@@ -206,7 +206,7 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 	auto img = createDerivativeMapFromHeightMap<isotropicNormalization>(_inImg, _uwrap, _vwrap, _borderColor, out_normalizationFactor);
 	const auto& iparams = img->getCreationParameters();
 
-	ICPUImageView::SCreationParams params;
+	ICPUImageView::SCreationParams params = {};
 	params.format = iparams.format;
 	params.subresourceRange.baseArrayLayer = 0u;
 	params.subresourceRange.layerCount = iparams.arrayLayers;
@@ -306,7 +306,7 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 {
 	auto cpuDerivativeImage = createDerivativeMapFromNormalMap<isotropicNormalization>(_inImg,out_normalizationFactor);
 
-	ICPUImageView::SCreationParams imageViewInfo;
+	ICPUImageView::SCreationParams imageViewInfo = {};
 	imageViewInfo.image = core::smart_refctd_ptr(cpuDerivativeImage);
 	imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
 	imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;
