@@ -13,7 +13,15 @@ IFileArchive::SFileList IFileArchive::listAssets(const path& pathRelativeToArchi
 			auto begin = trimmedList.m_data->begin();
 			auto end = trimmedList.m_data->end();
 			const SFileList::SEntry itemToFind = { pathRelativeToArchive };
-			trimmedList.m_range = { &(*std::lower_bound(begin,end,itemToFind)),&(*std::upper_bound(begin,end,itemToFind)) };
+			auto startswith = [](const SFileList::SEntry& lhs, const SFileList::SEntry& rhs) 
+			{
+					auto l = lhs.pathRelativeToArchive.wstring();
+					auto r = rhs.pathRelativeToArchive.wstring();
+					int len = std::min(l.length(), r.length());
+					return l.substr(0, len) < r.substr(0, len);
+			};
+
+			trimmedList.m_range = { &(*std::lower_bound(begin,end,itemToFind,startswith)),&(*std::upper_bound(begin,end,itemToFind,startswith)) };
 		}
 		return trimmedList;
 
