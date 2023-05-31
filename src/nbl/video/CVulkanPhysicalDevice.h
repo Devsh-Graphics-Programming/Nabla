@@ -1415,6 +1415,33 @@ public:
         for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
         {
             const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(i);
+            bool skip = false;
+            switch (format)
+            {
+                case asset::EF_B4G4R4A4_UNORM_PACK16:
+                case asset::EF_R4G4B4A4_UNORM_PACK16:
+                    if (instanceApiVersion<VK_MAKE_API_VERSION(0,1,3,0) && !isExtensionSupported(VK_EXT_4444_FORMATS_EXTENSION_NAME))
+                        skip = true;
+                    break;
+                // TODO: ASTC HDR stuff
+                //case asset::EF_ASTC__SFLOAT
+                    //if (instanceApiVersion<VK_MAKE_API_VERSION(0,1,3,0) && !isExtensionSupported(VK_EXT_TEXTURE_COMPRESSION_ASTC_HDR_EXTENSION_NAME))
+                    //    skip = true;
+                    //break;
+                case asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+                case asset::EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+                case asset::EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+                case asset::EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+                case asset::EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+                case asset::EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+                case asset::EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+                case asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
+                    if (!isExtensionSupported(VK_IMG_FORMAT_PVRTC_EXTENSION_NAME))
+                        skip = true;
+                    break;
+            }
+            if (skip)
+                continue;
 
             VkFormatProperties vk_formatProps;
             vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format), &vk_formatProps);
@@ -1433,7 +1460,7 @@ public:
             m_linearTilingUsages[format].blitDst = (linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? 1 : 0;
             m_linearTilingUsages[format].transferSrc = (linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) ? 1 : 0;
             m_linearTilingUsages[format].transferDst = (linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) ? 1 : 0;
-            // m_linearTilingUsages[format].log2MaxSmples = ; // Todo(achal)
+            // m_linearTilingUsages[format].log2MaxSmples = ; // Todo(Erfan)
             
             m_optimalTilingUsages[format] = {};
             m_optimalTilingUsages[format].sampledImage = optimalTilingFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? 1 : 0;
@@ -1445,7 +1472,7 @@ public:
             m_optimalTilingUsages[format].blitDst = optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT ? 1 : 0;
             m_optimalTilingUsages[format].transferSrc = optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT ? 1 : 0;
             m_optimalTilingUsages[format].transferDst = optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT ? 1 : 0;
-            // m_optimalTilingUsages[format].log2MaxSmples = ; // Todo(achal)
+            // m_optimalTilingUsages[format].log2MaxSmples = ; // Todo(Erfan)
             
             m_bufferUsages[format] = {};
             m_bufferUsages[format].vertexAttribute = (bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) ? 1 : 0;
