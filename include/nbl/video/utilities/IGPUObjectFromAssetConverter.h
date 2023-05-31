@@ -1064,7 +1064,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         assert(newFormat != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
         params.format = newFormat;
 
-#if 0 // TODO: Bump our minimum Vulkan version to 1.2, then implement https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageFormatListCreateInfo.html in our API
         // now add the STORAGE USAGE
         if (computeMips)
         {
@@ -1079,7 +1078,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
                     params.flags |= asset::IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
             }
         }
-#endif
 
         auto gpuimg = _params.device->createImage(std::move(params));
         auto gpuimgMemReqs = gpuimg->getMemoryReqs();
