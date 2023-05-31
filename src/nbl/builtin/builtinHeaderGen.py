@@ -28,6 +28,13 @@ else:
 
     outp.write("#ifndef _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
     outp.write("#define _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
+  
+    outp.write("#ifdef __INTELLISENSE__\n")
+    outp.write("#include <codeanalysis\warnings.h>\n")
+    outp.write("#pragma warning( push )\n")
+    outp.write("#pragma warning ( disable : ALL_CODE_ANALYSIS_WARNINGS )\n")
+    outp.write("#endif // __INTELLISENSE__\n")
+
     outp.write("#include <stdlib.h>\n")
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
@@ -76,7 +83,12 @@ else:
                 else:
                     outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % itemData[i].rstrip())
 
-    outp.write("\n\t}")
-    outp.write("\n#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")
+    outp.write("\n\t}\n")
+    
+    outp.write("#ifdef __INTELLISENSE__\n")
+    outp.write("#pragma warning( pop )\n")
+    outp.write("#endif // __INTELLISENSE__\n")
+    
+    outp.write("#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")
 
     outp.close()
