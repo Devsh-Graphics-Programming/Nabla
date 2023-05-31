@@ -159,6 +159,10 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	if(TARGET Nabla)
 		get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
 		
+		if(NBL_STATIC_BUILD AND _LIB_TYPE_ STREQUAL SHARED)
+			message(FATAL_ERROR "Nabla must be built as dynamic library in order to combine this tool with SHARED setup!")
+		endif()
+		
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
 			target_link_libraries(${_TARGET_NAME_} Nabla) # be aware Nabla must be linked to the BRs
 		endif()
