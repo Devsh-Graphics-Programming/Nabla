@@ -80,14 +80,12 @@ class IImageView : public IDescriptor
 		struct SCreationParams
 		{
 			E_CREATE_FLAGS							flags = static_cast<E_CREATE_FLAGS>(0);
-#if 0
 			// These are the set of usages for this ImageView, they must be a subset of the usages that `image` was created with.
 			// If you leave it as the default NONE we'll inherit all usages from the `image`, setting it to anything else is
 			// ONLY useful when creating multiple views of an image created with EXTENDED_USAGE to use different view formats.
 			// Example: Create SRGB image with usage STORAGE, and two views with formats SRGB and R32_UINT. Then the SRGB view
 			// CANNOT have STORAGE usage because the format doesn't support it, but the R32_UINT can.
 			core::bitflag<IImage::E_USAGE_FLAGS>	subUsages = EUF_NONE;
-#endif
 			core::smart_refctd_ptr<ImageType>		image;
 			E_TYPE									viewType;
 			E_FORMAT								format;
@@ -111,11 +109,11 @@ class IImageView : public IDescriptor
 			if (imgParams.)
 				return false;
 			*/
-#if 0
+
 			// declared usages that are not a subset
 			if (!imgParams.usage.hasFlags(_params.subUsages))
 				return false;
-#endif
+
 			const bool mutableFormat = imgParams.flags.hasFlags(IImage::ECF_MUTABLE_FORMAT_BIT);
 			const bool blockTexelViewCompatible = imgParams.flags.hasFlags(IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT);
 			const auto& subresourceRange = _params.subresourceRange;
@@ -235,7 +233,7 @@ class IImageView : public IDescriptor
 					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02962
 					if (actualLayerCount!=6u)
 						return false;
-					break;
+					[[fallthrough]];
 				case ET_CUBE_MAP_ARRAY:
 					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02961
 					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02963
