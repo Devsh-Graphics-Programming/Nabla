@@ -2,6 +2,7 @@
 #define _NBL_SYSTEM_ATOMIC_STATE_H_INCLUDED_
 
 #include <atomic>
+#include "assert.h"
 
 namespace nbl::system
 {

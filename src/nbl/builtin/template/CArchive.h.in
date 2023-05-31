@@ -2,6 +2,7 @@
 #define _@_GUARD_SUFFIX_@_C_ARCHIVE_H_
 
 #include "nbl/system/CFileArchive.h"
+#include "nbl/core/def/smart_refctd_ptr.h"
 #include "@NBL_BS_HEADER_FILENAME@"
 
 namespace @_NAMESPACE_@
@@ -9,7 +10,7 @@ namespace @_NAMESPACE_@
 	constexpr std::string_view pathPrefix = "@_BUNDLE_ARCHIVE_ABSOLUTE_PATH_@";
 	constexpr bool hasPathPrefix(std::string_view str) { return str.find(pathPrefix) == 0ull; }
 
-	class @_NBL_BR_API_@ CArchive final : public nbl::system::CFileArchive
+	class @NBL_BR_API@ CArchive final : public nbl::system::CFileArchive
 	{
 		public:
 			CArchive(nbl::system::logger_opt_smart_ptr&& logger);

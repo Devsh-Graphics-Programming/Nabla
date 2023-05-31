@@ -68,7 +68,7 @@ class CInnerArchiveFile : public CFileView<T>
 
 
 //!
-class CFileArchive : public IFileArchive
+class NBL_API2 CFileArchive : public IFileArchive
 {
 		static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualMemoryAllocator>));
 		static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));
