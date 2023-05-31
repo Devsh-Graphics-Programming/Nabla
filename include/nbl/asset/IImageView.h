@@ -15,8 +15,8 @@ template<class ImageType>
 class IImageView : public IDescriptor
 {
 	public:
-		static inline constexpr size_t remaining_mip_levels = ~static_cast<size_t>(0u);
-		static inline constexpr size_t remaining_array_layers = ~static_cast<size_t>(0u);
+		static inline constexpr uint32_t remaining_mip_levels = ~static_cast<uint32_t>(0u);
+		static inline constexpr uint32_t remaining_array_layers = ~static_cast<uint32_t>(0u);
 
 		// no flags for now, yet
 		enum E_CREATE_FLAGS
@@ -89,8 +89,8 @@ class IImageView : public IDescriptor
 			core::smart_refctd_ptr<ImageType>		image;
 			E_TYPE									viewType;
 			E_FORMAT								format;
-			SComponentMapping						components;
-			IImage::SSubresourceRange				subresourceRange;
+			SComponentMapping						components = {};
+			IImage::SSubresourceRange				subresourceRange = {IImage::EAF_COLOR_BIT,0,remaining_mip_levels,0,remaining_array_layers};
 		};
 		//!
 		inline static bool validateCreationParameters(const SCreationParams& _params)
