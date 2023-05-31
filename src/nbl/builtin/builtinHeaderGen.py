@@ -29,11 +29,11 @@ else:
     outp.write("#ifndef _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
     outp.write("#define _" + guardSuffix + "_BUILTINRESOURCEDATA_H_\n")
   
-    outp.write("#ifdef _WIN32 // Visual Studio define\n")
+    outp.write("#ifdef __INTELLISENSE__\n")
     outp.write("#include <codeanalysis\warnings.h>\n")
     outp.write("#pragma warning( push )\n")
     outp.write("#pragma warning ( disable : ALL_CODE_ANALYSIS_WARNINGS )\n")
-    outp.write("#endif // _WIN32\n")
+    outp.write("#endif // __INTELLISENSE__\n")
 
     outp.write("#include <stdlib.h>\n")
     outp.write("#include <cstdint>\n")
@@ -85,9 +85,9 @@ else:
 
     outp.write("\n\t}\n")
     
-    outp.write("#ifdef _WIN32\n")
+    outp.write("#ifdef __INTELLISENSE__\n")
     outp.write("#pragma warning( pop )\n")
-    outp.write("#endif // _WIN32\n")
+    outp.write("#endif // __INTELLISENSE__\n")
     
     outp.write("#endif // _" + guardSuffix + "_BUILTINRESOURCEDATA_H_")
 
