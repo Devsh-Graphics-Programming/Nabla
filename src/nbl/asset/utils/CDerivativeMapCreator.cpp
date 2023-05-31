@@ -187,6 +187,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
+	state.recomputeScaledKernelPhasedLUT();
 	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);
 	if (result)
 	{
