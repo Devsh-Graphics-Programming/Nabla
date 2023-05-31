@@ -87,8 +87,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 	private:
 		using value_type = typename KernelX::value_type;
 		using base_t = CBlitImageFilterBase<value_type,Swizzle,Dither,Normalization,Clamp>;
+		//using this_t = CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX,KernelX,KernelX,lut_value_type>;
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = blit_utils_t::MaxChannels;
+		static inline constexpr auto MaxChannels = blit_utils_t::MaxChannels;
 
 	public:
 		// we'll probably never remove this requirement
@@ -96,6 +97,19 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 
 		virtual ~CBlitImageFilter() {}
 
+		enum E_SCRATCH_USAGE
+		{
+			ESU_SCALED_KERNEL_PHASED_LUT = 0,
+			ESU_DECODE_WRITE = 1,
+			ESU_BLIT_X_AXIS_READ = ESU_DECODE_WRITE,
+			ESU_BLIT_X_AXIS_WRITE = 2,
+			ESU_BLIT_Y_AXIS_READ = ESU_BLIT_X_AXIS_WRITE,
+			ESU_BLIT_Y_AXIS_WRITE = 3,
+			ESU_BLIT_Z_AXIS_READ = ESU_BLIT_Y_AXIS_WRITE,
+			ESU_BLIT_Z_AXIS_WRITE = 4,
+			ESU_ALPHA_HISTOGRAM = 5,
+			ESU_COUNT
+		};
 		class CState : public IImageFilter::IState, public base_t::CStateBase
 		{
 			public:
@@ -120,6 +134,17 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					outExtentLayerCount = other.outExtentLayerCount;
 				}
 				virtual ~CState() {}
+
+				inline bool recomputeScaledKernelPhasedLUT()
+				{
+					if (!base_t::CStateBase::scratchMemory || !inImage)
+						return false;
+					const size_t offset = getScratchOffset(this,ESU_SCALED_KERNEL_PHASED_LUT);
+					const auto inType = inImage->getCreationParameters().type;
+					const size_t size = blit_utils_t::template getScaledKernelPhasedLUTSize<lut_value_type>(inExtentLayerCount,outExtentLayerCount,inType,kernelX,kernelY,kernelZ);
+					auto* lut = base_t::CStateBase::scratchMemory+offset;
+					return blit_utils_t::template computeScaledKernelPhasedLUT<lut_value_type>(lut,inExtentLayerCount,outExtentLayerCount,inType,kernelX,kernelY,kernelZ);
+				}
 
 				union
 				{
@@ -168,20 +193,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 				uint32_t							alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
 		};
 		using state_type = CState;
-
-		enum E_SCRATCH_USAGE
-		{
-			ESU_SCALED_KERNEL_PHASED_LUT = 0,
-			ESU_DECODE_WRITE = 1,
-			ESU_BLIT_X_AXIS_READ=ESU_DECODE_WRITE,
-			ESU_BLIT_X_AXIS_WRITE=2,
-			ESU_BLIT_Y_AXIS_READ = ESU_BLIT_X_AXIS_WRITE,
-			ESU_BLIT_Y_AXIS_WRITE = 3,
-			ESU_BLIT_Z_AXIS_READ = ESU_BLIT_Y_AXIS_WRITE,
-			ESU_BLIT_Z_AXIS_WRITE = 4,
-			ESU_ALPHA_HISTOGRAM = 5,
-			ESU_COUNT
-		};
 
 		//! Call `getScratchOffset(state, ESU_COUNT)` to get the total scratch size needed.
 		static inline uint32_t getScratchOffset(const state_type* state, const E_SCRATCH_USAGE usage)
@@ -541,10 +552,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 									continue;
 
 								auto sample = lineBuffer+i*MaxChannels;
-								value_type swizzledSample[MaxChannels];
+								value_type preSwizzleSample[MaxChannels];
 
 								// TODO: make sure there is no leak due to MaxChannels!
-								base_t::template onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
+								base_t::template onDecode(inFormat, state, srcPix, preSwizzleSample, sample, inBlockCoord.x, inBlockCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
