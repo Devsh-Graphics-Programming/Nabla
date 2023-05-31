@@ -627,7 +627,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Nor
 					});
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
+					{
+						state->normalization.finalize<value_type>();
 						storeToImage(core::rational<int64_t>(cvg_num,cvg_den),axis,outOffsetLayer);
+					}
 				};
 				// filter in X-axis
 				filterAxis(IImage::ET_1D,scaledKernelX);
