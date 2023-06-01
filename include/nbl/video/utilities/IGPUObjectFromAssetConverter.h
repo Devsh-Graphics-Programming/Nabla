@@ -785,16 +785,13 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImage> >(assetCount);
 
-    // This should be the other way round because if a queue supports either compute or graphics
-    // but not the other way round
+    // TODO: This should be the other way round because if a queue supports either compute or graphics but not the other way round
     const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
     const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
 
     bool oneQueue = _params.perQueue[EQU_TRANSFER].queue == _params.perQueue[EQU_COMPUTE].queue;
 
     bool needToGenMips = false;
-    core::vector<IGPUCommandBuffer::SImageMemoryBarrier> imgMemBarriers;
-    imgMemBarriers.reserve(assetCount);
     
     core::unordered_map<const asset::ICPUImage*, core::smart_refctd_ptr<IGPUBuffer>> img2gpubuf;
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
