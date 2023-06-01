@@ -586,16 +586,7 @@ public:
             //! Declare all the property structs before so they don't go out of scope
             //! Provided by Vk 1.2
             VkPhysicalDeviceVulkan12Features                                vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
-            VkPhysicalDeviceDescriptorIndexingFeaturesEXT                   descriptorIndexingFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT };
-            VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR          shaderSubgroupExtendedTypesFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR };
-            VkPhysicalDeviceHostQueryResetFeatures                          hostQueryResetFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES };
-            VkPhysicalDeviceScalarBlockLayoutFeatures                       scalarBlockLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES };
-            VkPhysicalDeviceVulkanMemoryModelFeatures                       vulkanMemoryModelFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES };
-            VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures             separateDepthStencilLayoutsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES };
-            VkPhysicalDeviceUniformBufferStandardLayoutFeatures             uniformBufferStandardLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES }; // 922
-            VkPhysicalDevice8BitStorageFeaturesKHR                          _8BitStorageFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR }; // 1232
-            VkPhysicalDeviceShaderAtomicInt64FeaturesKHR                    shaderAtomicInt64FeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES_KHR };
-            VkPhysicalDeviceShaderFloat16Int8Features                       shaderFloat16Int8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR };
+            addToPNextChain(&vulkan12Features);
             //! Provided by Vk 1.3
             VkPhysicalDeviceVulkan13Features                                vulkan13Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
             VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT };
@@ -645,44 +636,6 @@ public:
             VkPhysicalDeviceGlobalPriorityQueryFeaturesKHR                  globalPriorityFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GLOBAL_PRIORITY_QUERY_FEATURES_KHR };
             VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT };
             VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV };
-            //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
-            if (instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0))
-            {
-                addToPNextChain(&vulkan12Features);
-                addToPNextChain(&descriptorIndexingFeaturesEXT);
-                addToPNextChain(&shaderSubgroupExtendedTypesFeaturesKHR);
-                addToPNextChain(&hostQueryResetFeatures);
-                addToPNextChain(&scalarBlockLayoutFeatures);
-                addToPNextChain(&vulkanMemoryModelFeatures);
-                addToPNextChain(&separateDepthStencilLayoutsFeatures);
-                addToPNextChain(&uniformBufferStandardLayoutFeatures);
-                addToPNextChain(&_8BitStorageFeaturesKHR);
-                addToPNextChain(&shaderAtomicInt64FeaturesKHR);
-                addToPNextChain(&shaderFloat16Int8Features);
-            }
-            else
-            {
-                if (isExtensionSupported(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
-                    addToPNextChain(&descriptorIndexingFeaturesEXT);
-                if (isExtensionSupported(VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES_EXTENSION_NAME))
-                    addToPNextChain(&shaderSubgroupExtendedTypesFeaturesKHR);
-                if (isExtensionSupported(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME))
-                    addToPNextChain(&hostQueryResetFeatures);
-                if (isExtensionSupported(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME))
-                    addToPNextChain(&scalarBlockLayoutFeatures);
-                if (isExtensionSupported(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME))
-                    addToPNextChain(&vulkanMemoryModelFeatures);
-                if (isExtensionSupported(VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME))
-                    addToPNextChain(&separateDepthStencilLayoutsFeatures);
-                if (isExtensionSupported(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME))
-                    addToPNextChain(&uniformBufferStandardLayoutFeatures);
-                if (isExtensionSupported(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
-                    addToPNextChain(&_8BitStorageFeaturesKHR);
-                if (isExtensionSupported(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
-                    addToPNextChain(&shaderAtomicInt64FeaturesKHR);
-                if (isExtensionSupported(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
-                    addToPNextChain(&shaderFloat16Int8Features);
-            }
             if (instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0))
             {
                 addToPNextChain(&vulkan13Features);
@@ -836,90 +789,62 @@ public:
             m_features.shaderDrawParameters = vulkan11Features.shaderDrawParameters;
             
             /* Vulkan 1.2 Core  */
-            if (instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0))
-            {
-                m_features.subgroupBroadcastDynamicId = vulkan12Features.subgroupBroadcastDynamicId;
-            }
+            m_features.samplerMirrorClampToEdge = vulkan12Features.samplerMirrorClampToEdge;
 
-            if (instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
-            {
-                 m_features.descriptorIndexing = true;
-                 m_features.shaderInputAttachmentArrayDynamicIndexing = descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayDynamicIndexing;
-                 m_features.shaderUniformTexelBufferArrayDynamicIndexing = descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayDynamicIndexing;
-                 m_features.shaderStorageTexelBufferArrayDynamicIndexing = descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayDynamicIndexing;
-                 m_features.shaderUniformBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderUniformBufferArrayNonUniformIndexing;
-                 m_features.shaderSampledImageArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderSampledImageArrayNonUniformIndexing;
-                 m_features.shaderStorageBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderStorageBufferArrayNonUniformIndexing;
-                 m_features.shaderStorageImageArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderStorageImageArrayNonUniformIndexing;
-                 m_features.shaderInputAttachmentArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayNonUniformIndexing;
-                 m_features.shaderUniformTexelBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayNonUniformIndexing;
-                 m_features.shaderStorageTexelBufferArrayNonUniformIndexing = descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayNonUniformIndexing;
-                 m_features.descriptorBindingUniformBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingUniformBufferUpdateAfterBind;
-                 m_features.descriptorBindingSampledImageUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingSampledImageUpdateAfterBind;
-                 m_features.descriptorBindingStorageImageUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingStorageImageUpdateAfterBind;
-                 m_features.descriptorBindingStorageBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingStorageBufferUpdateAfterBind;
-                 m_features.descriptorBindingUniformTexelBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingUniformTexelBufferUpdateAfterBind;
-                 m_features.descriptorBindingStorageTexelBufferUpdateAfterBind = descriptorIndexingFeaturesEXT.descriptorBindingStorageTexelBufferUpdateAfterBind;
-                 m_features.descriptorBindingUpdateUnusedWhilePending = descriptorIndexingFeaturesEXT.descriptorBindingUpdateUnusedWhilePending;
-                 m_features.descriptorBindingPartiallyBound = descriptorIndexingFeaturesEXT.descriptorBindingPartiallyBound;
-                 m_features.descriptorBindingVariableDescriptorCount = descriptorIndexingFeaturesEXT.descriptorBindingVariableDescriptorCount;
-                 m_features.runtimeDescriptorArray = descriptorIndexingFeaturesEXT.runtimeDescriptorArray;
-            }
+            m_features.drawIndirectCount = vulkan12Features.drawIndirectCount;
 
-            m_features.samplerMirrorClampToEdge = isExtensionSupported(VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
-            m_features.drawIndirectCount = isExtensionSupported(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
-            m_features.samplerFilterMinmax = isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
+            m_properties.limits.storageBuffer8BitAccess = vulkan12Features.storageBuffer8BitAccess;
+            m_properties.limits.uniformAndStorageBuffer8BitAccess = vulkan12Features.uniformAndStorageBuffer8BitAccess;
+            m_properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
+
+            m_properties.limits.shaderBufferInt64Atomics = vulkan12Features.shaderBufferInt64Atomics;
+            m_properties.limits.shaderSharedInt64Atomics = vulkan12Features.shaderSharedInt64Atomics;
+
+            m_properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
+            m_properties.limits.shaderInt8 = vulkan12Features.shaderInt8;
             
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_SHADER_SUBGROUP_EXTENDED_TYPES_EXTENSION_NAME))
-            {
-                m_features.shaderSubgroupExtendedTypes = shaderSubgroupExtendedTypesFeaturesKHR.shaderSubgroupExtendedTypes;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME))
-            {
-                m_features.hostQueryReset = hostQueryResetFeatures.hostQueryReset;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME))
-            {
-                m_features.scalarBlockLayout = scalarBlockLayoutFeatures.scalarBlockLayout;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME))
-            {
-                m_features.vulkanMemoryModel = vulkanMemoryModelFeatures.vulkanMemoryModel;
-                m_features.vulkanMemoryModelDeviceScope = vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope;
-                m_features.vulkanMemoryModelAvailabilityVisibilityChains = vulkanMemoryModelFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME))
-            {
-                m_features.separateDepthStencilLayouts = separateDepthStencilLayoutsFeatures.separateDepthStencilLayouts;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME))
-            {
-                m_features.uniformBufferStandardLayout = uniformBufferStandardLayoutFeatures.uniformBufferStandardLayout;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_8BIT_STORAGE_EXTENSION_NAME))
-            {
-                m_properties.limits.storageBuffer8BitAccess = _8BitStorageFeaturesKHR.storageBuffer8BitAccess;
-                m_properties.limits.uniformAndStorageBuffer8BitAccess = _8BitStorageFeaturesKHR.uniformAndStorageBuffer8BitAccess;
-                m_properties.limits.storagePushConstant8 = _8BitStorageFeaturesKHR.storagePushConstant8;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME))
-            {
-                m_properties.limits.shaderBufferInt64Atomics = shaderAtomicInt64FeaturesKHR.shaderBufferInt64Atomics;
-                m_properties.limits.shaderSharedInt64Atomics = shaderAtomicInt64FeaturesKHR.shaderSharedInt64Atomics;
-            }
-            
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME))
-            {
-                m_properties.limits.shaderFloat16 = shaderFloat16Int8Features.shaderFloat16;
-                m_properties.limits.shaderInt8 = shaderFloat16Int8Features.shaderInt8;
-            }
+            m_features.descriptorIndexing = true; // tODO: vulkan12Features?
+            m_features.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
+            m_features.shaderUniformTexelBufferArrayDynamicIndexing = vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing;
+            m_features.shaderStorageTexelBufferArrayDynamicIndexing = vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing;
+            m_features.shaderUniformBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformBufferArrayNonUniformIndexing;
+            m_features.shaderSampledImageArrayNonUniformIndexing = vulkan12Features.shaderSampledImageArrayNonUniformIndexing;
+            m_features.shaderStorageBufferArrayNonUniformIndexing = vulkan12Features.shaderStorageBufferArrayNonUniformIndexing;
+            m_features.shaderStorageImageArrayNonUniformIndexing = vulkan12Features.shaderStorageImageArrayNonUniformIndexing;
+            m_features.shaderInputAttachmentArrayNonUniformIndexing = vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing;
+            m_features.shaderUniformTexelBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing;
+            m_features.shaderStorageTexelBufferArrayNonUniformIndexing = vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing;
+            m_features.descriptorBindingUniformBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind;
+            m_features.descriptorBindingSampledImageUpdateAfterBind = vulkan12Features.descriptorBindingSampledImageUpdateAfterBind;
+            m_features.descriptorBindingStorageImageUpdateAfterBind = vulkan12Features.descriptorBindingStorageImageUpdateAfterBind;
+            m_features.descriptorBindingStorageBufferUpdateAfterBind = vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind;
+            m_features.descriptorBindingUniformTexelBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind;
+            m_features.descriptorBindingStorageTexelBufferUpdateAfterBind = vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind;
+            m_features.descriptorBindingUpdateUnusedWhilePending = vulkan12Features.descriptorBindingUpdateUnusedWhilePending;
+            m_features.descriptorBindingPartiallyBound = vulkan12Features.descriptorBindingPartiallyBound;
+            m_features.descriptorBindingVariableDescriptorCount = vulkan12Features.descriptorBindingVariableDescriptorCount;
+            m_features.runtimeDescriptorArray = vulkan12Features.runtimeDescriptorArray;
+
+            m_features.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
+
+            m_features.scalarBlockLayout = vulkan12Features.scalarBlockLayout;
+
+            m_features.uniformBufferStandardLayout = vulkan12Features.uniformBufferStandardLayout;
+
+            m_features.shaderSubgroupExtendedTypes = vulkan12Features.shaderSubgroupExtendedTypes;
+
+            m_features.separateDepthStencilLayouts = vulkan12Features.separateDepthStencilLayouts;
+
+            m_features.hostQueryReset = vulkan12Features.hostQueryReset;
+
+            m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
+            m_features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
+
+            m_features.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
+            m_features.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;
+            m_features.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
+
+            m_features.subgroupBroadcastDynamicId = vulkan12Features.subgroupBroadcastDynamicId;
 
             /* Vulkan 1.3 Core  */
             if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
@@ -938,12 +863,6 @@ public:
                 m_features.shaderIntegerDotProduct = shaderIntegerDotProductFeatures.shaderIntegerDotProduct;
                 // [TODO] there's a bunch of fields! https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR.html
                     // RESPONSE FROM ERFAN: That's not features, that's properties
-            }
-
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME))
-            {
-                m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
-                m_features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
             }
 
             if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_IMAGE_ROBUSTNESS_EXTENSION_NAME))
@@ -1467,15 +1386,11 @@ protected:
         {
             features.rayTracingPipeline = true;
             features.accelerationStructure = true;
-            // Also requires to enable VK_KHR_spirv_1_4
-            // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
         }
 
         if (features.rayQuery)
         {
             features.accelerationStructure = true;
-            // Also requires to enable VK_KHR_spirv_1_4
-            // And VK_KHR_spirv_1_4 requires VK_KHR_shader_float_controls
         }
 
         if (features.accelerationStructure ||
@@ -1646,14 +1561,7 @@ protected:
         };
 
         VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
-        // [FUTURE TODO]: Remove this madness when we bump minimum requirement to Vulkan 1.2
-        const bool useVk12Struct = m_properties.apiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0);
-        if(useVk12Struct)
-        {
-            // Because of weird reasons we need to use this struct when we can (version >= 1.2)
-            // Vulkan can't fix the past, only the future, which is why this is so messed up
-            addFeatureToChain(&vulkan12Features);
-        }
+        addFeatureToChain(&vulkan12Features);
         
         // Important notes on extension dependancies, both instance and device
         /*
@@ -1668,7 +1576,6 @@ protected:
  
         // Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, nullptr };
-        VkPhysicalDeviceHostQueryResetFeatures                          hostQueryResetFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES, nullptr };
         VkPhysicalDeviceImageRobustnessFeatures                         imageRobustnessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES, nullptr };
         VkPhysicalDevicePipelineCreationCacheControlFeatures            pipelineCreationCacheControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES, nullptr };
         VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT, nullptr };
@@ -1702,25 +1609,15 @@ protected:
         VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM, nullptr };
         VkPhysicalDeviceShaderIntegerDotProductFeatures                 shaderIntegerDotProductFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES, nullptr };
         VkPhysicalDeviceShaderTerminateInvocationFeatures               shaderTerminateInvocationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES, nullptr };
-        VkPhysicalDeviceScalarBlockLayoutFeatures                       scalarBlockLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES, nullptr };
-        VkPhysicalDeviceVulkanMemoryModelFeatures                       vulkanMemoryModelFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES, nullptr };
-        VkPhysicalDeviceSeparateDepthStencilLayoutsFeatures             separateDepthStencilLayoutsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES, nullptr };
-        VkPhysicalDeviceUniformBufferStandardLayoutFeatures             uniformBufferStandardLayoutFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES, nullptr };
         VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV, nullptr };
         VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, nullptr };
-        VkPhysicalDeviceShaderFloat16Int8Features                       shaderFloat16Int8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR, nullptr };
-        VkPhysicalDeviceDescriptorIndexingFeaturesEXT                   descriptorIndexingFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT, nullptr };
-        VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR          shaderSubgroupExtendedTypesFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR, nullptr };
         VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT       shaderDemoteToHelperInvocationFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, nullptr };
         VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, nullptr };
-        VkPhysicalDeviceShaderAtomicInt64FeaturesKHR                    shaderAtomicInt64FeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES_KHR, nullptr };
-        VkPhysicalDevice8BitStorageFeaturesKHR                          _8BitStorageFeaturesKHR = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR, nullptr };
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV, nullptr };
         VkPhysicalDeviceCooperativeMatrixFeaturesNV                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV, nullptr };
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR                   rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR, nullptr };
         VkPhysicalDeviceAccelerationStructureFeaturesKHR                accelerationStructureFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, nullptr };
         VkPhysicalDeviceRayQueryFeaturesKHR                             rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr };
-        VkPhysicalDeviceBufferDeviceAddressFeaturesKHR                  bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR, nullptr };
         VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT              fragmentShaderInterlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT, nullptr };
             
         VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -1747,56 +1644,18 @@ protected:
             vk_deviceFeatures2.features.shaderInt16 = m_properties.limits.shaderInt16;
             vk_deviceFeatures2.features.samplerAnisotropy = m_properties.limits.samplerAnisotropy;
 
-            insertExtensionIfAvailable(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
-            if(useVk12Struct)
-            {
-                vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
-                vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
-                vulkan12Features.storagePushConstant8                = m_properties.limits.storagePushConstant8;
-            }
-            else
-            {
-                // All Requirements Exist in Vulkan 1.1 
-                _8BitStorageFeaturesKHR.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
-                _8BitStorageFeaturesKHR.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
-                _8BitStorageFeaturesKHR.storagePushConstant8                = m_properties.limits.storagePushConstant8;
-                addFeatureToChain(&_8BitStorageFeaturesKHR);
-            }
+            vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
+            vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
+            vulkan12Features.storagePushConstant8                = m_properties.limits.storagePushConstant8;
             
-            insertExtensionIfAvailable(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
-            if(useVk12Struct)
-            {
-                vulkan12Features.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
-                vulkan12Features.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
-            }
-            else
-            {
-                // All Requirements Exist in Vulkan 1.1 
-                shaderAtomicInt64FeaturesKHR.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
-                shaderAtomicInt64FeaturesKHR.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
-                addFeatureToChain(&shaderAtomicInt64FeaturesKHR);
-            }
-            
-            insertExtensionIfAvailable(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
-            if(useVk12Struct)
-            {
-                vulkan12Features.shaderFloat16 = m_properties.limits.shaderFloat16;
-                vulkan12Features.shaderInt8 = m_properties.limits.shaderInt8;
-            }
-            else
-            {
-                // All Requirements Exist in Vulkan 1.1 
-                shaderFloat16Int8Features.shaderFloat16 = m_properties.limits.shaderFloat16;
-                shaderFloat16Int8Features.shaderInt8 = m_properties.limits.shaderInt8;
-                addFeatureToChain(&shaderFloat16Int8Features);
-            }
+            vulkan12Features.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
+            vulkan12Features.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
+         
+            vulkan12Features.shaderFloat16 = m_properties.limits.shaderFloat16;
+            vulkan12Features.shaderInt8 = m_properties.limits.shaderInt8;
                 
-            insertExtensionIfAvailable(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME); // No Extension Requirements
-            if (useVk12Struct)
-            {
-                vulkan12Features.shaderOutputViewportIndex = m_properties.limits.shaderOutputViewportIndex;
-                vulkan12Features.shaderOutputLayer = m_properties.limits.shaderOutputLayer;
-            }
+            vulkan12Features.shaderOutputViewportIndex = m_properties.limits.shaderOutputViewportIndex;
+            vulkan12Features.shaderOutputLayer = m_properties.limits.shaderOutputLayer;
             
             if (insertExtensionIfAvailable(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
             {
@@ -1937,132 +1796,60 @@ protected:
                 vulkan12Features.VAR_NAME = true;                                           \
         }
 
-        CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(samplerMirrorClampToEdge, VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
-        CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(drawIndirectCount, VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+        vulkan12Features.samplerMirrorClampToEdge = enabledFeatures.samplerMirrorClampToEdge;
+        vulkan12Features.drawIndirectCount = enabledFeatures.drawIndirectCount;
 
-        if (enabledFeatures.descriptorIndexing ||
-            enabledFeatures.shaderInputAttachmentArrayDynamicIndexing ||
-            enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing ||
-            enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing ||
-            enabledFeatures.shaderUniformBufferArrayNonUniformIndexing ||
-            enabledFeatures.shaderSampledImageArrayNonUniformIndexing ||
-            enabledFeatures.shaderStorageBufferArrayNonUniformIndexing ||
-            enabledFeatures.shaderStorageImageArrayNonUniformIndexing ||
-            enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing ||
-            enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing ||
-            enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing ||
-            enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind ||
-            enabledFeatures.descriptorBindingSampledImageUpdateAfterBind ||
-            enabledFeatures.descriptorBindingStorageImageUpdateAfterBind ||
-            enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind ||
-            enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind ||
-            enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind ||
-            enabledFeatures.descriptorBindingUpdateUnusedWhilePending ||
-            enabledFeatures.descriptorBindingPartiallyBound ||
-            enabledFeatures.descriptorBindingVariableDescriptorCount ||
-            enabledFeatures.runtimeDescriptorArray)
-        {
-            // All Requirements Exist in Vulkan 1.1
-            insertExtensionIfAvailable(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
-            if(useVk12Struct)
-            {
-                vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
-                vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
-                vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
-                vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing;
-                vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformBufferArrayNonUniformIndexing;
-                vulkan12Features.shaderSampledImageArrayNonUniformIndexing = enabledFeatures.shaderSampledImageArrayNonUniformIndexing;
-                vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageBufferArrayNonUniformIndexing;
-                vulkan12Features.shaderStorageImageArrayNonUniformIndexing = enabledFeatures.shaderStorageImageArrayNonUniformIndexing;
-                vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing;
-                vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing;
-                vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing;
-                vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind;
-                vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = enabledFeatures.descriptorBindingSampledImageUpdateAfterBind;
-                vulkan12Features.descriptorBindingStorageImageUpdateAfterBind = enabledFeatures.descriptorBindingStorageImageUpdateAfterBind;
-                vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind;
-                vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind;
-                vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind;
-                vulkan12Features.descriptorBindingUpdateUnusedWhilePending = enabledFeatures.descriptorBindingUpdateUnusedWhilePending;
-                vulkan12Features.descriptorBindingPartiallyBound = enabledFeatures.descriptorBindingPartiallyBound;
-                vulkan12Features.descriptorBindingVariableDescriptorCount = enabledFeatures.descriptorBindingVariableDescriptorCount;
-                vulkan12Features.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
-            }
-            else
-            {
-                descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
-                descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
-                descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayDynamicIndexing = enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing;
-                descriptorIndexingFeaturesEXT.shaderUniformBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformBufferArrayNonUniformIndexing;
-                descriptorIndexingFeaturesEXT.shaderSampledImageArrayNonUniformIndexing = enabledFeatures.shaderSampledImageArrayNonUniformIndexing;
-                descriptorIndexingFeaturesEXT.shaderStorageBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageBufferArrayNonUniformIndexing;
-                descriptorIndexingFeaturesEXT.shaderStorageImageArrayNonUniformIndexing = enabledFeatures.shaderStorageImageArrayNonUniformIndexing;
-                descriptorIndexingFeaturesEXT.shaderInputAttachmentArrayNonUniformIndexing = enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing;
-                descriptorIndexingFeaturesEXT.shaderUniformTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing;
-                descriptorIndexingFeaturesEXT.shaderStorageTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing;
-                descriptorIndexingFeaturesEXT.descriptorBindingUniformBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind;
-                descriptorIndexingFeaturesEXT.descriptorBindingSampledImageUpdateAfterBind = enabledFeatures.descriptorBindingSampledImageUpdateAfterBind;
-                descriptorIndexingFeaturesEXT.descriptorBindingStorageImageUpdateAfterBind = enabledFeatures.descriptorBindingStorageImageUpdateAfterBind;
-                descriptorIndexingFeaturesEXT.descriptorBindingStorageBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind;
-                descriptorIndexingFeaturesEXT.descriptorBindingUniformTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind;
-                descriptorIndexingFeaturesEXT.descriptorBindingStorageTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind;
-                descriptorIndexingFeaturesEXT.descriptorBindingUpdateUnusedWhilePending = enabledFeatures.descriptorBindingUpdateUnusedWhilePending;
-                descriptorIndexingFeaturesEXT.descriptorBindingPartiallyBound = enabledFeatures.descriptorBindingPartiallyBound;
-                descriptorIndexingFeaturesEXT.descriptorBindingVariableDescriptorCount = enabledFeatures.descriptorBindingVariableDescriptorCount;
-                descriptorIndexingFeaturesEXT.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
-                addFeatureToChain(&descriptorIndexingFeaturesEXT);
-            }
-        }
-    
-        CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(samplerFilterMinmax, VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
-        CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(scalarBlockLayout, VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME, scalarBlockLayoutFeatures);
-        CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(uniformBufferStandardLayout, VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME, uniformBufferStandardLayoutFeatures);
-        CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(shaderSubgroupExtendedTypes, VK_KHR_UNIFORM_BUFFER_STANDARD_LAYOUT_EXTENSION_NAME, shaderSubgroupExtendedTypesFeaturesKHR);
-        CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(separateDepthStencilLayouts, VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME, separateDepthStencilLayoutsFeatures);
-        CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(separateDepthStencilLayouts, VK_KHR_SEPARATE_DEPTH_STENCIL_LAYOUTS_EXTENSION_NAME, separateDepthStencilLayoutsFeatures);
+        vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
+        vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
+        vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
+        vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing;
+        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformBufferArrayNonUniformIndexing;
+        vulkan12Features.shaderSampledImageArrayNonUniformIndexing = enabledFeatures.shaderSampledImageArrayNonUniformIndexing;
+        vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageBufferArrayNonUniformIndexing;
+        vulkan12Features.shaderStorageImageArrayNonUniformIndexing = enabledFeatures.shaderStorageImageArrayNonUniformIndexing;
+        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing;
+        vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing;
+        vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing;
+        vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind;
+        vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = enabledFeatures.descriptorBindingSampledImageUpdateAfterBind;
+        vulkan12Features.descriptorBindingStorageImageUpdateAfterBind = enabledFeatures.descriptorBindingStorageImageUpdateAfterBind;
+        vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind;
+        vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind;
+        vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind;
+        vulkan12Features.descriptorBindingUpdateUnusedWhilePending = enabledFeatures.descriptorBindingUpdateUnusedWhilePending;
+        vulkan12Features.descriptorBindingPartiallyBound = enabledFeatures.descriptorBindingPartiallyBound;
+        vulkan12Features.descriptorBindingVariableDescriptorCount = enabledFeatures.descriptorBindingVariableDescriptorCount;
+        vulkan12Features.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
+
+        vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
+
+        vulkan12Features.scalarBlockLayout = enabledFeatures.scalarBlockLayout;
+
+        vulkan12Features.uniformBufferStandardLayout = enabledFeatures.uniformBufferStandardLayout;
+
+        vulkan12Features.shaderSubgroupExtendedTypes = enabledFeatures.shaderSubgroupExtendedTypes;
+
+        vulkan12Features.separateDepthStencilLayouts = enabledFeatures.separateDepthStencilLayouts;
+ 
+        // tODO : host query reset and timeline semaphore
 
         if (enabledFeatures.bufferDeviceAddress || enabledFeatures.bufferDeviceAddressMultiDevice)
         {
-            // All Requirements Exist in Vulkan 1.1
-            insertExtensionIfAvailable(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
-            if(useVk12Struct)
-            {
-                vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
-                vulkan12Features.bufferDeviceAddressCaptureReplay = (m_rdoc_api != nullptr); // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
-                vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
-            }
-            else
-            {
-                bufferDeviceAddressFeatures.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
-                bufferDeviceAddressFeatures.bufferDeviceAddressCaptureReplay = false;
-                bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
-                addFeatureToChain(&bufferDeviceAddressFeatures);
-            }
+            vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
+            vulkan12Features.bufferDeviceAddressCaptureReplay = (m_rdoc_api != nullptr); // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
+            vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
         }
     
         if (enabledFeatures.vulkanMemoryModel ||
             enabledFeatures.vulkanMemoryModelDeviceScope ||
             enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains)
         {
-            // All Requirements Exist in Vulkan 1.1
-            insertExtensionIfAvailable(VK_KHR_VULKAN_MEMORY_MODEL_EXTENSION_NAME);
-            if(useVk12Struct)
-            {
-                vulkan12Features.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
-                vulkan12Features.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
-                vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
-            }
-            else
-            {
-                vulkanMemoryModelFeatures.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
-                vulkanMemoryModelFeatures.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
-                vulkanMemoryModelFeatures.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
-                addFeatureToChain(&vulkanMemoryModelFeatures);
-            }
+            vulkan12Features.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
+            vulkan12Features.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
+            vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
         }
             
-        if(useVk12Struct)
-            vulkan12Features.subgroupBroadcastDynamicId = enabledFeatures.subgroupBroadcastDynamicId;
+        vulkan12Features.subgroupBroadcastDynamicId = enabledFeatures.subgroupBroadcastDynamicId;
             
 #define CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(VAR_NAME, EXT_NAME, FEATURE_STRUCT)           \
         if(enabledFeatures.VAR_NAME)                                                    \
