@@ -469,15 +469,11 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.runtimeDescriptorArray) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RUNTIME_DESCRIPTOR_ARRAY");
     if (features.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_FILTER_MINMAX");
     if (features.scalarBlockLayout) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SCALAR_BLOCK_LAYOUT");
-    if (features.uniformBufferStandardLayout) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_UNIFORM_BUFFER_STANDARD_LAYOUT");
-    if (features.shaderSubgroupExtendedTypes) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_SUBGROUP_EXTENDED_TYPES");
-    if (features.separateDepthStencilLayouts) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SEPARATE_DEPTH_STENCIL_LAYOUTS");
     if (features.bufferDeviceAddress) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_DEVICE_ADDRESS");
     if (features.bufferDeviceAddressMultiDevice) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_DEVICE_ADDRESS_MULTI_DEVICE");
     if (features.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL");
     if (features.vulkanMemoryModelDeviceScope) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL_DEVICE_SCOPE");
     if (features.vulkanMemoryModelAvailabilityVisibilityChains) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL_AVAILABILITY_VISIBILITY_CHAINS");
-    if (features.subgroupBroadcastDynamicId) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SUBGROUP_BROADCAST_DYNAMIC_ID");
     if (features.shaderDemoteToHelperInvocation) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_DEMOTE_TO_HELPER_INVOCATION");
     if (features.shaderTerminateInvocation) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_TERMINATE_INVOCATION");
     if (features.subgroupSizeControl) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SUBGROUP_SIZE_CONTROL");
@@ -547,7 +543,6 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.rasterizationOrder) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RASTERIZATION_ORDER");
     if (features.shaderExplicitVertexParameter) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_EXPLICIT_VERTEX_PARAMETER");
     if (features.shaderInfoAMD) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INFO_AMD");
-    if (features.hostQueryReset) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_HOST_QUERY_RESET");
     // if (features.pipelineCreationCacheControl) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_CREATION_CACHE_CONTROL"); // shader doesn't need to know about
     if (features.colorWriteEnable) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_COLOR_WRITE_ENABLE");
     if (features.conditionalRendering) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_CONDITIONAL_RENDERING");

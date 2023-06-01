@@ -829,22 +829,12 @@ public:
 
             m_features.scalarBlockLayout = vulkan12Features.scalarBlockLayout;
 
-            m_features.uniformBufferStandardLayout = vulkan12Features.uniformBufferStandardLayout;
-
-            m_features.shaderSubgroupExtendedTypes = vulkan12Features.shaderSubgroupExtendedTypes;
-
-            m_features.separateDepthStencilLayouts = vulkan12Features.separateDepthStencilLayouts;
-
-            m_features.hostQueryReset = vulkan12Features.hostQueryReset;
-
             m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             m_features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
 
             m_features.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
             m_features.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;
             m_features.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
-
-            m_features.subgroupBroadcastDynamicId = vulkan12Features.subgroupBroadcastDynamicId;
 
             /* Vulkan 1.3 Core  */
             if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
@@ -1562,6 +1552,17 @@ protected:
 
         VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
         addFeatureToChain(&vulkan12Features);
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#features-requirements
+        vulkan11Features.multiview = true;
+        vulkan12Features.uniformBufferStandardLayout = true;
+        vulkan12Features.subgroupBroadcastDynamicId = true;
+        vulkan12Features.imagelessFramebuffer = true;
+        vulkan12Features.separateDepthStencilLayouts = true;
+        vulkan12Features.hostQueryReset = true;
+        vulkan12Features.timelineSemaphore = true;
+        vulkan12Features.shaderSubgroupExtendedTypes = true;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#profile-features-roadmap-2022
         
         // Important notes on extension dependancies, both instance and device
         /*
@@ -1774,28 +1775,6 @@ protected:
         vulkan11Features.shaderDrawParameters = enabledFeatures.shaderDrawParameters;
             
         /* Vulkan 1.2 Core */
-
-#define CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR(VAR_NAME, EXT_NAME, FEATURE_STRUCT)             \
-        if(enabledFeatures.VAR_NAME)                                                        \
-        {                                                                                   \
-            insertExtensionIfAvailable(EXT_NAME);                                           \
-            if(useVk12Struct)                                                               \
-                vulkan12Features.VAR_NAME = enabledFeatures.VAR_NAME;                       \
-            else                                                                            \
-            {                                                                               \
-                FEATURE_STRUCT.VAR_NAME = enabledFeatures.VAR_NAME;                         \
-                addFeatureToChain(&FEATURE_STRUCT);                                         \
-            }                                                                               \
-        }
-                
-#define CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS(VAR_NAME, EXT_NAME)                              \
-        if(enabledFeatures.VAR_NAME)                                                        \
-        {                                                                                   \
-            insertExtensionIfAvailable(EXT_NAME);                                           \
-            if(useVk12Struct)                                                               \
-                vulkan12Features.VAR_NAME = true;                                           \
-        }
-
         vulkan12Features.samplerMirrorClampToEdge = enabledFeatures.samplerMirrorClampToEdge;
         vulkan12Features.drawIndirectCount = enabledFeatures.drawIndirectCount;
 
@@ -1824,12 +1803,6 @@ protected:
         vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
 
         vulkan12Features.scalarBlockLayout = enabledFeatures.scalarBlockLayout;
-
-        vulkan12Features.uniformBufferStandardLayout = enabledFeatures.uniformBufferStandardLayout;
-
-        vulkan12Features.shaderSubgroupExtendedTypes = enabledFeatures.shaderSubgroupExtendedTypes;
-
-        vulkan12Features.separateDepthStencilLayouts = enabledFeatures.separateDepthStencilLayouts;
  
         // tODO : host query reset and timeline semaphore
 
@@ -1848,8 +1821,6 @@ protected:
             vulkan12Features.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
             vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
         }
-            
-        vulkan12Features.subgroupBroadcastDynamicId = enabledFeatures.subgroupBroadcastDynamicId;
             
 #define CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(VAR_NAME, EXT_NAME, FEATURE_STRUCT)           \
         if(enabledFeatures.VAR_NAME)                                                    \
@@ -2115,9 +2086,6 @@ protected:
             
         if (enabledFeatures.shaderInfoAMD)
             insertExtensionIfAvailable(VK_AMD_SHADER_INFO_EXTENSION_NAME);
-            
-        if (enabledFeatures.hostQueryReset)
-            insertExtensionIfAvailable(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
             
         if (enabledFeatures.pipelineCreationCacheControl)
             insertExtensionIfAvailable(VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME);

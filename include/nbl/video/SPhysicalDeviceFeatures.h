@@ -33,15 +33,15 @@ struct SPhysicalDeviceFeatures
     /* Vulkan 1.0 Core  */
     bool robustBufferAccess = false;
     bool fullDrawIndexUint32 = false;
-    bool imageCubeArray = false;
+    bool imageCubeArray = false; //always enable
     bool independentBlend = false;
     bool geometryShader    = false;
     bool tessellationShader = false;
     bool sampleRateShading = false;
     bool dualSrcBlend = false;
     bool logicOp = false;
-    bool multiDrawIndirect = false;
-    bool drawIndirectFirstInstance = false;
+    bool multiDrawIndirect = false; // always enable
+    bool drawIndirectFirstInstance = false; // always enable
     bool depthClamp = false;
     bool depthBiasClamp = false;
     bool fillModeNonSolid = false;
@@ -65,8 +65,8 @@ struct SPhysicalDeviceFeatures
     //bool shaderTessellationAndGeometryPointSize = false;
     //bool shaderImageGatherExtended = false;
 
-    bool shaderStorageImageExtendedFormats = false;
-    bool shaderStorageImageMultisample = false;
+    bool shaderStorageImageExtendedFormats = false; // always enable ?
+    bool shaderStorageImageMultisample = false; // always enable
     bool shaderStorageImageReadWithoutFormat = false;
     bool shaderStorageImageWriteWithoutFormat = false;
     bool shaderUniformBufferArrayDynamicIndexing = false;
@@ -75,7 +75,7 @@ struct SPhysicalDeviceFeatures
     bool shaderStorageImageArrayDynamicIndexing = false;
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
-    bool shaderFloat64 = false; // shaderFloat64
+    bool shaderFloat64 = false;
     
     // Enabled by Default, Moved to Limits
     //bool shaderInt64 = false;
@@ -106,10 +106,11 @@ struct SPhysicalDeviceFeatures
     //bool uniformAndStorageBuffer16BitAccess = false;
     //bool storagePushConstant16 = false;
     //bool storageInputOutput16 = false;
-    
-    // [TODO LATER] do not expose multiview yet
-    /* VK_KHR_multiview */
+
+    // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
     //bool           multiview;
+    // [TODO LATER] do not expose multiview yet
+    /* VK_KHR_multiview */ 
     //bool           multiviewGeometryShader;
     //bool           multiviewTessellationShader;
     
@@ -125,7 +126,7 @@ struct SPhysicalDeviceFeatures
 
 
     /* Vulkan 1.2 Core */
-
+    // always enable 
     bool samplerMirrorClampToEdge = false;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
     bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
@@ -146,7 +147,7 @@ struct SPhysicalDeviceFeatures
     //bool shaderInt8 = false;
     
     // or VK_EXT_descriptor_indexing
-    bool descriptorIndexing = false;
+    bool descriptorIndexing = false;  // always enable ?
     bool shaderInputAttachmentArrayDynamicIndexing = false;
     bool shaderUniformTexelBufferArrayDynamicIndexing = false;
     bool shaderStorageTexelBufferArrayDynamicIndexing = false;
@@ -172,27 +173,23 @@ struct SPhysicalDeviceFeatures
     
     bool scalarBlockLayout = false;     // or VK_EXT_scalar_block_layout
     
+    // [DO NOT EXPOSE] Vulkan 1.2 requires these
     //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO] https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
-    
-    bool uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
-    
-    bool shaderSubgroupExtendedTypes = false;   // or VK_KHR_shader_subgroup_extended_types
-    
-    bool separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
-    
-    //bool           timelineSemaphore;             // or VK_KHR_timeline_semaphore // [FUTURE TODO] won't expose for a long time
+    //bool shaderSubgroupExtendedTypes = false;   // or VK_KHR_shader_subgroup_extended_types
+    //bool separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
+    //bool           timelineSemaphore;             // or VK_KHR_timeline_semaphore
+    //bool hostQueryReset = false;                // or VK_EXT_host_query_reset
     
     // or VK_KHR_buffer_device_address:
     bool bufferDeviceAddress = false;
     // bool           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
     bool bufferDeviceAddressMultiDevice = false;
     
+    // always enable ?
     // or VK_KHR_vulkan_memory_model
     bool vulkanMemoryModel = false;
     bool vulkanMemoryModelDeviceScope = false;
     bool vulkanMemoryModelAvailabilityVisibilityChains = false;
-   
-    bool subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
 
 
 
@@ -475,9 +472,6 @@ struct SPhysicalDeviceFeatures
     // [TODO]:
     //bool           variablePointersStorageBuffer;
     //bool           variablePointers;
-
-    // [TODO] add implementation to engine
-    bool hostQueryReset = false;                // or VK_EXT_host_query_reset
 
     bool pipelineCreationCacheControl = false;      // or VK_EXT_pipeline_creation_cache_control
 
@@ -1076,15 +1070,11 @@ struct SPhysicalDeviceFeatures
         if (runtimeDescriptorArray && !_rhs.runtimeDescriptorArray) return false;
         if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
         if (scalarBlockLayout && !_rhs.scalarBlockLayout) return false;
-        if (uniformBufferStandardLayout && !_rhs.uniformBufferStandardLayout) return false;
-        if (shaderSubgroupExtendedTypes && !_rhs.shaderSubgroupExtendedTypes) return false;
-        if (separateDepthStencilLayouts && !_rhs.separateDepthStencilLayouts) return false;
         if (bufferDeviceAddress && !_rhs.bufferDeviceAddress) return false;
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
         if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
         if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
         if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
-        if (subgroupBroadcastDynamicId && !_rhs.subgroupBroadcastDynamicId) return false;
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;
         if (subgroupSizeControl && !_rhs.subgroupSizeControl) return false;
@@ -1154,7 +1144,6 @@ struct SPhysicalDeviceFeatures
         if (rasterizationOrder && !_rhs.rasterizationOrder) return false;
         if (shaderExplicitVertexParameter && !_rhs.shaderExplicitVertexParameter) return false;
         if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
-        if (hostQueryReset && !_rhs.hostQueryReset) return false;
         if (pipelineCreationCacheControl && !_rhs.pipelineCreationCacheControl) return false;
         if (colorWriteEnable && !_rhs.colorWriteEnable) return false;
         if (conditionalRendering && !_rhs.conditionalRendering) return false;

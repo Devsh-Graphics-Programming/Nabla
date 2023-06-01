@@ -397,7 +397,6 @@ struct SPhysicalDeviceLimits
     //int64_t            renderMajor;
     //int64_t            renderMinor;
 
-    // [DO NOT EXPOSE] we don't expose or want timeline semaphore currently
     /* TimelineSemaphorePropertiesKHR *//* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core  */
 
     // [DO NOT EXPOSE] we will never expose provoking vertex control, we will always set the provoking vertex to the LAST (vulkan default) convention also because of never exposing Xform Feedback, we'll never expose this as well
