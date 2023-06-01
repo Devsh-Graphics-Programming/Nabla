@@ -1,11 +1,12 @@
-#ifndef __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__
+#ifndef _NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED_
+#define _NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED_
 
 #include <volk.h>
 
 namespace nbl::video
 {
 
-static constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
+static constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 2, 0);
 
 static inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
 {
@@ -563,24 +564,6 @@ static inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
     case asset::E_FORMAT::EF_UNKNOWN:
         return VK_FORMAT_MAX_ENUM;
     }
-#ifdef UNMAINTAINABLE_CODE
-    if (in <= asset::EF_BC7_SRGB_BLOCK)
-        return static_cast<VkFormat>(in);
-
-    if (in >= asset::EF_ETC2_R8G8B8_UNORM_BLOCK && in <= asset::EF_EAC_R11G11_SNORM_BLOCK)
-        return static_cast<VkFormat>(in - 28u);
-
-    if (in >= asset::EF_ASTC_4x4_UNORM_BLOCK && in <= asset::EF_ASTC_12x12_SRGB_BLOCK)
-        return static_cast<VkFormat>(in + 10u);
-
-    if (in >= asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG && in <= asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG)
-        return static_cast<VkFormat>(in + 1000053815u);
-
-    if (in >= asset::EF_G8_B8_R8_3PLANE_420_UNORM && in <= asset::EF_G8_B8_R8_3PLANE_444_UNORM)
-        return static_cast<VkFormat>(in + 1000155809);
-
-    return VK_FORMAT_MAX_ENUM;
-#endif
 }
 
 static inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in)
@@ -841,5 +824,4 @@ static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDri
 
 }
 
-#define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__
 #endif

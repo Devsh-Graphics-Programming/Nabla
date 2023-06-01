@@ -1,5 +1,5 @@
-#ifndef __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
-#define __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED_
+#define _NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED_
 
 
 #include "nbl/core/util/bitflag.h"
@@ -105,7 +105,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t    deviceNodeMask;
             bool        deviceLUIDValid;
 
-            /* Vulkan 1.2 Core  or VK_KHR_driver_properties */
+            /* Vulkan 1.2 Core  */
             E_DRIVER_ID driverID;
             char driverName[VK_MAX_DRIVER_NAME_SIZE];
             char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
