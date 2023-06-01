@@ -61,7 +61,7 @@ class COIT
                     params.queueFamilyIndexCount = 0;
                     params.queueFamilyIndices = nullptr;
                     params.samples = asset::IImage::ESCF_1_BIT;
-                    params.tiling = asset::IImage::ET_OPTIMAL;
+                    params.tiling = video::IGPUImage::ET_OPTIMAL;
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
 
@@ -74,9 +74,10 @@ class COIT
                     if (!img || !imgMem.isValid())
                         return nullptr;
 
-                    video::IGPUImageView::SCreationParams vparams;
+                    video::IGPUImageView::SCreationParams vparams = {};
                     vparams.format = params.format;
                     vparams.flags = static_cast<decltype(vparams.flags)>(0);
+                    //vparams.subUsages = ? ? ? ; TODO
                     vparams.viewType = decltype(vparams.viewType)::ET_2D;
                     vparams.subresourceRange.baseArrayLayer = 0u;
                     vparams.subresourceRange.layerCount = 1u;

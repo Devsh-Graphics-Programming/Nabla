@@ -913,7 +913,7 @@ bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYO
 
     for (uint32_t i = 0u; i < regionCount; ++i)
     {
-        if (pRegions[i].dstSubresource.aspectMask != pRegions[i].srcSubresource.aspectMask)
+        if (pRegions[i].dstSubresource.aspectMask.value != pRegions[i].srcSubresource.aspectMask.value)
             return false;
         if (pRegions[i].dstSubresource.layerCount != pRegions[i].srcSubresource.layerCount)
             return false;

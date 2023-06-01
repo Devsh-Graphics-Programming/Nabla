@@ -118,20 +118,20 @@ namespace nbl
 			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
 			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 
-			ICPUImage::SCreationParams imageInfo;
-			imageInfo.format = format.first;
+			ICPUImage::SCreationParams imageInfo = {};
 			imageInfo.type = imageType;
-			imageInfo.flags = isItACubemap ? ICPUImage::E_CREATE_FLAGS::ECF_CUBE_COMPATIBLE_BIT : static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
 			imageInfo.samples = ICPUImage::ESCF_1_BIT;
+			imageInfo.format = format.first;
 			imageInfo.extent.width = texture.extent().x;
 			imageInfo.extent.height = texture.extent().y;
 			imageInfo.extent.depth = texture.extent().z;
 			imageInfo.mipLevels = texture.levels();
 			imageInfo.arrayLayers = texture.faces() * texture.layers();
-
-			auto image = ICPUImage::create(std::move(imageInfo));
+			imageInfo.flags = isItACubemap ? ICPUImage::E_CREATE_FLAGS::ECF_CUBE_COMPATIBLE_BIT : static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
+			imageInfo.usage = IImage::EUF_SAMPLED_BIT;
 
 			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(imageInfo.mipLevels);
+			auto image = ICPUImage::create(std::move(imageInfo));
 
 			auto getFullSizeOfRegion = [&](const uint16_t mipLevel) -> uint64_t
 			{
@@ -203,7 +203,7 @@ namespace nbl
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-			ICPUImageView::SCreationParams imageViewInfo;
+			ICPUImageView::SCreationParams imageViewInfo = {};
 			imageViewInfo.image = std::move(image);
 			imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
 			imageViewInfo.viewType = imageViewType;

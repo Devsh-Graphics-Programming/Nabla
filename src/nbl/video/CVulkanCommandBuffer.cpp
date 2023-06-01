@@ -85,14 +85,14 @@ bool CVulkanCommandBuffer::copyImage_impl(const image_t* srcImage, asset::IImage
     VkImageCopy vk_regions[MAX_COUNT];
     for (uint32_t i = 0u; i < regionCount; ++i)
     {
-        vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask);
+        vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask.value);
         vk_regions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
         vk_regions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
         vk_regions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
 
         vk_regions[i].srcOffset = { static_cast<int32_t>(pRegions[i].srcOffset.x), static_cast<int32_t>(pRegions[i].srcOffset.y), static_cast<int32_t>(pRegions[i].srcOffset.z) };
 
-        vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask);
+        vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask.value);
         vk_regions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
         vk_regions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
         vk_regions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
@@ -126,7 +126,7 @@ bool CVulkanCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
         vk_regions[i].bufferOffset = pRegions[i].bufferOffset;
         vk_regions[i].bufferRowLength = pRegions[i].bufferRowLength;
         vk_regions[i].bufferImageHeight = pRegions[i].bufferImageHeight;
-        vk_regions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].imageSubresource.aspectMask);
+        vk_regions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].imageSubresource.aspectMask.value);
         vk_regions[i].imageSubresource.mipLevel = pRegions[i].imageSubresource.mipLevel;
         vk_regions[i].imageSubresource.baseArrayLayer = pRegions[i].imageSubresource.baseArrayLayer;
         vk_regions[i].imageSubresource.layerCount = pRegions[i].imageSubresource.layerCount;
@@ -157,7 +157,7 @@ bool CVulkanCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
         vk_copyRegions[i].bufferOffset = static_cast<VkDeviceSize>(pRegions[i].bufferOffset);
         vk_copyRegions[i].bufferRowLength = pRegions[i].bufferRowLength;
         vk_copyRegions[i].bufferImageHeight = pRegions[i].bufferImageHeight;
-        vk_copyRegions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].imageSubresource.aspectMask);
+        vk_copyRegions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].imageSubresource.aspectMask.value);
         vk_copyRegions[i].imageSubresource.baseArrayLayer = pRegions[i].imageSubresource.baseArrayLayer;
         vk_copyRegions[i].imageSubresource.layerCount = pRegions[i].imageSubresource.layerCount;
         vk_copyRegions[i].imageSubresource.mipLevel = pRegions[i].imageSubresource.mipLevel;
@@ -188,7 +188,7 @@ bool CVulkanCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage
 
     for (uint32_t i = 0u; i < regionCount; ++i)
     {
-        vk_blitRegions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask);
+        vk_blitRegions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask.value);
         vk_blitRegions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
         vk_blitRegions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
         vk_blitRegions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
@@ -197,7 +197,7 @@ bool CVulkanCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage
         vk_blitRegions[i].srcOffsets[0] = { static_cast<int32_t>(pRegions[i].srcOffsets[0].x), static_cast<int32_t>(pRegions[i].srcOffsets[0].y), static_cast<int32_t>(pRegions[i].srcOffsets[0].z) };
         vk_blitRegions[i].srcOffsets[1] = { static_cast<int32_t>(pRegions[i].srcOffsets[1].x), static_cast<int32_t>(pRegions[i].srcOffsets[1].y), static_cast<int32_t>(pRegions[i].srcOffsets[1].z) };
 
-        vk_blitRegions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask);
+        vk_blitRegions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask.value);
         vk_blitRegions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
         vk_blitRegions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
         vk_blitRegions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
@@ -223,14 +223,14 @@ bool CVulkanCommandBuffer::resolveImage_impl(const image_t* srcImage, asset::IIm
     VkImageResolve vk_regions[MAX_COUNT];
     for (uint32_t i = 0u; i < regionCount; ++i)
     {
-        vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask);
+        vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask.value);
         vk_regions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
         vk_regions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
         vk_regions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
 
         vk_regions[i].srcOffset = { static_cast<int32_t>(pRegions[i].srcOffset.x), static_cast<int32_t>(pRegions[i].srcOffset.y), static_cast<int32_t>(pRegions[i].srcOffset.z) };
 
-        vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask);
+        vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask.value);
         vk_regions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
         vk_regions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
         vk_regions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
@@ -343,7 +343,7 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = depInfo->imgBarriers[i].srcQueueFamilyIndex;
         vk_imageMemoryBarriers[i].dstQueueFamilyIndex = depInfo->imgBarriers[i].dstQueueFamilyIndex;
         vk_imageMemoryBarriers[i].image = IBackendObject::compatibility_cast<const CVulkanImage*>(depInfo->imgBarriers[i].image.get(), this)->getInternalObject();
-        vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(depInfo->imgBarriers[i].subresourceRange.aspectMask);
+        vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(depInfo->imgBarriers[i].subresourceRange.aspectMask.value);
         vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = depInfo->imgBarriers[i].subresourceRange.baseMipLevel;
         vk_imageMemoryBarriers[i].subresourceRange.levelCount = depInfo->imgBarriers[i].subresourceRange.levelCount;
         vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = depInfo->imgBarriers[i].subresourceRange.baseArrayLayer;
@@ -415,7 +415,7 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = pImageMemoryBarriers[i].srcQueueFamilyIndex;
         vk_imageMemoryBarriers[i].dstQueueFamilyIndex = pImageMemoryBarriers[i].dstQueueFamilyIndex;
         vk_imageMemoryBarriers[i].image = IBackendObject::compatibility_cast<const CVulkanImage*>(pImageMemoryBarriers[i].image.get(), this)->getInternalObject();
-        vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(pImageMemoryBarriers[i].subresourceRange.aspectMask);
+        vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(pImageMemoryBarriers[i].subresourceRange.aspectMask.value);
         vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = pImageMemoryBarriers[i].subresourceRange.baseMipLevel;
         vk_imageMemoryBarriers[i].subresourceRange.levelCount = pImageMemoryBarriers[i].subresourceRange.levelCount;
         vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = pImageMemoryBarriers[i].subresourceRange.baseArrayLayer;
@@ -559,7 +559,7 @@ bool CVulkanCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::E
 
     for (uint32_t i = 0u; i < rangeCount; ++i)
     {
-        vk_ranges[i].aspectMask = static_cast<VkImageAspectFlags>(pRanges[i].aspectMask);
+        vk_ranges[i].aspectMask = static_cast<VkImageAspectFlags>(pRanges[i].aspectMask.value);
         vk_ranges[i].baseMipLevel = pRanges[i].baseMipLevel;
         vk_ranges[i].levelCount = pRanges[i].layerCount;
         vk_ranges[i].baseArrayLayer = pRanges[i].baseArrayLayer;
@@ -588,7 +588,7 @@ bool CVulkanCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::II
 
     for (uint32_t i = 0u; i < rangeCount; ++i)
     {
-        vk_ranges[i].aspectMask = static_cast<VkImageAspectFlags>(pRanges[i].aspectMask);
+        vk_ranges[i].aspectMask = static_cast<VkImageAspectFlags>(pRanges[i].aspectMask.value);
         vk_ranges[i].baseMipLevel = pRanges[i].baseMipLevel;
         vk_ranges[i].levelCount = pRanges[i].layerCount;
         vk_ranges[i].baseArrayLayer = pRanges[i].baseArrayLayer;

@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
-#define __NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED_
+#define _NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
@@ -17,7 +16,6 @@
 
 namespace nbl::asset
 {
-
 
 namespace impl
 {
@@ -58,7 +56,7 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 			if constexpr (!std::is_void_v<Normalization>)
 			{			
 				assert(kInFormat==EF_UNKNOWN || rInFormat==EF_UNKNOWN);
-				state->normalization.template initialize<decodeBufferType>();
+				state->normalization.template initialize<encodeBufferType>();
 				auto perOutputRegion = [policy,&blockDims,&state,rInFormat](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 				{
 					auto normalizePrepass = [&commonExecuteData,&blockDims,&state,rInFormat](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
@@ -84,6 +82,7 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 					return true;
 				};
 				CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
+				state->normalization.finalize<encodeBufferType>();
 			}
 		}
 };
