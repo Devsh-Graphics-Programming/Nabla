@@ -7,10 +7,10 @@ namespace nbl::video
 {
     struct SPhysicalDeviceFilter
     {
-        IPhysicalDevice::APIVersion                     minApiVersion = {0u, 0u, 0u};
+        IPhysicalDevice::APIVersion                     minApiVersion = {1u, 2u, 0u, 0u};
         core::bitflag<IPhysicalDevice::E_TYPE>          deviceTypeMask = core::bitflag<IPhysicalDevice::E_TYPE>(0xffu);
         core::bitflag<IPhysicalDevice::E_DRIVER_ID>     driverIDMask = core::bitflag<IPhysicalDevice::E_DRIVER_ID>(0xffff'ffffu);
-        VkConformanceVersion                            minConformanceVersion = {0u, 0u, 0u, 0u};
+        IPhysicalDevice::APIVersion                     minConformanceVersion = {0u, 0u, 0u, 0u};
         IPhysicalDevice::SLimits                        minimumLimits = {}; // minimum required limits to be satisfied
         IPhysicalDevice::SFeatures                      requiredFeatures = {}; // required features, will be also used to enable logical device features
         IPhysicalDevice::SFormatBufferUsages            requiredBufferFormatUsages = {};

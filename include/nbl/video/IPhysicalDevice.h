@@ -69,15 +69,17 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct APIVersion
         {
-            uint32_t major : 5;
-            uint32_t minor : 5;
-            uint32_t patch : 22;
+            uint32_t major : 8;
+            uint32_t minor : 8;
+            uint32_t subminor : 8;
+            uint32_t patch : 8;
 
             inline auto operator <=> (uint32_t vkApiVersion) const { return vkApiVersion - VK_MAKE_API_VERSION(0, major, minor, patch); }
             inline auto operator <=> (const APIVersion& other) const 
             {
                 if(major != other.major) return static_cast<uint32_t>(other.major - major);
                 if(minor != other.minor) return static_cast<uint32_t>(other.minor - minor);
+                if(subminor != other.subminor) return static_cast<uint32_t>(other.subminor - subminor);
                 if(patch != other.patch) return static_cast<uint32_t>(other.patch - patch);
                 return 0u;
             }
@@ -109,7 +111,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             E_DRIVER_ID driverID;
             char driverName[VK_MAX_DRIVER_NAME_SIZE];
             char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
-            VkConformanceVersion conformanceVersion;
+            APIVersion conformanceVersion;
         };
 
         const SProperties& getProperties() const { return m_properties; }
