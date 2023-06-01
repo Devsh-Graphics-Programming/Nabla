@@ -10,13 +10,6 @@ namespace nbl::video
 
 struct SPhysicalDeviceLimits
 {
-    enum E_TRI_BOOLEAN
-    {
-        ETB_FALSE,
-        ETB_DONT_KNOW,
-        ETB_TRUE
-    };
-
     /* Vulkan 1.0 Core  */
     uint32_t maxImageDimension1D = 0u;
     uint32_t maxImageDimension2D = 0u;
@@ -163,25 +156,23 @@ struct SPhysicalDeviceLimits
 
 
     /* Vulkan 1.2 Core  */
-
-    //      or VK_KHR_shader_float_controls:
-    //VkShaderFloatControlsIndependence    denormBehaviorIndependence; // TODO: need to implement ways to set them
-    //VkShaderFloatControlsIndependence    roundingModeIndependence;   // TODO: need to implement ways to set them
-    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormPreserveFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormPreserveFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormPreserveFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTEFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTEFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTEFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTZFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTZFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
+//    VkShaderFloatControlsIndependence denormBehaviorIndependence; // TODO: need to implement ways to set them
+//    VkShaderFloatControlsIndependence roundingModeIndependence;   // TODO: need to implement ways to set them
+    bool shaderSignedZeroInfNanPreserveFloat16 = false;
+    bool shaderSignedZeroInfNanPreserveFloat32 = false;
+    bool shaderSignedZeroInfNanPreserveFloat64 = false;
+    bool shaderDenormPreserveFloat16 = false;
+    bool shaderDenormPreserveFloat32 = false;
+    bool shaderDenormPreserveFloat64 = false;
+    bool shaderDenormFlushToZeroFloat16 = false;
+    bool shaderDenormFlushToZeroFloat32 = false;
+    bool shaderDenormFlushToZeroFloat64 = false;
+    bool shaderRoundingModeRTEFloat16 = false;
+    bool shaderRoundingModeRTEFloat32 = false;
+    bool shaderRoundingModeRTEFloat64 = false;
+    bool shaderRoundingModeRTZFloat16 = false;
+    bool shaderRoundingModeRTZFloat32 = false;
+    bool shaderRoundingModeRTZFloat64 = false;
  
     // expose in 2 phases
     // -Update After Bindand nonUniformEXT shader qualifier:
@@ -212,7 +203,6 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetUpdateAfterBindStorageImages = 0u;
     uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = 0u;
 
-    //      or VK_EXT_sampler_filter_minmax:
     bool filterMinmaxSingleComponentFormats = false;
     bool filterMinmaxImageComponentMapping = false;
 
@@ -743,21 +733,21 @@ struct SPhysicalDeviceLimits
         if (shaderSubgroupQuadAllStages && !_rhs.shaderSubgroupQuadAllStages) return false;
         if (maxPerSetDescriptors > _rhs.maxPerSetDescriptors) return false;
         if (maxMemoryAllocationSize > _rhs.maxMemoryAllocationSize) return false;
-        if (shaderSignedZeroInfNanPreserveFloat16 == ETB_TRUE && _rhs.shaderSignedZeroInfNanPreserveFloat16 == ETB_FALSE) return false;
-        if (shaderSignedZeroInfNanPreserveFloat32 == ETB_TRUE && _rhs.shaderSignedZeroInfNanPreserveFloat32 == ETB_FALSE) return false;
-        if (shaderSignedZeroInfNanPreserveFloat64 == ETB_TRUE && _rhs.shaderSignedZeroInfNanPreserveFloat64 == ETB_FALSE) return false;
-        if (shaderDenormPreserveFloat16 == ETB_TRUE && _rhs.shaderDenormPreserveFloat16 == ETB_FALSE) return false;
-        if (shaderDenormPreserveFloat32 == ETB_TRUE && _rhs.shaderDenormPreserveFloat32 == ETB_FALSE) return false;
-        if (shaderDenormPreserveFloat64 == ETB_TRUE && _rhs.shaderDenormPreserveFloat64 == ETB_FALSE) return false;
-        if (shaderDenormFlushToZeroFloat16 == ETB_TRUE && _rhs.shaderDenormFlushToZeroFloat16 == ETB_FALSE) return false;
-        if (shaderDenormFlushToZeroFloat32 == ETB_TRUE && _rhs.shaderDenormFlushToZeroFloat32 == ETB_FALSE) return false;
-        if (shaderDenormFlushToZeroFloat64 == ETB_TRUE && _rhs.shaderDenormFlushToZeroFloat64 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTEFloat16 == ETB_TRUE && _rhs.shaderRoundingModeRTEFloat16 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTEFloat32 == ETB_TRUE && _rhs.shaderRoundingModeRTEFloat32 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTEFloat64 == ETB_TRUE && _rhs.shaderRoundingModeRTEFloat64 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTZFloat16 == ETB_TRUE && _rhs.shaderRoundingModeRTZFloat16 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTZFloat32 == ETB_TRUE && _rhs.shaderRoundingModeRTZFloat32 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTZFloat64 == ETB_TRUE && _rhs.shaderRoundingModeRTZFloat64 == ETB_FALSE) return false;
+        if (shaderSignedZeroInfNanPreserveFloat16 && !_rhs.shaderSignedZeroInfNanPreserveFloat16) return false;
+        if (shaderSignedZeroInfNanPreserveFloat32 && !_rhs.shaderSignedZeroInfNanPreserveFloat32) return false;
+        if (shaderSignedZeroInfNanPreserveFloat64 && !_rhs.shaderSignedZeroInfNanPreserveFloat64) return false;
+        if (shaderDenormPreserveFloat16 && !_rhs.shaderDenormPreserveFloat16) return false;
+        if (shaderDenormPreserveFloat32 && !_rhs.shaderDenormPreserveFloat32) return false;
+        if (shaderDenormPreserveFloat64 && !_rhs.shaderDenormPreserveFloat64) return false;
+        if (shaderDenormFlushToZeroFloat16 && !_rhs.shaderDenormFlushToZeroFloat16) return false;
+        if (shaderDenormFlushToZeroFloat32 && !_rhs.shaderDenormFlushToZeroFloat32) return false;
+        if (shaderDenormFlushToZeroFloat64 && !_rhs.shaderDenormFlushToZeroFloat64) return false;
+        if (shaderRoundingModeRTEFloat16 && !_rhs.shaderRoundingModeRTEFloat16) return false;
+        if (shaderRoundingModeRTEFloat32 && !_rhs.shaderRoundingModeRTEFloat32) return false;
+        if (shaderRoundingModeRTEFloat64 && !_rhs.shaderRoundingModeRTEFloat64) return false;
+        if (shaderRoundingModeRTZFloat16 && !_rhs.shaderRoundingModeRTZFloat16) return false;
+        if (shaderRoundingModeRTZFloat32 && !_rhs.shaderRoundingModeRTZFloat32) return false;
+        if (shaderRoundingModeRTZFloat64 && !_rhs.shaderRoundingModeRTZFloat64) return false;
         if (maxUpdateAfterBindDescriptorsInAllPools > _rhs.maxUpdateAfterBindDescriptorsInAllPools) return false;
         if (shaderUniformBufferArrayNonUniformIndexingNative && !_rhs.shaderUniformBufferArrayNonUniformIndexingNative) return false;
         if (shaderSampledImageArrayNonUniformIndexingNative && !_rhs.shaderSampledImageArrayNonUniformIndexingNative) return false;

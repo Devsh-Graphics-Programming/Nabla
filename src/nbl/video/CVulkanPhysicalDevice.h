@@ -52,12 +52,7 @@ public:
             //! Declare all the property structs before so they don't go out of scope
             //! Provided by Vk 1.2
             VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
-            VkPhysicalDeviceDriverProperties                        driverProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES };
-            VkPhysicalDeviceFloatControlsProperties                 floatControlsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT_CONTROLS_PROPERTIES };
-            VkPhysicalDeviceDescriptorIndexingProperties            descriptorIndexingProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_PROPERTIES };
-            VkPhysicalDeviceDepthStencilResolveProperties           depthStencilResolveProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_STENCIL_RESOLVE_PROPERTIES };
-            VkPhysicalDeviceSamplerFilterMinmaxProperties           samplerFilterMinmaxProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_FILTER_MINMAX_PROPERTIES };
-            VkPhysicalDeviceTimelineSemaphoreProperties             timelineSemaphoreProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_PROPERTIES };
+            addToPNextChain(&vulkan12Properties);
             //! Provided by Vk 1.3
             VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
             VkPhysicalDeviceMaintenance4Properties                  maintanance4Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES };
@@ -82,31 +77,6 @@ public:
             VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
             VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
             //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
-            if (instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0))
-            {
-                addToPNextChain(&vulkan12Properties);
-                addToPNextChain(&driverProperties);
-                addToPNextChain(&floatControlsProperties);
-                addToPNextChain(&descriptorIndexingProperties);
-                addToPNextChain(&depthStencilResolveProperties);
-                addToPNextChain(&samplerFilterMinmaxProperties);
-                addToPNextChain(&timelineSemaphoreProperties);
-            }
-            else
-            {
-                assert(isExtensionSupported(VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME));
-                addToPNextChain(&driverProperties);
-                if (isExtensionSupported(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
-                    addToPNextChain(&floatControlsProperties);
-                if (isExtensionSupported(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
-                    addToPNextChain(&descriptorIndexingProperties);
-                if (isExtensionSupported(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME))
-                    addToPNextChain(&depthStencilResolveProperties);
-                if (isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
-                    addToPNextChain(&samplerFilterMinmaxProperties);
-                if (isExtensionSupported(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME))
-                    addToPNextChain(&timelineSemaphoreProperties);
-            }
             if (instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0))
             {
                 addToPNextChain(&vulkan13Properties); // old validation layers might complain about this struct in pNext, all is fine
@@ -168,6 +138,7 @@ public:
             assert(apiVersion >= MinimumVulkanApiVersion);
             m_properties.apiVersion.major = VK_API_VERSION_MAJOR(apiVersion);
             m_properties.apiVersion.minor = VK_API_VERSION_MINOR(apiVersion);
+            m_properties.apiVersion.subminor = 0;
             m_properties.apiVersion.patch = VK_API_VERSION_PATCH(apiVersion);
 
             m_properties.driverVersion = deviceProperties.properties.driverVersion;
@@ -327,67 +298,63 @@ public:
             m_properties.limits.pointClippingBehavior = static_cast<SLimits::E_POINT_CLIPPING_BEHAVIOR>(vulkan11Properties.pointClippingBehavior);
 
             /* Vulkan 1.2 Core  */
-            m_properties.driverID = getDriverIdFromVkDriverId(driverProperties.driverID);
-            memcpy(m_properties.driverName, driverProperties.driverName, VK_MAX_DRIVER_NAME_SIZE);
-            memcpy(m_properties.driverInfo, driverProperties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
-            m_properties.conformanceVersion = driverProperties.conformanceVersion;
+            m_properties.driverID = getDriverIdFromVkDriverId(vulkan12Properties.driverID);
+            memcpy(m_properties.driverName, vulkan12Properties.driverName, VK_MAX_DRIVER_NAME_SIZE);
+            memcpy(m_properties.driverInfo, vulkan12Properties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
+            m_properties.conformanceVersion.major = vulkan12Properties.conformanceVersion.major;
+            m_properties.conformanceVersion.minor = vulkan12Properties.conformanceVersion.minor;
+            m_properties.conformanceVersion.subminor = vulkan12Properties.conformanceVersion.subminor;
+            m_properties.conformanceVersion.patch = vulkan12Properties.conformanceVersion.patch;
             
             // Helper bools :D
-            bool isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
-            bool isAMDGPU = (m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
-            bool isNVIDIAGPU = (m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
+            const bool isIntelGPU = (m_properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || m_properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+            const bool isAMDGPU = (m_properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || m_properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+            const bool isNVIDIAGPU = (m_properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
 
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME))
-            {
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat16 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat32 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderSignedZeroInfNanPreserveFloat64 = floatControlsProperties.shaderSignedZeroInfNanPreserveFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderDenormPreserveFloat16 = floatControlsProperties.shaderDenormPreserveFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderDenormPreserveFloat32 = floatControlsProperties.shaderDenormPreserveFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderDenormPreserveFloat64 = floatControlsProperties.shaderDenormPreserveFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderDenormFlushToZeroFloat16 = floatControlsProperties.shaderDenormFlushToZeroFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderDenormFlushToZeroFloat32 = floatControlsProperties.shaderDenormFlushToZeroFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderDenormFlushToZeroFloat64 = floatControlsProperties.shaderDenormFlushToZeroFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderRoundingModeRTEFloat16 = floatControlsProperties.shaderRoundingModeRTEFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderRoundingModeRTEFloat32 = floatControlsProperties.shaderRoundingModeRTEFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderRoundingModeRTEFloat64 = floatControlsProperties.shaderRoundingModeRTEFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderRoundingModeRTZFloat16 = floatControlsProperties.shaderRoundingModeRTZFloat16 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderRoundingModeRTZFloat32 = floatControlsProperties.shaderRoundingModeRTZFloat32 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-                m_properties.limits.shaderRoundingModeRTZFloat64 = floatControlsProperties.shaderRoundingModeRTZFloat64 ? SPhysicalDeviceLimits::ETB_TRUE : SPhysicalDeviceLimits::ETB_FALSE;
-            }
+            // float control
+            m_properties.limits.shaderSignedZeroInfNanPreserveFloat16 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16;
+            m_properties.limits.shaderSignedZeroInfNanPreserveFloat32 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32;
+            m_properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
+            m_properties.limits.shaderDenormPreserveFloat16 = vulkan12Properties.shaderDenormPreserveFloat16;
+            m_properties.limits.shaderDenormPreserveFloat32 = vulkan12Properties.shaderDenormPreserveFloat32;
+            m_properties.limits.shaderDenormPreserveFloat64 = vulkan12Properties.shaderDenormPreserveFloat64;
+            m_properties.limits.shaderDenormFlushToZeroFloat16 = vulkan12Properties.shaderDenormFlushToZeroFloat16;
+            m_properties.limits.shaderDenormFlushToZeroFloat32 = vulkan12Properties.shaderDenormFlushToZeroFloat32;
+            m_properties.limits.shaderDenormFlushToZeroFloat64 = vulkan12Properties.shaderDenormFlushToZeroFloat64;
+            m_properties.limits.shaderRoundingModeRTEFloat16 = vulkan12Properties.shaderRoundingModeRTEFloat16;
+            m_properties.limits.shaderRoundingModeRTEFloat32 = vulkan12Properties.shaderRoundingModeRTEFloat32;
+            m_properties.limits.shaderRoundingModeRTEFloat64 = vulkan12Properties.shaderRoundingModeRTEFloat64;
+            m_properties.limits.shaderRoundingModeRTZFloat16 = vulkan12Properties.shaderRoundingModeRTZFloat16;
+            m_properties.limits.shaderRoundingModeRTZFloat32 = vulkan12Properties.shaderRoundingModeRTZFloat32;
+            m_properties.limits.shaderRoundingModeRTZFloat64 = vulkan12Properties.shaderRoundingModeRTZFloat64;
             
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME))
-            {
-                m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = descriptorIndexingProperties.maxUpdateAfterBindDescriptorsInAllPools;
-                m_properties.limits.shaderUniformBufferArrayNonUniformIndexingNative        = descriptorIndexingProperties.shaderUniformBufferArrayNonUniformIndexingNative;
-                m_properties.limits.shaderSampledImageArrayNonUniformIndexingNative         = descriptorIndexingProperties.shaderSampledImageArrayNonUniformIndexingNative;
-                m_properties.limits.shaderStorageBufferArrayNonUniformIndexingNative        = descriptorIndexingProperties.shaderStorageBufferArrayNonUniformIndexingNative;
-                m_properties.limits.shaderStorageImageArrayNonUniformIndexingNative         = descriptorIndexingProperties.shaderStorageImageArrayNonUniformIndexingNative;
-                m_properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative      = descriptorIndexingProperties.shaderInputAttachmentArrayNonUniformIndexingNative;
-                m_properties.limits.robustBufferAccessUpdateAfterBind                       = descriptorIndexingProperties.robustBufferAccessUpdateAfterBind;
-                m_properties.limits.quadDivergentImplicitLod                                = descriptorIndexingProperties.quadDivergentImplicitLod;
-                m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers            = descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindSamplers;
-                m_properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs                = descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindUniformBuffers;
-                m_properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs               = descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindStorageBuffers;
-                m_properties.limits.maxPerStageDescriptorUpdateAfterBindImages              = descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindSampledImages;
-                m_properties.limits.maxPerStageDescriptorUpdateAfterBindStorageImages       = descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindStorageImages;
-                m_properties.limits.maxPerStageDescriptorUpdateAfterBindInputAttachments    = descriptorIndexingProperties.maxPerStageDescriptorUpdateAfterBindInputAttachments;
-                m_properties.limits.maxPerStageUpdateAfterBindResources                     = descriptorIndexingProperties.maxPerStageUpdateAfterBindResources;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindSamplers                 = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindSamplers;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindUBOs                     = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindUniformBuffers;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs        = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindUniformBuffersDynamic;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindSSBOs                    = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindStorageBuffers;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs       = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindStorageBuffersDynamic;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindImages                   = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindSampledImages;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindStorageImages;
-                m_properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = descriptorIndexingProperties.maxDescriptorSetUpdateAfterBindInputAttachments;
-            }
+            // descriptor indexing
+            m_properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
+            m_properties.limits.shaderUniformBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderUniformBufferArrayNonUniformIndexingNative;
+            m_properties.limits.shaderSampledImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderSampledImageArrayNonUniformIndexingNative;
+            m_properties.limits.shaderStorageBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative;
+            m_properties.limits.shaderStorageImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderStorageImageArrayNonUniformIndexingNative;
+            m_properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative      = vulkan12Properties.shaderInputAttachmentArrayNonUniformIndexingNative;
+            m_properties.limits.robustBufferAccessUpdateAfterBind                       = vulkan12Properties.robustBufferAccessUpdateAfterBind;
+            m_properties.limits.quadDivergentImplicitLod                                = vulkan12Properties.quadDivergentImplicitLod;
+            m_properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers            = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSamplers;
+            m_properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs                = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindUniformBuffers;
+            m_properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs               = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindStorageBuffers;
+            m_properties.limits.maxPerStageDescriptorUpdateAfterBindImages              = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSampledImages;
+            m_properties.limits.maxPerStageDescriptorUpdateAfterBindStorageImages       = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindStorageImages;
+            m_properties.limits.maxPerStageDescriptorUpdateAfterBindInputAttachments    = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindInputAttachments;
+            m_properties.limits.maxPerStageUpdateAfterBindResources                     = vulkan12Properties.maxPerStageUpdateAfterBindResources;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindSamplers                 = vulkan12Properties.maxDescriptorSetUpdateAfterBindSamplers;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindUBOs                     = vulkan12Properties.maxDescriptorSetUpdateAfterBindUniformBuffers;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs        = vulkan12Properties.maxDescriptorSetUpdateAfterBindUniformBuffersDynamic;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindSSBOs                    = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageBuffers;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs       = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageBuffersDynamic;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindImages                   = vulkan12Properties.maxDescriptorSetUpdateAfterBindSampledImages;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageImages;
+            m_properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = vulkan12Properties.maxDescriptorSetUpdateAfterBindInputAttachments;
 
-            if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,2,0)||isExtensionSupported(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME))
-            {
-                m_properties.limits.filterMinmaxSingleComponentFormats = samplerFilterMinmaxProperties.filterMinmaxSingleComponentFormats;
-                m_properties.limits.filterMinmaxImageComponentMapping = samplerFilterMinmaxProperties.filterMinmaxImageComponentMapping;
-            }
+            m_properties.limits.filterMinmaxSingleComponentFormats = vulkan12Properties.filterMinmaxSingleComponentFormats;
+            m_properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
 
             /* Vulkan 1.3 Core  */
             if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
