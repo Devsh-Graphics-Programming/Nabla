@@ -535,12 +535,14 @@ struct SPhysicalDeviceLimits
 
     // Core 1.0 Features
     bool vertexPipelineStoresAndAtomics = false;
+    // ROADMAP 2022 but poor support on Apple GPUs
     bool fragmentStoresAndAtomics = false;
     bool shaderTessellationAndGeometryPointSize = false;
     bool shaderImageGatherExtended = false;
     bool shaderInt64 = false;
     bool shaderInt16 = false;
-    bool samplerAnisotropy = false;
+    // redundant can deduce from `maxSamplerAnisotropyLog2
+    //bool samplerAnisotropy = false;
 
     // Core 1.1 Features or VK_KHR_16bit_storage */
     bool storageBuffer16BitAccess = false;
@@ -905,7 +907,6 @@ struct SPhysicalDeviceLimits
         if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
         if (shaderInt64 && !_rhs.shaderInt64) return false;
         if (shaderInt16 && !_rhs.shaderInt16) return false;
-        if (samplerAnisotropy && !_rhs.samplerAnisotropy) return false;
         if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;

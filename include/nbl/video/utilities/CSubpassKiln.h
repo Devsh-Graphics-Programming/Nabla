@@ -25,8 +25,6 @@ class CSubpassKiln
 
         static void enablePreferredFeatures(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& featuresToEnable)
         {
-            featuresToEnable.multiDrawIndirect = availableFeatures.multiDrawIndirect;
-            featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
         }
 
         // for finding upper and lower bounds of subpass drawcalls
@@ -204,13 +202,7 @@ class CSubpassKiln
             if (begin==end)
                 return;
 
-            const auto& features = cmdbuf->getOriginDevice()->getEnabledFeatures();
-            const bool drawCountEnabled = features.drawIndirectCount;
-
-            if (features.multiDrawIndirect)
-                bake_impl<true>(drawCountEnabled,drawIndirectBuffer,drawCountBuffer)(cmdbuf,begin,end);
-            else
-                bake_impl<false>(drawCountEnabled,drawIndirectBuffer,drawCountBuffer)(cmdbuf,begin,end);
+            bake_impl(cmdbuf->getOriginDevice()->getPhysicalDevice()->getLimits().indirectDrawCount, drawIndirectBuffer, drawCountBuffer)(cmdbuf, begin, end);
         }
 
     protected:
@@ -218,7 +210,6 @@ class CSubpassKiln
         uint64_t m_needsSorting = DefaultOrder::invalidTypeID;
 
         using call_iterator = typename decltype(m_drawCallMetadataStorage)::const_iterator;
-        template<bool multiDrawEnabled>
         struct bake_impl
         {
             public:
@@ -325,21 +316,9 @@ class CSubpassKiln
                             else
                             {
                                 if (indexed)
-                                {
-                                    if constexpr (multiDrawEnabled)
-                                        cmdbuf->drawIndexedIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
-                                    else
-                                    for (auto i=0u; i<drawMaxCount; i++)
-                                        cmdbuf->drawIndexedIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawElementsIndirectCommand_t));
-                                }
+                                    cmdbuf->drawIndexedIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
                                 else
-                                {
-                                    if constexpr (multiDrawEnabled)
-                                        cmdbuf->drawIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
-                                    else
-                                    for (auto i=0u; i<drawMaxCount; i++)
-                                        cmdbuf->drawIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawArraysIndirectCommand_t));
-                                }
+                                    cmdbuf->drawIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
                             }
                         }
                     }

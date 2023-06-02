@@ -393,7 +393,6 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (limits.shaderImageGatherExtended) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_IMAGE_GATHER_EXTENDED");
     if (limits.shaderInt64) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT64");
     if (limits.shaderInt16) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT16");
-    if (limits.samplerAnisotropy) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SAMPLER_ANISOTROPY");
     if (limits.storageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_BUFFER_16BIT_ACCESS");
     if (limits.uniformAndStorageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
     if (limits.storagePushConstant16) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_16");
@@ -408,27 +407,17 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
 
     // SPhysicalDeviceFeatures
     if (features.robustBufferAccess) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_ROBUST_BUFFER_ACCESS");
-    if (features.fullDrawIndexUint32) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FULL_DRAW_INDEX_UINT32");
-    if (features.imageCubeArray) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_IMAGE_CUBE_ARRAY");
-    if (features.independentBlend) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_INDEPENDENT_BLEND");
     if (features.geometryShader) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_GEOMETRY_SHADER");
     if (features.tessellationShader) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_TESSELLATION_SHADER");
-    if (features.sampleRateShading) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLE_RATE_SHADING");
     if (features.dualSrcBlend) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DUAL_SRC_BLEND");
     if (features.logicOp) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_LOGIC_OP");
-    if (features.multiDrawIndirect) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_MULTI_DRAW_INDIRECT");
-    if (features.drawIndirectFirstInstance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DRAW_INDIRECT_FIRST_INSTANCE");
-    if (features.depthClamp) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DEPTH_CLAMP");
-    if (features.depthBiasClamp) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DEPTH_BIAS_CLAMP");
     if (features.fillModeNonSolid) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FILL_MODE_NON_SOLID");
     if (features.depthBounds) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DEPTH_BOUNDS");
     if (features.wideLines) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_WIDE_LINES");
     if (features.largePoints) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_LARGE_POINTS");
     if (features.alphaToOne) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_ALPHA_TO_ONE");
     if (features.multiViewport) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_MULTI_VIEWPORT");
-    if (features.occlusionQueryPrecise) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_OCCLUSION_QUERY_PRECISE");
     // if (features.pipelineStatisticsQuery) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_STATISTICS_QUERY"); // shader doesn't need to know about
-    if (features.shaderStorageImageExtendedFormats) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_EXTENDED_FORMATS");
     if (features.shaderStorageImageMultisample) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE");
     if (features.shaderStorageImageReadWithoutFormat) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT");
     if (features.shaderStorageImageWriteWithoutFormat) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT");
@@ -444,8 +433,6 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VARIABLE_MULTISAMPLE_RATE");
     // if (features.inheritedQueries) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_INHERITED_QUERIES"); // shader doesn't need to know about
     if (features.shaderDrawParameters) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_DRAW_PARAMETERS");
-    if (features.samplerMirrorClampToEdge) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_MIRROR_CLAMP_TO_EDGE");
-    if (features.drawIndirectCount) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DRAW_INDIRECT_COUNT");
     if (features.descriptorIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_INDEXING");
     if (features.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
     if (features.shaderUniformTexelBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_UNIFORM_TEXEL_BUFFER_ARRAY_DYNAMIC_INDEXING");
@@ -468,7 +455,6 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.descriptorBindingVariableDescriptorCount) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT");
     if (features.runtimeDescriptorArray) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RUNTIME_DESCRIPTOR_ARRAY");
     if (features.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_FILTER_MINMAX");
-    if (features.scalarBlockLayout) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SCALAR_BLOCK_LAYOUT");
     if (features.bufferDeviceAddress) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_DEVICE_ADDRESS");
     if (features.bufferDeviceAddressMultiDevice) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_DEVICE_ADDRESS_MULTI_DEVICE");
     if (features.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL");

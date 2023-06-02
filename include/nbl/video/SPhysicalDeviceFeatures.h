@@ -32,18 +32,12 @@ struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
     bool robustBufferAccess = false;
-    bool fullDrawIndexUint32 = false;
-    bool imageCubeArray = false; //always enable
-    bool independentBlend = false;
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool independentBlend = true;
     bool geometryShader    = false;
     bool tessellationShader = false;
-    bool sampleRateShading = false;
     bool dualSrcBlend = false;
     bool logicOp = false;
-    bool multiDrawIndirect = false; // always enable
-    bool drawIndirectFirstInstance = false; // always enable
-    bool depthClamp = false;
-    bool depthBiasClamp = false;
     bool fillModeNonSolid = false;
     bool depthBounds = false;
     bool wideLines = false;
@@ -55,8 +49,13 @@ struct SPhysicalDeviceFeatures
     //bool    textureCompressionETC2;
     //bool    textureCompressionASTC_LDR;
     //bool    textureCompressionBC;
+    // VK SPEC: "shaderStorageImageExtendedFormats feature only adds a guarantee of format support, which is specified for the whole physical device.
+    // Therefore enabling or disabling the feature via vkCreateDevice has no practical effect."
+    //bool shaderStorageImageExtendedFormats = false;
     
-    bool occlusionQueryPrecise = false;
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool occlusionQueryPrecise = true;
+
     bool pipelineStatisticsQuery = false;
 
     // Enabled by Default, Moved to Limits
@@ -65,7 +64,6 @@ struct SPhysicalDeviceFeatures
     //bool shaderTessellationAndGeometryPointSize = false;
     //bool shaderImageGatherExtended = false;
 
-    bool shaderStorageImageExtendedFormats = false; // always enable ?
     bool shaderStorageImageMultisample = false; // always enable
     bool shaderStorageImageReadWithoutFormat = false;
     bool shaderStorageImageWriteWithoutFormat = false;
@@ -126,9 +124,22 @@ struct SPhysicalDeviceFeatures
 
 
     /* Vulkan 1.2 Core */
-    // always enable 
-    bool samplerMirrorClampToEdge = false;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
-    bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
+
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
+    // TODO: expose the `maxDrawIndexedIndexValue` limit instead
+    //bool fullDrawIndexUint32 = true;
+    //bool imageCubeArray = true;
+    //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout
+    //bool drawIndirectFirstInstance = true;
+    //bool samplerMirrorClampToEdge = true;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
+    //bool multiDrawIndirect = true;
+    //bool sampleRateShading = true;
+    //bool depthClamp = true;
+    //bool depthBiasClamp = true;
+ 
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but mobile GPUs don't support well
+    // exposed as a limit `maxDrawIndirectCount`
+    //bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
     // Enabled by Default, Moved to Limits
     // or VK_KHR_8bit_storage:
@@ -158,20 +169,22 @@ struct SPhysicalDeviceFeatures
     bool shaderInputAttachmentArrayNonUniformIndexing = false;
     bool shaderUniformTexelBufferArrayNonUniformIndexing = false;
     bool shaderStorageTexelBufferArrayNonUniformIndexing = false;
+    // on ROADMAP 2022 but need to check stuff first
     bool descriptorBindingUniformBufferUpdateAfterBind = false;
     bool descriptorBindingSampledImageUpdateAfterBind = false;
     bool descriptorBindingStorageImageUpdateAfterBind = false;
     bool descriptorBindingStorageBufferUpdateAfterBind = false;
     bool descriptorBindingUniformTexelBufferUpdateAfterBind = false;
     bool descriptorBindingStorageTexelBufferUpdateAfterBind = false;
+
+    // supported by ROADMAP 2022 but might be expensive to enable for the implementation
     bool descriptorBindingUpdateUnusedWhilePending = false;
     bool descriptorBindingPartiallyBound = false;
     bool descriptorBindingVariableDescriptorCount = false;
     bool runtimeDescriptorArray = false;
     
     bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
-    
-    bool scalarBlockLayout = false;     // or VK_EXT_scalar_block_layout
+
     
     // [DO NOT EXPOSE] Vulkan 1.2 requires these
     //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO] https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
@@ -1009,18 +1022,11 @@ struct SPhysicalDeviceFeatures
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
-        if (fullDrawIndexUint32 && !_rhs.fullDrawIndexUint32) return false;
-        if (imageCubeArray && !_rhs.imageCubeArray) return false;
         if (independentBlend && !_rhs.independentBlend) return false;
         if (geometryShader && !_rhs.geometryShader) return false;
         if (tessellationShader && !_rhs.tessellationShader) return false;
-        if (sampleRateShading && !_rhs.sampleRateShading) return false;
         if (dualSrcBlend && !_rhs.dualSrcBlend) return false;
         if (logicOp && !_rhs.logicOp) return false;
-        if (multiDrawIndirect && !_rhs.multiDrawIndirect) return false;
-        if (drawIndirectFirstInstance && !_rhs.drawIndirectFirstInstance) return false;
-        if (depthClamp && !_rhs.depthClamp) return false;
-        if (depthBiasClamp && !_rhs.depthBiasClamp) return false;
         if (fillModeNonSolid && !_rhs.fillModeNonSolid) return false;
         if (depthBounds && !_rhs.depthBounds) return false;
         if (wideLines && !_rhs.wideLines) return false;
@@ -1029,7 +1035,6 @@ struct SPhysicalDeviceFeatures
         if (multiViewport && !_rhs.multiViewport) return false;
         if (occlusionQueryPrecise && !_rhs.occlusionQueryPrecise) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
-        if (shaderStorageImageExtendedFormats && !_rhs.shaderStorageImageExtendedFormats) return false;
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
         if (shaderStorageImageWriteWithoutFormat && !_rhs.shaderStorageImageWriteWithoutFormat) return false;
@@ -1045,8 +1050,6 @@ struct SPhysicalDeviceFeatures
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
         if (inheritedQueries && !_rhs.inheritedQueries) return false;
         if (shaderDrawParameters && !_rhs.shaderDrawParameters) return false;
-        if (samplerMirrorClampToEdge && !_rhs.samplerMirrorClampToEdge) return false;
-        if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
         if (descriptorIndexing && !_rhs.descriptorIndexing) return false;
         if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
         if (shaderUniformTexelBufferArrayDynamicIndexing && !_rhs.shaderUniformTexelBufferArrayDynamicIndexing) return false;
@@ -1069,7 +1072,6 @@ struct SPhysicalDeviceFeatures
         if (descriptorBindingVariableDescriptorCount && !_rhs.descriptorBindingVariableDescriptorCount) return false;
         if (runtimeDescriptorArray && !_rhs.runtimeDescriptorArray) return false;
         if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
-        if (scalarBlockLayout && !_rhs.scalarBlockLayout) return false;
         if (bufferDeviceAddress && !_rhs.bufferDeviceAddress) return false;
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
         if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
