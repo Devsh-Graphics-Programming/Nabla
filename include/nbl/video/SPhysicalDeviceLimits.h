@@ -69,8 +69,8 @@ struct SPhysicalDeviceLimits
     uint32_t maxWorkgroupSize[3] = {};
     uint32_t subPixelPrecisionBits = 0u;
     //uint32_t              subTexelPrecisionBits;
-    //uint32_t              mipmapPrecisionBits; // [TODO] require investigation GL+ES spec
-    //uint32_t              maxDrawIndexedIndexValue;
+    //uint32_t              mipmapPrecisionBits;
+    //uint32_t              maxDrawIndexedIndexValue; // TODO: expose
     uint32_t maxDrawIndirectCount = 0u;
     float    maxSamplerLodBias = 0.0f;
     uint8_t  maxSamplerAnisotropyLog2 = 0u;
@@ -534,6 +534,8 @@ struct SPhysicalDeviceLimits
     /*  Always enabled, reported as limits */
 
     // Core 1.0 Features
+    // redundant can deduce from `maxSamplerAnisotropyLog2
+    //bool samplerAnisotropy = false;
     bool vertexPipelineStoresAndAtomics = false;
     // ROADMAP 2022 but poor support on Apple GPUs
     bool fragmentStoresAndAtomics = false;
@@ -541,8 +543,6 @@ struct SPhysicalDeviceLimits
     bool shaderImageGatherExtended = false;
     bool shaderInt64 = false;
     bool shaderInt16 = false;
-    // redundant can deduce from `maxSamplerAnisotropyLog2
-    //bool samplerAnisotropy = false;
 
     // Core 1.1 Features or VK_KHR_16bit_storage */
     bool storageBuffer16BitAccess = false;
@@ -550,6 +550,8 @@ struct SPhysicalDeviceLimits
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
 
+    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
+    bool drawIndirectCount = false;
     // Vulkan 1.2 Core or VK_KHR_8bit_storage:
     bool storageBuffer8BitAccess = false;
     bool uniformAndStorageBuffer8BitAccess = false;
@@ -896,6 +898,7 @@ struct SPhysicalDeviceLimits
         if (spirvVersion > _rhs.spirvVersion) return false;
         if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
         if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
+        if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
         if (storageBuffer8BitAccess && !_rhs.storageBuffer8BitAccess) return false;
         if (uniformAndStorageBuffer8BitAccess && !_rhs.uniformAndStorageBuffer8BitAccess) return false;
         if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;

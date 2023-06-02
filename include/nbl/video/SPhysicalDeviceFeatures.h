@@ -1022,7 +1022,6 @@ struct SPhysicalDeviceFeatures
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
-        if (independentBlend && !_rhs.independentBlend) return false;
         if (geometryShader && !_rhs.geometryShader) return false;
         if (tessellationShader && !_rhs.tessellationShader) return false;
         if (dualSrcBlend && !_rhs.dualSrcBlend) return false;
@@ -1033,7 +1032,6 @@ struct SPhysicalDeviceFeatures
         if (largePoints && !_rhs.largePoints) return false;
         if (alphaToOne && !_rhs.alphaToOne) return false;
         if (multiViewport && !_rhs.multiViewport) return false;
-        if (occlusionQueryPrecise && !_rhs.occlusionQueryPrecise) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
