@@ -19,19 +19,21 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
 
         struct SCreationParams
         {
-            core::smart_refctd_ptr<ISurface> surface;
-            uint32_t minImageCount;
-            ISurface::SFormat surfaceFormat;
-            ISurface::E_PRESENT_MODE presentMode;
-            uint32_t width;
-            uint32_t height;
+            core::smart_refctd_ptr<ISurface> surface = {};
+            uint32_t minImageCount = 3u;
+            ISurface::SFormat surfaceFormat = {};
+            ISurface::E_PRESENT_MODE presentMode = ISurface::EPM_FIFO;
+            uint32_t width = ~0u;
+            uint32_t height = ~0u;
             uint32_t arrayLayers = 1u;
-            uint32_t queueFamilyIndexCount;
-            const uint32_t* queueFamilyIndices;
-            core::bitflag<asset::IImage::E_USAGE_FLAGS> imageUsage;
-            ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform;
-            ISurface::E_COMPOSITE_ALPHA compositeAlpha;
+            uint32_t queueFamilyIndexCount = 0u;
+            const uint32_t* queueFamilyIndices = nullptr;
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> imageUsage = IGPUImage::EUF_NONE;
+            ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform = ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_IDENTITY_BIT;
+            ISurface::E_COMPOSITE_ALPHA compositeAlpha = ISurface::E_COMPOSITE_ALPHA::ECA_OPAQUE_BIT;
             core::smart_refctd_ptr<ISwapchain> oldSwapchain = nullptr;
+            // Do not touch unless you want to severly restrict the Image Views of the swapchain image you can create
+            std::bitset<asset::E_FORMAT::EF_COUNT> viewFormats = {};
 
             inline bool isConcurrentSharing() const {return queueFamilyIndexCount!=0u;}
         };

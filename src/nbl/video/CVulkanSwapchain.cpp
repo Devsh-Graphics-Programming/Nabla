@@ -31,8 +31,20 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
         vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
     else if ((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
         vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+    
+    std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
+    VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, nullptr };
+    vk_formatListStruct.viewFormatCount = 0u;
+    vk_formatListStruct.pViewFormats = vk_formatList.data();
+    // if only there existed a nice iterator that would let me iterate over set bits 64 faster
+    if (params.viewFormats.any())
+    {
+        for (auto fmt=0; fmt<vk_formatList.size(); fmt++)
+        if (params.viewFormats.test(fmt))
+            vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(fmt));
+    }
 
-    VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+    VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, &vk_formatListStruct };
     vk_createInfo.surface = vk_surface;
     vk_createInfo.minImageCount = params.minImageCount;
     vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);

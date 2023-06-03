@@ -195,8 +195,19 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
 
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::SCreationParams&& params)
 {
-    VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-    vk_createInfo.pNext = nullptr; // there are a lot of extensions
+    std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
+    VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, nullptr };
+    vk_formatListStruct.viewFormatCount = 0u;
+    vk_formatListStruct.pViewFormats = vk_formatList.data();
+    // if only there existed a nice iterator that would let me iterate over set bits 64 faster
+    if (params.viewFormats.any())
+    {
+        for (auto fmt=0; fmt<vk_formatList.size(); fmt++)
+        if (params.viewFormats.test(fmt))
+            vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(fmt));
+    }
+
+    VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, &vk_formatListStruct };
     vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags.value);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
     vk_createInfo.format = getVkFormatFromFormat(params.format);
