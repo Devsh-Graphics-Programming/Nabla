@@ -241,12 +241,12 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.3 Core */
     
-    // [DO NOT EXPOSE]
+    // [DO NOT EXPOSE] EVIL regressive step back into OpenGL/Dx10 times
     //  or VK_EXT_inline_uniform_block:
     //bool           inlineUniformBlock;
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
 
-    // [DO NOT EXPOSE] ever
+    // [DO NOT EXPOSE] ever we have our own mechanism
     //bool           privateData;                       // or VK_EXT_private_data
     
     bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
@@ -256,13 +256,13 @@ struct SPhysicalDeviceFeatures
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
-    // [DO NOT EXPOSE] and false because we havent rewritten our frontend API for that: https://github.com/Devsh-Graphics-Programming/Nabla/issues/384
+    // [DO NOT EXPOSE] REQUIRE but we need to rewrite our frontend API for that: https://github.com/Devsh-Graphics-Programming/Nabla/issues/384
     //bool           synchronization2;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
     
-    // [DO NOT EXPOSE] would require doing research into the GL/GLES robustness extensions
+    // [TODO] Expose
     //bool           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
     
     // [DO NOT EXPOSE] EVIL
@@ -944,14 +944,15 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to VK_KHR_performance_query, VK1.1 core
     /* VK_INTEL_performance_query */
 
-    // [DO NOT EXPOSE] Promoted to VK1.3 core, migrate to it when/if we need it
+    // [DO NOT EXPOSE] Promoted to VK1.3 core but serves no purpose other than providing a pNext chain for the usage of a single QCOM extension
     /* VK_KHR_copy_commands2 */
 
     /* VK_KHR_deferred_host_operations */
     bool deferredHostOperations = false;
 
-    // [DO NOT EXPOSE] Promoted to core VK 1.1
+    // [DO NOT EXPOSE YET] Promoted to core VK 1.1
     /* VK_KHR_device_group */
+    /* VK_KHR_device_group_creation */
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_fence */
