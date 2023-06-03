@@ -1616,14 +1616,6 @@ protected:
 
         // A. Enable by Default, exposed as limits : add names to string and structs to feature chain
         {
-            vk_deviceFeatures2.features.vertexPipelineStoresAndAtomics = m_properties.limits.vertexPipelineStoresAndAtomics;
-            vk_deviceFeatures2.features.fragmentStoresAndAtomics = m_properties.limits.fragmentStoresAndAtomics;
-            vk_deviceFeatures2.features.shaderTessellationAndGeometryPointSize = m_properties.limits.shaderTessellationAndGeometryPointSize;
-            vk_deviceFeatures2.features.shaderImageGatherExtended = m_properties.limits.shaderImageGatherExtended;
-            vk_deviceFeatures2.features.shaderInt64 = m_properties.limits.shaderInt64;
-            vk_deviceFeatures2.features.shaderInt16 = m_properties.limits.shaderInt16;
-            vk_deviceFeatures2.features.shaderFloat64 = m_properties.limits.shaderFloat64;
-
             vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
             vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
             vulkan12Features.storagePushConstant8                = m_properties.limits.storagePushConstant8;
@@ -1714,12 +1706,16 @@ protected:
             
         /* Vulkan 1.0 Core  */
         vk_deviceFeatures2.features.robustBufferAccess = enabledFeatures.robustBufferAccess;
+        vk_deviceFeatures2.features.fullDrawIndexUint32 = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.imageCubeArray = true; // ROADMAP 2022
         vk_deviceFeatures2.features.independentBlend = true; // ROADMAP 2022
         vk_deviceFeatures2.features.geometryShader = enabledFeatures.geometryShader;
         vk_deviceFeatures2.features.tessellationShader = enabledFeatures.tessellationShader;
         vk_deviceFeatures2.features.sampleRateShading = true; // ROADMAP 2022
         vk_deviceFeatures2.features.dualSrcBlend = enabledFeatures.dualSrcBlend;
         vk_deviceFeatures2.features.logicOp = enabledFeatures.logicOp;
+        vk_deviceFeatures2.features.multiDrawIndirect = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.drawIndirectFirstInstance = true; // ROADMAP 2022
         vk_deviceFeatures2.features.depthClamp = true; // ROADMAP 2022
         vk_deviceFeatures2.features.depthBiasClamp = true; // ROADMAP 2022
         vk_deviceFeatures2.features.fillModeNonSolid = enabledFeatures.fillModeNonSolid;
@@ -1728,8 +1724,18 @@ protected:
         vk_deviceFeatures2.features.largePoints = enabledFeatures.largePoints;
         vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
         vk_deviceFeatures2.features.multiViewport = enabledFeatures.multiViewport;
+        vk_deviceFeatures2.features.samplerAnisotropy = true; // ROADMAP
+        // apprently setting these has no effect ?
+        vk_deviceFeatures2.features.textureCompressionETC2 = true;
+        vk_deviceFeatures2.features.textureCompressionASTC_LDR = true;
+        vk_deviceFeatures2.features.textureCompressionBC = true;
         vk_deviceFeatures2.features.occlusionQueryPrecise = true; // ROADMAP 2022
         vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
+        vk_deviceFeatures2.features.vertexPipelineStoresAndAtomics;
+        vk_deviceFeatures2.features.fragmentStoresAndAtomics;
+        vk_deviceFeatures2.features.shaderTessellationAndGeometryPointSize;
+        vk_deviceFeatures2.features.shaderImageGatherExtended;
+        vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = true; // ROADMAP 2022
         vk_deviceFeatures2.features.shaderStorageImageMultisample = m_properties.limits.shaderStorageImageMultisample;
         vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = enabledFeatures.shaderStorageImageReadWithoutFormat;
         vk_deviceFeatures2.features.shaderStorageImageWriteWithoutFormat = enabledFeatures.shaderStorageImageWriteWithoutFormat;
@@ -1741,6 +1747,15 @@ protected:
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
         vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
+        vk_deviceFeatures2.features.sparseBinding = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidencyBuffer = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidencyImage2D = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidencyImage3D = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidency2Samples = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidency4Samples = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidency8Samples = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidency16Samples = false; // not implemented yet
+        vk_deviceFeatures2.features.sparseResidencyAliased = false; // not implemented yet
         vk_deviceFeatures2.features.variableMultisampleRate = enabledFeatures.variableMultisampleRate;
         vk_deviceFeatures2.features.inheritedQueries = enabledFeatures.inheritedQueries;
 
@@ -1785,13 +1800,6 @@ protected:
 
         vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
 
-        // ROADMAP 2022 mandated
-        vk_deviceFeatures2.features.fullDrawIndexUint32 = true;
-        vk_deviceFeatures2.features.imageCubeArray = true;
-        vk_deviceFeatures2.features.multiDrawIndirect = true;
-        vk_deviceFeatures2.features.drawIndirectFirstInstance = true;
-        vk_deviceFeatures2.features.samplerAnisotropy = true;
-        vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = true;
         vulkan12Features.samplerMirrorClampToEdge = true;
         vulkan12Features.scalarBlockLayout = true;
         // ROADMAP 2022 mandated but not ubiquitously supported
