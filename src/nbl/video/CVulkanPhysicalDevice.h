@@ -1142,6 +1142,7 @@ public:
             m_properties.limits.uniformAndStorageBuffer16BitAccess = vulkan11Features.uniformAndStorageBuffer16BitAccess;
             m_properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
             m_properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
+            m_properties.limits.variablePointers = vulkan11Features.variablePointers;
             
             if (isExtensionSupported(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
             {
@@ -1528,11 +1529,11 @@ protected:
             }
         };
 
+
+        //
         VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
         addFeatureToChain(&vulkan12Features);
 
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#features-requirements
-        vulkan11Features.multiview = true;
         vulkan12Features.uniformBufferStandardLayout = true;
         vulkan12Features.subgroupBroadcastDynamicId = true;
         vulkan12Features.imagelessFramebuffer = true;
@@ -1744,6 +1745,19 @@ protected:
         vk_deviceFeatures2.features.inheritedQueries = enabledFeatures.inheritedQueries;
 
         /* Vulkan 1.1 Core */
+        vulkan11Features.storageBuffer16BitAccess = m_properties.limits.storageBuffer16BitAccess;
+        vulkan11Features.uniformAndStorageBuffer16BitAccess = m_properties.limits.uniformAndStorageBuffer16BitAccess;
+        vulkan11Features.storagePushConstant16 = m_properties.limits.storagePushConstant16;
+        vulkan11Features.storageInputOutput16 = m_properties.limits.storageInputOutput16;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#features-requirements
+        vulkan11Features.multiview = true;
+        //vulkan11Features.multiviewGeometryShader = TODO;
+        //vulkan11Features.multiviewTessellationShader = TODO;
+        vulkan11Features.variablePointers = m_properties.limits.variablePointers;
+        vulkan11Features.variablePointersStorageBuffer = vulkan11Features.variablePointers;
+        // not yet
+        vulkan11Features.protectedMemory = false;
+        vulkan11Features.samplerYcbcrConversion = false;
         vulkan11Features.shaderDrawParameters = enabledFeatures.shaderDrawParameters;
             
         /* Vulkan 1.2 Core */

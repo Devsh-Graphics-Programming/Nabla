@@ -398,6 +398,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (limits.uniformAndStorageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
     if (limits.storagePushConstant16) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_16");
     if (limits.storageInputOutput16) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_INPUT_OUTPUT_16");
+    if (limits.variablePointers) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_VARIABLE_POINTERS");
     if (limits.storageBuffer8BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_BUFFER_8BIT_ACCESS");
     if (limits.uniformAndStorageBuffer8BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_8BIT_ACCESS");
     if (limits.storagePushConstant8) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_8");

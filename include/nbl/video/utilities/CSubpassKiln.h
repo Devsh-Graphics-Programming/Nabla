@@ -307,7 +307,7 @@ class CSubpassKiln
                             const uint32_t drawCallOffset=it->drawCallOffset, drawCountOffset=it->drawCountOffset, drawMaxCount=it->drawMaxCount, drawCommandStride=it->drawCommandStride;
                             if (drawCountBuffer && drawCountOffset!=IDrawIndirectAllocator::invalid_draw_count_ix)
                             {
-                                assert(drawCountEnabled && multiDrawEnabled);
+                                assert(drawCountEnabled);
                                 if (indexed)
                                     cmdbuf->drawIndexedIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
                                 else

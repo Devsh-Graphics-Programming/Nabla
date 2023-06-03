@@ -130,8 +130,7 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.1 Core */
 
-    // Enabled by Default, Moved to Limits
-    /* VK_KHR_16bit_storage */
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage
     //bool storageBuffer16BitAccess = false;
     //bool uniformAndStorageBuffer16BitAccess = false;
     //bool storagePushConstant16 = false;
@@ -139,14 +138,16 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
     //bool multiview;
+    // 
     // [TODO LATER] do not expose this part of multiview yet
     /* VK_KHR_multiview */ 
     //bool multiviewGeometryShader;
     //bool multiviewTessellationShader;
 
-    // [DO NOT EXPOSE] TODO: what requires this?
-    bool variablePointersStorageBuffer;
-    bool variablePointers;
+    // [EXPOSE AS A LIMIT] Its just a shader capability
+    //bool variablePointers;
+    // [DO NOT EXPOSE] Under Vulkan 1.1 if `variablePointers` is present it implies `variablePointersStorageBuffer`
+    //bool variablePointersStorageBuffer = variablePointers;
     
     /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
     //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
@@ -513,10 +514,6 @@ struct SPhysicalDeviceFeatures
 
     /* VK_AMD_shader_info */
     bool shaderInfoAMD = false;
-
-    // [TODO]:
-    //bool           variablePointersStorageBuffer;
-    //bool           variablePointers;
 
     bool pipelineCreationCacheControl = false;      // or VK_EXT_pipeline_creation_cache_control
 

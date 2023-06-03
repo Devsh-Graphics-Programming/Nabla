@@ -554,11 +554,14 @@ struct SPhysicalDeviceLimits
     bool shaderInt64 = false;
     bool shaderInt16 = false;
 
-    // Core 1.1 Features or VK_KHR_16bit_storage */
+    // Core 1.1 Features or VK_KHR_16bit_storage
     bool storageBuffer16BitAccess = false;
     bool uniformAndStorageBuffer16BitAccess = false;
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
+
+    // Core 1.1 Features or VK_KHR_variable_pointers
+    bool variablePointers = false;
 
     // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
     bool drawIndirectCount = false;
@@ -926,6 +929,7 @@ struct SPhysicalDeviceLimits
         if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
+        if (variablePointers && !_rhs.variablePointers) return false;
         if (storageBuffer16BitAccess && !_rhs.storageBuffer16BitAccess) return false;
         
         return true;
