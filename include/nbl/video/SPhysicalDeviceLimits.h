@@ -541,6 +541,8 @@ struct SPhysicalDeviceLimits
     bool fragmentStoresAndAtomics = false;
     bool shaderTessellationAndGeometryPointSize = false;
     bool shaderImageGatherExtended = false;
+    // ROADMAP 2022 but poor support on Apple GPUs
+    bool shaderStorageImageArrayDynamicIndexing = false;
     bool shaderInt64 = false;
     bool shaderInt16 = false;
 
@@ -908,6 +910,7 @@ struct SPhysicalDeviceLimits
         if (shaderInt8 && !_rhs.shaderInt8) return false;
         if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
         if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
+        if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderInt64 && !_rhs.shaderInt64) return false;
         if (shaderInt16 && !_rhs.shaderInt16) return false;
         if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;

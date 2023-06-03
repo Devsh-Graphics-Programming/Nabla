@@ -373,9 +373,9 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (limits.postDepthCoverage) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_POST_DEPTH_COVERAGE");
     if (limits.shaderStencilExport) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_STENCIL_EXPORT");
     if (limits.decorateString) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_DECORATE_STRING");
-    // if (limits.externalFence) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_FENCE"); // [TODO] requires instance extensions, add them
-    // if (limits.externalMemory) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_MEMORY"); // [TODO] requires instance extensions, add them
-    // if (limits.externalSemaphore) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE"); // [TODO] requires instance extensions, add them
+    // if (limits.externalFence) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_FENCE"); // shader doesn't need to know about that
+    // if (limits.externalMemory) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_MEMORY"); // shader doesn't need to know about that
+    // if (limits.externalSemaphore) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE"); // shader doesn't need to know about that
     if (limits.shaderNonSemanticInfo) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_NON_SEMANTIC_INFO");
     if (limits.fragmentShaderBarycentric) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAGMENT_SHADER_BARYCENTRIC");
     if (limits.geometryShaderPassthrough) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_GEOMETRY_SHADER_PASSTHROUGH");
@@ -421,10 +421,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.shaderStorageImageMultisample) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE");
     if (features.shaderStorageImageReadWithoutFormat) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT");
     if (features.shaderStorageImageWriteWithoutFormat) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT");
-    if (features.shaderUniformBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_UNIFORM_BUFFER_ARRAY_DYNAMIC_INDEXING");
-    if (features.shaderSampledImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_SAMPLED_IMAGE_ARRAY_DYNAMIC_INDEXING");
-    if (features.shaderStorageBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_BUFFER_ARRAY_DYNAMIC_INDEXING");
-    if (features.shaderStorageImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_ARRAY_DYNAMIC_INDEXING");
+    if (limits.shaderStorageImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_ARRAY_DYNAMIC_INDEXING");
     if (features.shaderClipDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CLIP_DISTANCE");
     if (features.shaderCullDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CULL_DISTANCE");
     if (features.shaderFloat64) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_FLOAT64");
@@ -433,6 +430,7 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VARIABLE_MULTISAMPLE_RATE");
     // if (features.inheritedQueries) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_INHERITED_QUERIES"); // shader doesn't need to know about
     if (features.shaderDrawParameters) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_DRAW_PARAMETERS");
+    if (limits.drawIndirectCount) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DRAW_INDIRECT_COUNT");
     if (features.descriptorIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_INDEXING");
     if (features.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
     if (features.shaderUniformTexelBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_UNIFORM_TEXEL_BUFFER_ARRAY_DYNAMIC_INDEXING");

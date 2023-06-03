@@ -763,9 +763,6 @@ public:
             m_features.shaderStorageImageMultisample = features.shaderStorageImageMultisample;
             m_features.shaderStorageImageReadWithoutFormat = features.shaderStorageImageReadWithoutFormat;
             m_features.shaderStorageImageWriteWithoutFormat = features.shaderStorageImageWriteWithoutFormat;
-            m_features.shaderUniformBufferArrayDynamicIndexing = features.shaderUniformBufferArrayDynamicIndexing;
-            m_features.shaderSampledImageArrayDynamicIndexing = features.shaderSampledImageArrayDynamicIndexing;
-            m_features.shaderStorageBufferArrayDynamicIndexing = features.shaderStorageBufferArrayDynamicIndexing;
             m_features.shaderStorageImageArrayDynamicIndexing = features.shaderStorageImageArrayDynamicIndexing;
             m_features.shaderClipDistance = features.shaderClipDistance;
             m_features.shaderCullDistance = features.shaderCullDistance;
@@ -1736,10 +1733,10 @@ protected:
         vk_deviceFeatures2.features.shaderStorageImageMultisample = enabledFeatures.shaderStorageImageMultisample;
         vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = enabledFeatures.shaderStorageImageReadWithoutFormat;
         vk_deviceFeatures2.features.shaderStorageImageWriteWithoutFormat = enabledFeatures.shaderStorageImageWriteWithoutFormat;
-        vk_deviceFeatures2.features.shaderUniformBufferArrayDynamicIndexing = enabledFeatures.shaderUniformBufferArrayDynamicIndexing;
-        vk_deviceFeatures2.features.shaderSampledImageArrayDynamicIndexing = enabledFeatures.shaderSampledImageArrayDynamicIndexing;
-        vk_deviceFeatures2.features.shaderStorageBufferArrayDynamicIndexing = enabledFeatures.shaderStorageBufferArrayDynamicIndexing;
-        vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = enabledFeatures.shaderStorageImageArrayDynamicIndexing;
+        vk_deviceFeatures2.features.shaderUniformBufferArrayDynamicIndexing = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.shaderSampledImageArrayDynamicIndexing = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.shaderStorageBufferArrayDynamicIndexing = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = m_properties.limits.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
         vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.shaderFloat64;

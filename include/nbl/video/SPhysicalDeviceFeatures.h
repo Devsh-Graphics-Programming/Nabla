@@ -78,32 +78,33 @@ struct SPhysicalDeviceFeatures
 
     //bool vertexPipelineStoresAndAtomics = false; // TODO: undo, tilers hate this
     // Enabled by Default, Moved to Limits
-    //bool fragmentStoresAndAtomics = false;
-    //bool shaderTessellationAndGeometryPointSize = false;
-    //bool shaderImageGatherExtended = false;
+    //bool fragmentStoresAndAtomics;
+    //bool shaderTessellationAndGeometryPointSize;
+    //bool shaderImageGatherExtended;
 
     // VK SPEC: "shaderStorageImageExtendedFormats feature only adds a guarantee of format support, which is specified for the whole physical device.
     // Therefore enabling or disabling the feature via vkCreateDevice has no practical effect."
-    //bool shaderStorageImageExtendedFormats = false;
+    //bool shaderStorageImageExtendedFormats = true;
     
     // Enabled by Default, Moved to Limits
-    bool shaderStorageImageMultisample = false; // TODO: always enable
+    bool shaderStorageImageMultisample = false; // TODO: expose as limit, because Intel ARC are hadicapped
 
     bool shaderStorageImageReadWithoutFormat = false;
     bool shaderStorageImageWriteWithoutFormat = false;
 
-    // TODO: [DO NOT EXPOSE] ROADMAP 2022 and good device support
-    bool shaderUniformBufferArrayDynamicIndexing = false;
-    bool shaderSampledImageArrayDynamicIndexing = false;
-    bool shaderStorageBufferArrayDynamicIndexing = false;
-    // On ROADMAP 2022 but Apple GPUs have poor support
-    bool shaderStorageImageArrayDynamicIndexing = false;
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool shaderUniformBufferArrayDynamicIndexing = true;
+    //bool shaderSampledImageArrayDynamicIndexing = true;
+    //bool shaderStorageBufferArrayDynamicIndexing = true;
+ 
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 but Apple GPUs have poor support
+    //bool shaderStorageImageArrayDynamicIndexing;
 
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
 
     // cannot be always enabled cause Intel ARC is handicapped
-    bool shaderFloat64 = false;
+    bool shaderFloat64 = false; // TODO: move to limits
 
     // Enabled by Default, Moved to Limits
     //bool shaderInt64 = false;
@@ -161,9 +162,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Device support ubiquitous
     //bool samplerMirrorClampToEdge = true;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
  
-    // TODO: unfuck
     // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but mobile GPUs don't support well, exposed as a limit `maxDrawIndirectCount`
-    //bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
+    //bool drawIndirectCount; // ALIAS: VK_KHR_draw_indirect_count
 
     // Enabled by Default, Moved to Limits
     // or VK_KHR_8bit_storage:
@@ -1068,10 +1068,6 @@ struct SPhysicalDeviceFeatures
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
         if (shaderStorageImageWriteWithoutFormat && !_rhs.shaderStorageImageWriteWithoutFormat) return false;
-        if (shaderUniformBufferArrayDynamicIndexing && !_rhs.shaderUniformBufferArrayDynamicIndexing) return false;
-        if (shaderSampledImageArrayDynamicIndexing && !_rhs.shaderSampledImageArrayDynamicIndexing) return false;
-        if (shaderStorageBufferArrayDynamicIndexing && !_rhs.shaderStorageBufferArrayDynamicIndexing) return false;
-        if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderClipDistance && !_rhs.shaderClipDistance) return false;
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
         if (shaderFloat64 && !_rhs.shaderFloat64) return false;
