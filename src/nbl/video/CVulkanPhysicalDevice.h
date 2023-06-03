@@ -538,7 +538,7 @@ public:
                 m_properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(m_properties.driverID);
             
             m_properties.limits.dispatchBase = true;
-            m_properties.limits.allowCommandBufferQueryCopies = true; // always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
+            m_properties.limits.allowCommandBufferQueryCopies = true; // TODO: REDO WE NOW SUPPORT PERF QUERIES always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
             m_properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
             
             auto invocationsPerComputeUnit = getMaxInvocationsPerComputeUnitsFromDriverID(m_properties.driverID);
@@ -738,8 +738,6 @@ public:
                 addToPNextChain(&texelBufferAlignmentFeatures);
             if (isExtensionSupported(VK_KHR_GLOBAL_PRIORITY_EXTENSION_NAME))
                 addToPNextChain(&globalPriorityFeatures);
-            if (isExtensionSupported(VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME))
-                addToPNextChain(&astcDecodeFeaturesEXT);
             if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
                 addToPNextChain(&shaderSMBuiltinsFeatures);
             // call
@@ -783,7 +781,7 @@ public:
             m_properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
             m_properties.limits.shaderInt8 = vulkan12Features.shaderInt8;
             
-            m_features.descriptorIndexing = true; // tODO: vulkan12Features?
+            m_features.descriptorIndexing = vulkan12Features.descriptorIndexing;
             m_features.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
             m_features.shaderUniformTexelBufferArrayDynamicIndexing = vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing;
             m_features.shaderStorageTexelBufferArrayDynamicIndexing = vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing;
@@ -1495,31 +1493,16 @@ protected:
         // We might alter it to account for dependancies.
         SFeatures& enabledFeatures = params.featuresToEnable;
 
-        VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, nullptr };
-
-        VkBaseInStructure * featuresTail = reinterpret_cast<VkBaseInStructure*>(&vulkan11Features);
-        VkBaseInStructure * const featuresHead = featuresTail;
-        // Vulkan has problems with having features in the feature chain that have all values set to false.
-        // For example having an empty "RayTracingPipelineFeaturesKHR" in the chain will lead to validation errors for RayQueryONLY applications.
-        auto addFeatureToChain = [&featuresHead,&featuresTail](void* feature) -> void
-        {
-            VkBaseInStructure* toAdd = reinterpret_cast<VkBaseInStructure*>(feature);
-            
-            // For protecting against duplication of feature structures that may be requested to add to chain twice due to extension requirements
-            const bool alreadyAdded = (toAdd->pNext != nullptr || toAdd == featuresTail);
-
-            if(!alreadyAdded)
-            {
-                featuresTail->pNext = toAdd;
-                featuresTail = toAdd;
-            }
-        };
-
+        // Extensions we REQUIRE
+        extensionsToEnable.insert(VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME);
+        VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR, nullptr };
+        VkBaseInStructure* featuresTail = reinterpret_cast<VkBaseInStructure*>(&synchronization2Features);
 
         //
-        VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
-        addFeatureToChain(&vulkan12Features);
-        
+        VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, &synchronization2Features };
+        VkPhysicalDeviceVulkan11Features vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES, &vulkan12Features };
+        VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, &vulkan11Features };
+
         // Important notes on extension dependancies, both instance and device
         /*
             If an extension is supported (as queried by vkEnumerateInstanceExtensionProperties or vkEnumerateDeviceExtensionProperties), 
@@ -1530,11 +1513,18 @@ protected:
 
             Conclusion: We don't need to specifically check instance extension dependancies but we can do it through apiConnection->getEnableFeatures to hint the user on what might be wrong 
         */
- 
-        // Extensions
+
+
+        // Extensions promoted to 1.3 core
+        VkPhysicalDeviceImageRobustnessFeaturesEXT                  imageRobustnessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT, nullptr };
+        VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT     pipelineCreationCacheControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT, nullptr };
+        VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT   shaderDemoteToHelperInvocationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, nullptr };
+        VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR        shaderTerminateInvocationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR, nullptr };
+        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT              subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, nullptr };
+        VkPhysicalDeviceTextureCompressionASTCHDRFeaturesEXT        textureCompressionASTCHDRFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXTURE_COMPRESSION_ASTC_HDR_FEATURES_EXT, nullptr };
+
+        // Real Extensions
         VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT                 texelBufferAlignmentFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT, nullptr };
-        VkPhysicalDeviceImageRobustnessFeatures                         imageRobustnessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES, nullptr };
-        VkPhysicalDevicePipelineCreationCacheControlFeatures            pipelineCreationCacheControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES, nullptr };
         VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT, nullptr };
         VkPhysicalDeviceConditionalRenderingFeaturesEXT                 conditionalRenderingFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT, nullptr };
         VkPhysicalDeviceDeviceMemoryReportFeaturesEXT                   deviceMemoryReportFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT, nullptr };
@@ -1565,10 +1555,7 @@ protected:
         VkPhysicalDeviceIndexTypeUint8FeaturesEXT                       indexTypeUint8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT, nullptr };
         VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM, nullptr };
         VkPhysicalDeviceShaderIntegerDotProductFeatures                 shaderIntegerDotProductFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES, nullptr };
-        VkPhysicalDeviceShaderTerminateInvocationFeatures               shaderTerminateInvocationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES, nullptr };
         VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV, nullptr };
-        VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT, nullptr };
-        VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT       shaderDemoteToHelperInvocationFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT, nullptr };
         VkPhysicalDeviceASTCDecodeFeaturesEXT                           astcDecodeFeaturesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ASTC_DECODE_FEATURES_EXT, nullptr };
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV, nullptr };
         VkPhysicalDeviceCooperativeMatrixFeaturesNV                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_NV, nullptr };
@@ -1576,9 +1563,7 @@ protected:
         VkPhysicalDeviceAccelerationStructureFeaturesKHR                accelerationStructureFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR, nullptr };
         VkPhysicalDeviceRayQueryFeaturesKHR                             rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR, nullptr };
         VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT              fragmentShaderInterlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT, nullptr };
-            
-        VkPhysicalDeviceFeatures2 vk_deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-        vk_deviceFeatures2.features = {};
+        
 
         auto insertExtensionIfAvailable = [&](const char* extName) -> bool
         {
@@ -1591,8 +1576,37 @@ protected:
                 return false;
         };
 
+        auto uncondAddFeatureToChain = [&featuresTail](void* feature) -> void
+        {
+            VkBaseInStructure* toAdd = reinterpret_cast<VkBaseInStructure*>(feature);
+            featuresTail->pNext = toAdd;
+            featuresTail = toAdd;
+        };
+
+        // prime ourselves with good defaults
+        {
+            // special handling of texture compression/format extensions 
+            if (insertExtensionIfAvailable(VK_EXT_TEXTURE_COMPRESSION_ASTC_HDR_EXTENSION_NAME))
+                uncondAddFeatureToChain(&textureCompressionASTCHDRFeatures);
+            if (insertExtensionIfAvailable(VK_EXT_ASTC_DECODE_MODE_EXTENSION_NAME))
+                uncondAddFeatureToChain(&astcDecodeFeaturesEXT);
+
+            // we actually re-query all available Vulkan <= MinimumApiVersion features so that by default they're all enabled unless we explicitly disable
+            vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice,&vk_deviceFeatures2);
+        }
+
+        // Vulkan has problems with having features in the feature chain that have all values set to false.
+        // For example having an empty "RayTracingPipelineFeaturesKHR" in the chain will lead to validation errors for RayQueryONLY applications.
+        auto addFeatureToChain = [&featuresTail,uncondAddFeatureToChain](void* feature) -> void
+        {
+            VkBaseInStructure* toAdd = reinterpret_cast<VkBaseInStructure*>(feature);
+            // For protecting against duplication of feature structures that may be requested to add to chain twice due to extension requirements
+            if (toAdd->pNext==nullptr && toAdd!=featuresTail);
+                uncondAddFeatureToChain(toAdd);
+        };
+
         // A. Enable by Default, exposed as limits : add names to string and structs to feature chain
-        {            
+        {
             if (insertExtensionIfAvailable(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
             {
                 // All Requirements Exist in Vulkan 1.1
@@ -1662,8 +1676,6 @@ protected:
             insertExtensionIfAvailable(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME); // No Extension Requirements
             insertExtensionIfAvailable(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME); // No Extension Requirements
-
-
         }
 
         // B. FeaturesToEnable: add names to strings and structs to feature chain
@@ -1689,11 +1701,10 @@ protected:
         vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
         vk_deviceFeatures2.features.multiViewport = enabledFeatures.multiViewport;
         vk_deviceFeatures2.features.samplerAnisotropy = true; // ROADMAP
-        // apprently setting these has no effect ?
-        vk_deviceFeatures2.features.textureCompressionETC2 = true;
-        vk_deviceFeatures2.features.textureCompressionASTC_LDR = true;
-        vk_deviceFeatures2.features.textureCompressionBC = true;
-        //
+        // leave defaulted
+        //vk_deviceFeatures2.features.textureCompressionETC2;
+        //vk_deviceFeatures2.features.textureCompressionASTC_LDR;
+        //vk_deviceFeatures2.features.textureCompressionBC;
         vk_deviceFeatures2.features.occlusionQueryPrecise = true; // ROADMAP 2022
         vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
         vk_deviceFeatures2.features.vertexPipelineStoresAndAtomics = m_properties.limits.vertexPipelineStoresAndAtomics;
@@ -1734,8 +1745,8 @@ protected:
         vulkan11Features.storageInputOutput16 = m_properties.limits.storageInputOutput16;
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#features-requirements
         vulkan11Features.multiview = true;
-        //vulkan11Features.multiviewGeometryShader = TODO;
-        //vulkan11Features.multiviewTessellationShader = TODO;
+        vulkan11Features.multiviewGeometryShader = false;// = TODO;
+        vulkan11Features.multiviewTessellationShader = false;// = TODO;
         vulkan11Features.variablePointers = m_properties.limits.variablePointers;
         vulkan11Features.variablePointersStorageBuffer = vulkan11Features.variablePointers;
         // not yet
@@ -1803,9 +1814,10 @@ protected:
         }
 
         /* Vulkan 1.3 Core */
-        CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(shaderDemoteToHelperInvocation, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME, shaderDemoteToHelperInvocationFeaturesEXT);
-        CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(shaderTerminateInvocation, VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME, shaderTerminateInvocationFeatures);
-            
+// TODO: robustImageAccess
+// TODO: pipelineCreationCacheControl
+        CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(shaderDemoteToHelperInvocation, VK_EXT_SHADER_DEMOTE_TO_HELPER_INVOCATION_EXTENSION_NAME, shaderDemoteToHelperInvocationFeatures);
+        CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(shaderTerminateInvocation, VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME, shaderTerminateInvocationFeatures);         
         // Instead of checking and enabling individual features like below, I can do awesome things like this:
         /*
             CHECK_VULKAN_EXTENTION(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME, subgroupSizeControlFeatures,
@@ -1822,6 +1834,9 @@ protected:
             subgroupSizeControlFeatures.computeFullSubgroups = enabledFeatures.computeFullSubgroups;
             addFeatureToChain(&subgroupSizeControlFeatures);
         }
+        //leave defaulted
+        //textureCompressionASTCHDRFeatures;
+// TODO: shaderZeroInitializeWorkgroupMemory
             
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(shaderIntegerDotProduct, VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME, shaderIntegerDotProductFeatures);
             
@@ -2167,8 +2182,6 @@ protected:
 #undef CHECK_VULKAN_1_2_FEATURE_FOR_SINGLE_VAR
 #undef CHECK_VULKAN_1_2_FEATURE_FOR_EXT_ALIAS
 #undef CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE
-
-        vk_deviceFeatures2.pNext = featuresHead;
         
         core::vector<const char*> extensionStrings(extensionsToEnable.size());
         {
@@ -2179,7 +2192,8 @@ protected:
 
         // Create Device
         VkDeviceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
-        vk_createInfo.pNext = &vk_deviceFeatures2; // Vulkan >= 1.1 Device uses createInfo.pNext to use features
+        vk_createInfo.pNext = &vk_deviceFeatures2;
+        // Vulkan >= 1.1 Device uses createInfo.pNext to use features
         vk_createInfo.pEnabledFeatures = nullptr;
         vk_createInfo.flags = static_cast<VkDeviceCreateFlags>(0); // reserved for future use, by Vulkan
 
