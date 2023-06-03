@@ -62,6 +62,10 @@ public:
                 const float priority = qci.priorities[j];
                         
                 VkQueue q;
+                VkDeviceQueueInfo2 vk_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,nullptr };
+                vk_info.queueFamilyIndex = famIx;
+                vk_info.queueIndex = j;
+                vk_info.flags = 0; // we don't do protected queues yet
                 m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                         
                 const uint32_t ix = offset + j;

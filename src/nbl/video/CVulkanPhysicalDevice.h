@@ -1208,31 +1208,31 @@ public:
         // Get physical device's memory properties
         {
             m_memoryProperties = SMemoryProperties();
-            VkPhysicalDeviceMemoryProperties vk_physicalDeviceMemoryProperties;
-            vkGetPhysicalDeviceMemoryProperties(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
-            m_memoryProperties.memoryTypeCount = vk_physicalDeviceMemoryProperties.memoryTypeCount;
+            VkPhysicalDeviceMemoryProperties2 vk_physicalDeviceMemoryProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,nullptr};
+            vkGetPhysicalDeviceMemoryProperties2(vk_physicalDevice, &vk_physicalDeviceMemoryProperties);
+            m_memoryProperties.memoryTypeCount = vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypeCount;
             for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
             {
-                m_memoryProperties.memoryTypes[i].heapIndex = vk_physicalDeviceMemoryProperties.memoryTypes[i].heapIndex;
-                m_memoryProperties.memoryTypes[i].propertyFlags = getMemoryPropertyFlagsFromVkMemoryPropertyFlags(vk_physicalDeviceMemoryProperties.memoryTypes[i].propertyFlags);
+                m_memoryProperties.memoryTypes[i].heapIndex = vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypes[i].heapIndex;
+                m_memoryProperties.memoryTypes[i].propertyFlags = getMemoryPropertyFlagsFromVkMemoryPropertyFlags(vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypes[i].propertyFlags);
             }
-            m_memoryProperties.memoryHeapCount = vk_physicalDeviceMemoryProperties.memoryHeapCount;
+            m_memoryProperties.memoryHeapCount = vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeapCount;
             for(uint32_t i = 0; i < m_memoryProperties.memoryHeapCount; ++i)
             {
-                m_memoryProperties.memoryHeaps[i].size = vk_physicalDeviceMemoryProperties.memoryHeaps[i].size;
-                m_memoryProperties.memoryHeaps[i].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryHeaps[i].flags);
+                m_memoryProperties.memoryHeaps[i].size = vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].size;
+                m_memoryProperties.memoryHeaps[i].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].flags);
             }
         }
                 
         uint32_t qfamCount = 0u;
-        vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, nullptr);
-        core::vector<VkQueueFamilyProperties> qfamprops(qfamCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &qfamCount, qfamprops.data());
+        vkGetPhysicalDeviceQueueFamilyProperties2(m_vkPhysicalDevice, &qfamCount, nullptr);
+        core::vector<VkQueueFamilyProperties2> qfamprops(qfamCount,{VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr});
+        vkGetPhysicalDeviceQueueFamilyProperties2(m_vkPhysicalDevice, &qfamCount, qfamprops.data());
 
         m_qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(qfamCount);
         for (uint32_t i = 0u; i < qfamCount; ++i)
         {
-            const auto& vkqf = qfamprops[i];
+            const auto& vkqf = qfamprops[i].queueFamilyProperties;
             auto& qf = (*m_qfamProperties)[i];
                     
             qf.queueCount = vkqf.queueCount;
@@ -1273,12 +1273,13 @@ public:
             if (skip)
                 continue;
 
-            VkFormatProperties vk_formatProps;
-            vkGetPhysicalDeviceFormatProperties(m_vkPhysicalDevice, getVkFormatFromFormat(format), &vk_formatProps);
+            VkFormatProperties2 vk_formatProps = {VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,nullptr};
+            vkGetPhysicalDeviceFormatProperties2(m_vkPhysicalDevice, getVkFormatFromFormat(format), &vk_formatProps);
 
-            const VkFormatFeatureFlags linearTilingFeatures = vk_formatProps.linearTilingFeatures;
-            const VkFormatFeatureFlags optimalTilingFeatures = vk_formatProps.optimalTilingFeatures;
-            const VkFormatFeatureFlags bufferFeatures = vk_formatProps.bufferFeatures;
+            // TODO: Upgrade to `VkFormatFeatureFlags2` when `VK_KHR_format_feature_flags2` support is ubiquitous
+            const VkFormatFeatureFlags linearTilingFeatures = vk_formatProps.formatProperties.linearTilingFeatures;
+            const VkFormatFeatureFlags optimalTilingFeatures = vk_formatProps.formatProperties.optimalTilingFeatures;
+            const VkFormatFeatureFlags bufferFeatures = vk_formatProps.formatProperties.bufferFeatures;
 
             m_linearTilingUsages[format] = {};
             m_linearTilingUsages[format].sampledImage = (linearTilingFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) ? 1 : 0;
