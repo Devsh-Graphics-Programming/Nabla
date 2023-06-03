@@ -31,13 +31,31 @@ namespace nbl::video
 struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
+
     bool robustBufferAccess = false;
+
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
+    //bool fullDrawIndexUint32 = true; // TODO: expose the `maxDrawIndexedIndexValue` limit instead
+ 
     // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool imageCubeArray = true;
     //bool independentBlend = true;
+
     bool geometryShader    = false;
     bool tessellationShader = false;
+
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool sampleRateShading = true;
+
     bool dualSrcBlend = false;
     bool logicOp = false;
+
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
+    //bool multiDrawIndirect = true;
+    //bool drawIndirectFirstInstance = true;
+    //bool depthClamp = true;
+    //bool depthBiasClamp = true;
+
     bool fillModeNonSolid = false;
     bool depthBounds = false;
     bool wideLines = false;
@@ -45,36 +63,48 @@ struct SPhysicalDeviceFeatures
     bool alphaToOne = false;
     bool multiViewport = false;
 
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous
+    // bool samplerAnisotropy = true;
+
     // [DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool    textureCompressionETC2;
     //bool    textureCompressionASTC_LDR;
     //bool    textureCompressionBC;
-    // VK SPEC: "shaderStorageImageExtendedFormats feature only adds a guarantee of format support, which is specified for the whole physical device.
-    // Therefore enabling or disabling the feature via vkCreateDevice has no practical effect."
-    //bool shaderStorageImageExtendedFormats = false;
-    
+ 
     // [DO NOT EXPOSE] ROADMAP 2022 and good device support
     //bool occlusionQueryPrecise = true;
 
     bool pipelineStatisticsQuery = false;
 
+    //bool vertexPipelineStoresAndAtomics = false; // TODO: undo, tilers hate this
     // Enabled by Default, Moved to Limits
-    //bool vertexPipelineStoresAndAtomics = false;
     //bool fragmentStoresAndAtomics = false;
     //bool shaderTessellationAndGeometryPointSize = false;
     //bool shaderImageGatherExtended = false;
 
-    bool shaderStorageImageMultisample = false; // always enable
+    // VK SPEC: "shaderStorageImageExtendedFormats feature only adds a guarantee of format support, which is specified for the whole physical device.
+    // Therefore enabling or disabling the feature via vkCreateDevice has no practical effect."
+    //bool shaderStorageImageExtendedFormats = false;
+    
+    // Enabled by Default, Moved to Limits
+    bool shaderStorageImageMultisample = false; // TODO: always enable
+
     bool shaderStorageImageReadWithoutFormat = false;
     bool shaderStorageImageWriteWithoutFormat = false;
+
+    // TODO: [DO NOT EXPOSE] ROADMAP 2022 and good device support
     bool shaderUniformBufferArrayDynamicIndexing = false;
     bool shaderSampledImageArrayDynamicIndexing = false;
     bool shaderStorageBufferArrayDynamicIndexing = false;
+    // On ROADMAP 2022 but Apple GPUs have poor support
     bool shaderStorageImageArrayDynamicIndexing = false;
+
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
+
+    // cannot be always enabled cause Intel ARC is handicapped
     bool shaderFloat64 = false;
-    
+
     // Enabled by Default, Moved to Limits
     //bool shaderInt64 = false;
     //bool shaderInt16 = false;
@@ -96,6 +126,7 @@ struct SPhysicalDeviceFeatures
     bool variableMultisampleRate = false;
     bool inheritedQueries = false;
 
+
     /* Vulkan 1.1 Core */
 
     // Enabled by Default, Moved to Limits
@@ -106,39 +137,32 @@ struct SPhysicalDeviceFeatures
     //bool storageInputOutput16 = false;
 
     // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
-    //bool           multiview;
-    // [TODO LATER] do not expose multiview yet
+    //bool multiview;
+    // [TODO LATER] do not expose this part of multiview yet
     /* VK_KHR_multiview */ 
-    //bool           multiviewGeometryShader;
-    //bool           multiviewTessellationShader;
+    //bool multiviewGeometryShader;
+    //bool multiviewTessellationShader;
+
+    // [DO NOT EXPOSE] TODO: what requires this?
+    bool variablePointersStorageBuffer;
+    bool variablePointers;
     
     /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
     //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
- 
+
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion;
 
     bool shaderDrawParameters = false;  /* ALIAS: VK_KHR_shader_draw_parameters */
 
 
-
-
     /* Vulkan 1.2 Core */
 
-    // [DO NOT EXPOSE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
-    // TODO: expose the `maxDrawIndexedIndexValue` limit instead
-    //bool fullDrawIndexUint32 = true;
-    //bool imageCubeArray = true;
-    //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout
-    //bool drawIndirectFirstInstance = true;
+    // [DO NOT EXPOSE] Device support ubiquitous
     //bool samplerMirrorClampToEdge = true;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
-    //bool multiDrawIndirect = true;
-    //bool sampleRateShading = true;
-    //bool depthClamp = true;
-    //bool depthBiasClamp = true;
  
-    // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but mobile GPUs don't support well
-    // exposed as a limit `maxDrawIndirectCount`
+    // TODO: unfuck
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but mobile GPUs don't support well, exposed as a limit `maxDrawIndirectCount`
     //bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
 
     // Enabled by Default, Moved to Limits
@@ -160,17 +184,24 @@ struct SPhysicalDeviceFeatures
     // or VK_EXT_descriptor_indexing
     bool descriptorIndexing = false;  // always enable ?
     bool shaderInputAttachmentArrayDynamicIndexing = false;
+
+    // on ROADMAP 2022 but need to check stuff first
     bool shaderUniformTexelBufferArrayDynamicIndexing = false;
     bool shaderStorageTexelBufferArrayDynamicIndexing = false;
     bool shaderUniformBufferArrayNonUniformIndexing = false;
     bool shaderSampledImageArrayNonUniformIndexing = false;
     bool shaderStorageBufferArrayNonUniformIndexing = false;
     bool shaderStorageImageArrayNonUniformIndexing = false;
+
     bool shaderInputAttachmentArrayNonUniformIndexing = false;
+
+    // on ROADMAP 2022 but need to check stuff first
     bool shaderUniformTexelBufferArrayNonUniformIndexing = false;
     bool shaderStorageTexelBufferArrayNonUniformIndexing = false;
-    // on ROADMAP 2022 but need to check stuff first
+
     bool descriptorBindingUniformBufferUpdateAfterBind = false;
+
+    // on ROADMAP 2022 but need to check stuff first
     bool descriptorBindingSampledImageUpdateAfterBind = false;
     bool descriptorBindingStorageImageUpdateAfterBind = false;
     bool descriptorBindingStorageBufferUpdateAfterBind = false;
@@ -185,26 +216,27 @@ struct SPhysicalDeviceFeatures
     
     bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
 
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
+    //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout
     
     // [DO NOT EXPOSE] Vulkan 1.2 requires these
-    //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO] https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
-    //bool shaderSubgroupExtendedTypes = false;   // or VK_KHR_shader_subgroup_extended_types
-    //bool separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
-    //bool           timelineSemaphore;             // or VK_KHR_timeline_semaphore
-    //bool hostQueryReset = false;                // or VK_EXT_host_query_reset
+    //bool imagelessFramebuffer = true;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO] https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
+    //bool uniformBufferStandardLayout = true; // or VK_KHR_uniform_buffer_standard_layout
+    //bool shaderSubgroupExtendedTypes = true;   // or VK_KHR_shader_subgroup_extended_types
+    //bool separateDepthStencilLayouts = true;   // or VK_KHR_separate_depth_stencil_layoutse [TODO Implement]
+    //bool hostQueryReset = true;                // or VK_EXT_host_query_reset [TODO Implement]
+    //bool timelineSemaphore = true;             // or VK_KHR_timeline_semaphore [TODO Implement]
     
     // or VK_KHR_buffer_device_address:
     bool bufferDeviceAddress = false;
     // bool           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
     bool bufferDeviceAddressMultiDevice = false;
     
-    // always enable ?
+    // TODO: always enable ?
     // or VK_KHR_vulkan_memory_model
     bool vulkanMemoryModel = false;
     bool vulkanMemoryModelDeviceScope = false;
     bool vulkanMemoryModelAvailabilityVisibilityChains = false;
-
-
 
 
     /* Vulkan 1.3 Core */
