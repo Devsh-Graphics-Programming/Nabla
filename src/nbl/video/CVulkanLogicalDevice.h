@@ -426,40 +426,58 @@ public:
 
     bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override
     {
+        auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+
+        core::vector<VkBindBufferMemoryInfo> vk_infos; vk_infos.reserve(bindInfoCount);
         bool anyFailed = false;
-        for (uint32_t i = 0u; i < bindInfoCount; ++i)
+        for (uint32_t i = 0u; i<bindInfoCount; ++i)
         {
             const auto& bindInfo = pBindInfos[i];
-            
-            if ((bindInfo.buffer->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
+            auto* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(bindInfo.buffer,this);
+            auto* vulkanMemory = bindInfo.memory->getAPIType()!=EAT_VULKAN ? nullptr:static_cast<CVulkanMemoryAllocation*>(bindInfo.memory);
+            if (!vulkanBuffer || !vulkanMemory)
+            {
+                logger->log("Buffer %p or Memory Allocation %p not compatible with Device %p !", system::ILogger::ELL_ERROR, bindInfo.buffer, bindInfo.memory, this);
+                anyFailed = true;
+                continue;
+            }
+
+            if (
+                vulkanBuffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) &&
+                !vulkanMemory->getAllocateFlags().hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT)
+            ) {
+                logger->log("Buffer %p created with EUF_SHADER_DEVICE_ADDRESS_BIT needs a Memory Allocation with EMAF_DEVICE_ADDRESS_BIT flag!", system::ILogger::ELL_ERROR, bindInfo.buffer);
+                anyFailed = true;
+                continue;
+            }
+
+            auto& vk_info = vk_infos.emplace_back();
+            vk_info.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO;
+            vk_info.pNext = nullptr;
+            vk_info.buffer = vulkanBuffer->getInternalObject();
+            vk_info.memory = vulkanMemory->getInternalObject();
+            vk_info.memoryOffset = static_cast<VkDeviceSize>(bindInfo.offset);
+        }
+
+        if (m_devf.vk.vkBindBufferMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
+        {
+            logger->log("Call to `vkBindBufferMemory2` on Device %p failed!", system::ILogger::ELL_ERROR,this);
+            return false;
+        }
+        
+        auto vk_infoIt = vk_infos.begin();
+        for (uint32_t i = 0u; i<bindInfoCount; ++i)
+        {
+            const auto& bindInfo = pBindInfos[i];
+            auto* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(bindInfo.buffer,this);
+            // check if we originally skipped, if not then proceed
+            if (!vulkanBuffer || vulkanBuffer->getInternalObject()!=vk_infoIt->buffer)
                 continue;
 
-            if (bindInfo.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
-            {
-                if(!bindInfo.memory->getAllocateFlags().hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
-                {
-                    // TODO(erfan): Log-> if buffer was created with EUF_SHADER_DEVICE_ADDRESS_BIT set, memory must have been allocated with the EMAF_DEVICE_ADDRESS_BIT bit.
-                    _NBL_DEBUG_BREAK_IF(true);
-                    anyFailed = true;
-                    continue;
-                }
-            }
-
-            CVulkanBuffer* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(bindInfo.buffer, this);
-            VkBuffer vk_buffer = vulkanBuffer->getInternalObject();
-            VkDeviceMemory vk_memory = static_cast<const CVulkanMemoryAllocation*>(pBindInfos[i].memory)->getInternalObject();
-            if (m_devf.vk.vkBindBufferMemory(m_vkdev, vk_buffer, vk_memory, static_cast<VkDeviceSize>(pBindInfos[i].offset)) == VK_SUCCESS)
-            {
-                vulkanBuffer->setMemoryAndOffset(
-                    core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory), bindInfo.offset);
-            }
-            else
-            {
-                // Todo(achal): Log which one failed
-                _NBL_DEBUG_BREAK_IF(true);
-                anyFailed = true;
-            }
+            vulkanBuffer->setMemoryAndOffset(core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory),bindInfo.offset);
+            vk_infoIt++;
         }
+        assert(vk_infoIt==vk_infos.end());
 
         return !anyFailed;
     }
@@ -748,31 +766,49 @@ public:
 
     bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
     {
+        auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+
+        core::vector<VkBindImageMemoryInfo> vk_infos; vk_infos.reserve(bindInfoCount);
         bool anyFailed = false;
-        for (uint32_t i = 0u; i < bindInfoCount; ++i)
+        for (uint32_t i = 0u; i<bindInfoCount; ++i)
         {
             const auto& bindInfo = pBindInfos[i];
+            auto* vulkanImage = IBackendObject::device_compatibility_cast<CVulkanImage*>(bindInfo.image,this);
+            auto* vulkanMemory = bindInfo.memory->getAPIType()!=EAT_VULKAN ? nullptr:static_cast<CVulkanMemoryAllocation*>(bindInfo.memory);
+            if (!vulkanImage || !vulkanMemory)
+            {
+                logger->log("Image %p or Memory Allocation %p not compatible with Device %p !", system::ILogger::ELL_ERROR, bindInfo.image, bindInfo.memory, this);
+                anyFailed = true;
+                continue;
+            }
 
-            if ((bindInfo.image->getAPIType() != EAT_VULKAN) || (bindInfo.memory->getAPIType() != EAT_VULKAN))
+            auto& vk_info = vk_infos.emplace_back();
+            vk_info.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO;
+            vk_info.pNext = nullptr;
+            vk_info.image = vulkanImage->getInternalObject();
+            vk_info.memory = vulkanMemory->getInternalObject();
+            vk_info.memoryOffset = static_cast<VkDeviceSize>(bindInfo.offset);
+        }
+
+        if (m_devf.vk.vkBindImageMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
+        {
+            logger->log("Call to `vkBindImageMemory2` on Device %p failed!", system::ILogger::ELL_ERROR, this);
+            return false;
+        }
+        
+        auto vk_infoIt = vk_infos.begin();
+        for (uint32_t i = 0u; i<bindInfoCount; ++i)
+        {
+            const auto& bindInfo = pBindInfos[i];
+            auto* vulkanImage = IBackendObject::device_compatibility_cast<CVulkanImage*>(bindInfo.image,this);
+            // check if we originally skipped, if not then proceed
+            if (!vulkanImage || vulkanImage->getInternalObject()!=vk_infoIt->image)
                 continue;
 
-            CVulkanImage* vulkanImage = IBackendObject::device_compatibility_cast<CVulkanImage*>(bindInfo.image, this);
-
-            VkImage vk_image = vulkanImage->getInternalObject();
-            VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(bindInfo.memory)->getInternalObject();
-            if (m_devf.vk.vkBindImageMemory(m_vkdev, vk_image, vk_deviceMemory, static_cast<VkDeviceSize>(bindInfo.offset)) == VK_SUCCESS)
-            {
-                vulkanImage->setMemoryAndOffset(
-                    core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory),
-                    bindInfo.offset);
-            }
-            else
-            {
-                // Todo(achal): Log which one failed
-                _NBL_DEBUG_BREAK_IF(true);
-                anyFailed = true;
-            }
+            vulkanImage->setMemoryAndOffset(core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory),bindInfo.offset);
+            vk_infoIt++;
         }
+        assert(vk_infoIt==vk_infos.end());
 
         return !anyFailed;
     }
