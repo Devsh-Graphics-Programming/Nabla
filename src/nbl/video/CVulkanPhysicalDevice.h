@@ -1143,17 +1143,12 @@ public:
             m_properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
             m_properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
             m_properties.limits.variablePointers = vulkan11Features.variablePointers;
-            
-            if (isExtensionSupported(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
-            {
-                m_properties.limits.shaderOutputViewportIndex = true;
-                m_properties.limits.shaderOutputLayer = true;
-            }
-            else if (instanceApiVersion >= VK_MAKE_API_VERSION(0, 1, 2, 0))
-            {
-                m_properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
-                m_properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
-            }
+
+            m_properties.limits.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
+            m_properties.limits.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;
+            m_properties.limits.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
+            m_properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
+            m_properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
             
             if (isExtensionSupported(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
             {
@@ -1533,15 +1528,6 @@ protected:
         //
         VkPhysicalDeviceVulkan12Features vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, nullptr };
         addFeatureToChain(&vulkan12Features);
-
-        vulkan12Features.uniformBufferStandardLayout = true;
-        vulkan12Features.subgroupBroadcastDynamicId = true;
-        vulkan12Features.imagelessFramebuffer = true;
-        vulkan12Features.separateDepthStencilLayouts = true;
-        vulkan12Features.hostQueryReset = true;
-        vulkan12Features.timelineSemaphore = true;
-        vulkan12Features.shaderSubgroupExtendedTypes = true;
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#profile-features-roadmap-2022
         
         // Important notes on extension dependancies, both instance and device
         /*
@@ -1615,20 +1601,7 @@ protected:
         };
 
         // A. Enable by Default, exposed as limits : add names to string and structs to feature chain
-        {
-            vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
-            vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
-            vulkan12Features.storagePushConstant8                = m_properties.limits.storagePushConstant8;
-            
-            vulkan12Features.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
-            vulkan12Features.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
-         
-            vulkan12Features.shaderFloat16 = m_properties.limits.shaderFloat16;
-            vulkan12Features.shaderInt8 = m_properties.limits.shaderInt8;
-                
-            vulkan12Features.shaderOutputViewportIndex = m_properties.limits.shaderOutputViewportIndex;
-            vulkan12Features.shaderOutputLayer = m_properties.limits.shaderOutputLayer;
-            
+        {            
             if (insertExtensionIfAvailable(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
             {
                 // All Requirements Exist in Vulkan 1.1
@@ -1729,12 +1702,13 @@ protected:
         vk_deviceFeatures2.features.textureCompressionETC2 = true;
         vk_deviceFeatures2.features.textureCompressionASTC_LDR = true;
         vk_deviceFeatures2.features.textureCompressionBC = true;
+        //
         vk_deviceFeatures2.features.occlusionQueryPrecise = true; // ROADMAP 2022
         vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
-        vk_deviceFeatures2.features.vertexPipelineStoresAndAtomics;
-        vk_deviceFeatures2.features.fragmentStoresAndAtomics;
-        vk_deviceFeatures2.features.shaderTessellationAndGeometryPointSize;
-        vk_deviceFeatures2.features.shaderImageGatherExtended;
+        vk_deviceFeatures2.features.vertexPipelineStoresAndAtomics = m_properties.limits.vertexPipelineStoresAndAtomics;
+        vk_deviceFeatures2.features.fragmentStoresAndAtomics = m_properties.limits.fragmentStoresAndAtomics;
+        vk_deviceFeatures2.features.shaderTessellationAndGeometryPointSize = m_properties.limits.shaderTessellationAndGeometryPointSize;
+        vk_deviceFeatures2.features.shaderImageGatherExtended = m_properties.limits.shaderImageGatherExtended;
         vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = true; // ROADMAP 2022
         vk_deviceFeatures2.features.shaderStorageImageMultisample = m_properties.limits.shaderStorageImageMultisample;
         vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = enabledFeatures.shaderStorageImageReadWithoutFormat;
@@ -1745,6 +1719,9 @@ protected:
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = m_properties.limits.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
+        vk_deviceFeatures2.features.shaderInt64 = m_properties.limits.shaderInt64;
+        vk_deviceFeatures2.features.shaderInt16 = m_properties.limits.shaderInt16;
+        vk_deviceFeatures2.features.shaderFloat64 = m_properties.limits.shaderFloat64;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
         vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
         vk_deviceFeatures2.features.sparseBinding = false; // not implemented yet
@@ -1776,6 +1753,15 @@ protected:
         vulkan11Features.shaderDrawParameters = enabledFeatures.shaderDrawParameters;
             
         /* Vulkan 1.2 Core */
+        vulkan12Features.samplerMirrorClampToEdge = true; // ubiquitous
+        vulkan12Features.drawIndirectCount = m_properties.limits.drawIndirectCount;
+        vulkan12Features.storageBuffer8BitAccess = m_properties.limits.storageBuffer8BitAccess;
+        vulkan12Features.uniformAndStorageBuffer8BitAccess = m_properties.limits.uniformAndStorageBuffer8BitAccess;
+        vulkan12Features.storagePushConstant8 = m_properties.limits.storagePushConstant8;
+        vulkan12Features.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
+        vulkan12Features.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
+        vulkan12Features.shaderFloat16 = m_properties.limits.shaderFloat16;
+        vulkan12Features.shaderInt8 = m_properties.limits.shaderInt8;
         vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
         vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
@@ -1797,31 +1783,25 @@ protected:
         vulkan12Features.descriptorBindingPartiallyBound = enabledFeatures.descriptorBindingPartiallyBound;
         vulkan12Features.descriptorBindingVariableDescriptorCount = enabledFeatures.descriptorBindingVariableDescriptorCount;
         vulkan12Features.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
-
         vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
+        vulkan12Features.scalarBlockLayout = true; // ROADMAP 2022
+        vulkan12Features.imagelessFramebuffer = true; // required anyway
+        vulkan12Features.uniformBufferStandardLayout = true; // required anyway
+        vulkan12Features.shaderSubgroupExtendedTypes = true; // required anyway
+        vulkan12Features.separateDepthStencilLayouts = true; // required anyway
+        vulkan12Features.hostQueryReset = true; // required anyway
+        vulkan12Features.timelineSemaphore = true; // required anyway
+        vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress || enabledFeatures.bufferDeviceAddressMultiDevice;
+        // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
+        vulkan12Features.bufferDeviceAddressCaptureReplay = bool(vulkan12Features.bufferDeviceAddress) && (m_rdoc_api!=nullptr);
+        vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
+        vulkan12Features.vulkanMemoryModel = m_properties.limits.vulkanMemoryModel;
+        vulkan12Features.vulkanMemoryModelDeviceScope = m_properties.limits.vulkanMemoryModelDeviceScope;
+        vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = m_properties.limits.vulkanMemoryModelAvailabilityVisibilityChains;
+        vulkan12Features.shaderOutputViewportIndex = m_properties.limits.shaderOutputViewportIndex;
+        vulkan12Features.shaderOutputLayer = m_properties.limits.shaderOutputLayer;
+        vulkan12Features.subgroupBroadcastDynamicId = true; // ubiquitous
 
-        vulkan12Features.samplerMirrorClampToEdge = true;
-        vulkan12Features.scalarBlockLayout = true;
-        // ROADMAP 2022 mandated but not ubiquitously supported
-        vulkan12Features.drawIndirectCount = m_properties.limits.drawIndirectCount;
- 
-        // tODO : host query reset and timeline semaphore
-
-        if (enabledFeatures.bufferDeviceAddress || enabledFeatures.bufferDeviceAddressMultiDevice)
-        {
-            vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress;
-            vulkan12Features.bufferDeviceAddressCaptureReplay = (m_rdoc_api != nullptr); // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
-            vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
-        }
-    
-        if (enabledFeatures.vulkanMemoryModel ||
-            enabledFeatures.vulkanMemoryModelDeviceScope ||
-            enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains)
-        {
-            vulkan12Features.vulkanMemoryModel = enabledFeatures.vulkanMemoryModel;
-            vulkan12Features.vulkanMemoryModelDeviceScope = enabledFeatures.vulkanMemoryModelDeviceScope;
-            vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = enabledFeatures.vulkanMemoryModelAvailabilityVisibilityChains;
-        }
             
 #define CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(VAR_NAME, EXT_NAME, FEATURE_STRUCT)           \
         if(enabledFeatures.VAR_NAME)                                                    \

@@ -565,16 +565,24 @@ struct SPhysicalDeviceLimits
 
     // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
     bool drawIndirectCount = false;
+
     // Vulkan 1.2 Core or VK_KHR_8bit_storage:
     bool storageBuffer8BitAccess = false;
     bool uniformAndStorageBuffer8BitAccess = false;
     bool storagePushConstant8 = false;
+
     // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
     bool shaderBufferInt64Atomics = false;
     bool shaderSharedInt64Atomics = false;
+
     // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
     bool shaderFloat16 = false;
     bool shaderInt8 = false;
+    
+    // Vulkan 1.2 Core or VK_KHR_vulkan_memory_model
+    bool vulkanMemoryModel = false;
+    bool vulkanMemoryModelDeviceScope = false;
+    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
 
     // Vulkan 1.2 Struct Or
     bool shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
@@ -920,6 +928,9 @@ struct SPhysicalDeviceLimits
         if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
         if (shaderFloat16 && !_rhs.shaderFloat16) return false;
         if (shaderInt8 && !_rhs.shaderInt8) return false;
+        if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
+        if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
+        if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
         if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
         if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
         if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;

@@ -233,11 +233,10 @@ struct SPhysicalDeviceFeatures
     // bool           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
     bool bufferDeviceAddressMultiDevice = false;
     
-    // TODO: always enable ?
-    // or VK_KHR_vulkan_memory_model
-    bool vulkanMemoryModel = false;
-    bool vulkanMemoryModelDeviceScope = false;
-    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
+    // [EXPOSE AS A LIMIT] ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model
+    //bool vulkanMemoryModel;
+    //bool vulkanMemoryModelDeviceScope;
+    //bool vulkanMemoryModelAvailabilityVisibilityChains;
 
 
     /* Vulkan 1.3 Core */
@@ -1095,9 +1094,6 @@ struct SPhysicalDeviceFeatures
         if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
         if (bufferDeviceAddress && !_rhs.bufferDeviceAddress) return false;
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
-        if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
-        if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
-        if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;
         if (subgroupSizeControl && !_rhs.subgroupSizeControl) return false;
