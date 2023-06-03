@@ -85,9 +85,9 @@ struct SPhysicalDeviceFeatures
     // VK SPEC: "shaderStorageImageExtendedFormats feature only adds a guarantee of format support, which is specified for the whole physical device.
     // Therefore enabling or disabling the feature via vkCreateDevice has no practical effect."
     //bool shaderStorageImageExtendedFormats = true;
-    
-    // Enabled by Default, Moved to Limits
-    bool shaderStorageImageMultisample = false; // TODO: expose as limit, because Intel ARC are hadicapped
+
+    // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
+    //bool shaderStorageImageMultisample;
 
     bool shaderStorageImageReadWithoutFormat = false;
     bool shaderStorageImageWriteWithoutFormat = false;
@@ -103,8 +103,8 @@ struct SPhysicalDeviceFeatures
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
 
-    // cannot be always enabled cause Intel ARC is handicapped
-    bool shaderFloat64 = false; // TODO: move to limits
+    // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
+    //bool shaderFloat64;
 
     // Enabled by Default, Moved to Limits
     //bool shaderInt64 = false;
@@ -1065,12 +1065,10 @@ struct SPhysicalDeviceFeatures
         if (alphaToOne && !_rhs.alphaToOne) return false;
         if (multiViewport && !_rhs.multiViewport) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
-        if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
         if (shaderStorageImageWriteWithoutFormat && !_rhs.shaderStorageImageWriteWithoutFormat) return false;
         if (shaderClipDistance && !_rhs.shaderClipDistance) return false;
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
-        if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;

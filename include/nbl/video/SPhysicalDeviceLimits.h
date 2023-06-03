@@ -537,12 +537,20 @@ struct SPhysicalDeviceLimits
     // redundant can deduce from `maxSamplerAnisotropyLog2
     //bool samplerAnisotropy = false;
     bool vertexPipelineStoresAndAtomics = false;
+
+    // Intel is a special boy
+    bool shaderStorageImageMultisample = false;
+
     // ROADMAP 2022 but poor support on Apple GPUs
     bool fragmentStoresAndAtomics = false;
     bool shaderTessellationAndGeometryPointSize = false;
     bool shaderImageGatherExtended = false;
+
     // ROADMAP 2022 but poor support on Apple GPUs
     bool shaderStorageImageArrayDynamicIndexing = false;
+    
+    //
+    bool shaderFloat64 = false;
     bool shaderInt64 = false;
     bool shaderInt16 = false;
 
@@ -899,6 +907,7 @@ struct SPhysicalDeviceLimits
         if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
         if (spirvVersion > _rhs.spirvVersion) return false;
         if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
+        if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
         if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
         if (storageBuffer8BitAccess && !_rhs.storageBuffer8BitAccess) return false;
@@ -913,6 +922,7 @@ struct SPhysicalDeviceLimits
         if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderInt64 && !_rhs.shaderInt64) return false;
         if (shaderInt16 && !_rhs.shaderInt16) return false;
+        if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;

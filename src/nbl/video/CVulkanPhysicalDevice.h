@@ -760,13 +760,10 @@ public:
             m_features.alphaToOne = features.alphaToOne;
             m_features.multiViewport = features.multiViewport;
             m_features.pipelineStatisticsQuery = features.pipelineStatisticsQuery;
-            m_features.shaderStorageImageMultisample = features.shaderStorageImageMultisample;
             m_features.shaderStorageImageReadWithoutFormat = features.shaderStorageImageReadWithoutFormat;
             m_features.shaderStorageImageWriteWithoutFormat = features.shaderStorageImageWriteWithoutFormat;
-            m_features.shaderStorageImageArrayDynamicIndexing = features.shaderStorageImageArrayDynamicIndexing;
             m_features.shaderClipDistance = features.shaderClipDistance;
             m_features.shaderCullDistance = features.shaderCullDistance;
-            m_features.shaderFloat64 = features.shaderFloat64;
             m_features.shaderResourceResidency = features.shaderResourceResidency;
             m_features.shaderResourceMinLod = features.shaderResourceMinLod; 
             m_features.variableMultisampleRate = features.variableMultisampleRate;
@@ -1139,6 +1136,7 @@ public:
             m_properties.limits.shaderImageGatherExtended = features.shaderImageGatherExtended;
             m_properties.limits.shaderInt64 = features.shaderInt64;
             m_properties.limits.shaderInt16 = features.shaderInt16;
+            m_properties.limits.shaderFloat64 = features.shaderFloat64;
             
             m_properties.limits.storageBuffer16BitAccess = vulkan11Features.storageBuffer16BitAccess;
             m_properties.limits.uniformAndStorageBuffer16BitAccess = vulkan11Features.uniformAndStorageBuffer16BitAccess;
@@ -1623,6 +1621,7 @@ protected:
             vk_deviceFeatures2.features.shaderImageGatherExtended = m_properties.limits.shaderImageGatherExtended;
             vk_deviceFeatures2.features.shaderInt64 = m_properties.limits.shaderInt64;
             vk_deviceFeatures2.features.shaderInt16 = m_properties.limits.shaderInt16;
+            vk_deviceFeatures2.features.shaderFloat64 = m_properties.limits.shaderFloat64;
 
             vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
             vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
@@ -1730,7 +1729,7 @@ protected:
         vk_deviceFeatures2.features.multiViewport = enabledFeatures.multiViewport;
         vk_deviceFeatures2.features.occlusionQueryPrecise = true; // ROADMAP 2022
         vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
-        vk_deviceFeatures2.features.shaderStorageImageMultisample = enabledFeatures.shaderStorageImageMultisample;
+        vk_deviceFeatures2.features.shaderStorageImageMultisample = m_properties.limits.shaderStorageImageMultisample;
         vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = enabledFeatures.shaderStorageImageReadWithoutFormat;
         vk_deviceFeatures2.features.shaderStorageImageWriteWithoutFormat = enabledFeatures.shaderStorageImageWriteWithoutFormat;
         vk_deviceFeatures2.features.shaderUniformBufferArrayDynamicIndexing = true; // ROADMAP 2022
@@ -1739,7 +1738,6 @@ protected:
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = m_properties.limits.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
-        vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.shaderFloat64;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
         vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
         vk_deviceFeatures2.features.variableMultisampleRate = enabledFeatures.variableMultisampleRate;
