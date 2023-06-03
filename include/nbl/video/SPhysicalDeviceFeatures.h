@@ -76,8 +76,8 @@ struct SPhysicalDeviceFeatures
 
     bool pipelineStatisticsQuery = false;
 
-    //bool vertexPipelineStoresAndAtomics = false; // TODO: undo, tilers hate this
     // Enabled by Default, Moved to Limits
+    //bool vertexPipelineStoresAndAtomics;
     //bool fragmentStoresAndAtomics;
     //bool shaderTessellationAndGeometryPointSize;
     //bool shaderImageGatherExtended;
