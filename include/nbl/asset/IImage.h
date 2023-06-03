@@ -15,6 +15,7 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/system/ILogger.h"
 
+#include <bitset>
 #include <compare>
 
 namespace nbl::asset
@@ -242,6 +243,8 @@ class IImage : public IDescriptor
 			uint32_t						arrayLayers;
 			core::bitflag<E_CREATE_FLAGS>	flags = ECF_NONE;
 			core::bitflag<E_USAGE_FLAGS>	usage = EUF_NONE;
+			// Do not touch unless you want to fail at creating views with their Format not listed here
+			std::bitset<E_FORMAT::EF_COUNT>	viewFormats = {};
 
 			inline bool operator==(const SCreationParams& rhs) const
 			{

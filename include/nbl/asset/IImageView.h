@@ -6,9 +6,7 @@
 
 #include "nbl/asset/IImage.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 template<class ImageType>
@@ -112,6 +110,10 @@ class IImageView : public IDescriptor
 
 			// declared usages that are not a subset
 			if (!imgParams.usage.hasFlags(_params.subUsages))
+				return false;
+
+			// declared a subset of formats up-front that the views can be created with, current format not in the subset
+			if (!imgParams.viewFormats[_params.format] && imgParams.viewFormats.any())
 				return false;
 
 			const bool mutableFormat = imgParams.flags.hasFlags(IImage::ECF_MUTABLE_FORMAT_BIT);
@@ -275,7 +277,6 @@ class IImageView : public IDescriptor
 		SCreationParams params;
 };
 
-}
 }
 
 #endif

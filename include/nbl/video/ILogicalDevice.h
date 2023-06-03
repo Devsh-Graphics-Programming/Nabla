@@ -424,9 +424,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual void unmapMemory(IDeviceMemoryAllocation* memory) = 0;
 
         // Not implemented stuff:
-        //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)
-        //vkGetDescriptorSetLayoutSupport
-        //vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
+        //TODO: vkGetDescriptorSetLayoutSupport
+        //TODO: vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
         //vkGetPipelineCacheData //as pipeline cache method?? (why not)
         //vkMergePipelineCaches //as pipeline cache method (why not)
         

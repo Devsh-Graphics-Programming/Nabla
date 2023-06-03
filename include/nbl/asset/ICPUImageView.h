@@ -1,17 +1,14 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_CPU_IMAGE_VIEW_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_IMAGE_VIEW_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_IMAGE_VIEW_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_IMAGE_VIEW_H_INCLUDED_
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/IImageView.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
@@ -111,7 +108,6 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		virtual ~ICPUImageView() = default;
 };
 
-}
 }
 
 #endif
