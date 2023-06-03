@@ -749,33 +749,20 @@ public:
             /* Vulkan 1.0 Core  */
             const auto& features = deviceFeatures.features;
             m_features.robustBufferAccess = features.robustBufferAccess;
-            m_features.fullDrawIndexUint32 = features.fullDrawIndexUint32;
-            m_features.imageCubeArray = features.imageCubeArray;
-            m_features.independentBlend = features.independentBlend;
             m_features.geometryShader = features.geometryShader;
             m_features.tessellationShader = features.tessellationShader;
             m_features.dualSrcBlend = features.dualSrcBlend;
-            m_features.sampleRateShading = features.sampleRateShading;
             m_features.logicOp = features.logicOp;
-            m_features.multiDrawIndirect = features.multiDrawIndirect;
-            m_features.drawIndirectFirstInstance = features.drawIndirectFirstInstance;
-            m_features.depthClamp = features.depthClamp;
-            m_features.depthBiasClamp = features.depthBiasClamp;
             m_features.fillModeNonSolid = features.fillModeNonSolid;
             m_features.depthBounds = features.depthBounds;
             m_features.wideLines = features.wideLines;
             m_features.largePoints = features.largePoints;
             m_features.alphaToOne = features.alphaToOne;
             m_features.multiViewport = features.multiViewport;
-            m_features.occlusionQueryPrecise = features.occlusionQueryPrecise;
             m_features.pipelineStatisticsQuery = features.pipelineStatisticsQuery;
-            m_features.shaderStorageImageExtendedFormats = features.shaderStorageImageExtendedFormats;
             m_features.shaderStorageImageMultisample = features.shaderStorageImageMultisample;
             m_features.shaderStorageImageReadWithoutFormat = features.shaderStorageImageReadWithoutFormat;
             m_features.shaderStorageImageWriteWithoutFormat = features.shaderStorageImageWriteWithoutFormat;
-            m_features.shaderUniformBufferArrayDynamicIndexing = features.shaderUniformBufferArrayDynamicIndexing;
-            m_features.shaderSampledImageArrayDynamicIndexing = features.shaderSampledImageArrayDynamicIndexing;
-            m_features.shaderStorageBufferArrayDynamicIndexing = features.shaderStorageBufferArrayDynamicIndexing;
             m_features.shaderStorageImageArrayDynamicIndexing = features.shaderStorageImageArrayDynamicIndexing;
             m_features.shaderClipDistance = features.shaderClipDistance;
             m_features.shaderCullDistance = features.shaderCullDistance;
@@ -789,10 +776,6 @@ public:
             m_features.shaderDrawParameters = vulkan11Features.shaderDrawParameters;
             
             /* Vulkan 1.2 Core  */
-            m_features.samplerMirrorClampToEdge = vulkan12Features.samplerMirrorClampToEdge;
-
-            m_features.drawIndirectCount = vulkan12Features.drawIndirectCount;
-
             m_properties.limits.storageBuffer8BitAccess = vulkan12Features.storageBuffer8BitAccess;
             m_properties.limits.uniformAndStorageBuffer8BitAccess = vulkan12Features.uniformAndStorageBuffer8BitAccess;
             m_properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
@@ -826,8 +809,6 @@ public:
             m_features.runtimeDescriptorArray = vulkan12Features.runtimeDescriptorArray;
 
             m_features.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
-
-            m_features.scalarBlockLayout = vulkan12Features.scalarBlockLayout;
 
             m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             m_features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
@@ -1158,7 +1139,6 @@ public:
             m_properties.limits.shaderImageGatherExtended = features.shaderImageGatherExtended;
             m_properties.limits.shaderInt64 = features.shaderInt64;
             m_properties.limits.shaderInt16 = features.shaderInt16;
-            m_properties.limits.samplerAnisotropy = features.samplerAnisotropy;
             
             m_properties.limits.storageBuffer16BitAccess = vulkan11Features.storageBuffer16BitAccess;
             m_properties.limits.uniformAndStorageBuffer16BitAccess = vulkan11Features.uniformAndStorageBuffer16BitAccess;
@@ -1643,7 +1623,6 @@ protected:
             vk_deviceFeatures2.features.shaderImageGatherExtended = m_properties.limits.shaderImageGatherExtended;
             vk_deviceFeatures2.features.shaderInt64 = m_properties.limits.shaderInt64;
             vk_deviceFeatures2.features.shaderInt16 = m_properties.limits.shaderInt16;
-            vk_deviceFeatures2.features.samplerAnisotropy = m_properties.limits.samplerAnisotropy;
 
             vulkan12Features.storageBuffer8BitAccess             = m_properties.limits.storageBuffer8BitAccess;
             vulkan12Features.uniformAndStorageBuffer8BitAccess   = m_properties.limits.uniformAndStorageBuffer8BitAccess;
@@ -1735,34 +1714,29 @@ protected:
             
         /* Vulkan 1.0 Core  */
         vk_deviceFeatures2.features.robustBufferAccess = enabledFeatures.robustBufferAccess;
-        vk_deviceFeatures2.features.fullDrawIndexUint32 = enabledFeatures.fullDrawIndexUint32;
-        vk_deviceFeatures2.features.imageCubeArray = enabledFeatures.imageCubeArray;
-        vk_deviceFeatures2.features.independentBlend = enabledFeatures.independentBlend;
+        vk_deviceFeatures2.features.independentBlend = true; // ROADMAP 2022
         vk_deviceFeatures2.features.geometryShader = enabledFeatures.geometryShader;
         vk_deviceFeatures2.features.tessellationShader = enabledFeatures.tessellationShader;
-        vk_deviceFeatures2.features.sampleRateShading = enabledFeatures.sampleRateShading;
+        vk_deviceFeatures2.features.sampleRateShading = true; // ROADMAP 2022
         vk_deviceFeatures2.features.dualSrcBlend = enabledFeatures.dualSrcBlend;
         vk_deviceFeatures2.features.logicOp = enabledFeatures.logicOp;
-        vk_deviceFeatures2.features.multiDrawIndirect = enabledFeatures.multiDrawIndirect;
-        vk_deviceFeatures2.features.drawIndirectFirstInstance = enabledFeatures.drawIndirectFirstInstance;
-        vk_deviceFeatures2.features.depthClamp = enabledFeatures.depthClamp;
-        vk_deviceFeatures2.features.depthBiasClamp = enabledFeatures.depthBiasClamp;
+        vk_deviceFeatures2.features.depthClamp = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.depthBiasClamp = true; // ROADMAP 2022
         vk_deviceFeatures2.features.fillModeNonSolid = enabledFeatures.fillModeNonSolid;
         vk_deviceFeatures2.features.depthBounds = enabledFeatures.depthBounds;
         vk_deviceFeatures2.features.wideLines = enabledFeatures.wideLines;
         vk_deviceFeatures2.features.largePoints = enabledFeatures.largePoints;
         vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
         vk_deviceFeatures2.features.multiViewport = enabledFeatures.multiViewport;
-        vk_deviceFeatures2.features.occlusionQueryPrecise = enabledFeatures.occlusionQueryPrecise;
+        vk_deviceFeatures2.features.occlusionQueryPrecise = true; // ROADMAP 2022
         vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
-        vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = enabledFeatures.shaderStorageImageExtendedFormats;
         vk_deviceFeatures2.features.shaderStorageImageMultisample = enabledFeatures.shaderStorageImageMultisample;
         vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = enabledFeatures.shaderStorageImageReadWithoutFormat;
         vk_deviceFeatures2.features.shaderStorageImageWriteWithoutFormat = enabledFeatures.shaderStorageImageWriteWithoutFormat;
-        vk_deviceFeatures2.features.shaderUniformBufferArrayDynamicIndexing = enabledFeatures.shaderUniformBufferArrayDynamicIndexing;
-        vk_deviceFeatures2.features.shaderSampledImageArrayDynamicIndexing = enabledFeatures.shaderSampledImageArrayDynamicIndexing;
-        vk_deviceFeatures2.features.shaderStorageBufferArrayDynamicIndexing = enabledFeatures.shaderStorageBufferArrayDynamicIndexing;
-        vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = enabledFeatures.shaderStorageImageArrayDynamicIndexing;
+        vk_deviceFeatures2.features.shaderUniformBufferArrayDynamicIndexing = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.shaderSampledImageArrayDynamicIndexing = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.shaderStorageBufferArrayDynamicIndexing = true; // ROADMAP 2022
+        vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = m_properties.limits.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
         vk_deviceFeatures2.features.shaderFloat64 = enabledFeatures.shaderFloat64;
@@ -1775,9 +1749,6 @@ protected:
         vulkan11Features.shaderDrawParameters = enabledFeatures.shaderDrawParameters;
             
         /* Vulkan 1.2 Core */
-        vulkan12Features.samplerMirrorClampToEdge = enabledFeatures.samplerMirrorClampToEdge;
-        vulkan12Features.drawIndirectCount = enabledFeatures.drawIndirectCount;
-
         vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
         vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
@@ -1802,7 +1773,17 @@ protected:
 
         vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
 
-        vulkan12Features.scalarBlockLayout = enabledFeatures.scalarBlockLayout;
+        // ROADMAP 2022 mandated
+        vk_deviceFeatures2.features.fullDrawIndexUint32 = true;
+        vk_deviceFeatures2.features.imageCubeArray = true;
+        vk_deviceFeatures2.features.multiDrawIndirect = true;
+        vk_deviceFeatures2.features.drawIndirectFirstInstance = true;
+        vk_deviceFeatures2.features.samplerAnisotropy = true;
+        vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = true;
+        vulkan12Features.samplerMirrorClampToEdge = true;
+        vulkan12Features.scalarBlockLayout = true;
+        // ROADMAP 2022 mandated but not ubiquitously supported
+        vulkan12Features.drawIndirectCount = m_properties.limits.drawIndirectCount;
  
         // tODO : host query reset and timeline semaphore
 

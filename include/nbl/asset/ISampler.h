@@ -27,7 +27,6 @@ class ISampler : public virtual core::IReferenceCounted
 			//! Texture is alternatingly mirrored (0..1..0..1..0..)
 			ETC_MIRROR,
 			//! Texture is mirrored once and then clamped to edge
-			//! `SPhysicalDeviceFeatures::samplerMirrorClampToEdge` should be enabled in LogicalDevice Creation and (obviously) PhysicalDevice should report support.
 			ETC_MIRROR_CLAMP_TO_EDGE,
 			//! Texture is mirrored once and then clamped to border
 			ETC_MIRROR_CLAMP_TO_BORDER,

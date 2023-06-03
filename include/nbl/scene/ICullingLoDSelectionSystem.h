@@ -22,8 +22,6 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 		static void enablePreferredFeatures(const video::SPhysicalDeviceFeatures& availableFeatures, video::SPhysicalDeviceFeatures& featuresToEnable)
 		{
-			featuresToEnable.multiDrawIndirect = availableFeatures.multiDrawIndirect;
-			featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
 		}
 
 		//
@@ -160,8 +158,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static inline constexpr auto InputDescriptorBindingCount = 8u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
-			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
+			withMDICounts &= device->getPhysicalDevice()->getLimits().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[InputDescriptorBindingCount];
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
@@ -182,8 +179,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static inline constexpr auto OutputDescriptorBindingCount = 4u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createOutputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
-			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
+			withMDICounts &= device->getPhysicalDevice()->getLimits().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[OutputDescriptorBindingCount];
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)
