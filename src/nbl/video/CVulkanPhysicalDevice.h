@@ -810,9 +810,9 @@ public:
             m_features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             m_features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
 
-            m_features.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
-            m_features.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;
-            m_features.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
+            m_properties.limits.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
+            m_properties.limits.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;
+            m_properties.limits.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
 
             /* Vulkan 1.3 Core  */
             if(instanceApiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
@@ -1328,15 +1328,6 @@ protected:
     inline void resolveFeatureDependencies(SFeatures& features) const
     {
         // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`: this dependancy needs the extension to be enabled not individual features, so this will be handled later on when enabling features before vkCreateDevice
-        
-        if (features.vulkanMemoryModel ||
-            features.vulkanMemoryModelDeviceScope ||
-            features.vulkanMemoryModelAvailabilityVisibilityChains)
-        {
-            // make sure features have their main bool enabled!
-            features.vulkanMemoryModel = true;
-        }
-
         if (features.rayTracingMotionBlur ||
             features.rayTracingMotionBlurPipelineTraceRaysIndirect)
         {
