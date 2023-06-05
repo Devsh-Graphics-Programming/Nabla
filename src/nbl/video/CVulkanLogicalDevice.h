@@ -787,7 +787,7 @@ public:
             }
 
             auto& vk_info = vk_infos.emplace_back();
-            vk_info.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO;
+            vk_info.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO;
             vk_info.pNext = nullptr;
             vk_info.image = vulkanImage->getInternalObject();
             vk_info.memory = vulkanMemory->getInternalObject();

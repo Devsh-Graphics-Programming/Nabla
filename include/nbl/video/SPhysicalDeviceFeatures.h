@@ -219,9 +219,11 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
     //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout
+
+    // [DO NOT EXPOSE] Decided against exposing, API is braindead, for details see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
+    //bool imagelessFramebuffer = false;  // or VK_KHR_imageless_framebuffer
     
     // [DO NOT EXPOSE] Vulkan 1.2 requires these
-    //bool imagelessFramebuffer = true;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO] https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
     //bool uniformBufferStandardLayout = true; // or VK_KHR_uniform_buffer_standard_layout
     //bool shaderSubgroupExtendedTypes = true;   // or VK_KHR_shader_subgroup_extended_types
     //bool separateDepthStencilLayouts = true;   // or VK_KHR_separate_depth_stencil_layoutse [TODO Implement]

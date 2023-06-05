@@ -560,9 +560,8 @@ public:
                 A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
             */
             m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5;
-            //TODO(Erfan): Change to ESV_1_6 when we updated our glsl compiler submodules
-            //if (VK_API_VERSION_MINOR(apiVersion)>=3)
-            //        m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;
+            if (VK_API_VERSION_MINOR(apiVersion)>=3)
+                    m_properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;
         }
         
         // Get physical device's features
@@ -1788,7 +1787,7 @@ protected:
         vulkan12Features.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
         vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
         vulkan12Features.scalarBlockLayout = true; // ROADMAP 2022
-        vulkan12Features.imagelessFramebuffer = true; // required anyway
+        vulkan12Features.imagelessFramebuffer = false; // decided against
         vulkan12Features.uniformBufferStandardLayout = true; // required anyway
         vulkan12Features.shaderSubgroupExtendedTypes = true; // required anyway
         vulkan12Features.separateDepthStencilLayouts = true; // required anyway
