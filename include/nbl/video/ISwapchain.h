@@ -1,5 +1,5 @@
-#ifndef __NBL_I_SWAPCHAIN_H_INCLUDED__
-#define __NBL_I_SWAPCHAIN_H_INCLUDED__
+#ifndef _NBL_I_SWAPCHAIN_H_INCLUDED_
+#define _NBL_I_SWAPCHAIN_H_INCLUDED_
 
 
 #include "nbl/video/surface/ISurface.h"
@@ -32,7 +32,8 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
             ISurface::E_SURFACE_TRANSFORM_FLAGS preTransform = ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_IDENTITY_BIT;
             ISurface::E_COMPOSITE_ALPHA compositeAlpha = ISurface::E_COMPOSITE_ALPHA::ECA_OPAQUE_BIT;
             core::smart_refctd_ptr<ISwapchain> oldSwapchain = nullptr;
-            // Do not touch unless you want to severly restrict the Image Views of the swapchain image you can create
+            // If you set it to something else then your Swapchain will be created with Mutable Format capability
+            // NOTE: If you do that, then the bitset needs to contain `viewFormats[surfaceFormat.format] = true`
             std::bitset<asset::E_FORMAT::EF_COUNT> viewFormats = {};
 
             inline bool isConcurrentSharing() const {return queueFamilyIndexCount!=0u;}

@@ -354,11 +354,36 @@ class IImage : public IDescriptor
 				if (_params.mipLevels > 1u || _params.arrayLayers > 1u || _params.type != ET_2D)
 					return false;
 			}
-			if (_params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT))
+
+			const bool isMutable = _params.flags.hasFlags(ECF_MUTABLE_FORMAT_BIT);
 			{
-				if (!isBlockCompressionFormat(_params.format) || !_params.flags.hasFlags(ECF_MUTABLE_FORMAT_BIT))
+				const bool isBlockTexelViewCompat = _params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT);
+				if (isBlockTexelViewCompat)
+				{
+					if (!isBlockCompressionFormat(_params.format) || !isMutable)
+						return false;
+				}
+				bool actuallyMutable = false;
+				// if only there existed a nice iterator that would let me iterate over set bits 64 faster
+				if (_params.viewFormats.any())
+				for (auto fmt=0; fmt<_params.viewFormats.size(); fmt++)
+				if (_params.viewFormats.test(fmt))
+				{
+					const auto format = static_cast<asset::E_FORMAT>(fmt);
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-pNext-06722
+					if (asset::getFormatClass(format) != asset::getFormatClass(_params.format))
+					{
+						if (!isBlockTexelViewCompat || asset::getTexelOrBlockBytesize(format)!=asset::getTexelOrBlockBytesize(_params.format))
+							return false;
+					}
+					actuallyMutable = format!=_params.format;
+				}
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-04738
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-04738
+				if (actuallyMutable && !isMutable)
 					return false;
 			}
+
 			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
 				return false;
 

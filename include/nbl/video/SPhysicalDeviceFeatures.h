@@ -215,6 +215,7 @@ struct SPhysicalDeviceFeatures
     bool descriptorBindingVariableDescriptorCount = false;
     bool runtimeDescriptorArray = false;
     
+    // TODO: Actually implement the sampler flag enums
     bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
 
     // [DO NOT EXPOSE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
@@ -1040,7 +1041,10 @@ struct SPhysicalDeviceFeatures
     /* VK_EXT_queue_family_foreign */
     /* VK_EXT_separate_stencil_usage */
     /* VK_KHR_create_renderpass2 */
+
+    // [DO NOT EXPOSE] implemented on default path and there's no choice in not using it
     /* VK_KHR_bind_memory2 */
+
     /* VK_NV_viewport_array2 */
     /* VK_EXT_image_compression_control */
     /* VK_EXT_image_compression_control_swapchain */

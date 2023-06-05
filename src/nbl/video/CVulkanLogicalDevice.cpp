@@ -200,28 +200,9 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
     vk_formatListStruct.viewFormatCount = 0u;
     // if only there existed a nice iterator that would let me iterate over set bits 64 faster
     if (params.viewFormats.any())
-    {
-        const bool notMutable = !params.flags.hasFlags(IGPUImage::ECF_MUTABLE_FORMAT_BIT);
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-04738
-        if (notMutable && !params.viewFormats.test(params.format))
-            return nullptr;
-        const bool blockTexelViewCompat = params.flags.hasFlags(IGPUImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT);
-        for (auto fmt=0; fmt<vk_formatList.size(); fmt++)
-        if (params.viewFormats.test(fmt))
-        {
-            const auto format = static_cast<asset::E_FORMAT>(fmt);
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-pNext-06722
-            if (asset::getFormatClass(format) != asset::getFormatClass(params.format))
-            {
-                if (!blockTexelViewCompat || asset::getTexelOrBlockBytesize(format) != asset::getTexelOrBlockBytesize(params.format))
-                    return nullptr;
-            }
-            vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(format);
-        }
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-04738
-        if (notMutable && vk_formatListStruct.viewFormatCount>1)
-            return nullptr;
-    }
+    for (auto fmt=0; fmt<vk_formatList.size(); fmt++)
+    if (params.viewFormats.test(fmt))
+        vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(fmt));
     vk_formatListStruct.pViewFormats = vk_formatList.data();
 
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, &vk_formatListStruct };
