@@ -148,10 +148,12 @@ namespace nbl::video
         }
         if(featuresToEnable.swapchainMode.hasFlags(E_SWAPCHAIN_MODE::ESM_SURFACE))
         {
-            insertToFeatureSetIfAvailable(VK_KHR_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
-            insertToFeatureSetIfAvailable(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
+            insertToFeatureSetIfAvailable(VK_KHR_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for swapchainMode");
+            insertToFeatureSetIfAvailable(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME, "Obtaining colorspace from Swapchain");
+            insertToFeatureSetIfAvailable(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME, "Surface capabilities and formats query with pNext chains");
+            // TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/508
 #if defined(_NBL_PLATFORM_WINDOWS_)
-            insertToFeatureSetIfAvailable(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, "E_SWAPCHAIN_MODE::ESM_SURFACE flag for featureName");
+            insertToFeatureSetIfAvailable(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, "Win32 implementation/support for KHR_surface");
 #endif
         }
         SFeatures enabledFeatures = featuresToEnable;

@@ -2172,8 +2172,9 @@ protected:
         if (enabledFeatures.swapchainMode.hasFlags(E_SWAPCHAIN_MODE::ESM_SURFACE))
         {
             // If we reach here then the instance extension VK_KHR_Surface was definitely enabled otherwise the extension wouldn't be reported by physical device
-            // TODO: Other extensions to enable?
             insertExtensionIfAvailable(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+            insertExtensionIfAvailable(VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+            // TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/508
         }
         
         if (enabledFeatures.deferredHostOperations)

@@ -35,16 +35,32 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
     VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, nullptr };
     vk_formatListStruct.viewFormatCount = 0u;
-    vk_formatListStruct.pViewFormats = vk_formatList.data();
+
+    VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, &vk_formatListStruct };
     // if only there existed a nice iterator that would let me iterate over set bits 64 faster
     if (params.viewFormats.any())
     {
+        // structure with a viewFormatCount greater than zero and pViewFormats must have an element equal to imageFormat
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSwapchainCreateInfoKHR.html#VUID-VkSwapchainCreateInfoKHR-flags-03168
+        if (!params.viewFormats.test(params.surfaceFormat.format))
+            return nullptr;
+
         for (auto fmt=0; fmt<vk_formatList.size(); fmt++)
         if (params.viewFormats.test(fmt))
-            vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(fmt));
-    }
+        {
+            const auto format = static_cast<asset::E_FORMAT>(fmt);
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSwapchainCreateInfoKHR.html#VUID-VkSwapchainCreateInfoKHR-pNext-04099
+            if (asset::getFormatClass(format) != asset::getFormatClass(params.surfaceFormat.format))
+                return nullptr;
+            vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(format);
+        }
 
-    VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, &vk_formatListStruct };
+        // just deduce the mutable flag, cause we're so constrained by spec, it dictates we must list all formats if we're doing mutable
+        if (vk_formatListStruct.viewFormatCount > 1)
+            vk_createInfo.flags |= VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR;
+    }
+    vk_formatListStruct.pViewFormats = vk_formatList.data();
+
     vk_createInfo.surface = vk_surface;
     vk_createInfo.minImageCount = params.minImageCount;
     vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
