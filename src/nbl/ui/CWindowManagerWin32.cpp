@@ -58,6 +58,10 @@ static inline DWORD getWindowStyle(IWindow::E_CREATE_FLAGS flags)
 		style |= WS_VISIBLE;
 	}
 	style |= WS_OVERLAPPEDWINDOW;
+	if (flags & IWindow::ECF_CANNOT_MAXIMIZE)
+	{
+		style &= ~WS_MAXIMIZEBOX;
+	}
 
 	return style;
 }

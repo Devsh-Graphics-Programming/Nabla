@@ -34,6 +34,8 @@ class IWindow : public core::IReferenceCounted
             //! Indicates whether mouse is hovering over the window even if the window is not active
             ECF_MOUSE_FOCUS = 1u << 8,
             ECF_ALWAYS_ON_TOP = 1u << 9,
+            //! Whether the maximize button is grayed out
+            ECF_CANNOT_MAXIMIZE = 1u << 10,
 
             ECF_NONE = 0
         };
@@ -176,6 +178,7 @@ class IWindow : public core::IReferenceCounted
         inline bool hasInputFocus()       { return (m_flags.value & ECF_INPUT_FOCUS); }
         inline bool hasMouseFocus()       { return (m_flags.value & ECF_MOUSE_FOCUS); }
         inline bool isAlwaysOnTop()       { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+        inline bool isMaximizable()       { return (m_flags.value & ECF_CANNOT_MAXIMIZE) == 0; }
 
         inline core::bitflag<E_CREATE_FLAGS> getFlags() { return m_flags; }
 
