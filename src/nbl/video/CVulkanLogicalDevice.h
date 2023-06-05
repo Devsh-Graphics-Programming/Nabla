@@ -262,13 +262,13 @@ public:
             
     core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override
     {
-        VkRenderPassCreateInfo createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-        createInfo.pNext = nullptr;
+        VkRenderPassCreateInfo2 createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,nullptr };
         createInfo.flags = static_cast<VkRenderPassCreateFlags>(0u); // No flags are supported
         createInfo.attachmentCount = params.attachmentCount;
 
-        core::vector<VkAttachmentDescription> attachments(createInfo.attachmentCount); // TODO reduce number of allocations/get rid of vectors
-        for (uint32_t i = 0u; i < attachments.size(); ++i)
+        // TODO reduce number of allocations/get rid of vectors
+        core::vector<VkAttachmentDescription2> attachments(createInfo.attachmentCount,{VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,nullptr});
+        for (uint32_t i=0u; i<attachments.size(); ++i)
         {
             const auto& att = params.attachments[i];
             auto& vkatt = attachments[i];
@@ -288,11 +288,11 @@ public:
         createInfo.pAttachments = attachments.data();
 
         createInfo.subpassCount = params.subpassCount;
-        core::vector<VkSubpassDescription> vk_subpasses(createInfo.subpassCount);
+        core::vector<VkSubpassDescription2> vk_subpasses(createInfo.subpassCount,{VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,nullptr});
         
         constexpr uint32_t MemSz = 1u << 12;
         constexpr uint32_t MaxAttachmentRefs = MemSz / sizeof(VkAttachmentReference);
-        VkAttachmentReference vk_attRefs[MaxAttachmentRefs];
+        VkAttachmentReference2 vk_attRefs[MaxAttachmentRefs]; // TODO: initialize properly
         uint32_t preserveAttRefs[MaxAttachmentRefs];
 
         uint32_t totalAttRefCount = 0u;
@@ -361,7 +361,7 @@ public:
         createInfo.pSubpasses = vk_subpasses.data();
 
         createInfo.dependencyCount = params.dependencyCount;
-        core::vector<VkSubpassDependency> deps(createInfo.dependencyCount);
+        core::vector<VkSubpassDependency2> deps(createInfo.dependencyCount,{VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,nullptr});
         for (uint32_t i = 0u; i < deps.size(); ++i)
         {
             const auto& dep = params.dependencies[i];
@@ -378,7 +378,7 @@ public:
         createInfo.pDependencies = deps.data();
 
         VkRenderPass vk_renderpass;
-        if (m_devf.vk.vkCreateRenderPass(m_vkdev, &createInfo, nullptr, &vk_renderpass) == VK_SUCCESS)
+        if (m_devf.vk.vkCreateRenderPass2(m_vkdev, &createInfo, nullptr, &vk_renderpass) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanRenderpass>(
                 core::smart_refctd_ptr<CVulkanLogicalDevice>(this), params, vk_renderpass);

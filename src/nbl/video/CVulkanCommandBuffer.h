@@ -256,14 +256,20 @@ public:
     inline bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override final
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        vk->vk.vkCmdNextSubpass(m_cmdbuf, static_cast<VkSubpassContents>(contents));
+        VkSubpassBeginInfo vk_subpassBeginInfo = { VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO, nullptr };
+        vk_subpassBeginInfo.contents = static_cast<VkSubpassContents>(contents);
+        // pNext only used for `VK_QCOM_fragment_density_map_offset` so far
+        VkSubpassEndInfo vk_subpassEndInfo = { VK_STRUCTURE_TYPE_SUBPASS_END_INFO, nullptr };
+        vk->vk.vkCmdNextSubpass2(m_cmdbuf,&vk_subpassBeginInfo,&vk_subpassEndInfo);
         return true;
     }
 
     inline bool endRenderPass() override final
     {
         const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-        vk->vk.vkCmdEndRenderPass(m_cmdbuf);
+        // pNext only used for `VK_QCOM_fragment_density_map_offset` so far
+        VkSubpassEndInfo vk_subpassInfo = { VK_STRUCTURE_TYPE_SUBPASS_END_INFO, nullptr };
+        vk->vk.vkCmdEndRenderPass2(m_cmdbuf,&vk_subpassInfo);
         return true;
     }
 

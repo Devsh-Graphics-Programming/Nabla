@@ -456,8 +456,11 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo* pRen
     vk_beginInfo.clearValueCount = pRenderPassBegin->clearValueCount;
     vk_beginInfo.pClearValues = vk_clearValues;
 
+    VkSubpassBeginInfo vk_subpassBeginInfo = { VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO, nullptr };
+    vk_subpassBeginInfo.contents = static_cast<VkSubpassContents>(content);
+
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    vk->vk.vkCmdBeginRenderPass(m_cmdbuf, &vk_beginInfo, static_cast<VkSubpassContents>(content));
+    vk->vk.vkCmdBeginRenderPass2(m_cmdbuf, &vk_beginInfo, &vk_subpassBeginInfo);
 
     return true;
 }
