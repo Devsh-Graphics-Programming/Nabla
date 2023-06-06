@@ -227,7 +227,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Vulkan 1.2 requires these
     //bool uniformBufferStandardLayout = true; // or VK_KHR_uniform_buffer_standard_layout
     //bool shaderSubgroupExtendedTypes = true;   // or VK_KHR_shader_subgroup_extended_types
-    //bool separateDepthStencilLayouts = true;   // or VK_KHR_separate_depth_stencil_layoutse [TODO Implement]
+    //bool separateDepthStencilLayouts = true;   // or VK_KHR_separate_depth_stencil_layouts
     //bool hostQueryReset = true;                // or VK_EXT_host_query_reset [TODO Implement]
     //bool timelineSemaphore = true;             // or VK_KHR_timeline_semaphore [TODO Implement]
     
@@ -655,19 +655,19 @@ struct SPhysicalDeviceFeatures
     // Enabled by Default, Moved to Limits
     /* VK_KHR_external_semaphore_win32 */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_KHR_shader_non_semantic_info */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_KHR_fragment_shader_barycentric */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_NV_geometry_shader_passthrough */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_NV_viewport_swizzle */
 
     // [TODO] this one isn't in the headers

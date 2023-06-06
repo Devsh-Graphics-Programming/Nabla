@@ -1561,7 +1561,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
             params.image = (*gpuDeps)[redirs[i]];
             const auto& gpuImgParams = params.image->getCreationParameters();
             // override the view's format if the source image got promoted, a bit crude, but don't want to scratch my head about how to promote the views and guess semantics
-            const bool formatGotPromoted = asset::getFormatClass(cpuParams.format)!=asset::getFormatClass(gpuImgParams.format);
+            const bool formatGotPromoted = cpuParams.format!=gpuImgParams.format;
             params.format = formatGotPromoted ? gpuImgParams.format:cpuParams.format;
             params.subUsages = cpuParams.subUsages;
             // TODO: In Asset Converter 2.0 we'd pass through all descriptor sets etc and propagate the adding usages backwards to views, but here we need to trim the image's usages instead
