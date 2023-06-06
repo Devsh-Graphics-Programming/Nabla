@@ -242,7 +242,14 @@ class IImage : public IDescriptor
 			uint32_t						mipLevels;
 			uint32_t						arrayLayers;
 			core::bitflag<E_CREATE_FLAGS>	flags = ECF_NONE;
-			core::bitflag<E_USAGE_FLAGS>	usage = EUF_NONE;
+			union
+			{
+				core::bitflag<E_USAGE_FLAGS>	usage = EUF_NONE;
+				core::bitflag<E_USAGE_FLAGS>	depthUsage;
+			};
+			// Do not touch AT ALL for an image without stencil format & aspect
+			// Leave as is to default to `depthUsage` for a stencil image
+			core::bitflag<E_USAGE_FLAGS>	stencilUsage = EUF_NONE;
 			// Do not touch unless you want to fail at creating views with their Format not listed here
 			std::bitset<E_FORMAT::EF_COUNT>	viewFormats = {};
 
@@ -317,8 +324,14 @@ class IImage : public IDescriptor
 		//!
 		inline static bool validateCreationParameters(const SCreationParams& _params)
 		{
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00944
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00945
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00946
 			if (_params.extent.width == 0u || _params.extent.height == 0u || _params.extent.depth == 0u)
 				return false;
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00947
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00948
 			if (_params.mipLevels == 0u || _params.arrayLayers == 0u)
 				return false;
 
@@ -327,21 +340,32 @@ class IImage : public IDescriptor
 
 			if (_params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT))
 			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00949
 				if (_params.type != ET_2D)
 					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00950
 				if (_params.extent.width != _params.extent.height)
 					return false;
-				if (_params.extent.depth > 1u)
-					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-08866
 				if (_params.arrayLayers < 6u)
 					return false;
 				if (_params.samples != ESCF_1_BIT)
 					return false;
 			}
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00950
 			if (_params.flags.hasFlags(ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
 				return false;
-			if (_params.flags.hasFlags(ECF_SPARSE_RESIDENCY_BIT) || _params.flags.hasFlags(ECF_SPARSE_ALIASED_BIT))
+			// TODO: add 2D view compat bit?
+			
+			const bool sparseResidency = _params.flags.hasFlags(ECF_SPARSE_RESIDENCY_BIT);
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00970
+			if (sparseResidency && _params.type == ET_1D)
+				return false;
+
+			if (sparseResidency || _params.flags.hasFlags(ECF_SPARSE_ALIASED_BIT))
 			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00987
 				if (!_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT))
 					return false;
 				if (_params.flags.hasFlags(ECF_PROTECTED_BIT))
@@ -360,6 +384,8 @@ class IImage : public IDescriptor
 				const bool isBlockTexelViewCompat = _params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT);
 				if (isBlockTexelViewCompat)
 				{
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-01572
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-01573
 					if (!isBlockCompressionFormat(_params.format) || !isMutable)
 						return false;
 				}
@@ -384,22 +410,59 @@ class IImage : public IDescriptor
 					return false;
 			}
 
-			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
+			const bool depthOrStencilFormat = isDepthOrStencilFormat(_params.format);
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-01533
+			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!depthOrStencilFormat || _params.format == EF_S8_UINT))
 				return false;
 
-			if (_params.samples != ESCF_1_BIT && _params.type != ET_2D)
-				return false;
+			if (depthOrStencilFormat)
+			{
+				// IGNORE
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02795
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02796
+				// WHY? Because we don't expose "combined" usage enums at all!
+
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02797
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02798
+				if ((_params.depthUsage&EUF_TRANSIENT_ATTACHMENT_BIT).value!=(_params.stencilUsage&EUF_TRANSIENT_ATTACHMENT_BIT).value)
+					return false;
+			}
+
+			if (_params.samples != ESCF_1_BIT)
+			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-samples-02257
+				if (_params.type != ET_2D || _params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT) || _params.mipLevels == 1u)
+					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-samples-02558
+				if (_params.usage.hasFlags(EUF_FRAGMENT_DENSITY_MAP_BIT_EXT))
+					return false;
+			}
+
+			if (_params.usage.hasFlags(EUF_TRANSIENT_ATTACHMENT_BIT))
+			{
+				const auto attachmentUsageFlags = core::bitflag(EUF_COLOR_ATTACHMENT_BIT)|EUF_DEPTH_STENCIL_ATTACHMENT_BIT|EUF_INPUT_ATTACHMENT_BIT;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-usage-00966
+				if (!_params.usage.hasFlags(attachmentUsageFlags))
+					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-usage-00963
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-None-01925
+				if (_params.usage.hasFlags(~(attachmentUsageFlags|EUF_TRANSIENT_ATTACHMENT_BIT)))
+					return false;
+			}
 
 			switch (_params.type)
 			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00956
 				case ET_1D:
 					if (_params.extent.height > 1u)
 						return false;
 					[[fallthrough]];
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00957
 				case ET_2D:
 					if (_params.extent.depth > 1u)
 						return false;
 					break;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00961
 				default: //	3D format
 					if (_params.arrayLayers > 1u)
 						return false;
@@ -411,14 +474,19 @@ class IImage : public IDescriptor
 				if (_params.mipLevels > 1u || _params.samples != ESCF_1_BIT || _params.type != ET_2D)
 					return false;
 			}
-			else
-			{
-				if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
-					return false;
-			}
+			else if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
+				return false;
 
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-mipLevels-00958
 			if (_params.mipLevels > calculateFullMipPyramidLevelCount(_params.extent, _params.type))
 				return false;
+
+			if (_params.usage.hasFlags(EUF_SHADING_RATE_IMAGE_BIT_NV))
+			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-02082
+				if (_params.type!=ET_2D || _params.samples!=ESCF_1_BIT)
+					return false;
+			}
 
 			return true;
 		}

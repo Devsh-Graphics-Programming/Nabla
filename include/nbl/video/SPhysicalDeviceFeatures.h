@@ -1039,7 +1039,10 @@ struct SPhysicalDeviceFeatures
 
     /* VK_NV_present_barrier */
     /* VK_EXT_queue_family_foreign */
+
+    // [DO NOT EXPOSE] Core 1.2
     /* VK_EXT_separate_stencil_usage */
+
     /* VK_KHR_create_renderpass2 */
 
     // [DO NOT EXPOSE] implemented on default path and there's no choice in not using it
