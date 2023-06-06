@@ -1021,7 +1021,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         const asset::ICPUImage* cpuimg = _begin[i];
         IGPUImage::SCreationParams params = {};
         params = cpuimg->getCreationParameters();
-        params.initialLayout = asset::IImage::EL_UNDEFINED;
         
         IPhysicalDevice::SImageFormatPromotionRequest promotionRequest = {};
         promotionRequest.originalFormat = params.format;

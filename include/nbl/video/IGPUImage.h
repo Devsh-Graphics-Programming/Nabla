@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_GPU_IMAGE_H_INCLUDED__
-#define __NBL_VIDEO_GPU_IMAGE_H_INCLUDED__
+#ifndef _NBL_VIDEO_GPU_IMAGE_H_INCLUDED_
+#define _NBL_VIDEO_GPU_IMAGE_H_INCLUDED_
 
 
 #include "dimension2d.h"
@@ -43,7 +42,7 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		inline E_TILING getTiling() const {return m_tiling;}
 
 		//!
-		inline E_LAYOUT getInitialLayout() const { return m_initialLayout; }
+		inline bool isPreinitialized() const { return m_preinitialized; }
 
 		//!
 		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
@@ -149,8 +148,8 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
-		const E_TILING m_tiling;
-		const E_LAYOUT m_initialLayout;
+		const E_TILING m_tiling : 1;
+		const uint8_t m_preinitialized : 1;
 
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
@@ -158,7 +157,7 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
 			SCreationParams&& _params
-		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)), m_tiling(_params.tiling), m_initialLayout(_params.initialLayout) {}
+		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)), m_tiling(_params.tiling), m_preinitialized(_params.preinitialized) {}
 };
 
 
