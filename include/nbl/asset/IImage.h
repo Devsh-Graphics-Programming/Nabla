@@ -620,7 +620,7 @@ class IImage : public IDescriptor
 			return memreq;
 		}
 
-		//! leaving here as might be useful for a future `ICPUCommandBuffer`
+		// TODO: make it a `uint8_t` and provide a casting switch-function
 		enum E_LAYOUT : uint32_t
 		{
 			EL_UNDEFINED = 0,

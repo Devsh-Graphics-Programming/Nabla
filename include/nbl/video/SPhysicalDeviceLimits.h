@@ -355,14 +355,13 @@ struct SPhysicalDeviceLimits
     //uint32_t                   maxMultiviewInstanceIndex;
     //bool                   protectedNoFault;
 
-    // [TODO LATER] Needs API work to expose -> https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html
-    //      or VK_KHR_depth_stencil_resolve:
+    // [TODO] Vulkan 1.2 or VK_KHR_depth_stencil_resolve:
     //VkResolveModeFlags                   supportedDepthResolveModes;
     //VkResolveModeFlags                   supportedStencilResolveModes;
     //bool                             independentResolveNone;
     //bool                             independentResolve;
 
-    // [TODO LATER]: we don't expose inline uniform blocks right now
+    // [DO NOT EXPOSE]: we won't expose inline uniform blocks right EVER
     /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
     //      or VK_EXT_inline_uniform_block: 
     //uint32_t              maxInlineUniformBlockSize; 
