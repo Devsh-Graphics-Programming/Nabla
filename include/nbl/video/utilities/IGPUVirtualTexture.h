@@ -43,26 +43,11 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
         {
             IGPUImage::SCreationParams cpuImageParams = {};
             cpuImageParams = _cpuimg->getCreationParameters();
-            cpuImageParams.initialLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
-
-            // TODO: Look at issue #167 on Nabla repo, at some point
-            IGPUBuffer::SCreationParams bufferCreationParams = {};
-            bufferCreationParams.size = _cpuimg->getBuffer()->getSize();
-            auto gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));	
-            auto mreqs = gpuTexelBuffer->getMemoryReqs();
-            mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-            auto gpubufMem = logicalDevice->allocate(mreqs, gpuTexelBuffer.get());
-
-            uint32_t signalSemaphoreCount=0u;
-            IGPUSemaphore* const* semaphoresToSignal = nullptr;
-            utilities->updateBufferRangeViaStagingBuffer(
-                cmdbuf,fence,queue,asset::SBufferRange<IGPUBuffer>{0u,gpuTexelBuffer->getSize(),gpuTexelBuffer},_cpuimg->getBuffer()->getPointer(),
-                waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore
-            );
 
             auto regions = _cpuimg->getRegions();
             assert(regions.size());
-            gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
+            assert(false); // TODO: redo completely with streaming update
+            //gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin(),asset::IImage::EL_TRANSFER_DST_OPTIMAL);
         }
 
         return gpuImage;
