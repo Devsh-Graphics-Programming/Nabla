@@ -66,6 +66,10 @@ static inline DWORD getWindowStyle(IWindow::E_CREATE_FLAGS flags)
 	{
 		style &= ~WS_MAXIMIZEBOX;
 	}
+	if ((flags & IWindow::ECF_CAN_MINIMIZE) == 0)
+	{
+		style &= ~WS_MINIMIZEBOX;
+	}
 
 	return style;
 }

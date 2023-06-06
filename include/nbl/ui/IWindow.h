@@ -36,6 +36,8 @@ class IWindow : public core::IReferenceCounted
             ECF_ALWAYS_ON_TOP = 1u << 9,
             //! If disabled, the maximize button is grayed out
             ECF_CAN_MAXIMIZE = 1u << 10,
+            //! If disabled, the minimize button is grayed out
+            ECF_CAN_MINIMIZE = 1u << 11,
 
             ECF_NONE = 0
         };
