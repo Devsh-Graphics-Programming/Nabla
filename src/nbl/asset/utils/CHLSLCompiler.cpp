@@ -374,7 +374,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         arguments.insert(arguments.end(), {
             DXC_ARG_DEBUG,
             L"-Qembed_debug",
-            L"-fspv-debug=vulkan-with-source",
+            // L"-fspv-debug=vulkan-with-source", // disabled because of dxc compiler bugs that don't play nice with this :(
             L"-fspv-debug=file"
         });
     }
