@@ -135,8 +135,9 @@ class IRenderpass
                             return false;
                         return true;
                     }
-                    //inline bool used() const {return format!=EF_UNKNOWN;}
                 };
+                // The arrays pointed to by this array must be terminated by `AttachmentsEnd` value, which implicitly satisfies
+                // 
                 constexpr static inline SAttachmentDescription AttachmentsEnd = {};
                 const SAttachmentDescription* attachments = &AttachmentsEnd;
             
@@ -345,6 +346,7 @@ class IRenderpass
 
                     SDepthStencilAttachmentRef depthStencilAttachment = {};
 
+                    // The arrays pointed to by this array must be terminated by `InputAttachmentsEnd` value
                     constexpr static inline SInputAttachmentRef InputAttachmentsEnd = {};
                     const SInputAttachmentRef* inputAttachments = &InputAttachmentsEnd;
 
@@ -365,16 +367,17 @@ class IRenderpass
 
                 struct SSubpassDependency
                 {
-                    uint32_t srcSubpass;
-                    uint32_t dstSubpass;
-                    E_PIPELINE_STAGE_FLAGS srcStageMask;
-                    E_PIPELINE_STAGE_FLAGS dstStageMask;
-                    E_ACCESS_FLAGS srcAccessMask;
-                    E_ACCESS_FLAGS dstAccessMask;
-                    E_DEPENDENCY_FLAGS dependencyFlags;
+                    uint32_t srcSubpass = ~0u;
+                    uint32_t dstSubpass = ~0u;
+                    E_PIPELINE_STAGE_FLAGS srcStageMask = EPSF_BOTTOM_OF_PIPE_BIT;
+                    E_PIPELINE_STAGE_FLAGS dstStageMask = EPSF_TOP_OF_PIPE_BIT;
+                    E_ACCESS_FLAGS srcAccessMask = EAF_NONE;
+                    E_ACCESS_FLAGS dstAccessMask = EAF_NONE;
+                    E_DEPENDENCY_FLAGS dependencyFlags = EDF_NONE;
 
                     auto operator<=>(const SSubpassDependency&) const = default;
                 };
+                // The arrays pointed to by this array must be terminated by `DependenciesEnd` value
                 constexpr static inline SSubpassDependency DependenciesEnd = {};
                 const SSubpassDependency* dependencies = &DependenciesEnd;
 

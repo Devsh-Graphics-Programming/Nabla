@@ -108,7 +108,7 @@ class IImageView : public IDescriptor
 				return false;
 			*/
 
-			const auto kValidUsages = core::bitflag(IGPUImage::EUF_SAMPLED_BIT)|IGPUImage::EUF_STORAGE_BIT|
+			const auto kValidUsages = IGPUImage::EUF_SAMPLED_BIT|IGPUImage::EUF_STORAGE_BIT|
 				IGPUImage::EUF_COLOR_ATTACHMENT_BIT|IGPUImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT|IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT|IGPUImage::EUF_INPUT_ATTACHMENT_BIT|
 				IGPUImage::EUF_SHADING_RATE_IMAGE_BIT_NV|IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT;
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04441
@@ -127,7 +127,7 @@ class IImageView : public IDescriptor
 			}
 
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02087
-			if (_params.format!=asset::EF_R8_UINT)
+			if (_params.subUsages.hasFlag(IImage::EUF_SHADING_RATE_IMAGE_BIT_NV) && _params.format!=EF_R8_UINT)
 				return false;
 
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-01585
@@ -151,7 +151,7 @@ class IImageView : public IDescriptor
 					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-image-07072
 					// If image was created with the VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT flag and
 					// format is a non-compressed format, the levelCount and layerCount members of subresourceRange must both be 1
-					if (!asset::isBlockCompressionFormat(_params.format) && (subresourceRange.levelCount!=1u || subresourceRange.layerCount!=1u))
+					if (!isBlockCompressionFormat(_params.format) && (subresourceRange.levelCount!=1u || subresourceRange.layerCount!=1u))
 						return false;
 				}
 				// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-image-01761
@@ -159,7 +159,7 @@ class IImageView : public IDescriptor
 				// and if the format of the image is not a multi-planar format, format must be compatible with the format used to create image
 				else if (getFormatClass(_params.format)!=getFormatClass(imgParams.format))
 					return false;
-				else if (asset::isBlockCompressionFormat(_params.format)!=asset::isBlockCompressionFormat(imgParams.format))
+				else if (isBlockCompressionFormat(_params.format)!=isBlockCompressionFormat(imgParams.format))
 					return false;
 
 				/*
@@ -199,7 +199,7 @@ class IImageView : public IDescriptor
 				return false;
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-aspectMask-01670
 			if (subresourceRange.aspect.hasFlags(IImage::EAF_COLOR_BIT) && (subresourceRange.aspect&(core::bitflag(IImage::EAF_PLANE_0_BIT)|IImage::EAF_PLANE_1_BIT|IImage::EAF_PLANE_2_BIT)).value)
-	s			return false;
+				return false;
 
 			// we have some layers
 			if (subresourceRange.layerCount==0u)
@@ -238,7 +238,7 @@ class IImageView : public IDescriptor
 			}
 
 			// If image was created with the VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT flag, ... or must be an uncompressed format
-			if (blockTexelViewCompatible && !asset::isBlockCompressionFormat(_params.format))
+			if (blockTexelViewCompatible && !isBlockCompressionFormat(_params.format))
 			{
 				// In this case, the resulting image view’s texel dimensions equal the dimensions of the selected mip level divided by the compressed texel block size and rounded up.
 				mipExtent = _params.image->getTexelBlockInfo().convertTexelsToBlocks(mipExtent);
