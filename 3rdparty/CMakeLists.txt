@@ -15,6 +15,7 @@ add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)

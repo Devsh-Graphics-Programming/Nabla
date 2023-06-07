@@ -680,7 +680,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
         const bool isCubemap = (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX);
 
-        ICPUImageView::SCreationParams viewParams;
+        ICPUImageView::SCreationParams viewParams = {};
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
         viewParams.format = image->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];

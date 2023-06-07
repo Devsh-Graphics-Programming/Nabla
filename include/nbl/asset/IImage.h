@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_IMAGE_H_INCLUDED__
-#define __NBL_ASSET_I_IMAGE_H_INCLUDED__
+#ifndef _NBL_ASSET_I_IMAGE_H_INCLUDED_
+#define _NBL_ASSET_I_IMAGE_H_INCLUDED_
 
 #include "nbl/core/util/bitflag.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
@@ -136,18 +135,18 @@ class IImage : public IDescriptor
 		};
 		struct SSubresourceRange
 		{
-			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
-			uint32_t		baseMipLevel = 0u;
-			uint32_t		levelCount = 0u;
-			uint32_t		baseArrayLayer = 0u;
-			uint32_t		layerCount = 0u;
+			core::bitflag<E_ASPECT_FLAGS>	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
+			uint32_t						baseMipLevel = 0u;
+			uint32_t						levelCount = 0u;
+			uint32_t						baseArrayLayer = 0u;
+			uint32_t						layerCount = 0u;
 		};
 		struct SSubresourceLayers
 		{
-			E_ASPECT_FLAGS	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
-			uint32_t		mipLevel = 0u;
-			uint32_t		baseArrayLayer = 0u;
-			uint32_t		layerCount = 0u;
+			core::bitflag<E_ASPECT_FLAGS>	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
+			uint32_t						mipLevel = 0u;
+			uint32_t						baseArrayLayer = 0u;
+			uint32_t						layerCount = 0u;
 
 			auto operator<=>(const SSubresourceLayers&) const = default;
 		};
@@ -214,7 +213,7 @@ class IImage : public IDescriptor
 			inline bool					isValid() const
 			{
 				// TODO: more complex check of compatible aspects when planar format support arrives
-				if (srcSubresource.aspectMask^dstSubresource.aspectMask)
+				if ((srcSubresource.aspectMask^dstSubresource.aspectMask).value)
 					return false;
 
 				if (srcSubresource.layerCount!=dstSubresource.layerCount)
@@ -235,14 +234,14 @@ class IImage : public IDescriptor
 		};
 		struct SCreationParams
 		{
-			E_TYPE										type;
-			E_SAMPLE_COUNT_FLAGS						samples;
-			E_FORMAT									format;
-			VkExtent3D									extent;
-			uint32_t									mipLevels;
-			uint32_t									arrayLayers;
-			core::bitflag<E_CREATE_FLAGS>				flags = ECF_NONE;
-			core::bitflag<E_USAGE_FLAGS>				usage = EUF_NONE;
+			E_TYPE							type;
+			E_SAMPLE_COUNT_FLAGS			samples;
+			E_FORMAT						format;
+			VkExtent3D						extent;
+			uint32_t						mipLevels;
+			uint32_t						arrayLayers;
+			core::bitflag<E_CREATE_FLAGS>	flags = ECF_NONE;
+			core::bitflag<E_USAGE_FLAGS>	usage = EUF_NONE;
 
 			inline bool operator==(const SCreationParams& rhs) const
 			{
@@ -328,6 +327,8 @@ class IImage : public IDescriptor
 				if (_params.type != ET_2D)
 					return false;
 				if (_params.extent.width != _params.extent.height)
+					return false;
+				if (_params.extent.depth > 1u)
 					return false;
 				if (_params.arrayLayers < 6u)
 					return false;
@@ -587,7 +588,7 @@ class IImage : public IDescriptor
 				//if (!formatHasAspects(m_creationParams.format,subresource.aspectMask))
 					//return false;
 				// The aspectMask member of imageSubresource must only have a single bit set
-				if (!core::bitCount(static_cast<uint32_t>(subresource.aspectMask)) == 1u)
+				if (!core::bitCount<uint32_t>(subresource.aspectMask.value) == 1u)
 					return false;
 				if (subresource.mipLevel >= m_creationParams.mipLevels)
 					return false;
@@ -716,7 +717,7 @@ class IImage : public IDescriptor
 			for (auto it2=it+1u; it2!=pRegionsEnd; it2++)
 			{
 				const auto& subresource2 = it2->getDstSubresource();
-				if (!(subresource2.aspectMask&subresource.aspectMask))
+				if (!(subresource2.aspectMask&subresource.aspectMask).value)
 					continue;
 				if (subresource2.mipLevel!=subresource.mipLevel)
 					continue;

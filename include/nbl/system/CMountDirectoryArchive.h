@@ -33,18 +33,9 @@ public:
             return *file;
     }
 
-    SFileList listAssets(const path& asset_path) const override
-    {
-        populateItemList(asset_path);
-        return IFileArchive::listAssets(asset_path);
-    }
+ 
     SFileList listAssets() const override {
-        populateItemList(path());
-        return IFileArchive::listAssets();
-    }
-
-    void populateItemList(const path& p) const {
-        auto items = m_system->listItemsInDirectory(m_defaultAbsolutePath/p);
+        auto items = m_system->listItemsInDirectory(m_defaultAbsolutePath);
         auto new_entries = std::make_shared<core::vector<SFileList::SEntry>>();
         for (auto item : items)
         {
@@ -55,7 +46,13 @@ public:
                 new_entries->push_back(entry);
             }
         }
-        m_items.store({new_entries});
+        setItemList(new_entries);
+
+        return IFileArchive::listAssets();
+    }
+
+    void populateItemList(const path& p) const {
+       
     }
 };
 

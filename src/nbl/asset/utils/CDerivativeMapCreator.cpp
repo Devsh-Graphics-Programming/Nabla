@@ -187,6 +187,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
+	state.recomputeScaledKernelPhasedLUT();
 	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);
 	if (result)
 	{
@@ -206,7 +207,7 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 	auto img = createDerivativeMapFromHeightMap<isotropicNormalization>(_inImg, _uwrap, _vwrap, _borderColor, out_normalizationFactor);
 	const auto& iparams = img->getCreationParameters();
 
-	ICPUImageView::SCreationParams params;
+	ICPUImageView::SCreationParams params = {};
 	params.format = iparams.format;
 	params.subresourceRange.baseArrayLayer = 0u;
 	params.subresourceRange.layerCount = iparams.arrayLayers;
@@ -306,7 +307,7 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 {
 	auto cpuDerivativeImage = createDerivativeMapFromNormalMap<isotropicNormalization>(_inImg,out_normalizationFactor);
 
-	ICPUImageView::SCreationParams imageViewInfo;
+	ICPUImageView::SCreationParams imageViewInfo = {};
 	imageViewInfo.image = core::smart_refctd_ptr(cpuDerivativeImage);
 	imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
 	imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;

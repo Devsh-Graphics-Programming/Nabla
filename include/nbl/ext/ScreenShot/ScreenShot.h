@@ -155,7 +155,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		{
 			auto newCreationParams = cpuNewImage->getCreationParameters();
 
-			asset::ICPUImageView::SCreationParams viewParams;
+			asset::ICPUImageView::SCreationParams viewParams = {};
 			viewParams.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
 			viewParams.image = cpuNewImage;
 			viewParams.format = newCreationParams.format;
