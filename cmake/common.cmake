@@ -221,7 +221,6 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	add_dependencies(${LIB_NAME} Nabla)
 	
 	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
-	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 
 	target_include_directories(${LIB_NAME}
 		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
@@ -231,14 +230,26 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		PUBLIC ${CMAKE_SOURCE_DIR}/include
 		PUBLIC ${CMAKE_SOURCE_DIR}/src
 		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
-		PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
 		PRIVATE ${LIB_INCLUDES}
 	)
+	
+	if(NBL_EMBED_BUILTIN_RESOURCES)
+		get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+		
+		target_include_directories(${LIB_NAME}
+			PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
+		)
+	endif()
+	
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(

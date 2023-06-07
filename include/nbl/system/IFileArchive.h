@@ -90,7 +90,7 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 		}
 
 		// List all files and directories in a specific dir of the archive
-		virtual SFileList listAssets(const path& pathRelativeToArchive) const;
+		SFileList listAssets(path pathRelativeToArchive) const;
 
 		//
 		virtual core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) = 0;
@@ -114,9 +114,17 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 
 		path m_defaultAbsolutePath;
 		// files and directories
-		mutable std::atomic<SFileList::refctd_storage_t> m_items;
 		//
 		system::logger_opt_smart_ptr m_logger;
+
+		inline void setItemList(std::shared_ptr<core::vector<SFileList::SEntry>> _items) const {
+			
+			std::sort(_items->begin(), _items->end());
+			m_items.store(_items);
+		}
+
+	private:
+		mutable std::atomic<SFileList::refctd_storage_t> m_items;
 };
 
 

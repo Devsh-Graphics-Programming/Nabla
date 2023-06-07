@@ -15,6 +15,7 @@ add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
@@ -250,6 +251,24 @@ if(NBL_BUILD_IMGUI)
 		PUBLIC "imgui/backends"
 	)
 
+	# ImPlot
+	add_library(implot STATIC
+		"implot/implot.h"
+		"implot/implot_internal.h"
+		"implot/implot.cpp"
+		"implot/implot_items.cpp"
+	)
+	target_include_directories(implot
+		PUBLIC "imgui"
+	)
+	target_link_libraries(implot PUBLIC imgui)
+	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
+	set_property(TARGET implot PROPERTY CXX_STANDARD 11)
+	if(MSVC)
+		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
+	else()
+		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
+	endif()
 endif()
 
 add_library(aesGladman OBJECT

@@ -28,7 +28,6 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		};
 		struct SCreationParams : asset::IImage::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{
-			// stuff below is irrelevant in OpenGL backend
 			E_TILING tiling = ET_OPTIMAL;
 			E_LAYOUT initialLayout = EL_UNDEFINED;
 
@@ -38,6 +37,12 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 				return *this;
 			}
 		};
+
+		//!
+		inline E_TILING getTiling() const {return m_tiling;}
+
+		//!
+		inline E_LAYOUT getInitialLayout() const { return m_initialLayout; }
 
 		//!
 		E_OBJECT_TYPE getObjectType() const override { return EOT_IMAGE; }
@@ -143,6 +148,8 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
+		const E_TILING m_tiling;
+		const E_LAYOUT m_initialLayout;
 
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
@@ -150,7 +157,7 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
 			SCreationParams&& _params
-		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)) {}
+		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)), m_tiling(_params.tiling), m_initialLayout(_params.initialLayout) {}
 };
 
 
