@@ -371,22 +371,82 @@ class IRenderpass
 
                 struct SSubpassDependency
                 {
-                    uint32_t srcSubpass = ~0u;
-                    uint32_t dstSubpass = ~0u;
-                    E_PIPELINE_STAGE_FLAGS srcStageMask = EPSF_BOTTOM_OF_PIPE_BIT;
-                    E_PIPELINE_STAGE_FLAGS dstStageMask = EPSF_TOP_OF_PIPE_BIT;
-                    E_ACCESS_FLAGS srcAccessMask = EAF_NONE;
-                    E_ACCESS_FLAGS dstAccessMask = EAF_NONE;
-                    E_DEPENDENCY_FLAGS dependencyFlags = EDF_NONE;
+                    public:
+                        constexpr static inline uint32_t External = ~0u;
 
-                    auto operator<=>(const SSubpassDependency&) const = default;
+                        uint32_t srcSubpass = External;
+                        uint32_t dstSubpass = External;
+                        int32_t viewOffset = 0;
+                        // TODO: Redo with synchronization2
+                        // If a VkMemoryBarrier2 is included in the pNext chain, srcStageMask, dstStageMask, srcAccessMask, and dstAccessMask parameters are ignored. The synchronization and access scopes instead are defined by the parameters of VkMemoryBarrier2.
+                        core::bitflag<E_PIPELINE_STAGE_FLAGS> srcStageMask = EPSF_BOTTOM_OF_PIPE_BIT;
+                        core::bitflag<E_PIPELINE_STAGE_FLAGS> dstStageMask = EPSF_TOP_OF_PIPE_BIT;
+                        core::bitflag<E_ACCESS_FLAGS> srcAccessMask = EAF_NONE;
+                        core::bitflag<E_ACCESS_FLAGS> dstAccessMask = EAF_NONE;
+                        core::bitflag<E_DEPENDENCY_FLAGS> dependencyFlags = EDF_NONE;
+
+                        auto operator<=>(const SSubpassDependency&) const = default;
+
+                        inline bool valid() const
+                        {
+                            if (srcSubpass!=External)
+                            {
+                                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcSubpass-03084
+                                if (srcSubpass>dstSubpass)
+                                    return false;
+                                else if (srcSubpass==dstSubpass)
+                                {
+                                    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcSubpass-06810
+                                    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcSubpass-02245
+                                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-viewOffset-02530
+                                    if (viewOffset!=0u)
+                                        return false;
+                                }
+                            }
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcSubpass-03085
+                            else if (dstSubpass==External)
+                                return false;
+
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-dependencyFlags-03092
+                            if (!dependencyFlags.hasFlags(E_DEPENDENCY_FLAGS::EDF_VIEW_LOCAL_BIT) && viewOffset!=0u)
+                                return false;
+                            
+                            return validMemoryBarrier(srcSubpass,srcStageMask,srcAccessMask) && validMemoryBarrier(dstSubpass,dstStageMask,dstAccessMask);
+                        }
+
+                    private:
+                        inline bool validMemoryBarrier(const uint32_t subpassIx, const core::bitflag<E_PIPELINE_STAGE_FLAGS> stageMask, const core::bitflag<E_ACCESS_FLAGS> accessMask) const
+                        {
+                            // will be redone with sync2
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcStageMask-03937
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-dstStageMask-03937
+                            if (stageMask.value==0u)
+                                return false;
+                            // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcAccessMask-03088
+                            // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcAccessMask-03089
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-access-types-supported
+                            if (subpassIx!=SCreationParams::SSubpassDependency::External)
+                            {
+                                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03054
+                                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03055
+                                constexpr E_PIPELINE_STAGE_FLAGS kDisallowedFlags = EPSF_HOST_BIT|EPSF_COMPUTE_SHADER_BIT|EPSF_TRANSFER_BIT|EPSF_ACCELERATION_STRUCTURE_BUILD_BIT_KHR|EPSF_COMMAND_PREPROCESS_BIT_NV;
+                                if (stageMask.value&kDisallowedFlags)
+                                    return false;
+                            }
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-dependencyFlags-03090
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-dependencyFlags-03091
+                            else if (dependencyFlags.hasFlags(E_DEPENDENCY_FLAGS::EDF_VIEW_LOCAL_BIT))
+                                return false;
+                            return true;
+                        }
                 };
                 // The arrays pointed to by this array must be terminated by `DependenciesEnd` value
                 constexpr static inline SSubpassDependency DependenciesEnd = {};
                 const SSubpassDependency* dependencies = &DependenciesEnd;
 
 
-                // we do this differently than Vulkan so we're not braindead
+                // We do this differently than Vulkan so the API is not braindead, by construction we satisfy
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pCorrelatedViewMasks-03056
                 static inline constexpr auto MaxMultiviewViewCount = 32u;
                 uint8_t viewCorrelationGroup[MaxMultiviewViewCount] = {
                     vcg_init,vcg_init,vcg_init,vcg_init,vcg_init,vcg_init,vcg_init,vcg_init,
@@ -396,6 +456,7 @@ class IRenderpass
                 };
 
             private:
+                friend class IRenderpass;
                 static inline constexpr auto vcg_init = MaxMultiviewViewCount;
         };
 
@@ -447,6 +508,15 @@ class IRenderpass
                     return false;
             }
 */
+
+            const bool subpassesHaveViewMasks = params.subpasses[0].viewMask;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-viewMask-03057
+            if (!subpassesHaveViewMasks)
+            for (auto i=0; i<SCreationParams::MaxMultiviewViewCount; i++)
+            if (params.viewCorrelationGroup[i]!=SCreationParams::vcg_init)
+                return retval;
+
+            auto setRetvalFalse = [&retval]()->bool{retval.subpassCount = 0; return false;};
             auto invalidAttachmentFormat = [](const auto& attachment, const bool isDepth) -> bool
             {
                 if (asset::isDepthOrStencilFormat(attachment.format)!= isDepth)
@@ -458,6 +528,7 @@ class IRenderpass
                 constexpr bool IsDepth = std::remove_reference_t<decltype(renderAttachmentRef)>::IsDepth;
                 if (renderAttachmentRef.render.used())
                 {
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-03051
                     if (renderAttachmentRef.render.attachmentIndex>=retval.attachmentCount)
                         return true;
                     const auto& renderAttachment = params.attachments[renderAttachmentRef.render.attachmentIndex];
@@ -467,6 +538,8 @@ class IRenderpass
                         return true;
                     if (renderAttachmentRef.resolve.used())
                     {
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-03051
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pSubpasses-06473
                         if (renderAttachmentRef.resolve.attachmentIndex>=retval.attachmentCount)
                             return true;
                         const auto& resolveAttachment = params.attachments[renderAttachmentRef.resolve.attachmentIndex];
@@ -498,8 +571,7 @@ class IRenderpass
                 }
                 return false;
             };
-            auto setRetvalFalse = [&retval]()->bool{retval.subpassCount = 0; return false;};
-            visitTokenTerminatedArray(params.subpasses,SCreationParams::SubpassesEnd,[&params,setRetvalFalse,&retval,invalidRenderAttachmentRef](const SCreationParams::SSubpassDescription& subpass)->bool
+            visitTokenTerminatedArray(params.subpasses,SCreationParams::SubpassesEnd,[&params,setRetvalFalse,&retval,subpassesHaveViewMasks,invalidRenderAttachmentRef](const SCreationParams::SSubpassDescription& subpass)->bool
             {
                 if (!subpass.valid())
                     return setRetvalFalse();
@@ -510,6 +582,8 @@ class IRenderpass
 
                 // can't validate:
                 // - without allocating unbounded additional memory
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pAttachments-02522
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pAttachments-02523
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-loadOp-03064
                 // - without doing silly O(n^2) searches or allocating scratch for a hashmap
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pPreserveAttachments-03074
@@ -522,9 +596,14 @@ class IRenderpass
                 if (invalidRenderAttachmentRef(subpass.colorAttachments[i]))
                     return setRetvalFalse();
 
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-viewMask-03058
+                if (bool(subpass.viewMask)!=subpassesHaveViewMasks)
+                    return setRetvalFalse();
+
                 retval.subpassCount++;
                 visitTokenTerminatedArray(subpass.inputAttachments,SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&](const SCreationParams::SSubpassDescription::SInputAttachmentRef& inputAttachmentRef)->bool
                 {
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-03051
                     if (inputAttachmentRef.attachmentIndex>=retval.attachmentCount)
                         return setRetvalFalse();
                     const auto& inputAttachment = params.attachments[inputAttachmentRef.attachmentIndex];
@@ -551,9 +630,33 @@ class IRenderpass
                 return retval.subpassCount;
             });
         
-            visitTokenTerminatedArray(params.dependencies,SCreationParams::DependenciesEnd,[&params,setRetvalFalse,&retval](const SCreationParams::SSubpassDependency& dependency)->bool
+            auto invalidDependency = [retval]()->bool
             {
-                if (dependency.srcSubpass>=retval.subpassCount || dependency.dstSubpass>=retval.subpassCount)
+            };
+            visitTokenTerminatedArray(params.dependencies,SCreationParams::DependenciesEnd,[&params,setRetvalFalse,&retval,subpassesHaveViewMasks,invalidDependency](const SCreationParams::SSubpassDependency& dependency)->bool
+            {
+                if (!dependency.valid())
+                    return setRetvalFalse();
+
+                // sanity
+                if (dependency.srcSubpass!=SCreationParams::SSubpassDependency::External && dependency.srcSubpass>=retval.subpassCount)
+                    return setRetvalFalse();
+                if (dependency.dstSubpass!=SCreationParams::SSubpassDependency::External && dependency.dstSubpass>=retval.subpassCount)
+                    return setRetvalFalse();
+
+                const bool hasViewLocalFlag = dependency.dependencyFlags.hasFlags(EDF_VIEW_LOCAL_BIT);
+                if (dependency.srcSubpass==dependency.dstSubpass)
+                {
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03060
+                    if (params.subpasses[dependency.srcSubpass].viewMask && !hasViewLocalFlag) // because of validation rule 03085 we're sure src is valid
+                        return setRetvalFalse();
+                }
+
+                if (subpassesHaveViewMasks)
+                {
+                }
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-viewMask-03059
+                else if (hasViewLocalFlag)
                     return setRetvalFalse();
 
                 retval.dependencyCount++;
