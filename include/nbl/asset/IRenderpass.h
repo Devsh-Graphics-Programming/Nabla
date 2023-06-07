@@ -40,7 +40,7 @@ class IRenderpass
     public:
         // TODO: move this out somewhere? looks useful
         template<typename T, class func_t>
-        static inline void visitTokenTerminatedArray(const T* array, const T& endToken, func_t& func)
+        static inline void visitTokenTerminatedArray(const T* array, const T& endToken, func_t&& func)
         {
             if (array)
             for (auto it=array; *it!=endToken && func(*it); it++)
@@ -66,6 +66,7 @@ class IRenderpass
             NONE = 0x00,
             PER_VIEW_ATTRIBUTES_BIT = 0x01,
             PER_VIEW_POSITION_X_ONLY_BIT = 0x02
+            // TODO: VK_EXT_rasterization_order_attachment_access
         };
         // For all arrays here we use ArrayNameEnd terminator instead of specifying the count
         struct SCreationParams
@@ -151,6 +152,8 @@ class IRenderpass
                             uint32_t attachmentIndex = AttachmentUnused;
                             layout_t layout = {};
 
+                            inline bool used() const {return attachmentIndex!=AttachmentUnused;}
+
                             auto operator<=>(const SAttachmentRef<layout_t>&) const = default;
                         
                         protected:
@@ -170,18 +173,19 @@ class IRenderpass
                             }
                             inline bool invalid() const
                             {
-                                if (attachmentIndex!=AttachmentUnused)
-                                {
-                                    //https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReference2.html#VUID-VkAttachmentReference2-layout-03077
-                                    const IImage::E_LAYOUT usageAllOrJustDepth = layout;
-                                    if (invalidLayout(usageAllOrJustDepth))
-                                        return true;
-                                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReferenceStencilLayout.html#VUID-VkAttachmentReferenceStencilLayout-stencilLayout-03318
-                                    if constexpr (!std::is_base_of_v<SDepthStencilLayout,layout_t>)
-                                    if (invalidLayout(layout.actualStencilLayout())
-                                        return true;
-                                }
-                                return true;
+                                if (!used())
+                                    return false;
+
+                                //https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReference2.html#VUID-VkAttachmentReference2-layout-03077
+                                const IImage::E_LAYOUT usageAllOrJustDepth = layout;
+                                if (invalidLayout(usageAllOrJustDepth))
+                                    return true;
+                                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReferenceStencilLayout.html#VUID-VkAttachmentReferenceStencilLayout-stencilLayout-03318
+                                if constexpr (!std::is_base_of_v<SDepthStencilLayout,layout_t>)
+                                if (invalidLayout(layout.actualStencilLayout())
+                                    return true;
+
+                                return false;
                             }
                     };
                     struct SInputAttachmentRef : SAttachmentRef<Layout>
@@ -192,9 +196,12 @@ class IRenderpass
 
                         inline bool valid() const
                         {
-                            if (invalid() || !aspectMask.value)
+                            if (invalid())
                                 return false;
-                            if (attachmentIndex!=AttachmentUnused)
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-02800
+                            if (!aspectMask.value)
+                                return false;
+                            if (used())
                             {
                                 // TODO: synchronization2 will wholly replace this with https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-06921
                                 switch (layout)
@@ -227,8 +234,8 @@ class IRenderpass
                         {
                             if (render.invalid() || resolve.invalid())
                                 return false;
-                            const bool renderUsed = render.attachmentIndex!=AttachmentUnused;
-                            const bool resolveUsed = resolve.attachmentIndex!=AttachmentUnused;
+                            const bool renderUsed = render.used();
+                            const bool resolveUsed = resolve.used();
                             if (renderUsed)
                             {
                                 // TODO: synchronization2 will replace all this by just 2 things
@@ -273,12 +280,28 @@ class IRenderpass
                                 }*/
                             }
                             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03065
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03177
                             else if (resolveUsed)
                                 return false;
                             return true;
                         }
                     };
-                    using SDepthStencilAttachmentRef = SRenderAttachmentRef<SDepthStencilLayout>;
+                    struct SDepthStencilAttachmentRef : SRenderAttachmentRef<SDepthStencilLayout>
+                    {
+                        enum class E_RESOLVE_MODE
+                        {
+                            NONE = 0,
+                            SAMPLE_ZERO_BIT = 0x00000001,
+                            AVERAGE_BIT = 0x00000002,
+                            MIN_BIT = 0x00000004,
+                            MAX_BIT = 0x00000008
+                        };
+                        struct ResolveMode
+                        {
+                            E_RESOLVE_MODE depth = NONE;
+                            E_RESOLVE_MODE stencil = NONE;
+                        } resolveMode;
+                    };
                     using SColorAttachmentRef = SRenderAttachmentRef<IImage::E_LAYOUT>;
 
 
@@ -286,11 +309,16 @@ class IRenderpass
 
                     inline bool valid() const
                     {
-                        for (auto i=0u; i<MaxColorAttachments; i++)
-                        if (!colorAttachments[i].valid())
-                            return false;
                         if (!depthStencilAttachment.valid())
                             return false;
+                        for (auto i=0u; i<MaxColorAttachments; i++)
+                        {
+                            if (!colorAttachments[i].valid())
+                                return false;
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pDepthStencilAttachment-04440
+                            if (depthStencilAttachment.render.used() && depthStencilAttachment.render.attachmentIndex==colorAttachments[i].render.attachmentIndex)
+                                return false;
+                        }
                         bool invalid = false;
                         auto attachmentValidVisitor = [&invalid](const auto& ref)->bool
                         {
@@ -303,6 +331,9 @@ class IRenderpass
                         };
                         visitTokenTerminatedArray(inputAttachments,InputAttachmentsEnd,attachmentValidVisitor);
                         if (invalid)
+                            return false;
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-flags-03076
+                        if (flags.hasFlags(E_SUBPASS_DESCRIPTION_FLAGS::PER_VIEW_POSITION_X_ONLY_BIT) && !flags.hasFlags(E_SUBPASS_DESCRIPTION_FLAGS::PER_VIEW_ATTRIBUTES_BIT))
                             return false;
                         return true;
                     }
@@ -317,13 +348,14 @@ class IRenderpass
                     constexpr static inline SInputAttachmentRef InputAttachmentsEnd = {};
                     const SInputAttachmentRef* inputAttachments = &InputAttachmentsEnd;
 
-                    // The arrays pointed to by this array must be terminated by `AttachmentUnused` value
+                    // The arrays pointed to by this array must be terminated by `AttachmentUnused` value, which implicitly satisfies:
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-03073
                     const uint32_t* preserveAttachments = &AttachmentUnused;
 
                     // TODO: shading rate attachment
 
                     uint32_t viewMask = 0u;
-                    E_SUBPASS_DESCRIPTION_FLAGS flags : 3 = E_SUBPASS_DESCRIPTION_FLAGS::NONE;
+                    core::bitflag<E_SUBPASS_DESCRIPTION_FLAGS> flags = E_SUBPASS_DESCRIPTION_FLAGS::NONE;
                     // Do not expose because we don't support Subpass Shading
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pipelineBindPoint-04953
                     //E_PIPELINE_BIND_POINT pipelineBindPoint : 2 = EPBP_GRAPHICS;
@@ -372,10 +404,14 @@ class IRenderpass
         {
             CreationParamValidationResult retval = {};
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pSubpasses-parameter
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-subpassCount-arraylength
-            if (!params.subpasses || params.subpasses[0]==SCreationParams::SubpassesEnd)
+            if (!params.subpasses)
                 return retval;
-
+            
+            visitTokenTerminatedArray(params.attachments,SCreationParams::AttachmentsEnd,[&params,&retval](const SCreationParams::SAttachmentDescription& subpass)->bool
+            {
+                retval.attachmentCount++;
+            });
+/*
             if (params.depthStencilAttachment.used())
             {
                 auto disallowedStencilLayouts = [](const IImage::E_LAYOUT layout) -> bool
@@ -403,31 +439,122 @@ class IRenderpass
                 if (disallowedFinalLayouts(stencilFinalLayout))
                     return false;
             }
-
-            //for (auto pSubpass=params.subpasses; *pSubpass!=SCreationParams::SubpassesEnd; pSubpass++)
-            visitTokenTerminatedArray(params.subpasses,SCreationParams::SubpassesEnd,[&params](const SCreationParams::SSubpassDescription& subpass)->bool
+*/
+            auto invalidAttachmentFormat = [](const auto& attachment, const bool isDepth) -> bool
             {
-                // can't validate without allocating unbounded additional memory
-                https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-loadOp-03064
-    #if 0
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03066
-                auto validateResolve = [subpass]() -> bool
+                if (asset::isDepthOrStencilFormat(attachment.format)!= isDepth)
+                    return true;
+                return false;
+            };
+            auto invalidRenderAttachmentRef = [&params,&retval,invalidAttachmentFormat](const auto& renderAttachmentRef) -> bool
+            {
+                constexpr bool IsDepth = std::remove_reference_t<decltype(renderAttachmentRef)>::IsDepth;
+                if (renderAttachmentRef.render.used())
                 {
-                    if (subpass.)
+                    if (renderAttachmentRef.render.attachmentIndex>=retval.attachmentCount)
+                        return true;
+                    const auto& renderAttachment = params.attachments[renderAttachmentRef.render.attachmentIndex];
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pColorAttachments-02898
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pDepthStencilAttachment-02900
+                    if (invalidAttachmentFormat(renderAttachment,IsDepth))
+                        return true;
+                    if (renderAttachmentRef.resolve.used())
+                    {
+                        if (renderAttachmentRef.resolve.attachmentIndex>=retval.attachmentCount)
+                            return true;
+                        const auto& resolveAttachment = params.attachments[renderAttachmentRef.resolve.attachmentIndex];
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03066
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03179
+                        if (renderAttachment.samples!=IImage::ESCF_1_BIT)
+                            return true;
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03067
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03180
+                        if (resolveAttachment.samples==IImage::ESCF_1_BIT)
+                            return true;
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03068
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03181
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03182
+                        if (resolveAttachment.format!=renderAttachment.format)
+                            return true;
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-02899
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-02651
+                        if (invalidAttachmentFormat(resolveAttachment,IsDepth))
+                            return true;
+                        
+                        if constexpr(IsDepth)
+                        {
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03178
+                            if (renderAttachmentRef.resolveMode.depth==NONE && renderAttachmentRef.resolveMode.stencil==NONE)
+                                return true;
+                        }
+                    }
                 }
-    #endif
+                return false;
+            };
+            auto setRetvalFalse = [&retval]()->bool{retval.subpassCount = 0; return false;};
+            visitTokenTerminatedArray(params.subpasses,SCreationParams::SubpassesEnd,[&params,setRetvalFalse,&retval,invalidRenderAttachmentRef](const SCreationParams::SSubpassDescription& subpass)->bool
+            {
+                if (!subpass.valid())
+                    return setRetvalFalse();
+
                 // TODO: validate references
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-03051
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pSubpasses-06473
-                return true;
+
+                // can't validate:
+                // - without allocating unbounded additional memory
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-loadOp-03064
+                // - without doing silly O(n^2) searches or allocating scratch for a hashmap
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pPreserveAttachments-03074
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-layout-02528
+
+                if (invalidRenderAttachmentRef(subpass.depthStencilAttachment))
+                    return setRetvalFalse();
+
+                for (auto i=0u; i<SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+                if (invalidRenderAttachmentRef(subpass.colorAttachments[i]))
+                    return setRetvalFalse();
+
+                retval.subpassCount++;
+                visitTokenTerminatedArray(subpass.inputAttachments,SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&](const SCreationParams::SSubpassDescription::SInputAttachmentRef& inputAttachmentRef)->bool
+                {
+                    if (inputAttachmentRef.attachmentIndex>=retval.attachmentCount)
+                        return setRetvalFalse();
+                    const auto& inputAttachment = params.attachments[inputAttachmentRef.attachmentIndex];
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pInputAttachments-02897
+                    if (asset::isPlanarFormat(inputAttachment.format)) // or some other check?
+                        return setRetvalFalse();
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-02799
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-02801
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-04563
+                    if (asset::isDepthOrStencilFormat(inputAttachment.format))
+                    {
+                        if (asset::isStencilOnlyFormat(inputAttachment.format))
+                        {
+                            if (inputAttachmentRef.aspectMask.value!=IImage::EAF_STENCIL_BIT)
+                                return setRetvalFalse();
+                        }
+                        else if (inputAttachmentRef.aspectMask.hasFlags(~(core::bitflag(IImage::EAF_DEPTH_BIT)|IImage::EAF_STENCIL_BIT)))
+                            return setRetvalFalse();
+                    }
+                    else if (inputAttachmentRef.aspectMask.value!=IImage::EAF_COLOR_BIT)
+                        return setRetvalFalse();
+                    return true;
+                });
+                return retval.subpassCount;
             });
         
-            visitTokenTerminatedArray(params.dependencies,SCreationParams::DependenciesEnd,[&params](const SCreationParams::SSubpassDependency& dependency)->bool
+            visitTokenTerminatedArray(params.dependencies,SCreationParams::DependenciesEnd,[&params,setRetvalFalse,&retval](const SCreationParams::SSubpassDependency& dependency)->bool
             {
+                if (dependency.srcSubpass>=retval.subpassCount || dependency.dstSubpass>=retval.subpassCount)
+                    return setRetvalFalse();
+
+                retval.dependencyCount++;
                 return true;
             });
 
-            return true;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-subpassCount-arraylength
+            return retval;
         }
 
     explicit IRenderpass(const SCreationParams& params, const uint32_t attachmentCount, const uint32_t subpassCount, const uint32_t dependencyCount) :
