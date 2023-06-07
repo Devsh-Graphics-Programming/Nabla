@@ -75,9 +75,11 @@ class IRenderpass
                 // funny little struct to allow us to use ops as `layout.depth`, `layout.stencil` and `layout`
                 struct Layout : SDepthStencilLayout
                 {
-                    inline operator IImage::E_LAYOUT() const { return depth; }
-
                     auto operator<=>(const Layout&) const = default;
+
+                    inline void operator=(const IImage::E_LAYOUT& general) {depth=general;}
+
+                    inline operator IImage::E_LAYOUT() const { return depth; }
                 };
                 // The reason we don't have separate types per depthstencil, color and resolve is because
                 // attachments limits (1 depth, MaxColorAttachments color and resolve) only apply PER SUBPASS
@@ -93,6 +95,8 @@ class IRenderpass
 
 
                         auto operator<=>(const Op&) const = default;
+
+                        inline void operator=(const Op& general) {SDepthStencilOp<op_t>::depth=general;}
 
                         inline operator op_t() const { return SDepthStencilOp<op_t>::depth; }
                     
