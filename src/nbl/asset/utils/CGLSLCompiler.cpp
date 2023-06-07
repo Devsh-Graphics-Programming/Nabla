@@ -3,7 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "nbl/builtin/CArchive.h"
+#endif // _NBL_EMBED_BUILTIN_RESOURCES_
 
 #include <sstream>
 #include <regex>
@@ -57,6 +59,7 @@ namespace nbl::asset::impl
             std::string res_str;
 
             std::filesystem::path relDir;
+            #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
             const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
             const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
             if (!reqFromBuiltin && !reqBuiltin)
@@ -67,6 +70,9 @@ namespace nbl::asset::impl
                 //  or path relative to executable's working directory (""-type).
                 relDir = std::filesystem::path(_requesting_source).parent_path();
             }
+            #else
+            const bool reqBuiltin = false;
+            #endif // _NBL_EMBED_BUILTIN_RESOURCES_
             std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir / _requested_source) : (_requested_source);
 
             if (std::filesystem::exists(name) && !reqBuiltin)
