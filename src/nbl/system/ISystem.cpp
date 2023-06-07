@@ -1,7 +1,9 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/ISystemFile.h"
 #include "nbl/system/CFileView.h"
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "nbl/builtin/CArchive.h"
+#endif // _NBL_EMBED_BUILTIN_RESOURCES_
 
 #include "nbl/system/CArchiveLoaderZip.h"
 #include "nbl/system/CArchiveLoaderTar.h"
@@ -18,7 +20,7 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
     mount(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
     #else
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr), "nbl/builtin");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
     #endif
 }
 
