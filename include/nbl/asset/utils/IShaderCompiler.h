@@ -119,13 +119,25 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			core::SRange<const char* const> extraDefines = {nullptr, nullptr};
 		};
 
+		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging
+		enum class E_DEBUG_INFO_FLAGS : uint8_t
+		{
+			EDIF_NONE       = 0x00,
+			EDIF_FILE_BIT   = 0x01,       //  for emitting full path of the main source file
+			EDIF_SOURCE_BIT = 0x02,       //  for emitting preprocessed source code (turns on EDIF_FILE_BIT implicitly)
+			EDIF_LINE_BIT   = 0x04,       //  for emitting line information (turns on EDIF_SOURCE_BIT implicitly)
+			EDIF_TOOL_BIT   = 0x08,       //  for emitting Compiler Git commit hash and command-line options
+			EDIF_NON_SEMANTIC_BIT = 0x10, // NonSemantic.Shader.DebugInfo.100 extended instructions, this option overrules the options above
+		};
+		static constexpr core::bitflag<E_DEBUG_INFO_FLAGS> DefaultDebugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+
 		/*
 			@stage shaderStage
 			@targetSpirvVersion spirv version
 			@entryPoint entryPoint
 			@outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
 			@spirvOptimizer Optional parameter;
-			@genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
+			@debugInfoFlags See E_DEBUG_INFO_FLAGS enum for more information on possible values
 				Anything non-vulkan, basically you can't recover the names of original variables with CSPIRVIntrospector without debug info
 				By variables we mean names of PC/SSBO/UBO blocks, as they're essentially instantiations of structs with custom packing.
 			@preprocessorOptions
@@ -140,7 +152,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
-			bool genDebugInfo = true;
+			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = DefaultDebugInfoFlags;
 			SPreprocessorOptions preprocessorOptions = {};
 
 			void setCommonData(const SCompilerOptions& opt)
@@ -150,6 +162,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };
 		};
+
 
 		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const = 0;
 
@@ -282,6 +295,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 	private:
 		core::smart_refctd_ptr<CIncludeFinder> m_defaultIncludeFinder;
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IShaderCompiler::E_DEBUG_INFO_FLAGS)
 
 }
 
