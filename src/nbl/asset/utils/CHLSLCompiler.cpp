@@ -374,8 +374,6 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     }
 
     // Debug only values
-
-    arguments.push_back(L"-Qembed_debug");
     if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
         arguments.push_back(L"-fspv-debug=file");
     if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
