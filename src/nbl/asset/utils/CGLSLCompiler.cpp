@@ -172,7 +172,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
     shaderc::CompileOptions shadercOptions; //default options
     shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.targetSpirvVersion));
     const shaderc_shader_kind stage = glslOptions.stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
-    if (glslOptions.genDebugInfo)
+    if (glslOptions.debugInfoFlags.value != IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
         shadercOptions.SetGenerateDebugInfo();
 
     shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", "main", shadercOptions);
