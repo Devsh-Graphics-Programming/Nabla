@@ -1,9 +1,7 @@
 #ifndef _NBL_I_RENDERPASS_H_INCLUDED_
 #define _NBL_I_RENDERPASS_H_INCLUDED_
 
-#include "nbl/core/SRange.h"
-#include "nbl/core/containers/refctd_dynamic_array.h"
-#include "nbl/core/math/glslFunctions.tcc"
+#include "nbl/core/declarations/core.h"
 
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/ECommonEnums.h"

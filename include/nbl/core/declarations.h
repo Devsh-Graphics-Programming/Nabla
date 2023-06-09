@@ -61,6 +61,10 @@
 // string
 #include "nbl/core/string/stringutil.h"
 #include "nbl/core/string/StringLiteral.h"
+// util
+#include "nbl/core/util/bitflag.h"
+#include "nbl/core/util/to_underlying.h"
+
 // other useful things
 #include "nbl/core/SingleEventHandler.h"
 #include "nbl/core/EventDeferredHandler.h"

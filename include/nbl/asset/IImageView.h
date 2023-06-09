@@ -108,9 +108,9 @@ class IImageView : public IDescriptor
 				return false;
 			*/
 
-			const auto kValidUsages = IGPUImage::EUF_SAMPLED_BIT|IGPUImage::EUF_STORAGE_BIT|
-				IGPUImage::EUF_COLOR_ATTACHMENT_BIT|IGPUImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT|IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT|IGPUImage::EUF_INPUT_ATTACHMENT_BIT|
-				IGPUImage::EUF_SHADING_RATE_IMAGE_BIT_NV|IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT;
+			const auto kValidUsages = IImage::EUF_SAMPLED_BIT|IImage::EUF_STORAGE_BIT|
+				IImage::EUF_COLOR_ATTACHMENT_BIT|IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT|IImage::EUF_TRANSIENT_ATTACHMENT_BIT|IImage::EUF_INPUT_ATTACHMENT_BIT|
+				IImage::EUF_SHADING_RATE_IMAGE_BIT_NV|IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT;
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04441
 			if ((imgParams.usage.value&kValidUsages)==0u)
 				return false;
@@ -184,10 +184,10 @@ class IImageView : public IDescriptor
 					break;
 				default:
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04972
-					if (imgParams.samples!=IGPUImage::ESCF_1_BIT)
+					if (imgParams.samples!=IImage::ESCF_1_BIT)
 						return false;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02086
-					if (imgParams.usage.hasFlags(IGPUImage::EUF_SHADING_RATE_IMAGE_BIT_NV))
+					if (imgParams.usage.hasFlags(IImage::EUF_SHADING_RATE_IMAGE_BIT_NV))
 						return false;
 					break;
 			}
@@ -220,7 +220,7 @@ class IImageView : public IDescriptor
 			}
 			
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02571
-			if (imgParams.usage.hasFlags(IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT) && subresourceRange.levelCount!=1u)
+			if (imgParams.usage.hasFlags(IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT) && subresourceRange.levelCount!=1u)
 				return false
 
 			auto mipExtent = _params.image->getMipSize(subresourceRange.baseMipLevel);
