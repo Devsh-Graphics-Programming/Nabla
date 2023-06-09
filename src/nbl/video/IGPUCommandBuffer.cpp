@@ -614,7 +614,7 @@ bool IGPUCommandBuffer::pushConstants(const pipeline_layout_t* layout, core::bit
     return true;
 }
 
-bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
 {
     if (!checkStateBeforeRecording())
         return false;
@@ -631,7 +631,7 @@ bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::E_LAYOUT 
     return clearColorImage_impl(image, imageLayout, pColor, rangeCount, pRanges);
 }
 
-bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
 {
     if (!checkStateBeforeRecording())
         return false;
@@ -845,7 +845,7 @@ bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffe
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
-bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
+bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
 {
     if (!checkStateBeforeRecording())
         return false;
@@ -871,7 +871,7 @@ bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::E_LAYO
     return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
-bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
     if (!checkStateBeforeRecording())
         return false;
@@ -894,7 +894,7 @@ bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* ds
     return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
-bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
+bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
 {
     if (!checkStateBeforeRecording())
         return false;
@@ -925,7 +925,7 @@ bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::E_LAYO
     return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
 }
 
-bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
     if (!checkStateBeforeRecording())
         return false;
@@ -948,7 +948,7 @@ bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage
     return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
 }
 
-bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
+bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
 {
     if (!checkStateBeforeRecording())
         return false;

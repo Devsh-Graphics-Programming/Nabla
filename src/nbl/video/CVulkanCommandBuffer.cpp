@@ -77,7 +77,7 @@ bool CVulkanCommandBuffer::copyBuffer_impl(const buffer_t* srcBuffer, buffer_t* 
     return true;
 }
 
-bool CVulkanCommandBuffer::copyImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
+bool CVulkanCommandBuffer::copyImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
 {
     constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageCopy);
     assert(regionCount <= MAX_COUNT);
@@ -106,16 +106,16 @@ bool CVulkanCommandBuffer::copyImage_impl(const image_t* srcImage, asset::IImage
     vk->vk.vkCmdCopyImage(
         m_cmdbuf,
         IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject(),
-        static_cast<VkImageLayout>(srcImageLayout),
+        getVkImageLayoutFromImageLayout(srcImageLayout),
         IBackendObject::compatibility_cast<const CVulkanImage*>(dstImage, this)->getInternalObject(),
-        static_cast<VkImageLayout>(dstImageLayout),
+        getVkImageLayoutFromImageLayout(dstImageLayout),
         regionCount,
         vk_regions);
 
     return true;
 }
 
-bool CVulkanCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+bool CVulkanCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
     constexpr uint32_t MAX_REGION_COUNT = (1ull << 12) / sizeof(VkBufferImageCopy);
     assert(regionCount <= MAX_REGION_COUNT);
@@ -138,12 +138,12 @@ bool CVulkanCommandBuffer::copyBufferToImage_impl(const buffer_t* srcBuffer, ima
     vk->vk.vkCmdCopyBufferToImage(m_cmdbuf,
         IBackendObject::compatibility_cast<const video::CVulkanBuffer*>(srcBuffer, this)->getInternalObject(),
         IBackendObject::compatibility_cast<const video::CVulkanImage*>(dstImage, this)->getInternalObject(),
-        static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_regions);
+        getVkImageLayoutFromImageLayout(dstImageLayout), regionCount, vk_regions);
 
     return true;
 }
 
-bool CVulkanCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+bool CVulkanCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
 {
     VkImage vk_srcImage = IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject();
     VkBuffer vk_dstBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
@@ -169,7 +169,7 @@ bool CVulkanCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
     vk->vk.vkCmdCopyImageToBuffer(
         m_cmdbuf,
         vk_srcImage,
-        static_cast<VkImageLayout>(srcImageLayout),
+        getVkImageLayoutFromImageLayout(srcImageLayout),
         vk_dstBuffer,
         regionCount,
         vk_copyRegions);
@@ -177,7 +177,7 @@ bool CVulkanCommandBuffer::copyImageToBuffer_impl(const image_t* srcImage, asset
     return true;
 }
 
-bool CVulkanCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
+bool CVulkanCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
 {
     VkImage vk_srcImage = IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject();
     VkImage vk_dstImage = IBackendObject::compatibility_cast<const CVulkanImage*>(dstImage, this)->getInternalObject();
@@ -208,14 +208,14 @@ bool CVulkanCommandBuffer::blitImage_impl(const image_t* srcImage, asset::IImage
     }
 
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    vk->vk.vkCmdBlitImage(m_cmdbuf, vk_srcImage, static_cast<VkImageLayout>(srcImageLayout),
-        vk_dstImage, static_cast<VkImageLayout>(dstImageLayout), regionCount, vk_blitRegions,
+    vk->vk.vkCmdBlitImage(m_cmdbuf, vk_srcImage, getVkImageLayoutFromImageLayout(srcImageLayout),
+        vk_dstImage, getVkImageLayoutFromImageLayout(dstImageLayout), regionCount, vk_blitRegions,
         static_cast<VkFilter>(filter));
 
     return true;
 }
 
-bool CVulkanCommandBuffer::resolveImage_impl(const image_t* srcImage, asset::IImage::E_LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
+bool CVulkanCommandBuffer::resolveImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
 {
     constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageResolve);
     assert(regionCount <= MAX_COUNT);
@@ -244,9 +244,9 @@ bool CVulkanCommandBuffer::resolveImage_impl(const image_t* srcImage, asset::IIm
     vk->vk.vkCmdResolveImage(
         m_cmdbuf,
         IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject(),
-        static_cast<VkImageLayout>(srcImageLayout),
+        getVkImageLayoutFromImageLayout(srcImageLayout),
         IBackendObject::compatibility_cast<const CVulkanImage*>(dstImage, this)->getInternalObject(),
-        static_cast<VkImageLayout>(dstImageLayout),
+        getVkImageLayoutFromImageLayout(dstImageLayout),
         regionCount,
         vk_regions);
 
@@ -338,8 +338,8 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
         vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
         vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfo->imgBarriers[i].barrier.srcAccessMask.value);
         vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfo->imgBarriers[i].barrier.dstAccessMask.value);
-        vk_imageMemoryBarriers[i].oldLayout = static_cast<VkImageLayout>(depInfo->imgBarriers[i].oldLayout);
-        vk_imageMemoryBarriers[i].newLayout = static_cast<VkImageLayout>(depInfo->imgBarriers[i].newLayout);
+        vk_imageMemoryBarriers[i].oldLayout = getVkImageLayoutFromImageLayout(depInfo->imgBarriers[i].oldLayout);
+        vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(depInfo->imgBarriers[i].newLayout);
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = depInfo->imgBarriers[i].srcQueueFamilyIndex;
         vk_imageMemoryBarriers[i].dstQueueFamilyIndex = depInfo->imgBarriers[i].dstQueueFamilyIndex;
         vk_imageMemoryBarriers[i].image = IBackendObject::compatibility_cast<const CVulkanImage*>(depInfo->imgBarriers[i].image.get(), this)->getInternalObject();
@@ -410,8 +410,8 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
         vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
         vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.srcAccessMask.value);
         vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.dstAccessMask.value);
-        vk_imageMemoryBarriers[i].oldLayout = static_cast<VkImageLayout>(pImageMemoryBarriers[i].oldLayout);
-        vk_imageMemoryBarriers[i].newLayout = static_cast<VkImageLayout>(pImageMemoryBarriers[i].newLayout);
+        vk_imageMemoryBarriers[i].oldLayout = getVkImageLayoutFromImageLayout(pImageMemoryBarriers[i].oldLayout);
+        vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(pImageMemoryBarriers[i].newLayout);
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = pImageMemoryBarriers[i].srcQueueFamilyIndex;
         vk_imageMemoryBarriers[i].dstQueueFamilyIndex = pImageMemoryBarriers[i].dstQueueFamilyIndex;
         vk_imageMemoryBarriers[i].image = IBackendObject::compatibility_cast<const CVulkanImage*>(pImageMemoryBarriers[i].image.get(), this)->getInternalObject();
@@ -550,7 +550,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT 
     return true;
 }
 
-bool CVulkanCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+bool CVulkanCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
 {
     VkClearColorValue vk_clearColorValue;
     for (uint32_t k = 0u; k < 4u; ++k)
@@ -573,7 +573,7 @@ bool CVulkanCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::E
     vk->vk.vkCmdClearColorImage(
         m_cmdbuf,
         IBackendObject::compatibility_cast<const CVulkanImage*>(image, this)->getInternalObject(),
-        static_cast<VkImageLayout>(imageLayout),
+        getVkImageLayoutFromImageLayout(imageLayout),
         &vk_clearColorValue,
         rangeCount,
         vk_ranges);
@@ -581,7 +581,7 @@ bool CVulkanCommandBuffer::clearColorImage_impl(image_t* image, asset::IImage::E
     return true;
 }
 
-bool CVulkanCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
+bool CVulkanCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
 {
     VkClearDepthStencilValue vk_clearDepthStencilValue = { pDepthStencil[0].depth, pDepthStencil[0].stencil };
 
@@ -602,7 +602,7 @@ bool CVulkanCommandBuffer::clearDepthStencilImage_impl(image_t* image, asset::II
     vk->vk.vkCmdClearDepthStencilImage(
         m_cmdbuf,
         IBackendObject::compatibility_cast<const CVulkanImage*>(image, this)->getInternalObject(),
-        static_cast<VkImageLayout>(imageLayout),
+        getVkImageLayoutFromImageLayout(imageLayout),
         &vk_clearDepthStencilValue,
         rangeCount,
         vk_ranges);

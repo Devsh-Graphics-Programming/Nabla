@@ -47,7 +47,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             auto regions = _cpuimg->getRegions();
             assert(regions.size());
             assert(false); // TODO: redo completely with streaming update
-            //gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin(),asset::IImage::EL_TRANSFER_DST_OPTIMAL);
+            //gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin(),IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL);
         }
 
         return gpuImage;

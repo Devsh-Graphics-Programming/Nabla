@@ -22,7 +22,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 	video::IGPUSemaphore* semaphore,
 	const video::IGPUImageView* gpuImageView,
 	const asset::E_ACCESS_FLAGS accessMask,
-	const asset::IImage::E_LAYOUT imageLayout)
+	const asset::IImage::LAYOUT imageLayout)
 {
 	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&video::IPhysicalDevice::EQF_TRANSFER_BIT);
 
@@ -73,7 +73,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		barrier.barrier.srcAccessMask = accessMask;
 		barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_READ_BIT;
 		barrier.oldLayout = imageLayout;
-		barrier.newLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
+		barrier.newLayout = asset::IImage::LAYOUT::TRANSFER_SRC_OPTIMAL;
 		barrier.srcQueueFamilyIndex = ~0u;
 		barrier.dstQueueFamilyIndex = ~0u;
 		barrier.image = gpuImage;
@@ -90,11 +90,11 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 			0u, nullptr,
 			1u, &barrier);
 
-		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::IImage::EL_TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
+		gpuCommandBuffer->copyImageToBuffer(gpuImage.get(),asset::IImage::LAYOUT::TRANSFER_SRC_OPTIMAL,gpuTexelBuffer.get(),1,&region);
 
 		barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
 		barrier.barrier.dstAccessMask = asset::EAF_NONE;
-		barrier.oldLayout = asset::IImage::EL_TRANSFER_SRC_OPTIMAL;
+		barrier.oldLayout = asset::IImage::LAYOUT::TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = imageLayout;
 		gpuCommandBuffer->pipelineBarrier(
 			asset::EPSF_TRANSFER_BIT,
@@ -179,7 +179,7 @@ inline bool createScreenShot(
 	asset::IAssetManager* assetManager,
 	system::IFile* outFile,
 	const asset::E_ACCESS_FLAGS accessMask,
-	const asset::IImage::E_LAYOUT imageLayout)
+	const asset::IImage::LAYOUT imageLayout)
 {
 	assert(outFile->getFlags()&system::IFile::ECF_WRITE);
 	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);
@@ -194,7 +194,7 @@ inline bool createScreenShot(
 	const video::IGPUImageView* gpuImageView,
 	asset::IAssetManager* assetManager,
 	const std::filesystem::path& filename,
-	const asset::IImage::E_LAYOUT imageLayout,
+	const asset::IImage::LAYOUT imageLayout,
 	const asset::E_ACCESS_FLAGS accessMask = asset::EAF_ALL_IMAGE_ACCESSES_DEVSH)
 {
 	auto cpuImageView = createScreenShot(logicalDevice,queue,semaphore,gpuImageView,accessMask,imageLayout);

@@ -259,11 +259,13 @@ public:
             return nullptr;
         }
     }
-            
+     
+    // TODO: validation and factor out to `_impl`
     core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override
     {
+        // Nothing useful in pNext, didn't implement VRS yet
         VkRenderPassCreateInfo2 createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,nullptr };
-        createInfo.flags = static_cast<VkRenderPassCreateFlags>(0u); // No flags are supported
+        createInfo.flags = static_cast<VkRenderPassCreateFlags>(0u); // No flags are supported by us (there exists QCOM stuff only)
         createInfo.attachmentCount = params.attachmentCount;
 
         // TODO reduce number of allocations/get rid of vectors
@@ -272,7 +274,7 @@ public:
         {
             const auto& att = params.attachments[i];
             auto& vkatt = attachments[i];
-            vkatt.flags = static_cast<VkAttachmentDescriptionFlags>(0u); // No flags are supported
+            vkatt.flags = att.mayAlias ? VK_ATTACHMENT_DESCRIPTION_MAY_ALIAS_BIT:0u;
             vkatt.format = getVkFormatFromFormat(att.format);
             vkatt.samples = static_cast<VkSampleCountFlagBits>(att.samples);
             vkatt.loadOp = static_cast<VkAttachmentLoadOp>(att.loadOp);
@@ -282,8 +284,8 @@ public:
             vkatt.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             vkatt.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-            vkatt.initialLayout = static_cast<VkImageLayout>(att.initialLayout);
-            vkatt.finalLayout = static_cast<VkImageLayout>(att.finalLayout);
+            vkatt.initialLayout = getVkImageLayoutFromImageLayout(att.initialLayout);
+            vkatt.finalLayout = getVkImageLayoutFromImageLayout(att.finalLayout);
         }
         createInfo.pAttachments = attachments.data();
 
@@ -303,7 +305,7 @@ public:
             for (uint32_t j = 0u; j < count; ++j)
             {
                 vk_attRefs[totalAttRefCount + j].attachment = srcRef[j].attachment;
-                vk_attRefs[totalAttRefCount + j].layout = static_cast<VkImageLayout>(srcRef[j].layout);
+                vk_attRefs[totalAttRefCount + j].layout = getVkImageLayoutFromImageLayout(srcRef[j].layout);
             }
 
             dstRef = srcRef ? vk_attRefs + totalAttRefCount : nullptr;
@@ -376,6 +378,19 @@ public:
             vkdep.dependencyFlags = static_cast<VkDependencyFlags>(dep.dependencyFlags);
         }
         createInfo.pDependencies = deps.data();
+
+        constexpr auto MaxMultiviewViewCount = IGPURenderpass::SCreationParams::MaxMultiviewViewCount;
+        uint32_t viewMasks[MaxMultiviewViewCount] = {0u};
+        createInfo.pCorrelatedViewMasks = viewMasks;
+        // group up
+        for (auto i=0u; i<MaxMultiviewViewCount; i++)
+        if (params.viewCorrelationGroup[i]<MaxMultiviewViewCount)
+            viewMasks[i] |= 0x1u<<i;
+        // compact
+        createInfo.correlatedViewMaskCount = 0u;
+        for (auto i=0u; i<MaxMultiviewViewCount; i++)
+        if (i!=createInfo.correlatedViewMaskCount)
+            viewMasks[createInfo.correlatedViewMaskCount++] = viewMasks[i];
 
         VkRenderPass vk_renderpass;
         if (m_devf.vk.vkCreateRenderPass2(m_vkdev, &createInfo, nullptr, &vk_renderpass) == VK_SUCCESS)
@@ -578,7 +593,7 @@ public:
 
                     infoDst->sampler = vk_sampler;
                     infoDst->imageView = static_cast<const CVulkanImageView*>(infoSrc->desc.get())->getInternalObject();
-                    infoDst->imageLayout = static_cast<VkImageLayout>(infoSrc->info.image.imageLayout);
+                    infoDst->imageLayout = getVkImageLayoutFromImageLayout(infoSrc->info.image.imageLayout);
                 }
             } break;
 
@@ -1028,8 +1043,7 @@ protected:
         VkImageViewUsageCreateInfo vk_imageViewUsageInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,nullptr };
         vk_imageViewUsageInfo.usage = static_cast<VkImageUsageFlags>((params.subUsages.value ? params.subUsages:params.image->getCreationParameters().usage).value);
 
-        VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        vk_createInfo.pNext = &vk_imageViewUsageInfo;
+        VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, &vk_imageViewUsageInfo };
         vk_createInfo.flags = static_cast<VkImageViewCreateFlags>(params.flags);
 
         if (params.image->getAPIType() != EAT_VULKAN)

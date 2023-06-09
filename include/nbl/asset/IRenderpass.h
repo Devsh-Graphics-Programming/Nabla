@@ -14,21 +14,17 @@ namespace nbl::asset
 // TODO: move this struct
 struct SDepthStencilLayout
 {
-    IImage::E_LAYOUT depth = IImage::EL_UNDEFINED;
+    IImage::LAYOUT depth = IImage::LAYOUT::UNDEFINED;
     // if you leave `stencilLayout` as undefined this means you want same layout as `depth`
-    IImage::E_LAYOUT stencil = IImage::EL_UNDEFINED;
+    IImage::LAYOUT stencil = IImage::LAYOUT::UNDEFINED;
 
     auto operator<=>(const SDepthStencilLayout&) const = default;
 
-    inline IImage::E_LAYOUT actualStencilLayout() const
+    inline IImage::LAYOUT actualStencilLayout() const
     {
-        if (stencil!=IImage::EL_UNDEFINED)
+        using layout_t = IImage::LAYOUT;
+        if (stencil!=layout_t::UNDEFINED)
             return stencil;
-        // synchronization2 will save us doing these if-checks
-        if (depth==IImage::EL_DEPTH_ATTACHMENT_OPTIMAL)
-            return IImage::EL_STENCIL_ATTACHMENT_OPTIMAL;
-        if (depth==IImage::EL_DEPTH_READ_ONLY_OPTIMAL)
-            return IImage::EL_STENCIL_READ_ONLY_OPTIMAL;
         return depth;
     }
 };
@@ -584,10 +580,6 @@ class IRenderpass
             {
                 if (!subpass.valid())
                     return setRetvalFalse();
-
-                // TODO: validate references
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-03051
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pSubpasses-06473
 
                 // can't validate:
                 // - without allocating unbounded additional memory

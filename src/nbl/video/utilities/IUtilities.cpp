@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit)
 {
     if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
@@ -162,7 +162,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 }
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submitInfo
 )
 {
@@ -183,7 +183,7 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 }
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submitInfo
 )
 {

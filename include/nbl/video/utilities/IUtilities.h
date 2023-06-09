@@ -656,7 +656,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * submissionFence must be in `UNSIGNALED` state
         //!     ** IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
         [[nodiscard("Use The New IGPUQueue::SubmitInfo")]] IGPUQueue::SSubmitInfo updateImageViaStagingBuffer(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit);
         
         //! This function is an specialization of the `updateImageViaStagingBuffer` function above.
@@ -675,14 +675,14 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * If submitInfo::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
         //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
         void updateImageViaStagingBufferAutoSubmit(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submitInfo = {});
 
         //! This function is an specialization of the `updateImageViaStagingBufferAutoSubmit` function above.
         //! Additionally waits for the fence
         //! WARNING: This function blocks CPU and stalls the GPU!
         void updateImageViaStagingBufferAutoSubmit(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submitInfo = {}
         );
 

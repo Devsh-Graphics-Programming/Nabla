@@ -141,7 +141,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			pInfos[1].buffer.size = getParameterBufferSize<_operator,MeterMode>(arrayLayers);
 			pInfos[1].buffer.offset = 0u;
 			pInfos[2].desc = inputImageDescriptor;
-			pInfos[2].image.imageLayout = static_cast<asset::IImage::E_LAYOUT>(0u);
+			pInfos[2].image.imageLayout = asset::IImage::LAYOUT::GENERAL; // OR READONLY?
 			pInfos[2].image.sampler = nullptr;
 
 			uint32_t outputImageIx;

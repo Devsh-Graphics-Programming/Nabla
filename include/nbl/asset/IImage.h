@@ -112,27 +112,27 @@ class IImage : public IDescriptor
 		};
 		enum E_SAMPLE_COUNT_FLAGS : uint8_t
 		{
-			ESCF_1_BIT = 0x00000001,
-			ESCF_2_BIT = 0x00000002,
-			ESCF_4_BIT = 0x00000004,
-			ESCF_8_BIT = 0x00000008,
-			ESCF_16_BIT = 0x00000010,
-			ESCF_32_BIT = 0x00000020,
-			ESCF_64_BIT = 0x00000040
+			ESCF_1_BIT = 0x01,
+			ESCF_2_BIT = 0x02,
+			ESCF_4_BIT = 0x04,
+			ESCF_8_BIT = 0x08,
+			ESCF_16_BIT = 0x10,
+			ESCF_32_BIT = 0x20,
+			ESCF_64_BIT = 0x40
 		};
 		enum E_USAGE_FLAGS : uint16_t
 		{
-			EUF_NONE = 0x00000000,
-			EUF_TRANSFER_SRC_BIT = 0x00000001,
-			EUF_TRANSFER_DST_BIT = 0x00000002,
-			EUF_SAMPLED_BIT = 0x00000004,
-			EUF_STORAGE_BIT = 0x00000008,
-			EUF_COLOR_ATTACHMENT_BIT = 0x00000010,
-			EUF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000020,
-			EUF_TRANSIENT_ATTACHMENT_BIT = 0x00000040,
-			EUF_INPUT_ATTACHMENT_BIT = 0x00000080,
-			EUF_SHADING_RATE_IMAGE_BIT_NV = 0x00000100,
-			EUF_FRAGMENT_DENSITY_MAP_BIT_EXT = 0x00000200
+			EUF_NONE = 0x0000,
+			EUF_TRANSFER_SRC_BIT = 0x0001,
+			EUF_TRANSFER_DST_BIT = 0x0002,
+			EUF_SAMPLED_BIT = 0x0004,
+			EUF_STORAGE_BIT = 0x0008,
+			EUF_COLOR_ATTACHMENT_BIT = 0x0010,
+			EUF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x0020,
+			EUF_TRANSIENT_ATTACHMENT_BIT = 0x0040,
+			EUF_INPUT_ATTACHMENT_BIT = 0x0080,
+			EUF_SHADING_RATE_IMAGE_BIT_NV = 0x0100,
+			EUF_FRAGMENT_DENSITY_MAP_BIT_EXT = 0x0200
 		};
 		struct SSubresourceRange
 		{
@@ -202,7 +202,7 @@ class IImage : public IDescriptor
 			// setting this to different from 0 can fail an image copy on OpenGL
 			uint32_t			bufferRowLength = 0u;
 			// setting this to different from 0 can fail an image copy on OpenGL
-			uint32_t			bufferImageHeight = 0u;
+			uint32_t			bufferImageHeight = 0u; // TODO: size_t ?
 			SSubresourceLayers	imageSubresource = {};
 			VkOffset3D			imageOffset = {0u,0u,0u};
 			VkExtent3D			imageExtent = {0u,0u,0u};
@@ -620,24 +620,18 @@ class IImage : public IDescriptor
 			return memreq;
 		}
 
-		// TODO: make it a `uint8_t` and provide a casting switch-function
-		enum E_LAYOUT : uint32_t
+		enum class LAYOUT : uint8_t
 		{
-			EL_UNDEFINED = 0,
-			EL_GENERAL = 1,
-			EL_COLOR_ATTACHMENT_OPTIMAL = 2,
-			EL_SHADER_READ_ONLY_OPTIMAL = 5,
-			EL_TRANSFER_SRC_OPTIMAL = 6,
-			EL_TRANSFER_DST_OPTIMAL = 7,
-			EL_PREINITIALIZED = 8,
-			EL_DEPTH_ATTACHMENT_OPTIMAL = 1000241000,
-			EL_DEPTH_READ_ONLY_OPTIMAL = 1000241001,
-			EL_STENCIL_ATTACHMENT_OPTIMAL = 1000241002,
-			EL_STENCIL_READ_ONLY_OPTIMAL = 1000241003,
-			EL_PRESENT_SRC = 1000001002,
-			EL_SHARED_PRESENT = 1000111000,
-			EL_SHADING_RATE_OPTIMAL_NV = 1000164003,
-			EL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
+			UNDEFINED,
+			GENERAL,
+			READ_ONLY_OPTIMAL,
+			ATTACHMENT_OPTIMAL,
+			TRANSFER_SRC_OPTIMAL,
+			TRANSFER_DST_OPTIMAL,
+			PREINITIALIZED,
+			PRESENT_SRC,
+			SHARED_PRESENT
+			// TODO: Density Map, shading rate (are they the same thing?), and feedback loop optimal
 		};
 	protected:
 		IImage(const SCreationParams& _params) : m_creationParams(_params), info(_params.format) {}

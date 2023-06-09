@@ -6,9 +6,9 @@
 namespace nbl::video
 {
 
-static constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 2, 0);
+constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 2, 0);
 
-static inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
+inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
 {
     switch (in)
     {
@@ -214,7 +214,7 @@ static inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
     }
 }
 
-static inline ISurface::SColorSpace getColorSpaceFromVkColorSpaceKHR(VkColorSpaceKHR in)
+inline ISurface::SColorSpace getColorSpaceFromVkColorSpaceKHR(VkColorSpaceKHR in)
 {
     ISurface::SColorSpace result = { asset::ECP_COUNT, asset::EOTF_UNKNOWN };
 
@@ -320,7 +320,7 @@ static inline ISurface::SColorSpace getColorSpaceFromVkColorSpaceKHR(VkColorSpac
     return result;
 }
 
-static inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPresentModeKHR in)
+inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPresentModeKHR in)
 {
     switch (in)
     {
@@ -337,7 +337,7 @@ static inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPres
     }
 }
 
-static inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
+inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
 {
     VkShaderStageFlags ret = 0u;
     if(in.hasFlags(asset::IShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
@@ -359,7 +359,7 @@ static inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core
     return ret;
 }
 
-static inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
+inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
 {
     switch (in)
     {
@@ -566,7 +566,36 @@ static inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
     }
 }
 
-static inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in)
+inline VkImageLayout getVkImageLayoutFromImageLayout(asset::IImage::LAYOUT in)
+{
+    using layout_t = asset::IImage::LAYOUT;
+    switch (in)
+    {
+        case layout_t::UNDEFINED:
+            return VK_IMAGE_LAYOUT_UNDEFINED;
+        case layout_t::GENERAL:
+            return VK_IMAGE_LAYOUT_GENERAL;
+        case layout_t::READ_ONLY_OPTIMAL:
+            return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
+        case layout_t::ATTACHMENT_OPTIMAL:
+            return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+        case layout_t::TRANSFER_SRC_OPTIMAL:
+            return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case layout_t::TRANSFER_DST_OPTIMAL:
+            return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case layout_t::PREINITIALIZED:
+            return VK_IMAGE_LAYOUT_PREINITIALIZED;
+        case layout_t::PRESENT_SRC:
+            return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        case layout_t::SHARED_PRESENT:
+            return VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR;
+        default:
+            assert(!"IMAGE LAYOUT NOT SUPPORTED!");
+            return VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+}
+
+inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in)
 {
     if (in.primary == asset::ECP_SRGB && in.eotf == asset::EOTF_sRGB)
         return VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -619,7 +648,7 @@ static inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorS
     return VK_COLOR_SPACE_MAX_ENUM_KHR;
 }
 
-static inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<asset::IBuffer::E_USAGE_FLAGS> in)
+inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<asset::IBuffer::E_USAGE_FLAGS> in)
 {
     VkBufferUsageFlags ret = 0u;
     if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
@@ -641,7 +670,7 @@ static inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const
     return ret;
 }
 
-static inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISampler::E_TEXTURE_CLAMP in)
+inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISampler::E_TEXTURE_CLAMP in)
 {
     switch (in)
     {
@@ -659,7 +688,7 @@ static inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISa
     }
 }
 
-static inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> getDebugCallbackFlagsFromLogLevelMask(const core::bitflag<system::ILogger::E_LOG_LEVEL> logLevelMask)
+inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> getDebugCallbackFlagsFromLogLevelMask(const core::bitflag<system::ILogger::E_LOG_LEVEL> logLevelMask)
 {
     std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> result = { 0, 0 };
     auto& sev = result.first;
@@ -690,32 +719,32 @@ static inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessage
     return result;
 }
 
-static inline VkBlendFactor getVkBlendFactorFromBlendFactor(const asset::E_BLEND_FACTOR in)
+inline VkBlendFactor getVkBlendFactorFromBlendFactor(const asset::E_BLEND_FACTOR in)
 {
     return static_cast<VkBlendFactor>(in);
 }
 
-static inline VkBlendOp getVkBlendOpFromBlendOp(const asset::E_BLEND_OP in)
+inline VkBlendOp getVkBlendOpFromBlendOp(const asset::E_BLEND_OP in)
 {
     return static_cast<VkBlendOp>(in);
 }
 
-static inline VkLogicOp getVkLogicOpFromLogicOp(const asset::E_LOGIC_OP in)
+inline VkLogicOp getVkLogicOpFromLogicOp(const asset::E_LOGIC_OP in)
 {
     return static_cast<VkLogicOp>(in);
 }
 
-static inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(const uint64_t in)
+inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(const uint64_t in)
 {
     return static_cast<VkColorComponentFlags>(in);
 }
 
-static inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags(const asset::E_PIPELINE_STAGE_FLAGS in)
+inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags(const asset::E_PIPELINE_STAGE_FLAGS in)
 {
     return static_cast<VkPipelineStageFlags>(in);
 }
 
-static inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> in)
+inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> in)
 {
     VkMemoryPropertyFlags ret = 0u;
     if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT))
@@ -739,7 +768,7 @@ static inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFl
     return ret;
 }
 
-static inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlagsFromVkMemoryPropertyFlags(const VkMemoryPropertyFlags in)
+inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlagsFromVkMemoryPropertyFlags(const VkMemoryPropertyFlags in)
 {
     core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> ret(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE);
 
@@ -766,7 +795,7 @@ static inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> ge
     return ret;
 }
 
-static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const asset::IDescriptor::E_TYPE descriptorType)
+inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const asset::IDescriptor::E_TYPE descriptorType)
 {
     switch (descriptorType)
     {
@@ -795,7 +824,7 @@ static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(c
             return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
 }
-static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
+inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
 {
     if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;
     if (in == VK_DRIVER_ID_AMD_OPEN_SOURCE) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;

@@ -51,7 +51,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                 {
 					// This will be ignored if the DS layout already has an immutable sampler specified for the binding.
                     core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
-                    IImage::E_LAYOUT imageLayout;
+                    IImage::LAYOUT imageLayout;
                 };
                     
 				core::smart_refctd_ptr<IDescriptor> desc;
