@@ -24,7 +24,7 @@ struct bitflag final
 	template<typename Integer, std::enable_if_t<std::is_integral<Integer>::value, bool> = true, std::enable_if_t<std::is_unsigned<Integer>::value, bool> = true>
 	constexpr explicit bitflag(const Integer value) : value(static_cast<ENUM_TYPE>(value)) {}
 
-	inline bitflag<ENUM_TYPE> operator~() { return static_cast<ENUM_TYPE>(~static_cast<UNDERLYING_TYPE>(value)); }
+	inline bitflag<ENUM_TYPE> operator~() const { return static_cast<ENUM_TYPE>(~static_cast<UNDERLYING_TYPE>(value)); }
 	inline bitflag<ENUM_TYPE> operator|(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) | static_cast<UNDERLYING_TYPE>(rhs.value)); }
 	inline bitflag<ENUM_TYPE> operator&(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(rhs.value)); }
 	inline bitflag<ENUM_TYPE> operator^(bitflag<ENUM_TYPE> rhs) const { return static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) ^ static_cast<UNDERLYING_TYPE>(rhs.value)); }
