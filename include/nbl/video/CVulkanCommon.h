@@ -337,6 +337,67 @@ inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPresentMode
     }
 }
 
+//
+inline VkPipelineStageFlagBits2 getVkPipelineStageFlagsFromPipelineStageFlags(core::bitflag<asset::PIPELINE_STAGE_FLAGS> stages)
+{
+    VkPipelineStageFlagBits2 retval = VK_PIPELINE_STAGE_2_NONE;
+    using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+    // we want to "recoup" general flags first because they don't check capabilities for individual bits
+    auto stripCompoundFlags = [&stages,&retval](const core::bitflag<stage_flags_t> compound, const VkPipelineStageFlagBits2 vkFlag)
+    {
+        if (stages.hasFlags(compound))
+        {
+            retval |= vkFlag;
+            stages &= ~compound;
+        }
+    };
+    stripCompoundFlags(stage_flags_t::ALL_COMMANDS_BITS,VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
+    stripCompoundFlags(stage_flags_t::ALL_TRANSFER_BITS,VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
+    stripCompoundFlags(stage_flags_t::ALL_GRAPHICS_BITS,VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
+    stripCompoundFlags(stage_flags_t::PRE_RASTERIZATION_SHADERS_BITS,VK_PIPELINE_STAGE_2_PRE_RASTERIZATION_SHADERS_BIT);
+
+    // now proceed normally
+    if (stages.hasFlags(stage_flags_t::HOST_BIT)) retval |= VK_PIPELINE_STAGE_2_HOST_BIT;
+    if (stages.hasFlags(stage_flags_t::COPY_BIT)) retval |= VK_PIPELINE_STAGE_2_COPY_BIT;
+    if (stages.hasFlags(stage_flags_t::CLEAR_BIT)) retval |= VK_PIPELINE_STAGE_2_CLEAR_BIT;
+    if (stages.hasFlags(stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT)) retval |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_COPY_BIT_KHR;
+    if (stages.hasFlags(stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+//    if (stages.hasFlags(stage_flags_t::MICROMAP_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT;
+    if (stages.hasFlags(stage_flags_t::COMMAND_PREPROCESS_BIT)) retval |= VK_PIPELINE_STAGE_2_COMMAND_PREPROCESS_BIT_NV;
+    if (stages.hasFlags(stage_flags_t::CONDITIONAL_RENDERING_BIT)) retval |= VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT;
+    if (stages.hasFlags(stage_flags_t::DRAW_INDIRECT_BIT)) retval |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    if (stages.hasFlags(stage_flags_t::COMPUTE_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+    if (stages.hasFlags(stage_flags_t::INDEX_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
+    if (stages.hasFlags(stage_flags_t::VERTEX_ATTRIBUTE_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT;
+    if (stages.hasFlags(stage_flags_t::VERTEX_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
+    if (stages.hasFlags(stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT;
+    if (stages.hasFlags(stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
+    if (stages.hasFlags(stage_flags_t::GEOMETRY_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT;
+//    if (stages.hasFlags(stage_flags_t::TASK_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
+//    if (stages.hasFlags(stage_flags_t::MESH_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
+    if (stages.hasFlags(stage_flags_t::FRAGMENT_DENSITY_PROCESS_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_DENSITY_PROCESS_BIT_EXT;
+    if (stages.hasFlags(stage_flags_t::FRAGMENT_SHADING_RATE_ATTACHMENT_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
+    if (stages.hasFlags(stage_flags_t::EARLY_FRAGMENT_TESTS_BIT)) retval |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
+    if (stages.hasFlags(stage_flags_t::FRAGMENT_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+    if (stages.hasFlags(stage_flags_t::LATE_FRAGMENT_TESTS_BIT)) retval |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+    if (stages.hasFlags(stage_flags_t::COLOR_ATTACHMENT_OUTPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+    if (stages.hasFlags(stage_flags_t::RAY_TRACING_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
+    if (stages.hasFlags(stage_flags_t::RESOLVE_BIT)) retval |= VK_PIPELINE_STAGE_2_RESOLVE_BIT;
+    if (stages.hasFlags(stage_flags_t::BLIT_BIT)) retval |= VK_PIPELINE_STAGE_2_BLIT_BIT;
+//    if (stages.hasFlags(stage_flags_t::VIDEO_DECODE)) retval |= VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR;
+//    if (stages.hasFlags(stage_flags_t::VIDEO_ENCODE)) retval |= VK_PIPELINE_STAGE_2_VIDEO_ENCODE_BIT_KHR;
+//    if (stages.hasFlags(stage_flags_t::OPTICAL_FLOW)) retval |= VK_PIPELINE_STAGE_2_OPTICAL_FLOW_BIT_NV;
+
+    return retval;
+}
+
+inline VkAccessFlagBits2 getVkAccessFlagsFromAccessFlags(core::bitflag<asset::ACCESS_FLAGS> accesses)
+{
+    VkAccessFlagBits2 retval = VK_ACCESS_2_NONE;
+
+    return retval;
+}
+
 inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
 {
     VkShaderStageFlags ret = 0u;
@@ -739,11 +800,6 @@ inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(const ui
     return static_cast<VkColorComponentFlags>(in);
 }
 
-inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags(const asset::E_PIPELINE_STAGE_FLAGS in)
-{
-    return static_cast<VkPipelineStageFlags>(in);
-}
-
 inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> in)
 {
     VkMemoryPropertyFlags ret = 0u;
@@ -824,6 +880,7 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
             return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
 }
+
 inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
 {
     if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;
