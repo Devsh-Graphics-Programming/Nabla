@@ -49,7 +49,7 @@ enum class PIPELINE_STAGE_FLAGS : uint32_t
     // while the spec says this stage exists on its own, I'd think it needs to ofc execute before any indirect stuff
     CONDITIONAL_RENDERING_BIT = 0x1<<7,
     // begin of any pipeline
-    INDIRECT_COMMAND_BIT = 0x1<<8,
+    DISPATCH_INDIRECT_COMMAND_BIT = 0x1<<8,
     // compute pipeline only has a single unique stage
     COMPUTE_SHADER_BIT = 0x1<<9,
     // primitive pipeline
@@ -87,7 +87,7 @@ enum class PIPELINE_STAGE_FLAGS : uint32_t
 //  OPTICAL_FLOW_BIT = 0x1<<29,
     // special
     ALL_TRANSFER_BITS = COPY_BIT|ACCELERATION_STRUCTURE_COPY_BIT|CLEAR_BIT|RESOLVE_BIT|BLIT_BIT,
-    ALL_GRAPHICS_BITS = CONDITIONAL_RENDERING_BIT|INDIRECT_COMMAND_BIT|
+    ALL_GRAPHICS_BITS = CONDITIONAL_RENDERING_BIT|DISPATCH_INDIRECT_COMMAND_BIT|
         VERTEX_INPUT_BITS|VERTEX_SHADER_BIT|TESSELLATION_CONTROL_SHADER_BIT|TESSELLATION_EVALUATION_SHADER_BIT|GEOMETRY_SHADER_BIT|
  //       TASK_SHADER_BIT|MESH_SHADER_BIT|
         FRAGMENT_DENSITY_PROCESS_BIT|SHADING_RATE_ATTACHMENT_BIT|FRAMEBUFFER_SPACE_BITS,
@@ -122,10 +122,10 @@ enum class ACCESS_FLAGS : uint32_t
     //! We do not expose Transform Feedback
     // fragment only
     FRAGMENT_DENSITY_MAP_READ_BIT = 0x1u<<18,
-    SHADING_RATE_ATTACHMENT_READ_BIT = 0x1u<<19, 
-    INPUT_ATTACHMENT_READ_BIT = 0x1u<<20,
-    DEPTH_STENCIL_ATTACHMENT_READ_BIT = 0x1u<<21,
-    DEPTH_STENCIL_ATTACHMENT_WRITE_BIT = 0x1u<<22,
+    SHADING_RATE_ATTACHMENT_READ_BIT = 0x1u<<19,
+    DEPTH_STENCIL_ATTACHMENT_READ_BIT = 0x1u<<20,
+    DEPTH_STENCIL_ATTACHMENT_WRITE_BIT = 0x1u<<21,
+    INPUT_ATTACHMENT_READ_BIT = 0x1u<<22,
     COLOR_ATTACHMENT_READ_BIT = 0x1u<<23,
     //! We will never support `VK_EXT_blend_operation_advanced` without coherent blending, or even at all
     //! because you can implement whatever blend you want with Fragment Shader Interlock and friends
@@ -167,15 +167,16 @@ inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_
                 init(PIPELINE_STAGE_FLAGS::COPY_BIT,TransferRW);
                 init(PIPELINE_STAGE_FLAGS::CLEAR_BIT,ACCESS_FLAGS::TRANSFER_WRITE_BIT);
 
-//                constexpr auto MicromapRW = ACCESS_FLAGS::MICROMAP_READ_BIT|ACCESS_FLAGS::MICROMAP_WRITE_BIT;
-//                init(PIPELINE_STAGE_FLAGS::MICROMAP_BUILD_BIT,MicromapRW|ACCESS_FLAGS::SHADER_READ_BITS); // can micromaps be built indirectly?
+                constexpr auto MicromapRead = ACCESS_FLAGS::SHADER_READ_BITS;//|ACCESS_FLAGS::MICROMAP_READ_BIT;
+//                init(PIPELINE_STAGE_FLAGS::MICROMAP_BUILD_BIT,MicromapRead|ACCESS_FLAGS::MICROMAP_WRITE_BIT); // can micromaps be built indirectly?
                 
                 constexpr auto AccelerationStructureRW = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT|ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT;
                 init(PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT,TransferRW|AccelerationStructureRW);
-                init(PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,ACCESS_FLAGS::INDIRECT_COMMAND_READ_BIT|AccelerationStructureRW|ACCESS_FLAGS::SHADER_READ_BITS);//|ACCESS_FLAGS::MICROMAP_READ_BIT);
+                init(PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,ACCESS_FLAGS::INDIRECT_COMMAND_READ_BIT|MicromapRead|AccelerationStructureRW);
+
                 init(PIPELINE_STAGE_FLAGS::COMMAND_PREPROCESS_BIT,ACCESS_FLAGS::COMMAND_PREPROCESS_READ_BIT|ACCESS_FLAGS::COMMAND_PREPROCESS_WRITE_BIT);
                 init(PIPELINE_STAGE_FLAGS::CONDITIONAL_RENDERING_BIT,ACCESS_FLAGS::CONDITIONAL_RENDERING_READ_BIT);
-                init(PIPELINE_STAGE_FLAGS::INDIRECT_COMMAND_BIT,ACCESS_FLAGS::INDIRECT_COMMAND_READ_BIT);
+                init(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT,ACCESS_FLAGS::INDIRECT_COMMAND_READ_BIT);
 
                 constexpr auto ShaderRW = ACCESS_FLAGS::SHADER_READ_BITS|ACCESS_FLAGS::SHADER_WRITE_BITS;
                 constexpr auto AllShaderStagesRW = ShaderRW^(ACCESS_FLAGS::INPUT_ATTACHMENT_READ_BIT|ACCESS_FLAGS::SHADER_BINDING_TABLE_READ_BIT);
@@ -235,17 +236,87 @@ inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_
 
     return retval;
 }
-core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<ACCESS_FLAGS> stages)
+
+core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<ACCESS_FLAGS> accesses)
 {
-    core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
-#if 0
-    while (stages.value)
+    struct PerAccessStages
     {
-        const auto bitIx = core::findLSB(stages);
-        retval |= PerStageAccesses[bitIx];
-        stages ^= static_cast<E_PIPELINE_STAGE_FLAGS>(0x1u<<bitIx);
+        public:
+            constexpr PerAccessStages()
+            {
+                init(ACCESS_FLAGS::HOST_READ_BIT,PIPELINE_STAGE_FLAGS::HOST_BIT);
+                init(ACCESS_FLAGS::HOST_WRITE_BIT,PIPELINE_STAGE_FLAGS::HOST_BIT);
+
+                init(ACCESS_FLAGS::TRANSFER_READ_BIT,PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS^PIPELINE_STAGE_FLAGS::CLEAR_BIT);
+                init(ACCESS_FLAGS::TRANSFER_WRITE_BIT,PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS);
+
+                constexpr auto MicromapAccelerationStructureBuilds = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT;//|PIPELINE_STAGE_FLAGS::MICROMAP_BUILD_BIT;
+//                init(ACCESS_FLAGS::MICROMAP_READ_BIT,MicromapAccelerationStructureBuilds);
+//                init(ACCESS_FLAGS::MICROMAP_WRITE_BIT,PIPELINE_STAGE_FLAGS::MICROMAP_BUILD_BIT);
+                
+                constexpr auto AllShaders = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT|PIPELINE_STAGE_FLAGS::PRE_RASTERIZATION_SHADERS_BITS|PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT|PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT;
+                constexpr auto AccelerationStructureOperations = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT|PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT;
+                init(ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT,AccelerationStructureOperations|AllShaders);
+                init(ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT,AccelerationStructureOperations);
+
+                init(ACCESS_FLAGS::COMMAND_PREPROCESS_READ_BIT,PIPELINE_STAGE_FLAGS::COMMAND_PREPROCESS_BIT);
+                init(ACCESS_FLAGS::COMMAND_PREPROCESS_WRITE_BIT,PIPELINE_STAGE_FLAGS::COMMAND_PREPROCESS_BIT);
+                init(ACCESS_FLAGS::CONDITIONAL_RENDERING_READ_BIT,PIPELINE_STAGE_FLAGS::CONDITIONAL_RENDERING_BIT);
+                init(ACCESS_FLAGS::INDIRECT_COMMAND_READ_BIT,PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT|PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT);
+
+                init(ACCESS_FLAGS::UNIFORM_READ_BIT,AllShaders);
+                init(ACCESS_FLAGS::SAMPLED_READ_BIT,AllShaders);//|PIPELINE_STAGE_FLAGS::MICROMAP_BUILD_BIT);
+                init(ACCESS_FLAGS::STORAGE_READ_BIT,AllShaders|MicromapAccelerationStructureBuilds);
+                init(ACCESS_FLAGS::STORAGE_WRITE_BIT,AllShaders);
+
+                init(ACCESS_FLAGS::INDEX_READ_BIT,PIPELINE_STAGE_FLAGS::INDEX_INPUT_BIT);
+                init(ACCESS_FLAGS::VERTEX_ATTRIBUTE_READ_BIT,PIPELINE_STAGE_FLAGS::VERTEX_ATTRIBUTE_INPUT_BIT);
+
+                init(ACCESS_FLAGS::FRAGMENT_DENSITY_MAP_READ_BIT,PIPELINE_STAGE_FLAGS::FRAGMENT_DENSITY_PROCESS_BIT);
+                init(ACCESS_FLAGS::SHADING_RATE_ATTACHMENT_READ_BIT,PIPELINE_STAGE_FLAGS::SHADING_RATE_ATTACHMENT_BIT);
+                constexpr auto FragmentTests = PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT|PIPELINE_STAGE_FLAGS::LATE_FRAGMENT_TESTS_BIT;
+                init(ACCESS_FLAGS::DEPTH_STENCIL_ATTACHMENT_READ_BIT,FragmentTests);
+                init(ACCESS_FLAGS::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,FragmentTests);
+                init(ACCESS_FLAGS::INPUT_ATTACHMENT_READ_BIT,PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT);
+                init(ACCESS_FLAGS::COLOR_ATTACHMENT_READ_BIT,PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT);
+                init(ACCESS_FLAGS::COLOR_ATTACHMENT_WRITE_BIT,PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT);
+
+                init(ACCESS_FLAGS::SHADER_BINDING_TABLE_READ_BIT,PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT);
+
+//                init(ACCESS_FLAGS::VIDEO_DECODE_READ_BIT,PIPELINE_STAGE_FLAGS::VIDEO_DECODE_BIT);
+//                init(ACCESS_FLAGS::VIDEO_DECODE_WRITE_BIT,PIPELINE_STAGE_FLAGS::VIDEO_DECODE_BIT);
+//                init(ACCESS_FLAGS::VIDEO_ENCODE_READ_BIT,PIPELINE_STAGE_FLAGS::VIDEO_ENCODE_BIT);
+//                init(ACCESS_FLAGS::VIDEO_ENCODE_WRITE_BIT,PIPELINE_STAGE_FLAGS::VIDEO_ENCODE_BIT);
+//                init(ACCESS_FLAGS::OPTICAL_FLOW_READ_BIT,PIPELINE_STAGE_FLAGS::OPTICAL_FLOW_BIT);
+//                init(ACCESS_FLAGS::OPTICAL_FLOW_WRITE_BIT,PIPELINE_STAGE_FLAGS::OPTICAL_FLOW_BIT);
+            }
+            constexpr const auto& operator[](const size_t ix) const {return data[ix];}
+
+        private:
+            constexpr static uint8_t findLSB(size_t val)
+            {
+                for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
+                if ((0x1ull<<ix)&val)
+                    return ix;
+                return ~0u;
+            }
+            constexpr void init(ACCESS_FLAGS accessFlags, PIPELINE_STAGE_FLAGS stageFlags)
+            {
+                const auto bitIx = findLSB(static_cast<size_t>(accessFlags));
+                data[bitIx] = stageFlags;
+            }
+
+            PIPELINE_STAGE_FLAGS data[32] = {};
+    };
+    constexpr PerAccessStages bitToStage = {};
+
+    core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
+    while (bool(accesses.value))
+    {
+        const auto bitIx = core::findLSB(accesses);
+        retval |= bitToStage[bitIx];
+        accesses ^= static_cast<ACCESS_FLAGS>(0x1u<<bitIx);
     }
-#endif
 
     return retval;
 }

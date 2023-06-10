@@ -365,7 +365,7 @@ inline VkPipelineStageFlagBits2 getVkPipelineStageFlagsFromPipelineStageFlags(co
     if (stages.hasFlags(stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
     if (stages.hasFlags(stage_flags_t::COMMAND_PREPROCESS_BIT)) retval |= VK_PIPELINE_STAGE_2_COMMAND_PREPROCESS_BIT_NV;
     if (stages.hasFlags(stage_flags_t::CONDITIONAL_RENDERING_BIT)) retval |= VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT;
-    if (stages.hasFlags(stage_flags_t::INDIRECT_COMMAND_BIT)) retval |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    if (stages.hasFlags(stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT)) retval |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
     if (stages.hasFlags(stage_flags_t::COMPUTE_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     if (stages.hasFlags(stage_flags_t::INDEX_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
     if (stages.hasFlags(stage_flags_t::VERTEX_ATTRIBUTE_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT;
