@@ -376,7 +376,7 @@ inline VkPipelineStageFlagBits2 getVkPipelineStageFlagsFromPipelineStageFlags(co
 //    if (stages.hasFlags(stage_flags_t::TASK_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
 //    if (stages.hasFlags(stage_flags_t::MESH_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
     if (stages.hasFlags(stage_flags_t::FRAGMENT_DENSITY_PROCESS_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_DENSITY_PROCESS_BIT_EXT;
-    if (stages.hasFlags(stage_flags_t::FRAGMENT_SHADING_RATE_ATTACHMENT_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
+    if (stages.hasFlags(stage_flags_t::SHADING_RATE_ATTACHMENT_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
     if (stages.hasFlags(stage_flags_t::EARLY_FRAGMENT_TESTS_BIT)) retval |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
     if (stages.hasFlags(stage_flags_t::FRAGMENT_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
     if (stages.hasFlags(stage_flags_t::LATE_FRAGMENT_TESTS_BIT)) retval |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
@@ -428,7 +428,7 @@ inline VkAccessFlagBits2 getVkAccessFlagsFromAccessFlags(core::bitflag<asset::AC
     if (accesses.hasFlags(access_flags_t::STORAGE_WRITE_BIT)) retval |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
     if (accesses.hasFlags(access_flags_t::INDEX_READ_BIT)) retval |= VK_ACCESS_2_INDEX_READ_BIT;
     if (accesses.hasFlags(access_flags_t::VERTEX_ATTRIBUTE_READ_BIT)) retval |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::DENSITY_MAP_READ_BIT)) retval |= VK_ACCESS_2_FRAGMENT_DENSITY_MAP_READ_BIT_EXT;
+    if (accesses.hasFlags(access_flags_t::FRAGMENT_DENSITY_MAP_READ_BIT)) retval |= VK_ACCESS_2_FRAGMENT_DENSITY_MAP_READ_BIT_EXT;
     if (accesses.hasFlags(access_flags_t::SHADING_RATE_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
     if (accesses.hasFlags(access_flags_t::INPUT_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
     if (accesses.hasFlags(access_flags_t::DEPTH_STENCIL_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
