@@ -1,23 +1,33 @@
+enum BUILD_TYPE 
+{
+	STATIC, DYNAMIC
+}
+
+enum CONFIGURATION 
+{
+	RELEASE, RELWITHDEBINFO, DEBUG
+}
+
+enum ARCH
+{
+	X86_64	
+}
+
+enum PLATFORM
+{
+	WINDOWS	
+}
+
 class Builder
 {
-	public static enum BUILD_TYPE 
-	{
-		STATIC, DYNAMIC
-	}
-	
-	public static enum CONFIGURATION 
-	{
-		RELEASE, RELWITHDEBINFO, DEBUG
-	}
-	
-	public Builder(_agent, _platform)
+	public Builder(_agent, PLATFORM _platform)
 	{
 		agent = _agent
 		platform = _platform
 		
 		matrixAxes = [
-			ARCH: ["x86_64"], // Hardcoded since we only target one arch
-			PLATFORM: ["${_platform}"], // Platform is determined by an upstream host
+			ARCH: [ARCH.X86_64], // Hardcoded since we only target one arch
+			PLATFORM: [_platform], // Platform is determined by an upstream host
 			BUILD_TYPE: [BUILD_TYPE.STATIC, BUILD_TYPE.DYNAMIC],
 			CONFIGURATION: [CONFIGURATION.RELEASE, CONFIGURATION.RELWITHDEBINFO, CONFIGURATION.DEBUG]
 		    ]
@@ -97,12 +107,12 @@ class Builder
 	}
 	
 	private def agent
-	private def platform
+	private PLATFORM platform
 	private def matrixAxes
 	private def axes
 }
 
-def create(_agent, _platform)
+def create(_agent, PLATFORM _platform)
 {
 	return new Builder(_agent, _platform)
 }
