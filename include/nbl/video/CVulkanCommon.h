@@ -360,12 +360,12 @@ inline VkPipelineStageFlagBits2 getVkPipelineStageFlagsFromPipelineStageFlags(co
     if (stages.hasFlags(stage_flags_t::HOST_BIT)) retval |= VK_PIPELINE_STAGE_2_HOST_BIT;
     if (stages.hasFlags(stage_flags_t::COPY_BIT)) retval |= VK_PIPELINE_STAGE_2_COPY_BIT;
     if (stages.hasFlags(stage_flags_t::CLEAR_BIT)) retval |= VK_PIPELINE_STAGE_2_CLEAR_BIT;
+    //    if (stages.hasFlags(stage_flags_t::MICROMAP_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT;
     if (stages.hasFlags(stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT)) retval |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_COPY_BIT_KHR;
     if (stages.hasFlags(stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
-//    if (stages.hasFlags(stage_flags_t::MICROMAP_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT;
     if (stages.hasFlags(stage_flags_t::COMMAND_PREPROCESS_BIT)) retval |= VK_PIPELINE_STAGE_2_COMMAND_PREPROCESS_BIT_NV;
     if (stages.hasFlags(stage_flags_t::CONDITIONAL_RENDERING_BIT)) retval |= VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT;
-    if (stages.hasFlags(stage_flags_t::DRAW_INDIRECT_BIT)) retval |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
+    if (stages.hasFlags(stage_flags_t::INDIRECT_COMMAND_BIT)) retval |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
     if (stages.hasFlags(stage_flags_t::COMPUTE_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
     if (stages.hasFlags(stage_flags_t::INDEX_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
     if (stages.hasFlags(stage_flags_t::VERTEX_ATTRIBUTE_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT;
@@ -394,6 +394,54 @@ inline VkPipelineStageFlagBits2 getVkPipelineStageFlagsFromPipelineStageFlags(co
 inline VkAccessFlagBits2 getVkAccessFlagsFromAccessFlags(core::bitflag<asset::ACCESS_FLAGS> accesses)
 {
     VkAccessFlagBits2 retval = VK_ACCESS_2_NONE;
+    using access_flags_t = asset::ACCESS_FLAGS;
+    // we want to "recoup" general flags first because they don't check capabilities for individual bits
+    auto stripCompoundFlags = [&accesses,&retval](const core::bitflag<access_flags_t> compound, const VkAccessFlagBits2 vkFlag)
+    {
+        if (accesses.hasFlags(compound))
+        {
+            retval |= vkFlag;
+            accesses &= ~compound;
+        }
+    };
+    stripCompoundFlags(access_flags_t::MEMORY_READ_BITS,VK_ACCESS_2_MEMORY_READ_BIT);
+    stripCompoundFlags(access_flags_t::MEMORY_WRITE_BITS,VK_ACCESS_2_MEMORY_WRITE_BIT);
+    stripCompoundFlags(access_flags_t::SHADER_READ_BITS,VK_ACCESS_2_SHADER_READ_BIT);
+    stripCompoundFlags(access_flags_t::SHADER_WRITE_BITS,VK_ACCESS_2_SHADER_WRITE_BIT);
+
+    // now proceed normally
+    if (accesses.hasFlags(access_flags_t::HOST_READ_BIT)) retval |= VK_ACCESS_2_HOST_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::HOST_WRITE_BIT)) retval |= VK_ACCESS_2_HOST_WRITE_BIT;
+    if (accesses.hasFlags(access_flags_t::TRANSFER_READ_BIT)) retval |= VK_ACCESS_2_TRANSFER_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::TRANSFER_WRITE_BIT)) retval |= VK_ACCESS_2_TRANSFER_WRITE_BIT;
+//    if (accesses.hasFlags(access_flags_t::MICROMAP_READ_BIT)) retval |= VK_ACCESS_2_MICROMAP_READ_BIT_EXT;
+//    if (accesses.hasFlags(access_flags_t::MICROMAP_WRITE_BIT)) retval |= VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT;
+    if (accesses.hasFlags(access_flags_t::ACCELERATION_STRUCTURE_READ_BIT)) retval |= VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+    if (accesses.hasFlags(access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT)) retval |= VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+    if (accesses.hasFlags(access_flags_t::COMMAND_PREPROCESS_READ_BIT)) retval |= VK_ACCESS_2_COMMAND_PREPROCESS_READ_BIT_NV;
+    if (accesses.hasFlags(access_flags_t::COMMAND_PREPROCESS_WRITE_BIT)) retval |= VK_ACCESS_2_COMMAND_PREPROCESS_WRITE_BIT_NV;
+    if (accesses.hasFlags(access_flags_t::CONDITIONAL_RENDERING_READ_BIT)) retval |= VK_ACCESS_2_CONDITIONAL_RENDERING_READ_BIT_EXT;
+    if (accesses.hasFlags(access_flags_t::INDIRECT_COMMAND_READ_BIT)) retval |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::UNIFORM_READ_BIT)) retval |= VK_ACCESS_2_UNIFORM_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::SAMPLED_READ_BIT)) retval |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::STORAGE_READ_BIT)) retval |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::STORAGE_WRITE_BIT)) retval |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
+    if (accesses.hasFlags(access_flags_t::INDEX_READ_BIT)) retval |= VK_ACCESS_2_INDEX_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::VERTEX_ATTRIBUTE_READ_BIT)) retval |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::DENSITY_MAP_READ_BIT)) retval |= VK_ACCESS_2_FRAGMENT_DENSITY_MAP_READ_BIT_EXT;
+    if (accesses.hasFlags(access_flags_t::SHADING_RATE_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
+    if (accesses.hasFlags(access_flags_t::INPUT_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::DEPTH_STENCIL_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)) retval |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    if (accesses.hasFlags(access_flags_t::COLOR_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
+    if (accesses.hasFlags(access_flags_t::COLOR_ATTACHMENT_WRITE_BIT)) retval |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+    if (accesses.hasFlags(access_flags_t::SHADER_BINDING_TABLE_READ_BIT)) retval |= VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR;
+//    if (accesses.hasFlags(access_flags_t::VIDEO_DECODE_READ_BIT)) retval |= VK_ACCESS_2_VIDEO_DECODE_READ_BIT_KHR;
+//    if (accesses.hasFlags(access_flags_t::VIDEO_DECODE_WRITE_BIT)) retval |= VK_ACCESS_2_VIDEO_DECODE_WRITE_BIT_KHR;
+//    if (accesses.hasFlags(access_flags_t::VIDEO_ENCODE_READ_BIT)) retval |= VK_ACCESS_2_VIDEO_ENCODE_READ_BIT_KHR;
+//    if (accesses.hasFlags(access_flags_t::VIDEO_ENCODE_WRITE_BIT)) retval |= VK_ACCESS_2_VIDEO_ENCODE_READ_BIT_KHR;
+//    if (accesses.hasFlags(access_flags_t::OPTICAL_FLOW_READ_BIT)) retval |= VK_ACCESS_2_OPTICAL_FLOW_READ_BIT_NV;
+//    if (accesses.hasFlags(access_flags_t::OPTICAL_FLOW_WRITE_BIT)) retval |= VK_ACCESS_2_OPTICAL_FLOW_WRITE_BIT_NV;
 
     return retval;
 }

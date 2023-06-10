@@ -370,7 +370,7 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxDescriptorSetInlineUniformBlocks;
     //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
 
-    // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
+    // [DO NOT EXPOSE] This is dumb, you can implement whatever blend equation you want with fragment shader interlock or tiler cache access
     /* BlendOperationAdvancedPropertiesEXT *//* provided by VK_EXT_blend_operation_advanced */
     //uint32_t           advancedBlendMaxColorAttachments;
     //bool           advancedBlendIndependentBlend;

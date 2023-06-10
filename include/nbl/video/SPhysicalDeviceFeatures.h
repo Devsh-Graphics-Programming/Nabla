@@ -285,7 +285,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
 
-    // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
+    // [DO NOT EXPOSE] This is dumb, you can implement whatever blend equation you want with `EXT_fragment_shader_interlock` and EXT_shader_tile_image
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
     //bool           advancedBlendCoherentOperations;
     
