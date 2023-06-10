@@ -1,31 +1,58 @@
-def cmake(agent, buildType, platform)
+class Builder
 {
-	// use Multi-Configuration generators only regarding the platform in future
-	
-	stage("Configure Nabla project with CMake as ${buildType} build")
+	public static enum BUILD_TYPE 
 	{
-		if(buildType == "Static")
+		STATIC, DYNAMIC
+	}
+	
+	public Builder(_agent)
+	{
+		agent = _agent
+	}
+	
+	public def cmake(BUILD_TYPE buildType, platform)
+	{
+		// use Multi-Configuration generators only regarding the platform in future
+		def commonFlags = "-DNBL_UPDATE_GIT_SUBMODULE=OFF -DNBL_COMPILE_WITH_CUDA:BOOL=OFF -DNBL_BUILD_OPTIX:BOOL=OFF -DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF -DNBL_BUILD_RADEON_RAYS:BOOL=OFF -DNBL_RUN_TESTS:BOOL=ON"
+		def extraFlags = ""
+		def toolchain = "v143"
+		def buildDirectory = getNameOfBuildDirectory(buildType)
+		
+		switch (buildType)
 		{
-			agent.execute("cmake -DNBL_UPDATE_GIT_SUBMODULE=OFF -DNBL_COMPILE_WITH_CUDA:BOOL=OFF -DNBL_BUILD_OPTIX:BOOL=OFF -DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF -DNBL_BUILD_RADEON_RAYS:BOOL=OFF -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build_static -T v143")
+			case BUILD_TYPE.STATIC:
+				break
+			case BUILD_TYPE.DYNAMIC:
+				extraFlags = "-DNBL_STATIC_BUILD=OFF -DNBL_DYNAMIC_MSVC_RUNTIME=ON"
+				break	
 		}
-		else if(buildType == "Dynamic")
+		
+		agent.execute("cmake ${commonFlags} ${extraFlags} -S ./ -B ./${buildDirectory} -T ${toolchain}")
+	}
+	
+	public def build(config, BUILD_TYPE buildType, platform)
+	{
+		def buildDirectory = getNameOfBuildDirectory(buildType)
+		agent.execute("cmake --build ./${buildDirectory} --target Nabla --config ${config} -j12 -v")
+	}
+	
+	private def getNameOfBuildDirectory(BUILD_TYPE buildType)
+	{
+		switch (buildType)
 		{
-			agent.execute("cmake -DNBL_STATIC_BUILD=OFF -DNBL_DYNAMIC_MSVC_RUNTIME=ON -DNBL_UPDATE_GIT_SUBMODULE=OFF -DNBL_COMPILE_WITH_CUDA:BOOL=OFF -DNBL_BUILD_OPTIX:BOOL=OFF -DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF -DNBL_BUILD_RADEON_RAYS:BOOL=OFF -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build_dynamic -T v143")
-		}
-		else 
-		{
-			error "Intenral error!"
+			case BUILD_TYPE.STATIC:
+				return "build_static"
+			case BUILD_TYPE.DYNAMIC:
+				return "build_dynamic"
 		}
 	}
+	
+	private def agent
 }
 
-def build(agent, config, buildType, platform)
+def create(_agent)
 {
-	stage("Build ${buildType} Nabla with ${config} configuration")
-	{
-		def buildDirectory = buildType == "Static" ? "build_static" : (buildType == "Dynamic" ? "build_dynamic" : "")
-		agent.execute("cmake --build ./${buildDirectory} --target Nabla --config ${config} -j12 -v")
-	}	
+	return new Builder(_agent)
 }
 
 return this
