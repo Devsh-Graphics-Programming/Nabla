@@ -112,9 +112,12 @@ class Builder
 	private def axes
 }
 
-def create(_agent, Builder.PLATFORM _platform)
+def create(_agent, _platform)
 {
-	return new Builder(_agent, _platform)
+	if(_platform == "Windows")
+		return new Builder(_agent, Builder.PLATFORM.WINDOWS)
+	else
+		throw new Exception("Could not create Builder due to unknown platform!")
 }
 
 return this
