@@ -102,9 +102,9 @@ class Builder
 	private def axes
 }
 
-def create(_agent)
+def create(_agent, _platform)
 {
-	return new Builder(_agent)
+	return new Builder(_agent, _platform)
 }
 
 return this
