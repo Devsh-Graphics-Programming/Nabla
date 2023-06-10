@@ -1,25 +1,25 @@
-enum BUILD_TYPE 
-{
-	STATIC, DYNAMIC
-}
-
-enum CONFIGURATION 
-{
-	RELEASE, RELWITHDEBINFO, DEBUG
-}
-
-enum ARCH
-{
-	X86_64	
-}
-
-enum PLATFORM
-{
-	WINDOWS	
-}
-
 class Builder
 {
+	public static enum BUILD_TYPE 
+	{
+		STATIC, DYNAMIC
+	}
+
+	public static enum CONFIGURATION 
+	{
+		RELEASE, RELWITHDEBINFO, DEBUG
+	}
+
+	public static enum ARCH
+	{
+		X86_64	
+	}
+
+	public static enum PLATFORM
+	{
+		WINDOWS	
+	}
+	
 	public Builder(_agent, PLATFORM _platform)
 	{
 		agent = _agent
