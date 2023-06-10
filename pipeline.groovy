@@ -20,7 +20,7 @@ class Builder
 		WINDOWS	
 	}
 	
-	public getBuildTypes() // due to groovy sandbox
+	public def getBuildTypes() // due to groovy sandbox
 	{
 		return [BUILD_TYPE.STATIC, BUILD_TYPE.DYNAMIC]	
 	}
