@@ -20,6 +20,11 @@ class Builder
 		WINDOWS	
 	}
 	
+	public getBuildTypes() // due to groovy sandbox
+	{
+		return [BUILD_TYPE.STATIC, BUILD_TYPE.DYNAMIC]	
+	}
+	
 	public Builder(_agent, PLATFORM _platform)
 	{
 		agent = _agent
