@@ -5,12 +5,27 @@ class Builder
 		STATIC, DYNAMIC
 	}
 	
-	public Builder(_agent)
+	public static enum CONFIGURATION 
 	{
-		agent = _agent
+		RELEASE, RELWITHDEBINFO, DEBUG
 	}
 	
-	public def cmake(BUILD_TYPE buildType, platform)
+	public Builder(_agent, _platform)
+	{
+		agent = _agent
+		platform = _platform
+		
+		matrixAxes = [
+			ARCH: ["x86_64"], // Hardcoded since we only target one arch
+			PLATFORM: ["${_platform}"], // Platform is determined by an upstream host
+			BUILD_TYPE: [BUILD_TYPE.STATIC, BUILD_TYPE.DYNAMIC],
+			CONFIGURATION: [CONFIGURATION.RELEASE, CONFIGURATION.RELWITHDEBINFO, CONFIGURATION.DEBUG]
+		    ]
+		
+		axes = getMatrixAxes(matrixAxes)
+	}
+	
+	public def cmake(BUILD_TYPE buildType)
 	{
 		// use Multi-Configuration generators only regarding the platform in future
 		def commonFlags = "-DNBL_UPDATE_GIT_SUBMODULE=OFF -DNBL_COMPILE_WITH_CUDA:BOOL=OFF -DNBL_BUILD_OPTIX:BOOL=OFF -DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF -DNBL_BUILD_RADEON_RAYS:BOOL=OFF -DNBL_RUN_TESTS:BOOL=ON"
@@ -30,10 +45,16 @@ class Builder
 		agent.execute("cmake ${commonFlags} ${extraFlags} -S ./ -B ./${buildDirectory} -T ${toolchain}")
 	}
 	
-	public def build(config, BUILD_TYPE buildType, platform)
+	public def build(CONFIGURATION config, BUILD_TYPE buildType)
 	{
 		def buildDirectory = getNameOfBuildDirectory(buildType)
-		agent.execute("cmake --build ./${buildDirectory} --target Nabla --config ${config} -j12 -v")
+		def nameOfConfig = getNameOfConfig(config)
+		agent.execute("cmake --build ./${buildDirectory} --target Nabla --config ${nameOfConfig} -j12 -v")
+	}
+	
+	private def getAxes() 
+	{
+	    	return axes
 	}
 	
 	private def getNameOfBuildDirectory(BUILD_TYPE buildType)
@@ -47,7 +68,38 @@ class Builder
 		}
 	}
 	
+	private def getNameOfConfig(CONFIGURATION config)
+	{
+		switch (config)
+		{
+			case CONFIGURATION.RELEASE:
+				return "Release"
+			case CONFIGURATION.RELWITHDEBINFO:
+				return "RelWithDebInfo"
+			case CONFIGURATION.DEBUG:
+				return "Debug"
+		}
+	}
+	
+	@NonCPS
+	private def getMatrixAxes(Map matrix_axes) 
+	{
+	    	List axes = []
+	    	matrix_axes.each { axis, values ->
+			List axisList = []
+			values.each { value ->
+		    		axisList << [(axis): value]
+			}
+		axes << axisList
+	    }
+	    // calculate cartesian product
+	    axes.combinations()*.sum()
+	}
+	
 	private def agent
+	private def platform
+	private def matrixAxes
+	private def axes
 }
 
 def create(_agent)
