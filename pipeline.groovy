@@ -112,7 +112,7 @@ class Builder
 	private def axes
 }
 
-def create(_agent, PLATFORM _platform)
+def create(_agent, Builder.PLATFORM _platform)
 {
 	return new Builder(_agent, _platform)
 }
