@@ -21,8 +21,8 @@ from CITest import *
 EPSILON = "0.00001"         
 NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
 PUT_REFERENCES_IN_FOLDERS = True
-PUT_DIFFERENCES_IN_FOLDERS = False
-PUT_RENDERS_IN_FOLDERS = False
+PUT_DIFFERENCES_IN_FOLDERS = True
+PUT_RENDERS_IN_FOLDERS = True
 
 
 class ErrorThresholdType(Enum):
