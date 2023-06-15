@@ -522,17 +522,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         const SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_linearTilingUsages; }
         const SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_optimalTilingUsages; }
 
-        //
-        enum E_QUEUE_FLAGS : uint32_t
-        {
-            EQF_NONE = 0,
-            EQF_GRAPHICS_BIT = 0x01,
-            EQF_COMPUTE_BIT = 0x02,
-            EQF_TRANSFER_BIT = 0x04,
-            EQF_SPARSE_BINDING_BIT = 0x08,
-            EQF_PROTECTED_BIT = 0x10
-        };
-
         /* QueueFamilyProperties2
 * 
                 - VkQueueFamilyCheckpointProperties2NV, VkQueueFamilyCheckpointPropertiesNV [DON'T EXPOSE]: 
@@ -562,14 +551,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         */
         struct SQueueFamilyProperties
         {
-            core::bitflag<E_QUEUE_FLAGS> queueFlags;
+            core::bitflag<IGPUQueue::FAMILY_FLAGS> queueFlags;
             uint32_t queueCount;
             uint32_t timestampValidBits;
             asset::VkExtent3D minImageTransferGranularity;
 
             inline bool operator!=(const SQueueFamilyProperties& other) const
             {
-                return queueFlags.value != other.queueFlags.value || queueCount != other.queueCount || timestampValidBits != other.timestampValidBits || minImageTransferGranularity != other.minImageTransferGranularity;
+                return queueFlags!=other.queueFlags || queueCount != other.queueCount || timestampValidBits != other.timestampValidBits || minImageTransferGranularity != other.minImageTransferGranularity;
             }
         };
         auto getQueueFamilyProperties() const 

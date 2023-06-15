@@ -1,28 +1,43 @@
-#ifndef __NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED__
-#define __NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED_
 
 #include "nbl/video/decl/IBackendObject.h"
-#include "nbl/video/IGPUCommandBuffer.h"
 
 namespace nbl::video
 {
 
 class IGPUFence;
 class IGPUSemaphore;
+class IGPUCommandBuffer;
 
 class IGPUQueue : public core::Interface, public core::Unmovable
 {
     public:
-        enum E_CREATE_FLAGS : uint32_t
+        enum class FAMILY_FLAGS : uint8_t
         {
-            ECF_PROTECTED_BIT = 0x01
+            NONE = 0,
+            GRAPHICS_BIT = 0x01,
+            COMPUTE_BIT = 0x02,
+            TRANSFER_BIT = 0x04,
+            SPARSE_BINDING_BIT = 0x08,
+            PROTECTED_BIT = 0x10
+        };
+        enum class CREATE_FLAGS : uint32_t
+        {
+            PROTECTED_BIT = 0x01
         };
 
+
+        // for renderdoc and friends
+        virtual bool startCapture() = 0;
+        virtual bool endCapture() = 0;
+
+        //
         struct SSubmitInfo
         {
             uint32_t waitSemaphoreCount = 0u;
             IGPUSemaphore*const * pWaitSemaphores = nullptr;
-            const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask = nullptr;
+            const asset::PIPELINE_STAGE_FLAGS* pWaitDstStageMask = nullptr;
             uint32_t signalSemaphoreCount = 0u;
             IGPUSemaphore*const * pSignalSemaphores = nullptr;
             uint32_t commandBufferCount = 0u;
@@ -39,25 +54,12 @@ class IGPUQueue : public core::Interface, public core::Unmovable
                 return true;
             }
         };
-
-        //! `flags` takes bits from E_CREATE_FLAGS
-        IGPUQueue(ILogicalDevice* originDevice, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
-            : m_originDevice(originDevice), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
-        {
-
-        }
-
-        // for renderdoc and friends
-        virtual bool startCapture() = 0;
-        virtual bool endCapture() = 0;
-
-        //
-        virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
+        bool submit(const uint32_t _count, const SSubmitInfo* _submits, IGPUFence* const _fence);
 
         // getters
         float getPriority() const { return m_priority; }
         uint32_t getFamilyIndex() const { return m_familyIndex; }
-        E_CREATE_FLAGS getFlags() const { return m_flags; }
+        CREATE_FLAGS getFlags() const { return m_flags; }
 
         inline constexpr static float DEFAULT_QUEUE_PRIORITY = 1.f;
 
@@ -66,51 +68,24 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         virtual const void* getNativeHandle() const = 0;
 
     protected:
-        inline bool markCommandBuffersAsPending(uint32_t _count, const SSubmitInfo* _submits)
+        //! `flags` takes bits from E_CREATE_FLAGS
+        inline IGPUQueue(ILogicalDevice* originDevice, uint32_t _famIx, CREATE_FLAGS _flags, float _priority)
+            : m_originDevice(originDevice), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
         {
-            if(_submits == nullptr)
-                return false;
-            for (uint32_t i = 0u; i < _count; ++i)
-            {
-                auto& submit = _submits[i];
-                for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
-                {
-                    auto& cmdbuf = submit.commandBuffers[j];
-                    if(cmdbuf == nullptr)
-                        return false;
-                    submit.commandBuffers[j]->setState(IGPUCommandBuffer::ES_PENDING);
-                }
-            }
-            return true;
         }
-    
-        inline bool markCommandBuffersAsDone(uint32_t _count, const SSubmitInfo* _submits)
-        {
-            if(_submits == nullptr)
-                return false;
-            for (uint32_t i = 0u; i < _count; ++i)
-            {
-                auto& submit = _submits[i];
-                for (uint32_t j = 0u; j < submit.commandBufferCount; ++j)
-                {
-                    auto& cmdbuf = submit.commandBuffers[j];
-                    if(cmdbuf == nullptr)
-                        return false;
 
-                    if (cmdbuf->isResettable())
-                        cmdbuf->setState(IGPUCommandBuffer::ES_EXECUTABLE);
-                    else
-                        cmdbuf->setState(IGPUCommandBuffer::ES_INVALID);
-                }
-            }
-            return true;
-        }
+        virtual bool submit_impl(const uint32_t _count, const SSubmitInfo* _submits, IGPUFence* const _fence) = 0;
+
+        inline bool markCommandBuffersAsPending(const uint32_t _count, const SSubmitInfo* _submits);
+        bool markCommandBuffersAsDone(const uint32_t _count, const SSubmitInfo* _submits);
 
         const uint32_t m_familyIndex;
-        const E_CREATE_FLAGS m_flags;
+        const CREATE_FLAGS m_flags;
         const float m_priority;
-        ILogicalDevice* m_originDevice;
+        const ILogicalDevice* m_originDevice;
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUQueue::FAMILY_FLAGS)
 
 }
 
