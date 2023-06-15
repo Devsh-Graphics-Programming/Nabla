@@ -100,14 +100,52 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return (*m_queues)[offset + _ix];
         }
 
-        core::bitflag<asset::PIPELINE_STAGE_FLAGS> getSupportedStagesMask(const uint32_t queueFamilyIndex) const
+        core::bitflag<asset::PIPELINE_STAGE_FLAGS> getSupportedStageMask(const uint32_t queueFamilyIndex) const
         {
             if (queueFamilyIndex>m_queueFamilyInfos->size())
                 return asset::PIPELINE_STAGE_FLAGS::NONE;
             return m_queueFamilyInfos->operator[](queueFamilyIndex).supportedStages;
         }
-        //! Use this to validate instead of `getSupportedStagesMask(queueFamilyIndex)&stageMask`, it checks special values
-        bool supportsStageMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const;
+        //! Use this to validate instead of `getSupportedStageMask(queueFamilyIndex)&stageMask`, it checks special values
+        bool supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const;
+        
+        core::bitflag<asset::ACCESS_FLAGS> getSupportedAccessMask(const uint32_t queueFamilyIndex) const
+        {
+            if (queueFamilyIndex>m_queueFamilyInfos->size())
+                return asset::ACCESS_FLAGS::NONE;
+            return m_queueFamilyInfos->operator[](queueFamilyIndex).supportedAccesses;
+        }
+        //! Use this to validate instead of `getSupportedAccessMask(queueFamilyIndex)&accessMask`, it checks special values
+        bool supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accessMask) const;
+
+        //! NOTE/TODO: this is not yet finished
+        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const;
+        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SResourceMemoryBarrier& barrier) const
+        {
+            if (barrier.srcQueueFamilyIndex!=barrier.dstQueueFamilyIndex)
+            {
+                // We'll probably need to implement these for CUDA interop
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04087
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04088
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04089
+            }
+            return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);
+        }
+        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SBufferMemoryBarrier& barrier) const
+        {
+            const auto& range = barrier.range;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-buffer-parameter
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01188
+            if (!range.buffer || range.size==0u)
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01187
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01189
+            const size_t remain = range.size!=IGPUCommandBuffer::SBufferMemoryBarrier{}.range.size ? range.size:1ull;
+            if (range.offset+remain>range.buffer->getSize())
+                return false;
+            return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);
+        }
+        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier& barrier) const {return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);}
 
 
         virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
@@ -580,6 +618,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         struct QueueFamilyInfo
         {
             core::bitflag<asset::PIPELINE_STAGE_FLAGS> supportedStages = asset::PIPELINE_STAGE_FLAGS::NONE;
+            core::bitflag<asset::ACCESS_FLAGS> supportedAccesses = asset::ACCESS_FLAGS::NONE;
             // index into flat array of `m_queues`
             uint32_t firstQueueIndex = 0u;
         };
