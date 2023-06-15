@@ -1,5 +1,5 @@
-#ifndef __NBL_I_GPU_COMMAND_POOL_H_INCLUDED__
-#define __NBL_I_GPU_COMMAND_POOL_H_INCLUDED__
+#ifndef _NBL_I_GPU_COMMAND_POOL_H_INCLUDED_
+#define _NBL_I_GPU_COMMAND_POOL_H_INCLUDED_
 
 
 #include "nbl/core/IReferenceCounted.h"
@@ -359,16 +359,6 @@ private:
 
     friend class IGPUCommandBuffer;
     CCommandSegmentListPool m_commandListPool;
-};
-
-class IGPUCommandPool::CBeginCmd : public IGPUCommandPool::IFixedSizeCommand<CBeginCmd>
-{
-public:
-    CBeginCmd(core::smart_refctd_ptr<const IGPURenderpass>&& renderpass, core::smart_refctd_ptr<const IGPUFramebuffer>&& framebuffer) : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer)) {}
-
-private:
-    core::smart_refctd_ptr<const IGPURenderpass> m_renderpass;
-    core::smart_refctd_ptr<const IGPUFramebuffer> m_framebuffer;
 };
 
 class IGPUCommandPool::CBindIndexBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CBindIndexBufferCmd>
