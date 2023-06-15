@@ -633,6 +633,23 @@ class IImage : public IDescriptor
 			SHARED_PRESENT
 			// TODO: Density Map, shading rate (are they the same thing?), and feedback loop optimal
 		};
+		// utility struct for later
+		struct SDepthStencilLayout
+		{
+			LAYOUT depth = LAYOUT::UNDEFINED;
+			// if you leave `stencilLayout` as undefined this means you want same layout as `depth`
+			LAYOUT stencil = LAYOUT::UNDEFINED;
+
+			auto operator<=>(const SDepthStencilLayout&) const = default;
+
+			inline LAYOUT actualStencilLayout() const
+			{
+				using layout_t = LAYOUT;
+				if (stencil != layout_t::UNDEFINED)
+					return stencil;
+				return depth;
+			}
+		};
 	protected:
 		IImage(const SCreationParams& _params) : m_creationParams(_params), info(_params.format) {}
 

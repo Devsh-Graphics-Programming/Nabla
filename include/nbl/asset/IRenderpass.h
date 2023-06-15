@@ -1,7 +1,7 @@
 #ifndef _NBL_I_RENDERPASS_H_INCLUDED_
 #define _NBL_I_RENDERPASS_H_INCLUDED_
 
-#include "nbl/core/declarations/core.h"
+#include "nbl/core/declarations.h"
 
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/ECommonEnums.h"
@@ -10,24 +10,6 @@
 
 namespace nbl::asset
 {
-
-// TODO: move this struct
-struct SDepthStencilLayout
-{
-    IImage::LAYOUT depth = IImage::LAYOUT::UNDEFINED;
-    // if you leave `stencilLayout` as undefined this means you want same layout as `depth`
-    IImage::LAYOUT stencil = IImage::LAYOUT::UNDEFINED;
-
-    auto operator<=>(const SDepthStencilLayout&) const = default;
-
-    inline IImage::LAYOUT actualStencilLayout() const
-    {
-        using layout_t = IImage::LAYOUT;
-        if (stencil!=layout_t::UNDEFINED)
-            return stencil;
-        return depth;
-    }
-};
 
 class IRenderpass
 {
@@ -67,13 +49,13 @@ class IRenderpass
         {
             public:
                 // funny little struct to allow us to use ops as `layout.depth`, `layout.stencil` and `layout`
-                struct Layout : SDepthStencilLayout
+                struct Layout : IImage::SDepthStencilLayout
                 {
                     auto operator<=>(const Layout&) const = default;
 
-                    inline void operator=(const IImage::E_LAYOUT& general) {depth=general;}
+                    inline void operator=(const IImage::LAYOUT& general) {depth=general;}
 
-                    inline operator IImage::E_LAYOUT() const { return depth; }
+                    inline operator IImage::LAYOUT() const { return depth; }
                 };
                 // The reason we don't have separate types per depthstencil, color and resolve is because
                 // attachments limits (1 depth, MaxColorAttachments color and resolve) only apply PER SUBPASS
@@ -116,8 +98,8 @@ class IRenderpass
                         {
                             switch (layout)
                             {
-                                case IImage::EL_UNDEFINED: [[fallthrough]];
-                                case IImage::EL_PREINITIALIZED:
+                                case IImage::UNDEFINED: [[fallthrough]];
+                                case IImage::PREINITIALIZED:
                                     return true;
                                     break;
                                 default:
@@ -156,7 +138,7 @@ class IRenderpass
                             auto operator<=>(const SAttachmentRef<layout_t>&) const = default;
                         
                         protected:
-                            inline bool invalidLayout(const IImage::E_LAYOUT _layout)
+                            inline bool invalidLayout(const IImage::LAYOUT _layout)
                             {
                                 switch (_layout)
                                 {
@@ -222,7 +204,7 @@ class IRenderpass
                     template<typename layout_t>
                     struct SRenderAttachmentRef
                     {
-                        constexpr static inline bool IsDepth = std::is_same_v<layout_t,SDepthStencilLayout>;
+                        constexpr static inline bool IsDepth = std::is_same_v<layout_t,IImage::SDepthStencilLayout>;
 
                         SAttachmentRef<layout_t> render;
                         SAttachmentRef<layout_t> resolve;
@@ -367,24 +349,20 @@ class IRenderpass
                 {
                     public:
                         constexpr static inline uint32_t External = ~0u;
-                        enum class E_DEPENDENCY_FLAGS : uint8_t
+                        enum class DEPENDENCY_FLAGS : uint8_t
                         {
+                            NONE = 0x00u,
                             BY_REGION = 0x01u,
                             VIEW_LOCAL = 0x02u,
                             DEVICE_GROUP = 0x04u,
                             FEEDBACK_LOOP = 0x08u
                         };
 
+                        SMemoryBarrier memoryBarrier = {};
                         uint32_t srcSubpass = External;
                         uint32_t dstSubpass = External;
-                        int32_t viewOffset = 0;
-                        // TODO: Redo with synchronization2
-                        // If a VkMemoryBarrier2 is included in the pNext chain, srcStageMask, dstStageMask, srcAccessMask, and dstAccessMask parameters are ignored. The synchronization and access scopes instead are defined by the parameters of VkMemoryBarrier2.
-                        core::bitflag<E_PIPELINE_STAGE_FLAGS> srcStageMask = EPSF_BOTTOM_OF_PIPE_BIT;
-                        core::bitflag<E_PIPELINE_STAGE_FLAGS> dstStageMask = EPSF_TOP_OF_PIPE_BIT;
-                        core::bitflag<E_ACCESS_FLAGS> srcAccessMask = EAF_NONE;
-                        core::bitflag<E_ACCESS_FLAGS> dstAccessMask = EAF_NONE;
-                        core::bitflag<E_DEPENDENCY_FLAGS> dependencyFlags = EDF_NONE;
+                        int8_t viewOffset = 0;
+                        core::bitflag<DEPENDENCY_FLAGS> dependencyFlags = DEPENDENCY_FLAGS::NONE;
 
                         auto operator<=>(const SSubpassDependency&) const = default;
 
