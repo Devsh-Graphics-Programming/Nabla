@@ -154,6 +154,14 @@ enum class ACCESS_FLAGS : uint32_t
 };
 NBL_ENUM_ADD_BITWISE_OPERATORS(ACCESS_FLAGS)
 
+struct SMemoryBarrier
+{
+    core::bitflag<PIPELINE_STAGE_FLAGS> srcStageMask = PIPELINE_STAGE_FLAGS::NONE;
+    core::bitflag<ACCESS_FLAGS> srcAccessMask = ACCESS_FLAGS::NONE;
+    core::bitflag<PIPELINE_STAGE_FLAGS> dstStageMask = PIPELINE_STAGE_FLAGS::NONE;
+    core::bitflag<ACCESS_FLAGS> dstAccessMask = ACCESS_FLAGS::NONE;
+};
+
 inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_STAGE_FLAGS> stages)
 {
     struct PerStageAccesses
