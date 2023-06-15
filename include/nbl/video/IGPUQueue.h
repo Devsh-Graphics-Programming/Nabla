@@ -70,7 +70,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
     protected:
         //! `flags` takes bits from E_CREATE_FLAGS
         inline IGPUQueue(ILogicalDevice* originDevice, uint32_t _famIx, CREATE_FLAGS _flags, float _priority)
-            : m_originDevice(originDevice), m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
+            : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags)
         {
         }
 
@@ -79,10 +79,10 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         inline bool markCommandBuffersAsPending(const uint32_t _count, const SSubmitInfo* _submits);
         bool markCommandBuffersAsDone(const uint32_t _count, const SSubmitInfo* _submits);
 
-        const uint32_t m_familyIndex;
-        const CREATE_FLAGS m_flags;
-        const float m_priority;
         const ILogicalDevice* m_originDevice;
+        const uint32_t m_familyIndex;
+        const float m_priority;
+        const CREATE_FLAGS m_flags;
 };
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUQueue::FAMILY_FLAGS)

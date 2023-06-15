@@ -1,23 +1,19 @@
-#ifndef __NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED__
-#define __NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
+#define _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/CCompilerSet.h"
 
 #include "nbl/video/IGPUFence.h"
-/*
-#include "nbl/video/IGPUSemaphore.h"
+//#include "nbl/video/IGPUSemaphore.h"
 #include "nbl/video/IGPUEvent.h"
-*/
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IDescriptorPool.h"
-/*
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/IGPUCommandPool.h"
-#include "nbl/video/IGPUFramebuffer.h"
-*/
+//#include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/IGPUQueue.h"
 #include "nbl/video/ISwapchain.h"
@@ -42,7 +38,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
     public:
         struct SQueueCreationParams
         {
-            IGPUQueue::E_CREATE_FLAGS flags;
+            IGPUQueue::CREATE_FLAGS flags;
             uint32_t familyIndex;
             uint32_t count;
             const float* priorities;
@@ -75,7 +71,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             size_t offset;
         };
 
-        virtual ~ILogicalDevice()
+        inline virtual ~ILogicalDevice()
         {
             if (m_queues && !m_queues->empty())
             {
@@ -93,16 +89,26 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //
         inline IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
         {
-            const uint32_t offset = (*m_offsets)[_familyIx];
+            const uint32_t offset = m_queueFamilyInfos->operator[](_familyIx).firstQueueIndex;
             return (*m_queues)[offset+_ix]->getUnderlyingQueue();
         }
 
         // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
         inline CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
         {
-            const uint32_t offset = (*m_offsets)[_familyIx];
+            const uint32_t offset = m_queueFamilyInfos->operator[](_familyIx).firstQueueIndex;
             return (*m_queues)[offset + _ix];
         }
+
+        core::bitflag<asset::PIPELINE_STAGE_FLAGS> getSupportedStagesMask(const uint32_t queueFamilyIndex) const
+        {
+            if (queueFamilyIndex>m_queueFamilyInfos->size())
+                return asset::PIPELINE_STAGE_FLAGS::NONE;
+            return m_queueFamilyInfos->operator[](queueFamilyIndex).supportedStages;
+        }
+        //! Use this to validate instead of `getSupportedStagesMask(queueFamilyIndex)&stageMask`, it checks special values
+        bool supportsStageMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const;
+
 
         virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
@@ -131,7 +137,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return true;
         }
 
-        bool createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
+        bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
         {
             if (!_cmdPool->wasCreatedBy(this))
                 return false;
@@ -478,29 +484,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
     protected:
-        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
-            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
-        {
-            uint32_t qcnt = 0u;
-            uint32_t greatestFamNum = 0u;
-            for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
-            {
-                greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
-                qcnt += params.queueParams[i].count;
-            }
-
-            m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
-            m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
-
-            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams, params.queueParams + params.queueParamsCount))
-            {
-                if (qci.familyIndex == greatestFamNum)
-                    continue;
-
-                (*m_offsets)[qci.familyIndex + 1u] = qci.count;
-            }
-            std::inclusive_scan(m_offsets->begin(),m_offsets->end(),m_offsets->begin());
-        }
+        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params);
 
         // must be called by implementations of mapMemory()
         static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
@@ -514,7 +498,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             post_mapMemory(memory, nullptr, { 0,0 }, IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
         }
 
-        virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
+        virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
         virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
@@ -593,8 +577,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;
         queues_array_t m_queues;
-        using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
-        q_offsets_array_t m_offsets;
+        struct QueueFamilyInfo
+        {
+            core::bitflag<asset::PIPELINE_STAGE_FLAGS> supportedStages = asset::PIPELINE_STAGE_FLAGS::NONE;
+            // index into flat array of `m_queues`
+            uint32_t firstQueueIndex = 0u;
+        };
+        using q_family_info_array_t = core::smart_refctd_dynamic_array<const QueueFamilyInfo>;
+        q_family_info_array_t m_queueFamilyInfos;
 };
 
 }

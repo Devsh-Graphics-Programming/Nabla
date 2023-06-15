@@ -4,7 +4,99 @@ using namespace nbl;
 using namespace nbl::video;
 
 
+ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
+    : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
+{
+    uint32_t qcnt = 0u;
+    uint32_t greatestFamNum = 0u;
+    for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+    {
+        greatestFamNum = core::max(greatestFamNum,params.queueParams[i].familyIndex);
+        qcnt += params.queueParams[i].count;
+    }
+
+    m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
+    m_queueFamilyInfos = core::make_refctd_dynamic_array<q_family_info_array_t>(greatestFamNum+1u);
+
+    for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams,params.queueParams+params.queueParamsCount))
+    {
+        auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos->operator[](qci.familyIndex));
+        {
+            using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+            info.supportedStages = stage_flags_t::HOST_BIT;
+
+            const core::bitflag<stage_flags_t> transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|(m_enabledFeatures.accelerationStructure ? stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT:stage_flags_t::NONE)|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
+            const core::bitflag<stage_flags_t> computeAndGraphicsStages = (m_enabledFeatures.deviceGeneratedCommands ? stage_flags_t::COMMAND_PREPROCESS_BIT:stage_flags_t::NONE)|
+                (m_enabledFeatures.conditionalRendering ? stage_flags_t::CONDITIONAL_RENDERING_BIT:stage_flags_t::NONE)|transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
+
+            const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[qci.familyIndex].queueFlags;
+            if (familyFlags.hasFlags(IGPUQueue::FAMILY_FLAGS::COMPUTE_BIT))
+            {
+                info.supportedStages |= computeAndGraphicsStages|stage_flags_t::COMPUTE_SHADER_BIT;
+                if (m_enabledFeatures.accelerationStructure)
+                    info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT|stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT;
+                if (m_enabledFeatures.rayTracingPipeline)
+                    info.supportedStages |= stage_flags_t::RAY_TRACING_SHADER_BIT;
+            }
+            if (familyFlags.hasFlags(IGPUQueue::FAMILY_FLAGS::GRAPHICS_BIT))
+            {
+                info.supportedStages |= computeAndGraphicsStages|stage_flags_t::VERTEX_INPUT_BITS|stage_flags_t::VERTEX_SHADER_BIT;
+
+                if (m_enabledFeatures.tessellationShader)
+                    info.supportedStages |= stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT|stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT;
+                if (m_enabledFeatures.geometryShader)
+                    info.supportedStages |= stage_flags_t::GEOMETRY_SHADER_BIT;
+                // we don't do transform feedback
+                //if (m_enabledFeatures.meshShader)
+                //    info.supportedStages |= stage_flags_t::;
+                //if (m_enabledFeatures.taskShader)
+                //    info.supportedStages |= stage_flags_t::;
+                if (m_enabledFeatures.fragmentDensityMap)
+                    info.supportedStages |= stage_flags_t::FRAGMENT_DENSITY_PROCESS_BIT;
+                //if (m_enabledFeatures.????)
+                //    info.supportedStages |= stage_flags_t::SHADING_RATE_ATTACHMENT_BIT;
+
+                info.supportedStages |= stage_flags_t::FRAMEBUFFER_SPACE_BITS;
+            }
+            if (familyFlags.hasFlags(IGPUQueue::FAMILY_FLAGS::TRANSFER_BIT))
+                info.supportedStages |= transferStages;
+        }
+        info.firstQueueIndex = qci.count;
+    }
+    // bothering with an `std::exclusive_scan` is a bit too cumbersome here
+    uint32_t sum = 0u;
+    for (auto i=0u; i<m_queueFamilyInfos->size(); i++)
+    {
+        auto& x = m_queueFamilyInfos->operator[](i).firstQueueIndex;
+        auto tmp = sum+x;
+        x = sum;
+        sum = tmp;
+    }
+}
+
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
+
+inline bool ILogicalDevice::supportsStageMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const
+{
+    if (queueFamilyIndex>m_queueFamilyInfos->size())
+        return false;
+    using q_family_flags_t = IGPUQueue::FAMILY_FLAGS;
+    const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
+    // strip special values
+    if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS))
+        return true;
+    if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS) && bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT|q_family_flags_t::TRANSFER_BIT)))
+        stageMask ^= asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS;
+    if (familyProps.hasFlags(q_family_flags_t::GRAPHICS_BIT))
+    {
+        if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_GRAPHICS_BITS))
+            stageMask ^= asset::PIPELINE_STAGE_FLAGS::ALL_GRAPHICS_BITS;
+        if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::PRE_RASTERIZATION_SHADERS_BITS))
+            stageMask ^= asset::PIPELINE_STAGE_FLAGS::PRE_RASTERIZATION_SHADERS_BITS;
+    }
+    return getSupportedStagesMask(queueFamilyIndex).hasFlags(stageMask);
+}
+
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
 {
