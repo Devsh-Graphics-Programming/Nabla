@@ -243,7 +243,7 @@ bool IGPUCommandBuffer::resetEvent(IGPUEvent* _event, const core::bitflag<stage_
     return resetEvent_impl(_event,stageMask);
 }
 
-bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfo)
+bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfos)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -251,30 +251,38 @@ bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* 
     if (eventCount==0u)
         return false;
 
-    for (uint32_t i=0u; i<eventCount; ++i)
+    uint32_t totalBufferCount = 0u;
+    uint32_t totalImageCount = 0u;
+    for (auto i=0u; i<eventCount; ++i)
     {
         if (!pEvents[i] || !this->isCompatibleDevicewise(pEvents[i]))
             return false;
+
+        const auto& depInfo = depInfos[i];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdWaitEvents2-srcStageMask-03842
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdWaitEvents2-srcStageMask-03843
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdWaitEvents2-dependencyFlags-03844
-        if (validateDependency(depInfo[i]))
+        if (validateDependency(depInfo))
             return false;
+
+        totalBufferCount += depInfo.bufBarrierCount;
+        totalImageCount += depInfo.imgBarrierCount;
     }
 
-    // TODO: improve!
-    core::vector<const IGPUBuffer*> buffers_raw(depInfo->bufBarrierCount);
-    core::vector<const IGPUImage*> images_raw(depInfo->imgBarrierCount);
-    for (auto i=0u; i<depInfo->bufBarrierCount; ++i)
-        buffers_raw[i] = depInfo->bufBarriers[i].range.buffer.get();
-    for (auto i=0u; i<depInfo->imgBarrierCount; ++i)
-        images_raw[i] = depInfo->imgBarriers[i].image.get();
-
-//    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList,eventCount,pEvents,depInfo->bufBarrierCount,depInfo->imgBarrierCount);
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList, depInfo->bufBarrierCount, buffers_raw.data(), depInfo->imgBarrierCount, images_raw.data(), eventCount, pEvents))
+    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList,eventCount,pEvents,totalBufferCount,totalImageCount);
+    if (!cmd)
         return false;
 
-    return waitEvents_impl(eventCount,pEvents,depInfo);
+    auto outIt = cmd->getResources();
+    for (auto i=0u; i<eventCount; ++i)
+    {
+        const auto& depInfo = depInfos[i];
+        for (auto j=0u; j<depInfo.bufBarrierCount; j++)
+            *(outIt++) = depInfo.bufBarriers[j].range.buffer;
+        for (auto j=0u; j<depInfo.imgBarrierCount; j++)
+            *(outIt++) = depInfo.imgBarriers[j].image;
+    }
+    return waitEvents_impl(eventCount,pEvents,depInfos);
 }
 
 bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo)
@@ -304,21 +312,16 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
         // TODO: under NBL_DEBUG, cause waay too expensive to validate
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07889
     }
-/*
-    constexpr auto MaxBarrierResourceCount = (1 << 12) / sizeof(void*);
-    assert(bufferMemoryBarrierCount + imageMemoryBarrierCount <= MaxBarrierResourceCount);
 
-    core::smart_refctd_ptr<const IGPUBuffer> bufferResources[MaxBarrierResourceCount];
-    for (auto i = 0; i < bufferMemoryBarrierCount; ++i)
-        bufferResources[i] = pBufferMemoryBarriers[i].buffer;
-
-    core::smart_refctd_ptr<const IGPUImage> imageResources[MaxBarrierResourceCount];
-    for (auto i = 0; i < imageMemoryBarrierCount; ++i)
-        imageResources[i] = pImageMemoryBarriers[i].image;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList, bufferMemoryBarrierCount, bufferResources, imageMemoryBarrierCount, imageResources))
+    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList,depInfo.bufBarrierCount,depInfo.imgBarrierCount);
+    if (!cmd)
         return false;
-*/
+
+    auto outIt = cmd->getResources();
+    for (auto j=0u; j<depInfo.bufBarrierCount; j++)
+        *(outIt++) = depInfo.bufBarriers[j].range.buffer;
+    for (auto j=0u; j<depInfo.imgBarrierCount; j++)
+        *(outIt++) = depInfo.imgBarriers[j].image;
     return pipelineBarrier_impl(dependencyFlags,depInfo);
 }
 

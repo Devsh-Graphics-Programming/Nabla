@@ -47,12 +47,6 @@ public:
             EQRF_PARTIAL_BIT = 0x00000008,
         };
 
-        enum E_QUERY_CONTROL_FLAGS : uint32_t
-        {
-            EQCF_NONE = 0,
-            EQCF_PRECISE_BIT = 0x01,
-        };
-
         struct SCreationParams
         {
             E_QUERY_TYPE                                   queryType;

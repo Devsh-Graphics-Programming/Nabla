@@ -427,36 +427,27 @@ private:
 class IGPUCommandPool::CPipelineBarrierCmd : public IGPUCommandPool::ICommand
 {
 public:
-    CPipelineBarrierCmd(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
-        : ICommand(calc_size(bufferCount, buffers, imageCount, images)), m_resourceCount(bufferCount + imageCount)
+    CPipelineBarrierCmd(const uint32_t bufferCount, const uint32_t imageCount) : ICommand(calc_size(bufferCount,imageCount)), m_resourceCount(bufferCount+imageCount)
     {
-        auto barrierResources = getBarrierResources();
-        std::uninitialized_default_construct_n(barrierResources, m_resourceCount);
-
-        uint32_t k = 0;
-
-        for (auto i = 0; i < bufferCount; ++i)
-            barrierResources[k++] = buffers[i];
-
-        for (auto i = 0; i < imageCount; ++i)
-            barrierResources[k++] = images[i];
+        auto barrierResources = getResources();
+        std::uninitialized_default_construct_n(barrierResources,m_resourceCount);
     }
 
     ~CPipelineBarrierCmd()
     {
-        auto barrierResources = getBarrierResources();
-        for (auto i = 0; i < m_resourceCount; ++i)
+        auto barrierResources = getResources();
+        for (auto i=0u; i<m_resourceCount; ++i)
             barrierResources[i].~smart_refctd_ptr();
     }
 
-    static uint32_t calc_size(const uint32_t bufferCount, const core::smart_refctd_ptr<const IGPUBuffer>* buffers, const uint32_t imageCount, const core::smart_refctd_ptr<const IGPUImage>* images)
+    inline core::smart_refctd_ptr<const core::IReferenceCounted>* getResources() { return reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(this+1); }
+
+    static uint32_t calc_size(const uint32_t bufferCount, const uint32_t imageCount)
     {
-        return core::alignUp(sizeof(CPipelineBarrierCmd) + (bufferCount + imageCount) * sizeof(core::smart_refctd_ptr<const core::IReferenceCounted>), alignof(CPipelineBarrierCmd));
+        return core::alignUp(sizeof(CPipelineBarrierCmd)+(bufferCount+imageCount)*sizeof(core::smart_refctd_ptr<const core::IReferenceCounted>), alignof(CPipelineBarrierCmd));
     }
 
 private:
-    inline core::smart_refctd_ptr<const core::IReferenceCounted>* getBarrierResources() { return reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(this + 1); }
-
     const uint32_t m_resourceCount;
 };
 
@@ -670,40 +661,34 @@ private:
 class IGPUCommandPool::CWaitEventsCmd : public IGPUCommandPool::ICommand
 {
 public:
-    CWaitEventsCmd(const uint32_t bufferCount, const IGPUBuffer *const *const buffers, const uint32_t imageCount, const IGPUImage *const *const images, const uint32_t eventCount, IGPUEvent *const *const events)
-        : ICommand(calc_size(bufferCount, buffers, imageCount, images, eventCount, events)), m_resourceCount(bufferCount + imageCount + eventCount)
+    CWaitEventsCmd(const uint32_t eventCount, IGPUEvent *const *const events, const uint32_t totalBufferCount, const uint32_t totalImageCount)
+        : ICommand(calc_size(eventCount,events,totalBufferCount,totalImageCount)), m_resourceOffset(eventCount), m_totalCount(m_resourceOffset+totalBufferCount+totalImageCount)
     {
-        auto resources = getResources();
-        std::uninitialized_default_construct_n(resources, m_resourceCount);
-
-        uint32_t k = 0u;
-        for (auto i = 0; i < bufferCount; ++i)
-            resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(buffers[i]);
-
-        for (auto i = 0; i < imageCount; ++i)
-            resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(images[i]);
-
-        for (auto i = 0; i < eventCount; ++i)
-            resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(events[i]);
+        std::uninitialized_default_construct_n(getAll(),m_totalCount);
+        for (auto i=0u; i<eventCount; ++i)
+            getEvents()[i] = core::smart_refctd_ptr<const IGPUEvent>(events[i]);
     }
 
     ~CWaitEventsCmd()
     {
-        auto resources = getResources();
-        for (auto i = 0; i < m_resourceCount; ++i)
-            resources[i].~smart_refctd_ptr();
+        for (auto i=0u; i<m_totalCount; ++i)
+            getAll()[i].~smart_refctd_ptr();
     }
 
-    static uint32_t calc_size(const uint32_t bufferCount, const IGPUBuffer *const *const, const uint32_t imageCount, const IGPUImage *const *const, const uint32_t eventCount, IGPUEvent *const *const)
+    inline core::smart_refctd_ptr<const IReferenceCounted>* getResources() { return getAll()+m_resourceOffset; }
+
+    static uint32_t calc_size(const uint32_t eventCount, const IGPUEvent *const *const, const uint32_t totalBufferCount, const uint32_t totalImageCount)
     {
-        const uint32_t resourceCount = bufferCount + imageCount + eventCount;
-        return core::alignUp(sizeof(CWaitEventsCmd) + resourceCount * sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CWaitEventsCmd));
+        const uint32_t resourceCount = eventCount+totalBufferCount+totalImageCount;
+        return core::alignUp(sizeof(CWaitEventsCmd)+resourceCount*sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CWaitEventsCmd));
     }
 
 private:
-    inline core::smart_refctd_ptr<const IReferenceCounted>* getResources() { return reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(this + 1); }
+    inline core::smart_refctd_ptr<const IReferenceCounted>* getAll() { return reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(this+1); }
+    inline core::smart_refctd_ptr<const IGPUEvent>* getEvents() { return reinterpret_cast<core::smart_refctd_ptr<const IGPUEvent>*>(getAll()); }
 
-    const uint32_t m_resourceCount;
+    const uint32_t m_resourceOffset;
+    const uint32_t m_totalCount;
 };
 
 class IGPUCommandPool::CCopyImageCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyImageCmd>
