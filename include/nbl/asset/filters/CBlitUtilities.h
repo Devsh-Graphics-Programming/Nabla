@@ -36,27 +36,35 @@ public:
 	}
 };
 
+template <typename T>
+concept ChannelIndependentWeightFunctionOfConvolutions = requires(T t, const float unnormCenterSampledCoord, float& cornerSampledCoord, const float x, const uint8_t channel)
+{
+	{ t.getWindowSize() } -> std::same_as<int32_t>;
+
+	{ t.getWindowMinCoord(unnormCenterSampledCoord, cornerSampledCoord) } -> std::same_as<int32_t>;
+
+	{ t.weight(x, channel) } -> std::same_as<typename T::value_t>;
+};
+
 template<
-	KernelWeightFunction1D ReconstructionFunctionX	= CWeightFunction1D<SBoxFunction>,
-	KernelWeightFunction1D ResamplingFunctionX		= ReconstructionFunctionX,
-	KernelWeightFunction1D ReconstructionFunctionY	= ReconstructionFunctionX,
-	KernelWeightFunction1D ResamplingFunctionY		= ResamplingFunctionX,
-	KernelWeightFunction1D ReconstructionFunctionZ	= ReconstructionFunctionX,
-	KernelWeightFunction1D ResamplingFunctionZ		= ResamplingFunctionX>
+	ChannelIndependentWeightFunctionOfConvolutions KernelX = CChannelIndependentWeightFunction1D<
+		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>,
+		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>,
+		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>,
+		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>>,
+	ChannelIndependentWeightFunctionOfConvolutions KernelY = KernelX,
+	ChannelIndependentWeightFunctionOfConvolutions KernelZ = KernelX>
 class CBlitUtilities : public IBlitUtilities
 {
 public:
-	using convolution_kernels_t = std::tuple<
-		CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction1D<ReconstructionFunctionX, ResamplingFunctionX>>,
-		CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction1D<ReconstructionFunctionY, ResamplingFunctionY>>,
-		CFloatingPointSeparableImageFilterKernel<CConvolutionWeightFunction1D<ReconstructionFunctionZ, ResamplingFunctionZ>>>;
+	using convolution_kernels_t = std::tuple<KernelX, KernelY, KernelZ>;
 
 	using convolution_kernel_x_t = std::tuple_element_t<0, convolution_kernels_t>;
 	using convolution_kernel_y_t = std::tuple_element_t<1, convolution_kernels_t>;
 	using convolution_kernel_z_t = std::tuple_element_t<2, convolution_kernels_t>;
 
-	using value_type = convolution_kernel_x_t::value_type;
-	static_assert(std::is_same_v<value_type, convolution_kernel_y_t::value_type> && std::is_same_v<value_type, convolution_kernel_z_t::value_type>);
+	using value_type = convolution_kernel_x_t::value_t;
+	static_assert(std::is_same_v<value_type, convolution_kernel_y_t::value_t> && std::is_same_v<value_type, convolution_kernel_z_t::value_t>);
 	static inline constexpr uint32_t MaxChannels = convolution_kernel_x_t::MaxChannels;
 
 	template <typename LutDataType>
@@ -144,15 +152,62 @@ public:
 		return true;
 	}
 
+	template<
+		SimpleWeightFunction1D ReconXR	= CWeightFunction1D<SBoxFunction>,
+		SimpleWeightFunction1D ResampXR = ReconXR,
+		SimpleWeightFunction1D ReconXG	= ReconXR,
+		SimpleWeightFunction1D ResampXG	= ResampXR,
+		SimpleWeightFunction1D ReconXB	= ReconXR,
+		SimpleWeightFunction1D ResampXB	= ResampXR,
+		SimpleWeightFunction1D ReconXA	= ReconXR,
+		SimpleWeightFunction1D ResampXA	= ResampXR,
+
+		SimpleWeightFunction1D ReconYR	= ReconXR,
+		SimpleWeightFunction1D ResampYR	= ResampXR,
+		SimpleWeightFunction1D ReconYG	= ReconYR,
+		SimpleWeightFunction1D ResampYG	= ResampYR,
+		SimpleWeightFunction1D ReconYB	= ReconYR,
+		SimpleWeightFunction1D ResampYB	= ResampYR,
+		SimpleWeightFunction1D ReconYA	= ReconYR,
+		SimpleWeightFunction1D ResampYA	= ResampYR,
+
+		SimpleWeightFunction1D ReconZR	= ReconXR,
+		SimpleWeightFunction1D ResampZR	= ResampXR,
+		SimpleWeightFunction1D ReconZG	= ReconZR,
+		SimpleWeightFunction1D ResampZG	= ResampZR,
+		SimpleWeightFunction1D ReconZB	= ReconZR,
+		SimpleWeightFunction1D ResampZB	= ResampZR,
+		SimpleWeightFunction1D ReconZA	= ReconZR,
+		SimpleWeightFunction1D ResampZA	= ResampZR>
 	static inline convolution_kernels_t getConvolutionKernels(
 		const core::vectorSIMDu32&	inExtent,
 		const core::vectorSIMDu32&	outExtent,
-		ReconstructionFunctionX&&	reconstructionX		= ReconstructionFunctionX(),
-		ResamplingFunctionX&&		resamplingX			= ResamplingFunctionX(),
-		ReconstructionFunctionY&&	reconstructionY		= ReconstructionFunctionY(),
-		ResamplingFunctionY&&		resamplingY			= ResamplingFunctionY(),
-		ReconstructionFunctionZ&&	reconstructionZ		= ReconstructionFunctionZ(),
-		ResamplingFunctionZ&&		resamplingZ			= ResamplingFunctionZ())
+		ReconXR&&					reconXR		= ReconXR(),
+		ResampXR&&					resampXR	= ResampXR(),
+		ReconXG&&					reconXG		= ReconXG(),
+		ResampXG&&					resampXG	= ResampXG(),
+		ReconXB&&					reconXB		= ReconXB(),
+		ResampXB&&					resampXB	= ResampXB(),
+		ReconXA&&					reconXA		= ReconXA(),
+		ResampXA&&					resampXA	= ResampXA(),
+		
+		ReconYR&&					reconYR		= ReconYR(),
+		ResampYR&&					resampYR	= ResampYR(),
+		ReconYG&&					reconYG		= ReconYG(),
+		ResampYG&&					resampYG	= ResampYG(),
+		ReconYB&&					reconYB		= ReconYB(),
+		ResampYB&&					resampYB	= ResampYB(),
+		ReconYA&&					reconYA		= ReconYA(),
+		ResampYA&&					resampYA	= ResampYA(),
+		
+		ReconZR&&					reconZR		= ReconZR(),
+		ResampZR&&					resampZR	= ResampZR(),
+		ReconZG&&					reconZG		= ReconZG(),
+		ResampZG&&					resampZG	= ResampZG(),
+		ReconZB&&					reconZB		= ReconZB(),
+		ResampZB&&					resampZB	= ResampZB(),
+		ReconZA&&					reconZA		= ReconZA(),
+		ResampZA&&					resampZA	= ResampZA())
 	{
 		// Stretch and scale the resampling kernels.
 		// we'll need to stretch the kernel support to be relative to the output image but in the input image coordinate system
@@ -160,14 +215,42 @@ public:
 
 		const auto rcp_c2 = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
 
-		resamplingX.stretchAndScale(rcp_c2.x);
-		resamplingY.stretchAndScale(rcp_c2.y);
-		resamplingZ.stretchAndScale(rcp_c2.z);
+		resampXR.stretchAndScale(rcp_c2.x);
+		resampXG.stretchAndScale(rcp_c2.x);
+		resampXB.stretchAndScale(rcp_c2.x);
+		resampXA.stretchAndScale(rcp_c2.x);
 
-		return {
-			convolution_kernel_x_t({std::move(reconstructionX), std::move(resamplingX)}),
-			convolution_kernel_y_t({std::move(reconstructionY), std::move(resamplingY)}),
-			convolution_kernel_z_t({std::move(reconstructionZ), std::move(resamplingZ)}) };
+		resampYR.stretchAndScale(rcp_c2.y);
+		resampYG.stretchAndScale(rcp_c2.y);
+		resampYB.stretchAndScale(rcp_c2.y);
+		resampYA.stretchAndScale(rcp_c2.y);
+
+		resampZR.stretchAndScale(rcp_c2.z);
+		resampZG.stretchAndScale(rcp_c2.z);
+		resampZB.stretchAndScale(rcp_c2.z);
+		resampZA.stretchAndScale(rcp_c2.z);
+
+		auto result = std::make_tuple<KernelX, KernelY, KernelZ>(
+			CChannelIndependentWeightFunction1D(
+				CConvolutionWeightFunction1D<ReconXR, ResampXR>(std::move(reconXR), std::move(resampXR)),
+				CConvolutionWeightFunction1D<ReconXG, ResampXG>(std::move(reconXG), std::move(resampXG)),
+				CConvolutionWeightFunction1D<ReconXB, ResampXB>(std::move(reconXB), std::move(resampXB)),
+				CConvolutionWeightFunction1D<ReconXA, ResampXA>(std::move(reconXA), std::move(resampXA))),
+
+			CChannelIndependentWeightFunction1D(
+				CConvolutionWeightFunction1D<ReconYR, ResampYR>(std::move(reconYR), std::move(resampYR)),
+				CConvolutionWeightFunction1D<ReconYG, ResampYG>(std::move(reconYG), std::move(resampYG)),
+				CConvolutionWeightFunction1D<ReconYB, ResampYB>(std::move(reconYB), std::move(resampYB)),
+				CConvolutionWeightFunction1D<ReconYA, ResampYA>(std::move(reconYA), std::move(resampYA))),
+
+			CChannelIndependentWeightFunction1D(
+				CConvolutionWeightFunction1D<ReconZR, ResampZR>(std::move(reconZR), std::move(resampZR)),
+				CConvolutionWeightFunction1D<ReconZG, ResampZG>(std::move(reconZG), std::move(resampZG)),
+				CConvolutionWeightFunction1D<ReconZB, ResampZB>(std::move(reconZB), std::move(resampZB)),
+				CConvolutionWeightFunction1D<ReconZA, ResampZA>(std::move(reconZA), std::move(resampZA)))
+		);
+
+		return result;
 	}
 
 	static inline core::vectorSIMDi32 getWindowSize(

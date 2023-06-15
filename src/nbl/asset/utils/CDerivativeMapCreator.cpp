@@ -13,17 +13,35 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	using namespace asset;
 
 	// or Mitchell
-	using ReconstructionFunction = CWeightFunction1D<SGaussianFunction>;
-	using DerivativeFunction = CWeightFunction1D<SGaussianFunction, 1>;
-
-	using PartialDerivativeFunctionX = CChannelIndependentWeightFunction1D<DerivativeFunction, CWeightFunction1D<SBoxFunction>>;
-	using PartialDerivativeFunctionY = CChannelIndependentWeightFunction1D<CWeightFunction1D<SBoxFunction>, DerivativeFunction>;
+	using ReconstructionFunction = CWeightFunction1D<SGaussianFunction<>>;
+	using DerivativeFunction = CWeightFunction1D<SGaussianFunction<>, 1>;
 
 	using DerivativeMapFilter = CBlitImageFilter
 	<
 		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
 		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
-		CBlitUtilities<ReconstructionFunction, PartialDerivativeFunctionX, ReconstructionFunction, PartialDerivativeFunctionY, ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
+		CBlitUtilities<
+			CChannelIndependentWeightFunction1D<
+				CConvolutionWeightFunction1D<ReconstructionFunction, DerivativeFunction>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
+			>,
+
+			CChannelIndependentWeightFunction1D<
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, DerivativeFunction>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
+			>,
+
+			CChannelIndependentWeightFunction1D<
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
+			>
+		>
 	>;
 
 	const auto extent = _inImg->getCreationParameters().extent;
@@ -40,8 +58,21 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	auto convolutionKernels = DerivativeMapFilter::blit_utils_t::getConvolutionKernels(
 		extent_vector,
 		extent_vector,
-		ReconstructionFunction(), PartialDerivativeFunctionX(std::move(derivX), CWeightFunction1D<SBoxFunction>()),
-		ReconstructionFunction(), PartialDerivativeFunctionY(CWeightFunction1D<SBoxFunction>(), std::move(derivY)));
+
+		ReconstructionFunction(), std::move(derivX),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), std::move(derivY),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>());
 
 	typename DerivativeMapFilter::state_type state(convolutionKernels);
 

@@ -14,9 +14,9 @@ double CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunc
 }
 
 template <>
-double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeightFunction1D<SGaussianFunction>>::weight_impl(const float x, const uint32_t) const
+double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction<>>, CWeightFunction1D<SGaussianFunction<>>>::weight_impl(const float x, const uint32_t) const
 {
-	asset::CWeightFunction1D<asset::SGaussianFunction> weightFunction;
+	asset::CWeightFunction1D<asset::SGaussianFunction<>> weightFunction;
 
 	const float funcA_stddev = 1.f/m_funcA.getInvStretch();
 	const float funcB_stddev = 1.f/m_funcB.getInvStretch();
@@ -27,14 +27,16 @@ double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction>, CWeigh
 	const double funcB_true_scale = m_funcB.getTotalScale()*funcB_stddev;
 	weightFunction.scale(funcA_true_scale*funcB_true_scale);
 
-	return weightFunction.weight(x, channel);
+	return weightFunction.weight(x);
 }
 
 template <>
 double CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::weight_impl(const float x, const uint32_t) const
 {
 	const double true_scale = m_funcA.getTotalScale()*m_funcB.getTotalScale()/(m_funcA.getInvStretch()*m_funcB.getInvStretch());
-	if (m_funcA.getSupportWidth()>m_funcB.getSupportWidth())
+	const double support_width_a = m_funcA.getMaxSupport() - m_funcA.getMinSupport();
+	const double support_width_b = m_funcB.getMaxSupport() - m_funcB.getMinSupport();
+	if (support_width_a>support_width_b)
 		return true_scale*m_funcA.weight(x);
 	else
 		return true_scale*m_funcB.weight(x);

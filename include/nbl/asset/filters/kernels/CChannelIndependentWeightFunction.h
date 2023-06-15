@@ -4,9 +4,6 @@
 #ifndef _NBL_ASSET_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED_
 #define _NBL_ASSET_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED_
 
-
-#include "nbl/asset/filters/kernels/CFloatingPointSeparableImageFilterKernel.h"
-
 #include <type_traits>
 #include <tuple>
 
@@ -20,7 +17,7 @@ class CChannelIndependentWeightFunction1D final
 {
 	public:
 		using value_t = FirstWeightFunction1D::value_t;
-		static_assert(std::is_same_v<value_type,float>,"should probably allow `float`s at some point!");
+		static_assert(std::is_same_v<value_t,double>,"should probably allow `float`s at some point!");
 	
 		static_assert(sizeof...(OtherWeightFunctions) < 4u);
 		static inline constexpr size_t MaxChannels = 1 + sizeof...(OtherWeightFunctions);
@@ -108,7 +105,7 @@ class CChannelIndependentWeightFunction1D final
 		}
 
 		// get the kernel support (measured in pixels)
-		inline const int32_t getWindowSize() const { return m_windowSize; }
+		inline int32_t getWindowSize() const { return m_windowSize; }
 
 		// TODO: Do we even need to keep this function around!?
 		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)

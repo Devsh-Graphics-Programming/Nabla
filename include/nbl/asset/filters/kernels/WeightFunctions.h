@@ -133,18 +133,19 @@ struct SGaussianFunction final
 	
 private:
 	template<int32_t derivative>
-	constexpr static polynomial_t<derivative> differentialPolynomialFactor()
+	constexpr static core::impl::polynomial_t<derivative> differentialPolynomialFactor()
 	{
 		static_assert(derivative>0,"DIFFERENTIATION ONLY!");
+
 		if constexpr (derivative>1)
 		{
 		    constexpr auto f = differentialPolynomialFactor<derivative-1>();
 		    constexpr auto f_prime = f.differentiate();
-		    polynomial_t<derivative> retval;
+		    core::impl::polynomial_t<derivative> retval;
 		    for (uint32_t power=0; power<f_prime.size(); power++)
-			retval[power] = f_prime[power];
+				retval[power] = f_prime[power];
 		    for (uint32_t power=0; power<f.size(); power++)
-			retval[power+1] -= f[power];
+				retval[power+1] -= f[power];
 		    return retval;
 		}
 		else
@@ -285,9 +286,8 @@ class IWeightFunction1D
 		inline float getInvStretch() const { return m_invStretch; }
 		inline value_t getTotalScale() const { return m_totalScale; }
 
-	private:
+	protected:
 		inline IWeightFunction1D(const float _minSupport, const float _maxSupport) : m_minSupport(_minSupport), m_maxSupport(_maxSupport) {}
-		
 		inline float impl_stretch(const float s)
 		{
 			assert(s != 0.f);
@@ -297,60 +297,62 @@ class IWeightFunction1D
 
 			const float rcp_s = 1.f / s;
 			m_invStretch *= rcp_s;
-			
+
 			return rcp_s;
 		}
 
-
+	private:
+		float m_invStretch = 1.f;
 		float m_minSupport;
 		float m_maxSupport;
-		float m_invStretch = 1.f;
 		value_t m_totalScale = 1.f;
 };
 
 }
 
 template <Function1D _function_t, uint32_t derivative = 0>
-class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::declval<function_t>().weight(0.f))>
+class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::declval<_function_t>().weight(0.f))>
 {
+	using base_t = impl::IWeightFunction1D<decltype(std::declval<_function_t>().weight(0.f))>;
+
 	public:
 		using function_t = _function_t;
 		constexpr static inline uint32_t k_derivative = derivative;
 
-		static_assert(function_t::k_smoothness>k_derivative);
+		static_assert(function_t::k_smoothness>=k_derivative);
 		constexpr static inline uint32_t k_smoothness = function_t::k_smoothness-k_derivative;
 
-		CWeightFunction1D() : impl::IWeightFunction1D<value_t>(function_t::min_support,function_t::max_support) {}
+		CWeightFunction1D() : base_t(function_t::min_support,function_t::max_support) {}
 		
 		// Calling: f(x).stretch(2) will obviously give you f(x/2)
 		inline void stretch(const float s)
 		{
-			const auto rcp_s = impl_stretch(s);
+			const auto rcp_s = base_t::impl_stretch(s);
 
 			if constexpr (derivative != 0)
-				scale(pow(rcp_s,k_derivative));
+				this->scale(pow(rcp_s,k_derivative));
 		}
 
 		// This method will keep the integral of the weight function without derivatives constant.
 		inline void stretchAndScale(const float stretchFactor)
 		{
 			stretch(stretchFactor);
-			scale(value_t(1)/stretchFactor);
+			this->scale(base_t::value_t(1)/stretchFactor);
 		}
 
-		inline value_t weight(const float x) const
+		inline base_t::value_t weight(const float x) const
 		{
-			return static_cast<double>(m_totalScale*function_t::weight<derivative>(x*m_invStretch));
+			return static_cast<double>(this->getTotalScale()*function_t::weight<derivative>(x*this->getInvStretch()));
 		}
 
 		// Integral of `weight(x) dx` from -INF to +INF
-		inline value_t energy() const
+		inline base_t::value_t energy() const
 		{
-			if constexpr(sizeof(function_t::k_energy)/sizeof(value_t)>k_derivative)
+			if constexpr(sizeof(function_t::k_energy)/sizeof(base_t::value_t)>k_derivative)
 			{
 				// normally it would be `scale*invStretch^(derivative+1)*k_energy[k_derivative]`
 				// but `scale` already contains precomputed `invStretch^derivative` factor when we call `stretch`
-				return m_totalScale*m_invStretch*function_t::k_energy[k_derivative];
+				return this->getTotalScale()*this->getInvStretch()*function_t::k_energy[k_derivative];
 			}
 			return 0.0;
 		}
@@ -361,9 +363,9 @@ class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::dec
 // - `CWeightFunction1D`
 // - `CConvolutionWeightFunction1D`
 template<typename T>
-concept WeightFunction1D = requires(T t, const float x, const T::value_t s)
+concept WeightFunction1D = requires(T t, const float x, const typename T::value_t s)
 {
-	std::derived_from<T,IWeightFunction1D<T::value_t>>;
+	std::derived_from<T,impl::IWeightFunction1D<typename T::value_t>>;
 
 	{ T::k_smoothness }	-> std::same_as<const uint32_t&>;
 
