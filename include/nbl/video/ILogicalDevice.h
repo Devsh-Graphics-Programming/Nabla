@@ -120,14 +120,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! NOTE/TODO: this is not yet finished
         bool validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const;
-        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SResourceMemoryBarrier& barrier) const
+        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SResourceMemoryBarrier& barrier, const bool concurrentSharing) const
         {
             if (barrier.srcQueueFamilyIndex!=barrier.dstQueueFamilyIndex)
             {
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcStageMask-03851
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcStageMask-03854
+                constexpr auto HostBit = asset::PIPELINE_STAGE_FLAGS::HOST_BIT;
+                if (barrier.barrier.srcStageMask.hasFlags(HostBit)||barrier.barrier.dstStageMask.hasFlags(HostBit))
+                    return false;
                 // We'll probably need to implement these for CUDA interop
                 // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04087
                 // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04088
                 // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04089
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-04070
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-04071
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-04072
             }
             return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);
         }
@@ -143,9 +151,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const size_t remain = range.size!=IGPUCommandBuffer::SBufferMemoryBarrier{}.range.size ? range.size:1ull;
             if (range.offset+remain>range.buffer->getSize())
                 return false;
-            return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);
+            return validateMemoryBarrier(queueFamilyIndex,barrier.barrier,range.buffer->getCachedCreationParams().isConcurrentSharing());
         }
-        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier& barrier) const {return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);}
+        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier& barrier) const;
 
 
         virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;

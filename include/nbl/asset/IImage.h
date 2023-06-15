@@ -127,6 +127,7 @@ class IImage : public IDescriptor
 			EUF_TRANSFER_DST_BIT = 0x0002,
 			EUF_SAMPLED_BIT = 0x0004,
 			EUF_STORAGE_BIT = 0x0008,
+			// TODO: replace with just `ATTACHMENT_BIT` ?
 			EUF_COLOR_ATTACHMENT_BIT = 0x0010,
 			EUF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x0020,
 			EUF_TRANSIENT_ATTACHMENT_BIT = 0x0040,
@@ -252,6 +253,11 @@ class IImage : public IDescriptor
 			core::bitflag<E_USAGE_FLAGS>	stencilUsage = EUF_NONE;
 			// Do not touch unless you want to fail at creating views with their Format not listed here
 			std::bitset<E_FORMAT::EF_COUNT>	viewFormats = {};
+
+			inline core::bitflag<E_USAGE_FLAGS> actualStencilUsage() const
+			{
+				return stencilUsage.value!=IGPUImage::E_USAGE_FLAGS::EUF_NONE ? stencilUsage:depthUsage;
+			}
 
 			inline bool operator==(const SCreationParams& rhs) const
 			{

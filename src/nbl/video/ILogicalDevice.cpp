@@ -203,6 +203,116 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
     return true;
 }
 
+bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier& barrier) const
+{
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-parameter
+    if (!barrier.image)
+        return false;
+    const auto& params = barrier.image->getCreationParameters();
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01486
+    if (barrier.subresourceRange.baseMipLevel>=params.mipLevels)
+        return false;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01488
+    if (barrier.subresourceRange.baseArrayLayer>=params.arrayLayers)
+        return false;
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01724
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01725
+
+    const auto aspectMask = barrier.subresourceRange.aspectMask;
+    if (asset::isDepthOrStencilFormat(params.format))
+    {
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-03319
+        constexpr auto DepthStencilAspects = IGPUImage::EAF_DEPTH_BIT|IGPUImage::EAF_STENCIL_BIT;
+        if (aspectMask.value&(~DepthStencilAspects))
+            return false;
+        if (bool(aspectMask.value&DepthStencilAspects))
+            return false;
+    }
+    //https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-01671
+    else if (aspectMask!=IGPUImage::EAF_COLOR_BIT)
+        return false;
+
+    // TODO: better check for queue family ownership transfer
+    const bool ownershipTransfer = barrier.barrier.srcQueueFamilyIndex!=barrier.barrier.dstQueueFamilyIndex;
+    const bool layoutTransform = barrier.oldLayout!=barrier.newLayout;
+    // TODO: WTF ? https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcStageMask-03855
+    if (ownershipTransfer || layoutTransform)
+    {
+        const bool srcStageIsHost = barrier.barrier.barrier.srcStageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::HOST_BIT);
+        auto mismatchedLayout = [&params,aspectMask,srcStageIsHost]<bool dst>(const IGPUImage::LAYOUT layout) -> bool
+        {
+            switch (layout)
+            {
+                // Because we don't support legacy layout enums, we don't check these at all:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01208
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01209
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01210
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01658
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01659
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-04065
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-04066
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-04067
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-04068
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-aspectMask-08702
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-aspectMask-08703
+                // and we check the following all at once:
+                case IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL:
+                    if (srcStageIsHost)
+                        return true;
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-03938
+                    if (aspectMask==IGPUImage::EAF_COLOR_BIT && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_COLOR_ATTACHMENT_BIT))
+                        return true;
+                    if (aspectMask.hasFlags(IGPUImage::EAF_DEPTH_BIT) && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_DEPTH_STENCIL_ATTACHMENT_BIT))
+                        return true;
+                    if (aspectMask.hasFlags(IGPUImage::EAF_STENCIL_BIT) && !params.actualStencilUsage().hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_DEPTH_STENCIL_ATTACHMENT_BIT))
+                        return true;
+                    break;
+                case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
+                    if (srcStageIsHost)
+                        return true;
+                    constexpr auto ValidUsages = IGPUImage::E_USAGE_FLAGS::EUF_SAMPLED_BIT|IGPUImage::E_USAGE_FLAGS::EUF_INPUT_ATTACHMENT_BIT;
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01211
+                    if (aspectMask.hasFlags(IGPUImage::EAF_STENCIL_BIT))
+                    {
+                        if (!bool(params.actualStencilUsage()&ValidUsages))
+                            return true;
+                    }
+                    else if (!bool(params.usage&ValidUsages))
+                        return true;
+                    break;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01212
+                case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
+                    if (srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
+                        return true;
+                    break;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01213
+                case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL:
+                    if (srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
+                        return true;
+                    break;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01198
+                case IGPUImage::LAYOUT::UNDEFINED: [[fallthrough]]
+                case IGPUImage::LAYOUT::PREINITIALIZED:
+                    if constexpr (dst)
+                        return true;
+                    break;
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-02088
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-07006
+                    // Implied from being able to created an image with above required usage flags
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-attachmentFeedbackLoopLayout-07313
+                default:
+                    break;
+            }
+            return false;
+        };
+        // CANNOT CHECK: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01197
+        if (mismatchedLayout.operator()<false>(barrier.oldLayout) || mismatchedLayout.operator()<true>(barrier.newLayout))
+            return false;
+    }
+    return validateMemoryBarrier(queueFamilyIndex,barrier.barrier,barrier.image->getCachedCreationParams().isConcurrentSharing());
+}
+
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
 {
