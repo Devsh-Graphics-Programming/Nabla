@@ -221,7 +221,7 @@ class IImageView : public IDescriptor
 			
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02571
 			if (imgParams.usage.hasFlags(IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT) && subresourceRange.levelCount!=1u)
-				return false
+				return false;
 
 			auto mipExtent = _params.image->getMipSize(subresourceRange.baseMipLevel);
 			auto actualLayerCount = subresourceRange.layerCount;

@@ -256,7 +256,7 @@ class IImage : public IDescriptor
 
 			inline core::bitflag<E_USAGE_FLAGS> actualStencilUsage() const
 			{
-				return stencilUsage.value!=IGPUImage::E_USAGE_FLAGS::EUF_NONE ? stencilUsage:depthUsage;
+				return stencilUsage.value!=E_USAGE_FLAGS::EUF_NONE ? stencilUsage:depthUsage;
 			}
 
 			inline bool operator==(const SCreationParams& rhs) const
