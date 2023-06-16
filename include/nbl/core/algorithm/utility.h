@@ -29,6 +29,15 @@ inline void hash_combine(std::size_t& seed, const T& v)
     seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
+template<typename T, class func_t>
+static inline void visit_token_terminated_array(const T* array, const T& endToken, func_t&& func)
+{
+    if (array)
+    for (auto it=array; *it!=endToken && func(*it); it++)
+    {
+    }
+}
+
 }
 }
 

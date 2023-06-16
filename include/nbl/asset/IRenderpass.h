@@ -14,16 +14,6 @@ namespace nbl::asset
 class IRenderpass
 {
     public:
-        // TODO: move this out somewhere? looks useful
-        template<typename T, class func_t>
-        static inline void visitTokenTerminatedArray(const T* array, const T& endToken, func_t&& func)
-        {
-            if (array)
-            for (auto it=array; *it!=endToken && func(*it); it++)
-            {
-            }
-        }
-
         enum class E_LOAD_OP : uint8_t
         {
             LOAD = 0,
@@ -267,9 +257,9 @@ class IRenderpass
                             return true;
                         }
                     };
-                    struct SDepthStencilAttachmentRef : SRenderAttachmentRef<SDepthStencilLayout>
+                    struct SDepthStencilAttachmentRef : SRenderAttachmentRef<IImage::SDepthStencilLayout>
                     {
-                        enum class E_RESOLVE_MODE : uint8_t
+                        enum class RESOLVE_MODE : uint8_t
                         {
                             NONE = 0,
                             SAMPLE_ZERO_BIT = 0x00000001,
@@ -279,11 +269,11 @@ class IRenderpass
                         };
                         struct ResolveMode
                         {
-                            E_RESOLVE_MODE depth : 4 = NONE;
-                            E_RESOLVE_MODE stencil : 4 = NONE;
+                            RESOLVE_MODE depth : 4 = NONE;
+                            RESOLVE_MODE stencil : 4 = NONE;
                         } resolveMode;
                     };
-                    using SColorAttachmentRef = SRenderAttachmentRef<IImage::E_LAYOUT>;
+                    using SColorAttachmentRef = SRenderAttachmentRef<IImage::LAYOUT>;
 
 
                     auto operator<=>(const SSubpassDescription&) const = default;
@@ -310,7 +300,7 @@ class IRenderpass
                             }
                             return true;
                         };
-                        visitTokenTerminatedArray(inputAttachments,InputAttachmentsEnd,attachmentValidVisitor);
+                        core::visit_token_terminated_array(inputAttachments,InputAttachmentsEnd,attachmentValidVisitor);
                         if (invalid)
                             return false;
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-flags-03076
@@ -461,7 +451,7 @@ class IRenderpass
             if (!params.subpasses)
                 return retval;
             
-            visitTokenTerminatedArray(params.attachments,SCreationParams::AttachmentsEnd,[&params,&retval](const SCreationParams::SAttachmentDescription& subpass)->bool
+            core::visit_token_terminated_array(params.attachments,SCreationParams::AttachmentsEnd,[&params,&retval](const SCreationParams::SAttachmentDescription& subpass)->bool
             {
                 retval.attachmentCount++;
             });
@@ -554,7 +544,7 @@ class IRenderpass
                 }
                 return false;
             };
-            visitTokenTerminatedArray(params.subpasses,SCreationParams::SubpassesEnd,[&params,setRetvalFalse,&retval,subpassesHaveViewMasks,invalidRenderAttachmentRef](const SCreationParams::SSubpassDescription& subpass)->bool
+            core::visit_token_terminated_array(params.subpasses,SCreationParams::SubpassesEnd,[&params,setRetvalFalse,&retval,subpassesHaveViewMasks,invalidRenderAttachmentRef](const SCreationParams::SSubpassDescription& subpass)->bool
             {
                 if (!subpass.valid())
                     return setRetvalFalse();
@@ -580,7 +570,7 @@ class IRenderpass
                     return setRetvalFalse();
 
                 retval.subpassCount++;
-                visitTokenTerminatedArray(subpass.inputAttachments,SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&](const SCreationParams::SSubpassDescription::SInputAttachmentRef& inputAttachmentRef)->bool
+                core::visit_token_terminated_array(subpass.inputAttachments,SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&](const SCreationParams::SSubpassDescription::SInputAttachmentRef& inputAttachmentRef)->bool
                 {
                     if (inputAttachmentRef.attachmentIndex!=SCreationParams::SSubpassDescription::AttachmentUnused)
                     {
@@ -613,7 +603,7 @@ class IRenderpass
                 return retval.subpassCount;
             });
         
-            visitTokenTerminatedArray(params.dependencies,SCreationParams::DependenciesEnd,[&params,setRetvalFalse,&retval,subpassesHaveViewMasks](const SCreationParams::SSubpassDependency& dependency)->bool
+            core::visit_token_terminated_array(params.dependencies,SCreationParams::DependenciesEnd,[&params,setRetvalFalse,&retval,subpassesHaveViewMasks](const SCreationParams::SSubpassDependency& dependency)->bool
             {
                 if (!dependency.valid())
                     return setRetvalFalse();
