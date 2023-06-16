@@ -146,22 +146,22 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             const SImageMemoryBarrier* imgBarriers = nullptr;
         };
         using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
-        bool setEvent(IGPUEvent* _event, const SDependencyInfo& depInfo);
+        bool setEvent(IGPUEvent* const _event, const SDependencyInfo& depInfo);
         bool resetEvent(IGPUEvent* _event, const core::bitflag<stage_flags_t> stageMask);
         bool waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfos);
 
         bool pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo);
 
         //! buffer transfers
-        bool fillBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t size, uint32_t data);
-        bool updateBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData);
+        bool fillBuffer(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t size, const uint32_t data);
+        bool updateBuffer(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize, const void* const pData);
         struct SBufferCopy
         {
             size_t srcOffset;
             size_t dstOffset;
             size_t size;
         };
-        bool copyBuffer(const IGPUBuffer* srcBuffer, IGPUBuffer* dstBuffer, uint32_t regionCount, const SBufferCopy* pRegions);
+        bool copyBuffer(const IGPUBuffer* srcBuffer, IGPUBuffer* dstBuffer, uint32_t regionCount, const SBufferCopy* const pRegions);
 
 #if 0
         //! image transfers
@@ -273,19 +273,36 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             }
         }
 
-        inline bool validate_updateBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
+        template<bool fill=false>
+        inline bool validate_updateBuffer(const IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize)
         {
-            if (!dstBuffer)
+            if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
                 return false;
-            if (!this->isCompatibleDevicewise(dstBuffer))
+            const auto& params = dstBuffer->getCreationParams();
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00034
+            if (!params.usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
                 return false;
-            if ((dstOffset & 0x03ull) != 0ull)
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00024
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00032
+            if (dstOffset>=params.size)
                 return false;
-            if ((dataSize & 0x03ull) != 0ull)
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00025
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00036
+            if ((dstOffset&0x03ull)!=0ull)
                 return false;
-            if (dataSize > 65536ull)
+            const bool notWholeSize = !fill/* || dataSize!=TODO*/;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00026
+            if (notWholeSize && dataSize==0u)
                 return false;
-            return dstBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF);
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00033
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00027
+            if (notWholeSize && dstOffset+dataSize>params.size)
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00038
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00028
+            if (notWholeSize && (dataSize&0x03ull)!=0ull)
+                return false;
+            return true;
         }
 
         static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)
@@ -320,11 +337,14 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 
 //        virtual bool setDeviceMask_impl(uint32_t deviceMask) { assert(!"Invalid code path"); return false; };
 
-        virtual bool setEvent_impl(IGPUEvent* _event, const SDependencyInfo& depInfo) = 0;
-        virtual bool resetEvent_impl(IGPUEvent* _event, const core::bitflag<stage_flags_t> stageMask) = 0;
+        virtual bool setEvent_impl(IGPUEvent* const _event, const SDependencyInfo& depInfo) = 0;
+        virtual bool resetEvent_impl(IGPUEvent* const _event, const core::bitflag<stage_flags_t> stageMask) = 0;
         virtual bool waitEvents_impl(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfos) = 0;
-
         virtual bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo) = 0;
+
+        virtual bool fillBuffer_impl(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t size, const uint32_t data) = 0;
+        virtual bool updateBuffer_impl(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize, const void* const pData) = 0;
+        virtual bool copyBuffer_impl(const IGPUBuffer* const srcBuffer, IGPUBuffer* const dstBuffer, const uint32_t regionCount, const SBufferCopy* const pRegions) = 0;
 #if 0
         virtual void bindIndexBuffer_impl(const IGPUBuffer* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
         virtual bool drawIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
@@ -339,7 +359,6 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, const uint32_t descriptorSetCount,
             const descriptor_set_t* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* dynamicOffsets = nullptr) = 0;
         virtual void bindComputePipeline_impl(const compute_pipeline_t* pipeline) = 0;
-        virtual bool updateBuffer_impl(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) = 0;
 
         virtual bool buildAccelerationStructures_impl(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) { assert(!"Invalid code path."); return false; }
         virtual bool buildAccelerationStructuresIndirect_impl(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts) { assert(!"Invalid code path."); return false; }
@@ -359,10 +378,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool clearColorImage_impl(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
         virtual bool clearDepthStencilImage_impl(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
         virtual bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) = 0;
-        virtual bool fillBuffer_impl(IGPUBuffer* dstBuffer, size_t dstOffset, size_t size, uint32_t data) = 0;
         virtual void bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* pOffsets) = 0;
         virtual bool dispatchIndirect_impl(const IGPUBuffer* buffer, size_t offset) = 0;
-        virtual bool copyBuffer_impl(const IGPUBuffer* srcBuffer, IGPUBuffer* dstBuffer, uint32_t regionCount, const SBufferCopy* pRegions) = 0;
         virtual bool copyImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) = 0;
         virtual bool copyBufferToImage_impl(const IGPUBuffer* srcBuffer, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
         virtual bool blitImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) = 0;

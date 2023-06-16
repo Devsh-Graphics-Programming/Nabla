@@ -195,10 +195,7 @@ bool IGPUCommandBuffer::setEvent(IGPUEvent* _event, const SDependencyInfo& depIn
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (!_event || _event->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(_event))
+    if (!_event || !this->isCompatibleDevicewise(_event))
         return false;
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdSetEvent2-srcStageMask-03827
@@ -217,10 +214,7 @@ bool IGPUCommandBuffer::resetEvent(IGPUEvent* _event, const core::bitflag<stage_
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (!_event || _event->getAPIType()!=getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(_event))
+    if (!_event || !this->isCompatibleDevicewise(_event))
         return false;
 
     if (stageMask.hasFlags(stage_flags_t::HOST_BIT))
@@ -325,6 +319,74 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     return pipelineBarrier_impl(dependencyFlags,depInfo);
 }
 
+
+bool IGPUCommandBuffer::fillBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t size, uint32_t data)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+    
+    if (!validate_updateBuffer<true>(dstBuffer,dstOffset,size))
+    {
+        m_logger.log("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`.", system::ILogger::ELL_ERROR);
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CFillBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return fillBuffer_impl(dstBuffer, dstOffset, size, data);
+}
+
+bool IGPUCommandBuffer::updateBuffer(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize, const void* const pData)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!validate_updateBuffer(dstBuffer,dstOffset,dataSize))
+    {
+        m_logger.log("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`.", system::ILogger::ELL_ERROR);
+        return false;
+    }
+    if (dataSize>0x10000ull)
+    {
+        m_logger.log("Inline Buffer Updates are limited to 64kb!", system::ILogger::ELL_ERROR);
+        return false;
+    }
+    if (!dstBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
+    {
+        m_logger.log("You need the `IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF` usage flag which is missing!", system::ILogger::ELL_ERROR);
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return updateBuffer_impl(dstBuffer,dstOffset,dataSize,pData);
+}
+
+bool IGPUCommandBuffer::copyBuffer(const IGPUBuffer* const srcBuffer, IGPUBuffer* const dstBuffer, uint32_t regionCount, const SBufferCopy* const pRegions)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-srcBuffer-parameter
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-srcBuffer-00118
+    if (!srcBuffer || !this->isCompatibleDevicewise(srcBuffer) || !srcBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
+        return false;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-dstBuffer-parameter
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-dstBuffer-00120
+    if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer) || !dstBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
+        return false;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-regionCount-arraylength
+    if (regionCount==0u)
+        return false;
+
+    // pRegions is too expensive to validate
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
+}
 #if 0
 bool IGPUCommandBuffer::bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType)
 {
@@ -526,23 +588,6 @@ bool IGPUCommandBuffer::bindComputePipeline(const compute_pipeline_t* pipeline)
     bindComputePipeline_impl(pipeline);
 
     return true;
-}
-
-bool IGPUCommandBuffer::updateBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    if (!validate_updateBuffer(dstBuffer, dstOffset, dataSize, pData))
-    {
-        m_logger.log("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`.", system::ILogger::ELL_ERROR);
-        return false;
-    }
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
-        return false;
-
-    return updateBuffer_impl(dstBuffer, dstOffset, dataSize, pData);
 }
 
 static void getResourcesFromBuildGeometryInfos(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>>& accelerationStructures, core::vector<core::smart_refctd_ptr<const IGPUBuffer>>& buffers)
@@ -856,23 +901,6 @@ bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::LA
     return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
 }
 
-bool IGPUCommandBuffer::fillBuffer(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(dstBuffer))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CFillBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
-        return false;
-
-    return fillBuffer_impl(dstBuffer, dstOffset, size, data);
-}
-
 bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
 {
     if (!checkStateBeforeRecording())
@@ -958,32 +986,6 @@ bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
 
         return draw(vertexCount, instanceCount, firstVertex, firstInstance);
     }
-}
-
-bool IGPUCommandBuffer::copyBuffer(const buffer_t* srcBuffer, buffer_t* dstBuffer, uint32_t regionCount, const asset::SBufferCopy* pRegions)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!srcBuffer || srcBuffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!dstBuffer || dstBuffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(srcBuffer))
-        return false;
-
-    if (!this->isCompatibleDevicewise(dstBuffer))
-        return false;
-
-    if (regionCount == 0u)
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
-        return false;
-
-    return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
 bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
