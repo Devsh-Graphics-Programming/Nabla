@@ -3,10 +3,9 @@ import org.DevshGraphicsProgramming.IBuilder
 
 class CNablaBuilder extends IBuilder
 {
-	@InheritConstructors
 	public CNablaBuilder(Agent _agent)
 	{
-		
+		super(_agent)
 	}
 	
 	@Override
