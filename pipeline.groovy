@@ -56,7 +56,7 @@ class CNablaBuilder extends IBuilder
 		agent.execute("cmake ${commonFlags} ${extraFlags} -S ./ -B ./${buildDirectory} -T ${toolchain}")
 	}
 	
-	public def impl_build(CONFIGURATION config, BUILD_TYPE buildType)
+	private def impl_build(CONFIGURATION config, BUILD_TYPE buildType)
 	{
 		def buildDirectory = getNameOfBuildDirectory(buildType)
 		def nameOfConfig = getNameOfConfig(config)
