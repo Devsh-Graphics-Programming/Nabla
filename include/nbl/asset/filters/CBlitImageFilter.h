@@ -95,7 +95,7 @@ class CBlitImageFilter :
 		using value_t = blit_utils_t::value_type;
 		using base_t = CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>;
 
-		static inline constexpr auto MaxChannels = blit_utils_t::MaxChannels;
+		static inline constexpr auto ChannelCount = blit_utils_t::ChannelCount;
 
 	public:
 		virtual ~CBlitImageFilter() {}
@@ -229,14 +229,14 @@ class CBlitImageFilter :
 			case ESU_BLIT_X_AXIS_WRITE:
 				[[fallthrough]];
 			case ESU_BLIT_Z_AXIS_WRITE:
-				return scaledKernelPhasedLUTSize + pingBufferElementCount * MaxChannels * sizeof(value_t);
+				return scaledKernelPhasedLUTSize + pingBufferElementCount * ChannelCount * sizeof(value_t);
 
 			case ESU_ALPHA_HISTOGRAM:
-				return scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount)*MaxChannels*sizeof(value_t);
+				return scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount)*ChannelCount*sizeof(value_t);
 				
 			default: // ESU_COUNT
 			{
-				size_t totalScratchSize = scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount) * MaxChannels * sizeof(value_t);
+				size_t totalScratchSize = scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount) * ChannelCount * sizeof(value_t);
 				if (state->alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 					totalScratchSize += kAlphaHistogramSize*m_maxParallelism;
 				return totalScratchSize;
@@ -349,9 +349,9 @@ class CBlitImageFilter :
 				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Z_AXIS_WRITE))
 			};
 			const core::vectorSIMDu32 intermediateStrides[3] = {
-				core::vectorSIMDu32(MaxChannels*intermediateExtent[0].y,MaxChannels,MaxChannels*intermediateExtent[0].x*intermediateExtent[0].y,0u),
-				core::vectorSIMDu32(MaxChannels*intermediateExtent[1].y*intermediateExtent[1].z,MaxChannels*intermediateExtent[1].z,MaxChannels,0u),
-				core::vectorSIMDu32(MaxChannels,MaxChannels*intermediateExtent[2].x,MaxChannels*intermediateExtent[2].x*intermediateExtent[2].y,0u)
+				core::vectorSIMDu32(ChannelCount*intermediateExtent[0].y,ChannelCount,ChannelCount*intermediateExtent[0].x*intermediateExtent[0].y,0u),
+				core::vectorSIMDu32(ChannelCount*intermediateExtent[1].y*intermediateExtent[1].z,ChannelCount*intermediateExtent[1].z,ChannelCount,0u),
+				core::vectorSIMDu32(ChannelCount,ChannelCount*intermediateExtent[2].x,ChannelCount*intermediateExtent[2].x*intermediateExtent[2].y,0u)
 			};
 			// storage
 			core::RandomSampler sampler(std::chrono::high_resolution_clock::now().time_since_epoch().count());
@@ -359,12 +359,12 @@ class CBlitImageFilter :
 			{
 				if (nonPremultBlendSemantic && sample[alphaChannel]>FLT_MIN*1024.0*512.0)
 				{
-					for (auto i=0; i<MaxChannels; i++)
+					for (auto i=0; i<ChannelCount; i++)
 					if (i!=alphaChannel)
 						sample[i] /= sample[alphaChannel];
 				}
 
-				base_t::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, MaxChannels);
+				base_t::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, ChannelCount);
 			};
 			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [policy,coverageSemantic,needsNormalization,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg,state](
@@ -388,9 +388,9 @@ class CBlitImageFilter :
 
 					struct DummyTexelType
 					{
-						double texel[MaxChannels];
+						double texel[ChannelCount];
 					};
-					std::for_each(policy, reinterpret_cast<DummyTexelType*>(intermediateStorage[axis]), reinterpret_cast<DummyTexelType*>(intermediateStorage[axis] + outputTexelCount*MaxChannels), [&sampler, outFormat, &histograms, &scratchHelper, alphaChannel, state](const DummyTexelType& dummyTexel)
+					std::for_each(policy, reinterpret_cast<DummyTexelType*>(intermediateStorage[axis]), reinterpret_cast<DummyTexelType*>(intermediateStorage[axis] + outputTexelCount*ChannelCount), [&sampler, outFormat, &histograms, &scratchHelper, alphaChannel, state](const DummyTexelType& dummyTexel)
 					{
 						const uint32_t index = scratchHelper.template alloc<is_seq_policy_v>();
 
@@ -421,10 +421,10 @@ class CBlitImageFilter :
 					void* const dstPix = outData+writeBlockArrayOffset;
 					const core::vectorSIMDu32 localOutPos = writeBlockPos - outOffsetLayer;
 
-					value_t sample[MaxChannels];
+					value_t sample[ChannelCount];
 					const size_t offset = IImage::SBufferCopy::getLocalByteOffset(localOutPos, intermediateStrides[axis]);
 					const auto* first = intermediateStorage[axis]+offset;
-					std::copy(first,first+MaxChannels,sample);
+					std::copy(first,first+ChannelCount,sample);
 
 					sample[alphaChannel] *= coverageScale;
 					storeToTexel(sample,dstPix,localOutPos);
@@ -511,7 +511,7 @@ class CBlitImageFilter :
 						{
 							const auto inputEnd = inExtent.width+real_window_size.x;
 							decode_offset = scratchHelper.template alloc<is_seq_policy_v>();
-							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*inputEnd;
+							lineBuffer = intermediateStorage[1]+decode_offset*ChannelCount*inputEnd;
 							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
@@ -526,15 +526,15 @@ class CBlitImageFilter :
 								if (!srcPix[0])
 									continue;
 
-								auto sample = lineBuffer+i*MaxChannels;
-								value_t swizzledSample[MaxChannels];
+								auto sample = lineBuffer+i*ChannelCount;
+								value_t swizzledSample[ChannelCount];
 
-								// TODO: make sure there is no leak due to MaxChannels!
+								// TODO: make sure there is no leak due to ChannelCount!
 								base_t::template onDecode(inFormat, state, srcPix, sample, swizzledSample, blockLocalTexelCoord.x, blockLocalTexelCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
-									for (auto i=0; i<MaxChannels; i++)
+									for (auto i=0; i<ChannelCount; i++)
 									if (i!=alphaChannel)
 										sample[i] *= sample[alphaChannel];
 								}
@@ -551,11 +551,11 @@ class CBlitImageFilter :
 						{
 							value_t kernelWeight;
 							if constexpr (std::is_same_v<LutDataType, uint16_t>)
-								kernelWeight = value_t(core::Float16Compressor::decompress(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel]));
+								kernelWeight = value_t(core::Float16Compressor::decompress(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel]));
 							else
-								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel];
+								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel];
 
-							return kernelWeight * lineBuffer[(windowCoord - windowMinCoord[axis]) * MaxChannels + channel];
+							return kernelWeight * lineBuffer[(windowCoord - windowMinCoord[axis]) * ChannelCount + channel];
 						};
 
 						uint32_t phaseIndex = 0;
@@ -569,21 +569,21 @@ class CBlitImageFilter :
 							float tmp = float(i)+0.5f;
 							int32_t windowCoord = kernel.getWindowMinCoord(tmp*fScale[axis], tmp);
 
-							for (auto ch = 0; ch < MaxChannels; ++ch)
+							for (auto ch = 0; ch < ChannelCount; ++ch)
 								value[ch] = getWeightedSample(windowCoord, phaseIndex, 0, ch);
 
 							for (auto h=1; h<windowSize; h++)
 							{
 								windowCoord++;
 
-								for (auto ch = 0; ch < MaxChannels; ch++)
+								for (auto ch = 0; ch < ChannelCount; ch++)
 									value[ch] += getWeightedSample(windowCoord, phaseIndex, h, ch);
 							}
 							if (lastPass)
 							{
 								const core::vectorSIMDu32 localOutPos = localTexCoord+outOffsetBaseLayer+vLayer;
 								if (needsNormalization)
-									state->normalization.prepass(value,localOutPos,0u,0u,MaxChannels);
+									state->normalization.prepass(value,localOutPos,0u,0u,ChannelCount);
 								else // store to image, we're done
 								{
 									core::vectorSIMDu32 dummy(0u);

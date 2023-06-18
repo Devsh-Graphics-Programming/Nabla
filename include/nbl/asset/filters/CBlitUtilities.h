@@ -36,9 +36,33 @@ public:
 	}
 };
 
+namespace impl
+{
+
+// Make all instantiations of `is_instantiation_of_CConvolutionWeightFunction1D/ChannelIndependentWeightFunctionOfConvolutions` have
+// a false value, but specialize only the ones we want, to be true.
+
+template <typename T>
+struct is_instantiation_of_CConvolutionWeightFunction1D : std::false_type {};
+
+template <SimpleWeightFunction1D WeightFunction1DA, SimpleWeightFunction1D WeightFunction1DB>
+struct is_instantiation_of_CConvolutionWeightFunction1D<CConvolutionWeightFunction1D<WeightFunction1DA, WeightFunction1DB>> : std::true_type {};
+
+template <typename T>
+struct ChannelIndependentWeightFunctionOfConvolutions : std::false_type {};
+
+template <WeightFunction1D FirstWeightFunction1D, WeightFunction1D... OtherWeightFunctions>
+struct ChannelIndependentWeightFunctionOfConvolutions<CChannelIndependentWeightFunction1D<FirstWeightFunction1D, OtherWeightFunctions...>>
+	: std::bool_constant<(is_instantiation_of_CConvolutionWeightFunction1D<FirstWeightFunction1D>::value) && (is_instantiation_of_CConvolutionWeightFunction1D<OtherWeightFunctions>::value && ...)>
+{};
+
+} // namespace impl
+
 template <typename T>
 concept ChannelIndependentWeightFunctionOfConvolutions = requires(T t, const float unnormCenterSampledCoord, float& cornerSampledCoord, const float x, const uint8_t channel)
 {
+	requires impl::ChannelIndependentWeightFunctionOfConvolutions<T>::value;
+
 	{ t.getWindowSize() } -> std::same_as<int32_t>;
 
 	{ t.getWindowMinCoord(unnormCenterSampledCoord, cornerSampledCoord) } -> std::same_as<int32_t>;
@@ -65,7 +89,9 @@ public:
 
 	using value_type = convolution_kernel_x_t::value_t;
 	static_assert(std::is_same_v<value_type, convolution_kernel_y_t::value_t> && std::is_same_v<value_type, convolution_kernel_z_t::value_t>);
-	static inline constexpr uint32_t MaxChannels = convolution_kernel_x_t::MaxChannels;
+
+	static_assert(convolution_kernel_x_t::ChannelCount == convolution_kernel_y_t::ChannelCount && convolution_kernel_y_t::ChannelCount == convolution_kernel_z_t::ChannelCount);
+	static inline constexpr uint32_t ChannelCount = convolution_kernel_x_t::ChannelCount;
 
 	template <typename LutDataType>
 	static inline size_t getScaledKernelPhasedLUTSize(
@@ -86,7 +112,7 @@ public:
 		const core::vectorSIMDi32&		windowSize)
 	{
 		const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
-		return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(LutDataType) * MaxChannels;
+		return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(LutDataType) * ChannelCount;
 	}
 
 	template <typename LutDataType>
@@ -131,13 +157,13 @@ public:
 
 				for (int32_t j = 0; j < _windowSize; ++j)
 				{
-					for (uint32_t ch = 0; ch < MaxChannels; ++ch)
+					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
 					{
 						const double weight = static_cast<double>(kernel.weight(relativePos, ch));
 						if constexpr (std::is_same_v<LutDataType, uint16_t>)
-							outKernelWeightsPixel[(i * _windowSize + j) * MaxChannels + ch] = core::Float16Compressor::compress(float(weight));
+							outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = core::Float16Compressor::compress(float(weight));
 						else
-							outKernelWeightsPixel[(i * _windowSize + j) * MaxChannels + ch] = LutDataType(weight);
+							outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = LutDataType(weight);
 					}
 					
 					relativePos -= 1.f;
@@ -273,7 +299,7 @@ public:
 		result.x = 0u;
 		result.y = (phaseCount[0] * windowSize.x);
 		result.z = ((phaseCount[0] * windowSize.x) + (phaseCount[1] * windowSize.y));
-		return result * sizeof(LutDataType) * MaxChannels;
+		return result * sizeof(LutDataType) * ChannelCount;
 	}
 };
 

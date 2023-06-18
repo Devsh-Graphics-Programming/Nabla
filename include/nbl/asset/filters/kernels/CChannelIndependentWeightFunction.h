@@ -20,7 +20,7 @@ class CChannelIndependentWeightFunction1D final
 		static_assert(std::is_same_v<value_t,double>,"should probably allow `float`s at some point!");
 	
 		static_assert(sizeof...(OtherWeightFunctions) < 4u);
-		static inline constexpr size_t MaxChannels = 1 + sizeof...(OtherWeightFunctions);
+		static inline constexpr size_t ChannelCount = 1 + sizeof...(OtherWeightFunctions);
 
 	private:
 		using functions_t = std::tuple<FirstWeightFunction1D,OtherWeightFunctions...>;
@@ -32,10 +32,10 @@ class CChannelIndependentWeightFunction1D final
 
 		// stuff needed for type deduction in `getFunction`
 		template<uint8_t ch>
-		constexpr static inline bool has_function_v = ch < MaxChannels;
+		constexpr static inline bool has_function_v = ch < ChannelCount;
 		struct dummy_function_t {};
 		template <uint8_t ch>
-		using function_t = std::conditional_t<has_function_v<ch>, std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch), MaxChannels-1ull), functions_t>, dummy_function_t>;
+		using function_t = std::conditional_t<has_function_v<ch>, std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch), ChannelCount-1ull), functions_t>, dummy_function_t>;
 
 	public:
 		CChannelIndependentWeightFunction1D(FirstWeightFunction1D&& firstFunc, OtherWeightFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...)
