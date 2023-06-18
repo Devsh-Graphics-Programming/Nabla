@@ -1,8 +1,8 @@
 @Library('devsh-ci')
 
-import org.DevshGraphicsProgramming.Builder
+import org.DevshGraphicsProgramming.IBuilder
 
-class CNablaBuilder extends Builder
+class CNablaBuilder extends IBuilder
 {
 	@InheritConstructors
 	public CNablaBuilder(Agent _agent)
