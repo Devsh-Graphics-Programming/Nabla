@@ -1,5 +1,4 @@
-@Library('devsh-ci')
-
+import org.DevshGraphicsProgramming.Agent
 import org.DevshGraphicsProgramming.IBuilder
 
 class CNablaBuilder extends IBuilder
