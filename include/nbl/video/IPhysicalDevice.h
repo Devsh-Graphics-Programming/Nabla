@@ -581,7 +581,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         };
 
         asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
-        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling);
+        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling);
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}

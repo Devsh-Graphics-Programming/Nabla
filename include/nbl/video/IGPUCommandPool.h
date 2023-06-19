@@ -7,7 +7,9 @@
 #include "nbl/core/containers/CMemoryPool.h"
 
 #include "nbl/video/decl/IBackendObject.h"
-#include "nbl/video/IGPUPipelineLayout.h"
+#include "nbl/video/IGPUComputePipeline.h"
+#include "nbl/video/IGPUFramebuffer.h"
+#include "nbl/video/IQueryPool.h"
 
 namespace nbl::video
 {
