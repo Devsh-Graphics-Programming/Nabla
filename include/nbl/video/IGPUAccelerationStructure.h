@@ -70,15 +70,15 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 
 		struct CopyInfo
 		{
-			IGPUAccelerationStructure * src;
-			IGPUAccelerationStructure * dst;
+			const IGPUAccelerationStructure* src;
+			IGPUAccelerationStructure* dst;
 			E_COPY_MODE copyMode;
 		};
 		
 		template<typename AddressType>
 		struct CopyToMemoryInfo
 		{
-			IGPUAccelerationStructure * src;
+			const IGPUAccelerationStructure* src;
 			AddressType dst;
 			E_COPY_MODE copyMode;
 		};
@@ -90,7 +90,7 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		struct CopyFromMemoryInfo
 		{
 			AddressType src;
-			IGPUAccelerationStructure * dst;
+			IGPUAccelerationStructure* dst;
 			E_COPY_MODE copyMode;
 		};
 		using DeviceCopyFromMemoryInfo = CopyFromMemoryInfo<DeviceAddressType>;

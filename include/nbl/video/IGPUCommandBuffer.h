@@ -130,10 +130,10 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         {
             SResourceMemoryBarrier barrier = {};
             core::smart_refctd_ptr<const IGPUImage> image = nullptr;
-            asset::IImage::SSubresourceRange subresourceRange = {};
+            IGPUImage::SSubresourceRange subresourceRange = {};
             // If both layouts match, no transition is performed, so this is our default
-            asset::IImage::LAYOUT oldLayout = IGPUImage::LAYOUT::UNDEFINED;
-            asset::IImage::LAYOUT newLayout = IGPUImage::LAYOUT::UNDEFINED;
+            IGPUImage::LAYOUT oldLayout = IGPUImage::LAYOUT::UNDEFINED;
+            IGPUImage::LAYOUT newLayout = IGPUImage::LAYOUT::UNDEFINED;
         };
         struct SDependencyInfo
         {
@@ -163,39 +163,63 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         };
         bool copyBuffer(const IGPUBuffer* srcBuffer, IGPUBuffer* dstBuffer, uint32_t regionCount, const SBufferCopy* const pRegions);
 
-#if 0
         //! image transfers
-        bool clearColorImage(IGPUImage* image, asset::IImage::LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges);
-        bool clearDepthStencilImage(IGPUImage* image, asset::IImage::LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges);
-        bool copyBufferToImage(const IGPUBuffer* srcBuffer, IGPUImage* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions);
-        bool copyImageToBuffer(const IGPUBuffer* srcImage, asset::IImage::LAYOUT srcImageLayout, IGPUBuffer* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions);
-        bool copyImage(const IGPUImage* srcImage, asset::IImage::LAYOUT srcImageLayout, IGPUImage* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions);
+        union SClearColorValue
+        {
+            float float32[4];
+            int32_t int32[4];
+            uint32_t uint32[4];
+        };
+        struct SClearDepthStencilValue
+        {
+            float depth;
+            uint32_t stencil;
+        };
+        union SClearValue
+        {
+            SClearColorValue color;
+            SClearDepthStencilValue depthStencil;
+        };
+        bool clearColorImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges);
+        bool clearDepthStencilImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearDepthStencilValue* const pDepthStencil, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges);
+        bool copyBufferToImage(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
+        bool copyImageToBuffer(const IGPUBuffer* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
+        bool copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions);
 
         //! acceleration structure transfers
-        bool copyAccelerationStructure(const video::IGPUAccelerationStructure::CopyInfo& copyInfo);
-        bool copyAccelerationStructureToMemory(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo);
-        bool copyAccelerationStructureFromMemory(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo);
+        bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo);
+        bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo);
+        bool copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo);
 
         //! acceleration structure builds
-        bool buildAccelerationStructures(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos);
-        bool buildAccelerationStructuresIndirect(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts);
+        bool buildAccelerationStructures(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const video::IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos);
+        bool buildAccelerationStructuresIndirect(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<const IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveCounts);
 
         //! state setup
-        bool bindComputePipeline(const IGPUComputePipeline* pipeline);
-        bool bindGraphicsPipeline(const IGPUGraphicsPipeline* pipeline);
+        bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
+        bool bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline);
         bool bindDescriptorSets(
-            asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* layout,
+            const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
-            const uint32_t dynamicOffsetCount=0u, const uint32_t* dynamicOffsets=nullptr
+            const uint32_t dynamicOffsetCount=0u, const uint32_t* const dynamicOffsets=nullptr
         );
-        bool pushConstants(const IGPUPipelineLayout* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues);
-        bool bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* pOffsets);
-        bool bindIndexBuffer(const IGPUBuffer* buffer, size_t offset, asset::E_INDEX_TYPE indexType);
-
-        //! dispatches
-        bool dispatchIndirect(const IGPUBuffer* buffer, size_t offset);
+        bool pushConstants(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues);
+        bool bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* const pOffsets);
+        bool bindIndexBuffer(const IGPUBuffer* const buffer, const size_t offset, const asset::E_INDEX_TYPE indexType);
 
         //! queries
+        bool resetQueryPool(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount);
+        bool beginQuery(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags=QUERY_CONTROL_FLAGS::NONE);
+        bool endQuery(IQueryPool* const queryPool, const uint32_t query);
+        bool writeTimestamp(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query);
+        bool writeAccelerationStructureProperties(const core::SRange<const IGPUAccelerationStructure>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery);
+        bool copyQueryPoolResults(
+            const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
+            IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags
+        );
+# if 0
+        //! dispatches
+        bool dispatchIndirect(const IGPUBuffer* buffer, size_t offset);
 
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
@@ -216,19 +240,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool drawIndirectCount(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
         bool drawIndexedIndirectCount(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
         /* soon: [[deprecated]] */ bool drawMeshBuffer(const IGPUMeshBuffer* meshBuffer);
-
-
-        bool resetQueryPool(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount);
-        bool writeTimestamp(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query);
-
-        bool writeAccelerationStructureProperties(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery);
-
-        bool beginQuery(video::IQueryPool* queryPool, uint32_t query, core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE);
-        bool endQuery(video::IQueryPool* queryPool, uint32_t query);
-        bool copyQueryPoolResults(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, IGPUBuffer* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags);
-
-
-
+#endif
 
         struct SImageBlit
         {
@@ -237,7 +249,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             IGPUImage::SSubresourceLayers dstSubresource;
             asset::VkOffset3D dstOffsets[2];
         };
-        bool blitImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) final override;
+        bool blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* const pRegions, const IGPUSampler::E_TEXTURE_FILTER filter);
         struct SImageResolve
         {
             IGPUImage::SSubresourceLayers srcSubresource;
@@ -246,8 +258,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             asset::VkOffset3D dstOffset;
             asset::VkExtent3D extent;
         };
-        bool resolveImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions);
-#endif
+        bool resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* const pRegions);
+
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
 
@@ -345,8 +357,38 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool fillBuffer_impl(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t size, const uint32_t data) = 0;
         virtual bool updateBuffer_impl(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize, const void* const pData) = 0;
         virtual bool copyBuffer_impl(const IGPUBuffer* const srcBuffer, IGPUBuffer* const dstBuffer, const uint32_t regionCount, const SBufferCopy* const pRegions) = 0;
+
+        virtual bool clearColorImage_impl(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges) = 0;
+        virtual bool clearDepthStencilImage_impl(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearDepthStencilValue* const pDepthStencil, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges) = 0;
+        virtual bool copyBufferToImage_impl(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions) = 0;
+        virtual bool copyImageToBuffer_impl(const IGPUBuffer* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions) = 0;
+        virtual bool copyImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions) = 0;
+
+        virtual bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
+        virtual bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) = 0;
+        virtual bool copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) = 0;
+
+        virtual bool buildAccelerationStructures_impl(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const video::IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos) = 0;
+        virtual bool buildAccelerationStructuresIndirect_impl(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<const IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveCounts) = 0;
+
+        virtual bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) = 0;
+        virtual bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) = 0;
+        virtual bool bindDescriptorSets_impl(
+            const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
+            const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
+            const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets = nullptr
+        ) = 0;
+        virtual bool pushConstants_impl(const IGPUPipelineLayout* const layout, core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) = 0;
+        virtual bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* const pOffsets) = 0;
+        virtual bool bindIndexBuffer_impl(const IGPUBuffer* const buffer, const size_t offset, const asset::E_INDEX_TYPE indexType) = 0;
+
+        virtual bool resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount) = 0;
+        virtual bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;
+        virtual bool endQuery_impl(IQueryPool* const queryPool, const uint32_t query) = 0;
+        virtual bool writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query) = 0;
+        virtual bool writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
+        virtual bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
 #if 0
-        virtual void bindIndexBuffer_impl(const IGPUBuffer* buffer, size_t offset, asset::E_INDEX_TYPE indexType) = 0;
         virtual bool drawIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
         virtual bool drawIndexedIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
         virtual bool drawIndirectCount_impl(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
@@ -356,36 +398,12 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool nextSubpass_impl(const asset::E_SUBPASS_CONTENTS contents) = 0;
         virtual bool endRenderPass_impl() = 0;
 
-        virtual bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, const uint32_t descriptorSetCount,
-            const descriptor_set_t* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* dynamicOffsets = nullptr) = 0;
-        virtual void bindComputePipeline_impl(const compute_pipeline_t* pipeline) = 0;
-
-        virtual bool buildAccelerationStructures_impl(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, video::IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) { assert(!"Invalid code path."); return false; }
-        virtual bool buildAccelerationStructuresIndirect_impl(const core::SRange<video::IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<video::IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts) { assert(!"Invalid code path."); return false; }
-        virtual bool copyAccelerationStructure_impl(const video::IGPUAccelerationStructure::CopyInfo& copyInfo) { assert(!"Invalid code path."); return false; }
-        virtual bool copyAccelerationStructureToMemory_impl(const video::IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) { assert(!"Invalid code path."); return false; }
-        virtual bool copyAccelerationStructureFromMemory_impl(const video::IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) { assert(!"Invaild code path."); return false; }
-
-        virtual bool resetQueryPool_impl(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) = 0;
-        virtual bool writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, video::IQueryPool* queryPool, uint32_t query) = 0;
-        virtual bool writeAccelerationStructureProperties_impl(const core::SRange<video::IGPUAccelerationStructure>& pAccelerationStructures, video::IQueryPool::E_QUERY_TYPE queryType, video::IQueryPool* queryPool, uint32_t firstQuery) { assert(!"Invalid code path."); return false; }
-        virtual bool beginQuery_impl(video::IQueryPool* queryPool, uint32_t query, core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;
-        virtual bool endQuery_impl(video::IQueryPool* queryPool, uint32_t query) = 0;
-        virtual bool copyQueryPoolResults_impl(video::IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, IGPUBuffer* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
-
-        virtual bool bindGraphicsPipeline_impl(const graphics_pipeline_t* pipeline) = 0;
-        virtual bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
-        virtual bool clearColorImage_impl(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
-        virtual bool clearDepthStencilImage_impl(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;
         virtual bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) = 0;
-        virtual void bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* pOffsets) = 0;
         virtual bool dispatchIndirect_impl(const IGPUBuffer* buffer, size_t offset) = 0;
-        virtual bool copyImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions) = 0;
-        virtual bool copyBufferToImage_impl(const IGPUBuffer* srcBuffer, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
-        virtual bool blitImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter) = 0;
-        virtual bool copyImageToBuffer_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, IGPUBuffer* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions) = 0;
-        virtual bool resolveImage_impl(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions) = 0;
 #endif
+        virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
+        virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
+
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 
         virtual void releaseResourcesBackToPool_impl() {}

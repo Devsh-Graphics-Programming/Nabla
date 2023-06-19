@@ -7,22 +7,6 @@
 namespace nbl::asset
 {
 
-union SClearColorValue
-{
-    float float32[4];
-    int32_t int32[4];
-    uint32_t uint32[4];
-};
-struct SClearDepthStencilValue
-{
-    float depth;
-    uint32_t stencil;
-};
-union SClearValue
-{
-    SClearColorValue color;
-    SClearDepthStencilValue depthStencil;
-};
 
 struct SClearAttachment
 {

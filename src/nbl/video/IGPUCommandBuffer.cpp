@@ -387,26 +387,422 @@ bool IGPUCommandBuffer::copyBuffer(const IGPUBuffer* const srcBuffer, IGPUBuffer
 
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
+
+
+bool IGPUCommandBuffer::clearColorImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!image || !this->isCompatibleDevicewise(image))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearColorImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
+        return false;
+    return clearColorImage_impl(image, imageLayout, pColor, rangeCount, pRanges);
+}
+
+bool IGPUCommandBuffer::clearDepthStencilImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearDepthStencilValue* const pDepthStencil, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!image || !this->isCompatibleDevicewise(image))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
+        return false;
+    return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
+}
+
+bool IGPUCommandBuffer::copyBufferToImage(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!srcBuffer || !this->isCompatibleDevicewise(srcBuffer))
+        return false;
+    if (!dstImage || !this->isCompatibleDevicewise(dstImage))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+        return false;
+
+    return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
+}
+
+bool IGPUCommandBuffer::copyImageToBuffer(const IGPUBuffer* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!srcImage || !this->isCompatibleDevicewise(srcImage))
+        return false;
+    if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
+}
+
+bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!srcImage || !this->isCompatibleDevicewise(srcImage))
+        return false;
+    if (!dstImage || !this->isCompatibleDevicewise(dstImage))
+        return false;
+
+    if (!dstImage->validateCopies(pRegions, pRegions + regionCount, srcImage))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+        return false;
+
+    return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
+}
+
+
+bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!copyInfo.src || !this->isCompatibleDevicewise(copyInfo.src))
+        return false;
+    if (!copyInfo.dst || !this->isCompatibleDevicewise(copyInfo.dst))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst)))
+        return false;
+
+    return copyAccelerationStructure_impl(copyInfo);
+}
+
+bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!copyInfo.src || !this->isCompatibleDevicewise(copyInfo.src))
+        return false;
+    if (!copyInfo.dst.buffer || !this->isCompatibleDevicewise(copyInfo.dst.buffer.get()))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
+        return false;
+
+    return copyAccelerationStructureToMemory_impl(copyInfo);
+}
+
+bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+    
+    if (!copyInfo.src.buffer || !this->isCompatibleDevicewise(copyInfo.src.buffer.get()))
+        return false;
+    if (!copyInfo.dst || !this->isCompatibleDevicewise(copyInfo.dst))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.src.buffer)))
+        return false;
+
+    return copyAccelerationStructureFromMemory_impl(copyInfo);
+}
+
 #if 0
-bool IGPUCommandBuffer::bindIndexBuffer(const buffer_t* buffer, size_t offset, asset::E_INDEX_TYPE indexType)
+bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (pInfos.empty())
+        return false;
+
+    core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>> accelerationStructures;
+    core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
+    getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
+        return false;
+    
+    return buildAccelerationStructures_impl(pInfos, ppBuildRangeInfos);
+}
+
+bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<const IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveCounts)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (pInfos.empty())
+        return false;
+
+    core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>> accelerationStructures;
+    core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
+    getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
+        return false;
+
+    return buildAccelerationStructuresIndirect_impl(pInfos, pIndirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
+}
+#endif
+
+bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
+        return false;
+
+    if (!this->isCompatibleDevicewise(pipeline))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
+        return false;
+
+    bindComputePipeline_impl(pipeline);
+
+    return true;
+}
+
+bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
-    if (!buffer || (buffer->getAPIType() != getAPIType()))
+    if (!pipeline || !this->isCompatibleDevicewise(pipeline))
         return false;
 
-    if (!this->isCompatibleDevicewise(buffer))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
+        return false;
+
+    return bindGraphicsPipeline_impl(pipeline);
+}
+
+bool IGPUCommandBuffer::bindDescriptorSets(
+    const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
+    const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
+    const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!layout ||!this->isCompatibleDevicewise(layout))
+        return false;
+
+    for (uint32_t i=0u; i<descriptorSetCount; ++i)
+    if (pDescriptorSets[i])
+    {
+        if (!this->isCompatibleDevicewise(pDescriptorSets[i]))
+        {
+            m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] was not created by the same ILogicalDevice as the commandbuffer!", system::ILogger::ELL_ERROR, i);
+            return false;
+        }
+        if (!pDescriptorSets[i]->getLayout()->isIdenticallyDefined(layout->getDescriptorSetLayout(firstSet+i)))
+        {
+            m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] not identically defined as layout's %dth descriptor layout!", system::ILogger::ELL_ERROR, i, firstSet+i);
+            return false;
+        }
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_commandList,core::smart_refctd_ptr<const IGPUPipelineLayout>(layout),descriptorSetCount,pDescriptorSets))
+        return false;
+
+    for (uint32_t i=0u; i<descriptorSetCount; ++i)
+    if (pDescriptorSets[i] && !pDescriptorSets[i]->getLayout()->canUpdateAfterBind())
+    {
+        const auto currentVersion = pDescriptorSets[i]->getVersion();
+
+        auto found = m_boundDescriptorSetsRecord.find(pDescriptorSets[i]);
+
+        if (found != m_boundDescriptorSetsRecord.end())
+        {
+            if (found->second != currentVersion)
+            {
+                const char* debugName = pDescriptorSets[i]->getDebugName();
+                if (debugName)
+                    m_logger.log("Descriptor set (%s, %p) was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, debugName, pDescriptorSets[i]);
+                else
+                    m_logger.log("Descriptor set (%p)  was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, pDescriptorSets[i]);
+
+                m_state = STATE::INVALID;
+                return false;
+            }
+        }
+        else
+            m_boundDescriptorSetsRecord.insert({ pDescriptorSets[i], currentVersion });
+    }
+
+    return bindDescriptorSets_impl(pipelineBindPoint, layout, firstSet, descriptorSetCount, pDescriptorSets, dynamicOffsetCount, dynamicOffsets);
+}
+
+bool IGPUCommandBuffer::pushConstants(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!layout || this->isCompatibleDevicewise(layout))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPushConstantsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
+        return false;
+
+    return pushConstants_impl(layout, stageFlags, offset, size, pValues);
+}
+
+bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* const pOffsets)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    for (uint32_t i = 0u; i < bindingCount; ++i)
+    if (pBuffers[i] && !this->isCompatibleDevicewise(pBuffers[i]))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList, firstBinding, bindingCount, pBuffers))
+        return false;
+
+    return bindVertexBuffers_impl(firstBinding, bindingCount, pBuffers, pOffsets);
+}
+
+bool IGPUCommandBuffer::bindIndexBuffer(const IGPUBuffer* const buffer, const size_t offset, const asset::E_INDEX_TYPE indexType)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!buffer || !this->isCompatibleDevicewise(buffer))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
         return false;
 
-    bindIndexBuffer_impl(buffer, offset, indexType);
-
-    return true;
+    return bindIndexBuffer_impl(buffer, offset, indexType);
 }
 
+
+bool IGPUCommandBuffer::resetQueryPool(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount)
+{
+    // also encode/decode and opticalflow (video) queues
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return resetQueryPool_impl(queryPool, firstQuery, queryCount);
+}
+
+bool IGPUCommandBuffer::beginQuery(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags)
+{
+    // also encode/decode and opticalflow (video) queues
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return beginQuery_impl(queryPool, query, flags);
+}
+
+bool IGPUCommandBuffer::endQuery(IQueryPool* const queryPool, const uint32_t query)
+{
+    // also encode/decode and opticalflow (video) queues
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CEndQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return endQuery_impl(queryPool, query);
+}
+
+bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQueryPool* const queryPool, const uint32_t query)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT))
+        return false;
+
+    const auto qFamIx = m_cmdpool->getQueueFamilyIndex();
+    if (!getOriginDevice()->getSupportedStageMask(qFamIx).hasFlags(pipelineStage) || getOriginDevice()->getPhysicalDevice()->getQueueFamilyProperties()[qFamIx].timestampValidBits==0u)
+        return false;
+
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool) || queryPool->getCreationParameters().queryType!=IQueryPool::EQT_TIMESTAMP || query>=queryPool->getCreationParameters().queryCount)
+        return false;
+
+    assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteTimestampCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+        return false;
+
+    return writeTimestamp_impl(pipelineStage, queryPool, query);
+}
+
+#if 0
+bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<const IGPUAccelerationStructure>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool) || pAccelerationStructures.empty())
+        return false;
+
+    const uint32_t asCount = static_cast<uint32_t>(pAccelerationStructures.size());
+    // TODO: Use Better Containers
+    static constexpr size_t MaxAccelerationStructureCount = 128;
+    assert(asCount <= MaxAccelerationStructureCount);
+
+    const IGPUAccelerationStructure* accelerationStructures[MaxAccelerationStructureCount] = { nullptr };
+    for (auto i = 0; i < asCount; ++i)
+        accelerationStructures[i] = &pAccelerationStructures.begin()[i];
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd>(m_commandList, queryPool, asCount, accelerationStructures))
+        return false;
+
+    return writeAccelerationStructureProperties_impl(pAccelerationStructures, queryType, queryPool, firstQuery);
+}
+#endif
+
+bool IGPUCommandBuffer::copyQueryPoolResults(
+    const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
+    IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    // TODO: rest of validation
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool) || firstQuery+queryCount>=queryPool->getCreationParameters().queryCount)
+        return false;
+
+    if (flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT))
+    {
+        if (dstOffset&0x7u)
+            return false;
+    }
+    else if (dstOffset&0x3u)
+        return false;
+
+    const auto& params = dstBuffer->getCreationParams();
+    if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer) || params.usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT) || dstOffset+queryCount*stride>=params.size)
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyQueryPoolResultsCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+        return false;
+
+    return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
+}
+#if 0
 bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
@@ -510,86 +906,6 @@ bool IGPUCommandBuffer::endRenderPass()
     return endRenderPass_impl();
 }
 
-bool IGPUCommandBuffer::bindDescriptorSets(asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const pipeline_layout_t* layout, uint32_t firstSet, const uint32_t descriptorSetCount,
-    const descriptor_set_t* const* const pDescriptorSets, const uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT))
-        return false;
-
-    if (!this->isCompatibleDevicewise(layout))
-        return false;
-
-    if (layout->getAPIType() != getAPIType())
-        return false;
-
-    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
-    {
-        if (pDescriptorSets[i])
-        {
-            if (!this->isCompatibleDevicewise(pDescriptorSets[i]))
-            {
-                m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] was not created by the same ILogicalDevice as the commandbuffer!", system::ILogger::ELL_ERROR, i);
-                return false;
-            }
-            if (!pDescriptorSets[i]->getLayout()->isIdenticallyDefined(layout->getDescriptorSetLayout(firstSet + i)))
-            {
-                m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] not identically defined as layout's %dth descriptor layout!", system::ILogger::ELL_ERROR, i, firstSet + i);
-                return false;
-            }
-        }
-    }
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout), descriptorSetCount, pDescriptorSets))
-        return false;
-
-    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
-    {
-        if (pDescriptorSets[i] && !pDescriptorSets[i]->getLayout()->canUpdateAfterBind())
-        {
-            const auto currentVersion = pDescriptorSets[i]->getVersion();
-
-            auto found = m_boundDescriptorSetsRecord.find(pDescriptorSets[i]);
-
-            if (found != m_boundDescriptorSetsRecord.end())
-            {
-                if (found->second != currentVersion)
-                {
-                    const char* debugName = pDescriptorSets[i]->getDebugName();
-                    if (debugName)
-                        m_logger.log("Descriptor set (%s, %p) was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, debugName, pDescriptorSets[i]);
-                    else
-                        m_logger.log("Descriptor set (%p)  was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, pDescriptorSets[i]);
-
-                    m_state = ES_INVALID;
-                    return false;
-                }
-            }
-            else
-            {
-                m_boundDescriptorSetsRecord.insert({ pDescriptorSets[i], currentVersion });
-            }
-        }
-    }
-
-    return bindDescriptorSets_impl(pipelineBindPoint, layout, firstSet, descriptorSetCount, pDescriptorSets, dynamicOffsetCount, dynamicOffsets);
-}
-
-bool IGPUCommandBuffer::bindComputePipeline(const compute_pipeline_t* pipeline)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
-        return false;
-
-    if (!this->isCompatibleDevicewise(pipeline))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
-        return false;
-
-    bindComputePipeline_impl(pipeline);
-
-    return true;
-}
-
 static void getResourcesFromBuildGeometryInfos(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>>& accelerationStructures, core::vector<core::smart_refctd_ptr<const IGPUBuffer>>& buffers)
 {
     const size_t infoCount = pInfos.size();
@@ -646,278 +962,6 @@ static void getResourcesFromBuildGeometryInfos(const core::SRange<IGPUAccelerati
             }
         }
     }
-}
-
-bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    if (pInfos.empty())
-        return false;
-
-    core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>> accelerationStructures;
-    core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
-    getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
-        return false;
-    
-    return buildAccelerationStructures_impl(pInfos, ppBuildRangeInfos);
-}
-
-bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    if (pInfos.empty())
-        return false;
-
-    core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>> accelerationStructures;
-    core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
-    getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
-        return false;
-
-    return buildAccelerationStructuresIndirect_impl(pInfos, pIndirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
-}
-
-bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    if (!copyInfo.src || copyInfo.src->getAPIType() != getAPIType())
-        return false;
-
-    if (!copyInfo.dst || copyInfo.dst->getAPIType() != getAPIType())
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst)))
-        return false;
-
-    return copyAccelerationStructure_impl(copyInfo);
-}
-
-bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    if (!copyInfo.src || copyInfo.src->getAPIType() != getAPIType())
-        return false;
-
-    if (!copyInfo.dst.buffer || copyInfo.dst.buffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
-        return false;
-
-    return copyAccelerationStructureToMemory_impl(copyInfo);
-}
-
-bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    if (!copyInfo.src.buffer || copyInfo.src.buffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!copyInfo.dst || copyInfo.dst->getAPIType() != getAPIType())
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.src.buffer)))
-        return false;
-
-    return copyAccelerationStructureFromMemory_impl(copyInfo);
-}
-
-bool IGPUCommandBuffer::resetQueryPool(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount)
-{
-    // also encode/decode and opticalflow (video) queues
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
-        return false;
-
-    return resetQueryPool_impl(queryPool, firstQuery, queryCount);
-}
-
-bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQueryPool* queryPool, uint32_t query)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT))
-        return false;
-
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
-        return false;
-
-    assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteTimestampCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
-        return false;
-
-    return writeTimestamp_impl(pipelineStage, queryPool, query);
-}
-
-bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!queryPool || pAccelerationStructures.empty())
-        return false;
-
-    const uint32_t asCount = static_cast<uint32_t>(pAccelerationStructures.size());
-    // TODO: Use Better Containers
-    static constexpr size_t MaxAccelerationStructureCount = 128;
-    assert(asCount <= MaxAccelerationStructureCount);
-
-    const IGPUAccelerationStructure* accelerationStructures[MaxAccelerationStructureCount] = { nullptr };
-    for (auto i = 0; i < asCount; ++i)
-        accelerationStructures[i] = &pAccelerationStructures.begin()[i];
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd>(m_commandList, queryPool, asCount, accelerationStructures))
-        return false;
-
-    return writeAccelerationStructureProperties_impl(pAccelerationStructures, queryType, queryPool, firstQuery);
-}
-
-bool IGPUCommandBuffer::beginQuery(IQueryPool* queryPool, uint32_t query, core::bitflag<QUERY_CONTROL_FLAGS> flags)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
-        return false;
-
-    return beginQuery_impl(queryPool, query, flags);
-}
-
-bool IGPUCommandBuffer::endQuery(IQueryPool* queryPool, uint32_t query)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CEndQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
-        return false;
-
-    return endQuery_impl(queryPool, query);
-}
-
-bool IGPUCommandBuffer::copyQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
-        return false;
-
-    if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyQueryPoolResultsCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
-        return false;
-
-    return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
-}
-
-bool IGPUCommandBuffer::bindGraphicsPipeline(const graphics_pipeline_t* pipeline)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!pipeline || pipeline->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(pipeline))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
-        return false;
-
-    return bindGraphicsPipeline_impl(pipeline);
-}
-
-bool IGPUCommandBuffer::pushConstants(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (layout->getAPIType() != getAPIType())
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPushConstantsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
-        return false;
-
-    pushConstants_impl(layout, stageFlags, offset, size, pValues);
-
-    return true;
-}
-
-bool IGPUCommandBuffer::clearColorImage(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!image || image->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(image))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearColorImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(image)))
-        return false;
-
-    return clearColorImage_impl(image, imageLayout, pColor, rangeCount, pRanges);
-}
-
-bool IGPUCommandBuffer::clearDepthStencilImage(image_t* image, asset::IImage::LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!image || image->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(image))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(image)))
-        return false;
-
-    return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
-}
-
-bool IGPUCommandBuffer::bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    for (uint32_t i = 0u; i < bindingCount; ++i)
-    {
-        if (pBuffers[i] && !this->isCompatibleDevicewise(pBuffers[i]))
-            return false;
-    }
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList, firstBinding, bindingCount, pBuffers))
-        return false;
-
-    bindVertexBuffers_impl(firstBinding, bindingCount, pBuffers, pOffsets);
-
-    return true;
 }
 
 bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
@@ -987,78 +1031,46 @@ bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
         return draw(vertexCount, instanceCount, firstVertex, firstInstance);
     }
 }
+#endif
 
-bool IGPUCommandBuffer::copyImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SImageCopy* pRegions)
+static bool disallowedLayoutForBlitAndResolve(const IGPUImage::LAYOUT layout)
 {
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!srcImage || srcImage->getAPIType() != getAPIType())
-        return false;
-
-    if (!dstImage || dstImage->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(srcImage))
-        return false;
-
-    if (!this->isCompatibleDevicewise(dstImage))
-        return false;
-
-    if (!dstImage->validateCopies(pRegions, pRegions + regionCount, srcImage))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
-        return false;
-
-    return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
-}
-
-bool IGPUCommandBuffer::copyBufferToImage(const buffer_t* srcBuffer, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!srcBuffer || srcBuffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!dstImage || dstImage->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(srcBuffer))
-        return false;
-
-    if (!this->isCompatibleDevicewise(dstImage))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
-        return false;
-
-    return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
-}
-
-bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageBlit* pRegions, asset::ISampler::E_TEXTURE_FILTER filter)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!srcImage || (srcImage->getAPIType() != getAPIType()))
-        return false;
-
-    if (!dstImage || (dstImage->getAPIType() != getAPIType()))
-        return false;
-
-    if (!this->isCompatibleDevicewise(srcImage))
-        return false;
-
-    if (!this->isCompatibleDevicewise(dstImage))
-        return false;
-
-    for (uint32_t i = 0u; i < regionCount; ++i)
+    switch (layout)
     {
-        if (pRegions[i].dstSubresource.aspectMask.value != pRegions[i].srcSubresource.aspectMask.value)
+        case IGPUImage::LAYOUT::GENERAL:
+        case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
+        case IGPUImage::LAYOUT::SHARED_PRESENT:
+            break;
+        default:
             return false;
-        if (pRegions[i].dstSubresource.layerCount != pRegions[i].srcSubresource.layerCount)
+    }
+    return true;
+}
+
+bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve(srcImageLayout) || disallowedLayoutForBlitAndResolve(dstImageLayout))
+        return false;
+
+    const auto* physDev = getOriginDevice()->getPhysicalDevice();
+    const auto& srcParams = srcImage->getCreationParameters();
+    if (!srcImage || !this->isCompatibleDevicewise(srcImage) || !srcParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(srcImage->getTiling())[srcParams.format].blitSrc)
+        return false;
+
+    const auto& dstParams = dstImage->getCreationParameters();
+    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
+        return false;
+
+    // TODO rest of: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBlitImage.html#VUID-vkCmdBlitImage-srcImage-00229
+
+    for (uint32_t i=0u; i<regionCount; ++i)
+    {
+        if (pRegions[i].dstSubresource.aspectMask!=pRegions[i].srcSubresource.aspectMask)
+            return false;
+        if (pRegions[i].dstSubresource.layerCount!=pRegions[i].srcSubresource.layerCount)
             return false;
     }
 
@@ -1068,44 +1080,31 @@ bool IGPUCommandBuffer::blitImage(const image_t* srcImage, asset::IImage::LAYOUT
     return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
 }
 
-bool IGPUCommandBuffer::copyImageToBuffer(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, buffer_t* dstBuffer, uint32_t regionCount, const asset::IImage::SBufferCopy* pRegions)
+bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions)
 {
-    if (!checkStateBeforeRecording())
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+    
+    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve(srcImageLayout) || disallowedLayoutForBlitAndResolve(dstImageLayout))
         return false;
 
-    if (!srcImage || (srcImage->getAPIType() != getAPIType()))
+    const auto* physDev = getOriginDevice()->getPhysicalDevice();
+    const auto& srcParams = srcImage->getCreationParameters();
+    if (!srcImage || !this->isCompatibleDevicewise(srcImage) || !srcParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT))
+        return false;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdResolveImage.html#VUID-vkCmdResolveImage-srcImage-00258
+    if (srcParams.samples==IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
         return false;
 
-    if (!dstBuffer || (dstBuffer->getAPIType() != getAPIType()))
+    const auto& dstParams = dstImage->getCreationParameters();
+    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].attachment)
+        return false;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdResolveImage.html#VUID-vkCmdResolveImage-dstImage-00259
+    if (dstParams.samples!=IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
         return false;
 
-    if (!this->isCompatibleDevicewise(srcImage))
-        return false;
-
-    if (!this->isCompatibleDevicewise(dstBuffer))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
-        return false;
-
-    return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
-}
-
-bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::LAYOUT srcImageLayout, image_t* dstImage, asset::IImage::LAYOUT dstImageLayout, uint32_t regionCount, const asset::SImageResolve* pRegions)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!srcImage || srcImage->getAPIType() != getAPIType())
-        return false;
-
-    if (!dstImage || dstImage->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(srcImage))
-        return false;
-
-    if (!this->isCompatibleDevicewise(dstImage))
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdResolveImage.html#VUID-vkCmdResolveImage-srcImage-01386
+    if (srcParams.format!=dstParams.format)
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResolveImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
@@ -1113,7 +1112,6 @@ bool IGPUCommandBuffer::resolveImage(const image_t* srcImage, asset::IImage::LAY
 
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
-#endif
 
 bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {

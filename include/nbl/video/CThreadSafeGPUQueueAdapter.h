@@ -1,6 +1,7 @@
-#ifndef __IRR_GPU_QUEUE_THREADSAFE_ADAPTER_H_INCLUDED__
-#define __IRR_GPU_QUEUE_THREADSAFE_ADAPTER_H_INCLUDED__
-#include "IGPUQueue.h"
+#ifndef _NBL_VIDEO_THREADSAFE_GPU_QUEUE_ADAPTER_H_INCLUDED_
+#define _NBL_VIDEO_THREADSAFE_GPU_QUEUE_ADAPTER_H_INCLUDED_
+
+#include "nbl/video/IGPUQueue.h"
 #include "nbl/video/CVulkanSwapchain.h"
 
 namespace nbl::video
@@ -20,7 +21,7 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
         CThreadSafeGPUQueueAdapter(ILogicalDevice* originDevice, IGPUQueue* original)
             : IGPUQueue(originDevice, original->getFamilyIndex(),original->getFlags(),original->getPriority()), originalQueue(original) {}        
 
-        CThreadSafeGPUQueueAdapter() : IGPUQueue(nullptr, 0, E_CREATE_FLAGS::ECF_PROTECTED_BIT, 0.f) {};
+        CThreadSafeGPUQueueAdapter() : IGPUQueue(nullptr, 0, CREATE_FLAGS::PROTECTED_BIT, 0.f) {};
 
         ~CThreadSafeGPUQueueAdapter()
         {
