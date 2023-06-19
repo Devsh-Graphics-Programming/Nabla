@@ -287,10 +287,10 @@
 	return lhs = lhs ^ rhs;																		\
 	}																							\
 																								\
-	inline constexpr EnumType& operator~(const EnumType& e) noexcept							\
+	inline constexpr EnumType operator~(const EnumType& e) noexcept								\
 	{																							\
 	using T = typename std::underlying_type_t<EnumType>;										\
-	return e = static_cast<EnumType>(~static_cast<T>(e));										\
+	return static_cast<EnumType>(~static_cast<T>(e));											\
 	}																							\
 	/**/
 
