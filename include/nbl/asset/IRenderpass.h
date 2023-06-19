@@ -193,43 +193,25 @@ class IRenderpass
 
                 struct SSubpassDependency final
                 {
-                    public:
-                        constexpr static inline uint32_t External = ~0u;
-                        enum class FLAGS : uint8_t
-                        {
-                            NONE = 0x00u,
-                            BY_REGION = 0x01u,
-                            VIEW_LOCAL = 0x02u,
-                            DEVICE_GROUP = 0x04u,
-                            FEEDBACK_LOOP = 0x08u
-                        };
+                    constexpr static inline uint32_t External = ~0u;
+                    enum class FLAGS : uint8_t
+                    {
+                        NONE = 0x00u,
+                        BY_REGION = 0x01u,
+                        VIEW_LOCAL = 0x02u,
+                        DEVICE_GROUP = 0x04u,
+                        FEEDBACK_LOOP = 0x08u
+                    };
 
-                        uint32_t srcSubpass = External;
-                        uint32_t dstSubpass = External;
-                        SMemoryBarrier memoryBarrier = {};
-                        int8_t viewOffset = 0;
-                        core::bitflag<FLAGS> flags = FLAGS::NONE;
+                    uint32_t srcSubpass = External;
+                    uint32_t dstSubpass = External;
+                    SMemoryBarrier memoryBarrier = {};
+                    int8_t viewOffset = 0;
+                    core::bitflag<FLAGS> flags = FLAGS::NONE;
 
-                        auto operator<=>(const SSubpassDependency&) const = default;
+                    auto operator<=>(const SSubpassDependency&) const = default;
 
-                        bool valid() const;
-
-                    private:
-#if 0
-                        inline bool validMemoryBarrier(const uint32_t subpassIx, const core::bitflag<E_PIPELINE_STAGE_FLAGS> stageMask, const core::bitflag<E_ACCESS_FLAGS> accessMask) const
-                        {
-                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-access-types-supported
-                            if (subpassIx!=SCreationParams::SSubpassDependency::External)
-                            {
-                                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03054
-                                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03055
-                                constexpr E_PIPELINE_STAGE_FLAGS kDisallowedFlags = EPSF_HOST_BIT|EPSF_COMPUTE_SHADER_BIT|EPSF_TRANSFER_BIT|EPSF_ACCELERATION_STRUCTURE_BUILD_BIT_KHR|EPSF_COMMAND_PREPROCESS_BIT_NV;
-                                if (stageMask.value&kDisallowedFlags)
-                                    return false;
-                            }
-                            return true;
-                        }
-#endif
+                    bool valid() const;
                 };
                 // The arrays pointed to by this array must be terminated by `DependenciesEnd` value
                 constexpr static inline SSubpassDependency DependenciesEnd = {};
@@ -582,15 +564,12 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SInputAttachmentR
     {
         if (aspectMask.value&(~DepthStencilAspects))
             return false;
-        
-                    if (isStencilOnlyFormat(inputAttachment.format))
-                    {
-                        if (inputAttachmentRef.aspectMask.value!=IImage::EAF_STENCIL_BIT)
-                            return setRetvalFalse();
-                    }
-                    else if (inputAttachmentRef.aspectMask.hasFlags(~(core::bitflag(IImage::EAF_DEPTH_BIT)|IImage::EAF_STENCIL_BIT)))
-                        return setRetvalFalse();
         if (asDepthStencil.invalid<true>(params.depthStencilAttachments,depthStencilAttachmentCount))
+            return false;
+        const auto& attachmentDesc = params.depthStencilAttachments[asDepthStencil.attachmentIndex];
+        if (isStencilOnlyFormat(attachmentDesc.format) && aspectMask!=IImage::EAF_STENCIL_BIT)
+            return false;
+        if (isDepthOnlyFormat(attachmentDesc.format) && aspectMask!=IImage::EAF_DEPTH_BIT)
             return false;
     }
     else
@@ -660,6 +639,13 @@ inline bool IRenderpass::SCreationParams::SSubpassDependency::valid() const
             if (viewOffset!=0u)
                 return false;
         }
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03054
+        const PIPELINE_STAGE_FLAGS kDisallowedFlags = ~PIPELINE_STAGE_FLAGS::ALL_GRAPHICS_BITS;
+        if (memoryBarrier.srcStageMask&kDisallowedFlags)
+            return false;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03055
+        if (dstSubpass!=External && (memoryBarrier.srcStageMask&kDisallowedFlags))
+            return false;
     }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDependency2-srcSubpass-03085
     else if (dstSubpass==External)
