@@ -232,7 +232,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             INLINE = 0,
             SECONDARY_COMMAND_BUFFERS = 1
         };
-        bool beginRenderPass(const SRenderpassBeginInfo* const pRenderPassBegin, const SUBPASS_CONTENTS content);
+        bool beginRenderPass(const SRenderpassBeginInfo* const pRenderPassBegin, const SUBPASS_CONTENTS contents);
         bool nextSubpass(const SUBPASS_CONTENTS contents);
         bool endRenderPass();
 #if 0
@@ -388,15 +388,15 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         
         virtual bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
         virtual bool dispatchIndirect_impl(const IGPUBuffer* buffer, size_t offset) = 0;
+
+        virtual bool beginRenderPass_impl(const SRenderpassBeginInfo* const pRenderPassBegin, SUBPASS_CONTENTS contents) = 0;
+        virtual bool nextSubpass_impl(const SUBPASS_CONTENTS contents) = 0;
+        virtual bool endRenderPass_impl() = 0;
 #if 0
         virtual bool drawIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
         virtual bool drawIndexedIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
         virtual bool drawIndirectCount_impl(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
         virtual bool drawIndexedIndirectCount_impl(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
-
-        virtual bool beginRenderPass_impl(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) = 0;
-        virtual bool nextSubpass_impl(const asset::E_SUBPASS_CONTENTS contents) = 0;
-        virtual bool endRenderPass_impl() = 0;
 
         struct SClearAttachment
         {

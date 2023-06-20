@@ -127,7 +127,8 @@ class IImage : public IDescriptor
 			EUF_TRANSFER_DST_BIT = 0x0002,
 			EUF_SAMPLED_BIT = 0x0004,
 			EUF_STORAGE_BIT = 0x0008,
-			// TODO: replace with just `ATTACHMENT_BIT` ?
+			// Color and DepthStencil attachments stay as separate flags as you can apparently (vulkan.gpuinfo.org) alias
+			// R32F, R16_UNORM and R8_UINT image formats to single aspect depth and stencil image view formats
 			EUF_COLOR_ATTACHMENT_BIT = 0x0010,
 			EUF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x0020,
 			EUF_TRANSIENT_ATTACHMENT_BIT = 0x0040,

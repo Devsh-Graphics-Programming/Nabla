@@ -1,5 +1,5 @@
-#ifndef _NBL_I_RENDERPASS_H_INCLUDED_
-#define _NBL_I_RENDERPASS_H_INCLUDED_
+#ifndef _NBL_ASSET_I_RENDERPASS_H_INCLUDED_
+#define _NBL_ASSET_I_RENDERPASS_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
@@ -128,6 +128,8 @@ class IRenderpass
 
                         auto operator<=>(const SInputAttachmentRef&) const = default;
 
+                        inline bool isColor() const {return aspectMask==IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;}
+
                         bool valid(const SCreationParams& params, const uint32_t depthStencilAttachmentCount, const uint32_t colorAttachmentCount) const;
                     };
                     template<class attachment_ref_t>
@@ -235,12 +237,20 @@ class IRenderpass
 
         inline const SCreationParams& getCreationParameters() const { return m_params; }
 
+        inline uint32_t getDepthStencilAttachmentCount() const { return m_depthStencilAttachments->size(); }
+        inline uint32_t getColorAttachmentCount() const { return m_colorAttachments->size(); }
+
+        inline uint32_t getSubpassCount() const { return m_subpasses->size(); }
+        inline uint32_t getDependencyCount() const { return m_subpassDependencies->size(); }
+
 
         struct SCreationParamValidationResult final
         {
             uint32_t depthStencilAttachmentCount = 0u;
             uint32_t colorAttachmentCount = 0u;
             uint32_t subpassCount = 0u;
+            uint32_t totalInputAttachmentCount = 0u;
+            uint32_t totalPreserveAttachmentCount = 0u;
             uint32_t dependencyCount = 0u;
 
             inline operator bool() const {return subpassCount;}
@@ -371,6 +381,12 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
         {
             if (!inputAttachmentRef.valid(params,retval.depthStencilAttachmentCount,retval.colorAttachmentCount))
                 return setRetvalFalse();
+            retval.totalInputAttachmentCount++;
+            return true;
+        });
+        core::visit_token_terminated_array(subpass.preserveAttachments,SCreationParams::SSubpassDescription::AttachmentUnused,[&](const uint32_t ix)->bool
+        {
+            retval.totalPreserveAttachmentCount++;
             return true;
         });
         return retval.subpassCount;
@@ -549,7 +565,7 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SInputAttachmentR
     // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-02799
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-02801
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-04563
-    if (aspectMask==IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT)
+    if (isColor())
     {
         if (asColor.invalid<true>(params.colorAttachments,colorAttachmentCount))
             return false;

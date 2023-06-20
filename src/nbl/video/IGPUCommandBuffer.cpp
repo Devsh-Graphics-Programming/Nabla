@@ -839,23 +839,28 @@ bool IGPUCommandBuffer::dispatchIndirect(const IGPUBuffer* const buffer, const s
 }
 
 
-bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, const SUBPASS_CONTENTS content)
+bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* const pRenderPassBegin, const SUBPASS_CONTENTS contents)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    const auto apiType = getAPIType();
-    if ((apiType != pRenderPassBegin->renderpass->getAPIType()) || (apiType != pRenderPassBegin->framebuffer->getAPIType()))
+    if (!pRenderPassBegin || !pRenderPassBegin->framebuffer || !this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
         return false;
 
-    if (!this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList, core::smart_refctd_ptr<const IGPURenderpass>(pRenderPassBegin->renderpass), core::smart_refctd_ptr<const IGPUFramebuffer>(pRenderPassBegin->framebuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPUFramebuffer>(pRenderPassBegin->framebuffer)))
         return false;
 
     m_cachedInheritanceInfo.subpass = 0;
-    return beginRenderPass_impl(pRenderPassBegin, content);
+    return beginRenderPass_impl(pRenderPassBegin, contents);
+}
+
+bool IGPUCommandBuffer::nextSubpass(const SUBPASS_CONTENTS contents)
+{
+    if (m_cachedInheritanceInfo.subpass>=m_cachedInheritanceInfo.framebuffer->getCreationParameters().renderpass->getSubpassCount())
+        return false;
+
+    m_cachedInheritanceInfo.subpass++;
+    return nextSubpass_impl(contents);
 }
 
 bool IGPUCommandBuffer::endRenderPass()

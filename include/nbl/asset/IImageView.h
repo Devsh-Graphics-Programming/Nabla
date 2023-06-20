@@ -89,6 +89,8 @@ class IImageView : public IDescriptor
 			E_FORMAT								format;
 			SComponentMapping						components = {};
 			IImage::SSubresourceRange				subresourceRange = {IImage::EAF_COLOR_BIT,0,remaining_mip_levels,0,remaining_array_layers};
+
+			inline const core::bitflag<IImage::E_USAGE_FLAGS> actualUsages() const {return subUsages!=IImage::EUF_NONE ? subUsages:image->getCreationParameters().usages;}
 		};
 		//!
 		inline static bool validateCreationParameters(const SCreationParams& _params)
