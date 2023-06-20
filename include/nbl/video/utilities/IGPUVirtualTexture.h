@@ -30,7 +30,7 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
             assert(gpuCommandBuffer);
             // buffer should hold onto pool with refcounted backlink
         }
-        gpuCommandBuffer->begin(IGPUCommandBuffer::EU_NONE);
+        gpuCommandBuffer->begin(IGPUCommandBuffer::USAGE::NONE);
         return gpuCommandBuffer;
     }
     static inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(

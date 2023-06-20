@@ -61,7 +61,7 @@ class COIT
                     params.queueFamilyIndexCount = 0;
                     params.queueFamilyIndices = nullptr;
                     params.samples = asset::IImage::ESCF_1_BIT;
-                    params.tiling = video::IGPUImage::ET_OPTIMAL;
+                    params.tiling = video::IGPUImage::TILING::OPTIMAL;
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
 

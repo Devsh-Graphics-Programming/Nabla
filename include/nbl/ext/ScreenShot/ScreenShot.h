@@ -48,7 +48,7 @@ inline core::smart_refctd_ptr<asset::ICPUImageView> createScreenShot(
 		logicalDevice->createCommandBuffers(gpuCommandPool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &gpuCommandBuffer);
 		assert(gpuCommandBuffer);
 	}
-	gpuCommandBuffer->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+	gpuCommandBuffer->begin(video::IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 	{
 		auto extent = gpuImage->getMipSize();
 
