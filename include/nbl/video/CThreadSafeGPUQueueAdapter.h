@@ -26,12 +26,10 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
         ~CThreadSafeGPUQueueAdapter()
         {
             if (originalQueue)
-            {
                 delete originalQueue;
-            }
         }
 
-        virtual bool submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
+        virtual bool submit(const uint32_t _count, const SSubmitInfo* const _submits, IGPUFence* const _fence) override
         {
             std::lock_guard g(m);
             return originalQueue->submit(_count, _submits, _fence);

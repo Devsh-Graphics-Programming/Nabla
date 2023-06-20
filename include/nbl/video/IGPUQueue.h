@@ -54,7 +54,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
                 return true;
             }
         };
-        bool submit(const uint32_t _count, const SSubmitInfo* _submits, IGPUFence* const _fence);
+        virtual bool submit(const uint32_t _count, const SSubmitInfo* const _submits, IGPUFence* const _fence);
 
         // getters
         float getPriority() const { return m_priority; }
