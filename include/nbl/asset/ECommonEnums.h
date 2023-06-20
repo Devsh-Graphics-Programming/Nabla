@@ -13,12 +13,6 @@ enum E_STENCIL_FACE_FLAGS : uint32_t
     ESFF_FACE_AND_FRONT = 0x03
 };
 
-enum E_SUBPASS_CONTENTS : uint32_t
-{
-    ESC_INLINE = 0,
-    ESC_SECONDARY_COMMAND_BUFFERS = 1
-};
-
 enum E_PIPELINE_BIND_POINT : uint8_t
 {
     EPBP_GRAPHICS = 0,

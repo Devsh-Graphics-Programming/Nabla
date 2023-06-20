@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_I_DRIVER_MEMORY_BACKED_H_INCLUDED_
@@ -9,6 +9,8 @@
 
 namespace nbl::video
 {
+
+
 //! If you bound an "exotic" memory object to the resource, you might require "special" cleanups in the destructor
 struct NBL_API2 ICleanup
 {

@@ -807,6 +807,66 @@ bool IGPUCommandBuffer::copyQueryPoolResults(
 
     return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
 }
+
+
+bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (groupCountX==0 || groupCountY==0 || groupCountZ==0)
+        return false;
+
+    const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+    if (groupCountX>limits.maxComputeWorkGroupCount[0] || groupCountY>limits.maxComputeWorkGroupCount[1] || groupCountZ>limits.maxComputeWorkGroupCount[2])
+        return false;
+
+    return dispatch_impl(groupCountX,groupCountY,groupCountZ);
+}
+
+bool IGPUCommandBuffer::dispatchIndirect(const IGPUBuffer* const buffer, const size_t offset)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (!buffer || !this->isCompatibleDevicewise(buffer))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDispatchIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+        return false;
+
+    return dispatchIndirect_impl(buffer, offset);
+}
+
+
+bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, const SUBPASS_CONTENTS content)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    const auto apiType = getAPIType();
+    if ((apiType != pRenderPassBegin->renderpass->getAPIType()) || (apiType != pRenderPassBegin->framebuffer->getAPIType()))
+        return false;
+
+    if (!this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList, core::smart_refctd_ptr<const IGPURenderpass>(pRenderPassBegin->renderpass), core::smart_refctd_ptr<const IGPUFramebuffer>(pRenderPassBegin->framebuffer)))
+        return false;
+
+    m_cachedInheritanceInfo.subpass = 0;
+    return beginRenderPass_impl(pRenderPassBegin, content);
+}
+
+bool IGPUCommandBuffer::endRenderPass()
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+        return false;
+
+    m_cachedInheritanceInfo.subpass = SInheritanceInfo{}.subpass;
+    return endRenderPass_impl();
+}
+
 #if 0
 bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
 {
@@ -883,34 +943,6 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t 
 
     return drawIndexedIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);}
 
-bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-
-    const auto apiType = getAPIType();
-    if ((apiType != pRenderPassBegin->renderpass->getAPIType()) || (apiType != pRenderPassBegin->framebuffer->getAPIType()))
-        return false;
-
-    if (!this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList, core::smart_refctd_ptr<const IGPURenderpass>(pRenderPassBegin->renderpass), core::smart_refctd_ptr<const IGPUFramebuffer>(pRenderPassBegin->framebuffer)))
-        return false;
-
-    m_cachedInheritanceInfo.subpass = 0;
-    return beginRenderPass_impl(pRenderPassBegin, content);
-}
-
-bool IGPUCommandBuffer::endRenderPass()
-{
-    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
-        return false;
-
-    m_cachedInheritanceInfo.subpass = SInheritanceInfo{}.subpass;
-    return endRenderPass_impl();
-}
-
 static void getResourcesFromBuildGeometryInfos(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>>& accelerationStructures, core::vector<core::smart_refctd_ptr<const IGPUBuffer>>& buffers)
 {
     const size_t infoCount = pInfos.size();
@@ -967,23 +999,6 @@ static void getResourcesFromBuildGeometryInfos(const core::SRange<IGPUAccelerati
             }
         }
     }
-}
-
-bool IGPUCommandBuffer::dispatchIndirect(const buffer_t* buffer, size_t offset)
-{
-    if (!checkStateBeforeRecording())
-        return false;
-
-    if (!buffer || buffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!this->isCompatibleDevicewise(buffer))
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDispatchIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
-        return false;
-
-    return dispatchIndirect_impl(buffer, offset);
 }
 
 bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)

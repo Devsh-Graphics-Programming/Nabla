@@ -8,6 +8,8 @@
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IGPUQueue.h"
+// depr
+//#include "nbl/video/IGPUMeshBuffer.h"
 
 
 #define VK_NO_PROTOTYPES
@@ -214,23 +216,26 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         );
 
         //! dispatches
-        bool dispatch(const uint32_t wgCountX, const uint32_t wgCountY=1, const uint32_t wgCountZ=1);
-        bool dispatchIndirect(const IGPUBuffer* buffer, size_t offset);
+        bool dispatch(const uint32_t groupCountX, const uint32_t groupCountY=1, const uint32_t groupCountZ=1);
+        bool dispatchIndirect(const IGPUBuffer* const buffer, const size_t offset);
 
-# if 0
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
-            core::smart_refctd_ptr<const IGPURenderpass> renderpass;
             core::smart_refctd_ptr<IGPUFramebuffer> framebuffer;
             VkRect2D renderArea;
             uint32_t clearValueCount;
             const SClearValue* clearValues;
         };
-        bool beginRenderPass(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content);
-        bool nextSubpass(const asset::E_SUBPASS_CONTENTS contents);
+        enum SUBPASS_CONTENTS : uint8_t
+        {
+            INLINE = 0,
+            SECONDARY_COMMAND_BUFFERS = 1
+        };
+        bool beginRenderPass(const SRenderpassBeginInfo* const pRenderPassBegin, const SUBPASS_CONTENTS content);
+        bool nextSubpass(const SUBPASS_CONTENTS contents);
         bool endRenderPass();
-
+#if 0
         //! draws
         bool drawIndirect(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride);
         bool drawIndexedIndirect(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride);
@@ -238,7 +243,6 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool drawIndexedIndirectCount(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
         /* soon: [[deprecated]] */ bool drawMeshBuffer(const IGPUMeshBuffer* meshBuffer);
 #endif
-
         struct SImageBlit
         {
             IGPUImage::SSubresourceLayers srcSubresource;
@@ -381,6 +385,9 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query) = 0;
         virtual bool writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
         virtual bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
+        
+        virtual bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
+        virtual bool dispatchIndirect_impl(const IGPUBuffer* buffer, size_t offset) = 0;
 #if 0
         virtual bool drawIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
         virtual bool drawIndexedIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
@@ -391,6 +398,19 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool nextSubpass_impl(const asset::E_SUBPASS_CONTENTS contents) = 0;
         virtual bool endRenderPass_impl() = 0;
 
+        struct SClearAttachment
+        {
+            asset::IImage::E_ASPECT_FLAGS aspectMask;
+            uint32_t colorAttachment;
+            SClearValue clearValue;
+        };
+
+        struct SClearRect
+        {
+            VkRect2D rect;
+            uint32_t baseArrayLayer;
+            uint32_t layerCount;
+        };
         virtual bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) = 0;
         virtual bool dispatchIndirect_impl(const IGPUBuffer* buffer, size_t offset) = 0;
 #endif
