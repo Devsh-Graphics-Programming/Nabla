@@ -517,6 +517,84 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
 
+        inline bool invalidAccelerationStructure(const IGPUAccelerationStructure* as) const
+        {
+            if (!as || this->isCompatibleDevicewise(as))
+                return true;
+            return false;
+        }
+
+        inline uint32_t validateBuildGeometryInfos(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos) const
+        {
+            if (pInfos.empty())
+                return 0u;
+
+            const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+            const auto maxGeometryCount = ~0ull; // TODO: limits.maxGeometryCount
+            const auto maxPrimitiveCount = ~0ull; //TODO limits.accelerationStructure
+
+            uint32_t trackedResourceCount = 0u;
+            size_t totalGeometryCount = 0ull;
+            //size_t totalPrimitiveCount = 0ull;
+            for (auto& info : pInfos)
+            {
+                if (info.type!=IGPUAccelerationStructure::ET_GENERIC)
+                    return 0u;
+
+                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAccelerationStructureBuildGeometryInfoKHR.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
+                //if (info.buildFlags)
+
+                if (info.buildMode==IGPUAccelerationStructure::EBM_UPDATE && invalidAccelerationStructure(info.srcAS))
+                    return 0u;
+                if (invalidAccelerationStructure(info.dstAS))
+                    return 0u;
+
+                const auto geometryCount = info.geometries.size();
+                if (geometryCount==0u)
+                    return 0u;
+
+                const bool topLevel = info.type==IGPUAccelerationStructure::ET_TOP_LEVEL;
+                if (topLevel && geometryCount!=1u)
+                    return 0u;
+                totalGeometryCount += geometryCount;
+                for (auto& geom : info.geometries)
+                {
+                    // all of this in concert with : https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAccelerationStructureBuildGeometryInfoKHR.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
+                    // means we could slap the `geom.type` above and outside
+                    switch (geom.type)
+                    {
+                        case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_TRIANGLES:
+                            if (topLevel)
+                                return 0u;
+                            trackedResourceCount += 2u;
+                            if (geom.data.triangles.transformData.isValid())
+                                trackedResourceCount++;
+                            break;
+                        case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_AABBS:
+                            if (topLevel)
+                                return 0u;
+                            trackedResourceCount++;
+                            break;
+                        case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_INSTANCES:
+                            if (!topLevel)
+                                return 0u;
+                            trackedResourceCount++;
+                            break;
+                    }
+                }
+                trackedResourceCount += 3u;
+            }
+
+            if (totalGeometryCount>maxGeometryCount)
+                return 0u;
+
+// TODO: whole structs of IAccelerationStructure need a refactor            
+//            if (primitiveCount>maxPrimitiveCount)
+//                return 0u;
+
+            return trackedResourceCount;
+        }
+
 
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT

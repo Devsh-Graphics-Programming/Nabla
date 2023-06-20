@@ -125,7 +125,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
 		// TODO: after CommandPool resetting, get rid of these 
 		const uint32_t m_queueFamilyIx;
-		const IGPUCommandPool::E_CREATE_FLAGS m_flags;
+		const IGPUCommandPool::CREATE_FLAGS m_flags;
 };
 
 }

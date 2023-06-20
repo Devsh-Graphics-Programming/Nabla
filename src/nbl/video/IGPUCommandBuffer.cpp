@@ -550,17 +550,16 @@ bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<const IGP
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-
-    if (pInfos.empty())
-        return false;
-
-    core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>> accelerationStructures;
-    core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
-    getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
-        return false;
     
+    const uint32_t resourceCount = validateBuildGeometryInfos(pInfos);
+    if (resourceCount==0u)
+        return false;
+
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,resourceCount);
+    if (!cmd)
+        return false;
+
+    cmd->fill(pInfos);
     return buildAccelerationStructures_impl(pInfos, ppBuildRangeInfos);
 }
 
@@ -568,17 +567,19 @@ bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<c
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-
-    if (pInfos.empty())
+    
+    const uint32_t resourceCount = validateBuildGeometryInfos(pInfos);
+    if (resourceCount==0u)
         return false;
 
-    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,accelerationStructures.size(),buffers.size());
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,resourceCount);
     if (!cmd)
         return false;
 
-    getResourcesFromBuildGeometryInfos(pInfos,cmd->get());
+    cmd->fill(pInfos);
     return buildAccelerationStructuresIndirect_impl(pInfos, pIndirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
 }
+
 
 bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
 {
@@ -970,63 +971,6 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t 
 
     return drawIndexedIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);}
 
-static void getResourcesFromBuildGeometryInfos(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>>& accelerationStructures, core::vector<core::smart_refctd_ptr<const IGPUBuffer>>& buffers)
-{
-    const size_t infoCount = pInfos.size();
-    IGPUAccelerationStructure::DeviceBuildGeometryInfo* infos = pInfos.begin();
-
-    static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
-
-    // * 2 because of info.srcAS + info.dstAS 
-    accelerationStructures.reserve(infoCount * 2);
-
-    // + 1 because of info.scratchAddr.buffer
-    // * 3 because of worst-case all triangle data ( vertexData + indexData + transformData+
-    buffers.reserve((1 + MaxGeometryPerBuildInfoCount * 3) * infoCount);
-
-    for (uint32_t i = 0; i < infoCount; ++i)
-    {
-        accelerationStructures.push_back(core::smart_refctd_ptr<const IGPUAccelerationStructure>(infos[i].srcAS));
-        accelerationStructures.push_back(core::smart_refctd_ptr<const IGPUAccelerationStructure>(infos[i].dstAS));
-        buffers.push_back(infos[i].scratchAddr.buffer);
-
-        if (!infos[i].geometries.empty())
-        {
-            const auto geomCount = infos[i].geometries.size();
-            assert(geomCount > 0);
-            assert(geomCount <= MaxGeometryPerBuildInfoCount);
-
-            auto* geoms = infos[i].geometries.begin();
-            for (uint32_t g = 0; g < geomCount; ++g)
-            {
-                auto const& geometry = geoms[g];
-
-                if (IGPUAccelerationStructure::E_GEOM_TYPE::EGT_TRIANGLES == geometry.type)
-                {
-                    auto const& triangles = geometry.data.triangles;
-                    if (triangles.vertexData.isValid())
-                        buffers.push_back(triangles.vertexData.buffer);
-                    if (triangles.indexData.isValid())
-                        buffers.push_back(triangles.indexData.buffer);
-                    if (triangles.transformData.isValid())
-                        buffers.push_back(triangles.transformData.buffer);
-                }
-                else if (IGPUAccelerationStructure::E_GEOM_TYPE::EGT_AABBS == geometry.type)
-                {
-                    const auto& aabbs = geometry.data.aabbs;
-                    if (aabbs.data.isValid())
-                        buffers.push_back(aabbs.data.buffer);
-                }
-                else if (IGPUAccelerationStructure::E_GEOM_TYPE::EGT_INSTANCES == geometry.type)
-                {
-                    const auto& instances = geometry.data.instances;
-                    if (instances.data.isValid())
-                        buffers.push_back(instances.data.buffer);
-                }
-            }
-        }
-    }
-}
 
 bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
 {

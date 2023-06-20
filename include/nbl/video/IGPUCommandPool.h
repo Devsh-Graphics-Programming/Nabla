@@ -21,236 +21,263 @@ class IGPUCommandBuffer;
 
 class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
-    static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
+        static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
 
-    static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
-    static inline constexpr uint32_t COMMAND_SEGMENT_SIZE = 128u << 10u;
+        static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
+        static inline constexpr uint32_t COMMAND_SEGMENT_SIZE = 128u << 10u;
 
-    static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 16u;
-    static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 256u;
-    static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
-
-public:
-    enum E_CREATE_FLAGS : uint32_t
-    {
-        ECF_NONE = 0x00,
-        ECF_TRANSIENT_BIT = 0x01,
-        ECF_RESET_COMMAND_BUFFER_BIT = 0x02,
-        ECF_PROTECTED_BIT = 0x04
-    };
-
-    class CCommandSegment;
-    class alignas(COMMAND_ALIGNMENT) ICommand
-    {
-        friend class CCommandSegment;
+        static inline constexpr uint32_t MAX_COMMAND_SEGMENT_BLOCK_COUNT = 16u;
+        static inline constexpr uint32_t COMMAND_SEGMENTS_PER_BLOCK = 256u;
+        static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
 
     public:
-        virtual ~ICommand() = default;
+        enum class CREATE_FLAGS : uint8_t
+        {
+            NONE = 0x00,
+            TRANSIENT_BIT = 0x01,
+            RESET_COMMAND_BUFFER_BIT = 0x02,
+            PROTECTED_BIT = 0x04
+        };
 
-        // static void* operator new(std::size_t size) = delete;
-        static void* operator new[](std::size_t size) = delete;
-        // static void* operator new(std::size_t size, std::align_val_t al) = delete;
-        static void* operator new[](std::size_t size, std::align_val_t al) = delete;
+        class CCommandSegment;
+        class alignas(COMMAND_ALIGNMENT) ICommand
+        {
+                friend class CCommandSegment;
 
-        static void operator delete[](void* ptr) = delete;
-        static void operator delete[](void* ptr, std::align_val_t al) = delete;
-        static void operator delete[](void* ptr, std::size_t sz) = delete;
-        static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
+            public:
+                virtual ~ICommand() = default;
 
-        inline uint32_t getSize() const { return m_size; }
+                // static void* operator new(std::size_t size) = delete;
+                static void* operator new[](std::size_t size) = delete;
+                // static void* operator new(std::size_t size, std::align_val_t al) = delete;
+                static void* operator new[](std::size_t size, std::align_val_t al) = delete;
+
+                static void operator delete[](void* ptr) = delete;
+                static void operator delete[](void* ptr, std::align_val_t al) = delete;
+                static void operator delete[](void* ptr, std::size_t sz) = delete;
+                static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
+
+                inline uint32_t getSize() const { return m_size; }
+
+            protected:
+                inline ICommand(uint32_t size) : m_size(size)
+                {
+                    assert(ptrdiff_t(this) % alignof(ICommand) == 0);
+                    assert(m_size % alignof(ICommand) == 0);
+                }
+
+                void operator delete(ICommand* ptr, std::destroying_delete_t) { ptr->~ICommand(); }
+                void operator delete( ICommand* ptr, std::destroying_delete_t,
+                                        std::align_val_t al ) { ptr->~ICommand(); }
+                void operator delete( ICommand* ptr, std::destroying_delete_t, std::size_t sz )  { ptr->~ICommand(); }
+                void operator delete( ICommand* ptr, std::destroying_delete_t,
+                                        std::size_t sz, std::align_val_t al ) { ptr->~ICommand(); }
+
+
+            private:
+
+                friend CCommandSegment;
+
+                const uint32_t m_size;
+        };
+
+        template<class CRTP>
+        class NBL_FORCE_EBO IFixedSizeCommand : public ICommand
+        {
+            public:
+                template <typename... Args>
+                static uint32_t calc_size(const Args&...)
+                {
+                    static_assert(std::is_final_v<CRTP>);
+                    return sizeof(CRTP);
+                }
+
+                virtual ~IFixedSizeCommand() = default;
+
+            protected:
+                inline IFixedSizeCommand() : ICommand(calc_size()) {}
+        };
+        template<class CRTP>
+        class NBL_FORCE_EBO IVariableSizeCommand : public ICommand
+        {
+            public:
+                template <typename... Args>
+                static uint32_t calc_size(const Args&... args)
+                {
+                    static_assert(std::is_final_v<CRTP>);
+                    return core::alignUp(sizeof(CRTP)+CRTP::calc_resources(args...)*sizeof(core::smart_refctd_ptr<const IReferenceCounted>),alignof(CRTP));
+                }
+
+                virtual ~IVariableSizeCommand()
+                {
+                    std::destroy_n(getVariableCountResources(),m_resourceCount);
+                }
+                inline core::smart_refctd_ptr<const IReferenceCounted>* getVariableCountResources() { return reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(static_cast<CRTP*>(this)+1); }
+
+            protected:
+                template <typename... Args>
+                inline IVariableSizeCommand(const Args&... args) : ICommand(calc_size(args...)), m_resourceCount(CRTP::calc_resources(args...))
+                {
+                    std::uninitialized_default_construct_n(getVariableCountResources(),m_resourceCount);
+                }
+
+                const uint32_t m_resourceCount;
+        };
+
+        class alignas(COMMAND_SEGMENT_ALIGNMENT) CCommandSegment
+        {
+                struct header_t
+                {
+                    template<typename... Args>
+                    inline header_t(Args&&... args) : commandAllocator(std::forward<Args>(args)...) {}
+
+                    core::LinearAddressAllocator<uint32_t> commandAllocator;
+                    CCommandSegment* next = nullptr;
+
+                    CCommandSegment* nextHead = nullptr;
+                    CCommandSegment* prevHead = nullptr;
+                } m_header;
+
+            public:
+                static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
+
+                CCommandSegment(CCommandSegment* prev):
+                    m_header(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE)
+                {
+                    static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
+                    wipeNextCommandSize();
+
+                    if (prev)
+                        prev->m_header.next = this;
+                }
+
+                ~CCommandSegment()
+                {
+                    for (ICommand* cmd = begin(); cmd != end();)
+                    {
+                        if (cmd->getSize() == 0)
+                            break;
+
+                        auto* nextCmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
+                        cmd->~ICommand();
+                        cmd = nextCmd;
+                    }
+                }
+
+                template <typename Cmd, typename... Args>
+                Cmd* allocate(const Args&... args)
+                {
+                    const uint32_t cmdSize = Cmd::calc_size(args...);
+                    const auto address = m_header.commandAllocator.alloc_addr(cmdSize, alignof(Cmd));
+                    if (address == decltype(m_header.commandAllocator)::invalid_address)
+                        return nullptr;
+
+                    wipeNextCommandSize();
+
+                    auto cmdMem = reinterpret_cast<Cmd*>(m_data + address);
+                    return cmdMem;
+                }
+
+                inline CCommandSegment* getNext() const { return m_header.next; }
+                inline CCommandSegment* getNextHead() const { return m_header.nextHead; }
+                inline CCommandSegment* getPrevHead() const { return m_header.prevHead; }
+
+                inline ICommand* begin()
+                {
+                    return reinterpret_cast<ICommand*>(m_data);
+                }
+
+                inline ICommand* end()
+                {
+                    return reinterpret_cast<ICommand*>(m_data + m_header.commandAllocator.get_allocated_size());
+                }
+
+                static void linkHeads(CCommandSegment* prev, CCommandSegment* next)
+                {
+                    if (prev)
+                        prev->m_header.nextHead = next;
+
+                    if (next)
+                        next->m_header.prevHead = prev;
+                }
+
+            private:
+                alignas(ICommand) uint8_t m_data[STORAGE_SIZE];
+
+                void wipeNextCommandSize()
+                {
+                    const auto nextCmdOffset = m_header.commandAllocator.get_allocated_size();
+                    const auto wipeEnd = nextCmdOffset + offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
+                    if (wipeEnd < m_header.commandAllocator.get_total_size())
+                        *(const_cast<uint32_t*>(&(reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size))) = 0;
+                }
+        };
+        static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
+
+        class CBeginCmd;
+        class CBindIndexBufferCmd;
+        class CDrawIndirectCmd;
+        class CDrawIndexedIndirectCmd;
+        class CDrawIndirectCountCmd;
+        class CDrawIndexedIndirectCountCmd;
+        class CBeginRenderPassCmd;
+        class CPipelineBarrierCmd;
+        class CBindDescriptorSetsCmd;
+        class CBindComputePipelineCmd;
+        class CUpdateBufferCmd;
+        class CResetQueryPoolCmd;
+        class CWriteTimestampCmd;
+        class CBeginQueryCmd;
+        class CEndQueryCmd;
+        class CCopyQueryPoolResultsCmd;
+        class CBindGraphicsPipelineCmd;
+        class CPushConstantsCmd;
+        class CBindVertexBuffersCmd;
+        class CCopyBufferCmd;
+        class CCopyBufferToImageCmd;
+        class CBlitImageCmd;
+        class CCopyImageToBufferCmd;
+        class CExecuteCommandsCmd;
+        class CDispatchIndirectCmd;
+        class CWaitEventsCmd;
+        class CCopyImageCmd;
+        class CResolveImageCmd;
+        class CClearColorImageCmd;
+        class CClearDepthStencilImageCmd;
+        class CFillBufferCmd;
+        class CSetEventCmd;
+        class CResetEventCmd;
+        class CWriteAccelerationStructurePropertiesCmd;
+        class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
+        class CCopyAccelerationStructureCmd;
+        class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
+
+        inline core::bitflag<CREATE_FLAGS> getCreationFlags() const { return m_flags; }
+        inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
+
+        // Vulkan: const VkCommandPool*
+        virtual const void* getNativeHandle() const = 0;
+
+        bool reset()
+        {
+            m_resetCount.fetch_add(1);
+            m_commandListPool.clear();
+            return reset_impl();
+        }
+
+        inline uint32_t getResetCounter() { return m_resetCount.load(); }
 
     protected:
-        ICommand(uint32_t size) : m_size(size)
-        {
-            assert(ptrdiff_t(this) % alignof(ICommand) == 0);
-            assert(m_size % alignof(ICommand) == 0);
-        }
+        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<CREATE_FLAGS> _flags, uint32_t _familyIx)
+            : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIx(_familyIx)
+        {}
 
-        void operator delete(ICommand* ptr, std::destroying_delete_t) { ptr->~ICommand(); }
-        void operator delete( ICommand* ptr, std::destroying_delete_t,
-                                std::align_val_t al ) { ptr->~ICommand(); }
-        void operator delete( ICommand* ptr, std::destroying_delete_t, std::size_t sz )  { ptr->~ICommand(); }
-        void operator delete( ICommand* ptr, std::destroying_delete_t,
-                                std::size_t sz, std::align_val_t al ) { ptr->~ICommand(); }
+        virtual ~IGPUCommandPool() = default;
 
+        virtual bool reset_impl() { return true; };
 
-    private:
-
-        friend CCommandSegment;
-
-        const uint32_t m_size;
-    };
-
-    template <class CRTP>
-    class NBL_FORCE_EBO IFixedSizeCommand : public IGPUCommandPool::ICommand
-    {
-    public:
-        template <typename... Args>
-        static uint32_t calc_size(const Args&...)
-        {
-            return sizeof(CRTP);
-        }
-
-    protected:
-        IFixedSizeCommand() : ICommand(calc_size()) {}
-    };
-
-    class alignas(COMMAND_SEGMENT_ALIGNMENT) CCommandSegment
-    {
-        struct header_t
-        {
-        public:
-            template<typename... Args>
-            inline header_t(Args&&... args) : commandAllocator(std::forward<Args>(args)...) {}
-
-            core::LinearAddressAllocator<uint32_t> commandAllocator;
-            CCommandSegment* next = nullptr;
-
-            CCommandSegment* nextHead = nullptr;
-            CCommandSegment* prevHead = nullptr;
-        } m_header;
-
-    public:
-        static inline constexpr uint32_t STORAGE_SIZE = COMMAND_SEGMENT_SIZE - core::roundUp(sizeof(header_t), alignof(ICommand));
-
-        CCommandSegment(CCommandSegment* prev):
-            m_header(nullptr, 0u, 0u, alignof(ICommand), STORAGE_SIZE)
-        {
-            static_assert(alignof(ICommand) == COMMAND_SEGMENT_ALIGNMENT);
-            wipeNextCommandSize();
-
-            if (prev)
-                prev->m_header.next = this;
-        }
-
-        ~CCommandSegment()
-        {
-            for (ICommand* cmd = begin(); cmd != end();)
-            {
-                if (cmd->getSize() == 0)
-                    break;
-
-                auto* nextCmd = reinterpret_cast<ICommand*>(reinterpret_cast<uint8_t*>(cmd) + cmd->getSize());
-                cmd->~ICommand();
-                cmd = nextCmd;
-            }
-        }
-
-        template <typename Cmd, typename... Args>
-        Cmd* allocate(const Args&... args)
-        {
-            const uint32_t cmdSize = Cmd::calc_size(args...);
-            const auto address = m_header.commandAllocator.alloc_addr(cmdSize, alignof(Cmd));
-            if (address == decltype(m_header.commandAllocator)::invalid_address)
-                return nullptr;
-
-            wipeNextCommandSize();
-
-            auto cmdMem = reinterpret_cast<Cmd*>(m_data + address);
-            return cmdMem;
-        }
-
-        inline CCommandSegment* getNext() const { return m_header.next; }
-        inline CCommandSegment* getNextHead() const { return m_header.nextHead; }
-        inline CCommandSegment* getPrevHead() const { return m_header.prevHead; }
-
-        inline ICommand* begin()
-        {
-            return reinterpret_cast<ICommand*>(m_data);
-        }
-
-        inline ICommand* end()
-        {
-            return reinterpret_cast<ICommand*>(m_data + m_header.commandAllocator.get_allocated_size());
-        }
-
-        static void linkHeads(CCommandSegment* prev, CCommandSegment* next)
-        {
-            if (prev)
-                prev->m_header.nextHead = next;
-
-            if (next)
-                next->m_header.prevHead = prev;
-        }
-
-    private:
-        alignas(ICommand) uint8_t m_data[STORAGE_SIZE];
-
-        void wipeNextCommandSize()
-        {
-            const auto nextCmdOffset = m_header.commandAllocator.get_allocated_size();
-            const auto wipeEnd = nextCmdOffset + offsetof(IGPUCommandPool::ICommand, m_size) + sizeof(IGPUCommandPool::ICommand::m_size);
-            if (wipeEnd < m_header.commandAllocator.get_total_size())
-                *(const_cast<uint32_t*>(&(reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size))) = 0;
-        }
-    };
-    static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
-
-    class CBeginCmd;
-    class CBindIndexBufferCmd;
-    class CDrawIndirectCmd;
-    class CDrawIndexedIndirectCmd;
-    class CDrawIndirectCountCmd;
-    class CDrawIndexedIndirectCountCmd;
-    class CBeginRenderPassCmd;
-    class CPipelineBarrierCmd;
-    class CBindDescriptorSetsCmd;
-    class CBindComputePipelineCmd;
-    class CUpdateBufferCmd;
-    class CResetQueryPoolCmd;
-    class CWriteTimestampCmd;
-    class CBeginQueryCmd;
-    class CEndQueryCmd;
-    class CCopyQueryPoolResultsCmd;
-    class CBindGraphicsPipelineCmd;
-    class CPushConstantsCmd;
-    class CBindVertexBuffersCmd;
-    class CCopyBufferCmd;
-    class CCopyBufferToImageCmd;
-    class CBlitImageCmd;
-    class CCopyImageToBufferCmd;
-    class CExecuteCommandsCmd;
-    class CDispatchIndirectCmd;
-    class CWaitEventsCmd;
-    class CCopyImageCmd;
-    class CResolveImageCmd;
-    class CClearColorImageCmd;
-    class CClearDepthStencilImageCmd;
-    class CFillBufferCmd;
-    class CSetEventCmd;
-    class CResetEventCmd;
-    class CWriteAccelerationStructurePropertiesCmd;
-    class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
-    class CCopyAccelerationStructureCmd;
-    class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
-
-    inline core::bitflag<E_CREATE_FLAGS> getCreationFlags() const { return m_flags; }
-    inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
-
-    // OpenGL: nullptr, because commandpool doesn't exist in GL (we might expose the internal allocator in the future)
-    // Vulkan: const VkCommandPool*
-    virtual const void* getNativeHandle() const = 0;
-
-    bool reset()
-    {
-        m_resetCount.fetch_add(1);
-        m_commandListPool.clear();
-        return reset_impl();
-    }
-
-    inline uint32_t getResetCounter() { return m_resetCount.load(); }
-
-protected:
-    IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<E_CREATE_FLAGS> _flags, uint32_t _familyIx)
-        : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIx(_familyIx)
-    {}
-
-    virtual ~IGPUCommandPool() = default;
-
-    virtual bool reset_impl() { return true; };
-
-    core::bitflag<E_CREATE_FLAGS> m_flags;
-    uint32_t m_familyIx;
+        core::bitflag<CREATE_FLAGS> m_flags;
+        uint32_t m_familyIx;
 
 private:
     std::atomic_uint64_t m_resetCount = 0;
@@ -367,494 +394,429 @@ private:
     CCommandSegmentListPool m_commandListPool;
 };
 
-class IGPUCommandPool::CBindIndexBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CBindIndexBufferCmd>
+class IGPUCommandPool::CBindIndexBufferCmd final : public IFixedSizeCommand<CBindIndexBufferCmd>
 {
-public:
-    CBindIndexBufferCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& indexBuffer) : m_indexBuffer(std::move(indexBuffer)) {}
+    public:
+        CBindIndexBufferCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& indexBuffer) : m_indexBuffer(std::move(indexBuffer)) {}
 
-private:
-    core::smart_refctd_ptr<const video::IGPUBuffer> m_indexBuffer;
+    private:
+        core::smart_refctd_ptr<const video::IGPUBuffer> m_indexBuffer;
 };
 
-class IGPUCommandPool::CDrawIndirectCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndirectCmd>
+class IGPUCommandPool::CDrawIndirectCmd final : public IFixedSizeCommand<CDrawIndirectCmd>
 {
-public:
-    CDrawIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
+    public:
+        CDrawIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
-class IGPUCommandPool::CDrawIndexedIndirectCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndexedIndirectCmd>
+class IGPUCommandPool::CDrawIndexedIndirectCmd final : public IFixedSizeCommand<CDrawIndexedIndirectCmd>
 {
-public:
-    CDrawIndexedIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
+    public:
+        CDrawIndexedIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
-class IGPUCommandPool::CDrawIndirectCountCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndirectCountCmd>
+class IGPUCommandPool::CDrawIndirectCountCmd final : public IFixedSizeCommand<CDrawIndirectCountCmd>
 {
-public:
-    CDrawIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
-        : m_buffer(std::move(buffer)) , m_countBuffer(std::move(countBuffer))
-    {}
+    public:
+        CDrawIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
+            : m_buffer(std::move(buffer)) , m_countBuffer(std::move(countBuffer))
+        {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
-    core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
 };
 
-class IGPUCommandPool::CDrawIndexedIndirectCountCmd : public IGPUCommandPool::IFixedSizeCommand<CDrawIndexedIndirectCountCmd>
+class IGPUCommandPool::CDrawIndexedIndirectCountCmd final : public IFixedSizeCommand<CDrawIndexedIndirectCountCmd>
 {
-public:
-    CDrawIndexedIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
-        : m_buffer(std::move(buffer)), m_countBuffer(std::move(countBuffer))
-    {}
+    public:
+        CDrawIndexedIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
+            : m_buffer(std::move(buffer)), m_countBuffer(std::move(countBuffer))
+        {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
-    core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
 };
 
-class IGPUCommandPool::CBeginRenderPassCmd : public IGPUCommandPool::IFixedSizeCommand<CBeginRenderPassCmd>
+class IGPUCommandPool::CBeginRenderPassCmd final : public IFixedSizeCommand<CBeginRenderPassCmd>
 {
-public:
-    CBeginRenderPassCmd(core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass, core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
-        : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer))
-    {}
+    public:
+        CBeginRenderPassCmd(core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass, core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
+            : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer))
+        {}
 
-private:
-    core::smart_refctd_ptr<const video::IGPURenderpass> m_renderpass;
-    core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
+    private:
+        core::smart_refctd_ptr<const video::IGPURenderpass> m_renderpass;
+        core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
 };
 
-class IGPUCommandPool::CPipelineBarrierCmd : public IGPUCommandPool::ICommand
+class IGPUCommandPool::CPipelineBarrierCmd final : public IVariableSizeCommand<CPipelineBarrierCmd>
 {
-public:
-    CPipelineBarrierCmd(const uint32_t bufferCount, const uint32_t imageCount) : ICommand(calc_size(bufferCount,imageCount)), m_resourceCount(bufferCount+imageCount)
-    {
-        auto barrierResources = getResources();
-        std::uninitialized_default_construct_n(barrierResources,m_resourceCount);
-    }
-
-    ~CPipelineBarrierCmd()
-    {
-        auto barrierResources = getResources();
-        for (auto i=0u; i<m_resourceCount; ++i)
-            barrierResources[i].~smart_refctd_ptr();
-    }
-
-    inline core::smart_refctd_ptr<const core::IReferenceCounted>* getResources() { return reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(this+1); }
-
-    static uint32_t calc_size(const uint32_t bufferCount, const uint32_t imageCount)
-    {
-        return core::alignUp(sizeof(CPipelineBarrierCmd)+(bufferCount+imageCount)*sizeof(core::smart_refctd_ptr<const core::IReferenceCounted>), alignof(CPipelineBarrierCmd));
-    }
-
-private:
-    const uint32_t m_resourceCount;
-};
-
-class IGPUCommandPool::CBindDescriptorSetsCmd : public IGPUCommandPool::IFixedSizeCommand<CBindDescriptorSetsCmd>
-{
-public:
-    CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const IGPUDescriptorSet* const* const sets)
-        : m_layout(std::move(pipelineLayout))
-    {
-        for (auto i = 0; i < setCount; ++i)
+    public:
+        static uint32_t calc_resources(const uint32_t bufferCount, const uint32_t imageCount)
         {
-            assert(i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
-            m_sets[i] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(sets[i]);
+            return bufferCount+imageCount;
         }
-    }
-
-private:
-    core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
-    core::smart_refctd_ptr<const IGPUDescriptorSet> m_sets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
 };
 
-class IGPUCommandPool::CBindComputePipelineCmd : public IGPUCommandPool::IFixedSizeCommand<CBindComputePipelineCmd>
+class IGPUCommandPool::CBindDescriptorSetsCmd final : public IFixedSizeCommand<CBindDescriptorSetsCmd>
 {
-public:
-    CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
-
-private:
-    core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
-};
-
-class IGPUCommandPool::CUpdateBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CUpdateBufferCmd>
-{
-public:
-    CUpdateBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
-
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
-};
-
-class IGPUCommandPool::CResetQueryPoolCmd : public IGPUCommandPool::IFixedSizeCommand<CResetQueryPoolCmd>
-{
-public:
-    CResetQueryPoolCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
-
-private:
-    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
-};
-
-class IGPUCommandPool::CWriteTimestampCmd : public IGPUCommandPool::IFixedSizeCommand<CWriteTimestampCmd>
-{
-public:
-    CWriteTimestampCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
-
-private:
-    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
-};
-
-class IGPUCommandPool::CBeginQueryCmd : public IGPUCommandPool::IFixedSizeCommand<CBeginQueryCmd>
-{
-public:
-    CBeginQueryCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
-
-private:
-    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
-};
-
-class IGPUCommandPool::CEndQueryCmd : public IGPUCommandPool::IFixedSizeCommand<CEndQueryCmd>
-{
-public:
-    CEndQueryCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
-
-private:
-    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
-};
-
-class IGPUCommandPool::CCopyQueryPoolResultsCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyQueryPoolResultsCmd>
-{
-public:
-    CCopyQueryPoolResultsCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
-        : m_queryPool(std::move(queryPool)), m_dstBuffer(std::move(dstBuffer))
-    {}
-
-private:
-    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
-    core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
-};
-
-class IGPUCommandPool::CBindGraphicsPipelineCmd : public IGPUCommandPool::IFixedSizeCommand<CBindGraphicsPipelineCmd>
-{
-public:
-    CBindGraphicsPipelineCmd(core::smart_refctd_ptr<const IGPUGraphicsPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
-
-private:
-    core::smart_refctd_ptr<const IGPUGraphicsPipeline> m_pipeline;
-};
-
-class IGPUCommandPool::CPushConstantsCmd : public IGPUCommandPool::IFixedSizeCommand<CPushConstantsCmd>
-{
-public:
-    CPushConstantsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& layout) : m_layout(std::move(layout)) {}
-
-private:
-    core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
-};
-
-class IGPUCommandPool::CBindVertexBuffersCmd : public IGPUCommandPool::IFixedSizeCommand<CBindVertexBuffersCmd>
-{
-    static inline constexpr auto MaxBufferCount = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
-
-public:
-    CBindVertexBuffersCmd(const uint32_t first, const uint32_t count, const IGPUBuffer *const *const buffers)
-    {
-        for (auto i = first; i < count; ++i)
+    public:
+        CBindDescriptorSetsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& pipelineLayout, const uint32_t setCount, const IGPUDescriptorSet* const* const sets)
+            : m_layout(std::move(pipelineLayout))
         {
-            assert(i < MaxBufferCount);
-            m_buffers[i] = core::smart_refctd_ptr<const IGPUBuffer>(buffers[i]);
+            for (auto i = 0; i < setCount; ++i)
+            {
+                assert(i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
+                m_sets[i] = core::smart_refctd_ptr<const video::IGPUDescriptorSet>(sets[i]);
+            }
         }
-    }
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffers[MaxBufferCount];
+    private:
+        core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
+        core::smart_refctd_ptr<const IGPUDescriptorSet> m_sets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
 };
 
-class IGPUCommandPool::CCopyBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyBufferCmd>
+class IGPUCommandPool::CBindComputePipelineCmd final : public IFixedSizeCommand<CBindComputePipelineCmd>
 {
-public:
-    CCopyBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& srcBuffer, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
-        : m_srcBuffer(std::move(srcBuffer)), m_dstBuffer(std::move(dstBuffer))
-    {}
+    public:
+        CBindComputePipelineCmd(core::smart_refctd_ptr<const IGPUComputePipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_srcBuffer;
-    core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
+    private:
+        core::smart_refctd_ptr<const IGPUComputePipeline> m_pipeline;
 };
 
-class IGPUCommandPool::CCopyBufferToImageCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyBufferToImageCmd>
+class IGPUCommandPool::CUpdateBufferCmd final : public IFixedSizeCommand<CUpdateBufferCmd>
 {
-public:
-    CCopyBufferToImageCmd(core::smart_refctd_ptr<const IGPUBuffer>&& srcBuffer, core::smart_refctd_ptr<const IGPUImage>&& dstImage)
-        : m_srcBuffer(std::move(srcBuffer)), m_dstImage(std::move(dstImage))
-    {}
+    public:
+        CUpdateBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_srcBuffer;
-    core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
-class IGPUCommandPool::CBlitImageCmd : public IGPUCommandPool::IFixedSizeCommand<CBlitImageCmd>
+class IGPUCommandPool::CResetQueryPoolCmd final : public IFixedSizeCommand<CResetQueryPoolCmd>
 {
-public:
-    CBlitImageCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUImage>&& dstImage)
-        : m_srcImage(std::move(srcImage)), m_dstImage(std::move(dstImage))
-    {}
+    public:
+        CResetQueryPoolCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUImage> m_srcImage;
-    core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+    private:
+        core::smart_refctd_ptr<const IQueryPool> m_queryPool;
 };
 
-class IGPUCommandPool::CCopyImageToBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyImageToBufferCmd>
+class IGPUCommandPool::CWriteTimestampCmd final : public IFixedSizeCommand<CWriteTimestampCmd>
 {
-public:
-    CCopyImageToBufferCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
-        : m_srcImage(std::move(srcImage)), m_dstBuffer(std::move(dstBuffer))
-    {}
+    public:
+        CWriteTimestampCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUImage> m_srcImage;
-    core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
+    private:
+        core::smart_refctd_ptr<const IQueryPool> m_queryPool;
 };
 
-class IGPUCommandPool::CExecuteCommandsCmd : public IGPUCommandPool::ICommand
+class IGPUCommandPool::CBeginQueryCmd final : public IFixedSizeCommand<CBeginQueryCmd>
 {
-public:
-    CExecuteCommandsCmd(const uint32_t count, IGPUCommandBuffer* const* const commandBuffers) : ICommand(calc_size(count, commandBuffers)), m_count(count)
-    {
-        auto cmdbufs = getCommandBuffers();
-        std::uninitialized_default_construct_n(cmdbufs, m_count);
+    public:
+        CBeginQueryCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
 
-        for (auto i = 0; i < m_count; ++i)
-            cmdbufs[i] = core::smart_refctd_ptr<const IGPUCommandBuffer>(commandBuffers[i]);
-    }
-
-    ~CExecuteCommandsCmd()
-    {
-        auto cmdbufs = getCommandBuffers();
-        for (auto i = 0; i < m_count; ++i)
-            cmdbufs[i].~smart_refctd_ptr();
-    }
-
-    static uint32_t calc_size(const uint32_t count, IGPUCommandBuffer* const* const commandBuffers)
-    {
-        return core::alignUp(sizeof(CExecuteCommandsCmd) + count*sizeof(core::smart_refctd_ptr<const IGPUCommandBuffer>), alignof(CExecuteCommandsCmd));
-    }
-
-private:
-    inline core::smart_refctd_ptr<const IGPUCommandBuffer>* getCommandBuffers() { return reinterpret_cast<core::smart_refctd_ptr<const IGPUCommandBuffer>*>(this + 1); }
-
-    const uint32_t m_count;
+    private:
+        core::smart_refctd_ptr<const IQueryPool> m_queryPool;
 };
 
-class IGPUCommandPool::CDispatchIndirectCmd : public IGPUCommandPool::IFixedSizeCommand<CDispatchIndirectCmd>
+class IGPUCommandPool::CEndQueryCmd final : public IFixedSizeCommand<CEndQueryCmd>
 {
-public:
-    CDispatchIndirectCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
+    public:
+        CEndQueryCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool) : m_queryPool(std::move(queryPool)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+    private:
+        core::smart_refctd_ptr<const IQueryPool> m_queryPool;
 };
 
-class IGPUCommandPool::CWaitEventsCmd : public IGPUCommandPool::ICommand
+class IGPUCommandPool::CCopyQueryPoolResultsCmd final : public IFixedSizeCommand<CCopyQueryPoolResultsCmd>
 {
-public:
-    CWaitEventsCmd(const uint32_t eventCount, IGPUEvent *const *const events, const uint32_t totalBufferCount, const uint32_t totalImageCount)
-        : ICommand(calc_size(eventCount,events,totalBufferCount,totalImageCount)), m_resourceOffset(eventCount), m_totalCount(m_resourceOffset+totalBufferCount+totalImageCount)
-    {
-        std::uninitialized_default_construct_n(getAll(),m_totalCount);
-        for (auto i=0u; i<eventCount; ++i)
-            getEvents()[i] = core::smart_refctd_ptr<const IGPUEvent>(events[i]);
-    }
+    public:
+        CCopyQueryPoolResultsCmd(core::smart_refctd_ptr<const IQueryPool>&& queryPool, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
+            : m_queryPool(std::move(queryPool)), m_dstBuffer(std::move(dstBuffer))
+        {}
 
-    ~CWaitEventsCmd()
-    {
-        for (auto i=0u; i<m_totalCount; ++i)
-            getAll()[i].~smart_refctd_ptr();
-    }
-
-    inline core::smart_refctd_ptr<const IReferenceCounted>* getResources() { return getAll()+m_resourceOffset; }
-
-    static uint32_t calc_size(const uint32_t eventCount, const IGPUEvent *const *const, const uint32_t totalBufferCount, const uint32_t totalImageCount)
-    {
-        const uint32_t resourceCount = eventCount+totalBufferCount+totalImageCount;
-        return core::alignUp(sizeof(CWaitEventsCmd)+resourceCount*sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CWaitEventsCmd));
-    }
-
-private:
-    inline core::smart_refctd_ptr<const IReferenceCounted>* getAll() { return reinterpret_cast<core::smart_refctd_ptr<const IReferenceCounted>*>(this+1); }
-    inline core::smart_refctd_ptr<const IGPUEvent>* getEvents() { return reinterpret_cast<core::smart_refctd_ptr<const IGPUEvent>*>(getAll()); }
-
-    const uint32_t m_resourceOffset;
-    const uint32_t m_totalCount;
+    private:
+        core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+        core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
-class IGPUCommandPool::CCopyImageCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyImageCmd>
+class IGPUCommandPool::CBindGraphicsPipelineCmd final : public IFixedSizeCommand<CBindGraphicsPipelineCmd>
 {
-public:
-    CCopyImageCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUImage>&& dstImage) : m_srcImage(std::move(srcImage)), m_dstImage(std::move(dstImage)) {}
+    public:
+        CBindGraphicsPipelineCmd(core::smart_refctd_ptr<const IGPUGraphicsPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUImage> m_srcImage;
-    core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+    private:
+        core::smart_refctd_ptr<const IGPUGraphicsPipeline> m_pipeline;
 };
 
-class IGPUCommandPool::CResolveImageCmd : public IGPUCommandPool::IFixedSizeCommand<CResolveImageCmd>
+class IGPUCommandPool::CPushConstantsCmd final : public IFixedSizeCommand<CPushConstantsCmd>
 {
-public:
-    CResolveImageCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUImage>&& dstImage) : m_srcImage(std::move(srcImage)), m_dstImage(std::move(dstImage)) {}
+    public:
+        CPushConstantsCmd(core::smart_refctd_ptr<const IGPUPipelineLayout>&& layout) : m_layout(std::move(layout)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUImage> m_srcImage;
-    core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+    private:
+        core::smart_refctd_ptr<const IGPUPipelineLayout> m_layout;
 };
 
-class IGPUCommandPool::CClearColorImageCmd : public IGPUCommandPool::IFixedSizeCommand<CClearColorImageCmd>
+class IGPUCommandPool::CBindVertexBuffersCmd final : public IFixedSizeCommand<CBindVertexBuffersCmd>
 {
-public:
-    CClearColorImageCmd(core::smart_refctd_ptr<const IGPUImage>&& image) : m_image(std::move(image)) {}
+        static inline constexpr auto MaxBufferCount = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
 
-private:
-    core::smart_refctd_ptr<const IGPUImage> m_image;
+    public:
+        CBindVertexBuffersCmd(const uint32_t first, const uint32_t count, const IGPUBuffer *const *const buffers)
+        {
+            for (auto i=first; i<count; ++i)
+            {
+                assert(i < MaxBufferCount);
+                m_buffers[i] = core::smart_refctd_ptr<const IGPUBuffer>(buffers[i]);
+            }
+        }
+
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffers[MaxBufferCount];
 };
 
-class IGPUCommandPool::CClearDepthStencilImageCmd : public IGPUCommandPool::IFixedSizeCommand<CClearDepthStencilImageCmd>
+class IGPUCommandPool::CCopyBufferCmd final : public IFixedSizeCommand<CCopyBufferCmd>
 {
-public:
-    CClearDepthStencilImageCmd(core::smart_refctd_ptr<const IGPUImage>&& image) : m_image(std::move(image)) {}
+    public:
+        CCopyBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& srcBuffer, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
+            : m_srcBuffer(std::move(srcBuffer)), m_dstBuffer(std::move(dstBuffer))
+        {}
 
-private:
-    core::smart_refctd_ptr<const IGPUImage> m_image;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_srcBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
-class IGPUCommandPool::CFillBufferCmd : public IGPUCommandPool::IFixedSizeCommand<CFillBufferCmd>
+class IGPUCommandPool::CCopyBufferToImageCmd final : public IFixedSizeCommand<CCopyBufferToImageCmd>
 {
-public:
-    CFillBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer) : m_dstBuffer(std::move(dstBuffer)) {}
+    public:
+        CCopyBufferToImageCmd(core::smart_refctd_ptr<const IGPUBuffer>&& srcBuffer, core::smart_refctd_ptr<const IGPUImage>&& dstImage)
+            : m_srcBuffer(std::move(srcBuffer)), m_dstImage(std::move(dstImage))
+        {}
 
-private:
-    core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_srcBuffer;
+        core::smart_refctd_ptr<const IGPUImage> m_dstImage;
 };
 
-class IGPUCommandPool::CSetEventCmd : public IGPUCommandPool::IFixedSizeCommand<CSetEventCmd>
+class IGPUCommandPool::CBlitImageCmd final : public IFixedSizeCommand<CBlitImageCmd>
 {
-public:
-    CSetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
+    public:
+        CBlitImageCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUImage>&& dstImage)
+            : m_srcImage(std::move(srcImage)), m_dstImage(std::move(dstImage))
+        {}
 
-private:
-    core::smart_refctd_ptr<const IGPUEvent> m_event;
+    private:
+        core::smart_refctd_ptr<const IGPUImage> m_srcImage;
+        core::smart_refctd_ptr<const IGPUImage> m_dstImage;
 };
 
-class IGPUCommandPool::CResetEventCmd : public IGPUCommandPool::IFixedSizeCommand<CResetEventCmd>
+class IGPUCommandPool::CCopyImageToBufferCmd final : public IFixedSizeCommand<CCopyImageToBufferCmd>
 {
-public:
-    CResetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
+    public:
+        CCopyImageToBufferCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer)
+            : m_srcImage(std::move(srcImage)), m_dstBuffer(std::move(dstBuffer))
+        {}
 
-private:
-    core::smart_refctd_ptr<const IGPUEvent> m_event;
+    private:
+        core::smart_refctd_ptr<const IGPUImage> m_srcImage;
+        core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
 };
 
-class IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd : public IGPUCommandPool::ICommand
+class IGPUCommandPool::CExecuteCommandsCmd final : public IVariableSizeCommand<CExecuteCommandsCmd>
 {
-public:
-    // If we take queryPool as rvalue ref here (core::smart_refctd_ptr<const IQueryPool>&&), in calc_size it will become const core::smart_refctd_ptr<const IQueryPool>
-    // because calc_size takes its arguments by const ref (https://github.com/Devsh-Graphics-Programming/Nabla/blob/04fcae3029772cbc739ccf6ba80f72e6e12f54e8/include/nbl/video/IGPUCommandPool.h#L76)
-    // , that means we will not be able to pass a core::smart_refctd_ptr<const IQueryPool> when emplacing the command. So instead, we take a raw pointer and create refctd pointers here.
-    CWriteAccelerationStructurePropertiesCmd(const IQueryPool* queryPool, const uint32_t accelerationStructureCount, IGPUAccelerationStructure const *const *const accelerationStructures)
-        : ICommand(calc_size(queryPool, accelerationStructureCount, accelerationStructures)), m_queryPool(core::smart_refctd_ptr<const IQueryPool>(queryPool)), m_accelerationStructureCount(accelerationStructureCount)
-    {
-        auto as = getAccelerationStructures();
-        std::uninitialized_default_construct_n(accelerationStructures, m_accelerationStructureCount);
-
-        for (auto i = 0; i < m_accelerationStructureCount; ++i)
-            as[i] = core::smart_refctd_ptr<const IGPUAccelerationStructure>(accelerationStructures[i]);
-    }
-
-    ~CWriteAccelerationStructurePropertiesCmd()
-    {
-        auto as = getAccelerationStructures();
-        for (auto i = 0; i < m_accelerationStructureCount; ++i)
-            as[i].~smart_refctd_ptr();
-    }
-
-    static uint32_t calc_size(const IQueryPool* queryPool, const uint32_t accelerationStructureCount, IGPUAccelerationStructure const *const *const accelerationStructures)
-    {
-        return core::alignUp(sizeof(CWriteAccelerationStructurePropertiesCmd) + (accelerationStructureCount + 1)* sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CWriteAccelerationStructurePropertiesCmd));
-    }
-
-private:
-    inline core::smart_refctd_ptr<const IGPUAccelerationStructure>* getAccelerationStructures() { return reinterpret_cast<core::smart_refctd_ptr<const IGPUAccelerationStructure>*>(this + 1); }
-
-    core::smart_refctd_ptr<const IQueryPool> m_queryPool;
-    const uint32_t m_accelerationStructureCount;
+    public:
+        static uint32_t calc_resources(const uint32_t count)
+        {
+            return count;
+        }
 };
 
-class IGPUCommandPool::CBuildAccelerationStructuresCmd : public IGPUCommandPool::ICommand
+class IGPUCommandPool::CDispatchIndirectCmd final : public IFixedSizeCommand<CDispatchIndirectCmd>
 {
-public:
-    CBuildAccelerationStructuresCmd(const uint32_t accelerationStructureCount, core::smart_refctd_ptr<const IGPUAccelerationStructure>* accelerationStructures, const uint32_t bufferCount, core::smart_refctd_ptr<const IGPUBuffer>* buffers)
-        : ICommand(calc_size(accelerationStructureCount, accelerationStructures, bufferCount, buffers)), m_resourceCount(accelerationStructureCount + bufferCount)
-    {
-        auto resources = getResources();
-        std::uninitialized_default_construct_n(resources, m_resourceCount);
+    public:
+        CDispatchIndirectCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
-        uint32_t k = 0u;
-        for (auto i = 0; i < accelerationStructureCount; ++i)
-            resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(accelerationStructures[i]);
-
-        for (auto i = 0; i < bufferCount; ++i)
-            resources[k++] = core::smart_refctd_ptr<const IReferenceCounted>(buffers[i]);
-    }
-
-    ~CBuildAccelerationStructuresCmd()
-    {
-        auto resources = getResources();
-        for (auto i = 0; i < m_resourceCount; ++i)
-            resources[i].~smart_refctd_ptr();
-    }
-
-    static uint32_t calc_size(const uint32_t accelerationStructureCount, core::smart_refctd_ptr<const IGPUAccelerationStructure>* accelerationStructures, const uint32_t bufferCount, core::smart_refctd_ptr<const IGPUBuffer>* buffers)
-    {
-        const auto resourceCount = accelerationStructureCount + bufferCount;
-        return core::alignUp(sizeof(CBuildAccelerationStructuresCmd) + resourceCount * sizeof(core::smart_refctd_ptr<const IReferenceCounted>), alignof(CBuildAccelerationStructuresCmd));
-    }
-
-private:
-    inline core::smart_refctd_ptr<const IReferenceCounted>* getResources() { return reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(this + 1); }
-
-    const uint32_t m_resourceCount;
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
-class IGPUCommandPool::CCopyAccelerationStructureCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyAccelerationStructureCmd>
+class IGPUCommandPool::CWaitEventsCmd final : public IVariableSizeCommand<CWaitEventsCmd>
 {
-public:
-    CCopyAccelerationStructureCmd(core::smart_refctd_ptr<const IGPUAccelerationStructure>&& src, core::smart_refctd_ptr<const IGPUAccelerationStructure>&& dst)
-        : m_src(std::move(src)), m_dst(std::move(dst))
-    {}
+    public:
+        CWaitEventsCmd(const uint32_t eventCount, IGPUEvent *const *const events, const uint32_t totalBufferCount, const uint32_t totalImageCount)
+            : IVariableSizeCommand<CWaitEventsCmd>(eventCount,events,totalBufferCount,totalImageCount), m_eventCount(eventCount)
+        {
+            for (auto i=0u; i<eventCount; ++i)
+                getVariableCountResources()[i] = core::smart_refctd_ptr<const IGPUEvent>(events[i]);
+        }
 
-private:
-    core::smart_refctd_ptr<const IGPUAccelerationStructure> m_src;
-    core::smart_refctd_ptr<const IGPUAccelerationStructure> m_dst;
+        inline auto* getDeviceMemoryBacked() { return reinterpret_cast<core::smart_refctd_ptr<const IDeviceMemoryBacked>*>(getVariableCountResources()+m_eventCount); }
+
+        static uint32_t calc_resources(const uint32_t eventCount, const IGPUEvent *const *const, const uint32_t totalBufferCount, const uint32_t totalImageCount)
+        {
+            return eventCount+totalBufferCount+totalImageCount;
+        }
+
+    private:
+        const uint32_t m_eventCount;
 };
 
-class IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd : public IGPUCommandPool::IFixedSizeCommand<CCopyAccelerationStructureToOrFromMemoryCmd>
+class IGPUCommandPool::CCopyImageCmd final : public IFixedSizeCommand<CCopyImageCmd>
 {
-public:
-    CCopyAccelerationStructureToOrFromMemoryCmd(core::smart_refctd_ptr<const IGPUAccelerationStructure>&& accelStructure, core::smart_refctd_ptr<const IGPUBuffer>&& buffer)
-        : m_accelStructure(std::move(accelStructure)), m_buffer(std::move(buffer))
-    {}
+    public:
+        CCopyImageCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUImage>&& dstImage) : m_srcImage(std::move(srcImage)), m_dstImage(std::move(dstImage)) {}
 
-private:
-    core::smart_refctd_ptr<const IGPUAccelerationStructure> m_accelStructure;
-    core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
+    private:
+        core::smart_refctd_ptr<const IGPUImage> m_srcImage;
+        core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+};
+
+class IGPUCommandPool::CResolveImageCmd final : public IFixedSizeCommand<CResolveImageCmd>
+{
+    public:
+        CResolveImageCmd(core::smart_refctd_ptr<const IGPUImage>&& srcImage, core::smart_refctd_ptr<const IGPUImage>&& dstImage) : m_srcImage(std::move(srcImage)), m_dstImage(std::move(dstImage)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUImage> m_srcImage;
+        core::smart_refctd_ptr<const IGPUImage> m_dstImage;
+};
+
+class IGPUCommandPool::CClearColorImageCmd final : public IFixedSizeCommand<CClearColorImageCmd>
+{
+    public:
+        CClearColorImageCmd(core::smart_refctd_ptr<const IGPUImage>&& image) : m_image(std::move(image)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUImage> m_image;
+};
+
+class IGPUCommandPool::CClearDepthStencilImageCmd final : public IFixedSizeCommand<CClearDepthStencilImageCmd>
+{
+    public:
+        CClearDepthStencilImageCmd(core::smart_refctd_ptr<const IGPUImage>&& image) : m_image(std::move(image)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUImage> m_image;
+};
+
+class IGPUCommandPool::CFillBufferCmd final : public IFixedSizeCommand<CFillBufferCmd>
+{
+    public:
+        CFillBufferCmd(core::smart_refctd_ptr<const IGPUBuffer>&& dstBuffer) : m_dstBuffer(std::move(dstBuffer)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_dstBuffer;
+};
+
+class IGPUCommandPool::CSetEventCmd final : public IFixedSizeCommand<CSetEventCmd>
+{
+    public:
+        CSetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUEvent> m_event;
+};
+
+class IGPUCommandPool::CResetEventCmd final : public IFixedSizeCommand<CResetEventCmd>
+{
+    public:
+        CResetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUEvent> m_event;
+};
+
+class IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd final : public IVariableSizeCommand<CWriteAccelerationStructurePropertiesCmd>
+{
+    public:
+        // If we take queryPool as rvalue ref here (core::smart_refctd_ptr<const IQueryPool>&&), in calc_size it will become const core::smart_refctd_ptr<const IQueryPool>
+        // because calc_size takes its arguments by const ref (https://github.com/Devsh-Graphics-Programming/Nabla/blob/04fcae3029772cbc739ccf6ba80f72e6e12f54e8/include/nbl/video/IGPUCommandPool.h#L76)
+        // , that means we will not be able to pass a core::smart_refctd_ptr<const IQueryPool> when emplacing the command. So instead, we take a raw pointer and create refctd pointers here.
+        CWriteAccelerationStructurePropertiesCmd(const IQueryPool* queryPool, const uint32_t accelerationStructureCount)
+            : IVariableSizeCommand<CWriteAccelerationStructurePropertiesCmd>(queryPool,accelerationStructureCount), m_queryPool(core::smart_refctd_ptr<const IQueryPool>(queryPool))
+        {}
+
+        static uint32_t calc_resources(const IQueryPool* queryPool, const uint32_t accelerationStructureCount)
+        {
+            return accelerationStructureCount;
+        }
+
+    private:
+        core::smart_refctd_ptr<const IQueryPool> m_queryPool;
+};
+
+class IGPUCommandPool::CBuildAccelerationStructuresCmd final : public IVariableSizeCommand<CBuildAccelerationStructuresCmd>
+{
+    public:
+        static inline constexpr uint32_t MaxGeometryPerBuildInfoCount = 64u;
+
+        static inline uint32_t calc_resources(const uint32_t resourceCount)
+        {
+            return resourceCount;
+        }
+
+        inline void fill(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos)
+        {
+            auto oit = getVariableCountResources();
+            for (auto& info : pInfos)
+            {
+                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(info.srcAS);
+                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(info.dstAS);
+                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(info.scratchAddr.buffer);
+                for (auto& geometry : info.geometries)
+                switch (geometry.type)
+                {
+                    case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_TRIANGLES:
+                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.triangles.vertexData.buffer);
+                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.triangles.indexData.buffer);
+                        if (geometry.data.triangles.transformData.isValid())
+                            *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.triangles.transformData.buffer);
+                        break;
+                    case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_AABBS:
+                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.aabbs.data.buffer);
+                        break;
+                    case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_INSTANCES:
+                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.instances.data.buffer);
+                        break;
+                }
+            }
+        }
+};
+
+class IGPUCommandPool::CCopyAccelerationStructureCmd final : public IFixedSizeCommand<CCopyAccelerationStructureCmd>
+{
+    public:
+        CCopyAccelerationStructureCmd(core::smart_refctd_ptr<const IGPUAccelerationStructure>&& src, core::smart_refctd_ptr<const IGPUAccelerationStructure>&& dst)
+            : m_src(std::move(src)), m_dst(std::move(dst))
+        {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUAccelerationStructure> m_src;
+        core::smart_refctd_ptr<const IGPUAccelerationStructure> m_dst;
+};
+
+class IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd final : public IFixedSizeCommand<CCopyAccelerationStructureToOrFromMemoryCmd>
+{
+    public:
+        CCopyAccelerationStructureToOrFromMemoryCmd(core::smart_refctd_ptr<const IGPUAccelerationStructure>&& accelStructure, core::smart_refctd_ptr<const IGPUBuffer>&& buffer)
+            : m_accelStructure(std::move(accelStructure)), m_buffer(std::move(buffer))
+        {}
+
+    private:
+        core::smart_refctd_ptr<const IGPUAccelerationStructure> m_accelStructure;
+        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
 }

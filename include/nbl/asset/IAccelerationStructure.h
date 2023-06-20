@@ -166,6 +166,7 @@ class IAccelerationStructure : public IDescriptor
 			uint32_t						mask:8;
 			uint32_t						instanceShaderBindingTableRecordOffset:24;
 			E_INSTANCE_FLAGS				flags:8;
+			// TODO: change this to be a smartpointer to another AccelerationStructure for CPU and a BDA (AddressType) for the GPU
 			uint64_t						accelerationStructureReference; // retrieve via `getReference` functions in IGPUAccelerationStructrue
 		};
 		
