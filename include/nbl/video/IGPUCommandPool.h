@@ -573,13 +573,10 @@ class IGPUCommandPool::CBindVertexBuffersCmd final : public IFixedSizeCommand<CB
         static inline constexpr auto MaxBufferCount = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
 
     public:
-        CBindVertexBuffersCmd(const uint32_t first, const uint32_t count, const IGPUBuffer *const *const buffers)
+        CBindVertexBuffersCmd(const uint32_t count, const asset::SBufferBinding<const IGPUBuffer>* const pBindings)
         {
-            for (auto i=first; i<count; ++i)
-            {
-                assert(i < MaxBufferCount);
-                m_buffers[i] = core::smart_refctd_ptr<const IGPUBuffer>(buffers[i]);
-            }
+            for (auto i=0; i<count; ++i)
+                m_buffers[i] = core::smart_refctd_ptr<const IGPUBuffer>(pBindings[i].buffer);
         }
 
     private:

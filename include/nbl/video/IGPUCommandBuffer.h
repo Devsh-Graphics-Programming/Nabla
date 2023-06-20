@@ -201,8 +201,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             const uint32_t dynamicOffsetCount=0u, const uint32_t* const dynamicOffsets=nullptr
         );
         bool pushConstants(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues);
-        bool bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* const pOffsets);
-        bool bindIndexBuffer(const IGPUBuffer* const buffer, const size_t offset, const asset::E_INDEX_TYPE indexType);
+        bool bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings);
+        bool bindIndexBuffer(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType);
 
         //! queries
         bool resetQueryPool(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount);
@@ -344,8 +344,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets = nullptr
         ) = 0;
         virtual bool pushConstants_impl(const IGPUPipelineLayout* const layout, core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) = 0;
-        virtual bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* const pOffsets) = 0;
-        virtual bool bindIndexBuffer_impl(const IGPUBuffer* const buffer, const size_t offset, const asset::E_INDEX_TYPE indexType) = 0;
+        virtual bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings) = 0;
+        virtual bool bindIndexBuffer_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType) = 0;
 
         virtual bool resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount) = 0;
         virtual bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;
@@ -487,8 +487,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         {
             switch (layout)
             {
-                case IGPUImage::LAYOUT::GENERAL: [[fallthrough]]
-                case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL: [[fallthrough]]
+                case IGPUImage::LAYOUT::GENERAL: [[fallthrough]];
+                case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL: [[fallthrough]];
                 case IGPUImage::LAYOUT::SHARED_PRESENT:
                     break;
                 default:
@@ -507,8 +507,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         {
             switch (layout)
             {
-                case IGPUImage::LAYOUT::GENERAL: [[fallthrough]]
-                case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL: [[fallthrough]]
+                case IGPUImage::LAYOUT::GENERAL: [[fallthrough]];
+                case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL: [[fallthrough]];
                 case IGPUImage::LAYOUT::SHARED_PRESENT:
                     break;
                 default:
@@ -529,7 +529,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             if (pInfos.empty())
                 return 0u;
 
-            const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+            //const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
             const auto maxGeometryCount = ~0ull; // TODO: limits.maxGeometryCount
             const auto maxPrimitiveCount = ~0ull; //TODO limits.accelerationStructure
 

@@ -97,7 +97,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
 
         // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00053
         // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00054
-        if (!inheritanceInfo || !inheritanceInfo->renderpass || !inheritanceInfo->renderpass->isCompatibleDevicewise(this) || inheritanceInfo->subpass<inheritanceInfo->renderpass->getSubpasses().size())
+        if (!inheritanceInfo || !inheritanceInfo->renderpass || !inheritanceInfo->renderpass->isCompatibleDevicewise(this) || inheritanceInfo->subpass<inheritanceInfo->renderpass->getSubpassCount())
         {
             m_logger.log("Failed to begin command buffer: a secondary command buffer must have valid inheritance info with a valid renderpass.", system::ILogger::ELL_ERROR);
             return false;
@@ -682,33 +682,47 @@ bool IGPUCommandBuffer::pushConstants(const IGPUPipelineLayout* const layout, co
     return pushConstants_impl(layout, stageFlags, offset, size, pValues);
 }
 
-bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const IGPUBuffer* const* const pBuffers, const size_t* const pOffsets)
+bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings)
 {
+    if (firstBinding+bindingCount>asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT)
+        return false;
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
-    for (uint32_t i = 0u; i < bindingCount; ++i)
-    if (pBuffers[i] && !this->isCompatibleDevicewise(pBuffers[i]))
+    for (uint32_t i=0u; i<bindingCount; ++i)
+    if (invalidBufferBinding(pBindings[i],4u/*or should we derive from component format?*/, IGPUBuffer::EUF_VERTEX_BUFFER_BIT))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList, firstBinding, bindingCount, pBuffers))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList,pBindings))
         return false;
 
-    return bindVertexBuffers_impl(firstBinding, bindingCount, pBuffers, pOffsets);
+    return bindVertexBuffers_impl(firstBinding, bindingCount, pBindings);
 }
 
-bool IGPUCommandBuffer::bindIndexBuffer(const IGPUBuffer* const buffer, const size_t offset, const asset::E_INDEX_TYPE indexType)
+bool IGPUCommandBuffer::bindIndexBuffer(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
-    if (!buffer || !this->isCompatibleDevicewise(buffer))
+    size_t alignment;
+    switch (indexType)
+    {
+        case asset::EIT_16BIT:
+            alignment = alignof(uint16_t);
+            break;
+        case asset::EIT_32BIT:
+            alignment = alignof(uint32_t);
+            break;
+        default:
+            return false;
+    }
+    if (invalidBufferBinding(binding,alignment,IGPUBuffer::EUF_INDEX_BUFFER_BIT))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
-    return bindIndexBuffer_impl(buffer, offset, indexType);
+    return bindIndexBuffer_impl(binding,indexType);
 }
 
 
