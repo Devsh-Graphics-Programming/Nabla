@@ -51,8 +51,8 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 			Base::E_TYPE	type; // TODO: Can deduce from creationParams.type?
 			E_BUILD_FLAGS	buildFlags;
 			E_BUILD_MODE	buildMode;
-			IGPUAccelerationStructure * srcAS;
-			IGPUAccelerationStructure * dstAS;
+			IGPUAccelerationStructure* srcAS;
+			IGPUAccelerationStructure* dstAS;
 			core::SRange<Geometry> geometries;
 			AddressType		scratchAddr;
 		};

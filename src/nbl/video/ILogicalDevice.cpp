@@ -271,15 +271,17 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, cons
                 case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
                     if (srcStageIsHost)
                         return true;
-                    constexpr auto ValidUsages = IGPUImage::E_USAGE_FLAGS::EUF_SAMPLED_BIT|IGPUImage::E_USAGE_FLAGS::EUF_INPUT_ATTACHMENT_BIT;
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01211
-                    if (aspectMask.hasFlags(IGPUImage::EAF_STENCIL_BIT))
                     {
-                        if (!bool(params.actualStencilUsage()&ValidUsages))
+                        constexpr auto ValidUsages = IGPUImage::E_USAGE_FLAGS::EUF_SAMPLED_BIT|IGPUImage::E_USAGE_FLAGS::EUF_INPUT_ATTACHMENT_BIT;
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01211
+                        if (aspectMask.hasFlags(IGPUImage::EAF_STENCIL_BIT))
+                        {
+                            if (!bool(params.actualStencilUsage()&ValidUsages))
+                                return true;
+                        }
+                        else if (!bool(params.usage&ValidUsages))
                             return true;
                     }
-                    else if (!bool(params.usage&ValidUsages))
-                        return true;
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01212
                 case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:

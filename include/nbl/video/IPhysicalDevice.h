@@ -521,6 +521,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         const SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_linearTilingUsages; }
         const SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_optimalTilingUsages; }
+        const SFormatImageUsages& getImageFormatUsages(const IGPUImage::TILING tiling) const {return tiling!=IGPUImage::TILING::OPTIMAL ? m_linearTilingUsages:m_optimalTilingUsages;}
 
         /* QueueFamilyProperties2
 * 

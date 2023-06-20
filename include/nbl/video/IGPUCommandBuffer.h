@@ -62,7 +62,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         inline STATE getState() const { return m_state; }
         inline bool isResettable() const
         {
-            return m_cmdpool->getCreationFlags().hasFlags(IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            return m_cmdpool->getCreationFlags().hasFlags(IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
         }
         inline bool canReset() const
         {
@@ -121,7 +121,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         struct SBufferMemoryBarrier
         {
             SResourceMemoryBarrier barrier = {};
-            asset::SBufferRange<const IGPUBuffer> range = {0ull,IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer,nullptr};
+            asset::SBufferRange<const IGPUBuffer> range = {};
         };
         struct SImageMemoryBarrier
         {
@@ -150,8 +150,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo);
 
         //! buffer transfers
-        bool fillBuffer(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t size, const uint32_t data);
-        bool updateBuffer(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize, const void* const pData);
+        bool fillBuffer(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data);
+        bool updateBuffer(const asset::SBufferRange<IGPUBuffer>& range, const void* const pData);
         struct SBufferCopy
         {
             size_t srcOffset;
@@ -180,7 +180,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool clearColorImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges);
         bool clearDepthStencilImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearDepthStencilValue* const pDepthStencil, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges);
         bool copyBufferToImage(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
-        bool copyImageToBuffer(const IGPUBuffer* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
+        bool copyImageToBuffer(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
         bool copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions);
 
         //! acceleration structure transfers
@@ -282,38 +282,6 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             }
         }
 
-        template<bool fill=false>
-        inline bool validate_updateBuffer(const IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize)
-        {
-            if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
-                return false;
-            const auto& params = dstBuffer->getCreationParams();
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00034
-            if (!params.usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
-                return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00024
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00032
-            if (dstOffset>=params.size)
-                return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00025
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00036
-            if ((dstOffset&0x03ull)!=0ull)
-                return false;
-            const bool notWholeSize = !fill/* || dataSize!=TODO*/;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00026
-            if (notWholeSize && dataSize==0u)
-                return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00033
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00027
-            if (notWholeSize && dstOffset+dataSize>params.size)
-                return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdUpdateBuffer.html#VUID-vkCmdUpdateBuffer-dstOffset-00038
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdFillBuffer.html#VUID-vkCmdFillBuffer-size-00028
-            if (notWholeSize && (dataSize&0x03ull)!=0ull)
-                return false;
-            return true;
-        }
-
         static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)
         {
             int32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
@@ -351,14 +319,14 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool waitEvents_impl(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfos) = 0;
         virtual bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo) = 0;
 
-        virtual bool fillBuffer_impl(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t size, const uint32_t data) = 0;
-        virtual bool updateBuffer_impl(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize, const void* const pData) = 0;
+        virtual bool fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data) = 0;
+        virtual bool updateBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const void* const pData) = 0;
         virtual bool copyBuffer_impl(const IGPUBuffer* const srcBuffer, IGPUBuffer* const dstBuffer, const uint32_t regionCount, const SBufferCopy* const pRegions) = 0;
 
         virtual bool clearColorImage_impl(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges) = 0;
         virtual bool clearDepthStencilImage_impl(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearDepthStencilValue* const pDepthStencil, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges) = 0;
         virtual bool copyBufferToImage_impl(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions) = 0;
-        virtual bool copyImageToBuffer_impl(const IGPUBuffer* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions) = 0;
+        virtual bool copyImageToBuffer_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions) = 0;
         virtual bool copyImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions) = 0;
 
         virtual bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
@@ -425,7 +393,6 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 
         core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
         system::logger_opt_smart_ptr m_logger;
-        const core::bitflag<stage_flags_t> m_supportedStageMask;
         const LEVEL m_level;
 
     private:
@@ -471,7 +438,84 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         using queue_flags_t = IGPUQueue::FAMILY_FLAGS;
         bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
 
-        bool validateDependency(const SDependencyInfo& depInfo) const;
+        bool invalidDependency(const SDependencyInfo& depInfo) const;
+
+        inline bool invalidBuffer(const IGPUBuffer* buffer, const IGPUBuffer::E_USAGE_FLAGS usages) const
+        {
+            if (!buffer || !this->isCompatibleDevicewise(buffer))
+                return true;
+            if (!buffer->getCreationParams().usage.hasFlags(usages))
+            {
+                m_logger.log("Incorrect `IGPUBuffer` usage flags for the command!", system::ILogger::ELL_ERROR);
+                return true;
+            }
+            return false;
+        }
+        inline bool invalidBufferBinding(const asset::SBufferBinding<const IGPUBuffer>& binding, const size_t alignment, const IGPUBuffer::E_USAGE_FLAGS usages) const
+        {
+            if (!binding.isValid() || invalidBuffer(binding.buffer.get(),usages))
+                return true;
+            if (binding.offset&(alignment-1))
+            {
+                m_logger.log("Offset %d not aligned to %d for the command!", system::ILogger::ELL_ERROR, binding.offset, alignment);
+                return true;
+            }
+            return false;
+        }
+        inline bool invalidBufferRange(const asset::SBufferRange<const IGPUBuffer>& range, const size_t alignment, const IGPUBuffer::E_USAGE_FLAGS usages) const
+        {
+            if (invalidBufferBinding({range.offset,range.buffer},alignment,usages))
+                return true;
+            if ((range.size&(alignment-1)) && range.size!=asset::SBufferRange<IGPUBuffer>::WholeBuffer)
+                return true;
+            return false;
+        }
+
+        inline bool invalidImage(const IGPUImage* image, const IGPUImage::E_USAGE_FLAGS usages) const
+        {
+            if (!image || !this->isCompatibleDevicewise(image))
+                return true;
+            if (!image->getCreationParameters().usage.hasFlags(usages))
+            {
+                m_logger.log("Incorrect `IGPUImage` usage flags for the command!", system::ILogger::ELL_ERROR);
+                return true;
+            }
+            return false;
+        }
+        template<bool clear=false>
+        inline bool invalidDestinationImage(const IGPUImage* image, const IGPUImage::LAYOUT layout) const
+        {
+            switch (layout)
+            {
+                case IGPUImage::LAYOUT::GENERAL: [[fallthrough]]
+                case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL: [[fallthrough]]
+                case IGPUImage::LAYOUT::SHARED_PRESENT:
+                    break;
+                default:
+                    return true;
+            }
+            if (invalidImage(image,IGPUImage::EUF_TRANSFER_DST_BIT))
+                return true;
+            if constexpr (!clear)
+            {
+                if (image->getCreationParameters().samples!=IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
+                    return true;
+            }
+            return false;
+        }
+        inline bool invalidSourceImage(const IGPUImage* image, const IGPUImage::LAYOUT layout) const
+        {
+            switch (layout)
+            {
+                case IGPUImage::LAYOUT::GENERAL: [[fallthrough]]
+                case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL: [[fallthrough]]
+                case IGPUImage::LAYOUT::SHARED_PRESENT:
+                    break;
+                default:
+                    return true;
+            }
+            return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
+        }
 
 
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings

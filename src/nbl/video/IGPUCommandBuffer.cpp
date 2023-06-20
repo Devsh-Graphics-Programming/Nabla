@@ -5,7 +5,7 @@ namespace nbl::video
 {
     
 IGPUCommandBuffer::IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger)
-    : IBackendObject(std::move(dev)), m_cmdpool(_cmdpool), m_logger(std::move(logger)), m_level(lvl), m_supportedStageMask(getOriginDevice()->getSupportedStageMask(m_cmdpool->getQueueFamilyIndex()))
+    : IBackendObject(std::move(dev)), m_cmdpool(_cmdpool), m_logger(std::move(logger)), m_level(lvl)
 {
 }
 
@@ -177,22 +177,25 @@ bool IGPUCommandBuffer::setDeviceMask(uint32_t deviceMask)
 }
 */
 
-bool IGPUCommandBuffer::validateDependency(const SDependencyInfo& depInfo) const
+bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo& depInfo) const
 {
     // under NBL_DEBUG, cause waay too expensive to validate
     #ifdef _NBL_DEBUG
     auto device = getOriginDevice();
     for (auto j=0u; j<depInfo.memBarrierCount; j++)
-    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfos[i].memBarriers[j]))
-        return false;
+    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.memBarriers[j]))
+        return true;
     for (auto j=0u; j<depInfo.bufBarrierCount; j++)
-    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfos[i].bufBarriers[j]))
-        return false;
+    {
+        if (invalidBufferRange(depInfo.bufBarriers[j].range))
+        if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.bufBarriers[j]))
+            return true;
+    }
     for (auto j=0u; j<depInfo.imgBarrierCount; j++)
-    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfos[i].imgBarriers[j]))
-        return false;
+    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.imgBarriers[j]))
+        return true;
     #endif // _NBL_DEBUG
-    return true;
+    return false;
 }
 
 bool IGPUCommandBuffer::setEvent(IGPUEvent* _event, const SDependencyInfo& depInfo)
@@ -205,7 +208,7 @@ bool IGPUCommandBuffer::setEvent(IGPUEvent* _event, const SDependencyInfo& depIn
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdSetEvent2-srcStageMask-03827
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdSetEvent2-srcStageMask-03828
-    if (!validateDependency(depInfo))
+    if (invalidDependency(depInfo))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CSetEventCmd>(m_commandList, core::smart_refctd_ptr<const IGPUEvent>(_event)))
@@ -261,7 +264,7 @@ bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdWaitEvents2-srcStageMask-03842
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdWaitEvents2-srcStageMask-03843
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdWaitEvents2-dependencyFlags-03844
-        if (validateDependency(depInfo))
+        if (invalidDependency(depInfo))
             return false;
 
         totalBufferCount += depInfo.bufBarrierCount;
@@ -272,7 +275,7 @@ bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* 
     if (!cmd)
         return false;
 
-    auto outIt = cmd->getResources();
+    auto outIt = cmd->getDeviceMemoryBacked();
     for (auto i=0u; i<eventCount; ++i)
     {
         const auto& depInfo = depInfos[i];
@@ -291,8 +294,12 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
 
     if (depInfo.memBarrierCount==0u && depInfo.bufBarrierCount==0u && depInfo.imgBarrierCount==0u)
         return false;
+
+    if (invalidDependency(depInfo))
+        return false;
     
-    if (m_cachedInheritanceInfo.subpass!=SInheritanceInfo{}.subpass)
+    const bool withinSubpass = m_cachedInheritanceInfo.subpass!=SInheritanceInfo{}.subpass;
+    if (withinSubpass)
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-bufferMemoryBarrierCount-01178
         if (depInfo.bufBarrierCount)
@@ -316,7 +323,7 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     if (!cmd)
         return false;
 
-    auto outIt = cmd->getResources();
+    auto outIt = cmd->getVariableCountResources();
     for (auto j=0u; j<depInfo.bufBarrierCount; j++)
         *(outIt++) = depInfo.bufBarriers[j].range.buffer;
     for (auto j=0u; j<depInfo.imgBarrierCount; j++)
@@ -325,71 +332,65 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
 }
 
 
-bool IGPUCommandBuffer::fillBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t size, uint32_t data)
+bool IGPUCommandBuffer::fillBuffer(const asset::SBufferRange<IGPUBuffer>& range, uint32_t data)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
     
-    if (!validate_updateBuffer<true>(dstBuffer,dstOffset,size))
+    if (invalidBufferRange(range,4u,IGPUBuffer::EUF_TRANSFER_DST_BIT))
     {
-        m_logger.log("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`.", system::ILogger::ELL_ERROR);
+        m_logger.log("Invalid arguments see `IGPUCommandBuffer::invalidBufferRange`.", system::ILogger::ELL_ERROR);
         return false;
     }
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CFillBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CFillBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(range.buffer)))
         return false;
-
-    return fillBuffer_impl(dstBuffer, dstOffset, size, data);
+    return fillBuffer_impl(range,data);
 }
 
-bool IGPUCommandBuffer::updateBuffer(IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t dataSize, const void* const pData)
+bool IGPUCommandBuffer::updateBuffer(const asset::SBufferRange<IGPUBuffer>& range, const void* const pData)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-
-    if (!validate_updateBuffer(dstBuffer,dstOffset,dataSize))
+    
+    if (invalidBufferRange(range,4u,IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
     {
         m_logger.log("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`.", system::ILogger::ELL_ERROR);
         return false;
     }
-    if (dataSize>0x10000ull)
+    if (range.actualSize()>0x10000ull)
     {
         m_logger.log("Inline Buffer Updates are limited to 64kb!", system::ILogger::ELL_ERROR);
         return false;
     }
-    if (!dstBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
-    {
-        m_logger.log("You need the `IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF` usage flag which is missing!", system::ILogger::ELL_ERROR);
-        return false;
-    }
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(range.buffer)))
         return false;
-
-    return updateBuffer_impl(dstBuffer,dstOffset,dataSize,pData);
+    return updateBuffer_impl(range,pData);
 }
 
 bool IGPUCommandBuffer::copyBuffer(const IGPUBuffer* const srcBuffer, IGPUBuffer* const dstBuffer, uint32_t regionCount, const SBufferCopy* const pRegions)
 {
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-regionCount-arraylength
+    if (regionCount==0u)
+        return false;
+
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
+
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-srcBuffer-parameter
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-srcBuffer-00118
-    if (!srcBuffer || !this->isCompatibleDevicewise(srcBuffer) || !srcBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
+    if (invalidBuffer(srcBuffer,IGPUBuffer::EUF_TRANSFER_SRC_BIT))
         return false;
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-dstBuffer-parameter
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-dstBuffer-00120
-    if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer) || !dstBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
-        return false;
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-regionCount-arraylength
-    if (regionCount==0u)
+    if (invalidBuffer(dstBuffer,IGPUBuffer::EUF_TRANSFER_DST_BIT))
         return false;
 
     // pRegions is too expensive to validate
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
-
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
@@ -399,7 +400,10 @@ bool IGPUCommandBuffer::clearColorImage(IGPUImage* const image, const IGPUImage:
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (!image || !this->isCompatibleDevicewise(image))
+    if (invalidDestinationImage<true>(image,imageLayout))
+        return false;
+    const auto format = image->getCreationParameters().format;
+    if (asset::isDepthOrStencilFormat(format) || asset::isBlockCompressionFormat(format))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearColorImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
@@ -411,8 +415,11 @@ bool IGPUCommandBuffer::clearDepthStencilImage(IGPUImage* const image, const IGP
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-
-    if (!image || !this->isCompatibleDevicewise(image))
+    
+    if (invalidDestinationImage<true>(image,imageLayout))
+        return false;
+    const auto format = image->getCreationParameters().format;
+    if (!asset::isDepthOrStencilFormat(format))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
@@ -422,13 +429,17 @@ bool IGPUCommandBuffer::clearDepthStencilImage(IGPUImage* const image, const IGP
 
 bool IGPUCommandBuffer::copyBufferToImage(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
 {
+    if (regionCount==0u)
+        return false;
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
+    
+    if (invalidBuffer(srcBuffer,IGPUBuffer::EUF_TRANSFER_SRC_BIT))
+        return false;
+    if (invalidDestinationImage(dstImage,dstImageLayout))
+        return false;
 
-    if (!srcBuffer || !this->isCompatibleDevicewise(srcBuffer))
-        return false;
-    if (!dstImage || !this->isCompatibleDevicewise(dstImage))
-        return false;
+    // pRegions is too expensive to validate
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
@@ -436,15 +447,19 @@ bool IGPUCommandBuffer::copyBufferToImage(const IGPUBuffer* const srcBuffer, IGP
     return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
-bool IGPUCommandBuffer::copyImageToBuffer(const IGPUBuffer* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
+bool IGPUCommandBuffer::copyImageToBuffer(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
 {
+    if (regionCount==0u)
+        return false;
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
+    
+    if (invalidSourceImage(srcImage,srcImageLayout))
+        return false;
+    if (invalidBuffer(dstBuffer,IGPUBuffer::EUF_TRANSFER_DST_BIT))
+        return false;
 
-    if (!srcImage || !this->isCompatibleDevicewise(srcImage))
-        return false;
-    if (!dstBuffer || !this->isCompatibleDevicewise(dstBuffer))
-        return false;
+    // pRegions is too expensive to validate
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
@@ -454,15 +469,26 @@ bool IGPUCommandBuffer::copyImageToBuffer(const IGPUBuffer* const srcImage, cons
 
 bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions)
 {
+    if (regionCount==0u)
+        return false;
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (!srcImage || !this->isCompatibleDevicewise(srcImage))
+    if (invalidSourceImage(srcImage,srcImageLayout))
         return false;
-    if (!dstImage || !this->isCompatibleDevicewise(dstImage))
+    if (invalidDestinationImage(dstImage,dstImageLayout))
         return false;
 
-    if (!dstImage->validateCopies(pRegions, pRegions + regionCount, srcImage))
+    const auto& srcParams = srcImage->getCreationParameters();
+    const auto& dstParams = dstImage->getCreationParameters();
+    if (srcParams.samples!=dstParams.samples)
+        return false;
+    if (asset::getBytesPerPixel(srcParams.format)!=asset::getBytesPerPixel(dstParams.format))
+        return false;
+
+    // pRegions is too expensive to validate
+
+    if (!dstImage->validateCopies(pRegions,pRegions+regionCount,srcImage))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
@@ -495,7 +521,7 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAcceleration
 
     if (!copyInfo.src || !this->isCompatibleDevicewise(copyInfo.src))
         return false;
-    if (!copyInfo.dst.buffer || !this->isCompatibleDevicewise(copyInfo.dst.buffer.get()))
+    if (invalidBufferBinding(copyInfo.dst,256u,IGPUBuffer::EUF_TRANSFER_DST_BIT))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
@@ -509,7 +535,7 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerati
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
     
-    if (!copyInfo.src.buffer || !this->isCompatibleDevicewise(copyInfo.src.buffer.get()))
+    if (invalidBufferBinding(copyInfo.src,256u,IGPUBuffer::EUF_TRANSFER_SRC_BIT))
         return false;
     if (!copyInfo.dst || !this->isCompatibleDevicewise(copyInfo.dst))
         return false;
@@ -520,7 +546,6 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerati
     return copyAccelerationStructureFromMemory_impl(copyInfo);
 }
 
-#if 0
 bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
@@ -547,16 +572,13 @@ bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(const core::SRange<c
     if (pInfos.empty())
         return false;
 
-    core::vector<core::smart_refctd_ptr<const IGPUAccelerationStructure>> accelerationStructures;
-    core::vector<core::smart_refctd_ptr<const IGPUBuffer>> buffers;
-    getResourcesFromBuildGeometryInfos(pInfos, accelerationStructures, buffers);
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList, accelerationStructures.size(), accelerationStructures.data(), buffers.size(), buffers.data()))
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,accelerationStructures.size(),buffers.size());
+    if (!cmd)
         return false;
 
+    getResourcesFromBuildGeometryInfos(pInfos,cmd->get());
     return buildAccelerationStructuresIndirect_impl(pInfos, pIndirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
 }
-#endif
 
 bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
 {
