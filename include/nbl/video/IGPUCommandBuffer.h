@@ -209,15 +209,15 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool beginQuery(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags=QUERY_CONTROL_FLAGS::NONE);
         bool endQuery(IQueryPool* const queryPool, const uint32_t query);
         bool writeTimestamp(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query);
-        bool writeAccelerationStructureProperties(const core::SRange<const IGPUAccelerationStructure>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery);
+        bool writeAccelerationStructureProperties(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery);
         bool copyQueryPoolResults(
             const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
-            IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags
+            const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags
         );
 
         //! dispatches
         bool dispatch(const uint32_t groupCountX, const uint32_t groupCountY=1, const uint32_t groupCountZ=1);
-        bool dispatchIndirect(const IGPUBuffer* const buffer, const size_t offset);
+        bool dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding);
 
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
@@ -237,10 +237,10 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool endRenderPass();
 #if 0
         //! draws
-        bool drawIndirect(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride);
-        bool drawIndexedIndirect(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride);
-        bool drawIndirectCount(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
-        bool drawIndexedIndirectCount(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride);
+        bool drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride);
+        bool drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride);
+        bool drawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride);
+        bool drawIndexedIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride);
         /* soon: [[deprecated]] */ bool drawMeshBuffer(const IGPUMeshBuffer* meshBuffer);
 #endif
         struct SImageBlit
@@ -352,19 +352,19 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool endQuery_impl(IQueryPool* const queryPool, const uint32_t query) = 0;
         virtual bool writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query) = 0;
         virtual bool writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
-        virtual bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
+        virtual bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
         
         virtual bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
-        virtual bool dispatchIndirect_impl(const IGPUBuffer* buffer, size_t offset) = 0;
+        virtual bool dispatchIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding) = 0;
 
         virtual bool beginRenderPass_impl(const SRenderpassBeginInfo* const pRenderPassBegin, SUBPASS_CONTENTS contents) = 0;
         virtual bool nextSubpass_impl(const SUBPASS_CONTENTS contents) = 0;
         virtual bool endRenderPass_impl() = 0;
 #if 0
-        virtual bool drawIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
-        virtual bool drawIndexedIndirect_impl(const IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
-        virtual bool drawIndirectCount_impl(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
-        virtual bool drawIndexedIndirectCount_impl(const IGPUBuffer* buffer, size_t offset, const IGPUBuffer* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride) = 0;
+        virtual bool drawIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride) = 0;
+        virtual bool drawIndexedIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride) = 0;
+        virtual bool drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride) = 0;
+        virtual bool drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride) = 0;
 
         struct SClearAttachment
         {
@@ -380,7 +380,6 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             uint32_t layerCount;
         };
         virtual bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) = 0;
-        virtual bool dispatchIndirect_impl(const IGPUBuffer* buffer, size_t offset) = 0;
 #endif
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
