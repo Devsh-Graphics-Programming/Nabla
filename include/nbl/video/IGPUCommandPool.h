@@ -1,5 +1,5 @@
 #ifndef _NBL_VIDEO_I_GPU_COMMAND_POOL_H_INCLUDED_
-#define _NBL_VIEDO_I_GPU_COMMAND_POOL_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_COMMAND_POOL_H_INCLUDED_
 
 
 #include "nbl/core/IReferenceCounted.h"
