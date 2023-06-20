@@ -89,6 +89,7 @@ class CBlitImageFilter :
 {
 	public:
 		using blit_utils_t = BlitUtilities;
+		static_assert(std::is_base_of_v<IBlitUtilities, blit_utils_t>, "Only template instantiations of CBlitUtilitiesare allowed as theBlitUtilities template argument!");
 		using lut_value_t = LutDataType;
 
 	private:
@@ -196,7 +197,7 @@ class CBlitImageFilter :
 			const auto inType = state->inImage->getCreationParameters().type;
 
 			const auto windowSize = blit_utils_t::getWindowSize(inType, state->kernels);
-			const size_t scaledKernelPhasedLUTSize = blit_utils_t::template getScaledKernelPhasedLUTSize<LutDataType>(state->inExtentLayerCount, state->outExtentLayerCount, inType, windowSize);
+			const size_t scaledKernelPhasedLUTSize = blit_utils_t::getScaledKernelPhasedLUTSize(state->inExtentLayerCount, state->outExtentLayerCount, inType, windowSize);
 
 			core::vectorSIMDi32 intermediateExtent[3];
 			getIntermediateExtents(intermediateExtent, state, windowSize);

@@ -89,7 +89,7 @@ public:
     //! If there's a need, creates an image upscaled to half page size
     //! Otherwise returns `_img`
     //! Always call this before alloc()
-    core::smart_refctd_ptr<asset::ICPUImage> createUpscaledImage(const ICPUImage* _img)
+    core::smart_refctd_ptr<ICPUImage> createUpscaledImage(const ICPUImage* _img)
     {
         if (!_img)
             return nullptr;
@@ -99,26 +99,26 @@ public:
 
         if (params.extent.width >= halfPage || params.extent.height >= halfPage)
         {
-            asset::ICPUImage* img = const_cast<asset::ICPUImage*>(_img);
-            return core::smart_refctd_ptr<asset::ICPUImage>(img);
+            ICPUImage* img = const_cast<ICPUImage*>(_img);
+            return core::smart_refctd_ptr<ICPUImage>(img);
         }
 
         const uint32_t min_extent = std::min(params.extent.width, params.extent.height);
         const float upscale_factor = static_cast<float>(halfPage) / static_cast<float>(min_extent);
 
-        asset::VkExtent3D extent_upscaled;
+        VkExtent3D extent_upscaled;
         extent_upscaled.depth = 1u;
         extent_upscaled.width = static_cast<uint32_t>(params.extent.width * upscale_factor + 0.5f);
         extent_upscaled.height = static_cast<uint32_t>(params.extent.height * upscale_factor + 0.5f);
 
-        asset::ICPUImage::SCreationParams new_params = params;
+        ICPUImage::SCreationParams new_params = params;
         new_params.extent = extent_upscaled;
         new_params.mipLevels = 1u;
 
-        auto upscaled_img = asset::ICPUImage::create(std::move(new_params));
+        auto upscaled_img = ICPUImage::create(std::move(new_params));
         const size_t bufsz = upscaled_img->getImageDataSizeInBytes();
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufsz);
-        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1u);
+        auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufsz);
+        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1u);
         auto& region = regions->operator[](0u);
         region.bufferOffset = 0u;
         region.bufferRowLength = extent_upscaled.width;
@@ -132,17 +132,12 @@ public:
 
         upscaled_img->setBufferAndRegions(std::move(buf), std::move(regions));
 
-        using blit_filter_t = asset::CBlitImageFilter<
-            asset::VoidSwizzle,
-            asset::IdentityDither/*TODO: White Noise*/,
+        using blit_filter_t = CBlitImageFilter<
+            VoidSwizzle,
+            IdentityDither/*TODO: White Noise*/,
             void,
             false,
-            asset::CBlitUtilities<CChannelIndependentWeightFunction1D<
-                CConvolutionWeightFunction1D<CWeightFunction1D<SMitchellFunction<>>, CWeightFunction1D<SMitchellFunction<>>>,
-                CConvolutionWeightFunction1D<CWeightFunction1D<SMitchellFunction<>>, CWeightFunction1D<SMitchellFunction<>>>,
-                CConvolutionWeightFunction1D<CWeightFunction1D<SMitchellFunction<>>, CWeightFunction1D<SMitchellFunction<>>>,
-                CConvolutionWeightFunction1D<CWeightFunction1D<SMitchellFunction<>>, CWeightFunction1D<SMitchellFunction<>>>>
-                >
+            CBlitUtilities<CDefaultChannelIndependentWeightFunction1D<CConvolutionWeightFunction1D<CWeightFunction1D<SMitchellFunction<>>, CWeightFunction1D<SMitchellFunction<>>>>>
             >;
 
         auto convolutionKernels = blit_filter_t::blit_utils_t::getConvolutionKernels<CWeightFunction1D<SMitchellFunction<>>>(
@@ -156,7 +151,7 @@ public:
         blit.outOffsetBaseLayer = core::vectorSIMDu32(0u, 0u, 0u, 0u);
         blit.outExtent = extent_upscaled;
         blit.outLayerCount = 1u;
-        blit.inImage = const_cast<asset::ICPUImage*>(_img);
+        blit.inImage = const_cast<ICPUImage*>(_img);
         blit.outImage = upscaled_img.get();
         blit.scratchMemoryByteSize = blit_filter_t::getRequiredScratchByteSize(&blit);
         blit.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(blit.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
@@ -175,10 +170,10 @@ public:
     }
 
     //! Always call this before commit()
-    static std::pair<core::smart_refctd_ptr<asset::ICPUImage>, asset::VkExtent3D> createPoTPaddedSquareImageWithMipLevels(const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+    static std::pair<core::smart_refctd_ptr<ICPUImage>, VkExtent3D> createPoTPaddedSquareImageWithMipLevels(const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
         if (!_img)
-            return { nullptr, asset::VkExtent3D{0u,0u,0u} };
+            return { nullptr, VkExtent3D{0u,0u,0u} };
 
         const auto& params = _img->getCreationParameters();
         const auto originalExtent = params.extent;
@@ -189,11 +184,11 @@ public:
         paddedParams.extent = {paddedExtent,paddedExtent,1u};
         //in case of original extent being non-PoT, padding it to PoT gives us one extra mip level
         paddedParams.mipLevels = core::findLSB(paddedExtent) + 1u;
-        auto paddedImg = asset::ICPUImage::create(std::move(paddedParams));
+        auto paddedImg = ICPUImage::create(std::move(paddedParams));
         {
-            const uint32_t texelBytesize = asset::getTexelOrBlockBytesize(params.format);
+            const uint32_t texelBytesize = getTexelOrBlockBytesize(params.format);
 
-            auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(paddedImg->getCreationParameters().mipLevels);
+            auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(paddedImg->getCreationParameters().mipLevels);
             uint32_t bufoffset = 0u;
             for (uint32_t i = 0u; i < regions->size(); ++i)
             {
@@ -209,15 +204,15 @@ public:
 
                 bufoffset += texelBytesize*region.imageExtent.width*region.imageExtent.height;
             }
-            auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufoffset);
+            auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufoffset);
             paddedImg->setBufferAndRegions(std::move(buf), regions);
         }
 
         //copy mip 0 to new image while filling padding according to wrapping modes
-        asset::CPaddedCopyImageFilter::state_type copy;
+        CPaddedCopyImageFilter::state_type copy;
         copy.axisWraps[0] = _wrapu;
         copy.axisWraps[1] = _wrapv;
-        copy.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+        copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
         copy.borderColor = _borderColor;
         copy.extent = params.extent;
         copy.layerCount = 1u;
@@ -232,9 +227,9 @@ public:
         copy.inImage = _img;
         copy.outImage = paddedImg.get();
 
-        asset::CPaddedCopyImageFilter::execute(core::execution::par_unseq,&copy);
+        CPaddedCopyImageFilter::execute(core::execution::par_unseq,&copy);
 
-        using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<VoidSwizzle, IdentityDither, void/*TODO: whitenoise*/, false, asset::CBlitUtilities<>>;
+        using mip_gen_filter_t = CMipMapGenerationImageFilter<VoidSwizzle, IdentityDither, void/*TODO: whitenoise*/, false, CBlitUtilities<>>;
         //generate all mip levels
         {
             mip_gen_filter_t::state_type genmips;
@@ -247,7 +242,7 @@ public:
             genmips.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_NBL_SIMD_ALIGNMENT));
             genmips.axisWraps[0] = _wrapu;
             genmips.axisWraps[1] = _wrapv;
-            genmips.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+            genmips.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
             genmips.borderColor = _borderColor;
             mip_gen_filter_t::execute(core::execution::par_unseq,&genmips);
             _NBL_ALIGNED_FREE(genmips.scratchMemory);

@@ -23,7 +23,7 @@ namespace asset
 // the correct usage is to compute the first mip map with a 100% support kernel, then subsequent iterations with 50% smaller pixel supports
 // (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 
-template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, typename BlitUtilities = CBlitUtilities<SMitchellFunction<>>>
+template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=true, typename BlitUtilities = CBlitUtilities<CChannelIndependentWeightFunction1D<CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SMitchellFunction<>>>>>>
 class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities>>, public CBasicImageFilterCommon
 {
 	public:

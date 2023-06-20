@@ -71,10 +71,7 @@ concept ChannelIndependentWeightFunctionOfConvolutions = requires(T t, const flo
 };
 
 template<
-	ChannelIndependentWeightFunctionOfConvolutions KernelX = CChannelIndependentWeightFunction1D<
-		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>,
-		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>,
-		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>,
+	ChannelIndependentWeightFunctionOfConvolutions KernelX = CDefaultChannelIndependentWeightFunction1D<
 		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>>,
 	ChannelIndependentWeightFunctionOfConvolutions KernelY = KernelX,
 	ChannelIndependentWeightFunctionOfConvolutions KernelZ = KernelX>
@@ -93,7 +90,6 @@ public:
 	static_assert(convolution_kernel_x_t::ChannelCount == convolution_kernel_y_t::ChannelCount && convolution_kernel_y_t::ChannelCount == convolution_kernel_z_t::ChannelCount);
 	static inline constexpr uint32_t ChannelCount = convolution_kernel_x_t::ChannelCount;
 
-	template <typename LutDataType>
 	static inline size_t getScaledKernelPhasedLUTSize(
 		const core::vectorSIMDu32&		inExtent,
 		const core::vectorSIMDu32&		outExtent,
@@ -101,10 +97,9 @@ public:
 		const convolution_kernels_t&	kernels)
 	{
 		const auto windowSize = getWindowSize(inImageType, kernels);
-		return getScaledKernelPhasedLUTSize<LutDataType>(inExtent, outExtent, inImageType, windowSize);
+		return getScaledKernelPhasedLUTSize(inExtent, outExtent, inImageType, windowSize);
 	}
 
-	template <typename LutDataType>
 	static inline size_t getScaledKernelPhasedLUTSize(
 		const core::vectorSIMDu32&		inExtent,
 		const core::vectorSIMDu32&		outExtent,
@@ -112,7 +107,7 @@ public:
 		const core::vectorSIMDi32&		windowSize)
 	{
 		const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
-		return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(LutDataType) * ChannelCount;
+		return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(double) * ChannelCount;
 	}
 
 	template <typename LutDataType>
@@ -121,8 +116,11 @@ public:
 		const core::vectorSIMDu32&		inExtent,
 		const core::vectorSIMDu32&		outExtent,
 		const asset::IImage::E_TYPE		inImageType,
-		const convolution_kernels_t&	kernels)
+		const convolution_kernels_t&	kernels,
+		const double					normalizeWeightsTo = 1.0)
 	{
+		const bool shouldNormalize = !core::isnan(normalizeWeightsTo);
+
 		const core::vectorSIMDu32 phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
 
 		for (auto i = 0; i <= inImageType; ++i)
@@ -133,6 +131,7 @@ public:
 
 		const auto windowSize = getWindowSize(inImageType, kernels);
 		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets<LutDataType>(phaseCount, windowSize);
+		const auto axisOffsets_f64 = getScaledKernelPhasedLUTAxisOffsets<double>(phaseCount, windowSize);
 
 		const core::vectorSIMDf inExtent_f32(inExtent);
 		const core::vectorSIMDf outExtent_f32(outExtent);
@@ -144,6 +143,7 @@ public:
 				return;
 
 			LutDataType* outKernelWeightsPixel = reinterpret_cast<LutDataType*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
+			double* outKernelWeightsPixel_f64 = reinterpret_cast<double*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets_f64[axis]);
 
 			// One phase corresponds to one window (not to say that every window has a unique phase, many will share the same phase) and one window gets
 			// reduced to one output pixel, so this for loop will run exactly the number of times as there are output pixels with unique phases.
@@ -155,18 +155,57 @@ public:
 
 				float relativePos = outPixelCenter - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
 
+				double accum[ChannelCount] = { };
 				for (int32_t j = 0; j < _windowSize; ++j)
 				{
 					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
 					{
 						const double weight = static_cast<double>(kernel.weight(relativePos, ch));
-						if constexpr (std::is_same_v<LutDataType, uint16_t>)
-							outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = core::Float16Compressor::compress(float(weight));
+						if (!shouldNormalize)
+						{
+							if constexpr (std::is_same_v<LutDataType, uint16_t>)
+								outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = core::Float16Compressor::compress(float(weight));
+							else
+								outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = LutDataType(weight);
+						}
 						else
-							outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = LutDataType(weight);
+						{
+							accum[ch] += weight;
+							outKernelWeightsPixel_f64[(i * _windowSize + j) * ChannelCount + ch] = weight;
+						}
 					}
 					
 					relativePos -= 1.f;
+				}
+
+				if (shouldNormalize)
+				{
+					double normalizationFactor[ChannelCount] = { };
+					std::fill(normalizationFactor, normalizationFactor + ChannelCount, 1.0);
+					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
+					{
+						if (core::abs(accum[ch]) > 1e-6)
+							normalizationFactor[ch] = normalizeWeightsTo / accum[ch];
+					}
+
+					for (int32_t j = 0; j < _windowSize; ++j)
+					{
+						for (uint32_t ch = 0; ch < ChannelCount; ++ch)
+						{
+							const uint64_t idx = (i * _windowSize + j) * ChannelCount + ch;
+							const double normalized = outKernelWeightsPixel_f64[idx] * normalizationFactor[ch];
+
+							LutDataType compressed;
+							{
+								if constexpr (std::is_same_v<LutDataType, uint16_t>)
+									compressed = core::Float16Compressor::compress(float(normalized));
+								else
+									compressed = LutDataType(normalized);
+							}
+
+							memcpy(&outKernelWeightsPixel[idx], &compressed, sizeof(LutDataType));
+						}
+					}
 				}
 			}
 		};

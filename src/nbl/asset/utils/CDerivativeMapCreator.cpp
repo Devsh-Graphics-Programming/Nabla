@@ -13,7 +13,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	using namespace asset;
 
 	// or Mitchell
-	using ReconstructionFunction = CWeightFunction1D<SGaussianFunction<>>;
+	using ReconstructionFunction = CWeightFunction1D<SDiracFunction>;
 	using DerivativeFunction = CWeightFunction1D<SGaussianFunction<>, 1>;
 
 	using DerivativeMapFilter = CBlitImageFilter

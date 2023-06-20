@@ -116,6 +116,9 @@ class CChannelIndependentWeightFunction1D final
 		}
 };
 
+template<WeightFunction1D R, WeightFunction1D G = R, WeightFunction1D B = G, WeightFunction1D A = B>
+using CDefaultChannelIndependentWeightFunction1D = CChannelIndependentWeightFunction1D<R, G, B, A>;
+
 } // end namespace nbl::asset
 
 #endif
