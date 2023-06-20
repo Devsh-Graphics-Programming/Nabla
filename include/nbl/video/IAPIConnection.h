@@ -1,13 +1,17 @@
-#ifndef __NBL_I_API_CONNECTION_H_INCLUDED__
-#define __NBL_I_API_CONNECTION_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_API_CONNECTION_H_INCLUDED_
+#define _NBL_VIDEO_I_API_CONNECTION_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
-#include "nbl/video/EApiType.h"
-#include "nbl/video/debug/IDebugCallback.h"
-#include "nbl/video/utilities/renderdoc.h"
-#include "nbl/video/ECommonEnums.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
+
+#include "nbl/video/EApiType.h"
+#include "nbl/video/ECommonEnums.h"
+
+#include "nbl/video/debug/IDebugCallback.h"
+
+#include "nbl/video/utilities/renderdoc.h"
+
 
 namespace nbl::video
 {

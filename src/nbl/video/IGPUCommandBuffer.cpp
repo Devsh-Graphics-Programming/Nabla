@@ -1,8 +1,13 @@
-#include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
 namespace nbl::video
 {
+    
+IGPUCommandBuffer::IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger)
+    : IBackendObject(std::move(dev)), m_cmdpool(_cmdpool), m_logger(std::move(logger)), m_level(lvl), m_supportedStageMask(getOriginDevice()->getSupportedStageMask(m_cmdpool->getQueueFamilyIndex()))
+{
+}
 
 bool IGPUCommandBuffer::checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags, const core::bitflag<RENDERPASS_SCOPE> renderpassScope)
 {

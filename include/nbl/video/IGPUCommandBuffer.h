@@ -5,14 +5,9 @@
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/video/IGPUEvent.h"
-#include "nbl/video/IGPUDescriptorSet.h"
-#include "nbl/video/IGPUComputePipeline.h"
-#include "nbl/video/IGPUGraphicsPipeline.h"
-#include "nbl/video/IGPUFramebuffer.h"
-#include "nbl/video/IGPUAccelerationStructure.h"
-#include "nbl/video/IQueryPool.h"
+#include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUCommandPool.h"
+#include "nbl/video/IGPUQueue.h"
 
 
 #define VK_NO_PROTOTYPES
@@ -217,10 +212,12 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
             IGPUBuffer* const dstBuffer, const size_t dstOffset, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags
         );
-# if 0
+
         //! dispatches
+        bool dispatch(const uint32_t wgCountX, const uint32_t wgCountY=1, const uint32_t wgCountZ=1);
         bool dispatchIndirect(const IGPUBuffer* buffer, size_t offset);
 
+# if 0
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
@@ -271,11 +268,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
     protected: 
         friend class IGPUQueue;
 
-        inline IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger)
-            : IBackendObject(std::move(dev)), m_cmdpool(_cmdpool), m_logger(std::move(logger)), m_level(lvl), m_supportedStageMask(getOriginDevice()->getSupportedStagesMask(m_cmdpool->getQueueFamilyIndex()))
-        {
-        }
-
+        IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger);
         virtual ~IGPUCommandBuffer()
         {
             // Only release the resources if the parent pool has not been reset because if it has been then the resources will already be released.

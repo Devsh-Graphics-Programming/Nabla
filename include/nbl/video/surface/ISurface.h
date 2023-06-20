@@ -1,5 +1,5 @@
-#ifndef __NBL_I_SURFACE_H_INCLUDED__
-#define __NBL_I_SURFACE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_SURFACE_H_INCLUDED_
+#define _NBL_VIDEO_I_SURFACE_H_INCLUDED_
 
 #include "nbl/core/IReferenceCounted.h"
 

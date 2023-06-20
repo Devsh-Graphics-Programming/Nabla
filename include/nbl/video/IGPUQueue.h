@@ -1,13 +1,12 @@
 #ifndef _NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED_
 #define _NBL_VIDEO_I_GPU_QUEUE_H_INCLUDED_
 
-#include "nbl/video/decl/IBackendObject.h"
+#include "nbl/video/IGPUFence.h"
+#include "nbl/video/IGPUSemaphore.h"
 
 namespace nbl::video
 {
 
-class IGPUFence;
-class IGPUSemaphore;
 class IGPUCommandBuffer;
 
 class IGPUQueue : public core::Interface, public core::Unmovable

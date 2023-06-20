@@ -1,12 +1,13 @@
 #ifndef _NBL_I_SWAPCHAIN_H_INCLUDED_
 #define _NBL_I_SWAPCHAIN_H_INCLUDED_
 
-
-#include "nbl/video/surface/ISurface.h"
-#include "nbl/video/IGPUSemaphore.h"
-#include "nbl/video/IGPUFence.h"
 #include "nbl/video/IGPUImage.h"
 #include "nbl/core/util/bitflag.h"
+
+#include "nbl/video/IGPUSemaphore.h"
+#include "nbl/video/IGPUFence.h"
+#include "nbl/video/surface/ISurface.h"
+
 
 namespace nbl::video
 {

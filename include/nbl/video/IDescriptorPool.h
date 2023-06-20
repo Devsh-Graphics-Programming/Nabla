@@ -1,25 +1,23 @@
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
 #define _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
-
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/StorageTrivializer.h"
 
-#include "nbl/asset/IDescriptorSetLayout.h"
-
-#include "nbl/video/decl/IBackendObject.h"
+#include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/IGPUBufferView.h"
+#include "nbl/video/IGPUImageView.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
+#include "nbl/video/IGPUDescriptorSetLayout.h"
 
 
 namespace nbl::video
 {
 
-class IGPUBuffer;
-class IGPUBufferView;
-class IGPUImageView;
-class IGPUSampler;
-class IGPUAccelerationStructure;
 class IGPUDescriptorSet;
-class IGPUDescriptorSetLayout;
 
 class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {

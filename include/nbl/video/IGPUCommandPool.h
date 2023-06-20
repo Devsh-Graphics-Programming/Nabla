@@ -6,13 +6,17 @@
 #include "nbl/core/util/bitflag.h"
 #include "nbl/core/containers/CMemoryPool.h"
 
-#include "nbl/video/decl/IBackendObject.h"
+#include "nbl/video/IGPUEvent.h"
+#include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUComputePipeline.h"
+#include "nbl/video/IGPUGraphicsPipeline.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IQueryPool.h"
 
+
 namespace nbl::video
 {
+
 class IGPUCommandBuffer;
 
 class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject

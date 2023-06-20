@@ -1,9 +1,10 @@
 #ifndef _NBL_VIDEO_I_DEVICE_MEMORY_ALLOCATOR_H_INCLUDED_
 #define _NBL_VIDEO_I_DEVICE_MEMORY_ALLOCATOR_H_INCLUDED_
 
+#include "nbl/core/definitions.h" // findLSB
+
 #include "IDeviceMemoryAllocation.h"
 #include "IDeviceMemoryBacked.h"
-#include "nbl/core/definitions.h" // findLSB
 
 namespace nbl::video
 {

@@ -5,32 +5,17 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/CCompilerSet.h"
 
-#include "nbl/video/IGPUFence.h"
-//#include "nbl/video/IGPUSemaphore.h"
-#include "nbl/video/IGPUEvent.h"
-#include "nbl/video/IGPUShader.h"
-#include "nbl/video/IDescriptorPool.h"
-#include "nbl/video/IGPUDescriptorSet.h"
-#include "nbl/video/IGPUGraphicsPipeline.h"
-#include "nbl/video/IGPUCommandPool.h"
-//#include "nbl/video/IGPUFramebuffer.h"
-#include "nbl/video/IGPUPipelineCache.h"
-#include "nbl/video/IGPUQueue.h"
-#include "nbl/video/ISwapchain.h"
-#include "nbl/video/IDeferredOperation.h"
-#include "nbl/video/IGPUAccelerationStructure.h"
-#include "nbl/video/IQueryPool.h"
-
-// TODO: undo the circular ref
-#include "nbl/video/CThreadSafeGPUQueueAdapter.h"
-#include "nbl/video/IDeviceMemoryAllocator.h"
-
 #include "nbl/video/SPhysicalDeviceFeatures.h"
+#include "nbl/video/IDeferredOperation.h"
+#include "nbl/video/IDeviceMemoryAllocator.h"
+#include "nbl/video/IGPUPipelineCache.h"
+#include "nbl/video/IGPUCommandBuffer.h"
+#include "nbl/video/CThreadSafeGPUQueueAdapter.h"
+#include "nbl/video/ISwapchain.h"
 
 namespace nbl::video
 {
 
-class IDescriptorPool;
 class IPhysicalDevice;
 
 class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
