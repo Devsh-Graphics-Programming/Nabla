@@ -12,10 +12,24 @@ IRenderpass::IRenderpass(const SCreationParams& params, const SCreationParamVali
     m_subpassDependencies(counts.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(counts.dependencyCount):nullptr)
 {
     m_params.depthStencilAttachments = m_depthStencilAttachments ? m_depthStencilAttachments->data():(&SCreationParams::DepthStencilAttachmentsEnd);
-    std::copy_n(params.depthStencilAttachments,counts.depthStencilAttachmentCount,m_params.depthStencilAttachments);
+    for (auto i=0u; i<counts.depthStencilAttachmentCount; i++)
+    {
+        const auto& attachment = params.depthStencilAttachments[i];
+        if (attachment.loadOp.depth==LOAD_OP::LOAD || attachment.loadOp.actualStencilOp()==LOAD_OP::LOAD)
+            m_loadOpDepthStencilAttachmentEnd = i;
+        m_depthStencilAttachments->operator[](i) = attachment;
+    }
+    m_loadOpDepthStencilAttachmentEnd++;
 
     m_params.colorAttachments = m_colorAttachments ? m_colorAttachments->data():(&SCreationParams::ColorAttachmentsEnd);
-    std::copy_n(params.colorAttachments,counts.colorAttachmentCount,m_params.colorAttachments);
+    for (auto i=0u; i<counts.colorAttachmentCount; i++)
+    {
+        const auto& attachment = params.colorAttachments[i];
+        if (attachment.loadOp==LOAD_OP::LOAD)
+            m_loadOpColorAttachmentEnd = i;
+        m_colorAttachments->operator[](i) = attachment;
+    }
+    m_loadOpColorAttachmentEnd++;
 
     m_params.subpasses = m_subpasses->data();
     {

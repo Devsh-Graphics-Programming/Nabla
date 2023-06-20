@@ -16,7 +16,7 @@ bool IGPUCommandBuffer::checkStateBeforeRecording(const core::bitflag<queue_flag
         m_logger.log("Failed to record into command buffer: not in RECORDING state.", system::ILogger::ELL_ERROR);
         return false;
     }
-    const bool withinSubpass = m_cachedInheritanceInfo.subpass != SInheritanceInfo{}.subpass;
+    const bool withinSubpass = m_cachedInheritanceInfo.subpass!=SInheritanceInfo{}.subpass;
     if (!renderpassScope.hasFlags(withinSubpass ? RENDERPASS_SCOPE::INSIDE:RENDERPASS_SCOPE::OUTSIDE))
     {
         m_logger.log(
@@ -865,24 +865,44 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
 }
 
 
-bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo* const pRenderPassBegin, const SUBPASS_CONTENTS contents)
+bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
 {
+    if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
+        return false;
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (!pRenderPassBegin || !pRenderPassBegin->framebuffer || !this->isCompatibleDevicewise(pRenderPassBegin->framebuffer.get()))
+    if (!info.framebuffer || !this->isCompatibleDevicewise(info.framebuffer))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPUFramebuffer>(pRenderPassBegin->framebuffer)))
+    const auto& renderArea = info.renderArea;
+    if (renderArea.extent.width==0u || renderArea.extent.height==0u)
         return false;
 
+    const auto& params = info.framebuffer->getCreationParameters();
+    if (renderArea.offset.x+renderArea.extent.width>params.width || renderArea.offset.y+renderArea.extent.height>params.height)
+        return false;
+
+    const auto rp = params.renderpass;
+    if (rp->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
+        return false;
+    if (rp->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
+        return false;
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
+        return false;
+
+    m_cachedInheritanceInfo.renderpass = params.renderpass;
     m_cachedInheritanceInfo.subpass = 0;
-    return beginRenderPass_impl(pRenderPassBegin, contents);
+    m_cachedInheritanceInfo.framebuffer = core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer);
+    return beginRenderPass_impl(info,contents);
 }
 
 bool IGPUCommandBuffer::nextSubpass(const SUBPASS_CONTENTS contents)
 {
-    if (m_cachedInheritanceInfo.subpass>=m_cachedInheritanceInfo.framebuffer->getCreationParameters().renderpass->getSubpassCount())
+    if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
+        return false;
+    if (m_cachedInheritanceInfo.subpass>=m_cachedInheritanceInfo.renderpass->getSubpassCount())
         return false;
 
     m_cachedInheritanceInfo.subpass++;
@@ -898,16 +918,47 @@ bool IGPUCommandBuffer::endRenderPass()
     return endRenderPass_impl();
 }
 
-#if 0
-bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
+
+bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
 
-    if (!buffer || (buffer->getAPIType() != getAPIType()))
+    auto invalidRegion = [this](const SClearAttachments::SRegion& region)->bool
+    {
+        if (region.used())
+        {
+            if (region.rect.extent.width==0u || region.rect.extent.height==0u || region.layerCount==0u)
+                return true;
+        
+            // cannot validate without tracking more stuff
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-00016
+            // TODO: if (m_cachedInheritanceInfo.renderpass->getUsesMultiview()) then, instead check https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-baseArrayLayer-00018
+            if (region.baseArrayLayer+region.layerCount>m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers)
+                return true;
+        }
+        return true;
+    };
+
+    if (bool(info.depthStencilAspectMask)!=info.depthStencilRegion.used() || invalidRegion(info.depthStencilRegion))
+        return false;
+    for (auto i=0u; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+    if (invalidRegion(info.colorRegions[i]))
         return false;
 
-    if (drawCount == 0u)
+    return clearAttachments_impl(info);
+}
+
+#if 0
+bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
+{
+    if (drawCount==0u)
+        return false;
+
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+        return false;
+
+    if (!buffer || (buffer->getAPIType() != getAPIType()))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
@@ -1121,9 +1172,11 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
             return false;
     }
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_commandList,count,cmdbufs))
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_commandList,count);
+    if (!cmd)
         return false;
-
+    for (auto i=0u; i<count; i++)
+        cmd->getVariableCountResources()[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
     return executeCommands_impl(count,cmdbufs);
 }
 

@@ -8,8 +8,6 @@
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IGPUQueue.h"
-// depr
-//#include "nbl/video/IGPUMeshBuffer.h"
 
 
 #define VK_NO_PROTOTYPES
@@ -20,6 +18,9 @@
 
 namespace nbl::video
 {
+
+// depr
+class IGPUMeshBuffer;
 
 class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBackendObject
 {
@@ -172,11 +173,6 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             float depth;
             uint32_t stencil;
         };
-        union SClearValue
-        {
-            SClearColorValue color;
-            SClearDepthStencilValue depthStencil;
-        };
         bool clearColorImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges);
         bool clearDepthStencilImage(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearDepthStencilValue* const pDepthStencil, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges);
         bool copyBufferToImage(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
@@ -222,27 +218,47 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
-            core::smart_refctd_ptr<IGPUFramebuffer> framebuffer;
+            IGPUFramebuffer* framebuffer;
+            const SClearColorValue* colorClearValues;
+            const SClearDepthStencilValue* depthStencilClearValues;
             VkRect2D renderArea;
-            uint32_t clearValueCount;
-            const SClearValue* clearValues;
         };
         enum SUBPASS_CONTENTS : uint8_t
         {
             INLINE = 0,
             SECONDARY_COMMAND_BUFFERS = 1
         };
-        bool beginRenderPass(const SRenderpassBeginInfo* const pRenderPassBegin, const SUBPASS_CONTENTS contents);
+        bool beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents);
         bool nextSubpass(const SUBPASS_CONTENTS contents);
         bool endRenderPass();
-#if 0
+
+        struct SClearAttachments
+        {
+            struct SRegion
+            {
+                VkRect2D rect = { {0u,0u},{0u,0u} };
+                uint32_t baseArrayLayer = 0u;
+                uint32_t layerCount = 0u;
+
+                inline bool used() const {return rect.extent.width!=0u || rect.extent.height!=0u || layerCount!=0u;}
+            };
+
+            SRegion depthStencilRegion = {};
+            SClearDepthStencilValue depthStencilValue = {};
+            SRegion colorRegions[IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments] = {};
+            SClearColorValue colorValues[IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments] = {};
+            // default is don't clear depth stencil
+            IGPUImage::E_ASPECT_FLAGS depthStencilAspectMask = IGPUImage::EAF_NONE;
+        };
+        bool clearAttachments(const SClearAttachments& info);
+
         //! draws
         bool drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride);
         bool drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride);
         bool drawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride);
         bool drawIndexedIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride);
         /* soon: [[deprecated]] */ bool drawMeshBuffer(const IGPUMeshBuffer* meshBuffer);
-#endif
+
         struct SImageBlit
         {
             IGPUImage::SSubresourceLayers srcSubresource;
@@ -351,36 +367,23 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;
         virtual bool endQuery_impl(IQueryPool* const queryPool, const uint32_t query) = 0;
         virtual bool writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query) = 0;
-        virtual bool writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
+        virtual bool writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
         virtual bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) = 0;
         
         virtual bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
         virtual bool dispatchIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding) = 0;
 
-        virtual bool beginRenderPass_impl(const SRenderpassBeginInfo* const pRenderPassBegin, SUBPASS_CONTENTS contents) = 0;
+        virtual bool beginRenderPass_impl(const SRenderpassBeginInfo& info, SUBPASS_CONTENTS contents) = 0;
         virtual bool nextSubpass_impl(const SUBPASS_CONTENTS contents) = 0;
         virtual bool endRenderPass_impl() = 0;
-#if 0
+
+        virtual bool clearAttachments_impl(const SClearAttachments& info) = 0;
+
         virtual bool drawIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride) = 0;
         virtual bool drawIndexedIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, uint32_t drawCount, uint32_t stride) = 0;
         virtual bool drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride) = 0;
         virtual bool drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, uint32_t maxDrawCount, uint32_t stride) = 0;
 
-        struct SClearAttachment
-        {
-            asset::IImage::E_ASPECT_FLAGS aspectMask;
-            uint32_t colorAttachment;
-            SClearValue clearValue;
-        };
-
-        struct SClearRect
-        {
-            VkRect2D rect;
-            uint32_t baseArrayLayer;
-            uint32_t layerCount;
-        };
-        virtual bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) = 0;
-#endif
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 

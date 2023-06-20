@@ -239,6 +239,8 @@ class IRenderpass
 
         inline uint32_t getDepthStencilAttachmentCount() const { return m_depthStencilAttachments->size(); }
         inline uint32_t getColorAttachmentCount() const { return m_colorAttachments->size(); }
+        inline uint32_t getDepthStencilLoadOpAttachmentEnd() const { return m_loadOpDepthStencilAttachmentEnd; }
+        inline uint32_t getColorLoadOpAttachmentEnd() const { return m_loadOpColorAttachmentEnd; }
 
         inline uint32_t getSubpassCount() const { return m_subpasses->size(); }
         inline uint32_t getDependencyCount() const { return m_subpassDependencies->size(); }
@@ -319,6 +321,9 @@ class IRenderpass
         input_attachment_array_t m_inputAttachments;
         preserved_attachment_refs_array_t m_preserveAttachments;
         subpass_deps_array_t m_subpassDependencies;
+        //
+        uint32_t m_loadOpDepthStencilAttachmentEnd = ~0u;
+        uint32_t m_loadOpColorAttachmentEnd = ~0u;
 };
 
 inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreationParams(const SCreationParams& params)
