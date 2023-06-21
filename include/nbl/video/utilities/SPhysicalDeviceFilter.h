@@ -2,6 +2,7 @@
 #define _NBL_VIDEO_S_PHYSICAL_DEVICE_FILTER_H_INCLUDED_
 
 #include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/IGPUCommandBuffer.h"
 
 namespace nbl::video
 {

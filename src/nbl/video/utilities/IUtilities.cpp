@@ -18,8 +18,8 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     // Use the last command buffer in intendedNextSubmit, it should be in recording state
     auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount-1];
 
-    assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING && cmdbuf->isResettable());
-    assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+    assert(cmdbuf->getState() == IGPUCommandBuffer::STATE::RECORDING && cmdbuf->isResettable());
+    assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT));
    
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
  
@@ -118,8 +118,8 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
             m_defaultUploadBuffer->cull_frees();
             // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
             m_device->resetFences(1u, &submissionFence);
-            cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
+            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
             continue;
         }
         else
@@ -233,9 +233,7 @@ ImageRegionIterator::ImageRegionIterator(
     if (asset::isDepthOrStencilFormat(dstImageFormat))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
 
-    bool queueSupportsCompute = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_COMPUTE_BIT);
-    bool queueSupportsGraphics = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_GRAPHICS_BIT);
-    if ((queueSupportsGraphics || queueSupportsCompute) == false)
+    if (!(queueFamilyProps.queueFlags&(IGPUQueue::FAMILY_FLAGS::COMPUTE_BIT|IGPUQueue::FAMILY_FLAGS::GRAPHICS_BIT)))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
     // TODO: Need to have a function to get equivalent format of the specific plane of this format (in aspectMask)
     // if(asset::isPlanarFormat(dstImageFormat->getCreationParameters().format))

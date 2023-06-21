@@ -63,6 +63,8 @@ bool CPropertyPoolHandler::transferProperties(
 	system::logger_opt_ptr logger, const uint32_t baseDWORD, const uint32_t endDWORD
 )
 {
+	assert(false); // TODO: Atil
+#if 0
 	if (requestsBegin==requestsEnd)
 		return true;
 	if (!scratch.buffer || !scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
@@ -137,7 +139,7 @@ bool CPropertyPoolHandler::transferProperties(
 			buffBarrier.buffer = scratch.buffer;
 			buffBarrier.offset = scratch.offset;
 			buffBarrier.size = scratchSize;
-			cmdbuf->pipelineBarrier(asset::EPSF_TRANSFER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,1u,&buffBarrier,0u,nullptr);
+			cmdbuf->pipelineBarrier(asset::PIPELINE_STAGE_FLAGS::TRANSFER_BIT,asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,1u,&buffBarrier,0u,nullptr);
 		}
 		cmdbuf->bindComputePipeline(m_pipeline.get());
 		// bind desc sets
@@ -156,7 +158,7 @@ bool CPropertyPoolHandler::transferProperties(
 		{
 			buffBarrier.barrier.srcAccessMask = asset::EAF_SHADER_READ_BIT;
 			buffBarrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-			cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,asset::EPSF_TRANSFER_BIT,asset::EDF_NONE,0u,nullptr,1u,&buffBarrier,0u,nullptr);
+			cmdbuf->pipelineBarrier(asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,asset::PIPELINE_STAGE_FLAGS::TRANSFER_BIT,asset::EDF_NONE,0u,nullptr,1u,&buffBarrier,0u,nullptr);
 		}
 		// deferred release resources
 		m_dsCache->releaseSet(m_device.get(),core::smart_refctd_ptr<IGPUFence>(fence),setIx);
@@ -177,12 +179,13 @@ bool CPropertyPoolHandler::transferProperties(
 		result = copyPass(requests,leftOverProps)&&result;
 
 	return result;
+#endif
 }
 
 uint32_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* const queue,
 	const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* &requests, const uint32_t requestCount,
-	uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
+	uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
 	system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint
 )
 {
@@ -469,8 +472,8 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		m_dsCache->poll_all();
 		// we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
 		m_device->resetFences(1u,&fence);
-		cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-		cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+		cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
+		cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 	};
 	// return remaining DWORDs
 	auto copyPass = [&](UpStreamingRequest* &localRequests, uint32_t propertiesThisPass) -> uint32_t

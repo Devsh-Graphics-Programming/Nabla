@@ -186,7 +186,7 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 		[[nodiscard]] uint32_t transferProperties(
 			StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* const queue,
 			const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest*& requests, const uint32_t requestCount,
-			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
+			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
 			system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint=std::chrono::steady_clock::now()+std::chrono::microseconds(500u)
 		);
 
