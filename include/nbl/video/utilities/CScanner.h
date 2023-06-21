@@ -364,16 +364,26 @@ class CScanner final : public core::IReferenceCounted
 		// Half and sizeof(uint32_t) of the scratch buffer need to be cleared to 0s
 		static inline void dispatchHelper(
 			IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipeline_layout, const DefaultPushConstants& pushConstants, const DispatchInfo& dispatchInfo,
-			const asset::E_PIPELINE_STAGE_FLAGS srcStageMask, const uint32_t srcBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier* srcBufferBarriers,
-			const asset::E_PIPELINE_STAGE_FLAGS dstStageMask, const uint32_t dstBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier* dstBufferBarriers
+			const uint32_t srcBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>* srcBufferBarriers,
+			const uint32_t dstBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>* dstBufferBarriers
 		)
 		{
 			cmdbuf->pushConstants(pipeline_layout,asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants),&pushConstants);
-			if (srcStageMask!=asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT&&srcBufferBarrierCount)
-				cmdbuf->pipelineBarrier(srcStageMask,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,srcBufferBarrierCount,srcBufferBarriers,0u,nullptr);
+			if (srcBufferBarrierCount)
+			{
+				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
+				info.bufBarrierCount = srcBufferBarrierCount;
+				info.bufBarriers = srcBufferBarriers;
+				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
+			}
 			cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
-			if (dstStageMask!=asset::E_PIPELINE_STAGE_FLAGS::EPSF_BOTTOM_OF_PIPE_BIT&&dstBufferBarrierCount)
-				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,dstStageMask,asset::EDF_NONE,0u,nullptr,dstBufferBarrierCount,dstBufferBarriers,0u,nullptr);
+			if (srcBufferBarrierCount)
+			{
+				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
+				info.bufBarrierCount = dstBufferBarrierCount;
+				info.bufBarriers = dstBufferBarriers;
+				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
+			}
 		}
 
 		inline ILogicalDevice* getDevice() const {return m_device.get();}
