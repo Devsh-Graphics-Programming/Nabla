@@ -703,7 +703,9 @@ public:
             commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
 
             commonCompileOptions.stage = shaderStage;
-            commonCompileOptions.genDebugInfo = true;
+            commonCompileOptions.debugInfoFlags = 
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
             commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
             commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
@@ -984,8 +986,12 @@ protected:
 
     core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override
     {
+        // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+        VkImageViewUsageCreateInfo vk_imageViewUsageInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,nullptr };
+        vk_imageViewUsageInfo.usage = static_cast<VkImageUsageFlags>((params.subUsages.value ? params.subUsages:params.image->getCreationParameters().usage).value);
+
         VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkImageViewUsageCreateInfo, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+        vk_createInfo.pNext = &vk_imageViewUsageInfo;
         vk_createInfo.flags = static_cast<VkImageViewCreateFlags>(params.flags);
 
         if (params.image->getAPIType() != EAT_VULKAN)
@@ -999,7 +1005,7 @@ protected:
         vk_createInfo.components.g = static_cast<VkComponentSwizzle>(params.components.g);
         vk_createInfo.components.b = static_cast<VkComponentSwizzle>(params.components.b);
         vk_createInfo.components.a = static_cast<VkComponentSwizzle>(params.components.a);
-        vk_createInfo.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(params.subresourceRange.aspectMask);
+        vk_createInfo.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(params.subresourceRange.aspectMask.value);
         vk_createInfo.subresourceRange.baseMipLevel = params.subresourceRange.baseMipLevel;
         vk_createInfo.subresourceRange.levelCount = params.subresourceRange.levelCount;
         vk_createInfo.subresourceRange.baseArrayLayer = params.subresourceRange.baseArrayLayer;

@@ -3,11 +3,13 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#include "nbl/builtin/CArchive.h"
+#endif // _NBL_EMBED_BUILTIN_RESOURCES_
 
 #include <sstream>
 #include <regex>
 #include <iterator>
-
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -57,6 +59,7 @@ namespace nbl::asset::impl
             std::string res_str;
 
             std::filesystem::path relDir;
+            #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
             const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
             const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
             if (!reqFromBuiltin && !reqBuiltin)
@@ -67,6 +70,9 @@ namespace nbl::asset::impl
                 //  or path relative to executable's working directory (""-type).
                 relDir = std::filesystem::path(_requesting_source).parent_path();
             }
+            #else
+            const bool reqBuiltin = false;
+            #endif // _NBL_EMBED_BUILTIN_RESOURCES_
             std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir / _requested_source) : (_requested_source);
 
             if (std::filesystem::exists(name) && !reqBuiltin)
@@ -166,7 +172,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
     shaderc::CompileOptions shadercOptions; //default options
     shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.targetSpirvVersion));
     const shaderc_shader_kind stage = glslOptions.stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
-    if (glslOptions.genDebugInfo)
+    if (glslOptions.debugInfoFlags.value != IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
         shadercOptions.SetGenerateDebugInfo();
 
     shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", "main", shadercOptions);

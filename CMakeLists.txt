@@ -1,8 +1,7 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
-
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.26)
 #policies
 cmake_policy(SET CMP0112 NEW)
 
@@ -56,6 +55,7 @@ endif()
 
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include")
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
@@ -273,6 +273,8 @@ option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 
+option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
+
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
 	find_package(OPTIX REQUIRED)
@@ -298,7 +300,7 @@ include(common)
 NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
-OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
 

@@ -3,6 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#include "nbl/builtin/CArchive.h"
+#endif // _NBL_EMBED_BUILTIN_RESOURCES_
 
 
 #ifdef _NBL_PLATFORM_WINDOWS_
@@ -72,6 +75,7 @@ static tcpp::IInputStream* getInputStreamInclude(
     std::string res_str;
 
     std::filesystem::path relDir;
+    #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
     const bool reqFromBuiltin = builtin::hasPathPrefix(requestingSource);
     const bool reqBuiltin = builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
@@ -82,6 +86,9 @@ static tcpp::IInputStream* getInputStreamInclude(
         //  or path relative to executable's working directory (""-type).
         relDir = std::filesystem::path(requestingSource).parent_path();
     }
+    #else
+    const bool reqBuiltin = false;
+    #endif // _NBL_EMBED_BUILTIN_RESOURCES_
     std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
 
     if (std::filesystem::exists(name) && !reqBuiltin)
@@ -132,7 +139,12 @@ public:
 
 DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
-    if (options.genDebugInfo)
+    // Append Commandline options into source only if debugInfoFlags will emit source
+    auto sourceEmittingFlags =
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT |
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT;
+    if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
         insertion << "// commandline compiler options : ";
@@ -362,15 +374,16 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     }
 
     // Debug only values
-    if (hlslOptions.genDebugInfo)
-    {
-        arguments.insert(arguments.end(), {
-            DXC_ARG_DEBUG,
-            L"-Qembed_debug",
-            L"-fspv-debug=vulkan-with-source",
-            L"-fspv-debug=file"
-        });
-    }
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
+        arguments.push_back(L"-fspv-debug=file");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
+        arguments.push_back(L"-fspv-debug=source");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
+        arguments.push_back(L"-fspv-debug=line");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
+        arguments.push_back(L"-fspv-debug=tool");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
+        arguments.push_back(L"-fspv-debug=vulkan-with-source");
 
     auto compileResult = dxcCompile(
         this, 

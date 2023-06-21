@@ -68,7 +68,7 @@ class CInnerArchiveFile : public CFileView<T>
 
 
 //!
-class CFileArchive : public IFileArchive
+class NBL_API2 CFileArchive : public IFileArchive
 {
 		static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualMemoryAllocator>));
 		static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));
@@ -76,8 +76,6 @@ class CFileArchive : public IFileArchive
 	public:
 		inline core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) override
 		{
-			std::unique_lock lock(itemMutex);
-
 			const auto* item = getItemFromPath(pathRelativeToArchive);
 			if (!item)
 				return nullptr;
@@ -107,13 +105,12 @@ class CFileArchive : public IFileArchive
 		}
 
 	protected:
-		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, core::vector<SListEntry> _items) :
+		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, std::shared_ptr<core::vector<SFileList::SEntry>> _items) :
 			IFileArchive(std::move(_defaultAbsolutePath),std::move(logger))
 		{
-			m_items = std::move(_items);
-			std::sort(m_items.begin(),m_items.end());
+			setItemList(_items);
 
-			const auto fileCount = m_items.size();
+			const auto fileCount = _items->size();
 			m_filesBuffer = (std::byte*)_NBL_ALIGNED_MALLOC(fileCount*SIZEOF_INNER_ARCHIVE_FILE, ALIGNOF_INNER_ARCHIVE_FILE);
 			m_fileFlags = (std::atomic_flag*)_NBL_ALIGNED_MALLOC(fileCount*sizeof(std::atomic_flag), alignof(std::atomic_flag));
 			for (size_t i=0u; i<fileCount; i++)
@@ -127,7 +124,7 @@ class CFileArchive : public IFileArchive
 		}
 		
 		template<class Allocator>
-		inline core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SListEntry* item)
+		inline core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SFileList::SEntry* item)
 		{
 			auto* file = reinterpret_cast<CInnerArchiveFile<Allocator>*>(m_filesBuffer+item->ID*SIZEOF_INNER_ARCHIVE_FILE);
 			// NOTE: Intentionally calling grab() on maybe-not-existing object!
@@ -160,7 +157,7 @@ class CFileArchive : public IFileArchive
 			size_t size;
 			void* allocatorState;
 		};
-		virtual file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) = 0;
+		virtual file_buffer_t getFileBuffer(const IFileArchive::SFileList::SEntry* item) = 0;
 
 		std::atomic_flag* m_fileFlags = nullptr;
 		std::byte* m_filesBuffer = nullptr;

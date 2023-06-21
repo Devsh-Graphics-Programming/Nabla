@@ -30,7 +30,18 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     //create vertex shaders and insert them into cache
     auto registerShader = [&]<core::StringLiteral Path>(ICPUShader::E_SHADER_STAGE stage) -> void
     {
-        core::smart_refctd_ptr<const system::IFile> data = m_assetMgr->getSystem()->loadBuiltinData<Path>();
+        auto fileSystem = m_assetMgr->getSystem();
+
+        auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+        {
+            nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+            fileSystem->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+            if (future.wait())
+                return future.copy();
+            return nullptr;
+        };
+
+        core::smart_refctd_ptr<const system::IFile> data = loadBuiltinData(Path.value);
         auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize()+1u);
         char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
         memcpy(bufferPtr, data->getMappedPointer(), data->getSize());
@@ -669,7 +680,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
         const bool isCubemap = (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX);
 
-        ICPUImageView::SCreationParams viewParams;
+        ICPUImageView::SCreationParams viewParams = {};
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
         viewParams.format = image->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];

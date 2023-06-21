@@ -232,11 +232,24 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
 		PRIVATE ${LIB_INCLUDES}
 	)
+	
+	if(NBL_EMBED_BUILTIN_RESOURCES)
+		get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+		
+		target_include_directories(${LIB_NAME}
+			PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
+		)
+	endif()
+	
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
@@ -339,6 +352,13 @@ function(nbl_install_file _FILE _RELATIVE_DESTINATION)
 	install(FILES ${_FILE} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
+function(nbl_install_builtin_resources _TARGET_)
+	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
+	
+	nbl_install_headers("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+endfunction()
+
 function(nbl_install_config_header _CONF_HDR_NAME)
 	nbl_get_conf_dir(dir_deb Debug)
 	nbl_get_conf_dir(dir_rel Release)
@@ -349,6 +369,18 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_rel} DESTINATION include CONFIGURATIONS Release)
 	install(FILES ${file_deb} DESTINATION debug/include CONFIGURATIONS Debug)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
+endfunction()
+
+# links builtin resource target to a target
+# @_TARGET_@ is target name builtin resource target will be linked to
+# @_BS_TARGET_@ is a builtin resource target
+
+function(LINK_BUILTIN_RESOURCES_TO_TARGET _TARGET_ _BS_TARGET_)
+	add_dependencies(${EXECUTABLE_NAME} ${_BS_TARGET_})
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${_BS_TARGET_})
+	
+	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_BS_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	target_include_directories(${EXECUTABLE_NAME} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 macro(nbl_android_create_apk _TARGET)
