@@ -111,11 +111,45 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         // no multi-device yet
         //bool setDeviceMask(uint32_t deviceMask);
 
+        using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
         //! Barriers and Sync
-        struct SResourceMemoryBarrier
+        template<typename ResourceBarrier>
+        struct SBufferMemoryBarrier
         {
-            asset::SMemoryBarrier barrier = {};
-            // If both indices are equal there will be no ownership transfer
+            ResourceBarrier barrier = {};
+            asset::SBufferRange<const IGPUBuffer> range = {};
+        };
+        template<typename ResourceBarrier>
+        struct SImageMemoryBarrier
+        {
+            ResourceBarrier barrier = {};
+            core::smart_refctd_ptr<const IGPUImage> image = nullptr;
+            IGPUImage::SSubresourceRange subresourceRange = {};
+            // If both layouts match, no transition is performed, so this is our default
+            IGPUImage::LAYOUT oldLayout = IGPUImage::LAYOUT::UNDEFINED;
+            IGPUImage::LAYOUT newLayout = IGPUImage::LAYOUT::UNDEFINED;
+        };
+        template<typename ResourceBarrier>
+        struct SDependencyInfo
+        {
+            // no dependency flags because they must be 0 per the spec
+            uint32_t memBarrierCount = 0;
+            const asset::SMemoryBarrier* memBarriers = nullptr;
+            uint32_t bufBarrierCount = 0;
+            const SBufferMemoryBarrier<ResourceBarrier>* bufBarriers = nullptr;
+            uint32_t imgBarrierCount = 0;
+            const SImageMemoryBarrier<ResourceBarrier>* imgBarriers = nullptr;
+        };
+
+        using SEventDependencyInfo = SDependencyInfo<asset::SMemoryBarrier>;
+        bool setEvent(IGPUEvent* const _event, const SEventDependencyInfo& depInfo);
+        bool resetEvent(IGPUEvent* _event, const core::bitflag<stage_flags_t> stageMask);
+        bool waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SEventDependencyInfo* depInfos);
+        
+        struct SOwnershipTransferBarrier
+        {
+            asset::SMemoryBarrier dep = {};
+            // If otherQueueFamilyIndex==FamilyIgnored there will be no ownership transfer
             enum class OWNERSHIP_OP : uint32_t 
             {
                 RELEASE = 0,
@@ -124,36 +158,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             OWNERSHIP_OP ownershipOp : 1 = OWNERSHIP_OP::ACQUIRE;
             uint32_t otherQueueFamilyIndex : 31 = IGPUQueue::FamilyIgnored;
         };
-        struct SBufferMemoryBarrier
-        {
-            SResourceMemoryBarrier barrier = {};
-            asset::SBufferRange<const IGPUBuffer> range = {};
-        };
-        struct SImageMemoryBarrier
-        {
-            SResourceMemoryBarrier barrier = {};
-            core::smart_refctd_ptr<const IGPUImage> image = nullptr;
-            IGPUImage::SSubresourceRange subresourceRange = {};
-            // If both layouts match, no transition is performed, so this is our default
-            IGPUImage::LAYOUT oldLayout = IGPUImage::LAYOUT::UNDEFINED;
-            IGPUImage::LAYOUT newLayout = IGPUImage::LAYOUT::UNDEFINED;
-        };
-        struct SDependencyInfo
-        {
-            // no dependency flags because they must be 0 per the spec
-            uint32_t memBarrierCount = 0;
-            const asset::SMemoryBarrier* memBarriers = nullptr;
-            uint32_t bufBarrierCount = 0;
-            const SBufferMemoryBarrier* bufBarriers = nullptr;
-            uint32_t imgBarrierCount = 0;
-            const SImageMemoryBarrier* imgBarriers = nullptr;
-        };
-        using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
-        bool setEvent(IGPUEvent* const _event, const SDependencyInfo& depInfo);
-        bool resetEvent(IGPUEvent* _event, const core::bitflag<stage_flags_t> stageMask);
-        bool waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfos);
-
-        bool pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo);
+        using SPipelineBarrierDependencyInfo = SDependencyInfo<SOwnershipTransferBarrier>;
+        bool pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo);
 
         //! buffer transfers
         bool fillBuffer(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data);
@@ -337,10 +343,10 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 
 //        virtual bool setDeviceMask_impl(uint32_t deviceMask) { assert(!"Invalid code path"); return false; };
 
-        virtual bool setEvent_impl(IGPUEvent* const _event, const SDependencyInfo& depInfo) = 0;
+        virtual bool setEvent_impl(IGPUEvent* const _event, const SEventDependencyInfo& depInfo) = 0;
         virtual bool resetEvent_impl(IGPUEvent* const _event, const core::bitflag<stage_flags_t> stageMask) = 0;
-        virtual bool waitEvents_impl(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfos) = 0;
-        virtual bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo) = 0;
+        virtual bool waitEvents_impl(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SEventDependencyInfo* depInfos) = 0;
+        virtual bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo) = 0;
 
         virtual bool fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data) = 0;
         virtual bool updateBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const void* const pData) = 0;
@@ -449,7 +455,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         using queue_flags_t = IGPUQueue::FAMILY_FLAGS;
         bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
 
-        bool invalidDependency(const SDependencyInfo& depInfo) const;
+        template<typename ResourceBarrier>
+        bool invalidDependency(const SDependencyInfo<ResourceBarrier>& depInfo) const;
 
         inline bool invalidBuffer(const IGPUBuffer* buffer, const IGPUBuffer::E_USAGE_FLAGS usages) const
         {
@@ -634,6 +641,9 @@ extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawArraysInd
 extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
 extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<asset::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
 extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<asset::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+
+extern template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<asset::SMemoryBarrier>&) const;
+extern template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<IGPUCommandBuffer::SOwnershipTransferBarrier>&) const;
 #endif
 
 }

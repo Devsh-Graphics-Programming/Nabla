@@ -178,11 +178,15 @@ bool IGPUCommandBuffer::setDeviceMask(uint32_t deviceMask)
 }
 */
 
-bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo& depInfo) const
+template<typename ResourceBarrier>
+bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>& depInfo) const
 {
     // under NBL_DEBUG, cause waay too expensive to validate
     #ifdef _NBL_DEBUG
     auto device = getOriginDevice();
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07890
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07891
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07892
     for (auto j=0u; j<depInfo.memBarrierCount; j++)
     if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.memBarriers[j]))
         return true;
@@ -199,7 +203,7 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo& depInfo) const
     return false;
 }
 
-bool IGPUCommandBuffer::setEvent(IGPUEvent* _event, const SDependencyInfo& depInfo)
+bool IGPUCommandBuffer::setEvent(IGPUEvent* _event, const SEventDependencyInfo& depInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -246,7 +250,7 @@ bool IGPUCommandBuffer::resetEvent(IGPUEvent* _event, const core::bitflag<stage_
     return resetEvent_impl(_event,stageMask);
 }
 
-bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SDependencyInfo* depInfos)
+bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SEventDependencyInfo* depInfos)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -288,7 +292,7 @@ bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* 
     return waitEvents_impl(eventCount,pEvents,depInfos);
 }
 
-bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SDependencyInfo& depInfo)
+bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo)
 {
     if (!checkStateBeforeRecording(/*everything is allowed*/))
         return false;
@@ -315,6 +319,10 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
 
             // TODO: under NBL_DEBUG, cause waay too expensive to validate
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-image-04073
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-dependencyFlags-01186
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07893
+            // Ownership Transfers CANNOT HAPPEN MID-RENDERPASS
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-srcQueueFamilyIndex-01182
         }
         // TODO: under NBL_DEBUG, cause waay too expensive to validate
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07889
