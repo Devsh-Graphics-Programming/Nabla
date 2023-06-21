@@ -116,8 +116,13 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         {
             asset::SMemoryBarrier barrier = {};
             // If both indices are equal there will be no ownership transfer
-            uint32_t srcQueueFamilyIndex = 0u;
-            uint32_t dstQueueFamilyIndex = 0u;
+            enum class OWNERSHIP_OP : uint32_t 
+            {
+                RELEASE = 0,
+                ACQUIRE = 1
+            };
+            OWNERSHIP_OP ownershipOp : 1 = OWNERSHIP_OP::ACQUIRE;
+            uint32_t otherQueueFamilyIndex : 31 = IGPUQueue::FamilyIgnored;
         };
         struct SBufferMemoryBarrier
         {

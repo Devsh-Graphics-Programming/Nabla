@@ -12,6 +12,13 @@ class IGPUCommandBuffer;
 class IGPUQueue : public core::Interface, public core::Unmovable
 {
     public:
+        // when you don't want an ownership transfer
+        constexpr static inline uint32_t FamilyIgnored = 0x7fffffffu;
+        // for queues on the same device group, driver version, as indicated by deviceUUID and driverUUID
+        constexpr static inline uint32_t FamilyExternal = 0x7ffffffeu;
+        // any queue external, regardless of device or driver version
+        constexpr static inline uint32_t FamilyForeign = 0x7ffffffdu;
+
         enum class FAMILY_FLAGS : uint8_t
         {
             NONE = 0,
@@ -60,7 +67,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         uint32_t getFamilyIndex() const { return m_familyIndex; }
         CREATE_FLAGS getFlags() const { return m_flags; }
 
-        inline constexpr static float DEFAULT_QUEUE_PRIORITY = 1.f;
+        constexpr static inline float DEFAULT_QUEUE_PRIORITY = 1.f;
 
         // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkQueue*
