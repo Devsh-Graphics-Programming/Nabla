@@ -690,7 +690,7 @@ bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uin
         return false;
 
     for (uint32_t i=0u; i<bindingCount; ++i)
-    if (invalidBufferBinding(pBindings[i],4u/*or should we derive from component format?*/, IGPUBuffer::EUF_VERTEX_BUFFER_BIT))
+    if (pBindings[i].buffer && invalidBufferBinding(pBindings[i],4u/*or should we derive from component format?*/,IGPUBuffer::EUF_VERTEX_BUFFER_BIT))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList,pBindings))
@@ -704,20 +704,23 @@ bool IGPUCommandBuffer::bindIndexBuffer(const asset::SBufferBinding<const IGPUBu
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
-    size_t alignment;
-    switch (indexType)
+    if (binding.buffer)
     {
-        case asset::EIT_16BIT:
-            alignment = alignof(uint16_t);
-            break;
-        case asset::EIT_32BIT:
-            alignment = alignof(uint32_t);
-            break;
-        default:
+        size_t alignment;
+        switch (indexType)
+        {
+            case asset::EIT_16BIT:
+                alignment = alignof(uint16_t);
+                break;
+            case asset::EIT_32BIT:
+                alignment = alignof(uint32_t);
+                break;
+            default:
+                return false;
+        }
+        if (invalidBufferBinding(binding,alignment,IGPUBuffer::EUF_INDEX_BUFFER_BIT))
             return false;
     }
-    if (invalidBufferBinding(binding,alignment,IGPUBuffer::EUF_INDEX_BUFFER_BIT))
-        return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
@@ -949,111 +952,88 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
     return clearAttachments_impl(info);
 }
 
-#if 0
-bool IGPUCommandBuffer::drawIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
-{
-    if (drawCount==0u)
-        return false;
 
+bool IGPUCommandBuffer::draw(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance)
+{
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
 
-    if (!buffer || (buffer->getAPIType() != getAPIType()))
+    if (vertexCount==0u || instanceCount == 0u)
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(buffer)))
-        return false;
-
-    return drawIndirect_impl(buffer, offset, drawCount, stride);
+    return draw_impl(vertexCount,instanceCount,firstVertex,firstInstance);
 }
 
-bool IGPUCommandBuffer::drawIndexedIndirect(const buffer_t* buffer, size_t offset, uint32_t drawCount, uint32_t stride)
+bool IGPUCommandBuffer::drawIndexed(const uint32_t indexCount, const uint32_t instanceCount, const uint32_t firstIndex, const int32_t vertexOffset, const uint32_t firstInstance)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
 
-    if (!buffer || buffer->getAPIType() != getAPIType())
+    if (indexCount==0u || instanceCount == 0u)
         return false;
 
-    if (drawCount == 0u)
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer)))
-        return false;
-
-    drawIndexedIndirect_impl(buffer, offset, drawCount, stride);
-
-    return true;
+    return drawIndexed_impl(indexCount,instanceCount,firstIndex,vertexOffset,firstInstance);
 }
 
-bool IGPUCommandBuffer::drawIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
+bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
-    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+    if (invalidDrawIndirect<asset::DrawArraysIndirectCommand_t>(binding,drawCount,stride))
         return false;
 
-    if (!buffer || buffer->getAPIType() != getAPIType())
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
-    if (!countBuffer || countBuffer->getAPIType() != getAPIType())
+    return drawIndirect_impl(binding, drawCount, stride);
+}
+
+bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
+{
+    if (invalidDrawIndirect<asset::DrawElementsIndirectCommand_t>(binding,drawCount,stride))
         return false;
 
-    if (maxDrawCount == 0u)
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+        return false;
+
+    return drawIndexedIndirect_impl(binding, drawCount, stride);
+}
+
+bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
+{
+    if (!invalidDrawIndirectCount<asset::DrawArraysIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
         return false;
 
-    return drawIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);
+    return drawIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
 }
 
-bool IGPUCommandBuffer::drawIndexedIndirectCount(const buffer_t* buffer, size_t offset, const buffer_t* countBuffer, size_t countBufferOffset, uint32_t maxDrawCount, uint32_t stride)
+bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
-    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
-        return false;
-
-    if (!buffer || buffer->getAPIType() != getAPIType())
-        return false;
-
-    if (!countBuffer || countBuffer->getAPIType() != getAPIType())
-        return false;
-
-    if (maxDrawCount == 0u)
+    if (!invalidDrawIndirectCount<asset::DrawElementsIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
         return false;
 
-    return drawIndexedIndirectCount_impl(buffer, offset, countBuffer, countBufferOffset, maxDrawCount, stride);}
+    return drawIndexedIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
+}
 
 
-bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
+bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer* const meshBuffer)
 {
-    if (!checkStateBeforeRecording())
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
 
-    if (meshBuffer && !meshBuffer->getInstanceCount())
+    if (meshBuffer && meshBuffer->getInstanceCount()==0u)
         return false;
 
-    const auto* pipeline = meshBuffer->getPipeline();
-    const auto bindingFlags = pipeline->getVertexInputParams().enabledBindingFlags;
-    auto vertexBufferBindings = meshBuffer->getVertexBufferBindings();
-    auto indexBufferBinding = meshBuffer->getIndexBufferBinding();
     const auto indexType = meshBuffer->getIndexType();
 
-    const IGPUBuffer* gpuBufferBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-    {
-        for (size_t i = 0; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-            gpuBufferBindings[i] = vertexBufferBindings[i].buffer.get();
-    }
-
-    size_t bufferBindingsOffsets[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-    {
-        for (size_t i = 0; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-            bufferBindingsOffsets[i] = vertexBufferBindings[i].offset;
-    }
-
-    bindVertexBuffers(0, asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, gpuBufferBindings, bufferBindingsOffsets);
-    bindIndexBuffer(indexBufferBinding.buffer.get(), indexBufferBinding.offset, indexType);
+    if (!bindVertexBuffers(0, asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT, meshBuffer->getVertexBufferBindings()))
+        return false;
+    if (!bindIndexBuffer(meshBuffer->getIndexBufferBinding(), indexType))
+        return false;
 
     const bool isIndexed = indexType != asset::EIT_UNKNOWN;
 
@@ -1076,7 +1056,6 @@ bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer::base_t* meshBuffer)
         return draw(vertexCount, instanceCount, firstVertex, firstInstance);
     }
 }
-#endif
 
 static bool disallowedLayoutForBlitAndResolve(const IGPUImage::LAYOUT layout)
 {
