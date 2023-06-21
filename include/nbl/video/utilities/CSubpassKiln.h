@@ -266,7 +266,7 @@ class CSubpassKiln
                             const auto unmodifiedBindingCount = [&]() -> uint32_t
                             {
                                 for (auto i=0u; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
-                                if (it->vertexBufferBindings[i].buffer.get()!=vertexBindingBuffers[i] || it->vertexBufferBindings[i].offset!=vertexBindingOffsets[i])
+                                if (it->vertexBufferBindings[i]!=vertexBindings[i])
                                     return i;
                                 return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
                             }();
@@ -277,13 +277,10 @@ class CSubpassKiln
                                     return i+1u;
                                 return unmodifiedBindingCount;
                             }();
-                            for (auto i=unmodifiedBindingCount; i<nonNullBindingEnd; i++)
-                            {
-                                vertexBindingBuffers[i] = it->vertexBufferBindings[i].buffer.get();
-                                vertexBindingOffsets[i] = it->vertexBufferBindings[i].offset;
-                            }
+                            const auto newBindingCount = nonNullBindingEnd-unmodifiedBindingCount;
+                            std::copy_n(it->vertexBufferBindings+unmodifiedBindingCount,newBindingCount,vertexBindings);
                             if (nonNullBindingEnd!=unmodifiedBindingCount)
-                                cmdbuf->bindVertexBuffers(unmodifiedBindingCount,nonNullBindingEnd-unmodifiedBindingCount,vertexBindingBuffers+unmodifiedBindingCount,vertexBindingOffsets+unmodifiedBindingCount);
+                                cmdbuf->bindVertexBuffers(unmodifiedBindingCount,newBindingCount,vertexBindings+unmodifiedBindingCount);
                             // change index bindings iff dirty
                             if (it->indexBufferBinding.get()!=indexBuffer || it->indexType!=indexType)
                             {
@@ -293,10 +290,10 @@ class CSubpassKiln
                                         [[fallthrough]];
                                     case asset::EIT_32BIT:
                                         indexType = static_cast<asset::E_INDEX_TYPE>(it->indexType);
-                                        cmdbuf->bindIndexBuffer(it->indexBufferBinding.get(),0ull,indexType);
+                                        cmdbuf->bindIndexBuffer({0ull,it->indexBufferBinding},indexType);
                                         break;
                                     default:
-                                        cmdbuf->bindIndexBuffer(nullptr,0ull,asset::EIT_UNKNOWN);
+                                        cmdbuf->bindIndexBuffer({},asset::EIT_UNKNOWN);
                                         indexType = asset::EIT_UNKNOWN;
                                         break;
                                 }
@@ -304,21 +301,23 @@ class CSubpassKiln
                             }
                             // now we're ready to record a few drawcalls
                             const bool indexed = indexType!=asset::EIT_UNKNOWN;
-                            const uint32_t drawCallOffset=it->drawCallOffset, drawCountOffset=it->drawCountOffset, drawMaxCount=it->drawMaxCount, drawCommandStride=it->drawCommandStride;
-                            if (drawCountBuffer && drawCountOffset!=IDrawIndirectAllocator::invalid_draw_count_ix)
+                            asset::SBufferBinding<const IGPUBuffer> indirectBinding = {it->drawCallOffset,drawIndirectBuffer};
+                            const uint32_t drawMaxCount=it->drawMaxCount, drawCommandStride=it->drawCommandStride;
+                            if (drawCountBuffer && it->drawCountOffset!=IDrawIndirectAllocator::invalid_draw_count_ix)
                             {
                                 assert(drawCountEnabled);
+                                asset::SBufferBinding<const IGPUBuffer> countBinding = {it->drawCountOffset,drawCountBuffer};
                                 if (indexed)
-                                    cmdbuf->drawIndexedIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
+                                    cmdbuf->drawIndexedIndirectCount(indirectBinding,countBinding,drawMaxCount,drawCommandStride);
                                 else
-                                    cmdbuf->drawIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
+                                    cmdbuf->drawIndirectCount(indirectBinding,countBinding,drawMaxCount,drawCommandStride);
                             }
                             else
                             {
                                 if (indexed)
-                                    cmdbuf->drawIndexedIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
+                                    cmdbuf->drawIndexedIndirect(indirectBinding,drawMaxCount,drawCommandStride);
                                 else
-                                    cmdbuf->drawIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
+                                    cmdbuf->drawIndirect(indirectBinding,drawMaxCount,drawCommandStride);
                             }
                         }
                     }
@@ -326,15 +325,14 @@ class CSubpassKiln
             private:
                 //
                 const bool drawCountEnabled;
-                const IGPUBuffer* drawIndirectBuffer;
-                const IGPUBuffer* drawCountBuffer;
+                core::smart_refctd_ptr<const IGPUBuffer> drawIndirectBuffer;
+                core::smart_refctd_ptr<const IGPUBuffer> drawCountBuffer;
                 //
                 const IGPUGraphicsPipeline* pipeline = nullptr;
                 const uint8_t* pushConstants = nullptr;
                 const IGPUDescriptorSet* descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {nullptr};
                 const IGPUPipelineLayout* layout = nullptr;
-                const IGPUBuffer* vertexBindingBuffers[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {nullptr};
-                size_t vertexBindingOffsets[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {0ull};
+                asset::SBufferBinding<const IGPUBuffer> vertexBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
                 asset::E_INDEX_TYPE indexType = asset::EIT_UNKNOWN;
                 const IGPUBuffer* indexBuffer = nullptr;
         };
