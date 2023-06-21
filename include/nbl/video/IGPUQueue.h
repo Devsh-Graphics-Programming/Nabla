@@ -30,7 +30,8 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         };
         enum class CREATE_FLAGS : uint32_t
         {
-            PROTECTED_BIT = 0x01
+            NONE = 0x00u,
+            PROTECTED_BIT = 0x01u
         };
 
 
