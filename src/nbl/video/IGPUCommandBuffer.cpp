@@ -1,3 +1,4 @@
+#define _NBL_VIDEO_I_GPU_COMMAND_BUFFER_CPP_
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
@@ -861,7 +862,7 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
     if (invalidBufferBinding(binding,4u/*TODO: is it really 4?*/,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDispatchIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
     return dispatchIndirect_impl(binding);
@@ -975,12 +976,46 @@ bool IGPUCommandBuffer::drawIndexed(const uint32_t indexCount, const uint32_t in
     return drawIndexed_impl(indexCount,instanceCount,firstIndex,vertexOffset,firstInstance);
 }
 
+template<typename IndirectCommand>
+bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+        return true;
+
+    if (drawCount)
+    {
+        if (drawCount==1u)
+            stride = sizeof(IndirectCommand);
+        if (stride&0x3u || stride<sizeof(IndirectCommand))
+            return true;
+        if (drawCount>getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount)
+            return true;
+        if (invalidBufferRange({binding.offset,stride*(drawCount-1u)+sizeof(IndirectCommand),binding.buffer},alignof(uint32_t),IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+            return true;
+    }
+    return false;
+}
+
+template<typename IndirectCommand>
+bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
+{
+    if (!getOriginDevice()->getPhysicalDevice()->getLimits().drawIndirectCount)
+        return true;
+
+    if (invalidDrawIndirect<IndirectCommand>(indirectBinding,countBinding,maxDrawCount,stride))
+        return true;
+    if (invalidBufferRange({countBinding.offset,sizeof(uint32_t),countBinding.buffer},alignof(uint32_t),IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+        return true;
+
+    return false;
+}
+
 bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
     if (invalidDrawIndirect<asset::DrawArraysIndirectCommand_t>(binding,drawCount,stride))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
     return drawIndirect_impl(binding, drawCount, stride);
@@ -991,7 +1026,7 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IG
     if (invalidDrawIndirect<asset::DrawElementsIndirectCommand_t>(binding,drawCount,stride))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndexedIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
     return drawIndexedIndirect_impl(binding, drawCount, stride);
@@ -1002,7 +1037,7 @@ bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPU
     if (!invalidDrawIndirectCount<asset::DrawArraysIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
         return false;
 
     return drawIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
@@ -1012,8 +1047,8 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<con
 {
     if (!invalidDrawIndirectCount<asset::DrawElementsIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
         return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndexedIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const buffer_t>(buffer), core::smart_refctd_ptr<const buffer_t>(countBuffer)))
+    
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
         return false;
 
     return drawIndexedIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);

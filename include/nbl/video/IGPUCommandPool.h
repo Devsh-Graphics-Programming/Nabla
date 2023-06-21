@@ -216,10 +216,8 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 
         class CBeginCmd;
         class CBindIndexBufferCmd;
-        class CDrawIndirectCmd;
-        class CDrawIndexedIndirectCmd;
+        class CIndirectCmd;
         class CDrawIndirectCountCmd;
-        class CDrawIndexedIndirectCountCmd;
         class CBeginRenderPassCmd;
         class CPipelineBarrierCmd;
         class CBindDescriptorSetsCmd;
@@ -238,7 +236,6 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         class CBlitImageCmd;
         class CCopyImageToBufferCmd;
         class CExecuteCommandsCmd;
-        class CDispatchIndirectCmd;
         class CWaitEventsCmd;
         class CCopyImageCmd;
         class CResolveImageCmd;
@@ -403,19 +400,10 @@ class IGPUCommandPool::CBindIndexBufferCmd final : public IFixedSizeCommand<CBin
         core::smart_refctd_ptr<const video::IGPUBuffer> m_indexBuffer;
 };
 
-class IGPUCommandPool::CDrawIndirectCmd final : public IFixedSizeCommand<CDrawIndirectCmd>
+class IGPUCommandPool::CIndirectCmd final : public IFixedSizeCommand<CIndirectCmd>
 {
     public:
-        CDrawIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
-
-    private:
-        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
-};
-
-class IGPUCommandPool::CDrawIndexedIndirectCmd final : public IFixedSizeCommand<CDrawIndexedIndirectCmd>
-{
-    public:
-        CDrawIndexedIndirectCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
+        CIndirectCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
 
     private:
         core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
@@ -425,18 +413,6 @@ class IGPUCommandPool::CDrawIndirectCountCmd final : public IFixedSizeCommand<CD
 {
     public:
         CDrawIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
-            : m_buffer(std::move(buffer)) , m_countBuffer(std::move(countBuffer))
-        {}
-
-    private:
-        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
-        core::smart_refctd_ptr<const IGPUBuffer> m_countBuffer;
-};
-
-class IGPUCommandPool::CDrawIndexedIndirectCountCmd final : public IFixedSizeCommand<CDrawIndexedIndirectCountCmd>
-{
-    public:
-        CDrawIndexedIndirectCountCmd(core::smart_refctd_ptr<const video::IGPUBuffer>&& buffer, core::smart_refctd_ptr<const video::IGPUBuffer>&& countBuffer)
             : m_buffer(std::move(buffer)), m_countBuffer(std::move(countBuffer))
         {}
 
@@ -638,15 +614,6 @@ class IGPUCommandPool::CExecuteCommandsCmd final : public IVariableSizeCommand<C
         {
             return count;
         }
-};
-
-class IGPUCommandPool::CDispatchIndirectCmd final : public IFixedSizeCommand<CDispatchIndirectCmd>
-{
-    public:
-        CDispatchIndirectCmd(core::smart_refctd_ptr<const IGPUBuffer>&& buffer) : m_buffer(std::move(buffer)) {}
-
-    private:
-        core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
 class IGPUCommandPool::CWaitEventsCmd final : public IVariableSizeCommand<CWaitEventsCmd>

@@ -602,38 +602,10 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         }
 
         template<typename IndirectCommand>
-        inline bool invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride) const
-        {
-            if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
-                return true;
-
-            if (drawCount)
-            {
-                if (drawCount==1u)
-                    stride = sizeof(IndirectCommand);
-                if (stride&0x3u || stride<sizeof(IndirectCommand))
-                    return true;
-                if (drawCount>getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount)
-                    return true;
-                if (invalidBufferRange({binding.offset,stride*(drawCount-1u)+sizeof(IndirectCommand),binding.buffer},alignof(uint32_t),IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
-                    return true;
-            }
-            return false
-        }
+        bool invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride);
 
         template<typename IndirectCommand>
-        inline bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) const
-        {
-            if (!getOriginDevice()->getPhysicalDevice()->getLimits().drawIndirectCount)
-                return true;
-
-            if (invalidDrawIndirect<IndirectCommand>(indirectBinding,countBinding,maxDrawCount,stride))
-                return true;
-            if (invalidBufferRange({countBinding.offset,sizeof(uint32_t),countBinding.buffer},alignof(uint32_t),IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
-                return true;
-
-            return false;
-        }
+        bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
@@ -652,6 +624,12 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandBuffer::USAGE);
 
+#ifndef _NBL_VIDEO_I_GPU_COMMAND_BUFFER_CPP_
+extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<asset::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<asset::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+#endif
 
 }
 
