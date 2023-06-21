@@ -123,7 +123,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         struct SImageMemoryBarrier
         {
             ResourceBarrier barrier = {};
-            core::smart_refctd_ptr<const IGPUImage> image = nullptr;
+            const IGPUImage* image = nullptr;
             IGPUImage::SSubresourceRange subresourceRange = {};
             // If both layouts match, no transition is performed, so this is our default
             IGPUImage::LAYOUT oldLayout = IGPUImage::LAYOUT::UNDEFINED;
