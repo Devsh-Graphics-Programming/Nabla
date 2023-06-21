@@ -81,16 +81,15 @@ template<
 	typename Dither					= CWhiteNoiseDither,
 	typename Normalization			= void,
 	bool Clamp						= true,
-	typename BlitUtilities			= CBlitUtilities<>,
-	typename LutDataType			= float>
+	typename BlitUtilities			= CBlitUtilities<>>
 class CBlitImageFilter :
-	public CImageFilter<CBlitImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities, LutDataType>>,
+	public CImageFilter<CBlitImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities>>,
 	public CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>
 {
 	public:
 		using blit_utils_t = BlitUtilities;
 		static_assert(std::is_base_of_v<IBlitUtilities, blit_utils_t>, "Only template instantiations of CBlitUtilitiesare allowed as theBlitUtilities template argument!");
-		using lut_value_t = LutDataType;
+		using lut_value_t = blit_utils_t::lut_value_type;
 
 	private:
 		using value_t = blit_utils_t::value_type;
@@ -453,11 +452,11 @@ class CBlitImageFilter :
 
 			core::vectorSIMDu32 phaseCount = IBlitUtilities::getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
 			phaseCount = core::max(phaseCount, core::vectorSIMDu32(1, 1, 1));
-			const core::vectorSIMDu32 axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets<LutDataType>(phaseCount, real_window_size);
+			const core::vectorSIMDu32 axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets(phaseCount, real_window_size);
 			constexpr auto MaxAxisCount = 3;
-			LutDataType* scaledKernelPhasedLUTPixel[MaxAxisCount];
+			lut_value_t* scaledKernelPhasedLUTPixel[MaxAxisCount];
 			for (auto i = 0; i < MaxAxisCount; ++i)
-				scaledKernelPhasedLUTPixel[i] = reinterpret_cast<LutDataType*>(state->scratchMemory + getScratchOffset(state, ESU_SCALED_KERNEL_PHASED_LUT) + axisOffsets[i]);
+				scaledKernelPhasedLUTPixel[i] = reinterpret_cast<lut_value_t*>(state->scratchMemory + getScratchOffset(state, ESU_SCALED_KERNEL_PHASED_LUT) + axisOffsets[i]);
 
 			for (uint32_t layer=0; layer!=layerCount; layer++) // TODO: could be parallelized
 			{
@@ -551,7 +550,7 @@ class CBlitImageFilter :
 						auto getWeightedSample = [scaledKernelPhasedLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_t
 						{
 							value_t kernelWeight;
-							if constexpr (std::is_same_v<LutDataType, uint16_t>)
+							if constexpr (std::is_same_v<lut_value_t, uint16_t>)
 								kernelWeight = value_t(core::Float16Compressor::decompress(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel]));
 							else
 								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel];

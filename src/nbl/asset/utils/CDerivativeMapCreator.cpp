@@ -113,7 +113,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
-	if (!DerivativeMapFilter::blit_utils_t:: template computeScaledKernelPhasedLUT<float>(state.scratchMemory + DerivativeMapFilter::getScratchOffset(&state, DerivativeMapFilter::ESU_SCALED_KERNEL_PHASED_LUT), state.inExtentLayerCount, state.outExtentLayerCount, state.inImage->getCreationParameters().type, convolutionKernels))
+	if (!DerivativeMapFilter::blit_utils_t:: template computeScaledKernelPhasedLUT(state.scratchMemory + DerivativeMapFilter::getScratchOffset(&state, DerivativeMapFilter::ESU_SCALED_KERNEL_PHASED_LUT), state.inExtentLayerCount, state.outExtentLayerCount, state.inImage->getCreationParameters().type, convolutionKernels))
 		return nullptr;
 
 	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);

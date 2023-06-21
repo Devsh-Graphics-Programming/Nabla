@@ -74,7 +74,8 @@ template<
 	ChannelIndependentWeightFunctionOfConvolutions KernelX = CDefaultChannelIndependentWeightFunction1D<
 		CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>>,
 	ChannelIndependentWeightFunctionOfConvolutions KernelY = KernelX,
-	ChannelIndependentWeightFunctionOfConvolutions KernelZ = KernelX>
+	ChannelIndependentWeightFunctionOfConvolutions KernelZ = KernelX,
+	typename LutDataType = float>
 class CBlitUtilities : public IBlitUtilities
 {
 public:
@@ -86,6 +87,9 @@ public:
 
 	using value_type = convolution_kernel_x_t::value_t;
 	static_assert(std::is_same_v<value_type, convolution_kernel_y_t::value_t> && std::is_same_v<value_type, convolution_kernel_z_t::value_t>);
+
+	using lut_value_type = LutDataType;
+	static_assert(std::is_same_v<lut_value_type, uint16_t> || std::is_same_v<lut_value_type, float>, "Invalid LUT data type.");
 
 	static_assert(convolution_kernel_x_t::ChannelCount == convolution_kernel_y_t::ChannelCount && convolution_kernel_y_t::ChannelCount == convolution_kernel_z_t::ChannelCount);
 	static inline constexpr uint32_t ChannelCount = convolution_kernel_x_t::ChannelCount;
@@ -110,7 +114,6 @@ public:
 		return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(double) * ChannelCount;
 	}
 
-	template <typename LutDataType>
 	static bool computeScaledKernelPhasedLUT(
 		void*							outKernelWeights,
 		const core::vectorSIMDu32&		inExtent,
@@ -130,8 +133,8 @@ public:
 		}
 
 		const auto windowSize = getWindowSize(inImageType, kernels);
-		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets<LutDataType>(phaseCount, windowSize);
-		const auto axisOffsets_f64 = getScaledKernelPhasedLUTAxisOffsets<double>(phaseCount, windowSize);
+		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets(phaseCount, windowSize);
+		const auto axisOffsets_f64 = getScaledKernelPhasedLUTAxisOffsets(phaseCount, windowSize);
 
 		const core::vectorSIMDf inExtent_f32(inExtent);
 		const core::vectorSIMDf outExtent_f32(outExtent);
@@ -331,7 +334,6 @@ public:
 		return windowSize;
 	}
 
-	template <typename LutDataType>
 	static inline core::vectorSIMDu32 getScaledKernelPhasedLUTAxisOffsets(const core::vectorSIMDu32& phaseCount, const core::vectorSIMDi32& windowSize)
 	{
 		core::vectorSIMDu32 result;
