@@ -127,14 +127,11 @@ class IImage : public IDescriptor
 			EUF_TRANSFER_DST_BIT = 0x0002,
 			EUF_SAMPLED_BIT = 0x0004,
 			EUF_STORAGE_BIT = 0x0008,
-			// Color and DepthStencil attachments stay as separate flags as you can apparently (vulkan.gpuinfo.org) alias
-			// R32F, R16_UNORM and R8_UINT image formats to single aspect depth and stencil image view formats
-			EUF_COLOR_ATTACHMENT_BIT = 0x0010,
-			EUF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x0020,
+			EUF_RENDER_ATTACHMENT_BIT = 0x0010,
 			EUF_TRANSIENT_ATTACHMENT_BIT = 0x0040,
 			EUF_INPUT_ATTACHMENT_BIT = 0x0080,
-			EUF_SHADING_RATE_IMAGE_BIT_NV = 0x0100,
-			EUF_FRAGMENT_DENSITY_MAP_BIT_EXT = 0x0200
+			EUF_SHADING_RATE_ATTACHMENT_BIT = 0x0100,
+			EUF_FRAGMENT_DENSITY_MAP_BIT = 0x0200
 		};
 		struct SSubresourceRange
 		{
@@ -441,13 +438,13 @@ class IImage : public IDescriptor
 				if (_params.type != ET_2D || _params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT) || _params.mipLevels == 1u)
 					return false;
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-samples-02558
-				if (_params.usage.hasFlags(EUF_FRAGMENT_DENSITY_MAP_BIT_EXT))
+				if (_params.usage.hasFlags(EUF_FRAGMENT_DENSITY_MAP_BIT))
 					return false;
 			}
 
 			if (_params.usage.hasFlags(EUF_TRANSIENT_ATTACHMENT_BIT))
 			{
-				const auto attachmentUsageFlags = core::bitflag(EUF_COLOR_ATTACHMENT_BIT)|EUF_DEPTH_STENCIL_ATTACHMENT_BIT|EUF_INPUT_ATTACHMENT_BIT;
+				const auto attachmentUsageFlags = core::bitflag(EUF_RENDER_ATTACHMENT_BIT)|EUF_INPUT_ATTACHMENT_BIT;
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-usage-00966
 				if (!_params.usage.hasFlags(attachmentUsageFlags))
 					return false;
@@ -488,7 +485,7 @@ class IImage : public IDescriptor
 			if (_params.mipLevels > calculateFullMipPyramidLevelCount(_params.extent, _params.type))
 				return false;
 
-			if (_params.usage.hasFlags(EUF_SHADING_RATE_IMAGE_BIT_NV))
+			if (_params.usage.hasFlags(EUF_SHADING_RATE_ATTACHMENT_BIT))
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-02082
 				if (_params.type!=ET_2D || _params.samples!=ESCF_1_BIT)

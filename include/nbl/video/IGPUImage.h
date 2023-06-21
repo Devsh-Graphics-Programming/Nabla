@@ -31,7 +31,7 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 			// No `initialLayout` due to https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-initialLayout-00993
 			uint8_t preinitialized : 1 = false;
 
-			SCreationParams& operator =(const asset::IImage::SCreationParams& rhs)
+			SCreationParams& operator=(const asset::IImage::SCreationParams& rhs)
 			{
 				static_cast<asset::IImage::SCreationParams&>(*this) = rhs;
 				return *this;

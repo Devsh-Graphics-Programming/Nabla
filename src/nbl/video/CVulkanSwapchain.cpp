@@ -67,7 +67,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
     vk_createInfo.imageExtent = { params.width, params.height };
     vk_createInfo.imageArrayLayers = params.arrayLayers;
-    vk_createInfo.imageUsage = static_cast<VkImageUsageFlags>(params.imageUsage.value);
+    vk_createInfo.imageUsage = getVkImageUsageFlagsFromImageUsageFlags(params.imageUsage,asset::isDepthOrStencilFormat(params.surfaceFormat.format));
     vk_createInfo.imageSharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
@@ -96,7 +96,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     memReqs.alignmentLog2 = 63u;
     memReqs.prefersDedicatedAllocation = true;
     memReqs.requiresDedicatedAllocation = true;
-    IGPUImage::SCreationParams imgParams;
+    IGPUImage::SCreationParams imgParams = {};
     imgParams.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0);
     imgParams.type = CVulkanImage::ET_2D;
     imgParams.format = params.surfaceFormat.format;

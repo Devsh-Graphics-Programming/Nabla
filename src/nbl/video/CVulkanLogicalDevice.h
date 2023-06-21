@@ -373,8 +373,8 @@ public:
             vkdep.dstSubpass = dep.dstSubpass;
             vkdep.srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.srcStageMask);
             vkdep.dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.dstStageMask);
-            vkdep.srcAccessMask = static_cast<VkAccessFlags>(dep.srcAccessMask);
-            vkdep.dstAccessMask = static_cast<VkAccessFlags>(dep.dstAccessMask);
+            vkdep.srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.srcAccessMask);
+            vkdep.dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.dstAccessMask);
             vkdep.dependencyFlags = static_cast<VkDependencyFlags>(dep.dependencyFlags);
         }
         createInfo.pDependencies = deps.data();
@@ -1041,7 +1041,7 @@ protected:
     {
         // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
         VkImageViewUsageCreateInfo vk_imageViewUsageInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,nullptr };
-        vk_imageViewUsageInfo.usage = static_cast<VkImageUsageFlags>((params.subUsages.value ? params.subUsages:params.image->getCreationParameters().usage).value);
+        vk_imageViewUsageInfo.usage = getVkImageUsageFlagsFromImageUsageFlags(params.actualUsages(),asset::isDepthOrStencilFormat(params.format));
 
         VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, &vk_imageViewUsageInfo };
         vk_createInfo.flags = static_cast<VkImageViewCreateFlags>(params.flags);

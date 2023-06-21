@@ -405,14 +405,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     , log2MaxSamples(0)
                 {}
 
-                SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages):
+                SUsage(core::bitflag<IGPUImage::E_USAGE_FLAGS> usages):
                     log2MaxSamples(0),
-                    sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
-                    storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
-                    transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
-                    transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
-                    attachment((usages & (core::bitflag(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
-                    attachmentBlend(usages.hasFlags(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)), // TODO: should conservatively deduct to be false
+                    sampledImage(usages.hasFlags(IGPUImage::EUF_SAMPLED_BIT)),
+                    storageImage(usages.hasFlags(IGPUImage::EUF_STORAGE_BIT)),
+                    transferSrc(usages.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)),
+                    transferDst(usages.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)),
+                    attachment(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)),
+                    attachmentBlend(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)/*&& TODO: is Float or Normalized Format*/),
                     // Deduced as false. User may patch it up later
                     blitSrc(0),
                     blitDst(0),

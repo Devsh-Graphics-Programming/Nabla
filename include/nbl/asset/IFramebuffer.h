@@ -62,15 +62,14 @@ class IFramebuffer
                     const auto& desc = attachmentDesc[i];
                     if (viewParams.format!=desc.format || imgParams.samples!=desc.samples)
                         return true;
-                    const auto realUsages = viewParams.actualUsages();
-                    if (!viewParams.subUsages.hasFlags(usage))
+                    if (!viewParams.actualUsages().hasFlags(usage))
                         return true;
                 }
                 return false;
             };
-            if (invalidAttachments(rp->getDepthStencilAttachmentCount(),rpParams.depthStencilAttachments,params.depthStencilAttachments,IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT))
+            if (invalidAttachments(rp->getDepthStencilAttachmentCount(),rpParams.depthStencilAttachments,params.depthStencilAttachments,IImage::EUF_RENDER_ATTACHMENT_BIT))
                 return false;
-            if (invalidAttachments(rp->getColorAttachmentCount(),rpParams.colorAttachments,params.colorAttachments,IImage::EUF_COLOR_ATTACHMENT_BIT))
+            if (invalidAttachments(rp->getColorAttachmentCount(),rpParams.colorAttachments,params.colorAttachments,IImage::EUF_RENDER_ATTACHMENT_BIT))
                 return false;
 
             bool retval = true;

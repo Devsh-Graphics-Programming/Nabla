@@ -111,8 +111,8 @@ class IImageView : public IDescriptor
 			*/
 
 			const auto kValidUsages = IImage::EUF_SAMPLED_BIT|IImage::EUF_STORAGE_BIT|
-				IImage::EUF_COLOR_ATTACHMENT_BIT|IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT|IImage::EUF_TRANSIENT_ATTACHMENT_BIT|IImage::EUF_INPUT_ATTACHMENT_BIT|
-				IImage::EUF_SHADING_RATE_IMAGE_BIT_NV|IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT;
+				IImage::EUF_RENDER_ATTACHMENT_BIT|IImage::EUF_TRANSIENT_ATTACHMENT_BIT|IImage::EUF_INPUT_ATTACHMENT_BIT|
+				IImage::EUF_SHADING_RATE_ATTACHMENT_BIT|IImage::EUF_FRAGMENT_DENSITY_MAP_BIT;
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04441
 			if ((imgParams.usage.value&kValidUsages)==0u)
 				return false;
@@ -129,7 +129,7 @@ class IImageView : public IDescriptor
 			}
 
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02087
-			if (_params.subUsages.hasFlag(IImage::EUF_SHADING_RATE_IMAGE_BIT_NV) && _params.format!=EF_R8_UINT)
+			if (_params.subUsages.hasFlag(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT) && _params.format!=EF_R8_UINT)
 				return false;
 
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-01585
@@ -189,7 +189,7 @@ class IImageView : public IDescriptor
 					if (imgParams.samples!=IImage::ESCF_1_BIT)
 						return false;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02086
-					if (imgParams.usage.hasFlags(IImage::EUF_SHADING_RATE_IMAGE_BIT_NV))
+					if (imgParams.usage.hasFlags(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT))
 						return false;
 					break;
 			}
@@ -222,7 +222,7 @@ class IImageView : public IDescriptor
 			}
 			
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02571
-			if (imgParams.usage.hasFlags(IImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT) && subresourceRange.levelCount!=1u)
+			if (imgParams.usage.hasFlags(IImage::EUF_FRAGMENT_DENSITY_MAP_BIT) && subresourceRange.levelCount!=1u)
 				return false;
 
 			auto mipExtent = _params.image->getMipSize(subresourceRange.baseMipLevel);

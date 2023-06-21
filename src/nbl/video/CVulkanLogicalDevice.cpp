@@ -196,7 +196,7 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::SCreationParams&& params)
 {
     VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, nullptr };
-    vk_stencilUsage.stencilUsage = static_cast<VkImageUsageFlags>(params.actualStencilUsage().value);
+    vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value,true);
 
     std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
     VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, &vk_stencilUsage };
@@ -217,7 +217,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
     vk_createInfo.arrayLayers = params.arrayLayers;
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
     vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
-    vk_createInfo.usage = static_cast<VkImageUsageFlags>(params.usage.value);
+    vk_createInfo.usage = getVkImageUsageFlagsFromImageUsageFlags(params.usage.value,asset::isDepthOrStencilFormat(params.format));
     vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;

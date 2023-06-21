@@ -446,25 +446,25 @@ inline VkAccessFlagBits2 getVkAccessFlagsFromAccessFlags(core::bitflag<asset::AC
     return retval;
 }
 
-inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
+inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<IGPUShader::E_SHADER_STAGE> in)
 {
     VkShaderStageFlags ret = 0u;
-    if(in.hasFlags(asset::IShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
-    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-    if(in.hasFlags(asset::IShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
-    if(in.hasFlags(asset::IShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
-    if(in.hasFlags(asset::IShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
-    if(in.hasFlags(asset::IShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
-    if(in.hasFlags(asset::IShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
-    if(in.hasFlags(asset::IShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    if(in.hasFlags(asset::IShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-    if(in.hasFlags(asset::IShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    if(in.hasFlags(asset::IShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
-    if(in.hasFlags(asset::IShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-    if(in.hasFlags(asset::IShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
-    if(in.hasFlags(asset::IShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
-    if(in.hasFlags(asset::IShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    if(in.hasFlags(IGPUShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
+    if(in.hasFlags(IGPUShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(in.hasFlags(IGPUShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(in.hasFlags(IGPUShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(in.hasFlags(IGPUShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(in.hasFlags(IGPUShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+    if(in.hasFlags(IGPUShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
+    if(in.hasFlags(IGPUShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
+    if(in.hasFlags(IGPUShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    if(in.hasFlags(IGPUShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    if(in.hasFlags(IGPUShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    if(in.hasFlags(IGPUShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+    if(in.hasFlags(IGPUShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    if(in.hasFlags(IGPUShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+    if(in.hasFlags(IGPUShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(in.hasFlags(IGPUShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
     return ret;
 }
 
@@ -757,39 +757,69 @@ inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in
     return VK_COLOR_SPACE_MAX_ENUM_KHR;
 }
 
-inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<asset::IBuffer::E_USAGE_FLAGS> in)
+inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<IGPUBuffer::E_USAGE_FLAGS> in)
 {
     VkBufferUsageFlags ret = 0u;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDIRECT_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT)) ret |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_CONDITIONAL_RENDERING_BIT_EXT)) ret |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_BINDING_TABLE_BIT)) ret |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_INDIRECT_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT)) ret |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_CONDITIONAL_RENDERING_BIT_EXT)) ret |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_BINDING_TABLE_BIT)) ret |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
     return ret;
 }
 
-inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISampler::E_TEXTURE_CLAMP in)
+inline VkImageUsageFlags getVkImageUsageFlagsFromImageUsageFlags(const core::bitflag<IGPUImage::E_USAGE_FLAGS> in, const bool depthStencilFormat)
+{
+    VkImageUsageFlags ret = 0u;
+    if (in.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)) ret |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    if (in.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)) ret |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    if (in.hasFlags(IGPUImage::EUF_SAMPLED_BIT)) ret |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (in.hasFlags(IGPUImage::EUF_STORAGE_BIT)) ret |= VK_IMAGE_USAGE_STORAGE_BIT;
+    if (in.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)) ret |= depthStencilFormat ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT:VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    if (in.hasFlags(IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+    if (in.hasFlags(IGPUImage::EUF_INPUT_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+    if (in.hasFlags(IGPUImage::EUF_SHADING_RATE_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
+    if (in.hasFlags(IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT)) ret |= VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT;
+    return ret;
+}
+
+inline core::bitflag<IGPUImage::E_USAGE_FLAGS> getImageUsageFlagsFromVkImageUsageFlags(const VkImageUsageFlags in)
+{
+    core::bitflag<IGPUImage::E_USAGE_FLAGS> ret = IGPUImage::EUF_NONE;
+    if (in&VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ret |= IGPUImage::EUF_TRANSFER_SRC_BIT;
+    if (in&VK_IMAGE_USAGE_TRANSFER_DST_BIT) ret |= IGPUImage::EUF_TRANSFER_DST_BIT;
+    if (in&VK_IMAGE_USAGE_SAMPLED_BIT) ret |= IGPUImage::EUF_SAMPLED_BIT;
+    if (in&VK_IMAGE_USAGE_STORAGE_BIT) ret |= IGPUImage::EUF_STORAGE_BIT;
+    if (in&(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) ret |= IGPUImage::EUF_RENDER_ATTACHMENT_BIT;
+    if (in&VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT) ret |= IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT;
+    if (in&VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) ret |= IGPUImage::EUF_INPUT_ATTACHMENT_BIT;
+    if (in&VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR) ret |= IGPUImage::EUF_SHADING_RATE_ATTACHMENT_BIT;
+    if (in&VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT) ret |= IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT;
+    return ret;
+}
+
+inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const IGPUSampler::E_TEXTURE_CLAMP in)
 {
     switch (in)
     {
-    case asset::ISampler::ETC_REPEAT:
+    case IGPUSampler::ETC_REPEAT:
         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    case asset::ISampler::ETC_CLAMP_TO_EDGE:
+    case IGPUSampler::ETC_CLAMP_TO_EDGE:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    case asset::ISampler::ETC_CLAMP_TO_BORDER:
+    case IGPUSampler::ETC_CLAMP_TO_BORDER:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    case asset::ISampler::ETC_MIRROR:
+    case IGPUSampler::ETC_MIRROR:
         return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
     default:
         assert(!"ADDRESS MODE NOT SUPPORTED!");
