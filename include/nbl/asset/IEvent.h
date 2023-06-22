@@ -1,37 +1,37 @@
-#ifndef __NBL_I_EVENT_H_INCLUDED__
-#define __NBL_I_EVENT_H_INCLUDED__
+#ifndef _NBL_I_EVENT_H_INCLUDED_
+#define _NBL_I_EVENT_H_INCLUDED_
 
 #include "nbl/core/IReferenceCounted.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 class IEvent
 {
-public:
-    enum E_CREATE_FLAGS : uint32_t
-    {
-        ECF_DEVICE_ONLY_BIT = 0x01
-    };
+    public:
+        enum class CREATE_FLAGS : uint8_t
+        {
+            NONE = 0x00u,
+            DEVICE_ONLY_BIT = 0x01u
+        };
 
-    enum E_STATUS : uint32_t
-    {
-        ES_SET,
-        ES_RESET,
-        ES_FAILURE
-    };
+        enum class STATUS : uint8_t
+        {
+            SET,
+            RESET,
+            FAILURE
+        };
 
-    E_CREATE_FLAGS getFlags() const { return m_flags; }
+        CREATE_FLAGS getFlags() const { return m_flags; }
 
-protected:
-    virtual ~IEvent() = default;
+    protected:
+        virtual ~IEvent() = default;
 
-    IEvent(E_CREATE_FLAGS _flags) : m_flags(_flags) {}
+        IEvent(const CREATE_FLAGS _flags) : m_flags(_flags) {}
 
-    E_CREATE_FLAGS m_flags;
+        const CREATE_FLAGS m_flags;
 };
 
-}}
+}
 
 #endif

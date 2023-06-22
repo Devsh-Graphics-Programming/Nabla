@@ -1,5 +1,5 @@
-#ifndef __NBL_I_GPU_EVENT_H_INCLUDED__
-#define __NBL_I_GPU_EVENT_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_GPU_EVENT_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_EVENT_H_INCLUDED_
 
 
 #include "nbl/core/IReferenceCounted.h"
@@ -12,15 +12,10 @@
 namespace nbl::video
 {
 
-class IGPUEvent : public asset::IEvent, public core::IReferenceCounted, public IBackendObject
+class IGPUEvent : public core::IReferenceCounted, public asset::IEvent, public IBackendObject
 {
-    public:
-        explicit IGPUEvent(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_CREATE_FLAGS flags) : asset::IEvent(flags), IBackendObject(std::move(dev))
-        {
-            assert(flags&ECF_DEVICE_ONLY_BIT); // for now allow only DEVICE_ONLY events
-        }
-
     protected:
+        explicit IGPUEvent(core::smart_refctd_ptr<const ILogicalDevice>&& dev, CREATE_FLAGS flags) : asset::IEvent(flags), IBackendObject(std::move(dev)) {}
         virtual ~IGPUEvent() = default;
 };
 
