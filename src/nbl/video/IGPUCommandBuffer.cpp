@@ -702,7 +702,7 @@ bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uin
     if (pBindings[i].buffer && invalidBufferBinding(pBindings[i],4u/*or should we derive from component format?*/,IGPUBuffer::EUF_VERTEX_BUFFER_BIT))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList,pBindings))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList,bindingCount,pBindings))
         return false;
 
     return bindVertexBuffers_impl(firstBinding, bindingCount, pBindings);

@@ -73,7 +73,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 				{
 					desc = binding.buffer;
 					info.buffer.offset = binding.offset;
-					info.buffer.size = std::remove_reference_t<decltype(binding)>::WholeBuffer;
+					info.buffer.size = SBufferRange<BufferType>::WholeBuffer;
 				}
 				template<typename BufferType>
 				SDescriptorInfo(const SBufferRange<BufferType>& range) : desc()
