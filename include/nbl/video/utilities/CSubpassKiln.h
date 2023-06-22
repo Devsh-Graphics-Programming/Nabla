@@ -189,7 +189,7 @@ class CSubpassKiln
         template<typename draw_call_order_t=DefaultOrder>
         void bake(IGPUCommandBuffer* cmdbuf, const IGPURenderpass* renderpass, const uint32_t subpassIndex, const IGPUBuffer* drawIndirectBuffer, const IGPUBuffer* drawCountBuffer)
         {
-            assert(cmdbuf&&renderpass&&subpassIndex<renderpass->getSubpasses().size()&&drawIndirectBuffer);
+            assert(cmdbuf&&renderpass&&subpassIndex<renderpass->getSubpassCount() && drawIndirectBuffer);
             if (m_needsSorting!=draw_call_order_t::typeID)
             {
                 std::sort(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(), typename draw_call_order_t::less());
