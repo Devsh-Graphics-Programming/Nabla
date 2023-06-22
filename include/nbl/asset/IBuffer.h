@@ -72,7 +72,8 @@ struct SBufferBinding
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
 
 	
-	inline operator SBufferBinding<const BufferType>&() const {return *reinterpret_cast<SBufferBinding<const BufferType>*>(this);}
+	inline operator SBufferBinding<const BufferType>&() {return *reinterpret_cast<SBufferBinding<const BufferType>*>(this);}
+	inline operator const SBufferBinding<const BufferType>&() const {return *reinterpret_cast<const SBufferBinding<const BufferType>*>(this);}
 
 	bool isValid() const
 	{

@@ -32,7 +32,7 @@ struct bitflag final
 	inline bitflag<ENUM_TYPE>& operator&=(const bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(rhs.value)); return *this; }
 	inline bitflag<ENUM_TYPE>& operator^=(const bitflag<ENUM_TYPE> rhs) { value = static_cast<ENUM_TYPE>(static_cast<UNDERLYING_TYPE>(value) ^ static_cast<UNDERLYING_TYPE>(rhs.value)); return *this; }
 
-	explicit inline operator bool() const {return value;}
+	explicit inline operator bool() const {return bool(value);}
 	inline bool operator!=(const bitflag<ENUM_TYPE> rhs) const {value!=rhs.value;}
 	inline bool operator==(const bitflag<ENUM_TYPE> rhs) const {value==rhs.value;}
 	inline bool hasFlags(const bitflag<ENUM_TYPE> val) const { return (static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(val.value)) == static_cast<UNDERLYING_TYPE>(val.value); }

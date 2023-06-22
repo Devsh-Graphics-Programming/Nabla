@@ -1,9 +1,7 @@
-#ifndef __NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__
-#define __NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__
+#ifndef _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
+#define _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 namespace impl
@@ -38,7 +36,6 @@ static inline void visit_token_terminated_array(const T* array, const T& endToke
     }
 }
 
-}
 }
 
 #endif //__NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__

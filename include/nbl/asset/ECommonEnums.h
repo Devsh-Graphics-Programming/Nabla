@@ -154,6 +154,8 @@ struct SMemoryBarrier
     core::bitflag<ACCESS_FLAGS> srcAccessMask = ACCESS_FLAGS::NONE;
     core::bitflag<PIPELINE_STAGE_FLAGS> dstStageMask = PIPELINE_STAGE_FLAGS::NONE;
     core::bitflag<ACCESS_FLAGS> dstAccessMask = ACCESS_FLAGS::NONE;
+
+    auto operator<=>(const SMemoryBarrier&) const = default;
 };
 
 inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_STAGE_FLAGS> stages)

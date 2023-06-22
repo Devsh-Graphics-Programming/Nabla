@@ -25,14 +25,14 @@ public:
         core::bitflag<ICPURenderpassIndependentPipeline::E_PIPELINE_CREATION> createFlags;
     };
 
-    static bool validate(const SCreationParams& params)
+    static inline bool validate(const SCreationParams& params)
     {
+        const auto& rp = params.renderpass;
+        if (params.subpassIx>=rp->getSubpassCount())
+            return false;
+
         // TODO more validation
 
-        auto& rp = params.renderpass;
-        uint32_t sp = params.subpassIx;
-        if (sp >= rp->getSubpasses().size())
-            return false;
         return true;
     }
 

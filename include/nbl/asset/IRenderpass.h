@@ -107,12 +107,9 @@ class IRenderpass
                             inline bool used() const {return attachmentIndex!=AttachmentUnused;}
 
                             auto operator<=>(const SAttachmentRef<layout_t>&) const = default;
-                        
-                        private:
-                            friend struct SInputAttachmentRef;
 
                             template<bool InputAttachment>
-                            bool invalid(const description_t* descs, const uint32_t attachmentCount) const;
+                            bool valid(const description_t* descs, const uint32_t attachmentCount) const;
                     };
                     using SDepthStencilAttachmentRef = SAttachmentRef<IImage::SDepthStencilLayout>;
                     using SColorAttachmentRef = SAttachmentRef<IImage::LAYOUT>;
@@ -126,7 +123,16 @@ class IRenderpass
                         };
                         core::bitflag<IImage::E_ASPECT_FLAGS> aspectMask = IImage::E_ASPECT_FLAGS::EAF_NONE;
 
-                        auto operator<=>(const SInputAttachmentRef&) const = default;
+                        inline bool operator!=(const SInputAttachmentRef& other) const
+                        {
+                            if (aspectMask!=other.aspectMask)
+                                return true;
+
+                            if (aspectMask==IImage::EAF_COLOR_BIT)
+                                return asColor!=other.asColor;
+                            else
+                                return asDepthStencil!=other.asDepthStencil;
+                        }
 
                         inline bool isColor() const {return aspectMask==IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;}
 
@@ -274,7 +280,7 @@ class IRenderpass
         }
         
         template<bool InputAttachment>
-        inline bool invalidLayout(const IImage::LAYOUT _layout)
+        static inline bool invalidLayout(const IImage::LAYOUT _layout)
         {
             switch (_layout)
             {
@@ -514,7 +520,7 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAtta
 template<class attachment_ref_t>
 inline bool IRenderpass::SCreationParams::SSubpassDescription::SRenderAttachmentsRef<attachment_ref_t>::valid(const typename attachment_ref_t::description_t* descs, const uint32_t attachmentCount) const
 {
-    if (render.invalid<false>(descs,attachmentCount) || resolve.invalid<false>(descs,attachmentCount))
+    if (!render.valid<false>(descs,attachmentCount) || !resolve.valid<false>(descs,attachmentCount))
         return false;
     const bool renderUsed = render.used();
     if (resolve.used())
@@ -572,7 +578,7 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SInputAttachmentR
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-04563
     if (isColor())
     {
-        if (asColor.invalid<true>(params.colorAttachments,colorAttachmentCount))
+        if (!asColor.valid<true>(params.colorAttachments,colorAttachmentCount))
             return false;
         if (asColor.used())
         {
@@ -585,7 +591,7 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SInputAttachmentR
     {
         if (aspectMask.value&(~DepthStencilAspects))
             return false;
-        if (asDepthStencil.invalid<true>(params.depthStencilAttachments,depthStencilAttachmentCount))
+        if (!asDepthStencil.valid<true>(params.depthStencilAttachments,depthStencilAttachmentCount))
             return false;
         const auto& attachmentDesc = params.depthStencilAttachments[asDepthStencil.attachmentIndex];
         if (isStencilOnlyFormat(attachmentDesc.format) && aspectMask!=IImage::EAF_STENCIL_BIT)
@@ -600,29 +606,29 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SInputAttachmentR
 
 template<typename layout_t>
 template<bool InputAttachment>
-inline bool IRenderpass::SCreationParams::SSubpassDescription::SAttachmentRef<layout_t>::invalid(const description_t* descs, const uint32_t attachmentCount) const
+inline bool IRenderpass::SCreationParams::SSubpassDescription::SAttachmentRef<layout_t>::valid(const description_t* descs, const uint32_t attachmentCount) const
 {
     if (!used())
-        return false;
+        return true;
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-03051
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pSubpasses-06473
     if (attachmentIndex>=attachmentCount)
-        return true;
+        return false;
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReference2.html#VUID-VkAttachmentReference2-layout-03077
     if constexpr (IsDepthStencil)
     {
         if (invalidLayout<InputAttachment>(layout.depth))
-            return true;
+            return false;
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAttachmentReferenceStencilLayout.html#VUID-VkAttachmentReferenceStencilLayout-stencilLayout-03318
         if (invalidLayout<InputAttachment>(layout.actualStencilLayout()))
-            return true;
+            return false;
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pDepthStencilAttachment-02900
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-02651
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-02525
         if (!asset::isDepthOrStencilFormat(descs[attachmentIndex].format))
-            return true;
+            return false;
     }
     else
     {
@@ -632,9 +638,9 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SAttachmentRef<la
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-02899
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-attachment-02525
         if (asset::isDepthOrStencilFormat(descs[attachmentIndex].format))
-            return true;
+            return false;
     }
-    return false;
+    return true;
 }
 
 

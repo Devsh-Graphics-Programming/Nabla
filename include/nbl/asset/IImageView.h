@@ -90,7 +90,7 @@ class IImageView : public IDescriptor
 			SComponentMapping						components = {};
 			IImage::SSubresourceRange				subresourceRange = {IImage::EAF_COLOR_BIT,0,remaining_mip_levels,0,remaining_array_layers};
 
-			inline const core::bitflag<IImage::E_USAGE_FLAGS> actualUsages() const {return subUsages!=IImage::EUF_NONE ? subUsages:image->getCreationParameters().usages;}
+			inline const core::bitflag<IImage::E_USAGE_FLAGS> actualUsages() const {return subUsages!=IImage::EUF_NONE ? subUsages:image->getCreationParameters().usage;}
 		};
 		//!
 		inline static bool validateCreationParameters(const SCreationParams& _params)
@@ -121,15 +121,15 @@ class IImageView : public IDescriptor
 			// declared some usages but they are not a subset
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02663
-				if (subresourceRange.aspect.hasFlags(IImage::EAF_STENCIL_BIT) && !imgParams.stencilUsage.hasFlags(_params.subUsages))
+				if (subresourceRange.aspectMask.hasFlags(IImage::EAF_STENCIL_BIT) && !imgParams.stencilUsage.hasFlags(_params.subUsages))
 					return false;
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02664
-				if ((subresourceRange.aspect&(~IImage::EAF_STENCIL_BIT)).value && !imgParams.usage.hasFlags(_params.subUsages))
+				if ((subresourceRange.aspectMask.value&(~IImage::EAF_STENCIL_BIT)) && !imgParams.usage.hasFlags(_params.subUsages))
 					return false;
 			}
 
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02087
-			if (_params.subUsages.hasFlag(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT) && _params.format!=EF_R8_UINT)
+			if (_params.subUsages.hasFlags(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT) && _params.format!=EF_R8_UINT)
 				return false;
 
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-01585
@@ -197,10 +197,10 @@ class IImageView : public IDescriptor
 			//! sanity checks
 			
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-aspectMask-requiredbitmask
-			if (!subresourceRange.apsect.value)
+			if (!subresourceRange.aspectMask.value)
 				return false;
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-aspectMask-01670
-			if (subresourceRange.aspect.hasFlags(IImage::EAF_COLOR_BIT) && (subresourceRange.aspect&(core::bitflag(IImage::EAF_PLANE_0_BIT)|IImage::EAF_PLANE_1_BIT|IImage::EAF_PLANE_2_BIT)).value)
+			if (subresourceRange.aspectMask.hasFlags(IImage::EAF_COLOR_BIT) && (subresourceRange.aspectMask&(core::bitflag(IImage::EAF_PLANE_0_BIT)|IImage::EAF_PLANE_1_BIT|IImage::EAF_PLANE_2_BIT)).value)
 				return false;
 
 			// we have some layers
