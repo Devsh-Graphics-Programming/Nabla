@@ -161,6 +161,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeviceMemoryAllocation* memory;
             size_t offset;
         };
+        // depr
         virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
         virtual core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) = 0;
