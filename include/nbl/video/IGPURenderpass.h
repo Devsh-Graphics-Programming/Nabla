@@ -15,7 +15,7 @@ class IGPURenderpass : public core::IReferenceCounted, public asset::IRenderpass
         using base_t = asset::IRenderpass;
 
     public:
-        IGPURenderpass(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& params, const SCreationParamValidationResult& counts) : base_t(params,counts), IBackendObject(std::move(dev)) {}
+        inline IGPURenderpass(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& params, const SCreationParamValidationResult& counts) : base_t(params,counts), IBackendObject(std::move(dev)) {}
 };
 
 }

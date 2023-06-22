@@ -65,7 +65,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
         }
 
-        inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
+        inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
         inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
 
@@ -536,7 +536,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
     protected:
-        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params);
+        ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params);
 
         // must be called by implementations of mapMemory()
         static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
@@ -623,9 +623,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         core::vector<const char*> m_extraShaderDefines;
 
         core::smart_refctd_ptr<asset::CCompilerSet> m_compilerSet;
-        core::smart_refctd_ptr<IAPIConnection> m_api;
+        core::smart_refctd_ptr<const IAPIConnection> m_api;
         SPhysicalDeviceFeatures m_enabledFeatures;
-        IPhysicalDevice* m_physicalDevice;
+        const IPhysicalDevice* const m_physicalDevice;
 
         using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;
         queues_array_t m_queues;

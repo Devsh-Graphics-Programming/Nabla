@@ -111,7 +111,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						info.image = {nullptr,IImage::EL_UNDEFINED};
+						info.image = {nullptr,IImage::LAYOUT::UNDEFINED};
 					desc = std::move(other.desc);
 					if (desc)
 					{

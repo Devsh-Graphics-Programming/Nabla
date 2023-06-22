@@ -39,11 +39,11 @@ class IQueryPool : public core::IReferenceCounted, public IBackendObject
 
             enum RESULTS_FLAGS : uint8_t
             {
-                EQRF_NONE = 0,
-                EQRF_64_BIT = 0x00000001,
-                EQRF_WAIT_BIT = 0x00000002,
-                EQRF_WITH_AVAILABILITY_BIT = 0x00000004,
-                EQRF_PARTIAL_BIT = 0x00000008,
+                NONE = 0,
+                _64_BIT = 0x00000001,
+                WAIT_BIT = 0x00000002,
+                WITH_AVAILABILITY_BIT = 0x00000004,
+                PARTIAL_BIT = 0x00000008,
             };
 
             struct SCreationParams

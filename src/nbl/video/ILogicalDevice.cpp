@@ -4,7 +4,7 @@ using namespace nbl;
 using namespace nbl::video;
 
 
-ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
+ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
 {
     uint32_t qcnt = 0u;
@@ -25,7 +25,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPh
             using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
             info.supportedStages = stage_flags_t::HOST_BIT;
 
-            const core::bitflag<stage_flags_t> transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|(m_enabledFeatures.accelerationStructure ? stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT:stage_flags_t::NONE)|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
+            const auto transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|(m_enabledFeatures.accelerationStructure ? stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT:stage_flags_t::NONE)|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
             const core::bitflag<stage_flags_t> computeAndGraphicsStages = (m_enabledFeatures.deviceGeneratedCommands ? stage_flags_t::COMMAND_PREPROCESS_BIT:stage_flags_t::NONE)|
                 (m_enabledFeatures.conditionalRendering ? stage_flags_t::CONDITIONAL_RENDERING_BIT:stage_flags_t::NONE)|transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
 
@@ -73,7 +73,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPh
     {
         auto& x = m_queueFamilyInfos->operator[](i).firstQueueIndex;
         auto tmp = sum+x;
-        x = sum;
+        const_cast<uint32_t&>(x) = sum;
         sum = tmp;
     }
 }

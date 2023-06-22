@@ -287,7 +287,7 @@ bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* 
         for (auto j=0u; j<depInfo.bufBarrierCount; j++)
             *(outIt++) = depInfo.bufBarriers[j].range.buffer;
         for (auto j=0u; j<depInfo.imgBarrierCount; j++)
-            *(outIt++) = depInfo.imgBarriers[j].image;
+            *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(depInfo.imgBarriers[j].image);
     }
     return waitEvents_impl(eventCount,pEvents,depInfos);
 }
@@ -792,7 +792,7 @@ bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQuery
     if (!getOriginDevice()->getSupportedStageMask(qFamIx).hasFlags(pipelineStage) || getOriginDevice()->getPhysicalDevice()->getQueueFamilyProperties()[qFamIx].timestampValidBits==0u)
         return false;
 
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool) || queryPool->getCreationParameters().queryType!=IQueryPool::EQT_TIMESTAMP || query>=queryPool->getCreationParameters().queryCount)
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool) || queryPool->getCreationParameters().queryType!=IQueryPool::TYPE::TIMESTAMP || query>=queryPool->getCreationParameters().queryCount)
         return false;
 
     assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
@@ -803,7 +803,7 @@ bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQuery
     return writeTimestamp_impl(pipelineStage, queryPool, query);
 }
 
-bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::E_QUERY_TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
+bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -827,7 +827,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<
 
 bool IGPUCommandBuffer::copyQueryPoolResults(
     const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
-    const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
+    const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -836,7 +836,7 @@ bool IGPUCommandBuffer::copyQueryPoolResults(
     if (!queryPool || !this->isCompatibleDevicewise(queryPool) || queryCount==0u || firstQuery+queryCount>=queryPool->getCreationParameters().queryCount)
         return false;
 
-    const size_t alignment = flags.hasFlags(IQueryPool::E_QUERY_RESULTS_FLAGS::EQRF_64_BIT) ? alignof(uint64_t):alignof(uint32_t);
+    const size_t alignment = flags.hasFlags(IQueryPool::RESULTS_FLAGS::_64_BIT) ? alignof(uint64_t):alignof(uint32_t);
     if (invalidBufferRange({dstBuffer.offset,queryCount*stride,dstBuffer.buffer},alignment,IGPUBuffer::EUF_TRANSFER_DST_BIT))
         return false;
 
