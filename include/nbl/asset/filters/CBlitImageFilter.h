@@ -149,9 +149,9 @@ class CBlitImageFilter :
 						return false;
 					const size_t offset = getScratchOffset(this,ESU_SCALED_KERNEL_PHASED_LUT);
 					const auto inType = inImage->getCreationParameters().type;
-					const size_t size = blit_utils_t::template getScaledKernelPhasedLUTSize<lut_value_type>(inExtentLayerCount,outExtentLayerCount,inType,kernelX,kernelY,kernelZ);
+					const size_t size = blit_utils_t::getScaledKernelPhasedLUTSize(inExtentLayerCount,outExtentLayerCount,inType,kernels);
 					auto* lut = base_t::CStateBase::scratchMemory+offset;
-					return blit_utils_t::template computeScaledKernelPhasedLUT<lut_value_type>(lut,inExtentLayerCount,outExtentLayerCount,inType,kernelX,kernelY,kernelZ);
+					return blit_utils_t::computeScaledKernelPhasedLUT(lut,inExtentLayerCount,outExtentLayerCount,inType, kernels);
 				}
 
 				union
@@ -538,7 +538,7 @@ class CBlitImageFilter :
 
 								// TODO: make sure there is no leak due to ChannelCount!
 								auto sample = lineBuffer+i*ChannelCount;
-								value_type preSwizzleSample[ChannelCount];
+								value_t preSwizzleSample[ChannelCount];
 
 								base_t::template onDecode(inFormat, state, srcPix, preSwizzleSample, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y);
 
@@ -610,7 +610,7 @@ class CBlitImageFilter :
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
 					{
-						state->normalization.finalize<value_type>();
+						state->normalization.finalize<value_t>();
 						storeToImage(core::rational<int64_t>(cvg_num,cvg_den),axis,outOffsetLayer);
 					}
 				};
