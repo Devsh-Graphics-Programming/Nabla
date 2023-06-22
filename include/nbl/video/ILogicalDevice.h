@@ -36,26 +36,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
         };
 
-        struct SDescriptorSetCreationParams
-        {
-            IDescriptorPool* descriptorPool;
-            uint32_t descriptorSetCount;
-            IGPUDescriptorSetLayout** pSetLayouts;
-        };
-
-        struct SBindBufferMemoryInfo
-        {
-            IGPUBuffer* buffer;
-            IDeviceMemoryAllocation* memory;
-            size_t offset;
-        };
-        struct SBindImageMemoryInfo
-        {
-            IGPUImage* image;
-            IDeviceMemoryAllocation* memory;
-            size_t offset;
-        };
-
         inline virtual ~ILogicalDevice()
         {
             if (m_queues && !m_queues->empty())
@@ -162,6 +142,25 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier<ResourceBarrier>& barrier) const;
 
 
+        struct SDescriptorSetCreationParams
+        {
+            IDescriptorPool* descriptorPool;
+            uint32_t descriptorSetCount;
+            IGPUDescriptorSetLayout** pSetLayouts;
+        };
+
+        struct SBindBufferMemoryInfo
+        {
+            IGPUBuffer* buffer;
+            IDeviceMemoryAllocation* memory;
+            size_t offset;
+        };
+        struct SBindImageMemoryInfo
+        {
+            IGPUImage* image;
+            IDeviceMemoryAllocation* memory;
+            size_t offset;
+        };
         virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
         virtual core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) = 0;

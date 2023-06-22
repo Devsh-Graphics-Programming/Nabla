@@ -4,10 +4,17 @@
 #include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/CVulkanQueryPool.h"
 
-namespace nbl::video
-{
 
-bool CVulkanCommandBuffer::begin_impl(core::bitflag<E_USAGE> recordingFlags, const SInheritanceInfo* inheritanceInfo)
+using namespace nbl;
+using namespace nbl::video;
+
+
+const VolkDeviceTable& CVulkanCommandBuffer::getFunctionTable() const
+{
+    return static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable()->vk;
+}
+
+bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags, const SInheritanceInfo* const inheritanceInfo)
 {
     VkCommandBufferBeginInfo beginInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
     beginInfo.pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkDeviceGroupCommandBufferBeginInfo
@@ -30,11 +37,11 @@ bool CVulkanCommandBuffer::begin_impl(core::bitflag<E_USAGE> recordingFlags, con
         beginInfo.pInheritanceInfo = &vk_inheritanceInfo;
     }
 
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    const VkResult retval = vk->vk.vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
+    const VkResult retval = getFunctionTable().vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
     return retval == VK_SUCCESS;
 }
 
+#if 0
 bool CVulkanCommandBuffer::setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports)
 {
     constexpr uint32_t MAX_VIEWPORT_COUNT = (1u << 12) / sizeof(VkViewport);
@@ -313,8 +320,8 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
     {
         vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
         vk_memoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_memoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfo->memBarriers[i].srcAccessMask.value);
-        vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfo->memBarriers[i].dstAccessMask.value);
+        vk_memoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->memBarriers[i].srcAccessMask.value);
+        vk_memoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->memBarriers[i].dstAccessMask.value);
     }
 
     VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
@@ -322,8 +329,8 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
     {
         vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
         vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfo->bufBarriers[i].barrier.srcAccessMask.value);
-        vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfo->bufBarriers[i].barrier.dstAccessMask.value);
+        vk_bufferMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->bufBarriers[i].barrier.srcAccessMask.value);
+        vk_bufferMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->bufBarriers[i].barrier.dstAccessMask.value);
         vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = depInfo->bufBarriers[i].srcQueueFamilyIndex;
         vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = depInfo->bufBarriers[i].dstQueueFamilyIndex;
         vk_bufferMemoryBarriers[i].buffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(depInfo->bufBarriers[i].buffer.get(), this)->getInternalObject();
@@ -336,8 +343,8 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
     {
         vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
-        vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(depInfo->imgBarriers[i].barrier.srcAccessMask.value);
-        vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(depInfo->imgBarriers[i].barrier.dstAccessMask.value);
+        vk_imageMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->imgBarriers[i].barrier.srcAccessMask.value);
+        vk_imageMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->imgBarriers[i].barrier.dstAccessMask.value);
         vk_imageMemoryBarriers[i].oldLayout = getVkImageLayoutFromImageLayout(depInfo->imgBarriers[i].oldLayout);
         vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(depInfo->imgBarriers[i].newLayout);
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = depInfo->imgBarriers[i].srcQueueFamilyIndex;
@@ -385,8 +392,8 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
     {
         vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
         vk_memoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_memoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].srcAccessMask.value);
-        vk_memoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pMemoryBarriers[i].dstAccessMask.value);
+        vk_memoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(pMemoryBarriers[i].srcAccessMask.value);
+        vk_memoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(pMemoryBarriers[i].dstAccessMask.value);
     }
 
     VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
@@ -394,8 +401,8 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
     {
         vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
         vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_bufferMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.srcAccessMask.value);
-        vk_bufferMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pBufferMemoryBarriers[i].barrier.dstAccessMask.value);
+        vk_bufferMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(pBufferMemoryBarriers[i].barrier.srcAccessMask.value);
+        vk_bufferMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(pBufferMemoryBarriers[i].barrier.dstAccessMask.value);
         vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = pBufferMemoryBarriers[i].srcQueueFamilyIndex;
         vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = pBufferMemoryBarriers[i].dstQueueFamilyIndex;
         vk_bufferMemoryBarriers[i].buffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get(), this)->getInternalObject();
@@ -408,8 +415,8 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
     {
         vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
-        vk_imageMemoryBarriers[i].srcAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.srcAccessMask.value);
-        vk_imageMemoryBarriers[i].dstAccessMask = static_cast<VkAccessFlags>(pImageMemoryBarriers[i].barrier.dstAccessMask.value);
+        vk_imageMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(pImageMemoryBarriers[i].barrier.srcAccessMask.value);
+        vk_imageMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(pImageMemoryBarriers[i].barrier.dstAccessMask.value);
         vk_imageMemoryBarriers[i].oldLayout = getVkImageLayoutFromImageLayout(pImageMemoryBarriers[i].oldLayout);
         vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(pImageMemoryBarriers[i].newLayout);
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = pImageMemoryBarriers[i].srcQueueFamilyIndex;
@@ -862,11 +869,11 @@ bool CVulkanCommandBuffer::copyQueryPoolResults_impl(IQueryPool* queryPool, uint
     return true;
 }
 
-bool CVulkanCommandBuffer::writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
+bool CVulkanCommandBuffer::writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query)
 {
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
     auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-    auto vk_pipelineStageFlagBit = static_cast<VkPipelineStageFlagBits>(getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage));
+    auto vk_pipelineStageFlagBit = getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage);
     vk->vk.vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStageFlagBit, vk_queryPool, query);
 
     return true;
@@ -892,5 +899,4 @@ bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const core:
 
     return true;
 }
-
-}
+#endif

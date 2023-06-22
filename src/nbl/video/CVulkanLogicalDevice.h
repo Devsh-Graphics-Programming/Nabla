@@ -1,6 +1,9 @@
 #ifndef _NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
 #define _NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
 
+
+#include "nbl/core/containers/CMemoryPool.h"
+
 #include <algorithm>
 
 #include "nbl/video/ILogicalDevice.h"
@@ -31,7 +34,7 @@
 #include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"
 #include "nbl/video/CVulkanRenderpassIndependentPipeline.h"
-#include "nbl/core/containers/CMemoryPool.h"
+
 
 namespace nbl::video
 {
@@ -40,52 +43,16 @@ class CVulkanCommandBuffer;
 
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
-public:
-    using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, core::default_aligned_allocator, true, uint32_t>;
+    public:
+        using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,true,uint32_t>;
 
-    CVulkanLogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, renderdoc_api_t* rdoc, IPhysicalDevice* physicalDevice, VkDevice vkdev, VkInstance vkinst, const SCreationParams& params)
-        : ILogicalDevice(std::move(api), physicalDevice, params)
-        , m_vkdev(vkdev)
-        , m_devf(vkdev)
-        , m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP * sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
-    {
-        // create actual queue objects
-        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+        CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const VkInstance vkinst, const SCreationParams& params);
+        inline ~CVulkanLogicalDevice()
         {
-            const auto& qci = params.queueParams[i];
-            const uint32_t famIx = qci.familyIndex;
-            const uint32_t offset = (*m_offsets)[famIx];
-            const auto flags = qci.flags;
-                    
-            for (uint32_t j = 0u; j < qci.count; ++j)
-            {
-                const float priority = qci.priorities[j];
-                        
-                VkQueue q;
-                VkDeviceQueueInfo2 vk_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,nullptr };
-                vk_info.queueFamilyIndex = famIx;
-                vk_info.queueIndex = j;
-                vk_info.flags = 0; // we don't do protected queues yet
-                m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
-                        
-                const uint32_t ix = offset + j;
-                (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
-            }
+            m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
         }
-        
-        std::ostringstream pool;
-        bool runningInRenderdoc = (rdoc != nullptr);
-        addCommonShaderDefines(pool,runningInRenderdoc);
-        finalizeShaderDefinePool(std::move(pool));
-
-        m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
-    }
             
-    ~CVulkanLogicalDevice()
-    {
-        m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
-    }
-            
+    // depr
     core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
     {
         VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
@@ -104,10 +71,10 @@ public:
         }
     }
             
-    core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override;
-    IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override;
-    IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override;
-    IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override;
+        core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override;
+        IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override;
+        IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override;
+        IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override;
             
     core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS flags) override
     {
@@ -208,7 +175,7 @@ public:
         return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
     }
 
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) override
+    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override
     {
         VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
         vk_createInfo.pNext = nullptr; // pNext must be NULL
@@ -929,7 +896,7 @@ public:
 
     IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
 
-    inline memory_pool_mt_t & getMemoryPoolForDeferredOperations()
+    inline memory_pool_mt_t& getMemoryPoolForDeferredOperations()
     {
         return m_deferred_op_mempool;
     }
@@ -1468,14 +1435,14 @@ private:
         }
     }
 
-    VkDevice m_vkdev;
-    CVulkanDeviceFunctionTable m_devf;
+        VkDevice m_vkdev;
+        CVulkanDeviceFunctionTable m_devf;
     
-    constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
-    constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
-    memory_pool_mt_t m_deferred_op_mempool;
+        constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
+        constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
+        memory_pool_mt_t m_deferred_op_mempool;
 
-    core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;
+        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;
 };
 
 }

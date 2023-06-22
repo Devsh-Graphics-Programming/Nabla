@@ -3,11 +3,48 @@
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanQueryPool.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
-#include "nbl/video/CVulkanEvent.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
-namespace nbl::video
+
+using namespace nbl;
+using namespace nbl::video;
+
+
+
+CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const VkInstance vkinst, const SCreationParams& params)
+    : ILogicalDevice(std::move(api),physicalDevice,params), m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
 {
+    // create actual queue objects
+    for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+    {
+        const auto& qci = params.queueParams[i];
+        const uint32_t famIx = qci.familyIndex;
+        const uint32_t offset = (*m_offsets)[famIx];
+        const auto flags = qci.flags;
+                    
+        for (uint32_t j = 0u; j < qci.count; ++j)
+        {
+            const float priority = qci.priorities[j];
+                        
+            VkQueue q;
+            VkDeviceQueueInfo2 vk_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,nullptr };
+            vk_info.queueFamilyIndex = famIx;
+            vk_info.queueIndex = j;
+            vk_info.flags = 0; // we don't do protected queues yet
+            m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
+                        
+            const uint32_t ix = offset + j;
+            (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
+        }
+    }
+        
+    std::ostringstream pool;
+    bool runningInRenderdoc = (rdoc != nullptr);
+    addCommonShaderDefines(pool,runningInRenderdoc);
+    finalizeShaderDefinePool(std::move(pool));
+
+    m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
+}
 
 core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
 {
@@ -17,8 +54,7 @@ core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E
 
     VkEvent vk_event;
     if (m_devf.vk.vkCreateEvent(m_vkdev, &vk_createInfo, nullptr, &vk_event) == VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanEvent>(
-            core::smart_refctd_ptr<const CVulkanLogicalDevice>(this), flags, vk_event);
+        return core::make_smart_refctd_ptr<CVulkanEvent>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this), flags, vk_event);
     else
         return nullptr;
 };
@@ -795,6 +831,4 @@ bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t f
             ret = true;
     }
     return ret;
-}
-
 }

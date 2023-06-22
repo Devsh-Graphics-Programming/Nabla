@@ -30,80 +30,66 @@ bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFenc
         cmdBufCnt += sb.commandBufferCount;
     }
 
-    constexpr uint32_t STACK_MEM_SIZE = 1u<<15;
-    uint8_t stackmem_[STACK_MEM_SIZE]{};
-    uint8_t* mem = stackmem_;
-    uint32_t memSize = STACK_MEM_SIZE;
-
-    const uint32_t submitsSz = sizeof(VkSubmitInfo)*_count;
-    const uint32_t memNeeded = submitsSz + (waitSemCnt + signalSemCnt)*sizeof(VkSemaphore) + cmdBufCnt*sizeof(VkCommandBuffer);
-    if (memNeeded > memSize)
-    {
-        memSize = memNeeded;
-        mem = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(memSize, _NBL_SIMD_ALIGNMENT) );
-    }
-
-    // Todo(achal): FREE ONLY IF _NBL_ALIGNED_MALLOC was called
-    // auto raii_ = core::makeRAIIExiter([mem]{ _NBL_ALIGNED_FREE(mem); });
-
-    VkSubmitInfo* submits = reinterpret_cast<VkSubmitInfo*>(mem);
-    mem += submitsSz;
-
-    VkSemaphore* waitSemaphores = reinterpret_cast<VkSemaphore*>(mem);
-    mem += waitSemCnt*sizeof(VkSemaphore);
-    VkSemaphore* signalSemaphores = reinterpret_cast<VkSemaphore*>(mem);
-    mem += signalSemCnt*sizeof(VkSemaphore);
-    VkCommandBuffer* cmdbufs = reinterpret_cast<VkCommandBuffer*>(mem);
-    mem += cmdBufCnt*sizeof(VkCommandBuffer);
+    // TODO: we need a SVO vector
+    core::vector<VkSubmitInfo2> submits(_count,{VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,/*No interesting extensions*/nullptr,/*No protected stuff yet*/0});
+    core::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(waitSemCnt,{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
+    core::vector<VkCommandBufferSubmitInfoKHR> commandBuffers(cmdBufCnt,{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,nullptr});
+    core::vector<VkSemaphoreSubmitInfoKHR> signalSemaphores(waitSemCnt,{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
 
     uint32_t waitSemOffset = 0u;
     uint32_t signalSemOffset = 0u;
     uint32_t cmdBufOffset = 0u;
-    for (uint32_t i = 0u; i < _count; ++i)
+    for (uint32_t i=0u; i<_count; ++i)
     {
         auto& sb = submits[i];
 
         const SSubmitInfo& _sb = _submits[i];
-#ifdef _NBL_DEBUG
-        for (uint32_t j = 0u; j < _sb.commandBufferCount; ++j)
-            assert(_sb.commandBuffers[j]->getLevel() != CVulkanCommandBuffer::EL_SECONDARY);
-#endif
-
-        sb.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        sb.pNext = nullptr;
-        VkCommandBuffer* commandBuffers = cmdbufs + cmdBufOffset;
-        sb.pCommandBuffers = commandBuffers;
-        sb.commandBufferCount = _sb.commandBufferCount;
-        auto* waits = waitSemaphores + waitSemOffset;
-        sb.pWaitSemaphores = waits;
-        sb.waitSemaphoreCount = _sb.waitSemaphoreCount;
-        auto* signals = signalSemaphores + signalSemOffset;
-        sb.pSignalSemaphores = signals;
-        sb.signalSemaphoreCount = _sb.signalSemaphoreCount;
-
-        for (uint32_t j = 0u; j < sb.waitSemaphoreCount; ++j)
+        #ifdef _NBL_DEBUG
+        // TODO: timeline semaphores https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubmitInfo2-semaphore-03881
+        // TODO: timeline semaphores https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubmitInfo2-semaphore-03882
+        // TODO: timeline semaphores https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubmitInfo2-semaphore-03883
+        // TODO: timeline semaphores https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubmitInfo2-semaphore-03884
+        for (uint32_t j=0u; j<_sb.commandBufferCount; ++j)
         {
-            waits[j] = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.pWaitSemaphores[j], m_originDevice)->getInternalObject();
+            assert(_sb.commandBuffers[j]->getLevel()!=CVulkanCommandBuffer::EL_SECONDARY);
         }
-        for (uint32_t j = 0u; j < sb.signalSemaphoreCount; ++j)
+        #endif
+
+        auto* waits = waitSemaphores.data()+waitSemOffset;
+        sb.pWaitSemaphoreInfos = waits;
+        sb.waitSemaphoreInfoCount = _sb.waitSemaphoreCount;
+        auto* cmdbufs = commandBuffers.data()+cmdBufOffset;
+        sb.pCommandBufferInfos = cmdbufs;
+        sb.commandBufferInfoCount = _sb.commandBufferCount;
+        auto* signals = signalSemaphores.data()+signalSemOffset;
+        sb.pSignalSemaphoreInfos = signals;
+        sb.signalSemaphoreInfoCount = _sb.signalSemaphoreCount;
+
+        for (uint32_t j=0u; j<_sb.waitSemaphoreCount; ++j)
+        {
+            waits[j].semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.pWaitSemaphores[j], m_originDevice)->getInternalObject();
+            waits[j].value = 0xdeafbeefu; // ignored, because timeline semaphores are a TODO
+            waits[j].stageMask = ;
+            waits[j].deviceIndex = 0u; // device groups are a TODO
+        }
+        for (uint32_t j=0u; j<_sb.signalSemaphoreCount; ++j)
         {
             signals[j] = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.pSignalSemaphores[j], m_originDevice)->getInternalObject();
         }
-        for (uint32_t j = 0u; j < sb.commandBufferCount; ++j)
+        for (uint32_t j=0u; j<_sb.commandBufferCount; ++j)
         {
             commandBuffers[j] = reinterpret_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[j])->getInternalObject();
         }
 
-        waitSemOffset += sb.waitSemaphoreCount;
-        signalSemOffset += sb.signalSemaphoreCount;
-        cmdBufOffset += sb.commandBufferCount;
+        waitSemOffset += _sb.waitSemaphoreCount;
+        signalSemOffset += _sb.signalSemaphoreCount;
+        cmdBufOffset += _sb.commandBufferCount;
 
-        static_assert(sizeof(VkPipelineStageFlags) == sizeof(asset::E_PIPELINE_STAGE_FLAGS));
-        sb.pWaitDstStageMask = reinterpret_cast<const VkPipelineStageFlags*>(_sb.pWaitDstStageMask);
+        sb.pWaitDstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(_sb.pWaitDstStageMask);
     }
 
     VkFence fence = _fence ? IBackendObject::device_compatibility_cast<CVulkanFence*>(_fence, m_originDevice)->getInternalObject() : VK_NULL_HANDLE;
-    auto vkRes = vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence);
+    auto vkRes = vk->vk.vkQueueSubmit2KHR(m_vkQueue, _count, submits.data(), fence);
     if (vkRes == VK_SUCCESS)
     {
         if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
