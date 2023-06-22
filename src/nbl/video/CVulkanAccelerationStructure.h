@@ -111,8 +111,8 @@ public:
 	{
 		VkCopyAccelerationStructureInfoKHR ret = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR, nullptr};
 		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
-		ret.src = static_cast<CVulkanAccelerationStructure *>(info.src)->getInternalObject();
-		ret.dst = static_cast<CVulkanAccelerationStructure *>(info.dst)->getInternalObject();
+		ret.src = static_cast<const CVulkanAccelerationStructure*>(info.src)->getInternalObject();
+		ret.dst = static_cast<CVulkanAccelerationStructure*>(info.dst)->getInternalObject();
 		return ret;
 	}
 	

@@ -1317,7 +1317,7 @@ public:
             
     E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
-    IDebugCallback* getDebugCallback() override { return m_api->getDebugCallback(); }
+    IDebugCallback* getDebugCallback() const override { return m_api->getDebugCallback(); }
 
 protected:
     

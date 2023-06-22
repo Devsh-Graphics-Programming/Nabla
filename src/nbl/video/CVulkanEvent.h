@@ -1,5 +1,5 @@
-#ifndef __NBL_C_VULKAN_EVENT_H_INCLUDED__
-#define __NBL_C_VULKAN_EVENT_H_INCLUDED__
+#ifndef _NBL_C_VULKAN_EVENT_H_INCLUDED_
+#define _NBL_C_VULKAN_EVENT_H_INCLUDED_
 
 #include "nbl/video/IGPUEvent.h"
 
@@ -11,22 +11,18 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class CVulkanEvent : public IGPUEvent
+class CVulkanEvent final : public IGPUEvent
 {
-public:
-    CVulkanEvent(
-        core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-        E_CREATE_FLAGS flags,
-        VkEvent vk_event)
-        : IGPUEvent(std::move(dev), flags), m_vkEvent(vk_event)
-    {}
+    public:
+        inline CVulkanEvent(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const E_CREATE_FLAGS flags, const VkEvent vk_event)
+            : IGPUEvent(std::move(dev), flags), m_vkEvent(vk_event) {}
 
-    ~CVulkanEvent();
+        ~CVulkanEvent();
 
-    inline VkEvent getInternalObject() const { return m_vkEvent; }
+        inline VkEvent getInternalObject() const { return m_vkEvent; }
 
-private:
-    VkEvent m_vkEvent;
+    private:
+        VkEvent m_vkEvent;
 };
 
 }
