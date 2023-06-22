@@ -230,7 +230,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * intendedNextSubmit::commandBufferCount must be > 0
         //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
         //!     * The last command buffer should be in `RECORDING` state.
-        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT` flag
+        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT` flag
         //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
         //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
         //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
@@ -258,7 +258,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             auto* cmdpool = cmdbuf->getPool();
             assert(cmdbuf->isResettable());
             assert(cmdpool->getQueueFamilyIndex() == submissionQueue->getFamilyIndex());
-            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT));
             assert(bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT));
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
@@ -301,8 +301,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     m_defaultUploadBuffer->cull_frees();
                     // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
                     m_device->resetFences(1u, &submissionFence);
-                    cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-                    cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+                    cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
+                    cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
                     continue;
                 }
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
@@ -312,7 +312,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     m_device->flushMappedMemoryRanges(1u,&flushRange);
                 }
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-                asset::SBufferCopy copy;
+                IGPUCommandBuffer::SBufferCopy copy;
                 copy.srcOffset = localOffset;
                 copy.dstOffset = bufferRange.offset + uploadedSize;
                 copy.size = subSize;
@@ -434,7 +434,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * intendedNextSubmit::commandBufferCount must be > 0
         //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
         //!     * The last command buffer should be in `RECORDING` state.
-        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT` flag
+        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT` flag
         //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
         //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
         //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
@@ -456,8 +456,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             // Use the last command buffer in intendedNextSubmit, it should be in recording state
             auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount - 1];
 
-            assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING && cmdbuf->isResettable());
-            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+            assert(cmdbuf->getState() == IGPUCommandBuffer::STATE::RECORDING && cmdbuf->isResettable());
+            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT));
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
@@ -480,7 +480,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 
                 if (localOffset != StreamingTransientDataBufferMT<>::invalid_value)
                 {
-                    asset::SBufferCopy copy;
+                    IGPUCommandBuffer::SBufferCopy copy;
                     copy.srcOffset = srcBufferRange.offset + downloadedSize;
                     copy.dstOffset = localOffset;
                     copy.size = copySize;
@@ -513,8 +513,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     m_defaultDownloadBuffer->cull_frees();
                     // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
                     m_device->resetFences(1u, &submissionFence);
-                    cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-                    cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+                    cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
+                    cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
                 }
             }
             return intendedNextSubmit;
@@ -585,12 +585,12 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         // --------------
 
         //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline void buildAccelerationStructures(IGPUQueue* queue, const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+        inline void buildAccelerationStructures(IGPUQueue* queue, const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
         {
-            core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
+            core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
             auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-            m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+            m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::LEVEL::PRIMARY, 1u, &cmdbuf);
             IGPUQueue::SSubmitInfo submit;
             {
                 submit.commandBufferCount = 1u;
@@ -600,10 +600,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 submit.pWaitSemaphores = nullptr;
             }
 
-            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
-            {
-                cmdbuf->buildAccelerationStructures(pInfos, ppBuildRangeInfos);
-            }
+            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+            cmdbuf->buildAccelerationStructures(pInfos,ppBuildRangeInfos);
             cmdbuf->end();
 
             queue->submit(1u, &submit, fence.get());
@@ -647,7 +645,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * intendedNextSubmit::commandBufferCount must be > 0
         //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
         //!     * The last command buffer should be in `RECORDING` state.
-        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT` flag
+        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT` flag
         //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
         //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
         //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
@@ -720,15 +718,15 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 else
                 {
                     auto lastCmdBuf = submitInfo.commandBuffers[submitInfo.commandBufferCount - 1u];
-                    if (lastCmdBuf->getState() == IGPUCommandBuffer::ES_EXECUTABLE)
+                    if (lastCmdBuf->getState() == IGPUCommandBuffer::STATE::EXECUTABLE)
                         needToCreateNewCommandBuffer = true;
                 }
 
                 // commandBuffer used to record the commands
                 if (needToCreateNewCommandBuffer)
                 {
-                    core::smart_refctd_ptr<IGPUCommandPool> pool = device->createCommandPool(newCommandPoolFamIdx, IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-                    device->createCommandBuffers(pool.get(), IGPUCommandBuffer::EL_PRIMARY, 1u, &m_newCommandBuffer);
+                    core::smart_refctd_ptr<IGPUCommandPool> pool = device->createCommandPool(newCommandPoolFamIdx, IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
+                    device->createCommandBuffers(pool.get(), IGPUCommandBuffer::LEVEL::PRIMARY, 1u, &m_newCommandBuffer);
 
                     const uint32_t newCommandBufferCount = (needToCreateNewCommandBuffer) ? submitInfo.commandBufferCount + 1 : submitInfo.commandBufferCount;
                     m_allCommandBuffers.resize(newCommandBufferCount);
@@ -742,14 +740,14 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     submitInfo.commandBufferCount = newCommandBufferCount;
                     submitInfo.commandBuffers = m_allCommandBuffers.data();
 
-                    m_recordCommandBuffer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+                    m_recordCommandBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
                 }
                 else
                 {
                     m_recordCommandBuffer = submitInfo.commandBuffers[submitInfo.commandBufferCount - 1u];
                     // If the last command buffer is in INITIAL state, bring it to RECORDING state
-                    if (m_recordCommandBuffer->getState() == IGPUCommandBuffer::ES_INITIAL)
-                        m_recordCommandBuffer->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+                    if (m_recordCommandBuffer->getState() == IGPUCommandBuffer::STATE::INITIAL)
+                        m_recordCommandBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
                 }
             }
             inline void end()

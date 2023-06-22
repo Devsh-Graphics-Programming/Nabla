@@ -20,13 +20,13 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
     static inline core::smart_refctd_ptr<IGPUCommandBuffer> createTransferCommandBuffer(ILogicalDevice* logicalDevice, IGPUQueue* queue)
     {
         const auto queueFamilyIndex = queue->getFamilyIndex();
-        assert((logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IPhysicalDevice::EQF_TRANSFER_BIT).value);
+        assert((logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IGPUQueue::FAMILY_FLAGS::TRANSFER_BIT).value);
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
         core::smart_refctd_ptr<IGPUCommandBuffer> gpuCommandBuffer;
         {
-            auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-            logicalDevice->createCommandBuffers(gpuCommandPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&gpuCommandBuffer);
+            auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
+            logicalDevice->createCommandBuffers(gpuCommandPool.get(),IGPUCommandBuffer::LEVEL::PRIMARY,1u,&gpuCommandBuffer);
             assert(gpuCommandBuffer);
             // buffer should hold onto pool with refcounted backlink
         }
@@ -211,7 +211,7 @@ public:
     */
     IGPUVirtualTexture(
         ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
-        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
         video::IUtilities* utilities
     ) :
         base_t(
@@ -233,7 +233,7 @@ public:
     */
     IGPUVirtualTexture(
         ILogicalDevice* _logicalDevice, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt, video::IUtilities* utilities,
-        uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
+        uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution=nullptr, const asset::PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
         const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
     ) :
         base_t(

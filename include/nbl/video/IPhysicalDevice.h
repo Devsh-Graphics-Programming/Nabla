@@ -581,13 +581,13 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SFormatImageUsages::SUsage usages = SFormatImageUsages::SUsage();
         };
 
-        asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
-        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling);
+        asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req) const;
+        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling) const;
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
         
-        virtual IDebugCallback* getDebugCallback() = 0;
+        virtual IDebugCallback* getDebugCallback() const = 0;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
         {
