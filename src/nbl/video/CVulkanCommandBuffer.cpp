@@ -41,6 +41,18 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
     return retval == VK_SUCCESS;
 }
 
+bool CVulkanCommandBuffer::fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data) override
+{
+    getFunctionTable().vkCmdFillBuffer(
+        m_cmdbuf,
+        IBackendObject::compatibility_cast<const CVulkanBuffer*>(range.buffer.get(), this)->getInternalObject(),
+        static_cast<VkDeviceSize>(range.offset),
+        static_cast<VkDeviceSize>(range.size),
+        data);
+
+    return true;
+}
+
 #if 0
 bool CVulkanCommandBuffer::setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports)
 {
