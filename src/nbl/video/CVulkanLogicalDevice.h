@@ -15,7 +15,6 @@
 #include "nbl/video/CVulkanImageView.h"
 #include "nbl/video/CVulkanFramebuffer.h"
 #include "nbl/video/CVulkanSemaphore.h"
-#include "nbl/video/CVulkanFence.h"
 #include "nbl/video/CVulkanShader.h"
 #include "nbl/video/CVulkanSpecializedShader.h"
 #include "nbl/video/CVulkanCommandPool.h"
@@ -52,113 +51,13 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
         }
             
-    // depr
-    core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
-    {
-        VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-        createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
-        createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
-
-        VkSemaphore semaphore;
-        if (m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanSemaphore>
-                (core::smart_refctd_ptr<CVulkanLogicalDevice>(this), semaphore);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
+        core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
+        WAIT_RESULT waitForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll, const uint64_t timeout) override;
             
-        core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override;
-        IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override;
-        IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override;
-        IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) override;
-            
-    core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS flags) override
-    {
-        VkFenceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportFenceCreateInfo or VkExportFenceWin32HandleInfoKHR
-        vk_createInfo.flags = static_cast<VkFenceCreateFlags>(flags);
-
-        VkFence vk_fence;
-        if (m_devf.vk.vkCreateFence(m_vkdev, &vk_createInfo, nullptr, &vk_fence) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanFence>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, vk_fence);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-            
-    IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override
-    {
-        if (!_fence && (_fence->getAPIType() != EAT_VULKAN))
-            return IGPUFence::E_STATUS::ES_ERROR;
-
-        VkResult retval = m_devf.vk.vkGetFenceStatus(m_vkdev, IBackendObject::device_compatibility_cast<const CVulkanFence*>(_fence, this)->getInternalObject());
-
-        switch (retval)
-        {
-        case VK_SUCCESS:
-            return IGPUFence::ES_SUCCESS;
-        case VK_NOT_READY:
-            return IGPUFence::ES_NOT_READY;
-        default:
-            return IGPUFence::ES_ERROR;
-        }
-    }
-            
-    bool resetFences(uint32_t _count, IGPUFence*const* _fences) override
-    {
-        constexpr uint32_t MAX_FENCE_COUNT = 100u;
-        assert(_count < MAX_FENCE_COUNT);
-
-        VkFence vk_fences[MAX_FENCE_COUNT];
-        for (uint32_t i = 0u; i < _count; ++i)
-        {
-            if (_fences[i]->getAPIType() != EAT_VULKAN)
-            {
-                assert(false);
-                return false;
-            }
-
-            vk_fences[i] = IBackendObject::device_compatibility_cast<CVulkanFence*>(_fences[i], this)->getInternalObject();
-        }
-
-        auto vk_res = m_devf.vk.vkResetFences(m_vkdev, _count, vk_fences);
-        return (vk_res == VK_SUCCESS);
-    }
-            
-    IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence*const* _fences, bool _waitAll, uint64_t _timeout) override
-    {
-        constexpr uint32_t MAX_FENCE_COUNT = 100u;
-
-        assert(_count <= MAX_FENCE_COUNT);
-
-        VkFence vk_fences[MAX_FENCE_COUNT];
-        for (uint32_t i = 0u; i < _count; ++i)
-        {
-            if (_fences[i]->getAPIType() != EAT_VULKAN)
-                return IGPUFence::E_STATUS::ES_ERROR;
-
-            vk_fences[i] = IBackendObject::device_compatibility_cast<CVulkanFence*>(_fences[i], this)->getInternalObject();
-        }
-
-        VkResult result = m_devf.vk.vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
-        switch (result)
-        {
-        case VK_SUCCESS:
-            return IGPUFence::ES_SUCCESS;
-        case VK_TIMEOUT:
-            return IGPUFence::ES_TIMEOUT;
-        default:
-            return IGPUFence::ES_ERROR;
-        }
-    }
+        core::smart_refctd_ptr<IGPUEvent> createEvent(const IGPUEvent::CREATE_FLAGS flags) override;
+        IGPUEvent::STATUS getEventStatus(const IGPUEvent* const _event) override;
+        IGPUEvent::STATUS resetEvent(IGPUEvent* const _event) override;
+        IGPUEvent::STATUS setEvent(IGPUEvent* const _event) override;
               
     core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
     {

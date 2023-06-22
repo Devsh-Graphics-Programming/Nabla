@@ -30,7 +30,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
                 (m_enabledFeatures.conditionalRendering ? stage_flags_t::CONDITIONAL_RENDERING_BIT:stage_flags_t::NONE)|transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
 
             const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[qci.familyIndex].queueFlags;
-            if (familyFlags.hasFlags(IGPUQueue::FAMILY_FLAGS::COMPUTE_BIT))
+            if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT))
             {
                 info.supportedStages |= computeAndGraphicsStages|stage_flags_t::COMPUTE_SHADER_BIT;
                 if (m_enabledFeatures.accelerationStructure)
@@ -38,7 +38,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
                 if (m_enabledFeatures.rayTracingPipeline)
                     info.supportedStages |= stage_flags_t::RAY_TRACING_SHADER_BIT;
             }
-            if (familyFlags.hasFlags(IGPUQueue::FAMILY_FLAGS::GRAPHICS_BIT))
+            if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
             {
                 info.supportedStages |= computeAndGraphicsStages|stage_flags_t::VERTEX_INPUT_BITS|stage_flags_t::VERTEX_SHADER_BIT;
 
@@ -58,7 +58,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
 
                 info.supportedStages |= stage_flags_t::FRAMEBUFFER_SPACE_BITS;
             }
-            if (familyFlags.hasFlags(IGPUQueue::FAMILY_FLAGS::TRANSFER_BIT))
+            if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
                 info.supportedStages |= transferStages;
         }
         {
@@ -84,7 +84,7 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
 {
     if (queueFamilyIndex>m_queueFamilyInfos->size())
         return false;
-    using q_family_flags_t = IGPUQueue::FAMILY_FLAGS;
+    using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     // strip special values
     if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS))
@@ -105,7 +105,7 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
 {
     if (queueFamilyIndex>m_queueFamilyInfos->size())
         return false;
-    using q_family_flags_t = IGPUQueue::FAMILY_FLAGS;
+    using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
     // strip special values

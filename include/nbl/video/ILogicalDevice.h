@@ -10,7 +10,7 @@
 #include "nbl/video/IDeviceMemoryAllocator.h"
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/IGPUCommandBuffer.h"
-#include "nbl/video/CThreadSafeGPUQueueAdapter.h"
+#include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/ISwapchain.h"
 
 namespace nbl::video
@@ -23,7 +23,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
     public:
         struct SQueueCreationParams
         {
-            IGPUQueue::CREATE_FLAGS flags;
+            IQueue::CREATE_FLAGS flags;
             uint32_t familyIndex;
             uint32_t count;
             const float* priorities;
@@ -52,14 +52,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         E_API_TYPE getAPIType() const;
 
         //
-        inline IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
+        inline IQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
         {
             const uint32_t offset = m_queueFamilyInfos->operator[](_familyIx).firstQueueIndex;
             return (*m_queues)[offset+_ix]->getUnderlyingQueue();
         }
 
         // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
-        inline CThreadSafeGPUQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
+        inline CThreadSafeQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
         {
             const uint32_t offset = m_queueFamilyInfos->operator[](_familyIx).firstQueueIndex;
             return (*m_queues)[offset + _ix];
@@ -90,7 +90,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             // implicitly satisfied by our API:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04087
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-04070
-            if (barrier.otherQueueFamilyIndex!=IGPUQueue::FamilyIgnored)
+            if (barrier.otherQueueFamilyIndex!=IQueue::FamilyIgnored)
             {
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcStageMask-03851
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcStageMask-03854
@@ -141,6 +141,59 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         template<typename ResourceBarrier>
         bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier<ResourceBarrier>& barrier) const;
 
+        //
+        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        //
+        struct SSemaphoreWaitInfo
+        {
+            const ISemaphore* semaphore;
+            uint64_t value;
+        };
+        enum class WAIT_RESULT : uint8_t
+        {
+            TIMEOUT,
+            SUCCESS,
+            DEVICE_LOST,
+            _ERROR
+        };
+        virtual WAIT_RESULT waitForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll, const uint64_t timeout) = 0;
+        // Forever waiting variant if you're confident that the fence will eventually be signalled
+        inline WAIT_RESULT blockForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll=true)
+        {
+            if (count)
+            {
+                auto waitStatus = WAIT_RESULT::TIMEOUT;
+                while (waitStatus==WAIT_RESULT::TIMEOUT)
+                    waitStatus = waitForSemaphores(count,infos,waitAll,999999999ull);
+                return waitStatus;
+            }
+            return WAIT_RESULT::SUCCESS;
+        }
+
+        //
+        virtual core::smart_refctd_ptr<IGPUEvent> createEvent(const IGPUEvent::CREATE_FLAGS flags) = 0;
+        virtual IGPUEvent::STATUS getEventStatus(const IGPUEvent* const _event) = 0;
+        virtual IGPUEvent::STATUS resetEvent(IGPUEvent* const _event) = 0;
+        virtual IGPUEvent::STATUS setEvent(IGPUEvent* const _event) = 0;
+
+
+        inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
+        {
+            if (!_cmdPool->wasCreatedBy(this))
+                return false;
+            return createCommandBuffers_impl(_cmdPool, _level, _count, _outCmdBufs);
+        }
+        inline bool freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count)
+        {
+            for (uint32_t i=0u; i<_count; ++i)
+            if (!_cmdbufs[i]->wasCreatedBy(this))
+                return false;
+            return freeCommandBuffers_impl(_cmdbufs, _count);
+        }
+        
+        virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
+        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
+        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) = 0;
 
         struct SDescriptorSetCreationParams
         {
@@ -161,52 +214,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeviceMemoryAllocation* memory;
             size_t offset;
         };
-        // depr
-        virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
-
-        virtual core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) = 0;
-        virtual IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) = 0;
-        virtual IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) = 0;
-        virtual IGPUEvent::E_STATUS setEvent(IGPUEvent* _event) = 0;
-
-        virtual core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS _flags) = 0;
-        virtual IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) = 0;
-        virtual bool resetFences(uint32_t _count, IGPUFence*const * _fences) = 0;
-        virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll, uint64_t _timeout) = 0;
-        // Forever waiting variant if you're confident that the fence will eventually be signalled
-        inline bool blockForFences(uint32_t _count, IGPUFence* const* _fences, bool _waitAll = true)
-        {
-            if (_count)
-            for (IGPUFence::E_STATUS waitStatus=IGPUFence::ES_NOT_READY; waitStatus!=IGPUFence::ES_SUCCESS;)
-            {
-                waitStatus = waitForFences(_count,_fences,_waitAll,999999999ull);
-                if (waitStatus==video::IGPUFence::ES_ERROR)
-                {
-                    assert(false);
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
-        {
-            if (!_cmdPool->wasCreatedBy(this))
-                return false;
-            return createCommandBuffers_impl(_cmdPool, _level, _count, _outCmdBufs);
-        }
-        bool freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count)
-        {
-            for (uint32_t i = 0u; i < _count; ++i)
-                if (!_cmdbufs[i]->wasCreatedBy(this))
-                    return false;
-            return freeCommandBuffers_impl(_cmdbufs, _count);
-        }
-        
-        virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
-        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
-        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) = 0;
-
         core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
             if (!params.renderpass->wasCreatedBy(this))

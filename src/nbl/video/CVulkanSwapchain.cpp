@@ -7,21 +7,28 @@
 namespace nbl::video
 {
 
-CVulkanSwapchain::~CVulkanSwapchain()
-{
-    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-    auto* vk = vulkanDevice->getFunctionTable();
-    vk->vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(), m_vkSwapchainKHR, nullptr);
-}
-
 core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
-{
-    // TODO: assert enabled swapchain/surface feature in logical device, otherwise vkCreateSwapchainKHR is not a valid function pointer and is going to crash 
-    if (params.surface->getAPIType() != EAT_VULKAN)
+{ 
+    if (!logicalDevice || logicalDevice->getAPIType()!=EAT_VULKAN || logicalDevice->getEnabledFeatures().swapchainMode==ESM_NONE)
         return nullptr;
 
+    if (!params.surface)
+        return nullptr;
+    // now check if any queue family of the physical device supports this surface
+    {
+        auto physDev = logicalDevice->getPhysicalDevice();
+        const uint32_t queueFamilyCount = physDev->getQueueFamilyProperties().size();
+        uint32_t firstSupportIx = 0;
+        while (firstSupportIx<queueFamilyCount && !params.surface->isSupportedForPhysicalDevice(physDev,firstSupportIx))
+            firstSupportIx++;
+        if (firstSupportIx==queueFamilyCount)
+            return nullptr;
+    }
+
     auto device = core::smart_refctd_ptr_static_cast<CVulkanLogicalDevice>(logicalDevice);
-    VkSurfaceKHR vk_surface = static_cast<const ISurfaceVulkan*>(params.surface.get())->getInternalObject();
+    const VkSurfaceKHR vk_surface = static_cast<const ISurfaceVulkan*>(params.surface.get())->getInternalObject();
+
+    // get present mode
     VkPresentModeKHR vkPresentMode;
     if ((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
         vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
@@ -32,9 +39,10 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     else if ((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
         vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
     
-    std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
+    //! fill format list for mutable formats
     VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, nullptr };
     vk_formatListStruct.viewFormatCount = 0u;
+    std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
 
     VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, &vk_formatListStruct };
     // if only there existed a nice iterator that would let me iterate over set bits 64 faster
@@ -65,149 +73,195 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
     vk_createInfo.minImageCount = params.minImageCount;
     vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
     vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
-    vk_createInfo.imageExtent = { params.width, params.height };
+    vk_createInfo.imageExtent = {params.width,params.height};
     vk_createInfo.imageArrayLayers = params.arrayLayers;
     vk_createInfo.imageUsage = getVkImageUsageFlagsFromImageUsageFlags(params.imageUsage,asset::isDepthOrStencilFormat(params.surfaceFormat.format));
-    vk_createInfo.imageSharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+    vk_createInfo.imageSharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
     vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
     vk_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(params.compositeAlpha);
     vk_createInfo.presentMode = vkPresentMode;
     vk_createInfo.clipped = VK_FALSE;
-    vk_createInfo.oldSwapchain = VK_NULL_HANDLE;
-    if (params.oldSwapchain && (params.oldSwapchain->getAPIType() == EAT_VULKAN))
-        vk_createInfo.oldSwapchain = IBackendObject::device_compatibility_cast<CVulkanSwapchain*>(params.oldSwapchain.get(), device.get())->getInternalObject();
+    if (params.oldSwapchain && params.oldSwapchain->wasCreatedBy(device.get()))
+        vk_createInfo.oldSwapchain = IBackendObject::device_compatibility_cast<CVulkanSwapchain*>(params.oldSwapchain.get(),device.get())->getInternalObject();
+    else
+        vk_createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+    auto& vk = device->getFunctionTable()->vk;
 
     VkSwapchainKHR vk_swapchain;
-    if (device->getFunctionTable()->vk.vkCreateSwapchainKHR(device->getInternalObject(), &vk_createInfo, nullptr, &vk_swapchain) != VK_SUCCESS)
+    if (vk.vkCreateSwapchainKHR(device->getInternalObject(),&vk_createInfo,nullptr,&vk_swapchain)!=VK_SUCCESS)
         return nullptr;
 
     uint32_t imageCount;
-    VkResult retval = device->getFunctionTable()->vk.vkGetSwapchainImagesKHR(device->getInternalObject(), vk_swapchain, &imageCount, nullptr);
-    if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+    VkResult retval = vk.vkGetSwapchainImagesKHR(device->getInternalObject(), vk_swapchain, &imageCount, nullptr);
+    if (retval!=VK_SUCCESS)
         return nullptr;
 
-    assert(imageCount <= ISwapchain::MaxImages);
-
-    IDeviceMemoryBacked::SDeviceMemoryRequirements memReqs;
-    memReqs.size = 0ull;
-    memReqs.memoryTypeBits = 0x0u;
-    memReqs.alignmentLog2 = 63u;
-    memReqs.prefersDedicatedAllocation = true;
-    memReqs.requiresDedicatedAllocation = true;
-    IGPUImage::SCreationParams imgParams = {};
-    imgParams.flags = static_cast<CVulkanImage::E_CREATE_FLAGS>(0);
-    imgParams.type = CVulkanImage::ET_2D;
-    imgParams.format = params.surfaceFormat.format;
-    imgParams.extent = { params.width, params.height, 1u };
-    imgParams.mipLevels = 1u;
-    imgParams.arrayLayers = params.arrayLayers;
-    imgParams.samples = CVulkanImage::ESCF_1_BIT;
-    imgParams.usage = params.imageUsage;
-    imgParams.skipHandleDestroy = true;
-
-    return core::make_smart_refctd_ptr<CVulkanSwapchain>(
-        device, std::move(params),
-        std::move(imgParams), std::move(memReqs), imageCount,
-        vk_swapchain);
-}
-
-auto CVulkanSwapchain::acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) -> E_ACQUIRE_IMAGE_RESULT
-{
-    const auto originDevice = getOriginDevice();
-    if (originDevice->getAPIType() != EAT_VULKAN)
-        return EAIR_ERROR;
-
-    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(originDevice);
-    VkDevice vk_device = vulkanDevice->getInternalObject();
-    auto* vk = vulkanDevice->getFunctionTable();
-
-    VkSemaphore vk_semaphore = VK_NULL_HANDLE;
-    if (semaphore && semaphore->getAPIType() == EAT_VULKAN)
-        vk_semaphore = IBackendObject::compatibility_cast<const CVulkanSemaphore*>(semaphore, this)->getInternalObject();
-
-    VkFence vk_fence = VK_NULL_HANDLE;
-    if (fence && fence->getAPIType() == EAT_VULKAN)
-        vk_fence = IBackendObject::compatibility_cast<const CVulkanFence*>(fence, this)->getInternalObject();
-
-    VkResult result = vk->vk.vkAcquireNextImageKHR(vk_device, m_vkSwapchainKHR, timeout, vk_semaphore, vk_fence, out_imgIx);
-
-    switch (result)
+    //
+    VkSemaphore adaptorSemaphores[2*ISwapchain::MaxImages];
     {
-    case VK_SUCCESS:
-        return EAIR_SUCCESS;
-    case VK_TIMEOUT:
-        return EAIR_TIMEOUT;
-    case VK_NOT_READY:
-        return EAIR_NOT_READY;
-    case VK_SUBOPTIMAL_KHR:
-        return EAIR_SUBOPTIMAL;
-    default:
-        return EAIR_ERROR;
+        VkSemaphoreCreateInfo info = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,nullptr};
+        info.flags = 0u;
+        for (auto i=0u; i<2*imageCount; i++)
+        if (vk.vkCreateSemaphore(device->getInternalObject(),&info,nullptr,adaptorSemaphores+i)!=VK_SUCCESS)
+        {
+            // handle successful allocs before failure
+            for (auto j=0u; j<i; j++)
+                vk.vkDestroySemaphore(device->getInternalObject(),adaptorSemaphores[j],nullptr);
+            return nullptr;
+        }
     }
+
+    return core::make_smart_refctd_ptr<CVulkanSwapchain>(std::move(device),std::move(params),imageCount,vk_swapchain,adaptorSemaphores);
 }
 
-void CVulkanSwapchain::setObjectDebugName(const char* label) const
+CVulkanSwapchain::CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores)
+    : ISwapchain(std::move(logicalDevice), std::move(params), imageCount), m_vkSwapchainKHR(swapchain)
 {
-    IBackendObject::setObjectDebugName(label);
+    m_imgMemRequirements.size = 0ull;
+    m_imgMemRequirements.memoryTypeBits = 0x0u;
+    m_imgMemRequirements.alignmentLog2 = 63u;
+    m_imgMemRequirements.prefersDedicatedAllocation = true;
+    m_imgMemRequirements.requiresDedicatedAllocation = true;
 
-	if(vkSetDebugUtilsObjectNameEXT == 0) return;
+    {
+        const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+        uint32_t dummy = imageCount;
+        auto retval = vulkanDevice->getFunctionTable()->vk.vkGetSwapchainImagesKHR(vulkanDevice->getInternalObject(),m_vkSwapchainKHR,&dummy,m_images);
+        assert(retval==VK_SUCCESS && dummy==m_imageCount);
+    }
 
+    std::copy_n(_adaptorSemaphores,imageCount,m_adaptorSemaphores);
+}
+
+CVulkanSwapchain::~CVulkanSwapchain()
+{
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-	VkDebugUtilsObjectNameInfoEXT nameInfo = {VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr};
-	nameInfo.objectType = VK_OBJECT_TYPE_SWAPCHAIN_KHR;
-	nameInfo.objectHandle = reinterpret_cast<uint64_t>(getInternalObject());
-	nameInfo.pObjectName = getObjectDebugName();
-	vkSetDebugUtilsObjectNameEXT(vulkanDevice->getInternalObject(), &nameInfo);
+    auto& vk = vulkanDevice->getFunctionTable()->vk;
+
+    for (auto i=0u; i<2*m_imageCount; i++)
+        vk.vkDestroySemaphore(vulkanDevice->getInternalObject(),m_adaptorSemaphores[i],nullptr);
+
+    vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(), m_vkSwapchainKHR, nullptr);
 }
 
-ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(IGPUQueue* queue, const SPresentInfo& info)
+
+auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t* const out_imgIx) -> ACQUIRE_IMAGE_RESULT
 {
-    auto logicalDevice = getOriginDevice();
-    auto* vk = static_cast<const CVulkanLogicalDevice*>(logicalDevice)->getFunctionTable();
-
-    auto vk_queue = static_cast<const CVulkanQueue*>(queue)->getInternalObject();
-    
-    constexpr uint32_t MaxWaitSemaphores = 100u;
-
-    if (info.waitSemaphoreCount > MaxWaitSemaphores)
-        return ISwapchain::EPR_ERROR;
-  
-    VkSemaphore vk_waitSemaphores[MaxWaitSemaphores];
-    for (uint32_t i = 0u; i < info.waitSemaphoreCount; ++i)
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    CVulkanQueue* vulkanQueue;
+    if (info.signalSemaphoreCount)
     {
-        if (info.waitSemaphores[i]->getAPIType() != EAT_VULKAN)
-            return ISwapchain::EPR_ERROR;
-
-        vk_waitSemaphores[i] = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(info.waitSemaphores[i], logicalDevice)->getInternalObject();
+        vulkanQueue = IBackendObject::device_compatibility_cast<CVulkanQueue*>(info.queue,vulkanDevice);
+        if (!vulkanQueue)
+            return ACQUIRE_IMAGE_RESULT::_ERROR;
+        for (auto i=0u; i<info.signalSemaphoreCount; i++)
+        if (!IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(info.signalSemaphores[i].semaphore,vulkanDevice))
+            return ACQUIRE_IMAGE_RESULT::_ERROR;
     }
 
-    auto vk_swapchains = m_vkSwapchainKHR;
+    auto& vk = vulkanDevice->getFunctionTable()->vk;
+    const VkDevice vk_device = vulkanDevice->getInternalObject();
+    const VkSemaphoreSubmitInfoKHR adaptorInfo = getAdaptorSemaphore(info.signalSemaphoreCount);
+    {
+        VkAcquireNextImageInfoKHR acquire = { VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,nullptr };
+        acquire.swapchain = m_vkSwapchainKHR;
+        acquire.timeout = info.timeout;
+        acquire.semaphore = adaptorInfo.semaphore;
+        acquire.fence = VK_NULL_HANDLE;
+        acquire.deviceMask = 0x1u<<adaptorInfo.deviceIndex;
+        switch (vk.vkAcquireNextImage2KHR(vk_device,&acquire,out_imgIx))
+        {
+            case VK_SUCCESS:
+                break;
+            case VK_TIMEOUT:
+                return ACQUIRE_IMAGE_RESULT::TIMEOUT;
+            case VK_NOT_READY:
+                return ACQUIRE_IMAGE_RESULT::NOT_READY;
+            case VK_SUBOPTIMAL_KHR:
+                return ACQUIRE_IMAGE_RESULT::SUBOPTIMAL;
+            default:
+                return ACQUIRE_IMAGE_RESULT::_ERROR;
+        }
+    }
 
-    VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-    presentInfo.waitSemaphoreCount = info.waitSemaphoreCount;
-    presentInfo.pWaitSemaphores = vk_waitSemaphores;
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &vk_swapchains;
+    if (info.signalSemaphoreCount)
+    {
+        core::vector<VkSemaphoreSubmitInfoKHR> signalInfos(info.signalSemaphoreCount,{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
+        for (auto i=0u; i<info.signalSemaphoreCount; i++)
+        {
+            signalInfos[i].semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(info.signalSemaphores[i].semaphore,vulkanDevice)->getInternalObject();
+            signalInfos[i].stageMask = getVkPipelineStageFlagsFromPipelineStageFlags(info.signalSemaphores[i].stageMask);
+            signalInfos[i].value = info.signalSemaphores[i].value;
+            signalInfos[i].deviceIndex = 0u;
+        }
+
+        VkSubmitInfo2KHR submit = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,nullptr };
+        submit.waitSemaphoreInfoCount = 1u;
+        submit.pWaitSemaphoreInfos = &adaptorInfo;
+        submit.commandBufferInfoCount = 0u;
+        submit.signalSemaphoreInfoCount = info.signalSemaphoreCount;
+        submit.pSignalSemaphoreInfos = signalInfos.data();
+        const bool result = vk.vkQueueSubmit2KHR(vulkanQueue->getInternalObject(),1u,&submit,VK_NULL_HANDLE)==VK_SUCCESS;
+        // if this goes wrong, we are fucked without KHR_swapchain_maintenance1 because there's no way to release acquired images without presenting them!
+        assert(result);
+    }
+    return ACQUIRE_IMAGE_RESULT::SUCCESS;
+}
+
+auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
+{    
+    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+    auto vulkanQueue = IBackendObject::device_compatibility_cast<CVulkanQueue*>(info.queue,vulkanDevice);
+    if (!vulkanQueue)
+        return PRESENT_RESULT::_ERROR;
+
+    auto& vk = vulkanDevice->getFunctionTable()->vk;
+    const VkSemaphoreSubmitInfoKHR adaptorInfo = getAdaptorSemaphore(info.waitSemaphoreCount);
+    if (info.waitSemaphoreCount)
+    {
+        core::vector<VkSemaphoreSubmitInfoKHR> waitInfos(info.waitSemaphoreCount,{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
+        for (auto i=0u; i<info.waitSemaphoreCount; i++)
+        {
+            auto sema = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(info.waitSemaphores[i].semaphore,vulkanDevice);
+            if (!sema)
+                return PRESENT_RESULT::_ERROR;
+            waitInfos[i].semaphore = sema->getInternalObject();
+            waitInfos[i].stageMask = getVkPipelineStageFlagsFromPipelineStageFlags(info.waitSemaphores[i].stageMask);
+            waitInfos[i].value = info.waitSemaphores[i].value;
+            waitInfos[i].deviceIndex = 0u;
+        }
+
+        VkSubmitInfo2KHR submit = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,nullptr };
+        submit.waitSemaphoreInfoCount = info.waitSemaphoreCount;
+        submit.pWaitSemaphoreInfos = waitInfos.data();
+        submit.commandBufferInfoCount = 0u;
+        submit.signalSemaphoreInfoCount = 1u;
+        submit.pSignalSemaphoreInfos = &adaptorInfo;
+        if (vk.vkQueueSubmit2KHR(vulkanQueue->getInternalObject(),1u,&submit,VK_NULL_HANDLE)!=VK_SUCCESS)
+            return PRESENT_RESULT::_ERROR;
+    }
+
+    VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,nullptr };
+    presentInfo.waitSemaphoreCount = info.waitSemaphoreCount ? 1u:0u;
+    presentInfo.pWaitSemaphores = &adaptorInfo.semaphore;
+    presentInfo.swapchainCount = 1u;
+    presentInfo.pSwapchains = &m_vkSwapchainKHR;
     presentInfo.pImageIndices = &info.imgIndex;
 
-    VkResult retval = vk->vk.vkQueuePresentKHR(vk_queue, &presentInfo);
+    VkResult retval = vk.vkQueuePresentKHR(vulkanQueue->getInternalObject(),&presentInfo);
     switch (retval)
     {
-    case VK_SUCCESS:
-        return ISwapchain::EPR_SUCCESS;
-    case VK_SUBOPTIMAL_KHR:
-        return ISwapchain::EPR_SUBOPTIMAL;
-    default:
-        return ISwapchain::EPR_ERROR;
+        case VK_SUCCESS:
+            break;
+        case VK_SUBOPTIMAL_KHR:
+            return PRESENT_RESULT::SUBOPTIMAL;
+        default:
+            return PRESENT_RESULT::_ERROR;
     }
-}
-
-ISwapchain::E_PRESENT_RESULT CVulkanSwapchain::present(CThreadSafeGPUQueueAdapter* queue, const SPresentInfo& info)
-{
-    std::lock_guard g(queue->m);
-    return present(queue->getUnderlyingQueue(), info);
+    return PRESENT_RESULT::SUCCESS;
 }
 
 core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t imageIndex)
@@ -257,26 +311,30 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
     // }
 
     auto device = core::smart_refctd_ptr<const CVulkanLogicalDevice>(static_cast<const CVulkanLogicalDevice*>(getOriginDevice()));
-    // TODO avoid getting all the images each time
-    VkImage vk_images[ISwapchain::MaxImages];
-    uint32_t imageCount = m_imageCount;
-    auto retval = device->getFunctionTable()->vk.vkGetSwapchainImagesKHR(device->getInternalObject(), m_vkSwapchainKHR, &imageCount, vk_images);
-    if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
-        return nullptr;
 
-    auto creationParams = std::move(m_imgCreationParams);
-    std::unique_ptr<CCleanupSwapchainReference> swapchainRef(new CCleanupSwapchainReference{});
-    swapchainRef->m_swapchain = core::smart_refctd_ptr<ISwapchain>(this);
-    swapchainRef->m_imageIndex = imageIndex;
+    IGPUImage::SCreationParams creationParams = {};
+    static_cast<asset::IImage::SCreationParams&>(creationParams) = m_imgCreationParams;
 
-    creationParams.preDestroyCleanup = std::unique_ptr<ICleanup>(swapchainRef.release());
-    creationParams.skipHandleDestroy = true;
+    m_imgCreationParams.preDestroyCleanup = std::make_unique<CCleanupSwapchainReference>(core::smart_refctd_ptr<ISwapchain>(this),imageIndex);
+    m_imgCreationParams.skipHandleDestroy = true;
+    m_imgCreationParams.queueFamilyIndexCount = m_params.queueFamilyIndexCount;
+    m_imgCreationParams.queueFamilyIndices = m_params.queueFamilyIndices;
 
-    auto image = core::make_smart_refctd_ptr<CVulkanImage>(
-        std::move(device),
-        m_imgMemRequirements, std::move(creationParams), vk_images[imageIndex]);
+    return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<const ILogicalDevice>(getOriginDevice()),m_imgMemRequirements,std::move(creationParams),m_images[imageIndex]);
+}
 
-    return image;
+void CVulkanSwapchain::setObjectDebugName(const char* label) const
+{
+    IBackendObject::setObjectDebugName(label);
+
+    if (!vkSetDebugUtilsObjectNameEXT)
+        return;
+
+    VkDebugUtilsObjectNameInfoEXT nameInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT, nullptr };
+    nameInfo.objectType = VK_OBJECT_TYPE_SWAPCHAIN_KHR;
+    nameInfo.objectHandle = reinterpret_cast<uint64_t>(getInternalObject());
+    nameInfo.pObjectName = getObjectDebugName();
+    vkSetDebugUtilsObjectNameEXT(static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject(), &nameInfo);
 }
 
 }

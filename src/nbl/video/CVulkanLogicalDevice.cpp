@@ -1,9 +1,11 @@
 #include "nbl/video/CVulkanLogicalDevice.h"
 
+#include "nbl/video/CThreadSafeQueueAdapter.h"
+#include "nbl/video/surface/CSurfaceVulkan.h"
+
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanQueryPool.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
-#include "nbl/video/surface/CSurfaceVulkan.h"
 
 
 using namespace nbl;
@@ -19,7 +21,7 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
     {
         const auto& qci = params.queueParams[i];
         const uint32_t famIx = qci.familyIndex;
-        const uint32_t offset = (*m_offsets)[famIx];
+        const uint32_t offset = m_queueFamilyInfos->operator[](famIx).first;
         const auto flags = qci.flags;
                     
         for (uint32_t j = 0u; j < qci.count; ++j)
@@ -34,7 +36,7 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
             m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                         
             const uint32_t ix = offset + j;
-            (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
+            (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,std::make_unique<CVulkanQueue>(this,rdoc,vkinst,q,famIx,flags,priority));
         }
     }
         
@@ -46,50 +48,103 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
     m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
 }
 
-core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
+
+core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const uint64_t initialValue)
+{
+    VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
+    type.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR
+    type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
+    type.initialValue = initialValue;
+
+    VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,&type };
+    createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
+
+    VkSemaphore semaphore;
+    if (m_devf.vk.vkCreateSemaphore(m_vkdev,&createInfo,nullptr,&semaphore)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),semaphore);
+    else
+        return nullptr;
+}
+
+auto CVulkanLogicalDevice::waitForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll, const uint64_t timeout) -> WAIT_RESULT
+{
+    core::vector<VkSemaphore> semaphores(count);
+    core::vector<uint64_t> values(count);
+    for (auto i=0u; i<count; i++)
+    {
+        auto sema = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(infos[i].semaphore,this);
+        if (!sema)
+            WAIT_RESULT::_ERROR;
+        semaphores[i] = sema->getInternalObject();
+        values[i] = infos[i].value;
+    }
+
+    VkSemaphoreWaitInfoKHR waitInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO_KHR,nullptr };
+    waitInfo.flags = waitAll ? 0:VK_SEMAPHORE_WAIT_ANY_BIT_KHR;
+    waitInfo.semaphoreCount = count;
+    waitInfo.pSemaphores = semaphores.data();
+    waitInfo.pValues = values.data();
+    switch (m_devf.vk.vkWaitSemaphoresKHR(m_vkdev,&waitInfo,timeout))
+    {
+        case VK_SUCCESS:
+            return WAIT_RESULT::SUCCESS;
+        case VK_TIMEOUT:
+            return WAIT_RESULT::TIMEOUT;
+        case VK_ERROR_DEVICE_LOST:
+            return WAIT_RESULT::DEVICE_LOST;
+        default:
+            break;
+    }
+    return WAIT_RESULT::_ERROR;
+}
+
+core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(const IGPUEvent::CREATE_FLAGS flags)
 {
     VkEventCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_EVENT_CREATE_INFO };
     vk_createInfo.pNext = nullptr;
     vk_createInfo.flags = static_cast<VkEventCreateFlags>(flags);
 
     VkEvent vk_event;
-    if (m_devf.vk.vkCreateEvent(m_vkdev, &vk_createInfo, nullptr, &vk_event) == VK_SUCCESS)
+    if (m_devf.vk.vkCreateEvent(m_vkdev,&vk_createInfo,nullptr,&vk_event)==VK_SUCCESS)
         return core::make_smart_refctd_ptr<CVulkanEvent>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this), flags, vk_event);
     else
         return nullptr;
 };
 
-IGPUEvent::E_STATUS CVulkanLogicalDevice::getEventStatus(const IGPUEvent* _event)
+IGPUEvent::STATUS CVulkanLogicalDevice::getEventStatus(const IGPUEvent* const _event)
 {
-    if (!_event || _event->getAPIType() != EAT_VULKAN)
-        return IGPUEvent::E_STATUS::ES_FAILURE;
+    auto event = IBackendObject::device_compatibility_cast<const CVulkanEvent*>(_event,this);
+    if (event)
+        return IGPUEvent::STATUS::FAILURE;
 
-    VkEvent vk_event = IBackendObject::device_compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject();
+    VkEvent vk_event = event->getInternalObject();
     VkResult retval = m_devf.vk.vkGetEventStatus(m_vkdev, vk_event);
     switch (retval)
     {
-    case VK_EVENT_SET:
-        return IGPUEvent::ES_SET;
-    case VK_EVENT_RESET:
-        return IGPUEvent::ES_RESET;
-    default:
-        return IGPUEvent::ES_FAILURE;
+        case VK_EVENT_SET:
+            return IGPUEvent::STATUS::SET;
+        case VK_EVENT_RESET:
+            return IGPUEvent::STATUS::RESET;
+        default:
+            break;
     }
+    return IGPUEvent::STATUS::FAILURE;
 }
 
-IGPUEvent::E_STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* _event)
+IGPUEvent::STATUS CVulkanLogicalDevice::resetEvent(IGPUEvent* const _event)
 {
-    if (!_event || _event->getAPIType() != EAT_VULKAN)
-        return IGPUEvent::E_STATUS::ES_FAILURE;
+    auto event = IBackendObject::device_compatibility_cast<const CVulkanEvent*>(_event, this);
+    if (event)
+        return IGPUEvent::STATUS::FAILURE;
 
-    VkEvent vk_event = IBackendObject::device_compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject();
-    if (m_devf.vk.vkResetEvent(m_vkdev, vk_event) == VK_SUCCESS)
-        return IGPUEvent::ES_RESET;
+    VkEvent vk_event = event->getInternalObject();
+    if (m_devf.vk.vkResetEvent(m_vkdev,vk_event)==VK_SUCCESS)
+        return IGPUEvent::STATUS::RESET;
     else
-        return IGPUEvent::ES_FAILURE;
+        return IGPUEvent::STATUS::FAILURE;
 }
 
-IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
+IGPUEvent::STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
 {
     if (!_event || _event->getAPIType() != EAT_VULKAN)
         return IGPUEvent::E_STATUS::ES_FAILURE;
@@ -100,6 +155,93 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
     else
         return IGPUEvent::ES_FAILURE;
 }
+
+
+core::smart_refctd_ptr<IGPUFence> createFence(IGPUFence::E_CREATE_FLAGS flags) override
+{
+    VkFenceCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+    vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportFenceCreateInfo or VkExportFenceWin32HandleInfoKHR
+    vk_createInfo.flags = static_cast<VkFenceCreateFlags>(flags);
+
+    VkFence vk_fence;
+    if (m_devf.vk.vkCreateFence(m_vkdev, &vk_createInfo, nullptr, &vk_fence) == VK_SUCCESS)
+    {
+        return core::make_smart_refctd_ptr<CVulkanFence>(
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, vk_fence);
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+            
+IGPUFence::E_STATUS getFenceStatus(IGPUFence* _fence) override
+{
+    if (!_fence && (_fence->getAPIType() != EAT_VULKAN))
+        return IGPUFence::E_STATUS::ES_ERROR;
+
+    VkResult retval = m_devf.vk.vkGetFenceStatus(m_vkdev, IBackendObject::device_compatibility_cast<const CVulkanFence*>(_fence, this)->getInternalObject());
+
+    switch (retval)
+    {
+    case VK_SUCCESS:
+        return IGPUFence::ES_SUCCESS;
+    case VK_NOT_READY:
+        return IGPUFence::ES_NOT_READY;
+    default:
+        return IGPUFence::ES_ERROR;
+    }
+}
+            
+bool resetFences(uint32_t _count, IGPUFence*const* _fences) override
+{
+    constexpr uint32_t MAX_FENCE_COUNT = 100u;
+    assert(_count < MAX_FENCE_COUNT);
+
+    VkFence vk_fences[MAX_FENCE_COUNT];
+    for (uint32_t i = 0u; i < _count; ++i)
+    {
+        if (_fences[i]->getAPIType() != EAT_VULKAN)
+        {
+            assert(false);
+            return false;
+        }
+
+        vk_fences[i] = IBackendObject::device_compatibility_cast<CVulkanFence*>(_fences[i], this)->getInternalObject();
+    }
+
+    auto vk_res = m_devf.vk.vkResetFences(m_vkdev, _count, vk_fences);
+    return (vk_res == VK_SUCCESS);
+}
+            
+IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence*const* _fences, bool _waitAll, uint64_t _timeout) override
+{
+    constexpr uint32_t MAX_FENCE_COUNT = 100u;
+
+    assert(_count <= MAX_FENCE_COUNT);
+
+    VkFence vk_fences[MAX_FENCE_COUNT];
+    for (uint32_t i = 0u; i < _count; ++i)
+    {
+        if (_fences[i]->getAPIType() != EAT_VULKAN)
+            return IGPUFence::E_STATUS::ES_ERROR;
+
+        vk_fences[i] = IBackendObject::device_compatibility_cast<CVulkanFence*>(_fences[i], this)->getInternalObject();
+    }
+
+    VkResult result = m_devf.vk.vkWaitForFences(m_vkdev, _count, vk_fences, _waitAll, _timeout);
+    switch (result)
+    {
+    case VK_SUCCESS:
+        return IGPUFence::ES_SUCCESS;
+    case VK_TIMEOUT:
+        return IGPUFence::ES_TIMEOUT;
+    default:
+        return IGPUFence::ES_ERROR;
+    }
+}
+
+
 
 IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {

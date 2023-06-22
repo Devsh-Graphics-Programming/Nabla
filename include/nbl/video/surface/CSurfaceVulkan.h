@@ -1,5 +1,5 @@
-#ifndef __NBL_C_SURFACE_VULKAN_H_INCLUDED__
-#define __NBL_C_SURFACE_VULKAN_H_INCLUDED__
+#ifndef _NBL_VIDEO_C_SURFACE_VULKAN_H_INCLUDED_
+#define _NBL_VIDEO_C_SURFACE_VULKAN_H_INCLUDED_
 
 #include "BuildConfigOptions.h"
 
@@ -39,9 +39,7 @@ class NBL_API2 CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32, ISu
         using base_t = CSurface<ui::IWindowWin32, ISurfaceVulkan>;
     public:
         inline CSurfaceVulkanWin32(core::smart_refctd_ptr<ui::IWindowWin32>&& window, core::smart_refctd_ptr<IAPIConnection>&& api, VkSurfaceKHR surf) :
-            base_t(std::move(window), std::move(api), surf)
-        {
-        }
+            base_t(std::move(window), std::move(api), surf) {}
         
         static core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowWin32>&& window);
 };

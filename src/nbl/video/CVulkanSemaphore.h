@@ -1,5 +1,5 @@
-#ifndef _NBL_C_VULKAN_SEMAPHORE_H_INCLUDED_
-#define _NBL_C_VULKAN_SEMAPHORE_H_INCLUDED_
+#ifndef _NBL_VIDEO_C_VULKAN_SEMAPHORE_H_INCLUDED_
+#define _NBL_VIDEO_C_VULKAN_SEMAPHORE_H_INCLUDED_
 
 
 #include "nbl/video/ISemaphore.h"
@@ -15,9 +15,12 @@ class ILogicalDevice;
 class CVulkanSemaphore final : public ISemaphore
 {
     public:
-        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev, const bool _isTimeline, const VkSemaphore semaphore)
-            : ISemaphore(std::move(_vkdev),_isTimeline), m_semaphore(semaphore) {}
+        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev, const VkSemaphore semaphore)
+            : ISemaphore(std::move(_vkdev)), m_semaphore(semaphore) {}
         ~CVulkanSemaphore();
+
+        uint64_t getCounterValue() const override;
+        void signal(const uint64_t value) override;
     
 	    inline const void* getNativeHandle() const override {return &m_semaphore;}
         VkSemaphore getInternalObject() const {return m_semaphore;}
@@ -25,9 +28,6 @@ class CVulkanSemaphore final : public ISemaphore
         void setObjectDebugName(const char* label) const override;
 
     private:
-        uint64_t getCounterValue_impl() const override;
-        void signal_impl(const uint64_t value) override;
-
         const VkSemaphore m_semaphore;
 };
 

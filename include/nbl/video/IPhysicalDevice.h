@@ -552,7 +552,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         */
         struct SQueueFamilyProperties
         {
-            core::bitflag<IGPUQueue::FAMILY_FLAGS> queueFlags;
+            core::bitflag<IQueue::FAMILY_FLAGS> queueFlags;
             uint32_t queueCount;
             uint32_t timestampValidBits;
             asset::VkExtent3D minImageTransferGranularity;

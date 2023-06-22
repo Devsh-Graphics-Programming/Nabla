@@ -61,7 +61,7 @@ class CDumbPresentationOracle : public IPresentationOracle
 			return retval;
 		}
 
-		inline void present(ILogicalDevice* device, ISwapchain* swapchain, IGPUQueue* queue, IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumber) override
+		inline void present(ILogicalDevice* device, ISwapchain* swapchain, IQueue* queue, IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumber) override
 		{
 			// literally cant do anything here in this dumb algorithm
 		}
