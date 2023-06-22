@@ -336,7 +336,7 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     for (auto j=0u; j<depInfo.bufBarrierCount; j++)
         *(outIt++) = depInfo.bufBarriers[j].range.buffer;
     for (auto j=0u; j<depInfo.imgBarrierCount; j++)
-        *(outIt++) = depInfo.imgBarriers[j].image;
+        *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(depInfo.imgBarriers[j].image);
     return pipelineBarrier_impl(dependencyFlags,depInfo);
 }
 
@@ -623,7 +623,7 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
 bool IGPUCommandBuffer::bindDescriptorSets(
     const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
     const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
-    const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets)
+    const uint32_t dynamicOffsetCount, const uint32_t* const dynamicOffsets)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT))
         return false;

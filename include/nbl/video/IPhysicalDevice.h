@@ -715,7 +715,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             format_buffer_cache_t buffers;
             format_image_cache_t optimalTilingImages;
             format_image_cache_t linearTilingImages;
-        } m_formatPromotionCache;
+        };
+        mutable format_promotion_cache_t m_formatPromotionCache;
 };
 
 }

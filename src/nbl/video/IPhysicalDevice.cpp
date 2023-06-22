@@ -376,7 +376,7 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     return smallestTexelBlock;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req)
+asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req) const
 {
     assert(
         !asset::isBlockCompressionFormat(req.originalFormat) &&
@@ -430,30 +430,16 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
     return promoted;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling)
+asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling) const
 {
-    format_image_cache_t& cache = tiling == IGPUImage::E_TILING::ET_LINEAR 
+    format_image_cache_t& cache = tiling==IGPUImage::TILING::LINEAR 
         ? this->m_formatPromotionCache.linearTilingImages 
         : this->m_formatPromotionCache.optimalTilingImages;
     auto cached = cache.find(req);
     if (cached != cache.end())
         return cached->second;
 
-    auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f)
-    {
-        switch (tiling)
-        {
-            case IGPUImage::E_TILING::ET_LINEAR:
-                return getImageFormatUsagesLinearTiling()[f];
-            case IGPUImage::E_TILING::ET_OPTIMAL:
-                return getImageFormatUsagesOptimalTiling()[f];
-            default:
-                assert(false); // Invalid tiling
-        }
-        return IPhysicalDevice::SFormatImageUsages::SUsage{}; // compiler please shut up
-    };
-
-    if (req.usages < getImageFormatUsagesTiling(req.originalFormat))
+    if (req.usages < getImageFormatUsages(tiling)[req.originalFormat])
     {
         cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -485,10 +471,8 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getImageFormatUsagesTiling(f))
-        {
+        if (req.usages < getImageFormatUsages(tiling)[f])
             validFormats.insert(f);
-        }
     }
 
 

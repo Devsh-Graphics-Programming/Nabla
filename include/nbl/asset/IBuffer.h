@@ -94,7 +94,8 @@ struct SBufferRange
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
 	
 	
-	inline operator SBufferRange<const BufferType>&() const {return *reinterpret_cast<SBufferRange<const BufferType>*>(this);}
+	inline operator SBufferRange<const BufferType>&() {return *reinterpret_cast<SBufferRange<const BufferType>*>(this);}
+	inline operator const SBufferRange<const BufferType>&() const {return *reinterpret_cast<const SBufferRange<const BufferType>*>(this);}
 
 	inline bool isValid() const
 	{
