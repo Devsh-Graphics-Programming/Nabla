@@ -299,8 +299,8 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		{
 			SBarrierSuggestion barrier;
 
-			barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-			barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+			barrier.srcStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+			barrier.dstStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
 			if (type&SBarrierSuggestion::EF_PRE_CACHE_UPDATE)
 			{
 				barrier.skinsToUpdate.dstAccessMask |= asset::EAF_SHADER_READ_BIT;

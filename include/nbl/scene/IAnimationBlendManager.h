@@ -217,7 +217,7 @@ class IAnimationBlendManager : public virtual core::IReferenceCounted
 				// TODO: what to set queue family indices to if we don't plan on a transfer by default?
 				uint32_t srcQueueFamilyIndex;
 				uint32_t dstQueueFamilyIndex;
-				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::EPSF_ALL_COMMANDS_BIT;
+				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BIT;
 				asset::E_ACCESS_FLAGS dstAccessMask = asset::EAF_ALL_ACCESSES_BIT_DEVSH;
 			} finalBarrier = {};
 			asset::SBufferBinding<video::IGPUBuffer> outRelativeTFormUpdateIndirectParameters;
