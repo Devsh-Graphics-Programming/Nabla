@@ -349,6 +349,171 @@ bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect_impl(const core::
     return true;
 }
 
+bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* const pipeline)
+{
+    VkPipeline vk_pipeline = IBackendObject::compatibility_cast<const CVulkanComputePipeline*>(pipeline, this)->getInternalObject();
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
+
+    return true;
+}
+
+bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
+{
+    VkPipeline vk_pipeline = IBackendObject::compatibility_cast<const CVulkanGraphicsPipeline*>(pipeline, this)->getInternalObject();
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline);
+
+    return true;
+}
+
+bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets)
+{
+    VkPipelineLayout vk_pipelineLayout = IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject();
+
+    uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
+
+    VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
+    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+    {
+        if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
+        {
+            vk_descriptorSets[i] = IBackendObject::compatibility_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i], this)->getInternalObject();
+
+            if (dynamicOffsets) // count dynamic offsets per set, if there are any
+            {
+                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC).getTotalCount();
+                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC).getTotalCount();
+            }
+        }
+    }
+
+    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+
+    // We allow null descriptor sets in our bind function to skip a certain set number we don't use
+    // Will bind [first, last) with one call
+    uint32_t dynamicOffsetsBindOffset = 0u;
+    uint32_t bindCallsCount = 0u;
+    uint32_t first = ~0u;
+    uint32_t last = ~0u;
+    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+    {
+        if (pDescriptorSets[i])
+        {
+            if (first == last)
+            {
+                first = i;
+                last = first + 1;
+            }
+            else
+                ++last;
+
+            // Do a look ahead
+            if ((i + 1 >= descriptorSetCount) || !pDescriptorSets[i + 1])
+            {
+                if (dynamicOffsets)
+                {
+                    uint32_t dynamicOffsetCount = 0u;
+                    for (uint32_t setIndex = first; setIndex < last; ++setIndex)
+                        dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
+
+                    vk->vk.vkCmdBindDescriptorSets(
+                        m_cmdbuf,
+                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                        vk_pipelineLayout,
+                        // firstSet + first, last - first, vk_descriptorSets + first, vk_dynamicOffsetCount, vk_dynamicOffsets);
+                        firstSet + first, last - first, vk_descriptorSets + first,
+                        dynamicOffsetCount, dynamicOffsets + dynamicOffsetsBindOffset);
+
+                    dynamicOffsetsBindOffset += dynamicOffsetCount;
+                }
+                else
+                {
+                    vk->vk.vkCmdBindDescriptorSets(
+                        m_cmdbuf,
+                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
+                        vk_pipelineLayout,
+                        firstSet + first, last - first, vk_descriptorSets + first, 0u, nullptr);
+                }
+
+                first = ~0u;
+                last = ~0u;
+                ++bindCallsCount;
+            }
+        }
+    }
+
+    // with K slots you need at most (K+1)/2 calls
+    assert(bindCallsCount <= (IGPUPipelineLayout::DESCRIPTOR_SET_COUNT + 1) / 2);
+
+    return true;
+}
+
+bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
+{
+    getFunctionTable().vkCmdPushConstants(m_cmdbuf,
+        IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject(),
+        getVkShaderStageFlagsFromShaderStage(stageFlags),
+        offset,
+        size,
+        pValues);
+
+    return true;
+}
+
+bool CVulkanCommandBuffer::bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings)
+{
+    constexpr uint32_t MaxBufferCount = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
+    assert(bindingCount <= MaxBufferCount);
+    
+    VkBuffer vk_buffers[MaxBufferCount];
+    VkDeviceSize vk_offsets[MaxBufferCount];
+
+    VkBuffer dummyBuffer = VK_NULL_HANDLE;
+    for (uint32_t i = 0u; i < bindingCount; ++i)
+    {
+        if (!pBindings[i].buffer || (pBindings[i].buffer->getAPIType() != EAT_VULKAN))
+        {
+            vk_buffers[i] = dummyBuffer;
+            vk_offsets[i] = 0;
+        }
+        else
+        {
+            VkBuffer vk_buffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(pBindings[i].buffer.get(), this)->getInternalObject();
+            if (dummyBuffer == VK_NULL_HANDLE)
+                dummyBuffer = vk_buffer;
+
+            vk_buffers[i] = vk_buffer;
+            vk_offsets[i] = static_cast<VkDeviceSize>(pBindings[i].offset);
+        }
+    }
+    for (uint32_t i = 0u; i < bindingCount; ++i)
+    {
+        if (vk_buffers[i] == VK_NULL_HANDLE)
+            vk_buffers[i] = dummyBuffer;
+    }
+
+    getFunctionTable().vkCmdBindVertexBuffers(
+        m_cmdbuf,
+        firstBinding,
+        bindingCount,
+        vk_buffers,
+        vk_offsets);
+
+    return true;
+}
+
+bool CVulkanCommandBuffer::bindIndexBuffer_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType)
+{
+    assert(indexType < asset::EIT_UNKNOWN);
+
+    getFunctionTable().vkCmdBindIndexBuffer(
+        m_cmdbuf,
+        IBackendObject::compatibility_cast<const CVulkanBuffer*>(binding.buffer.get(), this)->getInternalObject(),
+        static_cast<VkDeviceSize>(binding.offset),
+        static_cast<VkIndexType>(indexType));
+
+    return true;
+}
+
 #if 0
 bool CVulkanCommandBuffer::setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports)
 {
@@ -445,47 +610,6 @@ bool CVulkanCommandBuffer::resolveImage_impl(const image_t* srcImage, asset::IIm
         vk_regions);
 
     return true;
-}
-
-void CVulkanCommandBuffer::bindVertexBuffers_impl(uint32_t firstBinding, uint32_t bindingCount, const buffer_t* const* const pBuffers, const size_t* pOffsets)
-{
-    constexpr uint32_t MaxBufferCount = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
-    assert(bindingCount <= MaxBufferCount);
-
-    VkBuffer vk_buffers[MaxBufferCount];
-    VkDeviceSize vk_offsets[MaxBufferCount];
-
-    VkBuffer dummyBuffer = VK_NULL_HANDLE;
-    for (uint32_t i = 0u; i < bindingCount; ++i)
-    {
-        if (!pBuffers[i] || (pBuffers[i]->getAPIType() != EAT_VULKAN))
-        {
-            vk_buffers[i] = dummyBuffer;
-            vk_offsets[i] = 0;
-        }
-        else
-        {
-            VkBuffer vk_buffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(pBuffers[i], this)->getInternalObject();
-            if (dummyBuffer == VK_NULL_HANDLE)
-                dummyBuffer = vk_buffer;
-
-            vk_buffers[i] = vk_buffer;
-            vk_offsets[i] = static_cast<VkDeviceSize>(pOffsets[i]);
-        }
-    }
-    for (uint32_t i = 0u; i < bindingCount; ++i)
-    {
-        if (vk_buffers[i] == VK_NULL_HANDLE)
-            vk_buffers[i] = dummyBuffer;
-    }
-
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    vk->vk.vkCmdBindVertexBuffers(
-        m_cmdbuf,
-        firstBinding,
-        bindingCount,
-        vk_buffers,
-        vk_offsets);
 }
 
 bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo)
@@ -655,91 +779,6 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo* pRen
 
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
     vk->vk.vkCmdBeginRenderPass2(m_cmdbuf, &vk_beginInfo, &vk_subpassBeginInfo);
-
-    return true;
-}
-
-bool CVulkanCommandBuffer::bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
-    const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
-    const descriptor_set_t* const* const pDescriptorSets,
-    const uint32_t dynamicOffsetCount, const uint32_t* dynamicOffsets)
-{
-    VkPipelineLayout vk_pipelineLayout = IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject();
-
-    uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
-
-    VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
-    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
-    {
-        if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
-        {
-            vk_descriptorSets[i] = IBackendObject::compatibility_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i], this)->getInternalObject();
-
-            if (dynamicOffsets) // count dynamic offsets per set, if there are any
-            {
-                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC).getTotalCount();
-                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC).getTotalCount();
-            }
-        }
-    }
-
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-
-    // We allow null descriptor sets in our bind function to skip a certain set number we don't use
-    // Will bind [first, last) with one call
-    uint32_t dynamicOffsetsBindOffset = 0u;
-    uint32_t bindCallsCount = 0u;
-    uint32_t first = ~0u;
-    uint32_t last = ~0u;
-    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
-    {
-        if (pDescriptorSets[i])
-        {
-            if (first == last)
-            {
-                first = i;
-                last = first + 1;
-            }
-            else
-                ++last;
-
-            // Do a look ahead
-            if ((i + 1 >= descriptorSetCount) || !pDescriptorSets[i + 1])
-            {
-                if (dynamicOffsets)
-                {
-                    uint32_t dynamicOffsetCount = 0u;
-                    for (uint32_t setIndex = first; setIndex < last; ++setIndex)
-                        dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
-
-                    vk->vk.vkCmdBindDescriptorSets(
-                        m_cmdbuf,
-                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-                        vk_pipelineLayout,
-                        // firstSet + first, last - first, vk_descriptorSets + first, vk_dynamicOffsetCount, vk_dynamicOffsets);
-                        firstSet + first, last - first, vk_descriptorSets + first,
-                        dynamicOffsetCount, dynamicOffsets + dynamicOffsetsBindOffset);
-
-                    dynamicOffsetsBindOffset += dynamicOffsetCount;
-                }
-                else
-                {
-                    vk->vk.vkCmdBindDescriptorSets(
-                        m_cmdbuf,
-                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-                        vk_pipelineLayout,
-                        firstSet + first, last - first, vk_descriptorSets + first, 0u, nullptr);
-                }
-
-                first = ~0u;
-                last = ~0u;
-                ++bindCallsCount;
-            }
-        }
-    }
-
-    // with K slots you need at most (K+1)/2 calls
-    assert(bindCallsCount <= (IGPUPipelineLayout::DESCRIPTOR_SET_COUNT + 1) / 2);
 
     return true;
 }
