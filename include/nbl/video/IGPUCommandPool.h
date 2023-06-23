@@ -62,11 +62,9 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
                 inline const T& operator[](const uint32_t ix) const {return data()[ix];}
 
             private:
-                inline StackAllocation(const uint32_t addr, const uint32_t size) : m_addr(addr), m_size(size) {}
-                StackAllocation(const StackAllocation&) = delete;
-                StackAllocation(StackAllocation&&) = delete;
-                StackAllocation& operator=(const StackAllocation&) = delete;
-                StackAllocation& operator=(StackAllocation&&) = delete;
+                _NBL_NO_COPY_FINAL(StackAllocation);
+                _NBL_NO_MOVE_FINAL(StackAllocation);
+                _NBL_NO_NEW_DELETE;
 
                 IGPUCommandPool* m_pool;
                 uint32_t m_size,m_addr;
