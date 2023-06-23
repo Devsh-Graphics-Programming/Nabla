@@ -1235,7 +1235,7 @@ public:
             auto& qf = (*m_qfamProperties)[i];
                     
             qf.queueCount = vkqf.queueCount;
-            qf.queueFlags = static_cast<E_QUEUE_FLAGS>(vkqf.queueFlags);
+            qf.queueFlags = static_cast<IQueue::FAMILY_FLAGS>(vkqf.queueFlags);
             qf.timestampValidBits = vkqf.timestampValidBits;
             qf.minImageTransferGranularity = { vkqf.minImageTransferGranularity.width, vkqf.minImageTransferGranularity.height, vkqf.minImageTransferGranularity.depth };
         }
