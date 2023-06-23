@@ -23,13 +23,13 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
     VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
     if (inheritanceInfo)
     {
-        vk_inheritanceInfo.renderPass = IBackendObject::compatibility_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass.get(), this)->getInternalObject();
+        vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass.get())->getInternalObject();
         vk_inheritanceInfo.subpass = inheritanceInfo->subpass;
         // From the spec:
         // Specifying the exact framebuffer that the secondary command buffer will be
         // executed with may result in better performance at command buffer execution time.
         if (inheritanceInfo->framebuffer)
-            vk_inheritanceInfo.framebuffer = IBackendObject::compatibility_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer.get(), this)->getInternalObject();
+            vk_inheritanceInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer.get())->getInternalObject();
         vk_inheritanceInfo.occlusionQueryEnable = inheritanceInfo->occlusionQueryEnable;
         vk_inheritanceInfo.queryFlags = static_cast<VkQueryControlFlags>(inheritanceInfo->queryFlags.value);
         vk_inheritanceInfo.pipelineStatistics = static_cast<VkQueryPipelineStatisticFlags>(0u); // must be 0
@@ -37,15 +37,14 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
         beginInfo.pInheritanceInfo = &vk_inheritanceInfo;
     }
 
-    const VkResult retval = getFunctionTable().vkBeginCommandBuffer(m_cmdbuf, &beginInfo);
-    return retval == VK_SUCCESS;
+    return getFunctionTable().vkBeginCommandBuffer(m_cmdbuf,&beginInfo)==VK_SUCCESS;
 }
 
 bool CVulkanCommandBuffer::fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data)
 {
     getFunctionTable().vkCmdFillBuffer(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(range.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(range.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(range.offset),
         static_cast<VkDeviceSize>(range.size),
         data);
@@ -57,7 +56,7 @@ bool CVulkanCommandBuffer::updateBuffer_impl(const asset::SBufferRange<IGPUBuffe
 {
     getFunctionTable().vkCmdUpdateBuffer(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(range.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(range.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(range.offset),
         static_cast<VkDeviceSize>(range.size),
         pData);
@@ -67,8 +66,8 @@ bool CVulkanCommandBuffer::updateBuffer_impl(const asset::SBufferRange<IGPUBuffe
 
 bool CVulkanCommandBuffer::copyBuffer_impl(const IGPUBuffer* const srcBuffer, IGPUBuffer* const dstBuffer, const uint32_t regionCount, const video::IGPUCommandBuffer::SBufferCopy* const pRegions)
 {
-    VkBuffer vk_srcBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(srcBuffer, this)->getInternalObject();
-    VkBuffer vk_dstBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
+    VkBuffer vk_srcBuffer = static_cast<const CVulkanBuffer*>(srcBuffer)->getInternalObject();
+    VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
 
     constexpr uint32_t MAX_BUFFER_COPY_REGION_COUNT = 681u;
     assert(regionCount <= MAX_BUFFER_COPY_REGION_COUNT);
@@ -106,7 +105,7 @@ bool CVulkanCommandBuffer::clearColorImage_impl(IGPUImage* const image, const IG
 
     getFunctionTable().vkCmdClearColorImage(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanImage*>(image, this)->getInternalObject(),
+        static_cast<const CVulkanImage*>(image)->getInternalObject(),
         getVkImageLayoutFromImageLayout(imageLayout),
         &vk_clearColorValue,
         rangeCount,
@@ -134,7 +133,7 @@ bool CVulkanCommandBuffer::clearDepthStencilImage_impl(IGPUImage* const image, c
 
     getFunctionTable().vkCmdClearDepthStencilImage(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanImage*>(image, this)->getInternalObject(),
+        static_cast<const CVulkanImage*>(image)->getInternalObject(),
         getVkImageLayoutFromImageLayout(imageLayout),
         &vk_clearDepthStencilValue,
         rangeCount,
@@ -163,8 +162,8 @@ bool CVulkanCommandBuffer::copyBufferToImage_impl(const IGPUBuffer* const srcBuf
     }
 
     getFunctionTable().vkCmdCopyBufferToImage(m_cmdbuf,
-        IBackendObject::compatibility_cast<const video::CVulkanBuffer*>(srcBuffer, this)->getInternalObject(),
-        IBackendObject::compatibility_cast<const video::CVulkanImage*>(dstImage, this)->getInternalObject(),
+        static_cast<const video::CVulkanBuffer*>(srcBuffer)->getInternalObject(),
+        static_cast<const video::CVulkanImage*>(dstImage)->getInternalObject(),
         getVkImageLayoutFromImageLayout(dstImageLayout), regionCount, vk_regions);
 
     return true;
@@ -172,8 +171,8 @@ bool CVulkanCommandBuffer::copyBufferToImage_impl(const IGPUBuffer* const srcBuf
 
 bool CVulkanCommandBuffer::copyImageToBuffer_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
 {
-    VkImage vk_srcImage = IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject();
-    VkBuffer vk_dstBuffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject();
+    VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
+    VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
 
     constexpr uint32_t MAX_REGION_COUNT = (1u << 12) / sizeof(VkBufferImageCopy);
     VkBufferImageCopy vk_copyRegions[MAX_REGION_COUNT];
@@ -230,9 +229,9 @@ bool CVulkanCommandBuffer::copyImage_impl(const IGPUImage* const srcImage, const
 
     getFunctionTable().vkCmdCopyImage(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject(),
+        static_cast<const CVulkanImage*>(srcImage)->getInternalObject(),
         getVkImageLayoutFromImageLayout(srcImageLayout),
-        IBackendObject::compatibility_cast<const CVulkanImage*>(dstImage, this)->getInternalObject(),
+        static_cast<const CVulkanImage*>(dstImage)->getInternalObject(),
         getVkImageLayoutFromImageLayout(dstImageLayout),
         regionCount,
         vk_regions);
@@ -351,7 +350,7 @@ bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect_impl(const core::
 
 bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* const pipeline)
 {
-    VkPipeline vk_pipeline = IBackendObject::compatibility_cast<const CVulkanComputePipeline*>(pipeline, this)->getInternalObject();
+    VkPipeline vk_pipeline = static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject();
     getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
 
     return true;
@@ -359,7 +358,7 @@ bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* c
 
 bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
 {
-    VkPipeline vk_pipeline = IBackendObject::compatibility_cast<const CVulkanGraphicsPipeline*>(pipeline, this)->getInternalObject();
+    VkPipeline vk_pipeline = static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject();
     getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline);
 
     return true;
@@ -367,7 +366,7 @@ bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline*
 
 bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets)
 {
-    VkPipelineLayout vk_pipelineLayout = IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject();
+    VkPipelineLayout vk_pipelineLayout = static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject();
 
     uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
 
@@ -376,7 +375,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
     {
         if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
         {
-            vk_descriptorSets[i] = IBackendObject::compatibility_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i], this)->getInternalObject();
+            vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
 
             if (dynamicOffsets) // count dynamic offsets per set, if there are any
             {
@@ -450,7 +449,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
 bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
 {
     getFunctionTable().vkCmdPushConstants(m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject(),
+        static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),
         getVkShaderStageFlagsFromShaderStage(stageFlags),
         offset,
         size,
@@ -477,7 +476,7 @@ bool CVulkanCommandBuffer::bindVertexBuffers_impl(const uint32_t firstBinding, c
         }
         else
         {
-            VkBuffer vk_buffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(pBindings[i].buffer.get(), this)->getInternalObject();
+            VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pBindings[i].buffer.get())->getInternalObject();
             if (dummyBuffer == VK_NULL_HANDLE)
                 dummyBuffer = vk_buffer;
 
@@ -507,7 +506,7 @@ bool CVulkanCommandBuffer::bindIndexBuffer_impl(const asset::SBufferBinding<cons
 
     getFunctionTable().vkCmdBindIndexBuffer(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(binding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(binding.offset),
         static_cast<VkIndexType>(indexType));
 
@@ -516,7 +515,7 @@ bool CVulkanCommandBuffer::bindIndexBuffer_impl(const asset::SBufferBinding<cons
 
 bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount)
 {
-    auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
     getFunctionTable().vkCmdResetQueryPool(m_cmdbuf, vk_queryPool, firstQuery, queryCount);
 
     return true;
@@ -524,7 +523,7 @@ bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* const queryPool, cons
 
 bool CVulkanCommandBuffer::beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE)
 {
-    auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
     auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
     getFunctionTable().vkCmdBeginQuery(m_cmdbuf, vk_queryPool, query, vk_flags);
 
@@ -533,7 +532,7 @@ bool CVulkanCommandBuffer::beginQuery_impl(IQueryPool* const queryPool, const ui
 
 bool CVulkanCommandBuffer::endQuery_impl(IQueryPool* const queryPool, const uint32_t query)
 {
-    auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
     getFunctionTable().vkCmdEndQuery(m_cmdbuf, vk_queryPool, query);
 
     return true;
@@ -546,7 +545,7 @@ bool CVulkanCommandBuffer::writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS
 
     /*
 
-    auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
     auto vk_pipelineStageFlagBit = getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage); // leaving @devshgrapghicsprogramming, vk core uses VkPipelineStageFlagBits and Nabla VkPipelineStageFlagBits2
     getFunctionTable().vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStageFlagBit, vk_queryPool, query);
 
@@ -567,9 +566,9 @@ bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const core:
 
     VkAccelerationStructureKHR vk_accelerationStructures[MaxAccelerationStructureCount] = {};
     for (size_t i = 0; i < asCount; ++i)
-        vk_accelerationStructures[i] = IBackendObject::compatibility_cast<CVulkanAccelerationStructure*>(&accelerationStructures[i], this)->getInternalObject();
+        vk_accelerationStructures[i] = static_cast<CVulkanAccelerationStructure*>(&accelerationStructures[i])->getInternalObject();
 
-    auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
+    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
     auto vk_queryType = CVulkanQueryPool::getVkQueryTypeFromQueryType(queryType);
 
     getFunctionTable().vkCmdWriteAccelerationStructuresPropertiesKHR(m_cmdbuf, asCount, vk_accelerationStructures, vk_queryType, vk_queryPool, firstQuery);
@@ -579,8 +578,8 @@ bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const core:
 
 bool CVulkanCommandBuffer::copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
 {
-    auto vk_queryPool = IBackendObject::compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-    auto vk_dstBuffer = IBackendObject::compatibility_cast<CVulkanBuffer*>(dstBuffer.buffer.get(), this)->getInternalObject();
+    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
+    auto vk_dstBuffer = static_cast<CVulkanBuffer*>(dstBuffer.buffer.get())->getInternalObject();
     auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value);
 
     getFunctionTable().vkCmdCopyQueryPoolResults(m_cmdbuf, vk_queryPool, firstQuery, queryCount, vk_dstBuffer, dstBuffer.offset, static_cast<VkDeviceSize>(stride), vk_queryResultsFlags);
@@ -599,7 +598,7 @@ bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<con
 {
     getFunctionTable().vkCmdDispatchIndirect(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(binding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(binding.offset));
 
     return true;
@@ -624,8 +623,8 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info
 
     VkRenderPassBeginInfo vk_beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
     vk_beginInfo.pNext = nullptr;
-    vk_beginInfo.renderPass = IBackendObject::compatibility_cast<const CVulkanRenderpass*>(pRenderPassBegin->renderpass.get(), this)->getInternalObject();
-    vk_beginInfo.framebuffer = IBackendObject::compatibility_cast<const CVulkanFramebuffer*>(pRenderPassBegin->framebuffer.get(), this)->getInternalObject();
+    vk_beginInfo.renderPass = static_cast<const CVulkanRenderpass*>(pRenderPassBegin->renderpass.get())->getInternalObject();
+    vk_beginInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(pRenderPassBegin->framebuffer.get())->getInternalObject();
     vk_beginInfo.renderArea = pRenderPassBegin->renderArea;
     vk_beginInfo.clearValueCount = pRenderPassBegin->clearValueCount;
     vk_beginInfo.pClearValues = vk_clearValues;
@@ -712,7 +711,7 @@ bool CVulkanCommandBuffer::drawIndirect_impl(const asset::SBufferBinding<const I
 {
     getFunctionTable().vkCmdDrawIndirect(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(binding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(binding.offset),
         drawCount,
         stride);
@@ -724,7 +723,7 @@ bool CVulkanCommandBuffer::drawIndexedIndirect_impl(const asset::SBufferBinding<
 {
     getFunctionTable().vkCmdDrawIndexedIndirect(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(binding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(binding.offset),
         drawCount,
         stride);
@@ -736,9 +735,9 @@ bool CVulkanCommandBuffer::drawIndirectCount_impl(const asset::SBufferBinding<co
 {
     getFunctionTable().vkCmdDrawIndirectCount(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(indirectBinding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(indirectBinding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(indirectBinding.offset),
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(countBinding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(countBinding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(countBinding.offset),
         maxDrawCount,
         stride);
@@ -750,9 +749,9 @@ bool CVulkanCommandBuffer::drawIndexedIndirectCount_impl(const asset::SBufferBin
 {
     getFunctionTable().vkCmdDrawIndexedIndirectCount(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(indirectBinding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(indirectBinding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(indirectBinding.offset),
-        IBackendObject::compatibility_cast<const CVulkanBuffer*>(countBinding.buffer.get(), this)->getInternalObject(),
+        static_cast<const CVulkanBuffer*>(countBinding.buffer.get())->getInternalObject(),
         static_cast<VkDeviceSize>(countBinding.offset),
         maxDrawCount,
         stride);
@@ -762,8 +761,8 @@ bool CVulkanCommandBuffer::drawIndexedIndirectCount_impl(const asset::SBufferBin
 
 bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
-    VkImage vk_srcImage = IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject();
-    VkImage vk_dstImage = IBackendObject::compatibility_cast<const CVulkanImage*>(dstImage, this)->getInternalObject();
+    VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
+    VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
 
     constexpr uint32_t MAX_BLIT_REGION_COUNT = 100u;
     VkImageBlit vk_blitRegions[MAX_BLIT_REGION_COUNT];
@@ -824,9 +823,9 @@ bool CVulkanCommandBuffer::resolveImage_impl(const IGPUImage* const srcImage, co
 
     getFunctionTable().vkCmdResolveImage(
         m_cmdbuf,
-        IBackendObject::compatibility_cast<const CVulkanImage*>(srcImage, this)->getInternalObject(),
+        static_cast<const CVulkanImage*>(srcImage)->getInternalObject(),
         getVkImageLayoutFromImageLayout(srcImageLayout),
-        IBackendObject::compatibility_cast<const CVulkanImage*>(dstImage, this)->getInternalObject(),
+        static_cast<const CVulkanImage*>(dstImage)->getInternalObject(),
         getVkImageLayoutFromImageLayout(dstImageLayout),
         regionCount,
         vk_regions);
@@ -842,7 +841,7 @@ bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUComman
     VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
 
     for (uint32_t i = 0u; i < count; ++i)
-        vk_commandBuffers[i] = IBackendObject::compatibility_cast<const CVulkanCommandBuffer*>(cmdbufs[i], this)->getInternalObject();
+        vk_commandBuffers[i] = static_cast<const CVulkanCommandBuffer*>(cmdbufs[i])->getInternalObject();
 
     getFunctionTable().vkCmdExecuteCommands(m_cmdbuf, count, vk_commandBuffers);
 
@@ -888,7 +887,7 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
 
     VkEvent vk_events[MAX_EVENT_COUNT];
     for (uint32_t i = 0u; i < eventCount; ++i)
-        vk_events[i] = IBackendObject::compatibility_cast<const CVulkanEvent*>(pEvents[i], this)->getInternalObject();
+        vk_events[i] = static_cast<const CVulkanEvent*>(pEvents[i])->getInternalObject();
 
     VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
     for (uint32_t i = 0u; i < depInfo->memBarrierCount; ++i)
@@ -908,7 +907,7 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
         vk_bufferMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->bufBarriers[i].barrier.dstAccessMask.value);
         vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = depInfo->bufBarriers[i].srcQueueFamilyIndex;
         vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = depInfo->bufBarriers[i].dstQueueFamilyIndex;
-        vk_bufferMemoryBarriers[i].buffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(depInfo->bufBarriers[i].buffer.get(), this)->getInternalObject();
+        vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(depInfo->bufBarriers[i].buffer.get())->getInternalObject();
         vk_bufferMemoryBarriers[i].offset = depInfo->bufBarriers[i].offset;
         vk_bufferMemoryBarriers[i].size = depInfo->bufBarriers[i].size;
     }
@@ -924,7 +923,7 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
         vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(depInfo->imgBarriers[i].newLayout);
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = depInfo->imgBarriers[i].srcQueueFamilyIndex;
         vk_imageMemoryBarriers[i].dstQueueFamilyIndex = depInfo->imgBarriers[i].dstQueueFamilyIndex;
-        vk_imageMemoryBarriers[i].image = IBackendObject::compatibility_cast<const CVulkanImage*>(depInfo->imgBarriers[i].image.get(), this)->getInternalObject();
+        vk_imageMemoryBarriers[i].image = static_cast<const CVulkanImage*>(depInfo->imgBarriers[i].image.get())->getInternalObject();
         vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(depInfo->imgBarriers[i].subresourceRange.aspectMask.value);
         vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = depInfo->imgBarriers[i].subresourceRange.baseMipLevel;
         vk_imageMemoryBarriers[i].subresourceRange.levelCount = depInfo->imgBarriers[i].subresourceRange.levelCount;
@@ -980,7 +979,7 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
         vk_bufferMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(pBufferMemoryBarriers[i].barrier.dstAccessMask.value);
         vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = pBufferMemoryBarriers[i].srcQueueFamilyIndex;
         vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = pBufferMemoryBarriers[i].dstQueueFamilyIndex;
-        vk_bufferMemoryBarriers[i].buffer = IBackendObject::compatibility_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get(), this)->getInternalObject();
+        vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get())->getInternalObject();
         vk_bufferMemoryBarriers[i].offset = pBufferMemoryBarriers[i].offset;
         vk_bufferMemoryBarriers[i].size = pBufferMemoryBarriers[i].size;
     }
@@ -996,7 +995,7 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
         vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(pImageMemoryBarriers[i].newLayout);
         vk_imageMemoryBarriers[i].srcQueueFamilyIndex = pImageMemoryBarriers[i].srcQueueFamilyIndex;
         vk_imageMemoryBarriers[i].dstQueueFamilyIndex = pImageMemoryBarriers[i].dstQueueFamilyIndex;
-        vk_imageMemoryBarriers[i].image = IBackendObject::compatibility_cast<const CVulkanImage*>(pImageMemoryBarriers[i].image.get(), this)->getInternalObject();
+        vk_imageMemoryBarriers[i].image = static_cast<const CVulkanImage*>(pImageMemoryBarriers[i].image.get())->getInternalObject();
         vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(pImageMemoryBarriers[i].subresourceRange.aspectMask.value);
         vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = pImageMemoryBarriers[i].subresourceRange.baseMipLevel;
         vk_imageMemoryBarriers[i].subresourceRange.levelCount = pImageMemoryBarriers[i].subresourceRange.levelCount;
