@@ -44,12 +44,15 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
                 inline StackAllocation(IGPUCommandPool* pool, const uint32_t count) : m_pool(pool)
                 {
                     m_size = sizeof(T)*count;
-                    m_addr = m_pool->m_scratchAlloc.alloc_addr(m_size,alignof(T));
+                    if (m_size)
+                        m_addr = m_pool->m_scratchAlloc.alloc_addr(m_size,alignof(T));
+                    else
+                        m_addr = 0u;
                 }
                 inline StackAllocation(const core::smart_refctd_ptr<IGPUCommandPool>& pool, const uint32_t count) : StackAllocation(pool.get(),count) {}
                 inline ~StackAllocation()
                 {
-                    if (bool(*this))
+                    if (m_size && bool(*this))
                         m_pool->m_scratchAlloc.free_addr(m_addr,m_size);
                 }
 
