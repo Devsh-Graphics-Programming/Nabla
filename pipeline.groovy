@@ -1,11 +1,12 @@
 import org.DevshGraphicsProgramming.Agent
+import org.DevshGraphicsProgramming.BuilderInfo
 import org.DevshGraphicsProgramming.IBuilder
 
 class CNablaBuilder extends IBuilder
 {
-	public CNablaBuilder(Agent _agent)
+	public CNablaBuilder(Agent _agent, BuilderInfo _info)
 	{
-		super(_agent)
+		super(_agent, _info)
 	}
 	
 	@Override
@@ -60,9 +61,9 @@ class CNablaBuilder extends IBuilder
 	}
 }
 
-def create(Agent _agent)
+def create(Agent _agent, BuilderInfo _info)
 {
-	return new CNablaBuilder(_agent)
+	return new CNablaBuilder(_agent, _info)
 }
 
 return this
