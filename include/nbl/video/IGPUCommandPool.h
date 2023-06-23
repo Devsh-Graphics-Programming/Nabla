@@ -21,8 +21,13 @@ class IGPUCommandBuffer;
 
 class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 {
-        static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
+        // for temporary arrays instead of having to use `core::vector`
+        template<typename T> friend class StackAllocation;
+        static inline constexpr uint32_t SCRATCH_MEMORY_SIZE = 1u<<20u;
+        alignas(_NBL_SIMD_ALIGNMENT) uint8_t m_scratch[SCRATCH_MEMORY_SIZE];
+        core::StackAddressAllocatorST<uint32_t> m_scratchAlloc;
 
+        static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
         static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
         static inline constexpr uint32_t COMMAND_SEGMENT_SIZE = 128u << 10u;
 
@@ -31,12 +36,40 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
 
     public:
-        enum class CREATE_FLAGS : uint8_t
+        // Host access to Command Pools needs to be externally synchronized anyway so its completely fine to do this
+        template<typename T>
+        class StackAllocation final
         {
-            NONE = 0x00,
-            TRANSIENT_BIT = 0x01,
-            RESET_COMMAND_BUFFER_BIT = 0x02,
-            PROTECTED_BIT = 0x04
+            public:
+                inline StackAllocation(IGPUCommandPool* pool, const uint32_t count) : m_pool(pool)
+                {
+                    m_size = sizeof(T)*count;
+                    m_addr = m_pool->m_scratchAlloc.alloc_addr(m_size,alignof(T));
+                }
+                inline StackAllocation(const core::smart_refctd_ptr<IGPUCommandPool>& pool, const uint32_t count) : StackAllocation(pool.get(),count) {}
+                inline ~StackAllocation()
+                {
+                    if (bool(*this))
+                        m_pool->m_scratchAlloc.free_addr(m_addr,m_size);
+                }
+
+                inline operator bool() const {return addr!=core::StackAddressAllocatorST<uint32_t>::invalid_address;}
+
+                inline T* data() {return reinterpret_cast<T*>(m_pool->m_scratch);}
+                inline const T* data() const {return reinterpret_cast<const T*>(m_pool->m_scratch);}
+
+                inline T& operator[](const uint32_t ix) {return data()[ix];}
+                inline const T& operator[](const uint32_t ix) const {return data()[ix];}
+
+            private:
+                inline StackAllocation(const uint32_t addr, const uint32_t size) : m_addr(addr), m_size(size) {}
+                StackAllocation(const StackAllocation&) = delete;
+                StackAllocation(StackAllocation&&) = delete;
+                StackAllocation& operator=(const StackAllocation&) = delete;
+                StackAllocation& operator=(StackAllocation&&) = delete;
+
+                IGPUCommandPool* m_pool;
+                uint32_t m_size,m_addr;
         };
 
         class CCommandSegment;
@@ -248,12 +281,17 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
         class CCopyAccelerationStructureCmd;
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
-
+        
+        enum class CREATE_FLAGS : uint8_t
+        {
+            NONE = 0x00,
+            TRANSIENT_BIT = 0x01,
+            RESET_COMMAND_BUFFER_BIT = 0x02,
+            PROTECTED_BIT = 0x04
+        };
         inline core::bitflag<CREATE_FLAGS> getCreationFlags() const { return m_flags; }
-        inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
 
-        // Vulkan: const VkCommandPool*
-        virtual const void* getNativeHandle() const = 0;
+        inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
 
         bool reset()
         {
@@ -264,9 +302,12 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 
         inline uint32_t getResetCounter() { return m_resetCount.load(); }
 
+        // Vulkan: const VkCommandPool*
+        virtual const void* getNativeHandle() const = 0;
+
     protected:
         IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<CREATE_FLAGS> _flags, uint32_t _familyIx)
-            : IBackendObject(std::move(dev)), m_flags(_flags), m_familyIx(_familyIx)
+            : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx)
         {}
 
         virtual ~IGPUCommandPool() = default;
@@ -276,119 +317,119 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         core::bitflag<CREATE_FLAGS> m_flags;
         uint32_t m_familyIx;
 
-private:
-    std::atomic_uint64_t m_resetCount = 0;
+    private:
+        friend class IGPUCommandBuffer;
 
-    class CCommandSegmentListPool
-    {
-    public:
-        struct SCommandSegmentList
+        class CCommandSegmentListPool
         {
-            CCommandSegment* head = nullptr;
-            CCommandSegment* tail = nullptr;
+            public:
+                struct SCommandSegmentList
+                {
+                    CCommandSegment* head = nullptr;
+                    CCommandSegment* tail = nullptr;
+                };
+
+                CCommandSegmentListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
+
+                template <typename Cmd, typename... Args>
+                Cmd* emplace(SCommandSegmentList& list, Args&&... args)
+                {
+                    if (!list.tail && !appendToList(list))
+                        return nullptr;
+
+                    // not forwarding twice because newCmd() will never be called the second time
+                    auto newCmd = [&]() -> Cmd*
+                    {
+                        auto cmdMem = list.tail->allocate<Cmd>(args...);
+                        if (!cmdMem)
+                            return nullptr;
+
+                        return new (cmdMem) Cmd(std::forward<Args>(args)...);
+                    };
+
+                    auto cmd = newCmd();
+                    if (!cmd)
+                    {
+                        if (!appendToList(list))
+                            return nullptr;
+
+                        cmd = newCmd();
+                        if (!cmd)
+                        {
+                            assert(false);
+                            return nullptr;
+                        }
+                    }
+
+                    return cmd;
+                }
+
+                // Nullifying the head of the passed segment list is NOT the responsibility of deleteList.
+                inline void deleteList(CCommandSegment* head)
+                {
+                    if (!head)
+                        return;
+
+                    if (head == m_head)
+                        m_head = head->getNextHead();
+
+                    CCommandSegment::linkHeads(head->getPrevHead(), head->getNextHead());
+
+                    for (auto& segment = head; segment;)
+                    {
+                        auto nextSegment = segment->getNext();
+                        segment->~CCommandSegment();
+                        m_pool.deallocate(segment, COMMAND_SEGMENT_SIZE);
+                        segment = nextSegment;
+                    }
+                }
+
+                inline void clear()
+                {
+                    for (auto* currHead = m_head; currHead;)
+                    {
+                        auto* nextHead = currHead->getNextHead();
+                        // We don't (and also can't) nullify the tail here because when the command buffer detects that its parent pool has been resetted
+                        // it nullifies both head and tail itself.
+                        deleteList(currHead);
+                        currHead = nextHead;
+                    }
+
+                    m_head = nullptr;
+                }
+
+            private:
+                inline bool appendToList(SCommandSegmentList& list)
+                {
+                    auto segment = m_pool.emplace<CCommandSegment>(list.tail);
+                    if (!segment)
+                    {
+                        assert(false);
+                        return false;
+                    }
+
+                    if (!list.tail)
+                    {
+                        assert(!list.head && "List should've been empty.");
+
+                        list.head = segment;
+
+                        CCommandSegment::linkHeads(segment, m_head);
+                        m_head = segment;
+                    }
+                    list.tail = segment;
+                    return true;
+                }
+
+                CCommandSegment* m_head = nullptr;
+        
+                template <typename T>
+                using pool_alignment = core::aligned_allocator<T,COMMAND_SEGMENT_ALIGNMENT>;
+                core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, pool_alignment, false, uint32_t> m_pool;
         };
 
-        CCommandSegmentListPool() : m_pool(COMMAND_SEGMENTS_PER_BLOCK*COMMAND_SEGMENT_SIZE, 0u, MAX_COMMAND_SEGMENT_BLOCK_COUNT, MIN_POOL_ALLOC_SIZE) {}
-
-        template <typename Cmd, typename... Args>
-        Cmd* emplace(SCommandSegmentList& list, Args&&... args)
-        {
-            if (!list.tail && !appendToList(list))
-                return nullptr;
-
-            // not forwarding twice because newCmd() will never be called the second time
-            auto newCmd = [&]() -> Cmd*
-            {
-                auto cmdMem = list.tail->allocate<Cmd>(args...);
-                if (!cmdMem)
-                    return nullptr;
-
-                return new (cmdMem) Cmd(std::forward<Args>(args)...);
-            };
-
-            auto cmd = newCmd();
-            if (!cmd)
-            {
-                if (!appendToList(list))
-                    return nullptr;
-
-                cmd = newCmd();
-                if (!cmd)
-                {
-                    assert(false);
-                    return nullptr;
-                }
-            }
-
-            return cmd;
-        }
-
-        // Nullifying the head of the passed segment list is NOT the responsibility of deleteList.
-        inline void deleteList(CCommandSegment* head)
-        {
-            if (!head)
-                return;
-
-            if (head == m_head)
-                m_head = head->getNextHead();
-
-            CCommandSegment::linkHeads(head->getPrevHead(), head->getNextHead());
-
-            for (auto& segment = head; segment;)
-            {
-                auto nextSegment = segment->getNext();
-                segment->~CCommandSegment();
-                m_pool.deallocate(segment, COMMAND_SEGMENT_SIZE);
-                segment = nextSegment;
-            }
-        }
-
-        inline void clear()
-        {
-            for (auto* currHead = m_head; currHead;)
-            {
-                auto* nextHead = currHead->getNextHead();
-                // We don't (and also can't) nullify the tail here because when the command buffer detects that its parent pool has been resetted
-                // it nullifies both head and tail itself.
-                deleteList(currHead);
-                currHead = nextHead;
-            }
-
-            m_head = nullptr;
-        }
-
-    private:
-        inline bool appendToList(SCommandSegmentList& list)
-        {
-            auto segment = m_pool.emplace<CCommandSegment>(list.tail);
-            if (!segment)
-            {
-                assert(false);
-                return false;
-            }
-
-            if (!list.tail)
-            {
-                assert(!list.head && "List should've been empty.");
-
-                list.head = segment;
-
-                CCommandSegment::linkHeads(segment, m_head);
-                m_head = segment;
-            }
-            list.tail = segment;
-            return true;
-        }
-
-        CCommandSegment* m_head = nullptr;
-        
-        template <typename T>
-        using pool_alignment = core::aligned_allocator<T,COMMAND_SEGMENT_ALIGNMENT>;
-        core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, pool_alignment, false, uint32_t> m_pool;
-    };
-
-    friend class IGPUCommandBuffer;
-    CCommandSegmentListPool m_commandListPool;
+        std::atomic_uint64_t m_resetCount = 0;
+        CCommandSegmentListPool m_commandListPool;
 };
 
 class IGPUCommandPool::CBindIndexBufferCmd final : public IFixedSizeCommand<CBindIndexBufferCmd>

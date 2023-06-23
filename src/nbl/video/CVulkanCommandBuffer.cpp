@@ -55,18 +55,18 @@ bool CVulkanCommandBuffer::updateBuffer_impl(const asset::SBufferRange<IGPUBuffe
 
 bool CVulkanCommandBuffer::copyBuffer_impl(const IGPUBuffer* const srcBuffer, IGPUBuffer* const dstBuffer, const uint32_t regionCount, const video::IGPUCommandBuffer::SBufferCopy* const pRegions)
 {
-    const VkBuffer vk_srcBuffer = static_cast<const CVulkanBuffer*>(srcBuffer)->getInternalObject();
-    const VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
-
-    // TODO: replace all vectors by `std::array` or `std::span` views over temporary/scratch memory owned by command pool!
-    core::vector<VkBufferCopy> vk_bufferCopyRegions(regionCount);
-    for (uint32_t i = 0u; i < regionCount; ++i)
+    IGPUCommandPool::StackAllocation<VkBufferCopy> vk_bufferCopyRegions(m_cmdpool,regionCount);
+    if (!vk_bufferCopyRegions)
+        return false;
+    for (uint32_t i=0u; i<regionCount; ++i)
     {
         vk_bufferCopyRegions[i].srcOffset = pRegions[i].srcOffset;
         vk_bufferCopyRegions[i].dstOffset = pRegions[i].dstOffset;
         vk_bufferCopyRegions[i].size = pRegions[i].size;
     }
 
+    const VkBuffer vk_srcBuffer = static_cast<const CVulkanBuffer*>(srcBuffer)->getInternalObject();
+    const VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
     getFunctionTable().vkCmdCopyBuffer(m_cmdbuf, vk_srcBuffer, vk_dstBuffer, regionCount, vk_bufferCopyRegions.data());
     return true;
 }
@@ -84,7 +84,9 @@ static inline VkImageSubresourceRange getVkImageSubresourceRangeFrom(const IGPUI
 
 bool CVulkanCommandBuffer::clearColorImage_impl(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges)
 {
-    core::vector<VkImageSubresourceRange> vk_ranges(rangeCount);
+    IGPUCommandPool::StackAllocation<VkImageSubresourceRange> vk_ranges(m_cmdpool,rangeCount);
+    if (!vk_ranges)
+        return false;
     for (uint32_t i=0u; i<rangeCount; ++i)
         vk_ranges[i] = getVkImageSubresourceRangeFrom(pRanges[i]);
 
@@ -98,14 +100,16 @@ bool CVulkanCommandBuffer::clearColorImage_impl(IGPUImage* const image, const IG
 
 bool CVulkanCommandBuffer::clearDepthStencilImage_impl(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearDepthStencilValue* const pDepthStencil, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges)
 {
-    VkImageSubresourceRange vk_ranges[MAX_COUNT];
+    IGPUCommandPool::StackAllocation<VkImageSubresourceRange> vk_ranges(m_cmdpool,rangeCount);
+    if (!vk_ranges)
+        return false;
     for (uint32_t i=0u; i<rangeCount; ++i)
         vk_ranges[i] = getVkImageSubresourceRangeFrom(pRanges[i]);
 
     getFunctionTable().vkCmdClearDepthStencilImage(
         m_cmdbuf,static_cast<const CVulkanImage*>(image)->getInternalObject(),
         getVkImageLayoutFromImageLayout(imageLayout),reinterpret_cast<const VkClearDepthStencilValue*>(pDepthStencil),
-        rangeCount,vk_ranges
+        rangeCount,vk_ranges.data()
     );
     return true;
 }
