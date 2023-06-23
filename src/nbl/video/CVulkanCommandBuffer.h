@@ -25,26 +25,30 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             : IGPUCommandBuffer(std::move(logicalDevice), level, std::move(commandPool), std::move(logger)), m_cmdbuf(_vkcmdbuf)
         {}
 
-        bool begin_impl(const core::bitflag<USAGE> recordingFlags, const SInheritanceInfo* const inheritanceInfo) override;
+	    inline const void* getNativeHandle() const override {return &m_cmdbuf;}
+        VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
 
+    private:
+        inline void checkForParentPoolReset_impl() const override {}
+
+        bool begin_impl(const core::bitflag<USAGE> recordingFlags, const SInheritanceInfo* const inheritanceInfo) override;
         inline bool end_impl() override
         {
             const VkResult retval = getFunctionTable().vkEndCommandBuffer(m_cmdbuf);
             return retval==VK_SUCCESS;
         }
-
         inline bool reset_impl(const core::bitflag<RESET_FLAGS> flags) override
         {
             const VkResult result = getFunctionTable().vkResetCommandBuffer(m_cmdbuf,static_cast<VkCommandBufferResetFlags>(flags.value));
             return result==VK_SUCCESS;
         }
 
-        inline void checkForParentPoolReset_impl() const override {}
+        //bool setDeviceMask_impl(uint32_t deviceMask);
 
-        // TODO: rest of methods go to Arek
-    
-	    inline const void* getNativeHandle() const override {return &m_cmdbuf;}
-        VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
+        bool setEvent_impl(IEvent* const _event, const SEventDependencyInfo& depInfo) override;
+        bool resetEvent_impl(IEvent* const _event, const core::bitflag<stage_flags_t> stageMask) override;
+        bool waitEvents_impl(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos) override;
+        bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo) override;
 
         bool fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data) override;
         bool updateBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const void* const pData) override;
@@ -97,8 +101,6 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) override;
 
         bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;
-
-        void checkForParentPoolReset_impl() const override;
 
     private:
         const VolkDeviceTable& getFunctionTable() const;

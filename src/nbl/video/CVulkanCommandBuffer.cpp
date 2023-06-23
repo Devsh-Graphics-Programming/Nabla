@@ -41,6 +41,153 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
     return getFunctionTable().vkBeginCommandBuffer(m_cmdbuf,&beginInfo)==VK_SUCCESS;
 }
 
+
+template<typename vk_barrier_t, typename ResourceBarrier>
+void fill(vk_barrier_t& out, const ResourceBarrier& in, const uint32_t selfQueueFamilyIndex)
+{
+    out.srcQueueFamilyIndex = selfQueueFamilyIndex;
+    out.dstQueueFamilyIndex = selfQueueFamilyIndex;
+    const asset::SMemoryBarrier* memoryBarrier;
+    if constexpr (std::is_same_v<IGPUCommandBuffer::SOwnershipTransferBarrier,ResourceBarrier>)
+    {
+        memoryBarrier = &in.dep;
+        if (in.otherQueueFamilyIndex!=IQueue::FamilyIgnored)
+        switch (in.ownershipOp)
+        {
+            case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::RELEASE:
+                out.dstQueueFamilyIndex = in.otherQueueFamilyIndex;
+                break;
+            case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::ACQUIRE:
+                out.srcQueueFamilyIndex = in.otherQueueFamilyIndex;
+                break;
+        }
+    }
+    else
+        memoryBarrier = &in;
+    out.srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(memoryBarrier->srcStageMask);
+    out.srcAccessMask = getVkAccessFlagsFromAccessFlags(memoryBarrier->srcAccessMask);
+    out.dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(memoryBarrier->dstStageMask);
+    out.dstAccessMask = getVkAccessFlagsFromAccessFlags(memoryBarrier->dstAccessMask);
+}
+template<typename ResourceBarrier>
+VkDependencyInfoKHR fill(
+    VkMemoryBarrier2KHR* memoryBarriers, VkBufferMemoryBarrier2KHR* bufferBarriers, VkImageMemoryBarrier2KHR* imageBarriers,
+    const IGPUCommandBuffer::SDependencyInfo<ResourceBarrier>& depInfo, const uint32_t selfQueueFamilyIndex=IQueue::FamilyIgnored
+) {
+    VkDependencyInfoKHR info = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,nullptr };
+    for (auto i=0; i<depInfo.memBarrierCount; i++)
+    {
+        auto& out = memoryBarriers[i];
+        out.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR;
+        out.pNext = nullptr;
+        fill(out,depInfo.memBarriers[i],selfQueueFamilyIndex);
+    }
+    for (auto i=0; i<depInfo.bufBarrierCount; i++)
+    {
+        auto& out = bufferBarriers[i];
+        out.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2_KHR;
+        out.pNext = nullptr;
+
+        const auto& in = depInfo.bufBarriers[i];
+        fill(out,in.barrier,selfQueueFamilyIndex);
+        out.buffer = static_cast<const CVulkanBuffer*>(in.range.buffer.get())->getInternalObject();
+        out.offset = in.range.offset;
+        out.size = in.range.size;
+    }
+    for (auto i=0; i<depInfo.imgBarrierCount; i++)
+    {
+        auto& out = imageBarriers[i];
+        out.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
+        out.pNext = nullptr;
+
+        const auto& in = depInfo.imgBarriers[i];
+        out.oldLayout = getVkImageLayoutFromImageLayout(in.oldLayout);
+        out.newLayout = getVkImageLayoutFromImageLayout(in.newLayout);
+        fill(out,in.barrier,selfQueueFamilyIndex);
+        out.image = static_cast<const CVulkanImage*>(in.image)->getInternalObject();
+        out.subresourceRange = in.subresourceRange;
+    }
+    info.dependencyFlags = 0u;
+    info.memoryBarrierCount = depInfo.memBarrierCount;
+    info.pMemoryBarriers = memoryBarriers;
+    info.bufferMemoryBarrierCount = depInfo.bufBarrierCount;
+    info.pBufferMemoryBarriers = bufferBarriers;
+    info.imageMemoryBarrierCount = depInfo.imgBarrierCount;
+    info.pImageMemoryBarriers = imageBarriers;
+    return info;
+}
+
+bool CVulkanCommandBuffer::setEvent_impl(IEvent* const _event, const SEventDependencyInfo& depInfo)
+{
+    IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,depInfo.memBarrierCount);
+    IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,depInfo.bufBarrierCount);
+    IGPUCommandPool::StackAllocation<VkImageMemoryBarrier2KHR> imageBarriers(m_cmdpool,depInfo.imgBarrierCount);
+    if (!memoryBarriers || !bufferBarriers || !imageBarriers)
+        return false;
+
+    auto info = fill(memoryBarriers.data(),bufferBarriers.data(),imageBarriers.data(),depInfo);
+    getFunctionTable().vkCmdSetEvent2KHR(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),&info);
+    return true;
+}
+
+bool CVulkanCommandBuffer::resetEvent_impl(IEvent* const _event, const core::bitflag<stage_flags_t> stageMask)
+{
+    getFunctionTable().vkCmdResetEvent2KHR(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
+    return true;
+}
+
+bool CVulkanCommandBuffer::waitEvents_impl(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos)
+{
+    IGPUCommandPool::StackAllocation<VkEvent> events(m_cmdpool,eventCount);
+    IGPUCommandPool::StackAllocation<VkDependencyInfoKHR> infos(m_cmdpool,eventCount);
+    if (!events || !infos)
+        return false;
+
+    uint32_t memBarrierCount = 0u;
+    uint32_t bufBarrierCount = 0u;
+    uint32_t imgBarrierCount = 0u;
+    for (auto i=0u; i<eventCount; i++)
+    {
+        memBarrierCount += depInfos[i].memBarrierCount;
+        bufBarrierCount += depInfos[i].bufBarrierCount;
+        imgBarrierCount += depInfos[i].imgBarrierCount;
+    }
+    IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,memBarrierCount);
+    IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,bufBarrierCount);
+    IGPUCommandPool::StackAllocation<VkImageMemoryBarrier2KHR> imageBarriers(m_cmdpool,imgBarrierCount);
+    if (!memoryBarriers || !bufferBarriers || !imageBarriers)
+        return false;
+
+    memBarrierCount = 0u;
+    bufBarrierCount = 0u;
+    imgBarrierCount = 0u;
+    for (auto i=0u; i<eventCount; i++)
+    {
+        events[i] = static_cast<CVulkanEvent*>(pEvents[i])->getInternalObject();
+        infos[i] = fill(memoryBarriers.data()+memBarrierCount,bufferBarriers.data()+bufBarrierCount,imageBarriers.data()+imgBarrierCount,depInfos[i]);
+        memBarrierCount += infos[i].memoryBarrierCount;
+        bufBarrierCount += infos[i].bufferMemoryBarrierCount;
+        imgBarrierCount += infos[i].imageMemoryBarrierCount;
+    }
+    getFunctionTable().vkCmdWaitEvents2KHR(m_cmdbuf,eventCount,events.data(),infos.data());
+    return true;
+}
+
+bool CVulkanCommandBuffer::pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo)
+{
+    IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,depInfo.memBarrierCount);
+    IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,depInfo.bufBarrierCount);
+    IGPUCommandPool::StackAllocation<VkImageMemoryBarrier2KHR> imageBarriers(m_cmdpool,depInfo.imgBarrierCount);
+    if (!memoryBarriers || !bufferBarriers || !imageBarriers)
+        return false;
+
+    auto info = fill(memoryBarriers.data(),bufferBarriers.data(),imageBarriers.data(),depInfo,m_cmdpool->getQueueFamilyIndex());
+    info.dependencyFlags = static_cast<VkDependencyFlagBits>(dependencyFlags.value);
+    getFunctionTable().vkCmdPipelineBarrier2KHR(m_cmdbuf,&info);
+    return true;
+}
+
+
 bool CVulkanCommandBuffer::fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data)
 {
     getFunctionTable().vkCmdFillBuffer(m_cmdbuf,static_cast<const CVulkanBuffer*>(range.buffer.get())->getInternalObject(),range.offset,range.size,data);
@@ -191,22 +338,17 @@ bool CVulkanCommandBuffer::copyImage_impl(const IGPUImage* const srcImage, const
 
 bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
-    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-    VkDevice vk_device = vulkanDevice->getInternalObject();
-    auto* vk = vulkanDevice->getFunctionTable();
-
-    VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(vk_device, vk, copyInfo);
-    getFunctionTable().vkCmdCopyAccelerationStructureKHR(m_cmdbuf, &info);
+    VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR, nullptr };
+    info.mode = CVulkanAccelerationStructure::getVkCopyAccelerationStructureModeFrom(copyInfo.copyMode);
+    info.src = static_cast<const CVulkanAccelerationStructure*>(copyInfo.src)->getInternalObject();
+    info.dst = static_cast<CVulkanAccelerationStructure*>(copyInfo.dst)->getInternalObject();
+    getFunctionTable().vkCmdCopyAccelerationStructureKHR(m_cmdbuf,&info);
     return true;
 }
-
+#if 0
 bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
 {
-    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-    VkDevice vk_device = vulkanDevice->getInternalObject();
-    auto* vk = vulkanDevice->getFunctionTable();
-
-    VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(vk_device, vk, copyInfo);
+    VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(vk_device,copyInfo);
     getFunctionTable().vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf, &info);
     return true;
 }
@@ -295,7 +437,7 @@ bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect_impl(const core::
 
     return true;
 }
-
+#endif
 
 bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* const pipeline)
 {
@@ -560,66 +702,42 @@ bool CVulkanCommandBuffer::clearAttachments_impl(const SClearAttachments& info)
 bool CVulkanCommandBuffer::draw_impl(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance)
 {
     getFunctionTable().vkCmdDraw(m_cmdbuf, vertexCount, instanceCount, firstVertex, firstInstance);
-
     return true;
 }
 
 bool CVulkanCommandBuffer::drawIndexed_impl(const uint32_t indexCount, const uint32_t instanceCount, const uint32_t firstIndex, const int32_t vertexOffset, const uint32_t firstInstance)
 {
     getFunctionTable().vkCmdDrawIndexed(m_cmdbuf, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-    
     return true;
 }
 
 bool CVulkanCommandBuffer::drawIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
-    getFunctionTable().vkCmdDrawIndirect(
-        m_cmdbuf,
-        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(binding.offset),
-        drawCount,
-        stride);
-
+    getFunctionTable().vkCmdDrawIndirect(m_cmdbuf,static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),binding.offset,drawCount,stride);
     return true;
 }
 
 bool CVulkanCommandBuffer::drawIndexedIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
-    getFunctionTable().vkCmdDrawIndexedIndirect(
-        m_cmdbuf,
-        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(binding.offset),
-        drawCount,
-        stride);
-
+    getFunctionTable().vkCmdDrawIndexedIndirect(m_cmdbuf,static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),binding.offset,drawCount,stride);
     return true;
 }
 
 bool CVulkanCommandBuffer::drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
     getFunctionTable().vkCmdDrawIndirectCount(
-        m_cmdbuf,
-        static_cast<const CVulkanBuffer*>(indirectBinding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(indirectBinding.offset),
-        static_cast<const CVulkanBuffer*>(countBinding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(countBinding.offset),
-        maxDrawCount,
-        stride);
-
+        m_cmdbuf,static_cast<const CVulkanBuffer*>(indirectBinding.buffer.get())->getInternalObject(),indirectBinding.offset,
+        static_cast<const CVulkanBuffer*>(countBinding.buffer.get())->getInternalObject(),countBinding.offset,maxDrawCount,stride
+    );
     return true;
 }
 
 bool CVulkanCommandBuffer::drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
     getFunctionTable().vkCmdDrawIndexedIndirectCount(
-        m_cmdbuf,
-        static_cast<const CVulkanBuffer*>(indirectBinding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(indirectBinding.offset),
-        static_cast<const CVulkanBuffer*>(countBinding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(countBinding.offset),
-        maxDrawCount,
-        stride);
-
+        m_cmdbuf,static_cast<const CVulkanBuffer*>(indirectBinding.buffer.get())->getInternalObject(),indirectBinding.offset,
+        static_cast<const CVulkanBuffer*>(countBinding.buffer.get())->getInternalObject(),countBinding.offset,maxDrawCount,stride
+    );
     return true;
 }
 
@@ -699,22 +817,14 @@ bool CVulkanCommandBuffer::resolveImage_impl(const IGPUImage* const srcImage, co
 
 bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
-    constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = (1ull << 12) / sizeof(void*);
-    assert(count <= MAX_COMMAND_BUFFER_COUNT);
-
-    VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
-
-    for (uint32_t i = 0u; i < count; ++i)
+    IGPUCommandPool::StackAllocation<VkCommandBuffer> vk_commandBuffers(m_cmdpool,count);
+    if (!vk_commandBuffers)
+        return false;
+    for (uint32_t i=0u; i<count; ++i)
         vk_commandBuffers[i] = static_cast<const CVulkanCommandBuffer*>(cmdbufs[i])->getInternalObject();
 
-    getFunctionTable().vkCmdExecuteCommands(m_cmdbuf, count, vk_commandBuffers);
-
+    getFunctionTable().vkCmdExecuteCommands(m_cmdbuf, count, vk_commandBuffers.data());
     return true;
-}
-
-void CVulkanCommandBuffer::checkForParentPoolReset_impl() const
-{
-
 }
 
 #if 0
@@ -736,145 +846,6 @@ bool CVulkanCommandBuffer::setViewport(uint32_t firstViewport, uint32_t viewport
 
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
     getFunctionTable().vkCmdSetViewport(m_cmdbuf, firstViewport, viewportCount, vk_viewports);
-    return true;
-}
-
-bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo)
-{
-    constexpr uint32_t MAX_EVENT_COUNT = (1u << 12) / sizeof(VkEvent);
-    assert(eventCount <= MAX_EVENT_COUNT);
-
-    constexpr uint32_t MAX_BARRIER_COUNT = 100u;
-    assert(depInfo->memBarrierCount <= MAX_BARRIER_COUNT);
-    assert(depInfo->bufBarrierCount <= MAX_BARRIER_COUNT);
-    assert(depInfo->imgBarrierCount <= MAX_BARRIER_COUNT);
-
-    VkEvent vk_events[MAX_EVENT_COUNT];
-    for (uint32_t i = 0u; i < eventCount; ++i)
-        vk_events[i] = static_cast<const CVulkanEvent*>(pEvents[i])->getInternalObject();
-
-    VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
-    for (uint32_t i = 0u; i < depInfo->memBarrierCount; ++i)
-    {
-        vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-        vk_memoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_memoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->memBarriers[i].srcAccessMask.value);
-        vk_memoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->memBarriers[i].dstAccessMask.value);
-    }
-
-    VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
-    for (uint32_t i = 0u; i < depInfo->bufBarrierCount; ++i)
-    {
-        vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_bufferMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->bufBarriers[i].barrier.srcAccessMask.value);
-        vk_bufferMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->bufBarriers[i].barrier.dstAccessMask.value);
-        vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = depInfo->bufBarriers[i].srcQueueFamilyIndex;
-        vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = depInfo->bufBarriers[i].dstQueueFamilyIndex;
-        vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(depInfo->bufBarriers[i].buffer.get())->getInternalObject();
-        vk_bufferMemoryBarriers[i].offset = depInfo->bufBarriers[i].offset;
-        vk_bufferMemoryBarriers[i].size = depInfo->bufBarriers[i].size;
-    }
-
-    VkImageMemoryBarrier vk_imageMemoryBarriers[MAX_BARRIER_COUNT];
-    for (uint32_t i = 0u; i < depInfo->imgBarrierCount; ++i)
-    {
-        vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
-        vk_imageMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->imgBarriers[i].barrier.srcAccessMask.value);
-        vk_imageMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(depInfo->imgBarriers[i].barrier.dstAccessMask.value);
-        vk_imageMemoryBarriers[i].oldLayout = getVkImageLayoutFromImageLayout(depInfo->imgBarriers[i].oldLayout);
-        vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(depInfo->imgBarriers[i].newLayout);
-        vk_imageMemoryBarriers[i].srcQueueFamilyIndex = depInfo->imgBarriers[i].srcQueueFamilyIndex;
-        vk_imageMemoryBarriers[i].dstQueueFamilyIndex = depInfo->imgBarriers[i].dstQueueFamilyIndex;
-        vk_imageMemoryBarriers[i].image = static_cast<const CVulkanImage*>(depInfo->imgBarriers[i].image.get())->getInternalObject();
-        vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(depInfo->imgBarriers[i].subresourceRange.aspectMask.value);
-        vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = depInfo->imgBarriers[i].subresourceRange.baseMipLevel;
-        vk_imageMemoryBarriers[i].subresourceRange.levelCount = depInfo->imgBarriers[i].subresourceRange.levelCount;
-        vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = depInfo->imgBarriers[i].subresourceRange.baseArrayLayer;
-        vk_imageMemoryBarriers[i].subresourceRange.layerCount = depInfo->imgBarriers[i].subresourceRange.layerCount;
-    }
-
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    getFunctionTable().vkCmdWaitEvents(
-        m_cmdbuf,
-        eventCount,
-        vk_events,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // No way to get this!
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, // No way to get this!
-        depInfo->memBarrierCount,
-        vk_memoryBarriers,
-        depInfo->bufBarrierCount,
-        vk_bufferMemoryBarriers,
-        depInfo->imgBarrierCount,
-        vk_imageMemoryBarriers);
-
-    return true;
-}
-
-bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
-    core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
-    core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
-    uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
-    uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
-    uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers)
-{
-    constexpr uint32_t MAX_BARRIER_COUNT = 100u;
-
-    assert(memoryBarrierCount <= MAX_BARRIER_COUNT);
-    assert(bufferMemoryBarrierCount <= MAX_BARRIER_COUNT);
-    assert(imageMemoryBarrierCount <= MAX_BARRIER_COUNT);
-
-    VkMemoryBarrier vk_memoryBarriers[MAX_BARRIER_COUNT];
-    for (uint32_t i = 0u; i < memoryBarrierCount; ++i)
-    {
-        vk_memoryBarriers[i] = { VK_STRUCTURE_TYPE_MEMORY_BARRIER };
-        vk_memoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_memoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(pMemoryBarriers[i].srcAccessMask.value);
-        vk_memoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(pMemoryBarriers[i].dstAccessMask.value);
-    }
-
-    VkBufferMemoryBarrier vk_bufferMemoryBarriers[MAX_BARRIER_COUNT];
-    for (uint32_t i = 0u; i < bufferMemoryBarrierCount; ++i)
-    {
-        vk_bufferMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-        vk_bufferMemoryBarriers[i].pNext = nullptr; // must be NULL
-        vk_bufferMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(pBufferMemoryBarriers[i].barrier.srcAccessMask.value);
-        vk_bufferMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(pBufferMemoryBarriers[i].barrier.dstAccessMask.value);
-        vk_bufferMemoryBarriers[i].srcQueueFamilyIndex = pBufferMemoryBarriers[i].srcQueueFamilyIndex;
-        vk_bufferMemoryBarriers[i].dstQueueFamilyIndex = pBufferMemoryBarriers[i].dstQueueFamilyIndex;
-        vk_bufferMemoryBarriers[i].buffer = static_cast<const CVulkanBuffer*>(pBufferMemoryBarriers[i].buffer.get())->getInternalObject();
-        vk_bufferMemoryBarriers[i].offset = pBufferMemoryBarriers[i].offset;
-        vk_bufferMemoryBarriers[i].size = pBufferMemoryBarriers[i].size;
-    }
-
-    VkImageMemoryBarrier vk_imageMemoryBarriers[MAX_BARRIER_COUNT];
-    for (uint32_t i = 0u; i < imageMemoryBarrierCount; ++i)
-    {
-        vk_imageMemoryBarriers[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        vk_imageMemoryBarriers[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkSampleLocationsInfoEXT
-        vk_imageMemoryBarriers[i].srcAccessMask = getVkAccessFlagsFromAccessFlags(pImageMemoryBarriers[i].barrier.srcAccessMask.value);
-        vk_imageMemoryBarriers[i].dstAccessMask = getVkAccessFlagsFromAccessFlags(pImageMemoryBarriers[i].barrier.dstAccessMask.value);
-        vk_imageMemoryBarriers[i].oldLayout = getVkImageLayoutFromImageLayout(pImageMemoryBarriers[i].oldLayout);
-        vk_imageMemoryBarriers[i].newLayout = getVkImageLayoutFromImageLayout(pImageMemoryBarriers[i].newLayout);
-        vk_imageMemoryBarriers[i].srcQueueFamilyIndex = pImageMemoryBarriers[i].srcQueueFamilyIndex;
-        vk_imageMemoryBarriers[i].dstQueueFamilyIndex = pImageMemoryBarriers[i].dstQueueFamilyIndex;
-        vk_imageMemoryBarriers[i].image = static_cast<const CVulkanImage*>(pImageMemoryBarriers[i].image.get())->getInternalObject();
-        vk_imageMemoryBarriers[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(pImageMemoryBarriers[i].subresourceRange.aspectMask.value);
-        vk_imageMemoryBarriers[i].subresourceRange.baseMipLevel = pImageMemoryBarriers[i].subresourceRange.baseMipLevel;
-        vk_imageMemoryBarriers[i].subresourceRange.levelCount = pImageMemoryBarriers[i].subresourceRange.levelCount;
-        vk_imageMemoryBarriers[i].subresourceRange.baseArrayLayer = pImageMemoryBarriers[i].subresourceRange.baseArrayLayer;
-        vk_imageMemoryBarriers[i].subresourceRange.layerCount = pImageMemoryBarriers[i].subresourceRange.layerCount;
-    }
-
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    getFunctionTable().vkCmdPipelineBarrier(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(srcStageMask.value),
-        getVkPipelineStageFlagsFromPipelineStageFlags(dstStageMask.value),
-        static_cast<VkDependencyFlags>(dependencyFlags.value),
-        memoryBarrierCount, vk_memoryBarriers,
-        bufferMemoryBarrierCount, vk_bufferMemoryBarriers,
-        imageMemoryBarrierCount, vk_imageMemoryBarriers);
-
     return true;
 }
 

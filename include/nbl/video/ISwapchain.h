@@ -130,7 +130,7 @@ class ISwapchain : public core::IReferenceCounted, public IBackendObject
         // Vulkan: const VkSwapchainKHR*
         virtual const void* getNativeHandle() const = 0;
 
-    protected:
+    protected: // TODO: move all definitions to a .cpp
         inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount)
             : IBackendObject(std::move(dev)), m_params(std::move(params)), m_imageCount(imageCount), m_imgCreationParams{}
         {

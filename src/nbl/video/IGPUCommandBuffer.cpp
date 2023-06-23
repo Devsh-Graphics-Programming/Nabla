@@ -203,7 +203,7 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>
     return false;
 }
 
-bool IGPUCommandBuffer::setEvent(IGPUEvent* _event, const SEventDependencyInfo& depInfo)
+bool IGPUCommandBuffer::setEvent(IEvent* _event, const SEventDependencyInfo& depInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -216,13 +216,13 @@ bool IGPUCommandBuffer::setEvent(IGPUEvent* _event, const SEventDependencyInfo& 
     if (invalidDependency(depInfo))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CSetEventCmd>(m_commandList, core::smart_refctd_ptr<const IGPUEvent>(_event)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CSetEventCmd>(m_commandList, core::smart_refctd_ptr<const IEvent>(_event)))
         return false;
 
     return setEvent_impl(_event,depInfo);
 }
 
-bool IGPUCommandBuffer::resetEvent(IGPUEvent* _event, const core::bitflag<stage_flags_t> stageMask)
+bool IGPUCommandBuffer::resetEvent(IEvent* _event, const core::bitflag<stage_flags_t> stageMask)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -244,13 +244,13 @@ bool IGPUCommandBuffer::resetEvent(IGPUEvent* _event, const core::bitflag<stage_
     if (!getOriginDevice()->supportsMask(m_cmdpool->getQueueFamilyIndex(),stageMask))
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetEventCmd>(m_commandList,core::smart_refctd_ptr<const IGPUEvent>(_event)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetEventCmd>(m_commandList,core::smart_refctd_ptr<const IEvent>(_event)))
         return false;
 
     return resetEvent_impl(_event,stageMask);
 }
 
-bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SEventDependencyInfo* depInfos)
+bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -827,7 +827,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<
 
 bool IGPUCommandBuffer::copyQueryPoolResults(
     const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
-    const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
+    const asset::SBufferBinding<IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;

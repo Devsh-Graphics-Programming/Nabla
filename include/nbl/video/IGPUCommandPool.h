@@ -25,7 +25,8 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         template<typename T> friend class StackAllocation;
         static inline constexpr uint32_t SCRATCH_MEMORY_SIZE = 1u<<20u;
         alignas(_NBL_SIMD_ALIGNMENT) uint8_t m_scratch[SCRATCH_MEMORY_SIZE];
-        core::StackAddressAllocatorST<uint32_t> m_scratchAlloc;
+        // should be using `StackAddressAllocatorST` but I want to skip using any reserved space just for validation
+        core::LinearAddressAllocatorST<uint32_t> m_scratchAlloc;
 
         static inline constexpr uint32_t COMMAND_ALIGNMENT = 64u;
         static inline constexpr uint32_t COMMAND_SEGMENT_ALIGNMENT = 64u;
@@ -53,10 +54,10 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
                 inline ~StackAllocation()
                 {
                     if (m_size && bool(*this))
-                        m_pool->m_scratchAlloc.free_addr(m_addr,m_size);
+                        m_pool->m_scratchAlloc.reset(m_addr); // I know what I'm doing, this is basically a "no validation" StackAddressAllocator
                 }
 
-                inline operator bool() const {return addr!=core::StackAddressAllocatorST<uint32_t>::invalid_address;}
+                inline operator bool() const {return m_addr!=decltype(m_pool->m_scratchAlloc)::invalid_address; }
 
                 inline auto size() const {return m_size;}
 
@@ -310,8 +311,7 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 
     protected:
         IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<CREATE_FLAGS> _flags, uint32_t _familyIx)
-            : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx)
-        {}
+            : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
 
         virtual ~IGPUCommandPool() = default;
 
