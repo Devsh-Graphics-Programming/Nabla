@@ -58,6 +58,8 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 
                 inline operator bool() const {return addr!=core::StackAddressAllocatorST<uint32_t>::invalid_address;}
 
+                inline auto size() const {return m_size;}
+
                 inline T* data() {return reinterpret_cast<T*>(m_pool->m_scratch);}
                 inline const T* data() const {return reinterpret_cast<const T*>(m_pool->m_scratch);}
 

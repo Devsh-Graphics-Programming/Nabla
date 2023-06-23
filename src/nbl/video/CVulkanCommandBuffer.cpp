@@ -71,11 +71,16 @@ bool CVulkanCommandBuffer::copyBuffer_impl(const IGPUBuffer* const srcBuffer, IG
     return true;
 }
 
-static inline VkImageSubresourceRange getVkImageSubresourceRangeFrom(const IGPUImage::SSubresourceRange& range)
+
+template<typename SubresourceRange>
+static inline auto getVkImageSubresourceFrom(const SubresourceRange& range) -> std::conditional_t<std::is_same_v<SubresourceRange,IGPUImage::SSubresourceRange>,VkImageSubresourceRange,VkImageSubresourceLayers>
 {
-    VkImageSubresourceRange retval = {};
+    constexpr bool rangeNotLayers =  std::is_same_v<SubresourceRange,IGPUImage::SSubresourceRange>;
+
+    std::conditional_t<rangeNotLayers,VkImageSubresourceRange,VkImageSubresourceLayers> retval = {};
     retval.aspectMask = static_cast<VkImageAspectFlags>(range.aspectMask.value);
-    retval.baseMipLevel = range.baseMipLevel;
+    if constexpr
+        retval.baseMipLevel = range.baseMipLevel;
     retval.levelCount = range.layerCount;
     retval.baseArrayLayer = range.baseArrayLayer;
     retval.layerCount = range.layerCount;
@@ -88,7 +93,7 @@ bool CVulkanCommandBuffer::clearColorImage_impl(IGPUImage* const image, const IG
     if (!vk_ranges)
         return false;
     for (uint32_t i=0u; i<rangeCount; ++i)
-        vk_ranges[i] = getVkImageSubresourceRangeFrom(pRanges[i]);
+        vk_ranges[i] = getVkImageSubresourceFrom(pRanges[i]);
 
     getFunctionTable().vkCmdClearColorImage(
         m_cmdbuf,static_cast<const CVulkanImage*>(image)->getInternalObject(),
@@ -104,7 +109,7 @@ bool CVulkanCommandBuffer::clearDepthStencilImage_impl(IGPUImage* const image, c
     if (!vk_ranges)
         return false;
     for (uint32_t i=0u; i<rangeCount; ++i)
-        vk_ranges[i] = getVkImageSubresourceRangeFrom(pRanges[i]);
+        vk_ranges[i] = getVkImageSubresourceFrom(pRanges[i]);
 
     getFunctionTable().vkCmdClearDepthStencilImage(
         m_cmdbuf,static_cast<const CVulkanImage*>(image)->getInternalObject(),
@@ -114,102 +119,75 @@ bool CVulkanCommandBuffer::clearDepthStencilImage_impl(IGPUImage* const image, c
     return true;
 }
 
+
+static inline VkBufferImageCopy getVkBufferImageCopy(const IGPUImage::SBufferCopy& region)
+{
+    VkBufferImageCopy retval = {};
+    retval.bufferOffset = region.bufferOffset;
+    retval.bufferRowLength = region.bufferRowLength;
+    retval.bufferImageHeight = region.bufferImageHeight;
+    retval.imageSubresource = getVkImageSubresourceFrom(region.imageSubresource);
+    // TODO: Make the regular old assignment operator work
+    retval.imageOffset = { static_cast<int32_t>(region.imageOffset.x), static_cast<int32_t>(region.imageOffset.y), static_cast<int32_t>(region.imageOffset.z) };
+    retval.imageExtent = { region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth };
+    return retval;
+}
+
 bool CVulkanCommandBuffer::copyBufferToImage_impl(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
 {
-    constexpr uint32_t MAX_REGION_COUNT = (1ull << 12) / sizeof(VkBufferImageCopy);
-    assert(regionCount <= MAX_REGION_COUNT);
-
-    VkBufferImageCopy vk_regions[MAX_REGION_COUNT];
-    for (uint32_t i = 0u; i < regionCount; ++i)
-    {
-        vk_regions[i].bufferOffset = pRegions[i].bufferOffset;
-        vk_regions[i].bufferRowLength = pRegions[i].bufferRowLength;
-        vk_regions[i].bufferImageHeight = pRegions[i].bufferImageHeight;
-        vk_regions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].imageSubresource.aspectMask.value);
-        vk_regions[i].imageSubresource.mipLevel = pRegions[i].imageSubresource.mipLevel;
-        vk_regions[i].imageSubresource.baseArrayLayer = pRegions[i].imageSubresource.baseArrayLayer;
-        vk_regions[i].imageSubresource.layerCount = pRegions[i].imageSubresource.layerCount;
-        vk_regions[i].imageOffset = { static_cast<int32_t>(pRegions[i].imageOffset.x), static_cast<int32_t>(pRegions[i].imageOffset.y), static_cast<int32_t>(pRegions[i].imageOffset.z) }; // Todo(achal): Make the regular old assignment operator work
-        vk_regions[i].imageExtent = { pRegions[i].imageExtent.width, pRegions[i].imageExtent.height, pRegions[i].imageExtent.depth }; // Todo(achal): Make the regular old assignment operator work
-    }
+    IGPUCommandPool::StackAllocation<VkBufferImageCopy> vk_regions(m_cmdpool,regionCount);
+    if (!vk_regions)
+        return false;
+    for (uint32_t i=0u; i<regionCount; ++i)
+        vk_regions[i] = getVkBufferImageCopy(pRegions[i]);
 
     getFunctionTable().vkCmdCopyBufferToImage(m_cmdbuf,
         static_cast<const video::CVulkanBuffer*>(srcBuffer)->getInternalObject(),
         static_cast<const video::CVulkanImage*>(dstImage)->getInternalObject(),
-        getVkImageLayoutFromImageLayout(dstImageLayout), regionCount, vk_regions);
+        getVkImageLayoutFromImageLayout(dstImageLayout), regionCount, vk_regions.data()
+    );
 
     return true;
 }
 
 bool CVulkanCommandBuffer::copyImageToBuffer_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
 {
-    VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
-    VkBuffer vk_dstBuffer = static_cast<const CVulkanBuffer*>(dstBuffer)->getInternalObject();
+    IGPUCommandPool::StackAllocation<VkBufferImageCopy> vk_regions(m_cmdpool,regionCount);
+    if (!vk_regions)
+        return false;
+    for (uint32_t i=0u; i<regionCount; ++i)
+        vk_regions[i] = getVkBufferImageCopy(pRegions[i]);
 
-    constexpr uint32_t MAX_REGION_COUNT = (1u << 12) / sizeof(VkBufferImageCopy);
-    VkBufferImageCopy vk_copyRegions[MAX_REGION_COUNT];
-    assert(regionCount <= MAX_REGION_COUNT);
-
-    for (uint32_t i = 0u; i < regionCount; ++i)
-    {
-        vk_copyRegions[i].bufferOffset = static_cast<VkDeviceSize>(pRegions[i].bufferOffset);
-        vk_copyRegions[i].bufferRowLength = pRegions[i].bufferRowLength;
-        vk_copyRegions[i].bufferImageHeight = pRegions[i].bufferImageHeight;
-        vk_copyRegions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].imageSubresource.aspectMask.value);
-        vk_copyRegions[i].imageSubresource.baseArrayLayer = pRegions[i].imageSubresource.baseArrayLayer;
-        vk_copyRegions[i].imageSubresource.layerCount = pRegions[i].imageSubresource.layerCount;
-        vk_copyRegions[i].imageSubresource.mipLevel = pRegions[i].imageSubresource.mipLevel;
-        vk_copyRegions[i].imageOffset = { static_cast<int32_t>(pRegions[i].imageOffset.x), static_cast<int32_t>(pRegions[i].imageOffset.y), static_cast<int32_t>(pRegions[i].imageOffset.z) };
-        vk_copyRegions[i].imageExtent = { pRegions[i].imageExtent.width, pRegions[i].imageExtent.height, pRegions[i].imageExtent.depth };
-    }
-
-    getFunctionTable().vkCmdCopyImageToBuffer(
-        m_cmdbuf,
-        vk_srcImage,
-        getVkImageLayoutFromImageLayout(srcImageLayout),
-        vk_dstBuffer,
-        regionCount,
-        vk_copyRegions);
-
+    getFunctionTable().vkCmdCopyImageToBuffer(m_cmdbuf,
+        static_cast<const video::CVulkanImage*>(srcImage)->getInternalObject(), getVkImageLayoutFromImageLayout(srcImageLayout),
+        static_cast<const video::CVulkanBuffer*>(dstBuffer)->getInternalObject(),regionCount,vk_regions.data()
+    );
     return true;
 }
 
 bool CVulkanCommandBuffer::copyImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions)
 {
-    constexpr uint32_t MAX_COUNT = (1u << 12) / sizeof(VkImageCopy);
-    assert(regionCount <= MAX_COUNT);
-
-    VkImageCopy vk_regions[MAX_COUNT];
-    for (uint32_t i = 0u; i < regionCount; ++i)
+    IGPUCommandPool::StackAllocation<VkImageCopy> vk_regions(m_cmdpool,regionCount);
+    if (!vk_regions)
+        return false;
+    for (uint32_t i=0u; i<regionCount; ++i)
     {
-        vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask.value);
-        vk_regions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
-        vk_regions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
-        vk_regions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
-
+        vk_regions[i].srcSubresource = getVkImageSubresourceFrom(pRegions[i].srcSubresource);
         vk_regions[i].srcOffset = { static_cast<int32_t>(pRegions[i].srcOffset.x), static_cast<int32_t>(pRegions[i].srcOffset.y), static_cast<int32_t>(pRegions[i].srcOffset.z) };
-
         vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask.value);
-        vk_regions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
-        vk_regions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
-        vk_regions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
-
+        vk_regions[i].dstSubresource = getVkImageSubresourceFrom(pRegions[i].dstSubresource);
         vk_regions[i].dstOffset = { static_cast<int32_t>(pRegions[i].dstOffset.x), static_cast<int32_t>(pRegions[i].dstOffset.y), static_cast<int32_t>(pRegions[i].dstOffset.z) };
-
         vk_regions[i].extent = { pRegions[i].extent.width, pRegions[i].extent.height, pRegions[i].extent.depth };
     }
 
-    getFunctionTable().vkCmdCopyImage(
-        m_cmdbuf,
-        static_cast<const CVulkanImage*>(srcImage)->getInternalObject(),
-        getVkImageLayoutFromImageLayout(srcImageLayout),
-        static_cast<const CVulkanImage*>(dstImage)->getInternalObject(),
-        getVkImageLayoutFromImageLayout(dstImageLayout),
-        regionCount,
-        vk_regions);
-
+    getFunctionTable().vkCmdCopyImage(m_cmdbuf,
+        static_cast<const CVulkanImage*>(srcImage)->getInternalObject(),getVkImageLayoutFromImageLayout(srcImageLayout),
+        static_cast<const CVulkanImage*>(dstImage)->getInternalObject(),getVkImageLayoutFromImageLayout(dstImageLayout),
+        regionCount,vk_regions.data()
+    );
     return true;
 }
+
 
 bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
@@ -218,8 +196,7 @@ bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAcceleration
     auto* vk = vulkanDevice->getFunctionTable();
 
     VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(vk_device, vk, copyInfo);
-    vk->vk.vkCmdCopyAccelerationStructureKHR(m_cmdbuf, &info);
-
+    getFunctionTable().vkCmdCopyAccelerationStructureKHR(m_cmdbuf, &info);
     return true;
 }
 
@@ -230,8 +207,7 @@ bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAcce
     auto* vk = vulkanDevice->getFunctionTable();
 
     VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(vk_device, vk, copyInfo);
-    vk->vk.vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf, &info);
-
+    getFunctionTable().vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf, &info);
     return true;
 }
 
@@ -242,10 +218,10 @@ bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const IGPUAc
     auto* vk = vulkanDevice->getFunctionTable();
 
     VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(vk_device, vk, copyInfo);
-    vk->vk.vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf, &info);
-
+    getFunctionTable().vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf, &info);
     return true;
 }
+
 
 bool CVulkanCommandBuffer::buildAccelerationStructures_impl(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const video::IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos)
 {
@@ -275,7 +251,7 @@ bool CVulkanCommandBuffer::buildAccelerationStructures_impl(const core::SRange<c
 
     static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
     auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
-    vk->vk.vkCmdBuildAccelerationStructuresKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, buildRangeInfos);
+    getFunctionTable().vkCmdBuildAccelerationStructuresKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, buildRangeInfos);
 
     return true;
 }
@@ -315,264 +291,180 @@ bool CVulkanCommandBuffer::buildAccelerationStructuresIndirect_impl(const core::
         vk_indirectDeviceAddresses[i] = addr.deviceAddress;
     }
 
-    vk->vk.vkCmdBuildAccelerationStructuresIndirectKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, vk_indirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
+    getFunctionTable().vkCmdBuildAccelerationStructuresIndirectKHR(m_cmdbuf, infoCount, vk_buildGeomsInfos, vk_indirectDeviceAddresses, pIndirectStrides, ppMaxPrimitiveCounts);
 
     return true;
 }
 
+
 bool CVulkanCommandBuffer::bindComputePipeline_impl(const IGPUComputePipeline* const pipeline)
 {
-    VkPipeline vk_pipeline = static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject();
-    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
-
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, static_cast<const CVulkanComputePipeline*>(pipeline)->getInternalObject());
     return true;
 }
 
 bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline)
 {
-    VkPipeline vk_pipeline = static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject();
-    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline);
-
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, static_cast<const CVulkanGraphicsPipeline*>(pipeline)->getInternalObject());
     return true;
 }
 
 bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets)
 {
-    VkPipelineLayout vk_pipelineLayout = static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject();
-
-    uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
-
     VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
-    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
-    {
-        if (pDescriptorSets[i] && pDescriptorSets[i]->getAPIType() == EAT_VULKAN)
-        {
-            vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
-
-            if (dynamicOffsets) // count dynamic offsets per set, if there are any
-            {
-                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC).getTotalCount();
-                dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC).getTotalCount();
-            }
-        }
-    }
-
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+    uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = { 0u };
 
     // We allow null descriptor sets in our bind function to skip a certain set number we don't use
     // Will bind [first, last) with one call
-    uint32_t dynamicOffsetsBindOffset = 0u;
-    uint32_t bindCallsCount = 0u;
-    uint32_t first = ~0u;
-    uint32_t last = ~0u;
-    for (uint32_t i = 0u; i < descriptorSetCount; ++i)
+    for (uint32_t i = 0u; i<descriptorSetCount; ++i)
+    if (pDescriptorSets[i])
     {
-        if (pDescriptorSets[i])
+        vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
+        // count dynamic offsets per set, if there are any
+        if (dynamicOffsets)
         {
-            if (first == last)
-            {
-                first = i;
-                last = first + 1;
-            }
-            else
-                ++last;
-
-            // Do a look ahead
-            if ((i + 1 >= descriptorSetCount) || !pDescriptorSets[i + 1])
-            {
-                if (dynamicOffsets)
-                {
-                    uint32_t dynamicOffsetCount = 0u;
-                    for (uint32_t setIndex = first; setIndex < last; ++setIndex)
-                        dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
-
-                    vk->vk.vkCmdBindDescriptorSets(
-                        m_cmdbuf,
-                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-                        vk_pipelineLayout,
-                        // firstSet + first, last - first, vk_descriptorSets + first, vk_dynamicOffsetCount, vk_dynamicOffsets);
-                        firstSet + first, last - first, vk_descriptorSets + first,
-                        dynamicOffsetCount, dynamicOffsets + dynamicOffsetsBindOffset);
-
-                    dynamicOffsetsBindOffset += dynamicOffsetCount;
-                }
-                else
-                {
-                    vk->vk.vkCmdBindDescriptorSets(
-                        m_cmdbuf,
-                        static_cast<VkPipelineBindPoint>(pipelineBindPoint),
-                        vk_pipelineLayout,
-                        firstSet + first, last - first, vk_descriptorSets + first, 0u, nullptr);
-                }
-
-                first = ~0u;
-                last = ~0u;
-                ++bindCallsCount;
-            }
+            dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC).getTotalCount();
+            dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC).getTotalCount();
         }
     }
 
-    // with K slots you need at most (K+1)/2 calls
-    assert(bindCallsCount <= (IGPUPipelineLayout::DESCRIPTOR_SET_COUNT + 1) / 2);
+    uint32_t bindCallsCount = 0u;
+    uint32_t dynamicOffsetsBindOffset = 0u;
+    uint32_t first = ~0u;
+    uint32_t last = ~0u;
+    const VkPipelineLayout vk_pipelineLayout = static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject();
+    for (uint32_t i=0u; i<descriptorSetCount; ++i)
+    if (pDescriptorSets[i])
+    {
+        if (first==last)
+            last = first = i;
+        ++last;
 
+        // Do a look ahead
+        const auto next = i+1;
+        if (next>=descriptorSetCount || !pDescriptorSets[next])
+        {
+            uint32_t dynamicOffsetCount = 0u;
+            for (auto setIndex=first; setIndex<last; ++setIndex)
+                dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
+
+            getFunctionTable().vkCmdBindDescriptorSets(
+                m_cmdbuf,static_cast<VkPipelineBindPoint>(pipelineBindPoint),vk_pipelineLayout,
+                firstSet+first, last-first, vk_descriptorSets+first,
+                dynamicOffsetCount, dynamicOffsets+dynamicOffsetsBindOffset
+            );
+            dynamicOffsetsBindOffset += dynamicOffsetCount;
+
+            first = last;
+            ++bindCallsCount;
+        }
+    }
+    // with K slots you need at most (K+1)/2 calls
+    assert(bindCallsCount < (IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1)/2);
     return true;
 }
 
-bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
+bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
 {
-    getFunctionTable().vkCmdPushConstants(m_cmdbuf,
-        static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),
-        getVkShaderStageFlagsFromShaderStage(stageFlags),
-        offset,
-        size,
-        pValues);
-
+    getFunctionTable().vkCmdPushConstants(m_cmdbuf,static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),getVkShaderStageFlagsFromShaderStage(stageFlags),offset,size,pValues);
     return true;
 }
 
 bool CVulkanCommandBuffer::bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings)
-{
-    constexpr uint32_t MaxBufferCount = asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
-    assert(bindingCount <= MaxBufferCount);
-    
-    VkBuffer vk_buffers[MaxBufferCount];
-    VkDeviceSize vk_offsets[MaxBufferCount];
+{    
+    VkBuffer vk_buffers[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
+    VkDeviceSize vk_offsets[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
 
     VkBuffer dummyBuffer = VK_NULL_HANDLE;
-    for (uint32_t i = 0u; i < bindingCount; ++i)
+    for (uint32_t i=0u; i<bindingCount; ++i)
     {
-        if (!pBindings[i].buffer || (pBindings[i].buffer->getAPIType() != EAT_VULKAN))
+        if (!pBindings[i].buffer)
         {
-            vk_buffers[i] = dummyBuffer;
+            vk_buffers[i] = VK_NULL_HANDLE;
             vk_offsets[i] = 0;
         }
         else
         {
-            VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(pBindings[i].buffer.get())->getInternalObject();
-            if (dummyBuffer == VK_NULL_HANDLE)
-                dummyBuffer = vk_buffer;
-
-            vk_buffers[i] = vk_buffer;
-            vk_offsets[i] = static_cast<VkDeviceSize>(pBindings[i].offset);
+            dummyBuffer = vk_buffers[i] = static_cast<const CVulkanBuffer*>(pBindings[i].buffer.get())->getInternalObject();
+            vk_offsets[i] = pBindings[i].offset;
         }
     }
-    for (uint32_t i = 0u; i < bindingCount; ++i)
-    {
-        if (vk_buffers[i] == VK_NULL_HANDLE)
-            vk_buffers[i] = dummyBuffer;
-    }
+    // backfill all invalids
+    for (uint32_t i=0u; i<bindingCount; ++i)
+    if (vk_buffers[i]==VK_NULL_HANDLE)
+        vk_buffers[i] = dummyBuffer;
 
-    getFunctionTable().vkCmdBindVertexBuffers(
-        m_cmdbuf,
-        firstBinding,
-        bindingCount,
-        vk_buffers,
-        vk_offsets);
-
+    getFunctionTable().vkCmdBindVertexBuffers(m_cmdbuf,firstBinding,bindingCount,vk_buffers,vk_offsets);
     return true;
 }
 
 bool CVulkanCommandBuffer::bindIndexBuffer_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType)
 {
-    assert(indexType < asset::EIT_UNKNOWN);
-
-    getFunctionTable().vkCmdBindIndexBuffer(
-        m_cmdbuf,
-        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(binding.offset),
-        static_cast<VkIndexType>(indexType));
-
+    assert(indexType<asset::EIT_UNKNOWN);
+    getFunctionTable().vkCmdBindIndexBuffer(m_cmdbuf,static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),binding.offset,static_cast<VkIndexType>(indexType));
     return true;
 }
 
 bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount)
 {
-    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-    getFunctionTable().vkCmdResetQueryPool(m_cmdbuf, vk_queryPool, firstQuery, queryCount);
-
+    getFunctionTable().vkCmdResetQueryPool(m_cmdbuf, static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery, queryCount);
     return true;
 }
 
 bool CVulkanCommandBuffer::beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE)
 {
-    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-    auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
-    getFunctionTable().vkCmdBeginQuery(m_cmdbuf, vk_queryPool, query, vk_flags);
-
+    const auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
+    getFunctionTable().vkCmdBeginQuery(m_cmdbuf, static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query, vk_flags);
     return true;
 }
 
 bool CVulkanCommandBuffer::endQuery_impl(IQueryPool* const queryPool, const uint32_t query)
 {
-    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-    getFunctionTable().vkCmdEndQuery(m_cmdbuf, vk_queryPool, query);
-
+    getFunctionTable().vkCmdEndQuery(m_cmdbuf, static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query);
     return true;
 }
 
-#if 0
 bool CVulkanCommandBuffer::writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query)
 {
-    assert(false)
-
-    /*
-
-    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-    auto vk_pipelineStageFlagBit = getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage); // leaving @devshgrapghicsprogramming, vk core uses VkPipelineStageFlagBits and Nabla VkPipelineStageFlagBits2
-    getFunctionTable().vkCmdWriteTimestamp(m_cmdbuf, vk_pipelineStageFlagBit, vk_queryPool, query);
-
+    getFunctionTable().vkCmdWriteTimestamp2KHR(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query);
     return true;
-
-    */
 }
-
-#endif
 
 bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
 {
-    // TODO: Use Better Containers
-    static constexpr size_t MaxAccelerationStructureCount = 128;
-    uint32_t asCount = static_cast<uint32_t>(pAccelerationStructures.size());
-    assert(asCount <= MaxAccelerationStructureCount);
-    auto accelerationStructures = pAccelerationStructures.begin();
+    IGPUCommandPool::StackAllocation<VkAccelerationStructureKHR> vk_accelerationStructures(m_cmdpool,pAccelerationStructures.size());
+    if (!vk_accelerationStructures)
+        return false;
+    for (size_t i=0; i<pAccelerationStructures.size(); ++i)
+        vk_accelerationStructures[i] = static_cast<const CVulkanAccelerationStructure*>(pAccelerationStructures[i])->getInternalObject();
 
-    VkAccelerationStructureKHR vk_accelerationStructures[MaxAccelerationStructureCount] = {};
-    for (size_t i = 0; i < asCount; ++i)
-        vk_accelerationStructures[i] = static_cast<CVulkanAccelerationStructure*>(&accelerationStructures[i])->getInternalObject();
-
-    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-    auto vk_queryType = CVulkanQueryPool::getVkQueryTypeFromQueryType(queryType);
-
-    getFunctionTable().vkCmdWriteAccelerationStructuresPropertiesKHR(m_cmdbuf, asCount, vk_accelerationStructures, vk_queryType, vk_queryPool, firstQuery);
-
+    getFunctionTable().vkCmdWriteAccelerationStructuresPropertiesKHR(
+        m_cmdbuf, vk_accelerationStructures.size(), vk_accelerationStructures.data(),
+        CVulkanQueryPool::getVkQueryTypeFromQueryType(queryType), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery
+    );
     return true;
 }
 
-bool CVulkanCommandBuffer::copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<const IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
+bool CVulkanCommandBuffer::copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
 {
-    auto vk_queryPool = static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject();
-    auto vk_dstBuffer = static_cast<CVulkanBuffer*>(dstBuffer.buffer.get())->getInternalObject();
-    auto vk_queryResultsFlags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value);
-
-    getFunctionTable().vkCmdCopyQueryPoolResults(m_cmdbuf, vk_queryPool, firstQuery, queryCount, vk_dstBuffer, dstBuffer.offset, static_cast<VkDeviceSize>(stride), vk_queryResultsFlags);
-
+    getFunctionTable().vkCmdCopyQueryPoolResults(
+        m_cmdbuf, static_cast<const CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery, queryCount,
+        static_cast<CVulkanBuffer*>(dstBuffer.buffer.get())->getInternalObject(), dstBuffer.offset, stride,
+        CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value)
+    );
     return true;
 }
+
 
 bool CVulkanCommandBuffer::dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ)
 {
     getFunctionTable().vkCmdDispatch(m_cmdbuf, groupCountX, groupCountY, groupCountZ);
-
     return true;
 }
 
 bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& binding)
 {
-    getFunctionTable().vkCmdDispatchIndirect(
-        m_cmdbuf,
-        static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),
-        static_cast<VkDeviceSize>(binding.offset));
-
+    getFunctionTable().vkCmdDispatchIndirect(m_cmdbuf,static_cast<const CVulkanBuffer*>(binding.buffer.get())->getInternalObject(),binding.offset);
     return true;
 }
 
@@ -653,7 +545,7 @@ bool CVulkanCommandBuffer::clearAttachments_impl(const SClearAttachments& info)
     }
 
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    vk->vk.vkCmdClearAttachments(
+    getFunctionTable().vkCmdClearAttachments(
         m_cmdbuf,
         attachmentCount,
         vk_clearAttachments,
@@ -843,7 +735,7 @@ bool CVulkanCommandBuffer::setViewport(uint32_t firstViewport, uint32_t viewport
     }
 
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    vk->vk.vkCmdSetViewport(m_cmdbuf, firstViewport, viewportCount, vk_viewports);
+    getFunctionTable().vkCmdSetViewport(m_cmdbuf, firstViewport, viewportCount, vk_viewports);
     return true;
 }
 
@@ -904,7 +796,7 @@ bool CVulkanCommandBuffer::waitEvents_impl(uint32_t eventCount, event_t* const* 
     }
 
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    vk->vk.vkCmdWaitEvents(
+    getFunctionTable().vkCmdWaitEvents(
         m_cmdbuf,
         eventCount,
         vk_events,
@@ -976,7 +868,7 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_
     }
 
     const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    vk->vk.vkCmdPipelineBarrier(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(srcStageMask.value),
+    getFunctionTable().vkCmdPipelineBarrier(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(srcStageMask.value),
         getVkPipelineStageFlagsFromPipelineStageFlags(dstStageMask.value),
         static_cast<VkDependencyFlags>(dependencyFlags.value),
         memoryBarrierCount, vk_memoryBarriers,
