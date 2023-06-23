@@ -55,7 +55,7 @@ class CNablaBuilder extends IBuilder
 	}
 	
 	@Override
-	public boolean deploy(Map axisMapping)
+	public boolean install(Map axisMapping)
 	{
 		return true
 	}
