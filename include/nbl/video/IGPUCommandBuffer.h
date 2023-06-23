@@ -7,7 +7,7 @@
 
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUCommandPool.h"
-#include "nbl/video/IGPUQueue.h"
+#include "nbl/video/IQueue.h"
 
 
 #define VK_NO_PROTOTYPES
@@ -159,7 +159,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
                 ACQUIRE = 1
             };
             OWNERSHIP_OP ownershipOp : 1 = OWNERSHIP_OP::ACQUIRE;
-            uint32_t otherQueueFamilyIndex : 31 = IGPUQueue::FamilyIgnored;
+            uint32_t otherQueueFamilyIndex : 31 = IQueue::FamilyIgnored;
         };
         using SPipelineBarrierDependencyInfo = SDependencyInfo<SOwnershipTransferBarrier>;
         bool pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo);
@@ -302,7 +302,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
 
     protected: 
-        friend class IGPUQueue;
+        friend class IQueue;
 
         IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger);
         virtual ~IGPUCommandBuffer()
@@ -455,7 +455,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             INSIDE = 0x2u,
             BOTH = OUTSIDE|INSIDE
         };
-        using queue_flags_t = IGPUQueue::FAMILY_FLAGS;
+        using queue_flags_t = IQueue::FAMILY_FLAGS;
         bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
 
         template<typename ResourceBarrier>
