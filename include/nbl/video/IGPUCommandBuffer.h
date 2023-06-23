@@ -145,9 +145,9 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         };
 
         using SEventDependencyInfo = SDependencyInfo<asset::SMemoryBarrier>;
-        bool setEvent(IGPUEvent* const _event, const SEventDependencyInfo& depInfo);
-        bool resetEvent(IGPUEvent* _event, const core::bitflag<stage_flags_t> stageMask);
-        bool waitEvents(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SEventDependencyInfo* depInfos);
+        bool setEvent(IEvent* const _event, const SEventDependencyInfo& depInfo);
+        bool resetEvent(IEvent* _event, const core::bitflag<stage_flags_t> stageMask);
+        bool waitEvents(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos);
         
         struct SOwnershipTransferBarrier
         {
@@ -346,9 +346,9 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 
 //        virtual bool setDeviceMask_impl(uint32_t deviceMask) { assert(!"Invalid code path"); return false; };
 
-        virtual bool setEvent_impl(IGPUEvent* const _event, const SEventDependencyInfo& depInfo) = 0;
-        virtual bool resetEvent_impl(IGPUEvent* const _event, const core::bitflag<stage_flags_t> stageMask) = 0;
-        virtual bool waitEvents_impl(const uint32_t eventCount, IGPUEvent* const* const pEvents, const SEventDependencyInfo* depInfos) = 0;
+        virtual bool setEvent_impl(IEvent* const _event, const SEventDependencyInfo& depInfo) = 0;
+        virtual bool resetEvent_impl(IEvent* const _event, const core::bitflag<stage_flags_t> stageMask) = 0;
+        virtual bool waitEvents_impl(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos) = 0;
         virtual bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo) = 0;
 
         virtual bool fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data) = 0;

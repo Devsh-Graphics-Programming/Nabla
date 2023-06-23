@@ -54,10 +54,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
         WAIT_RESULT waitForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll, const uint64_t timeout) override;
             
-        core::smart_refctd_ptr<IGPUEvent> createEvent(const IGPUEvent::CREATE_FLAGS flags) override;
-        IGPUEvent::STATUS getEventStatus(const IGPUEvent* const _event) override;
-        IGPUEvent::STATUS resetEvent(IGPUEvent* const _event) override;
-        IGPUEvent::STATUS setEvent(IGPUEvent* const _event) override;
+        core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) override;
               
     core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
     {

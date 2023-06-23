@@ -6,7 +6,7 @@
 #include "nbl/core/util/bitflag.h"
 #include "nbl/core/containers/CMemoryPool.h"
 
-#include "nbl/video/IGPUEvent.h"
+#include "nbl/video/IEvent.h"
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
@@ -665,16 +665,16 @@ class IGPUCommandPool::CExecuteCommandsCmd final : public IVariableSizeCommand<C
 class IGPUCommandPool::CWaitEventsCmd final : public IVariableSizeCommand<CWaitEventsCmd>
 {
     public:
-        CWaitEventsCmd(const uint32_t eventCount, IGPUEvent *const *const events, const uint32_t totalBufferCount, const uint32_t totalImageCount)
+        CWaitEventsCmd(const uint32_t eventCount, IEvent *const *const events, const uint32_t totalBufferCount, const uint32_t totalImageCount)
             : IVariableSizeCommand<CWaitEventsCmd>(eventCount,events,totalBufferCount,totalImageCount), m_eventCount(eventCount)
         {
             for (auto i=0u; i<eventCount; ++i)
-                getVariableCountResources()[i] = core::smart_refctd_ptr<const IGPUEvent>(events[i]);
+                getVariableCountResources()[i] = core::smart_refctd_ptr<const IEvent>(events[i]);
         }
 
         inline auto* getDeviceMemoryBacked() { return reinterpret_cast<core::smart_refctd_ptr<const IDeviceMemoryBacked>*>(getVariableCountResources()+m_eventCount); }
 
-        static uint32_t calc_resources(const uint32_t eventCount, const IGPUEvent *const *const, const uint32_t totalBufferCount, const uint32_t totalImageCount)
+        static uint32_t calc_resources(const uint32_t eventCount, const IEvent *const *const, const uint32_t totalBufferCount, const uint32_t totalImageCount)
         {
             return eventCount+totalBufferCount+totalImageCount;
         }
@@ -733,19 +733,19 @@ class IGPUCommandPool::CFillBufferCmd final : public IFixedSizeCommand<CFillBuff
 class IGPUCommandPool::CSetEventCmd final : public IFixedSizeCommand<CSetEventCmd>
 {
     public:
-        CSetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
+        CSetEventCmd(core::smart_refctd_ptr<const IEvent>&& _event) : m_event(std::move(_event)) {}
 
     private:
-        core::smart_refctd_ptr<const IGPUEvent> m_event;
+        core::smart_refctd_ptr<const IEvent> m_event;
 };
 
 class IGPUCommandPool::CResetEventCmd final : public IFixedSizeCommand<CResetEventCmd>
 {
     public:
-        CResetEventCmd(core::smart_refctd_ptr<const IGPUEvent>&& _event) : m_event(std::move(_event)) {}
+        CResetEventCmd(core::smart_refctd_ptr<const IEvent>&& _event) : m_event(std::move(_event)) {}
 
     private:
-        core::smart_refctd_ptr<const IGPUEvent> m_event;
+        core::smart_refctd_ptr<const IEvent> m_event;
 };
 
 class IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd final : public IVariableSizeCommand<CWriteAccelerationStructurePropertiesCmd>

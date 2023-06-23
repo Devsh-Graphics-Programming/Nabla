@@ -171,10 +171,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //
-        virtual core::smart_refctd_ptr<IGPUEvent> createEvent(const IGPUEvent::CREATE_FLAGS flags) = 0;
-        virtual IGPUEvent::STATUS getEventStatus(const IGPUEvent* const _event) = 0;
-        virtual IGPUEvent::STATUS resetEvent(IGPUEvent* const _event) = 0;
-        virtual IGPUEvent::STATUS setEvent(IGPUEvent* const _event) = 0;
+        virtual core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) = 0;
 
 
         inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
@@ -634,7 +631,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         SPhysicalDeviceFeatures m_enabledFeatures;
         const IPhysicalDevice* const m_physicalDevice;
 
-        using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;
+        using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeQueueAdapter*>;
         queues_array_t m_queues;
         struct QueueFamilyInfo
         {
