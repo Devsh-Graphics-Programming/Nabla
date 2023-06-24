@@ -43,8 +43,11 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
 
 
 template<typename vk_barrier_t, typename ResourceBarrier>
-void fill(vk_barrier_t& out, const ResourceBarrier& in, const uint32_t selfQueueFamilyIndex)
+void fill(vk_barrier_t& out, const ResourceBarrier& in, uint32_t selfQueueFamilyIndex, const bool concurrentSharing=false)
 {
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-buffer-04088
+    if (concurrentSharing)
+        selfQueueFamilyIndex = IQueue::FamilyIgnored;
     out.srcQueueFamilyIndex = selfQueueFamilyIndex;
     out.dstQueueFamilyIndex = selfQueueFamilyIndex;
     const asset::SMemoryBarrier* memoryBarrier;
@@ -86,10 +89,10 @@ VkDependencyInfoKHR fill(
     {
         auto& out = bufferBarriers[i];
         out.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2_KHR;
-        out.pNext = nullptr;
+        out.pNext = nullptr; // VkExternalMemoryAcquireUnmodifiedEXT
 
         const auto& in = depInfo.bufBarriers[i];
-        fill(out,in.barrier,selfQueueFamilyIndex);
+        fill(out,in.barrier,selfQueueFamilyIndex,in.range.buffer->getCachedCreationParams().isConcurrentSharing());
         out.buffer = static_cast<const CVulkanBuffer*>(in.range.buffer.get())->getInternalObject();
         out.offset = in.range.offset;
         out.size = in.range.size;
@@ -98,12 +101,12 @@ VkDependencyInfoKHR fill(
     {
         auto& out = imageBarriers[i];
         out.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
-        out.pNext = nullptr;
+        out.pNext = nullptr; // VkExternalMemoryAcquireUnmodifiedEXT or VkSampleLocationsInfoEXT
 
         const auto& in = depInfo.imgBarriers[i];
         out.oldLayout = getVkImageLayoutFromImageLayout(in.oldLayout);
         out.newLayout = getVkImageLayoutFromImageLayout(in.newLayout);
-        fill(out,in.barrier,selfQueueFamilyIndex);
+        fill(out,in.barrier,selfQueueFamilyIndex,in.image->getCachedCreationParams().isConcurrentSharing());
         out.image = static_cast<const CVulkanImage*>(in.image)->getInternalObject();
         out.subresourceRange = in.subresourceRange;
     }

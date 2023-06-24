@@ -187,6 +187,7 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07890
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07891
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07892
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcStageMask-03851
     for (auto j=0u; j<depInfo.memBarrierCount; j++)
     if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.memBarriers[j]))
         return true;
@@ -252,7 +253,7 @@ bool IGPUCommandBuffer::resetEvent(IEvent* _event, const core::bitflag<stage_fla
 
 bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos)
 {
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::BOTH))
         return false;
 
     if (eventCount==0u)
@@ -309,24 +310,55 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-bufferMemoryBarrierCount-01178
         if (depInfo.bufBarrierCount)
             return false;
+
+        auto invalidSubpassMemoryBarrier = [dependencyFlags](const asset::SMemoryBarrier& barrier) -> bool
+        {
+            if (barrier.srcStageMask&stage_flags_t::FRAMEBUFFER_SPACE_BITS)
+            {
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07890
+                if (barrier.dstStageMask&(~stage_flags_t::FRAMEBUFFER_SPACE_BITS))
+                    return true;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-dependencyFlags-07891
+                if (!dependencyFlags.hasFlags(asset::EDF_BY_REGION_BIT))
+                    return true;
+            }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07892
+            constexpr auto NotGraphicsBits = ~stage_flags_t::ALL_GRAPHICS_BITS;
+            if ((barrier.srcStageMask&NotGraphicsBits) || (barrier.dstStageMask&NotGraphicsBits))
+                return true;
+            return false;
+        };
+        for (auto i=0u; i<depInfo.memBarrierCount; i++)
+        {
+            if (invalidSubpassMemoryBarrier(depInfo.memBarriers[i]))
+                return false;
+        }
         for (auto i=0u; i<depInfo.imgBarrierCount; i++)
         {
             const auto& barrier = depInfo.imgBarriers[i];
+            if (invalidSubpassMemoryBarrier(depInfo.memBarriers[i]))
+                return false;
+
+            // TODO: under NBL_DEBUG, cause waay too expensive to validate
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-image-04073
+
             // Cannot do barriers on anything thats not an attachment, and only subpass deps can transition layouts!
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-oldLayout-01181
             if (barrier.newLayout!=barrier.oldLayout)
                 return false;
 
-            // TODO: under NBL_DEBUG, cause waay too expensive to validate
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-image-04073
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-dependencyFlags-01186
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07893
             // Ownership Transfers CANNOT HAPPEN MID-RENDERPASS
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-srcQueueFamilyIndex-01182
+            if (barrier.barrier.otherQueueFamilyIndex!=IQueue::FamilyIgnored)
+                return false;
         }
         // TODO: under NBL_DEBUG, cause waay too expensive to validate
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07889
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07893
     }
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-dependencyFlags-01186
+    else if (dependencyFlags.hasFlags(asset::EDF_VIEW_LOCAL_BIT))
+        return false;
 
     auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList,depInfo.bufBarrierCount,depInfo.imgBarrierCount);
     if (!cmd)
