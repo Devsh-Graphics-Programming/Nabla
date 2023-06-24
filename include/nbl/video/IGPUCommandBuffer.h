@@ -214,6 +214,33 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings);
         bool bindIndexBuffer(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType);
 
+        //! dynamic state
+        inline bool setScissor(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors)
+        {
+            if(invalidDynamic(first,count))
+                return false;
+
+            for (auto i=0u; i<count; i++)
+            {
+                const auto& scissor = pScissors[i];
+                if (scissor.offset.x<0 || scissor.offset.y<0)
+                    return false;
+                if (pScissors[i].extent.width>std::numeric_limits<int32_t>::max()-scissor.offset.x)
+                    return false;
+                if (pScissors[i].extent.height>std::numeric_limits<int32_t>::max()-scissor.offset.y)
+                    return false;
+            }
+
+            return setScissor_impl(first,count,pScissors);
+        }
+        inline bool setViewport(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports)
+        {
+            if (invalidDynamic(first,count))
+                return false;
+
+            return setViewport_impl(first,count,pViewports);
+        }
+
         //! queries
         bool resetQueryPool(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount);
         bool beginQuery(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags=QUERY_CONTROL_FLAGS::NONE);
@@ -378,6 +405,9 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) = 0;
         virtual bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings) = 0;
         virtual bool bindIndexBuffer_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType) = 0;
+
+        virtual bool setScissor_impl(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors) = 0;
+        virtual bool setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports) = 0;
 
         virtual bool resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount) = 0;
         virtual bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;
@@ -615,6 +645,8 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 
             return trackedResourceCount;
         }
+
+        bool invalidDynamic(const uint32_t first, const uint32_t count);
 
         template<typename IndirectCommand>
         bool invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride);

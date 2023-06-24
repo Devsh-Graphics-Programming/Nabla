@@ -74,6 +74,9 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings) override;
         bool bindIndexBuffer_impl(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType) override;
 
+        bool setScissor_impl(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors) override;
+        bool setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports) override;
+
         bool resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount) override;
         bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) override;
         bool endQuery_impl(IQueryPool* const queryPool, const uint32_t query) override;

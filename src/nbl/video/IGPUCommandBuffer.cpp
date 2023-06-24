@@ -770,6 +770,26 @@ bool IGPUCommandBuffer::bindIndexBuffer(const asset::SBufferBinding<const IGPUBu
 }
 
 
+bool IGPUCommandBuffer::invalidDynamic(const uint32_t first, const uint32_t count)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+        return true;
+
+    if (count==0u)
+        return true;
+
+    if (getOriginDevice()->getEnabledFeatures().multiViewport)
+    {
+        if (first+count>getOriginDevice()->getPhysicalDevice()->getLimits().maxViewports)
+            return true;
+    }
+    else if (first!=0u || count!=1u)
+        return true;
+
+    return false;
+}
+
+
 bool IGPUCommandBuffer::resetQueryPool(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount)
 {
     // also encode/decode and opticalflow (video) queues

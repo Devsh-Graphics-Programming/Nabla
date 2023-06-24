@@ -550,6 +550,20 @@ bool CVulkanCommandBuffer::bindIndexBuffer_impl(const asset::SBufferBinding<cons
     return true;
 }
 
+
+bool CVulkanCommandBuffer::setScissor_impl(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors)
+{
+    getFunctionTable().vkCmdSetScissor(m_cmdbuf,first,count,pScissors);
+    return true;
+}
+
+bool CVulkanCommandBuffer::setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports)
+{
+    getFunctionTable().vkCmdSetViewport(m_cmdbuf,first,count,reinterpret_cast<const VkViewport*>(pViewports));
+    return true;
+}
+
+
 bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount)
 {
     getFunctionTable().vkCmdResetQueryPool(m_cmdbuf, static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery, queryCount);
@@ -831,27 +845,6 @@ bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUComman
 }
 
 #if 0
-bool CVulkanCommandBuffer::setViewport(uint32_t firstViewport, uint32_t viewportCount, const asset::SViewport* pViewports)
-{
-    constexpr uint32_t MAX_VIEWPORT_COUNT = (1u << 12) / sizeof(VkViewport);
-    assert(viewportCount <= MAX_VIEWPORT_COUNT);
-
-    VkViewport vk_viewports[MAX_VIEWPORT_COUNT];
-    for (uint32_t i = 0u; i < viewportCount; ++i)
-    {
-        vk_viewports[i].x = pViewports[i].x;
-        vk_viewports[i].y = pViewports[i].y;
-        vk_viewports[i].width = pViewports[i].width;
-        vk_viewports[i].height = pViewports[i].height;
-        vk_viewports[i].minDepth = pViewports[i].minDepth;
-        vk_viewports[i].maxDepth = pViewports[i].maxDepth;
-    }
-
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    getFunctionTable().vkCmdSetViewport(m_cmdbuf, firstViewport, viewportCount, vk_viewports);
-    return true;
-}
-
 static std::vector<core::smart_refctd_ptr<const core::IReferenceCounted>> getBuildGeometryInfoReferences(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& info)
 {   
     // TODO: Use Better Container than Vector
