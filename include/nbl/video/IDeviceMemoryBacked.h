@@ -4,8 +4,12 @@
 #ifndef _NBL_VIDEO_I_DRIVER_MEMORY_BACKED_H_INCLUDED_
 #define _NBL_VIDEO_I_DRIVER_MEMORY_BACKED_H_INCLUDED_
 
-#include "IDeviceMemoryAllocation.h"
+
+#include "nbl/video/decl/IBackendObject.h"
+#include "nbl/video/IDeviceMemoryAllocation.h"
+
 #include <algorithm>
+
 
 namespace nbl::video
 {
@@ -18,7 +22,7 @@ struct NBL_API2 ICleanup
 };
 
 //! Interface from which resources backed by IDeviceMemoryAllocation inherit from
-class IDeviceMemoryBacked : public virtual core::IReferenceCounted
+class IDeviceMemoryBacked : public IBackendObject
 {
     public:
         //!
@@ -39,8 +43,6 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
                 return queueFamilyIndexCount!=0u;
             }
         };
-
-        //!
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
 
         //! We need to know to cast to `IGPUBuffer` or `IGPUImage`
@@ -68,18 +70,22 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             uint32_t requiresDedicatedAllocation : 1; // TODO: C++23 default-initialize to true
         };
         static_assert(sizeof(SDeviceMemoryRequirements)==16);
-
         //! Before allocating memory from the driver or trying to bind a range of an existing allocation
         inline const SDeviceMemoryRequirements& getMemoryReqs() const {return m_cachedMemoryReqs;}
 
+        //!
+		struct SMemoryBinding
+		{
+			inline bool isValid() const
+			{
+				return memory && offset<memory->getAllocationSize();
+			}
+
+			IDeviceMemoryAllocation* memory = nullptr;
+			size_t offset = 0u;
+		};
         //! Returns the allocation which is bound to the resource
-        virtual IDeviceMemoryAllocation* getBoundMemory() = 0;
-
-        //! Constant version
-        virtual const IDeviceMemoryAllocation* getBoundMemory() const = 0;
-
-        //! Returns the offset in the allocation at which it is bound to the resource
-        virtual size_t getBoundMemoryOffset() const = 0;
+        virtual SMemoryBinding getBoundMemory() const = 0;
 
         //! For constructor parameter only
         struct SCreationParams : SCachedCreationParams
@@ -88,8 +94,8 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         };
 
     protected:
-        inline IDeviceMemoryBacked(SCreationParams&& _creationParams, const SDeviceMemoryRequirements& reqs)
-            : m_cachedCreationParams(std::move(_creationParams)), m_cachedMemoryReqs(reqs) {}
+        inline IDeviceMemoryBacked(core::smart_refctd_ptr<const ILogicalDevice>&& originDevice, SCreationParams&& creationParams, const SDeviceMemoryRequirements& reqs)
+            : IBackendObject(std::move(originDevice)), m_cachedCreationParams(std::move(creationParams)), m_cachedMemoryReqs(reqs) {}
         inline virtual ~IDeviceMemoryBacked()
         {
             assert(!m_cachedCreationParams.preDestroyCleanup); // derived class should have already cleared this out
@@ -100,6 +106,7 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         {
             m_cachedCreationParams.preDestroyCleanup = nullptr;
         }
+
 
         //! members
         SCachedCreationParams m_cachedCreationParams;

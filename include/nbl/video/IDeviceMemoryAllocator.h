@@ -12,19 +12,6 @@ namespace nbl::video
 class IDeviceMemoryAllocator
 {
 	public:
-		static constexpr size_t InvalidMemoryOffset = 0xdeadbeefBadC0ffeull;
-
-		struct SMemoryOffset
-		{
-			core::smart_refctd_ptr<IDeviceMemoryAllocation> memory = nullptr;
-			size_t offset = InvalidMemoryOffset;
-
-			bool isValid() const
-			{
-				return memory && (offset!=InvalidMemoryOffset);
-			}
-		};
-
 		struct SAllocateInfo
 		{
 			size_t size : 54 = 0ull;
@@ -98,22 +85,34 @@ class IDeviceMemoryAllocator
 
 				uint32_t currentIndex = 0u;
 		};
+		
 
-		virtual SMemoryOffset allocate(const SAllocateInfo& info) = 0;
+		struct SAllocation
+		{
+			static constexpr size_t InvalidMemoryOffset = 0xdeadbeefBadC0ffeull;
+			bool isValid() const
+			{
+				return memory && (offset!=InvalidMemoryOffset);
+			}
+
+			core::smart_refctd_ptr<IDeviceMemoryAllocation> memory = nullptr;
+			size_t offset = InvalidMemoryOffset;
+		};
+		virtual SAllocation allocate(const SAllocateInfo& info) = 0;
 
 		template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
-		inline SMemoryOffset allocate(
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, IDeviceMemoryBacked* dedication = nullptr,
-			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
+		inline SAllocation allocate(
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, IDeviceMemoryBacked* dedication=nullptr,
+			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags=IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE)
 		{
 			for(memory_type_iterator_t memTypeIt(reqs, allocateFlags); memTypeIt!=IMemoryTypeIterator::end(); ++memTypeIt)
 			{
 				SAllocateInfo allocateInfo = memTypeIt.operator()(dedication);
-				SMemoryOffset allocation = allocate(allocateInfo);
-				if (allocation.memory && allocation.offset != InvalidMemoryOffset)
+				auto allocation = allocate(allocateInfo);
+				if (allocation.isValid())
 					return allocation;
 			}
-			return {nullptr, InvalidMemoryOffset};
+			return {};
 		}
 };
 
