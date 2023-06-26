@@ -231,9 +231,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return invalidateMappedMemoryRanges_impl(ranges);
         }
 
-
         //! Descriptor Creation
-        // Buffer
+        // Buffer (@see ICPUBuffer)
         inline core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
         {
             const auto maxSize = getPhysicalDevice()->getLimits().maxBufferSize;
@@ -244,6 +243,15 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             return createBuffer_impl(std::move(creationParams));
         }
+        // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
+        core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
+        {
+            if (!underlying.isValid() || !underlying.buffer->wasCreatedBy(this))
+                return nullptr;
+            if (!getPhysicalDevice()->getBufferFormatUsages()[_fmt].bufferView)
+                return nullptr;
+            return createBufferView_impl(underlying,_fmt);
+        }
         // Creates an Image (@see ICPUImage)
         inline core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& creationParams)
         {
@@ -252,9 +260,33 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Failed to create Image, invalid creation parameters!",system::ILogger::ELL_ERROR);
                 return nullptr;
             }
-            // TODO: @Cyprian validation of creationParameters against the device's limits (sample counts, etc.) see vkCreateImage
+            // TODO: @Cyprian validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage
             return createImage_impl(std::move(creationParams));
         }
+        // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
+        core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
+        {
+            if (!params.image->wasCreatedBy(this))
+                return nullptr;
+            // TODO: @Cyprian validation of params against the device's limits (sample counts, etc.) see vkCreateImage
+            return createImageView_impl(std::move(params));
+        }
+        // Create a sampler object to use with ImageViews
+        virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
+        //
+        core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        {
+            if (!params.bufferRange.buffer->wasCreatedBy(this)) // TODO: more
+                return nullptr;
+            return createAccelerationStructure_impl(std::move(params));
+        }
+
+        //! Memory binding
+        struct SBindBufferMemoryInfo
+        {
+            IGPUBuffer* buffer = nullptr;
+            IDeviceMemoryBacked::SMemoryBinding memOffset = {};
+        };
         // Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in other API backends all resources create their own memory implicitly,
         so pooling or aliasing memory for different resources is not possible.
@@ -262,35 +294,115 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         Actually all resource classes in other APIs implement both IDeviceMemoryBacked and IDeviceMemoryAllocation,
         so effectively the memory is pre-bound at the time of creation.
         \return true on success*/
-        struct SBindBufferMemoryInfo
+        inline bool bindBufferMemory(const uint32_t count, const SBindBufferMemoryInfo* pBindInfos)
         {
-            IGPUBuffer* buffer = nullptr;
-            IDeviceMemoryAllocator::SMemoryOffset memOffset = {};
-        };
-        inline bool bindBufferMemory(const SBindBufferMemoryInfo& info)
-        {
-            if (invalidAllocationForBind(info.memOffset))
-                return false;
-            if (!info.buffer || !info.buffer->wasCreatedBy(this))
+            for (auto i=0u; i<count; i++)
             {
-                m_logger.log("Buffer %p not compatible with Device %p !", system::ILogger::ELL_ERROR,info.buffer,this);
-                return false;
+                auto& info = pBindInfos[i];
+                if (!info.buffer || !info.buffer->wasCreatedBy(this))
+                {
+                    m_logger.log("Buffer %p not compatible with Device %p !",system::ILogger::ELL_ERROR,info.buffer,this);
+                    return false;
+                }
+                // TODO: @Cyprian other validation against device limits, esp deduction of max alignment from usages
+                const size_t alignment = alignof(uint32_t);
+                if (invalidAllocationForBind(info.memOffset,alignment))
+                    return false;
             }
-            return bindBufferMemory_impl(info);
+            return bindBufferMemory_impl(count,pBindInfos);
         }
-
         //!
         struct SBindImageMemoryInfo
         {
             IGPUImage* image = nullptr;
-            IDeviceMemoryAllocator::SMemoryOffset memOffset = {};
+            IDeviceMemoryBacked::SMemoryBinding memOffset = {};
         };
-
+        //! The counterpart of @see bindBufferMemory for images
+        virtual bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
+        {
+            for (auto i=0u; i<count; i++)
+            {
+                auto& info = pBindInfos[i];
+                if (!info.image || !info.image->wasCreatedBy(this))
+                {
+                    m_logger.log("Image %p not compatible with Device %p !",system::ILogger::ELL_ERROR,info.image,this);
+                    return false;
+                }
+                // TODO: @Cyprian other validation against device limits, esp deduction of max alignment from usages
+                const size_t alignment = alignof(uint32_t);
+                if (invalidAllocationForBind(info.memOffset,alignment))
+                    return false;
+            }
+            return bindImageMemory_impl(count,pBindInfos);
+        }
 
         //! Shaders
+        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
+        inline core::SRange<const char* const> getExtraShaderDefines() const
+        {
+            const char* const* begin = m_extraShaderDefines.data();
+            return {begin,begin+m_extraShaderDefines.size()};
+        }
+        virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
+        core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
+        {
+            if (!_unspecialized->wasCreatedBy(this))
+                return nullptr;
+            auto retval = createSpecializedShader_impl(_unspecialized,_specInfo);
+            const auto path = _unspecialized->getFilepathHint();
+            if (retval && !path.empty())
+                retval->setObjectDebugName(path.c_str());
+            return retval;
+        }
 
+        //! Layouts
+        // Create a descriptor set layout (@see ICPUDescriptorSetLayout)
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings); // TODO: validation, but after descriptor indexing
+        // Create a pipeline layout (@see ICPUPipelineLayout)
+        core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
+            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
+        )
+        {
+            if (_layout0 && !_layout0->wasCreatedBy(this))
+                return nullptr;
+            if (_layout1 && !_layout1->wasCreatedBy(this))
+                return nullptr;
+            if (_layout2 && !_layout2->wasCreatedBy(this))
+                return nullptr;
+            if (_layout3 && !_layout3->wasCreatedBy(this))
+                return nullptr;
+            core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::ESS_UNKNOWN;
+            uint32_t maxPCByte = 0u;
+            for (auto it=_pcRangesBegin; it!=_pcRangesEnd; it++)
+            {
+                stages |= it->stageFlags;
+                maxPCByte = core::max(it->offset+it->size,maxPCByte);
+            }
+            // TODO: validate `stages` against the supported ones as reported by enabled features
+            return createPipelineLayout_impl(_pcRangesBegin,_pcRangesEnd,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3));
+        }
 
-        //!
+        //! Descriptor Sets
+
+        //! Renderpasses and Framebuffers
+        virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
+        core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
+        {
+            if (!params.renderpass->wasCreatedBy(this))
+                return nullptr;
+            if (!IGPUFramebuffer::validate(params))
+                return nullptr;
+            return createFramebuffer_impl(std::move(params));
+        }
+
+        //! Pipelines
+        // Create a pipeline cache object
+        virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache() { return nullptr; }
+
+        //! Commandbuffers
+        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t _familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
         inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
         {
             if (!_cmdPool->wasCreatedBy(this))
@@ -305,7 +417,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return freeCommandBuffers_impl(_cmdbufs, _count);
         }
         
-        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) = 0;
 
         struct SDescriptorSetCreationParams
@@ -314,58 +425,15 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint32_t descriptorSetCount;
             IGPUDescriptorSetLayout** pSetLayouts;
         };
-        core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
-        {
-            if (!params.renderpass->wasCreatedBy(this))
-                return nullptr;
-            if (!IGPUFramebuffer::validate(params))
-                return nullptr;
-            return createFramebuffer_impl(std::move(params));
-        }
-
-        virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
-
-
-        virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
-
-        core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
-        {
-            if (!_unspecialized->wasCreatedBy(this))
-                return nullptr;
-            auto retval =  createSpecializedShader_impl(_unspecialized, _specInfo);
-            const auto path = _unspecialized->getFilepathHint();
-            if (retval && !path.empty())
-                retval->setObjectDebugName(path.c_str());
-            return retval;
-        }
-
-        // Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
-        core::smart_refctd_ptr<IGPUBufferView> createBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer)
-        {
-            if (!_underlying->wasCreatedBy(this))
-                return nullptr;
-            return createBufferView_impl(_underlying, _fmt, _offset, _size);
-        }
 
 
 
-        //! The counterpart of @see bindBufferMemory for images
-        virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
 
-        //! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
-        core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
-        {
-            if (!params.image->wasCreatedBy(this))
-                return nullptr;
-            return createImageView_impl(std::move(params));
-        }
 
-        core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
-        {
-            if (!params.bufferRange.buffer->wasCreatedBy(this))
-                return nullptr;
-            return createAccelerationStructure_impl(std::move(params));
-        }
+
+
+
+
 
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
         {
@@ -392,32 +460,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Fill out the descriptor sets with descriptors
         bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
-        //! Create a sampler object to use with images
-        virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
 
-        //! Create a pipeline cache object
-        virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache() { return nullptr; }
 
-        //! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end);
-
-        //! Create a pipeline layout (@see ICPUPipelineLayout)
-        core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
-            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
-        )
-        {
-            if (_layout0 && !_layout0->wasCreatedBy(this))
-                return nullptr;
-            if (_layout1 && !_layout1->wasCreatedBy(this))
-                return nullptr;
-            if (_layout2 && !_layout2->wasCreatedBy(this))
-                return nullptr;
-            if (_layout3 && !_layout3->wasCreatedBy(this))
-                return nullptr;
-            return createPipelineLayout_impl(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3));
-        }
 
         core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline(
             IGPUPipelineCache* _pipelineCache,
@@ -564,10 +608,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return false;
         }
 
-        virtual bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
-        {
-            return false;
-        }
+        virtual bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
     
         virtual bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
@@ -589,16 +630,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return IGPUAccelerationStructure::BuildSizes{};
         }
 
-        // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;
-        
-        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
-        inline core::SRange<const char* const> getExtraShaderDefines() const
-        {
-            const char* const* begin = m_extraShaderDefines.data();
-            return {begin,begin+m_extraShaderDefines.size()};
-        }
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params);
@@ -624,28 +657,46 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) = 0;
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) = 0;
+        virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) = 0;
         virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) = 0;
-        inline bool invalidAllocationForBind(const IDeviceMemoryAllocator::SMemoryOffset& memoryAndOffset)
+        virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
+        virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
+
+        inline bool invalidAllocationForBind(const IDeviceMemoryBacked::SMemoryBinding& memoryAndOffset, const size_t alignment)
         {
             if (!memoryAndOffset.isValid() || memoryAndOffset.memory->getOriginDevice()!=this)
             {
-                m_logger.log("Memory Allocation %p and Offset %d not compatible with Device %p !", system::ILogger::ELL_ERROR,memoryAndOffset.memory,memoryAndOffset.offset,this);
+                m_logger.log("Memory Allocation %p and Offset %d not valid or not compatible with Device %p !",system::ILogger::ELL_ERROR,memoryAndOffset.memory,memoryAndOffset.offset,this);
+                return true;
+            }
+            if (memoryAndOffset.offset&(alignment-1))
+            {
+                m_logger.log("Memory Allocation Offset %d not aligned to %d which is required by the Buffer or Image!",system::ILogger::ELL_ERROR,memoryAndOffset.offset,alignment);
                 return true;
             }
             return false;
         }
-        virtual bool bindBufferMemory_impl(const SBindBufferMemoryInfo& info) = 0;
-        virtual bool bindImageMemory_impl(const SBindBufferMemoryInfo& info) = 0;
+        virtual bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) = 0;
+        virtual bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) = 0;
+
+
+
+
+
+
+
+
+
+
+
+
 
         virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
         virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
-        virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
-        virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
-        virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
             const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,

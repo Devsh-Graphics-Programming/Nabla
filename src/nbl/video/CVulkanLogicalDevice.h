@@ -43,6 +43,9 @@ class CVulkanCommandBuffer;
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
     public:
+        // in the future we'll make proper Vulkan allocators and RAII free functions to pass into Vulkan API calls
+        using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,true,uint32_t>;
+        
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const VkInstance vkinst, const SCreationParams& params);
 
         // sync sutff
@@ -59,47 +62,28 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override;
 
         // memory  stuff
-        SMemoryOffset allocate(const SAllocateInfo& info) override;
-        void flushMappedMemoryRanges(core::SRange<const MappedMemoryRange> ranges) override
-        {
-            constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
-            VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
-
-            const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
-            assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
-
-            getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
-        
-            if (m_devf.vk.vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
-            {
-                auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-                if (logger)
-                    logger->log("flushMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
-            }
-        }
-        void invalidateMappedMemoryRanges(core::SRange<const MappedMemoryRange> ranges) override
-        {
-            constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
-            VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
-
-            const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
-            assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
-
-            getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
-
-            if (m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
-            {
-                auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-                if (logger)
-                    logger->log("invalidateMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
-
-            }
-        }
+        SAllocation allocate(const SAllocateInfo& info) override;
+        bool flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
+        bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
 
         // descriptor creation
+        core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) override;
+        core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) override;
+        core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) override;
+        core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override;
+        core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override;
+        core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
 
-        //
-        inline core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override
+        // 
+        bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) override;
+        bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) override;
+
+
+
+
+
+        // commandpool creation
+        inline core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t familyIndex, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override
         {
             VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
             vk_createInfo.pNext = nullptr; // pNext must be NULL
@@ -108,14 +92,9 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
             VkCommandPool vk_commandPool = VK_NULL_HANDLE;
             if (m_devf.vk.vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
-            {
-                return core::make_smart_refctd_ptr<CVulkanCommandPool>(
-                    core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, familyIndex, vk_commandPool);
-            }
-            else
-            {
-                return nullptr;
-            }
+                return core::make_smart_refctd_ptr<CVulkanCommandPool>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),flags,familyIndex,vk_commandPool);
+
+            return nullptr;
         }
 
             
@@ -295,66 +274,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return nullptr;
         }
     }
-           
-
-
-    bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override
-    {
-        auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-
-        core::vector<VkBindBufferMemoryInfo> vk_infos; vk_infos.reserve(bindInfoCount);
-        bool anyFailed = false;
-        for (uint32_t i = 0u; i<bindInfoCount; ++i)
-        {
-            const auto& bindInfo = pBindInfos[i];
-            auto* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(bindInfo.buffer,this);
-            auto* vulkanMemory = bindInfo.memory->getAPIType()!=EAT_VULKAN ? nullptr:static_cast<CVulkanMemoryAllocation*>(bindInfo.memory);
-            if (!vulkanBuffer || !vulkanMemory)
-            {
-                logger->log("Buffer %p or Memory Allocation %p not compatible with Device %p !", system::ILogger::ELL_ERROR, bindInfo.buffer, bindInfo.memory, this);
-                anyFailed = true;
-                continue;
-            }
-
-            if (
-                vulkanBuffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) &&
-                !vulkanMemory->getAllocateFlags().hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT)
-            ) {
-                logger->log("Buffer %p created with EUF_SHADER_DEVICE_ADDRESS_BIT needs a Memory Allocation with EMAF_DEVICE_ADDRESS_BIT flag!", system::ILogger::ELL_ERROR, bindInfo.buffer);
-                anyFailed = true;
-                continue;
-            }
-
-            auto& vk_info = vk_infos.emplace_back();
-            vk_info.sType = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO;
-            vk_info.pNext = nullptr;
-            vk_info.buffer = vulkanBuffer->getInternalObject();
-            vk_info.memory = vulkanMemory->getInternalObject();
-            vk_info.memoryOffset = static_cast<VkDeviceSize>(bindInfo.offset);
-        }
-
-        if (m_devf.vk.vkBindBufferMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
-        {
-            logger->log("Call to `vkBindBufferMemory2` on Device %p failed!", system::ILogger::ELL_ERROR,this);
-            return false;
-        }
-        
-        auto vk_infoIt = vk_infos.begin();
-        for (uint32_t i = 0u; i<bindInfoCount; ++i)
-        {
-            const auto& bindInfo = pBindInfos[i];
-            auto* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(bindInfo.buffer,this);
-            // check if we originally skipped, if not then proceed
-            if (!vulkanBuffer || vulkanBuffer->getInternalObject()!=vk_infoIt->buffer)
-                continue;
-
-            vulkanBuffer->setMemoryAndOffset(core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory),bindInfo.offset);
-            vk_infoIt++;
-        }
-        assert(vk_infoIt==vk_infos.end());
-
-        return !anyFailed;
-    }
 
     void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies)
     {
@@ -495,50 +414,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         m_devf.vk.vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets.data(), descriptorCopyCount, vk_copyDescriptorSets.data());
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
-    {
-        VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-        vk_createInfo.pNext = nullptr;
-        vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
-        vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
-        vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
-        vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
-        vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
-        vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
-
-        VkBuffer vk_buffer;
-        if (m_devf.vk.vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
-        {
-            VkBufferMemoryRequirementsInfo2 vk_memoryRequirementsInfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2 };
-            vk_memoryRequirementsInfo.pNext = nullptr; // pNext must be NULL
-            vk_memoryRequirementsInfo.buffer = vk_buffer;
-
-            VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
-            VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
-            vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
-            m_devf.vk.vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
-
-            IDeviceMemoryBacked::SDeviceMemoryRequirements bufferMemoryReqs = {};
-            bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
-            bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
-            bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
-            bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
-            bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
-
-            return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                bufferMemoryReqs,
-                std::move(creationParams),
-                vk_buffer
-            );
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-
     uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) override
     {
         constexpr uint64_t invalid_address = ~0ull;
@@ -634,102 +509,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         {
             return nullptr;
         }
-    }
-
-    core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params) override;
-
-    bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) override
-    {
-        auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-
-        core::vector<VkBindImageMemoryInfo> vk_infos; vk_infos.reserve(bindInfoCount);
-        bool anyFailed = false;
-        for (uint32_t i = 0u; i<bindInfoCount; ++i)
-        {
-            const auto& bindInfo = pBindInfos[i];
-            auto* vulkanImage = IBackendObject::device_compatibility_cast<CVulkanImage*>(bindInfo.image,this);
-            auto* vulkanMemory = bindInfo.memory->getAPIType()!=EAT_VULKAN ? nullptr:static_cast<CVulkanMemoryAllocation*>(bindInfo.memory);
-            if (!vulkanImage || !vulkanMemory)
-            {
-                logger->log("Image %p or Memory Allocation %p not compatible with Device %p !", system::ILogger::ELL_ERROR, bindInfo.image, bindInfo.memory, this);
-                anyFailed = true;
-                continue;
-            }
-
-            auto& vk_info = vk_infos.emplace_back();
-            vk_info.sType = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO;
-            vk_info.pNext = nullptr;
-            vk_info.image = vulkanImage->getInternalObject();
-            vk_info.memory = vulkanMemory->getInternalObject();
-            vk_info.memoryOffset = static_cast<VkDeviceSize>(bindInfo.offset);
-        }
-
-        if (m_devf.vk.vkBindImageMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
-        {
-            logger->log("Call to `vkBindImageMemory2` on Device %p failed!", system::ILogger::ELL_ERROR, this);
-            return false;
-        }
-        
-        auto vk_infoIt = vk_infos.begin();
-        for (uint32_t i = 0u; i<bindInfoCount; ++i)
-        {
-            const auto& bindInfo = pBindInfos[i];
-            auto* vulkanImage = IBackendObject::device_compatibility_cast<CVulkanImage*>(bindInfo.image,this);
-            // check if we originally skipped, if not then proceed
-            if (!vulkanImage || vulkanImage->getInternalObject()!=vk_infoIt->image)
-                continue;
-
-            vulkanImage->setMemoryAndOffset(core::smart_refctd_ptr<IDeviceMemoryAllocation>(bindInfo.memory),bindInfo.offset);
-            vk_infoIt++;
-        }
-        assert(vk_infoIt==vk_infos.end());
-
-        return !anyFailed;
-    }
-
-    core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override
-    {
-        VkSamplerCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkSamplerCustomBorderColorCreateInfoEXT, VkSamplerReductionModeCreateInfo, or VkSamplerYcbcrConversionInfo
-        vk_createInfo.flags = static_cast<VkSamplerCreateFlags>(0); // No flags supported yet
-        assert(_params.MaxFilter <= asset::ISampler::ETF_LINEAR);
-        vk_createInfo.magFilter = static_cast<VkFilter>(_params.MaxFilter);
-        assert(_params.MinFilter <= asset::ISampler::ETF_LINEAR);
-        vk_createInfo.minFilter = static_cast<VkFilter>(_params.MinFilter);
-        vk_createInfo.mipmapMode = static_cast<VkSamplerMipmapMode>(_params.MipmapMode);
-        vk_createInfo.addressModeU = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapU));
-        vk_createInfo.addressModeV = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapV));
-        vk_createInfo.addressModeW = getVkAddressModeFromTexClamp(static_cast<asset::ISampler::E_TEXTURE_CLAMP>(_params.TextureWrapW));
-        vk_createInfo.mipLodBias = _params.LodBias;
-        assert(_params.AnisotropicFilter <= m_physicalDevice->getLimits().maxSamplerAnisotropyLog2);
-        vk_createInfo.maxAnisotropy = std::exp2(_params.AnisotropicFilter);
-        vk_createInfo.anisotropyEnable = true; // ROADMAP 2022
-        vk_createInfo.compareEnable = _params.CompareEnable;
-        vk_createInfo.compareOp = static_cast<VkCompareOp>(_params.CompareFunc);
-        vk_createInfo.minLod = _params.MinLod;
-        vk_createInfo.maxLod = _params.MaxLod;
-        assert(_params.BorderColor < asset::ISampler::ETBC_COUNT);
-        vk_createInfo.borderColor = static_cast<VkBorderColor>(_params.BorderColor);
-        vk_createInfo.unnormalizedCoordinates = VK_FALSE;
-
-        VkSampler vk_sampler;
-        if (m_devf.vk.vkCreateSampler(m_vkdev, &vk_createInfo, nullptr, &vk_sampler) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanSampler>(core::smart_refctd_ptr<ILogicalDevice>(this), _params, vk_sampler);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-
-    void unmapMemory(IDeviceMemoryAllocation* memory) override
-    {
-        if (memory->getAPIType() != EAT_VULKAN)
-            return;
-
-        VkDeviceMemory vk_deviceMemory = static_cast<const CVulkanMemoryAllocation*>(memory)->getInternalObject();
-        m_devf.vk.vkUnmapMemory(m_vkdev, vk_deviceMemory);
     }
             
     core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override;
@@ -828,73 +607,6 @@ protected:
         return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
             core::smart_refctd_ptr<const CVulkanShader>(vulkanShader), specInfo);
-    }
-
-    core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) override
-    {
-        if (_underlying->getAPIType() != EAT_VULKAN)
-            return nullptr;
-
-        VkBuffer vk_buffer = IBackendObject::device_compatibility_cast<const CVulkanBuffer*>(_underlying, this)->getInternalObject();
-
-        VkBufferViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // pNext must be NULL
-        vk_createInfo.flags = static_cast<VkBufferViewCreateFlags>(0); // flags must be 0
-        vk_createInfo.buffer = vk_buffer;
-        vk_createInfo.format = getVkFormatFromFormat(_fmt);
-        vk_createInfo.offset = _offset;
-        vk_createInfo.range = _size;
-
-        VkBufferView vk_bufferView;
-        if (m_devf.vk.vkCreateBufferView(m_vkdev, &vk_createInfo, nullptr, &vk_bufferView) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanBufferView>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                core::smart_refctd_ptr<IGPUBuffer>(_underlying), _fmt, _offset,
-                _size, vk_bufferView);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-
-    core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override
-    {
-        // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-        VkImageViewUsageCreateInfo vk_imageViewUsageInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,nullptr };
-        vk_imageViewUsageInfo.usage = getVkImageUsageFlagsFromImageUsageFlags(params.actualUsages(),asset::isDepthOrStencilFormat(params.format));
-
-        VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, &vk_imageViewUsageInfo };
-        vk_createInfo.flags = static_cast<VkImageViewCreateFlags>(params.flags);
-
-        if (params.image->getAPIType() != EAT_VULKAN)
-            return nullptr;
-
-        VkImage vk_image = IBackendObject::device_compatibility_cast<const CVulkanImage*>(params.image.get(), this)->getInternalObject();
-        vk_createInfo.image = vk_image;
-        vk_createInfo.viewType = static_cast<VkImageViewType>(params.viewType);
-        vk_createInfo.format = getVkFormatFromFormat(params.format);
-        vk_createInfo.components.r = static_cast<VkComponentSwizzle>(params.components.r);
-        vk_createInfo.components.g = static_cast<VkComponentSwizzle>(params.components.g);
-        vk_createInfo.components.b = static_cast<VkComponentSwizzle>(params.components.b);
-        vk_createInfo.components.a = static_cast<VkComponentSwizzle>(params.components.a);
-        vk_createInfo.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(params.subresourceRange.aspectMask.value);
-        vk_createInfo.subresourceRange.baseMipLevel = params.subresourceRange.baseMipLevel;
-        vk_createInfo.subresourceRange.levelCount = params.subresourceRange.levelCount;
-        vk_createInfo.subresourceRange.baseArrayLayer = params.subresourceRange.baseArrayLayer;
-        vk_createInfo.subresourceRange.layerCount = params.subresourceRange.layerCount;
-
-        VkImageView vk_imageView;
-        if (m_devf.vk.vkCreateImageView(m_vkdev, &vk_createInfo, nullptr, &vk_imageView) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanImageView>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                std::move(params), vk_imageView);
-        }
-        else
-        {
-            return nullptr;
-        }
     }
 
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
@@ -1277,30 +989,11 @@ protected:
             m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
         }
 
-    inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeEnd)
-    {
-        uint32_t k = 0u;
-        for (auto currentRange = inRangeBegin; currentRange != inRangeEnd; ++currentRange)
-        {
-            VkMappedMemoryRange& vk_memoryRange = outRanges[k++];
-            vk_memoryRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-            vk_memoryRange.pNext = nullptr; // pNext must be NULL
-
-            if (currentRange->memory->getAPIType() != EAT_VULKAN)
-                continue;
-
-            vk_memoryRange.memory = static_cast<const CVulkanMemoryAllocation*>(currentRange->memory)->getInternalObject();
-            vk_memoryRange.offset = static_cast<VkDeviceSize>(currentRange->range.offset);
-            vk_memoryRange.size = static_cast<VkDeviceSize>(currentRange->range.length);
-        }
-    }
-
         VkDevice m_vkdev;
         CVulkanDeviceFunctionTable m_devf;
     
         constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
         constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
-        using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,true,uint32_t>;
         memory_pool_mt_t m_deferred_op_mempool;
 
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;
