@@ -285,7 +285,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         struct SBindBufferMemoryInfo
         {
             IGPUBuffer* buffer = nullptr;
-            IDeviceMemoryBacked::SMemoryBinding memOffset = {};
+            IDeviceMemoryBacked::SMemoryBinding binding = {};
         };
         // Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in other API backends all resources create their own memory implicitly,
@@ -299,15 +299,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             for (auto i=0u; i<count; i++)
             {
                 auto& info = pBindInfos[i];
-                if (!info.buffer || !info.buffer->wasCreatedBy(this))
-                {
-                    m_logger.log("Buffer %p not compatible with Device %p !",system::ILogger::ELL_ERROR,info.buffer,this);
+                if (!info.buffer)
                     return false;
-                }
+
                 // TODO: @Cyprian other validation against device limits, esp deduction of max alignment from usages
                 const size_t alignment = alignof(uint32_t);
-                if (invalidAllocationForBind(info.memOffset,alignment))
+                if (invalidAllocationForBind(info.buffer,info.binding,alignment))
                     return false;
+
+                if (info.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) &&
+                    !info.binding.memory->getAllocateFlags().hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT)
+                ) {
+                    m_logger.log("Buffer %p created with EUF_SHADER_DEVICE_ADDRESS_BIT needs a Memory Allocation with EMAF_DEVICE_ADDRESS_BIT flag!",system::ILogger::ELL_ERROR,info.buffer);
+                    return false;
+                }
             }
             return bindBufferMemory_impl(count,pBindInfos);
         }
@@ -315,7 +320,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         struct SBindImageMemoryInfo
         {
             IGPUImage* image = nullptr;
-            IDeviceMemoryBacked::SMemoryBinding memOffset = {};
+            IDeviceMemoryBacked::SMemoryBinding binding = {};
         };
         //! The counterpart of @see bindBufferMemory for images
         virtual bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
@@ -323,14 +328,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             for (auto i=0u; i<count; i++)
             {
                 auto& info = pBindInfos[i];
-                if (!info.image || !info.image->wasCreatedBy(this))
-                {
-                    m_logger.log("Image %p not compatible with Device %p !",system::ILogger::ELL_ERROR,info.image,this);
+                if (!info.image)
                     return false;
-                }
+
                 // TODO: @Cyprian other validation against device limits, esp deduction of max alignment from usages
                 const size_t alignment = alignof(uint32_t);
-                if (invalidAllocationForBind(info.memOffset,alignment))
+                if (invalidAllocationForBind(info.image,info.binding,alignment))
                     return false;
             }
             return bindImageMemory_impl(count,pBindInfos);
@@ -662,16 +665,26 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
 
-        inline bool invalidAllocationForBind(const IDeviceMemoryBacked::SMemoryBinding& memoryAndOffset, const size_t alignment)
+        inline bool invalidAllocationForBind(const IDeviceMemoryBacked* resource, const IDeviceMemoryBacked::SMemoryBinding& binding, const size_t alignment)
         {
-            if (!memoryAndOffset.isValid() || memoryAndOffset.memory->getOriginDevice()!=this)
+            if (!resource->wasCreatedBy(this))
             {
-                m_logger.log("Memory Allocation %p and Offset %d not valid or not compatible with Device %p !",system::ILogger::ELL_ERROR,memoryAndOffset.memory,memoryAndOffset.offset,this);
+                m_logger.log("Buffer or Image %p not compatible with Device %p !",system::ILogger::ELL_ERROR,resource,this);
                 return true;
             }
-            if (memoryAndOffset.offset&(alignment-1))
+            if (!resource->getBoundMemory().isValid())
             {
-                m_logger.log("Memory Allocation Offset %d not aligned to %d which is required by the Buffer or Image!",system::ILogger::ELL_ERROR,memoryAndOffset.offset,alignment);
+                m_logger.log("Buffer or Image %p already has memory bound!",system::ILogger::ELL_ERROR,resource);
+                return true;
+            }
+            if (!binding.isValid() || binding.memory->getOriginDevice()!=this)
+            {
+                m_logger.log("Memory Allocation %p and Offset %d not valid or not compatible with Device %p !",system::ILogger::ELL_ERROR,binding.memory,binding.offset,this);
+                return true;
+            }
+            if (binding.offset&(alignment-1))
+            {
+                m_logger.log("Memory Allocation Offset %d not aligned to %d which is required by the Buffer or Image!",system::ILogger::ELL_ERROR,binding.offset,alignment);
                 return true;
             }
             return false;
