@@ -703,7 +703,9 @@ public:
             commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
 
             commonCompileOptions.stage = shaderStage;
-            commonCompileOptions.genDebugInfo = true;
+            commonCompileOptions.debugInfoFlags = 
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
             commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
             commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 

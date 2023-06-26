@@ -139,7 +139,12 @@ public:
 
 DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
-    if (options.genDebugInfo)
+    // Append Commandline options into source only if debugInfoFlags will emit source
+    auto sourceEmittingFlags =
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT |
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT;
+    if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
         insertion << "// commandline compiler options : ";
@@ -369,15 +374,16 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     }
 
     // Debug only values
-    if (hlslOptions.genDebugInfo)
-    {
-        arguments.insert(arguments.end(), {
-            DXC_ARG_DEBUG,
-            L"-Qembed_debug",
-            L"-fspv-debug=vulkan-with-source",
-            L"-fspv-debug=file"
-        });
-    }
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
+        arguments.push_back(L"-fspv-debug=file");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
+        arguments.push_back(L"-fspv-debug=source");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
+        arguments.push_back(L"-fspv-debug=line");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
+        arguments.push_back(L"-fspv-debug=tool");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
+        arguments.push_back(L"-fspv-debug=vulkan-with-source");
 
     auto compileResult = dxcCompile(
         this, 
