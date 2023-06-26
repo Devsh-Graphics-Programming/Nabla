@@ -45,6 +45,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
     public:
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const VkInstance vkinst, const SCreationParams& params);
 
+        // sync sutff
         inline IQueue::RESULT waitIdle() const override
         {
             return CVulkanQueue::getResultFrom(m_devf.vk.vkDeviceWaitIdle(m_vkdev));
@@ -57,6 +58,47 @@ class CVulkanLogicalDevice final : public ILogicalDevice
               
         core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override;
 
+        // memory  stuff
+        SMemoryOffset allocate(const SAllocateInfo& info) override;
+        void flushMappedMemoryRanges(core::SRange<const MappedMemoryRange> ranges) override
+        {
+            constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
+            VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
+
+            const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
+            assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
+
+            getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
+        
+            if (m_devf.vk.vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
+            {
+                auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+                if (logger)
+                    logger->log("flushMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
+            }
+        }
+        void invalidateMappedMemoryRanges(core::SRange<const MappedMemoryRange> ranges) override
+        {
+            constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
+            VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
+
+            const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
+            assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
+
+            getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
+
+            if (m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
+            {
+                auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+                if (logger)
+                    logger->log("invalidateMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
+
+            }
+        }
+
+        // descriptor creation
+
+        //
         inline core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override
         {
             VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -76,7 +118,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             }
         }
 
-        SMemoryOffset allocate(const SAllocateInfo& info) override;
             
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) override
     {
@@ -255,44 +296,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         }
     }
            
-    // API needs to change, vkFlushMappedMemoryRanges could fail.
-    void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
-    {
-        constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
-        VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
 
-        const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
-        assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
-
-        getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
-        
-        if (m_devf.vk.vkFlushMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
-        {
-            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-            if (logger)
-                logger->log("flushMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
-        }
-    }
-            
-    // API needs to change, this could fail
-    void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) override
-    {
-        constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
-        VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
-
-        const uint32_t memoryRangeCount = static_cast<uint32_t>(ranges.size());
-        assert(memoryRangeCount <= MAX_MEMORY_RANGE_COUNT);
-
-        getVkMappedMemoryRanges(vk_memoryRanges, ranges.begin(), ranges.end());
-
-        if (m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev, memoryRangeCount, vk_memoryRanges) != VK_SUCCESS)
-        {
-            auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-            if (logger)
-                logger->log("invalidateMappedMemoryRanges failed!", system::ILogger::ELL_ERROR);
-
-        }
-    }
 
     bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) override
     {
@@ -712,28 +716,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         if (m_devf.vk.vkCreateSampler(m_vkdev, &vk_createInfo, nullptr, &vk_sampler) == VK_SUCCESS)
         {
             return core::make_smart_refctd_ptr<CVulkanSampler>(core::smart_refctd_ptr<ILogicalDevice>(this), _params, vk_sampler);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-
-    void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override
-    {
-        if (memory.memory == nullptr || memory.memory->getAPIType() != EAT_VULKAN)
-            return nullptr;
-        assert(IDeviceMemoryAllocation::isMappingAccessConsistentWithMemoryType(accessHint, memory.memory->getMemoryPropertyFlags()));
-
-        VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
-        auto vulkanMemory = static_cast<CVulkanMemoryAllocation*>(memory.memory);
-        VkDeviceMemory vk_memory = vulkanMemory->getInternalObject();
-        void* mappedPtr;
-        if (m_devf.vk.vkMapMemory(m_vkdev, vk_memory, static_cast<VkDeviceSize>(memory.offset),
-            static_cast<VkDeviceSize>(memory.length), vk_memoryMapFlags, &mappedPtr) == VK_SUCCESS)
-        {
-            post_mapMemory(vulkanMemory, mappedPtr, memory.range, accessHint);
-            return vulkanMemory->getMappedPointer(); // so pointer is rewound
         }
         else
         {

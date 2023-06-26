@@ -169,14 +169,75 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return WAIT_RESULT::SUCCESS;
         }
 
-        // Event Stuff
+        //! Event Stuff
         virtual core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) = 0;
-        
 
-        //! Memory stuff
+        //! ..
+        virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
 
-        virtual void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
-        virtual void unmapMemory(IDeviceMemoryAllocation* memory) = 0;
+
+        //! Similar to VkMappedMemoryRange but no pNext
+        struct MappedMemoryRange
+        {
+            MappedMemoryRange() : memory(nullptr), range(0u,0u) {}
+            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range(off,len) {}
+
+            IDeviceMemoryAllocation* memory;
+            union
+            {
+                IDeviceMemoryAllocation::MemoryRange range;
+                struct
+                {
+                    size_t offset;
+                    size_t length;
+                };
+            };
+        };
+        // For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
+        void flushMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange* pMemoryRanges)
+        {
+            core::SRange<const MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
+            return flushMappedMemoryRanges(ranges);
+        }
+        // Utility wrapper for the pointer based func
+        virtual void flushMappedMemoryRanges(core::SRange<const MappedMemoryRange> ranges) = 0;
+        // For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible
+        void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange* pMemoryRanges)
+        {
+            core::SRange<const MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
+            return invalidateMappedMemoryRanges(ranges);
+        }
+        //! Utility wrapper for the pointer based func
+        virtual void invalidateMappedMemoryRanges(core::SRange<const MappedMemoryRange> ranges) = 0;
+
+
+        //! xxx
+        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) { return nullptr; }
+        virtual uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) { return ~0ull; }
+        // Binds memory allocation to provide the backing for the resource.
+        /** Available only on Vulkan, in other API backendds all resources create their own memory implicitly,
+        so pooling or aliasing memory for different resources is not possible.
+        There is no unbind, so once memory is bound it remains bound until you destroy the resource object.
+        Actually all resource classes in other APIs implement both IDeviceMemoryBacked and IDeviceMemoryAllocation,
+        so effectively the memory is pre-bound at the time of creation.
+        \return true on success*/
+        struct SBindBufferMemoryInfo
+        {
+            IGPUBuffer* buffer = nullptr;
+            IDeviceMemoryAllocator::SMemoryOffset memOffset = {};
+        };
+        virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
+
+        //!
+        struct SBindImageMemoryInfo
+        {
+            IGPUImage* image = nullptr;
+            IDeviceMemoryAllocator::SMemoryOffset memOffset = {};
+        };
+
+
+        //! Shaders
+
 
         //!
         inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
@@ -193,7 +254,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return freeCommandBuffers_impl(_cmdbufs, _count);
         }
         
-        virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
         virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) = 0;
 
@@ -202,19 +262,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDescriptorPool* descriptorPool;
             uint32_t descriptorSetCount;
             IGPUDescriptorSetLayout** pSetLayouts;
-        };
-
-        struct SBindBufferMemoryInfo
-        {
-            IGPUBuffer* buffer;
-            IDeviceMemoryAllocation* memory;
-            size_t offset;
-        };
-        struct SBindImageMemoryInfo
-        {
-            IGPUImage* image;
-            IDeviceMemoryAllocation* memory;
-            size_t offset;
         };
         core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
@@ -227,38 +274,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 
-        //! For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
-        void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
-        {
-            core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
-            return flushMappedMemoryRanges(ranges);
-        }
-
-        //! Utility wrapper for the pointer based func
-        virtual void flushMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
-
-        //! For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
-        void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDeviceMemoryAllocation::MappedMemoryRange* pMemoryRanges)
-        {
-            core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
-            return invalidateMappedMemoryRanges(ranges);
-        }
-
-        //! Utility wrapper for the pointer based func
-        virtual void invalidateMappedMemoryRanges(core::SRange<const video::IDeviceMemoryAllocation::MappedMemoryRange> ranges) = 0;
-
-        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) { return nullptr; }
-
-        virtual uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) { return ~0ull; }
-
-        //! Binds memory allocation to provide the backing for the resource.
-        /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
-        so pooling or aliasing memory for different resources is not possible.
-        There is no unbind, so once memory is bound it remains bound until you destroy the resource object.
-        Actually all resource classes in OpenGL implement both IDeviceMemoryBacked and IDeviceMemoryAllocation,
-        so effectively the memory is pre-bound at the time of creation.
-        \return true on success, always false under OpenGL.*/
-        virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
@@ -273,7 +288,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return retval;
         }
 
-        //! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
+        // Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
         core::smart_refctd_ptr<IGPUBufferView> createBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer)
         {
             if (!_underlying->wasCreatedBy(this))
@@ -543,18 +558,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (m_queues)
             for (uint32_t i=0u; i<m_queues->size(); ++i)
                 delete (*m_queues)[i];
-        }
-
-        // must be called by implementations of mapMemory()
-        static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
-        {
-            // rewind pointer so 0 offset is a real start to the memory
-            memory->postMapSetMembers(reinterpret_cast<uint8_t*>(ptr)-rng.offset, rng, access);
-        }
-        // must be called by implementations of unmapMemory()
-        static void post_unmapMemory(IDeviceMemoryAllocation* memory)
-        {
-            post_mapMemory(memory, nullptr, { 0,0 }, IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
         }
 
         virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;

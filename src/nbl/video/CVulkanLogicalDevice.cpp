@@ -125,94 +125,109 @@ core::smart_refctd_ptr<IDeferredOperation> CVulkanLogicalDevice::createDeferredO
     return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
 }
 
+
 IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
+    IDeviceMemoryAllocator::SMemoryOffset ret = {};
+    if (info.memoryTypeIndex>=m_physicalDevice->getMemoryProperties().memoryTypeCount)
+        return ret;
 
-    core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
-
-    VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+    const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
+    {
+        if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+            vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
+    }
+    VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+    if(info.dedication)
+    {
+        // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
+        static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0,1,1,0));
+        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
+        switch (info.dedication->getObjectType())
+        {
+            case IDeviceMemoryBacked::EOT_BUFFER:
+                vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
+                break;
+            case IDeviceMemoryBacked::EOT_IMAGE:
+                vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
+                break;
+            default:
+                assert(false);
+                return ret;
+                break;
+        }
+    }
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
-
-    if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_MASK_BIT))
-        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
-    else if(allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
-        vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-    vk_allocateFlagsInfo.deviceMask = 0u; // unused
-    
     vk_allocateInfo.allocationSize = info.size;
     vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
     VkDeviceMemory vk_deviceMemory;
-    bool isDedicated = (info.dedication != nullptr);
-    if(isDedicated)
-    {
-        // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
-        static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
-        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
-
-        if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
-            vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
-        else if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
-            vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
-    }
-
     auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
-    if (vk_res == VK_SUCCESS)
+    if (vk_res!=VK_SUCCESS)
+        return ret;
+
+    // automatically allocation goes out of scope and frees itself if no success later on
+    const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
+    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,info.size,info.dedication,vk_deviceMemory,allocateFlags,memoryPropertyFlags);
+    ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
+    if(info.dedication)
     {
-        if(info.memoryTypeIndex < m_physicalDevice->getMemoryProperties().memoryTypeCount)
+        bool dedicationSuccess = false;
+        switch (info.dedication->getObjectType())
         {
-            auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
-            ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags, memoryPropertyFlags);
-            ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
-
-            if(info.dedication)
+            case IDeviceMemoryBacked::EOT_BUFFER:
             {
-                bool dedicationSuccess = false;
-                switch (info.dedication->getObjectType())
-                {
-                case IDeviceMemoryBacked::EOT_BUFFER:
-                {
-                    SBindBufferMemoryInfo bindBufferInfo = {};
-                    bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
-                    bindBufferInfo.memory = ret.memory.get();
-                    bindBufferInfo.offset = ret.offset;
-                    dedicationSuccess = bindBufferMemory(1u, &bindBufferInfo);
-                }
-                    break;
-                case IDeviceMemoryBacked::EOT_IMAGE:
-                {
-                    SBindImageMemoryInfo bindImageInfo = {};
-                    bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
-                    bindImageInfo.memory = ret.memory.get();
-                    bindImageInfo.offset = ret.offset;
-                    dedicationSuccess = bindImageMemory(1u, &bindImageInfo);
-                }
-                    break;
-                default:
-                    assert(false);
-                }
-
-                if(!dedicationSuccess)
-                {
-                    // automatically allocation goes out of scope and frees itself
-                    ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
-                }
+                SBindBufferMemoryInfo bindBufferInfo = {};
+                bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
+                bindBufferInfo.memory = ret.memory.get();
+                bindBufferInfo.offset = ret.offset;
+                dedicationSuccess = bindBufferMemory(1u,&bindBufferInfo);
             }
+                break;
+            case IDeviceMemoryBacked::EOT_IMAGE:
+            {
+                SBindImageMemoryInfo bindImageInfo = {};
+                bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
+                bindImageInfo.memory = ret.memory.get();
+                bindImageInfo.offset = ret.offset;
+                dedicationSuccess = bindImageMemory(1u,&bindImageInfo);
+            }
+                break;
         }
-        else
-        {
-            assert(false);
-            // and probably log memoryTypeIndex is invalid
-        }
+        if(!dedicationSuccess)
+            ret = {};
     }
-    // TODO: Log errors:
-    // else if(vk_res == VK_ERROR_OUT_OF_DEVICE_MEMORY)
-    // else if(vk_res == VK_ERROR_OUT_OF_HOST_MEMORY)
-
     return ret;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
     uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs)
