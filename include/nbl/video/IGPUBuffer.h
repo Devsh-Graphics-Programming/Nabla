@@ -19,14 +19,9 @@ namespace nbl::video
 /** For additional OpenGL DSA state-free operations such as flushing mapped ranges or
 buffer to buffer copies, one needs a command buffer in Vulkan as these operations are
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
-class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBackendObject
+class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked
 {
-	public:		
-		inline E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
-
-		// Vulkan: const VkBuffer*
-		virtual const void* getNativeHandle() const = 0;
-
+	public:
 		struct SCreationParams : asset::IBuffer::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{
 			SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
@@ -36,9 +31,15 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBa
 			}
 		};
 
+		//
+		inline E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
+
+		// Vulkan: const VkBuffer*
+		virtual const void* getNativeHandle() const = 0;
+
 	protected:
-		inline IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,SCreationParams&& _creationParams)
-			: asset::IBuffer(_creationParams),IDeviceMemoryBacked(std::move(_creationParams),reqs), IBackendObject(std::move(dev)) {}
+		inline IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _creationParams, const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
+			: asset::IBuffer(_creationParams), IDeviceMemoryBacked(std::move(dev),std::move(_creationParams),reqs) {}
 };
 
 } // end namespace nbl::video

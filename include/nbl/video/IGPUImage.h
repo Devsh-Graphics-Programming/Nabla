@@ -5,19 +5,17 @@
 #define _NBL_VIDEO_GPU_IMAGE_H_INCLUDED_
 
 
-#include "dimension2d.h"
-#include "IDeviceMemoryBacked.h"
-
 #include "nbl/asset/IImage.h"
 
+#include "dimension2d.h"
+
 #include "nbl/video/IGPUBuffer.h"
-#include "nbl/video/decl/IBackendObject.h"
 
 
 namespace nbl::video
 {
 
-class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBackendObject
+class IGPUImage : public asset::IImage, public IDeviceMemoryBacked
 {
 	public:
 		enum class TILING : uint8_t
@@ -143,7 +141,6 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 			return true;
 		}
 
-		// OpenGL: const GLuint* handle of a texture target
 		// Vulkan: const VkImage*
 		virtual const void* getNativeHandle() const = 0;
 
@@ -154,10 +151,8 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
 		//! constructor
-		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
-			SCreationParams&& _params
-		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)), m_tiling(_params.tiling), m_preinitialized(_params.preinitialized) {}
+		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params, const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
+			: IImage(_params), IDeviceMemoryBacked(std::move(dev),std::move(_params),reqs), m_tiling(_params.tiling), m_preinitialized(_params.preinitialized) {}
 };
 
 
