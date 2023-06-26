@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_I_DRIVER_MEMORY_BACKED_H_INCLUDED_
-#define _NBL_I_DRIVER_MEMORY_BACKED_H_INCLUDED_
+#ifndef _NBL_VIDEO_I_DRIVER_MEMORY_BACKED_H_INCLUDED_
+#define _NBL_VIDEO_I_DRIVER_MEMORY_BACKED_H_INCLUDED_
 
 #include "IDeviceMemoryAllocation.h"
 #include <algorithm>
