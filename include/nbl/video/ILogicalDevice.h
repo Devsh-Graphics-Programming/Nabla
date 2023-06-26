@@ -36,15 +36,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
         };
 
-        inline virtual ~ILogicalDevice()
-        {
-            if (m_queues && !m_queues->empty())
-            {
-                for (uint32_t i = 0u; i < m_queues->size(); ++i)
-                    delete (*m_queues)[i];
-            }
-        }
 
+        //! Basic getters
         inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
         inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
@@ -65,6 +58,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return (*m_queues)[offset + _ix];
         }
 
+
+        //! sync validation
         inline core::bitflag<asset::PIPELINE_STAGE_FLAGS> getSupportedStageMask(const uint32_t queueFamilyIndex) const
         {
             if (queueFamilyIndex>m_queueFamilyInfos->size())
@@ -141,7 +136,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         template<typename ResourceBarrier>
         bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier<ResourceBarrier>& barrier) const;
 
-        //
+        
+        //! Sync
+        virtual IQueue::RESULT waitIdle() const = 0;
+
+        //! Semaphore Stuff
         virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
         //
         struct SSemaphoreWaitInfo
@@ -170,10 +169,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return WAIT_RESULT::SUCCESS;
         }
 
-        //
+        // Event Stuff
         virtual core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) = 0;
+        
 
+        //! Memory stuff
 
+        virtual void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
+        virtual void unmapMemory(IDeviceMemoryAllocation* memory) = 0;
+
+        //!
         inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
         {
             if (!_cmdPool->wasCreatedBy(this))
@@ -477,14 +482,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createGraphicsPipelines(pipelineCache, ci, output);
         }
 
-        virtual void waitIdle() = 0;
-
-        //
-        virtual void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) = 0;
-
-        //
-        virtual void unmapMemory(IDeviceMemoryAllocation* memory) = 0;
-
         // Not implemented stuff:
         //TODO: vkGetDescriptorSetLayoutSupport
         //TODO: vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
@@ -541,6 +538,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params);
+        inline virtual ~ILogicalDevice()
+        {
+            if (m_queues)
+            for (uint32_t i=0u; i<m_queues->size(); ++i)
+                delete (*m_queues)[i];
+        }
 
         // must be called by implementations of mapMemory()
         static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 

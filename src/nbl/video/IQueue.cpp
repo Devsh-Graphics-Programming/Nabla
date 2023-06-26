@@ -5,17 +5,17 @@
 namespace nbl::video
 {
 
-bool IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits)
+auto IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits) -> RESULT
 {
     if (!_submits || _count==0u)
-        return false;
+        return RESULT::OTHER_ERROR;
 
     auto* logger = m_originDevice->getPhysicalDevice()->getDebugCallback()->getLogger();
     for (uint32_t i=0u; i<_count; ++i)
     {
         auto& submit = _submits[i];
         if (!submit.valid())
-            return false;
+            return RESULT::OTHER_ERROR;
 
         auto invalidSemaphores = [this,logger](const uint32_t count, const SSubmitInfo::SSemaphoreInfo* semaphoreInfo) -> bool
         {
@@ -31,7 +31,7 @@ bool IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits)
             return false;
         };
         if (invalidSemaphores(submit.waitSemaphoreCount,submit.pWaitSemaphores) || invalidSemaphores(submit.signalSemaphoreCount,submit.pSignalSemaphores))
-            return false;
+            return RESULT::OTHER_ERROR;
 
         for (uint32_t j=0u; j<submit.commandBufferCount; ++j)
         {
@@ -39,7 +39,7 @@ bool IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits)
             if (!cmdbuf || !cmdbuf->wasCreatedBy(m_originDevice))
             {
                 logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
-                return false;
+                return RESULT::OTHER_ERROR;
             }
 
             const char* commandBufferDebugName = cmdbuf->getDebugName();
@@ -49,12 +49,12 @@ bool IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits)
             if (cmdbuf->getLevel()!=IGPUCommandBuffer::LEVEL::PRIMARY)
             {
                 logger->log("Command buffer (%s, %p) is NOT PRIMARY LEVEL", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
-                return false;
+                return RESULT::OTHER_ERROR;
             }
             if (cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
             {
                 logger->log("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
-                return false;
+                return RESULT::OTHER_ERROR;
             }
 
             const auto& descriptorSetsRecord = cmdbuf->getBoundDescriptorSetsRecord();
@@ -65,7 +65,7 @@ bool IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits)
                 {
                     logger->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", system::ILogger::ELL_WARNING, commandBufferDebugName, cmdbuf);
                     cmdbuf->m_state = IGPUCommandBuffer::STATE::INVALID;
-                    return false;
+                    return RESULT::OTHER_ERROR;
                 }
             }
         }
@@ -76,8 +76,9 @@ bool IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits)
     for (uint32_t j=0u; j<_submits[i].commandBufferCount; ++j)
         _submits[i].commandBuffers[j].cmdbuf->m_state = IGPUCommandBuffer::STATE::PENDING;
     // do the submit
-    if (!submit_impl(_count,_submits))
-        return false;
+    auto result = submit_impl(_count,_submits);
+    if (result!=RESULT::SUCCESS)
+        return result;
     // mark cmdbufs as done
     for (uint32_t i=0u; i<_count; ++i)
     for (uint32_t j=0u; j<_submits[i].commandBufferCount; ++j)
@@ -85,7 +86,7 @@ bool IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits)
         auto* cmdbuf = _submits[i].commandBuffers[j].cmdbuf;
         cmdbuf->m_state = cmdbuf->isResettable() ? IGPUCommandBuffer::STATE::EXECUTABLE:IGPUCommandBuffer::STATE::INVALID;
     }
-    return true;
+    return result;
 }
 
 }

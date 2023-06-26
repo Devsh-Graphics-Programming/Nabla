@@ -17,15 +17,24 @@ class CThreadSafeQueueAdapter final : public IQueue
         std::unique_ptr<IQueue> originalQueue = nullptr;
         std::mutex m;
 
-        inline bool submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) override {return originalQueue.get()->submit_impl(_count, _submits); }
+        inline RESULT submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) override
+        {
+            IQueue* msvcIsDumb = originalQueue.get();
+            return this->submit_impl(_count,_submits);
+        }
 
     public:
         inline CThreadSafeQueueAdapter(ILogicalDevice* originDevice, std::unique_ptr<IQueue>&& original)
             : IQueue(originDevice, original->getFamilyIndex(),original->getFlags(),original->getPriority()), originalQueue(std::move(original)) {}        
-
         inline CThreadSafeQueueAdapter() : IQueue(nullptr, 0, CREATE_FLAGS::PROTECTED_BIT, 0.f) {}
 
-        inline bool submit(const uint32_t _count, const SSubmitInfo* const _submits) override
+        inline RESULT waitIdle() const override
+        {
+            std::lock_guard g(m);
+            return originalQueue->waitIdle();
+        }
+
+        inline RESULT submit(const uint32_t _count, const SSubmitInfo* const _submits) override
         {
             std::lock_guard g(m);
             return originalQueue->submit(_count, _submits);

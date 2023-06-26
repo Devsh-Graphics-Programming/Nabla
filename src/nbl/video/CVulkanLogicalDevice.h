@@ -1,5 +1,5 @@
-#ifndef _NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
-#define _NBL_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
+#ifndef _NBL_VIDEO_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
+#define _NBL_VIDEO_C_VULKAN_LOGICAL_DEVICE_H_INCLUDED_
 
 
 #include "nbl/core/containers/CMemoryPool.h"
@@ -43,12 +43,11 @@ class CVulkanCommandBuffer;
 class CVulkanLogicalDevice final : public ILogicalDevice
 {
     public:
-        using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,true,uint32_t>;
-
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const VkInstance vkinst, const SCreationParams& params);
-        inline ~CVulkanLogicalDevice()
+
+        inline IQueue::RESULT waitIdle() const override
         {
-            m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
+            return CVulkanQueue::getResultFrom(m_devf.vk.vkDeviceWaitIdle(m_vkdev));
         }
             
         core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
@@ -56,39 +55,28 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             
         core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) override;
               
-    core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override
-    {
-        VkDeferredOperationKHR vk_deferredOp = VK_NULL_HANDLE;
-        VkResult vk_res = m_devf.vk.vkCreateDeferredOperationKHR(m_vkdev, nullptr, &vk_deferredOp);
-        if(vk_res!=VK_SUCCESS)
-            return nullptr;
+        core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() override;
 
-        void* memory = m_deferred_op_mempool.allocate(sizeof(CVulkanDeferredOperation),alignof(CVulkanDeferredOperation));
-        if (!memory)
-            return nullptr;
-
-        new (memory) CVulkanDeferredOperation(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),vk_deferredOp);
-        return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
-    }
-
-    core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override
-    {
-        VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // pNext must be NULL
-        vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags.value);
-        vk_createInfo.queueFamilyIndex = familyIndex;
-
-        VkCommandPool vk_commandPool = VK_NULL_HANDLE;
-        if (m_devf.vk.vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
+        inline core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t familyIndex, core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override
         {
-            return core::make_smart_refctd_ptr<CVulkanCommandPool>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, familyIndex, vk_commandPool);
+            VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+            vk_createInfo.pNext = nullptr; // pNext must be NULL
+            vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags.value);
+            vk_createInfo.queueFamilyIndex = familyIndex;
+
+            VkCommandPool vk_commandPool = VK_NULL_HANDLE;
+            if (m_devf.vk.vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
+            {
+                return core::make_smart_refctd_ptr<CVulkanCommandPool>(
+                    core::smart_refctd_ptr<CVulkanLogicalDevice>(this), flags, familyIndex, vk_commandPool);
+            }
+            else
+            {
+                return nullptr;
+            }
         }
-        else
-        {
-            return nullptr;
-        }
-    }
+
+        SMemoryOffset allocate(const SAllocateInfo& info) override;
             
     core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) override
     {
@@ -695,8 +683,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         return !anyFailed;
     }
 
-    SMemoryOffset allocate(const SAllocateInfo& info) override;
-
     core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override
     {
         VkSamplerCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
@@ -731,15 +717,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         {
             return nullptr;
         }
-    }
-
-    // API changes needed, this could also fail.
-    void waitIdle() override
-    {
-        VkResult retval = m_devf.vk.vkDeviceWaitIdle(m_vkdev);
-
-        // Todo(achal): Handle errors
-        assert(retval == VK_SUCCESS);
     }
 
     void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override
@@ -1312,7 +1289,12 @@ protected:
 
     bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
-private:
+    private:
+        inline ~CVulkanLogicalDevice()
+        {
+            m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
+        }
+
     inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeBegin, const IDeviceMemoryAllocation::MappedMemoryRange* inRangeEnd)
     {
         uint32_t k = 0u;
@@ -1336,6 +1318,7 @@ private:
     
         constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
         constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
+        using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,true,uint32_t>;
         memory_pool_mt_t m_deferred_op_mempool;
 
         core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;

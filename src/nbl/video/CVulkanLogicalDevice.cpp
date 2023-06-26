@@ -65,7 +65,6 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const u
     else
         return nullptr;
 }
-
 auto CVulkanLogicalDevice::waitForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll, const uint64_t timeout) -> WAIT_RESULT
 {
     core::vector<VkSemaphore> semaphores(count);
@@ -110,7 +109,21 @@ core::smart_refctd_ptr<IEvent> CVulkanLogicalDevice::createEvent(const IEvent::C
     else
         return nullptr;
 }
+              
+core::smart_refctd_ptr<IDeferredOperation> CVulkanLogicalDevice::createDeferredOperation()
+{
+    VkDeferredOperationKHR vk_deferredOp = VK_NULL_HANDLE;
+    const VkResult vk_res = m_devf.vk.vkCreateDeferredOperationKHR(m_vkdev, nullptr, &vk_deferredOp);
+    if(vk_res!=VK_SUCCESS || vk_deferredOp==VK_NULL_HANDLE)
+        return nullptr;
 
+    void* memory = m_deferred_op_mempool.allocate(sizeof(CVulkanDeferredOperation),alignof(CVulkanDeferredOperation));
+    if (!memory)
+        return nullptr;
+
+    new (memory) CVulkanDeferredOperation(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),vk_deferredOp);
+    return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
+}
 
 IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {

@@ -6,23 +6,28 @@
 
 namespace nbl::video
 {
+
+auto CVulkanQueue::waitIdle() const -> RESULT
+{
+    return getResultFrom(static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueWaitIdle(m_vkQueue));
+}
     
 bool CVulkanQueue::startCapture() 
 {
-	if(m_rdoc_api == nullptr)
+	if (!m_rdoc_api)
 		return false;
     m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
 	return true;
 }
 bool CVulkanQueue::endCapture()
 {
-	if(m_rdoc_api == nullptr)
+	if (!m_rdoc_api)
 		return false;
     m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
 	return true;
 }
 
-bool CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _submits)
+auto CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) -> RESULT
 {
     auto fillSemaphoreInfo = [this](const SSubmitInfo::SSemaphoreInfo* in, const uint32_t count, VkSemaphoreSubmitInfoKHR* out) -> void
     {
@@ -48,7 +53,7 @@ bool CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _
         signalSemCnt += sb.signalSemaphoreCount;
     }
 
-    // TODO: we need a SVO vector
+    // TODO: we need a SVO optimized vector with SoA
     core::vector<VkSubmitInfo2> submits(_count,{VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,/*No interesting extensions*/nullptr,/*No protected stuff yet*/0});
     core::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(waitSemCnt);
     core::vector<VkCommandBufferSubmitInfoKHR> commandBuffers(cmdBufCnt,{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,nullptr});
@@ -79,12 +84,13 @@ bool CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _
         fillSemaphoreInfo(_sb.pWaitSemaphores,_sb.waitSemaphoreCount,waits);
         for (uint32_t j=0u; j<_sb.commandBufferCount; ++j)
         {
-            cmdbufs[j].commandBuffer = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.commandBuffers[i],m_originDevice)->getInternalObject();
+            cmdbufs[j].commandBuffer = IBackendObject::device_compatibility_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[i],m_originDevice)->getInternalObject();
             cmdbufs[j].deviceMask = 0x1u;
         }
         fillSemaphoreInfo(_sb.pSignalSemaphores,_sb.signalSemaphoreCount,signals);
     }
-    return static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,_count,submits.data(),VK_NULL_HANDLE)==VK_SUCCESS;
+    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,_count,submits.data(),VK_NULL_HANDLE);
+    return getResultFrom(vk_result);
 }
 
 }

@@ -18,6 +18,10 @@ class IQueue : public core::Interface, public core::Unmovable
         // any queue external, regardless of device or driver version
         constexpr static inline uint32_t FamilyForeign = 0x7ffffffdu;
 
+        //
+        constexpr static inline float DEFAULT_QUEUE_PRIORITY = 1.f;
+
+        //
         enum class FAMILY_FLAGS : uint8_t
         {
             NONE = 0,
@@ -33,11 +37,23 @@ class IQueue : public core::Interface, public core::Unmovable
             PROTECTED_BIT = 0x01u
         };
 
+        // getters
+        inline CREATE_FLAGS getFlags() const { return m_flags; }
+        inline uint32_t getFamilyIndex() const { return m_familyIndex; }
+        inline float getPriority() const { return m_priority; }
+
 
         // for renderdoc and friends
         virtual bool startCapture() = 0;
         virtual bool endCapture() = 0;
 
+        //
+        enum class RESULT : uint8_t
+        {
+            SUCCESS,
+            DEVICE_LOST,
+            OTHER_ERROR
+        };
         //
         struct SSubmitInfo
         {
@@ -75,14 +91,9 @@ class IQueue : public core::Interface, public core::Unmovable
                 return waitSemaphoreCount&&commandBufferCount || commandBufferCount&&signalSemaphoreCount || waitSemaphoreCount&&signalSemaphoreCount;
             }
         };
-        virtual bool submit(const uint32_t _count, const SSubmitInfo* const _submits);
-
-        // getters
-        inline CREATE_FLAGS getFlags() const { return m_flags; }
-        inline uint32_t getFamilyIndex() const { return m_familyIndex; }
-        inline float getPriority() const { return m_priority; }
-
-        constexpr static inline float DEFAULT_QUEUE_PRIORITY = 1.f;
+        virtual RESULT submit(const uint32_t _count, const SSubmitInfo* const _submits);
+        //
+        virtual RESULT waitIdle() const = 0;
 
         // Vulkan: const VkQueue*
         virtual const void* getNativeHandle() const = 0;
@@ -94,7 +105,7 @@ class IQueue : public core::Interface, public core::Unmovable
         {
         }
 
-        virtual bool submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) = 0;
+        virtual RESULT submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) = 0;
 
         const ILogicalDevice* m_originDevice;
         const uint32_t m_familyIndex;
