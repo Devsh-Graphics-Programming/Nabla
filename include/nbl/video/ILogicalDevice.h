@@ -205,7 +205,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             };
         };
         // For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
-        bool flushMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange* pMemoryRanges)
+        inline bool flushMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange* pMemoryRanges)
         {
             core::SRange<const MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
             return flushMappedMemoryRanges(ranges);
@@ -218,7 +218,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return flushMappedMemoryRanges_impl(ranges);
         }
         // For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible
-        bool invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange* pMemoryRanges)
+        inline bool invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange* pMemoryRanges)
         {
             core::SRange<const MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
             return invalidateMappedMemoryRanges(ranges);
@@ -274,7 +274,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeviceMemoryBacked::SMemoryBinding binding = {};
         };
         //! The counterpart of @see bindBufferMemory for images
-        virtual bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
+        inline bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
         {
             for (auto i=0u; i<count; i++)
             {
@@ -303,7 +303,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createBuffer_impl(std::move(creationParams));
         }
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
-        core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
+        inline core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
         {
             if (!underlying.isValid() || !underlying.buffer->wasCreatedBy(this))
                 return nullptr;
@@ -323,7 +323,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createImage_impl(std::move(creationParams));
         }
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
-        core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
+        inline core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {
             if (!params.image->wasCreatedBy(this))
                 return nullptr;
@@ -333,40 +333,63 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a sampler object to use with ImageViews
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
         // acceleration structure
-        core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        inline core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
         {
-            if (!params.bufferRange.buffer->wasCreatedBy(this)) // TODO: more
+            if (!getEnabledFeatures().accelerationStructure)
+                return nullptr;
+            constexpr size_t MinAlignment = 256u;
+            if (!params.bufferRange.isValid() || !params.bufferRange.buffer->wasCreatedBy(this) || (params.bufferRange.offset&(MinAlignment-1))!=0u)
+                return nullptr;
+            if (params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
                 return nullptr;
             return createAccelerationStructure_impl(std::move(params));
         }
 
         //! Acceleration Structure modifiers
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
+        template<typename AddressType>
+        inline IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& info, const uint32_t* pMaxPrimitiveCounts)
         {
-            return IGPUAccelerationStructure::BuildSizes{};
-        }
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
-        {
+            if (!getEnabledFeatures().accelerationStructure)
+                return {};
+            if constexpr (std::is_same_v<AddressType,IGPUAccelerationStructure::HostAddressType>)
+            if (!getEnabledFeatures().accelerationStructureHostCommands)
+                return {};
+
+            const auto& bufferUsages = getPhysicalDevice()->getBufferFormatUsages();
+            for (const auto& geometry : info.geometries)
+            {
+                using type_t = decltype(geometry.type);
+                switch(geometry.type)
+                {
+                    case type_t::TRIANGLES:
+                        if (!bufferUsages[geometry.data.triangles.vertexFormat].accelerationStructureVertex)
+                            return {};
+                        break;
+                    case type_t::AABBS:
+                        break;
+                    case type_t::INSTANCES:
+                        break;
+                    default:
+                        return {};
+                        break;
+                }
+            }
             return IGPUAccelerationStructure::BuildSizes{};
         }
         // Host-side build
-
-        virtual bool buildAccelerationStructures(
+        inline bool buildAccelerationStructures(
             core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
             const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
             IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
         {
             return false;
         }
-
-        virtual bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
-    
-        virtual bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        inline bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
+        inline bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
             return false;
         }
-
-        virtual bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        inline bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
         {
             return false;
         }
@@ -715,6 +738,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
+
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::HostBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
 
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
 
