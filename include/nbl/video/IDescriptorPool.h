@@ -27,7 +27,7 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
             ECF_NONE = 0x00u,
             ECF_FREE_DESCRIPTOR_SET_BIT = 0x01,
             ECF_UPDATE_AFTER_BIND_BIT = 0x02,
-            ECF_HOST_ONLY_BIT_VALVE = 0x04
+            //ECF_HOST_ONLY_BIT_VALVE = 0x04
         };
 
         struct SCreateInfo

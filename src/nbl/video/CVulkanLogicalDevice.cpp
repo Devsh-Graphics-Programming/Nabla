@@ -236,6 +236,49 @@ bool CVulkanLogicalDevice::invalidateMappedMemoryRanges_impl(const core::SRange<
 }
 
 
+bool CVulkanLogicalDevice::bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos)
+{
+    core::vector<VkBindBufferMemoryInfo> vk_infos(count,{VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,nullptr});
+    for (uint32_t i=0u; i<count; ++i)
+    {
+        const auto& info = pInfos[i];
+        vk_infos[i].buffer = static_cast<CVulkanBuffer*>(info.buffer)->getInternalObject();
+        vk_infos[i].memory = static_cast<CVulkanMemoryAllocation*>(info.binding.memory)->getInternalObject();
+        vk_infos[i].memoryOffset = info.binding.offset;
+    }
+
+    if (m_devf.vk.vkBindBufferMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
+    {
+        m_logger.log("Call to `vkBindBufferMemory2` on Device %p failed!",system::ILogger::ELL_ERROR,this);
+        return false;
+    }
+    
+    for (uint32_t i=0u; i<count; ++i)
+        static_cast<CVulkanBuffer*>(pInfos[i].buffer)->setMemoryBinding(pInfos[i].binding);
+    return true;
+}
+bool CVulkanLogicalDevice::bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos)
+{
+    core::vector<VkBindImageMemoryInfo> vk_infos(count,{VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,nullptr});
+    for (uint32_t i=0u; i<count; ++i)
+    {
+        const auto& info = pInfos[i];
+        vk_infos[i].image = static_cast<CVulkanImage*>(info.image)->getInternalObject();
+        vk_infos[i].memory = static_cast<CVulkanMemoryAllocation*>(info.binding.memory)->getInternalObject();
+        vk_infos[i].memoryOffset = info.binding.offset;
+    }
+    if (m_devf.vk.vkBindImageMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
+    {
+        m_logger.log("Call to `vkBindImageMemory2` on Device %p failed!",system::ILogger::ELL_ERROR,this);
+        return false;
+    }
+    
+    for (uint32_t i=0u; i<count; ++i)
+        static_cast<CVulkanImage*>(pInfos[i].image)->setMemoryBinding(pInfos[i].binding);
+    return true;
+}
+
+
 core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams)
 {
     VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -366,53 +409,175 @@ core::smart_refctd_ptr<IGPUSampler> CVulkanLogicalDevice::createSampler(const IG
 // TODO: accel structure
 
 
-bool CVulkanLogicalDevice::bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos)
+
+core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer)
 {
-    core::vector<VkBindBufferMemoryInfo> vk_infos(count,{VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,nullptr});
-    for (uint32_t i=0u; i<count; ++i)
+    const char* entryPoint = "main"; // every compiler seems to be handicapped this way?
+    const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
+
+    const asset::ICPUBuffer* source = cpushader->getContent();
+
+    core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
+
+    if (cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        spirvShader = cpushader;
+    else
     {
-        const auto& info = pInfos[i];
-        vk_infos[i].buffer = static_cast<CVulkanBuffer*>(info.buffer)->getInternalObject();
-        vk_infos[i].memory = static_cast<CVulkanMemoryAllocation*>(info.binding.memory)->getInternalObject();
-        vk_infos[i].memoryOffset = info.binding.offset;
+        auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
+
+        asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
+
+        commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+        commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+        commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
+        commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
+
+        commonCompileOptions.stage = shaderStage;
+        commonCompileOptions.genDebugInfo = true;
+        commonCompileOptions.spirvOptimizer = optimizer;
+        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+
+        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+        {
+            // TODO: add specific HLSLCompiler::SOption params
+            spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+        }
+        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+        {
+            spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
+        }
+        else
+            spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
     }
 
-    if (m_devf.vk.vkBindBufferMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
-    {
-        m_logger.log("Call to `vkBindBufferMemory2` on Device %p failed!",system::ILogger::ELL_ERROR,this);
-        return false;
-    }
-    
-    for (uint32_t i=0u; i<count; ++i)
-        static_cast<CVulkanBuffer*>(pInfos[i].buffer)->setMemoryBinding(pInfos[i].binding);
-    return true;
+    if (!spirvShader || !spirvShader->getContent())
+        return nullptr;
+
+    auto spirv = spirvShader->getContent();
+
+    VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+    vk_createInfo.pNext = nullptr;
+    vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
+    vk_createInfo.codeSize = spirv->getSize();
+    vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
+        
+    VkShaderModule vk_shaderModule;
+    if (m_devf.vk.vkCreateShaderModule(m_vkdev,&vk_createInfo,nullptr,&vk_shaderModule)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<video::CVulkanShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),spirvShader->getStage(),std::string(cpushader->getFilepathHint()),vk_shaderModule);
+    return nullptr;
 }
-bool CVulkanLogicalDevice::bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos)
+
+
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount)
 {
-    core::vector<VkBindImageMemoryInfo> vk_infos(count,{VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,nullptr});
-    for (uint32_t i=0u; i<count; ++i)
+    std::vector<VkSampler> vk_samplers;
+    std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
+    vk_samplers.reserve(maxSamplersCount); // Reserve to avoid resizing and pointer change while iterating 
+    vk_dsLayoutBindings.reserve(bindings.size());
+
+    for (const auto& binding : bindings)
     {
-        const auto& info = pInfos[i];
-        vk_infos[i].image = static_cast<CVulkanImage*>(info.image)->getInternalObject();
-        vk_infos[i].memory = static_cast<CVulkanMemoryAllocation*>(info.binding.memory)->getInternalObject();
-        vk_infos[i].memoryOffset = info.binding.offset;
+        auto& vkDescSetLayoutBinding = vk_dsLayoutBindings.emplace_back();
+        vkDescSetLayoutBinding.binding = binding.binding;
+        vkDescSetLayoutBinding.descriptorType = getVkDescriptorTypeFromDescriptorType(binding.type);
+        vkDescSetLayoutBinding.descriptorCount = binding.count;
+        vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding.stageFlags);
+        vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
+
+        if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers && binding.count)
+        {
+            // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
+            // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
+            const uint32_t samplerOffset = vk_samplers.size();
+            for (uint32_t i=0u; i<binding.count; ++i)
+                vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.samplers[i].get())->getInternalObject());
+            vkDescSetLayoutBinding.pImmutableSamplers = vk_samplers.data()+samplerOffset;
+        }
     }
-    if (m_devf.vk.vkBindImageMemory2(m_vkdev,vk_infos.size(),vk_infos.data())!=VK_SUCCESS)
-    {
-        m_logger.log("Call to `vkBindImageMemory2` on Device %p failed!",system::ILogger::ELL_ERROR,this);
-        return false;
-    }
-    
-    for (uint32_t i=0u; i<count; ++i)
-        static_cast<CVulkanImage*>(pInfos[i].image)->setMemoryBinding(pInfos[i].binding);
-    return true;
+
+    VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+    vk_createInfo.pNext = nullptr; // pNext of interest:  VkDescriptorSetLayoutBindingFlagsCreateInfo
+    vk_createInfo.flags = 0; // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
+    vk_createInfo.bindingCount = vk_dsLayoutBindings.size();
+    vk_createInfo.pBindings = vk_dsLayoutBindings.data();
+
+    VkDescriptorSetLayout vk_dsLayout;
+    if (m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev,&vk_createInfo,nullptr,&vk_dsLayout)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),bindings,vk_dsLayout);
+    return nullptr;
 }
 
+core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineLayout_impl(
+    const core::SRange<const asset::SPushConstantRange>& pcRanges,
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0,
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1,
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2,
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3
+)
+{
+    const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2, layout3 };
 
+    VkDescriptorSetLayout vk_dsLayouts[asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+    uint32_t nonNullSetLayoutCount = ~0u;
+    for (uint32_t i = 0u; i < asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        if (tmp[i])
+            nonNullSetLayoutCount = i;
+        vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>((tmp[i] ? tmp[i]:m_dummyDSLayout).get())->getInternalObject();
+    }
+    nonNullSetLayoutCount++;
 
+    VkPushConstantRange vk_pushConstantRanges[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+    auto oit = vk_pushConstantRanges;
+    for (const auto pcRange : pcRanges)
+    {
+        oit->stageFlags = getVkShaderStageFlagsFromShaderStage(pcRange.stageFlags);
+        oit->offset = pcRange.offset;
+        oit->size = pcRange.size;
+        oit++;
+    }
 
+    VkPipelineLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,nullptr };
+    vk_createInfo.flags = static_cast<VkPipelineLayoutCreateFlags>(0); // flags must be 0
+    vk_createInfo.setLayoutCount = nonNullSetLayoutCount;
+    vk_createInfo.pSetLayouts = vk_dsLayouts;
+    vk_createInfo.pushConstantRangeCount = pcRanges.size();
+    vk_createInfo.pPushConstantRanges = vk_pushConstantRanges;
+                
+    VkPipelineLayout vk_pipelineLayout;
+    if (m_devf.vk.vkCreatePipelineLayout(m_vkdev,&vk_createInfo,nullptr,&vk_pipelineLayout)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),pcRanges,std::move(layout0),std::move(layout1),std::move(layout2),std::move(layout3),vk_pipelineLayout);
+    return nullptr;
+}
 
+            
+core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo)
+{
+    uint32_t poolSizeCount = 0;
+    VkDescriptorPoolSize poolSizes[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 
+    for (uint32_t t=0; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+    {
+        if (createInfo.maxDescriptorCount[t]==0)
+            continue;
+
+        auto& poolSize = poolSizes[poolSizeCount++];
+        poolSize.type = getVkDescriptorTypeFromDescriptorType(static_cast<asset::IDescriptor::E_TYPE>(t));
+        poolSize.descriptorCount = createInfo.maxDescriptorCount[t];
+    }
+
+    VkDescriptorPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+    vk_createInfo.pNext = nullptr; // no pNext of interest so far
+    vk_createInfo.flags = static_cast<VkDescriptorPoolCreateFlags>(createInfo.flags.value);
+    vk_createInfo.maxSets = createInfo.maxSets;
+    vk_createInfo.poolSizeCount = poolSizeCount;
+    vk_createInfo.pPoolSizes = poolSizes;
+
+    VkDescriptorPool vk_descriptorPool;
+    if (m_devf.vk.vkCreateDescriptorPool(m_vkdev,&vk_createInfo,nullptr,&vk_descriptorPool)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(createInfo),vk_descriptorPool);
+    return nullptr;
+}
 
 
 

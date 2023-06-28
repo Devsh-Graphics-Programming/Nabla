@@ -205,28 +205,34 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
 }
 
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings)
 {
+    // TODO: MORE VALIDATION, but after descriptor indexing.
+    uint32_t maxSamplersCount = 0u;
     uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
-    for (auto b=_begin; b!=_end; ++b)
+    for (auto& binding : bindings)
     {
-        if (b->type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
+        if (binding.type==asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
             dynamicSSBOCount++;
-        else if (b->type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
+        else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
             dynamicUBOCount++;
-        else if (b->type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b->samplers)
+        else if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers)
         {
-            auto* samplers = b->samplers;
-            for (uint32_t i = 0u; i < b->count; ++i)
-                if (!samplers[i]->wasCreatedBy(this))
-                    return nullptr;
+            auto* samplers = binding.samplers;
+            for (uint32_t i=0u; i<binding.count; ++i)
+            if (!samplers[i]->wasCreatedBy(this))
+                return nullptr;
+            maxSamplersCount += binding.count;
         }
     }
+
     const auto& limits = m_physicalDevice->getLimits();
     if (dynamicSSBOCount>limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDescriptorSetDynamicOffsetUBOs)
         return nullptr;
-    return createDescriptorSetLayout_impl(_begin,_end);
+
+    return createDescriptorSetLayout_impl(bindings,maxSamplersCount);
 }
+
 
 bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies)
 {
@@ -268,7 +274,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         dstDS->processCopy(copy);
     }
 
-    updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
+    return updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
 
     return true;
 }

@@ -66,6 +66,10 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         bool flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
         bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
 
+        // memory binding
+        bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) override;
+        bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) override;
+
         // descriptor creation
         core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) override;
         core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) override;
@@ -74,9 +78,32 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override;
         core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
 
-        // 
-        bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) override;
-        bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) override;
+        // shaders
+        core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer) override;
+        inline core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo) override
+        {
+            return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),core::smart_refctd_ptr<const CVulkanShader>(static_cast<const CVulkanShader*>(_unspecialized)),specInfo);
+        }
+
+        // layouts
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount) override;
+        core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
+            const core::SRange<const asset::SPushConstantRange>& pcRanges,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+        ) override;
+
+        // descriptor sets
+        core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) override;
+
+
+
+
+
+
+
+
+
 
 
 
@@ -97,39 +124,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return nullptr;
         }
 
-            
-    core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) override
-    {
-        uint32_t poolSizeCount = 0;
-        VkDescriptorPoolSize poolSizes[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
-
-        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-        {
-            if (createInfo.maxDescriptorCount[t] == 0)
-                continue;
-
-            auto& poolSize = poolSizes[poolSizeCount++];
-            poolSize.type = getVkDescriptorTypeFromDescriptorType(static_cast<asset::IDescriptor::E_TYPE>(t));
-            poolSize.descriptorCount = createInfo.maxDescriptorCount[t];
-        }
-
-        VkDescriptorPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkDescriptorPoolInlineUniformBlockCreateInfoEXT or VkMutableDescriptorTypeCreateInfoVALVE
-        vk_createInfo.flags = static_cast<VkDescriptorPoolCreateFlags>(createInfo.flags.value);
-        vk_createInfo.maxSets = createInfo.maxSets;
-        vk_createInfo.poolSizeCount = poolSizeCount;
-        vk_createInfo.pPoolSizes = poolSizes;
-
-        VkDescriptorPool vk_descriptorPool;
-        if (m_devf.vk.vkCreateDescriptorPool(m_vkdev, &vk_createInfo, nullptr, &vk_descriptorPool) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(createInfo), vk_descriptorPool);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
      
     // TODO: validation and factor out to `_impl`
     core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override
@@ -445,71 +439,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         return m_devf.vk.vkGetBufferDeviceAddress(m_vkdev, &info);
     }
 
-    core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
-    {
-        const char* entryPoint = "main";
-        const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
-
-        const asset::ICPUBuffer* source = cpushader->getContent();
-
-        core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
-
-        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-        {
-            spirvShader = cpushader;
-        }
-        else
-        {
-            auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
-
-            asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
-
-            commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-            commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
-            commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
-            commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
-
-            commonCompileOptions.stage = shaderStage;
-            commonCompileOptions.genDebugInfo = true;
-            commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
-            commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
-
-            if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
-            {
-                // TODO: add specific HLSLCompiler::SOption params
-                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-            }
-            else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
-            {
-                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-            }
-            else
-                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-
-        }
-
-        if (!spirvShader || !spirvShader->getContent())
-            return nullptr;
-
-        auto spirv = spirvShader->getContent();
-
-        VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-        vk_createInfo.pNext = nullptr;
-        vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
-        vk_createInfo.codeSize = spirv->getSize();
-        vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
-        
-        VkShaderModule vk_shaderModule;
-        if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<video::CVulkanShader>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), spirvShader->getStage(), std::string(cpushader->getFilepathHint()), vk_shaderModule);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
             
     core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override;
     
@@ -609,136 +538,8 @@ protected:
             core::smart_refctd_ptr<const CVulkanShader>(vulkanShader), specInfo);
     }
 
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override
-    {
-        uint32_t bindingCount = std::distance(_begin, _end);
-        uint32_t maxSamplersCount = 0u;
-        for (uint32_t b = 0u; b < bindingCount; ++b)
-        {
-            auto binding = _begin + b;
-            if (binding->samplers && binding->count > 0u)
-                maxSamplersCount += binding->count;
-        }
-
-        std::vector<VkSampler> vk_samplers;
-        std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
-        vk_samplers.reserve(maxSamplersCount); // Reserve to avoid resizing and pointer change while iterating 
-        vk_dsLayoutBindings.reserve(bindingCount);
-
-        for (uint32_t b = 0u; b < bindingCount; ++b)
-        {
-            auto binding = _begin + b;
-
-            VkDescriptorSetLayoutBinding vkDescSetLayoutBinding = {};
-            vkDescSetLayoutBinding.binding = binding->binding;
-            vkDescSetLayoutBinding.descriptorType = getVkDescriptorTypeFromDescriptorType(binding->type);
-            vkDescSetLayoutBinding.descriptorCount = binding->count;
-            vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding->stageFlags);
-            vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
-
-            if (binding->type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding->samplers && binding->count > 0u)
-            {
-                // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
-                // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
-                const uint32_t samplerOffset = vk_samplers.size();
-
-                for (uint32_t i = 0u; i < binding->count; ++i)
-                {
-                    if (binding->samplers[i]->getAPIType() != EAT_VULKAN) {
-                        assert(false);
-                        vk_samplers.push_back(VK_NULL_HANDLE); // To get validation errors on Release Builds
-                        continue;
-                    }
-
-                    VkSampler vkSampler = IBackendObject::device_compatibility_cast<const CVulkanSampler*>(binding->samplers[i].get(), this)->getInternalObject();
-                    vk_samplers.push_back(vkSampler);
-                }
-
-                vkDescSetLayoutBinding.pImmutableSamplers = vk_samplers.data() + samplerOffset;
-            }
-
-            vk_dsLayoutBindings.push_back(vkDescSetLayoutBinding);
-        }
-
-        VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkDescriptorSetLayoutBindingFlagsCreateInfo or VkMutableDescriptorTypeCreateInfoVALVE
-        vk_createInfo.flags = 0; // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
-        vk_createInfo.bindingCount = vk_dsLayoutBindings.size();
-        vk_createInfo.pBindings = vk_dsLayoutBindings.data();
-
-        VkDescriptorSetLayout vk_dsLayout;
-        if (m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev, &vk_createInfo, nullptr, &vk_dsLayout) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _begin, _end, vk_dsLayout);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
     
     core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
-
-    core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
-        const asset::SPushConstantRange* const _pcRangesBegin = nullptr,
-        const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0 = nullptr,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1 = nullptr,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2 = nullptr,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3 = nullptr) override
-    {
-        constexpr uint32_t MAX_PC_RANGE_COUNT = 100u;
-
-        const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2,
-            layout3 };
-
-        VkDescriptorSetLayout vk_dsLayouts[asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-        uint32_t setLayoutCount = 0u;
-        for (uint32_t i = 0u; i < asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-        {
-            if (tmp[i] && (tmp[i]->getAPIType() == EAT_VULKAN))
-            {
-                vk_dsLayouts[i] = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get(), this)->getInternalObject();
-                setLayoutCount = i + 1;
-            }
-            else
-                vk_dsLayouts[i] = IBackendObject::device_compatibility_cast<const CVulkanDescriptorSetLayout*>(m_dummyDSLayout.get(), this)->getInternalObject();
-        }
-
-        const auto pcRangeCount = std::distance(_pcRangesBegin, _pcRangesEnd);
-        assert(pcRangeCount <= MAX_PC_RANGE_COUNT);
-        VkPushConstantRange vk_pushConstantRanges[MAX_PC_RANGE_COUNT];
-        for (uint32_t i = 0u; i < pcRangeCount; ++i)
-        {
-            const auto pcRange = _pcRangesBegin + i;
-
-            vk_pushConstantRanges[i].stageFlags = getVkShaderStageFlagsFromShaderStage(pcRange->stageFlags);
-            vk_pushConstantRanges[i].offset = pcRange->offset;
-            vk_pushConstantRanges[i].size = pcRange->size;
-        }
-
-        VkPipelineLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // pNext must be NULL
-        vk_createInfo.flags = static_cast<VkPipelineLayoutCreateFlags>(0); // flags must be 0
-        vk_createInfo.setLayoutCount = setLayoutCount;
-        vk_createInfo.pSetLayouts = vk_dsLayouts;
-        vk_createInfo.pushConstantRangeCount = pcRangeCount;
-        vk_createInfo.pPushConstantRanges = vk_pushConstantRanges;
-                
-        VkPipelineLayout vk_pipelineLayout;
-        if (m_devf.vk.vkCreatePipelineLayout(m_vkdev, &vk_createInfo, nullptr, &vk_pipelineLayout) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), _pcRangesBegin, _pcRangesEnd,
-                std::move(layout0), std::move(layout1), std::move(layout2), std::move(layout3),
-                vk_pipelineLayout);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
 
     // For consistency's sake why not pass IGPUComputePipeline::SCreationParams as
     // only second argument, like in createComputePipelines_impl below? Especially
