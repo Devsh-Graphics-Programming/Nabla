@@ -341,7 +341,35 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //! Acceleration Structure modifiers
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
+        {
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
+        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
+        {
+            return IGPUAccelerationStructure::BuildSizes{};
+        }
         // Host-side build
+
+        virtual bool buildAccelerationStructures(
+            core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+            const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
+            IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+        {
+            return false;
+        }
+
+        virtual bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
+    
+        virtual bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        {
+            return false;
+        }
+
+        virtual bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        {
+            return false;
+        }
 
         //! Shaders
         // these are the defines which shall be added to any IGPUShader which has its source as GLSL
@@ -628,36 +656,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) { return nullptr; }
 
         virtual bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::RESULTS_FLAGS> flags) { return false;}
-
-        virtual bool buildAccelerationStructures(
-            core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
-            const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
-            IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
-        {
-            return false;
-        }
-
-        virtual bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
-    
-        virtual bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
-        {
-            return false;
-        }
-
-        virtual bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
-        {
-            return false;
-        }
-
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
-        {
-            return IGPUAccelerationStructure::BuildSizes{};
-        }
-
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
-        {
-            return IGPUAccelerationStructure::BuildSizes{};
-        }
 
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;

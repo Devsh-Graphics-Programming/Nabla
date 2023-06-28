@@ -34,12 +34,17 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked
 		//
 		inline E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
 
+		//
+		inline uint64_t getDeviceAddress() const {return m_deviceAddress;}
+
 		// Vulkan: const VkBuffer*
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
 		inline IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _creationParams, const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
 			: asset::IBuffer(_creationParams), IDeviceMemoryBacked(std::move(dev),std::move(_creationParams),reqs) {}
+
+		uint64_t m_deviceAddress = 0ull;
 };
 
 } // end namespace nbl::video

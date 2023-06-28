@@ -181,8 +181,8 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
             {
                 SBindBufferMemoryInfo bindBufferInfo = {};
                 bindBufferInfo.buffer = static_cast<IGPUBuffer*>(info.dedication);
-                bindBufferInfo.memOffset.memory = ret.memory.get();
-                bindBufferInfo.memOffset.offset = ret.offset;
+                bindBufferInfo.binding.memory = ret.memory.get();
+                bindBufferInfo.binding.offset = ret.offset;
                 dedicationSuccess = bindBufferMemory(1u,&bindBufferInfo);
             }
                 break;
@@ -190,8 +190,8 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
             {
                 SBindImageMemoryInfo bindImageInfo = {};
                 bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
-                bindImageInfo.memOffset.memory = ret.memory.get();
-                bindImageInfo.memOffset.offset = ret.offset;
+                bindImageInfo.binding.memory = ret.memory.get();
+                bindImageInfo.binding.offset = ret.offset;
                 dedicationSuccess = bindImageMemory(1u,&bindImageInfo);
             }
                 break;
@@ -254,7 +254,16 @@ bool CVulkanLogicalDevice::bindBufferMemory_impl(const uint32_t count, const SBi
     }
     
     for (uint32_t i=0u; i<count; ++i)
-        static_cast<CVulkanBuffer*>(pInfos[i].buffer)->setMemoryBinding(pInfos[i].binding);
+    {
+        auto* vulkanBuffer = static_cast<CVulkanBuffer*>(pInfos[i].buffer);
+        vulkanBuffer->setMemoryBinding(pInfos[i].binding);
+        if (vulkanBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        {
+            VkBufferDeviceAddressInfoKHR info = {VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,nullptr};
+            info.buffer = vulkanBuffer->getInternalObject();
+            vulkanBuffer->setDeviceAddress(m_devf.vk.vkGetBufferDeviceAddressKHR(m_vkdev,&info));
+        }
+    }
     return true;
 }
 bool CVulkanLogicalDevice::bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos)

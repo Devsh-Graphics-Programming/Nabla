@@ -22,6 +22,11 @@ class CVulkanBuffer : public CVulkanDeviceMemoryBacked<IGPUBuffer>
     
         void setObjectDebugName(const char* label) const override;
 
+        inline void setDeviceAddress(const uint64_t address)
+        {
+            m_deviceAddress = address;
+        }
+
     private:
         ~CVulkanBuffer();
 };

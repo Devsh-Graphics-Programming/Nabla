@@ -408,37 +408,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         m_devf.vk.vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets.data(), descriptorCopyCount, vk_copyDescriptorSets.data());
     }
 
-    uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) override
-    {
-        constexpr uint64_t invalid_address = ~0ull;
-        CVulkanBuffer* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(buffer, this);
-        if (!vulkanBuffer)
-        {
-            // TODO: log error
-            assert(false);
-            return invalid_address;
-        }
-
-        if (!buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
-        {
-            // TODO: log error: Buffer should've been created with EUF_SHADER_DEVICE_ADDRESS_BIT
-            assert(false);
-            return invalid_address;
-        }
-
-        if (!m_enabledFeatures.bufferDeviceAddress)
-        {
-            // TODO: log error: bufferDeviceAddress extension is not enbaled
-            assert(false);
-            return invalid_address;
-        }
-
-        VkBufferDeviceAddressInfo info = {};
-        info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-        info.buffer = vulkanBuffer->getInternalObject();
-        return m_devf.vk.vkGetBufferDeviceAddress(m_vkdev, &info);
-    }
-
             
     core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override;
     
