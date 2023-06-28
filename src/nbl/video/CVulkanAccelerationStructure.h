@@ -13,37 +13,32 @@
 namespace nbl::video
 {
 
-class ILogicalDevice;
+class CVulkanLogicalDevice;
 
-// TODO: Check for feature availability (should be enabled) from logical device in IGPUAccelerationStructure and CVulkanAccelerationStructure
-class CVulkanAccelerationStructure final : public IGPUAccelerationStructure
+class CVulkanAccelerationStructure
 {
 	public:
 		CVulkanAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& _params, VkAccelerationStructureKHR accelerationStructure);
-	
-		uint64_t getReferenceForDeviceOperations() const override {return m_deviceAddress;}
-		inline uint64_t getReferenceForHostOperations() const override {return reinterpret_cast<uint64_t>(m_vkAccelerationStructure);}
 
 		inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
 	
 		// enum converters
-		static inline VkAccelerationStructureCreateFlagsKHR getVkASCreateFlagsFromASCreateFlags(IGPUAccelerationStructure::CREATE_FLAGS in) {
+		static inline VkAccelerationStructureCreateFlagsKHR getVkASCreateFlagsFrom(const IGPUAccelerationStructure::CREATE_FLAGS in)
+		{
 			return static_cast<VkAccelerationStructureCreateFlagsKHR>(in);
 		}
-		static inline VkCopyAccelerationStructureModeKHR getVkCopyAccelerationStructureModeFrom(IAccelerationStructure::E_COPY_MODE in) {return static_cast<VkCopyAccelerationStructureModeKHR>(in);}
-
-	static inline VkGeometryTypeKHR getVkGeometryTypeFrom(IAccelerationStructure::E_GEOM_TYPE in) {
-		return static_cast<VkGeometryTypeKHR>(in);
-	}
-	static inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(IAccelerationStructure::E_GEOM_FLAGS in) {
-		return static_cast<VkGeometryFlagsKHR>(in);
-	}
-	static inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFromASBuildFlags(IAccelerationStructure::E_BUILD_FLAGS in) {
-		return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
-	}
-	static inline VkBuildAccelerationStructureModeKHR getVkASBuildModeFromASBuildMode(IAccelerationStructure::E_BUILD_MODE in) {
-		return static_cast<VkBuildAccelerationStructureModeKHR>(in);
-	}
+		static inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUAccelerationStructure::GEOMETRY_FLAGS in)
+		{
+			return static_cast<VkGeometryFlagsKHR>(in);
+		}
+		static inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUAccelerationStructure::BUILD_FLAGS in)
+		{
+			return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
+		}
+		static inline VkCopyAccelerationStructureModeKHR getVkCopyAccelerationStructureModeFrom(const IGPUAccelerationStructure::COPY_MODE in)
+		{
+			return static_cast<VkCopyAccelerationStructureModeKHR>(in);
+		}
 
 	// more complex static utils
 	template<typename AddressType>
@@ -141,11 +136,36 @@ class CVulkanAccelerationStructure final : public IGPUAccelerationStructure
 		return ret;
 	}
 
-	private:
+	protected:
+		CVulkanAccelerationStructure(const CVulkanLogicalDevice* vulkanDevice, const VkAccelerationStructureKHR accelerationStructure);
 		~CVulkanAccelerationStructure();
 
 		VkAccelerationStructureKHR m_vkAccelerationStructure;
 		VkDeviceAddress m_deviceAddress;
+
+	private:
+		const CVulkanLogicalDevice* m_vulkanDevice;
+};
+
+class CVulkanBottomLevelAccelerationStructure final : public IGPUBottomLevelAccelerationStructure, public CVulkanAccelerationStructure
+{
+	public:
+		CVulkanBottomLevelAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure)
+			: IGPUBottomLevelAccelerationStructure(std::move(logicalDevice),std::move(params)), CVulkanAccelerationStructure(logicalDevice.get(),accelerationStructure) {}
+
+		uint64_t getReferenceForDeviceOperations() const override {return m_deviceAddress;}
+		inline uint64_t getReferenceForHostOperations() const override {return reinterpret_cast<uint64_t>(m_vkAccelerationStructure);}
+
+	private:
+};
+
+class CVulkanTopLevelAccelerationStructure final : public IGPUTopLevelAccelerationStructure, public CVulkanAccelerationStructure
+{
+	public:
+		CVulkanTopLevelAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure)
+			: IGPUTopLevelAccelerationStructure(std::move(logicalDevice),std::move(params)), CVulkanAccelerationStructure(logicalDevice.get(),accelerationStructure) {}
+
+	private:
 };
 
 }

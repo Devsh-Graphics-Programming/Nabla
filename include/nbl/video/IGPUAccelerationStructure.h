@@ -17,24 +17,32 @@ namespace nbl::video
 
 class IGPUAccelerationStructure : public IBackendObject
 {
-	public:		
+		using PseudoBase = asset::IAccelerationStructure;
+
+	public:
+		struct SCreationParams
+		{
+			asset::SBufferRange<IGPUBuffer> bufferRange;
+			core::bitflag<PseudoBase::CREATE_FLAGS> flags = PseudoBase::CREATE_FLAGS::NONE;
+		};
+
+		// a few aliases to make usage simpler
+		using CREATE_FLAGS = PseudoBase::CREATE_FLAGS;
+		using BUILD_FLAGS = PseudoBase::BUILD_FLAGS;
+		using GEOMETRY_FLAGS = PseudoBase::GEOMETRY_FLAGS;
+
 		//! builds
 		template<typename BufferType>
-		struct BuildGeometryInfo
+		struct BuildInfo
 		{
-			using Geometry = IAccelerationStructure::Geometry<BufferType>;
-
-			BUILD_FLAGS flags : 7 = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
-			uint8_t isUpdate : 1 = false;
-			IGPUAccelerationStructure* srcAS = nullptr;
-			IGPUAccelerationStructure* dstAS = nullptr;
-			core::SRange<Geometry> geometries = {};
-			AddressType	scratchAddr = {};
+			PseudoBase::BUILD_FLAGS				flags : 15 = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+			uint8_t								isUpdate : 1 = false;
+			asset::SBufferBinding<BufferType>	scratchAddr = {};
 		};
-		using HostBuildGeometryInfo = BuildGeometryInfo<HostAddressType>;
-		using DeviceBuildGeometryInfo = BuildGeometryInfo<DeviceAddressType>;
+		
 		// for indirect builds
 		using BuildRangeInfo = hlsl::acceleration_structures::BuildRangeInfo;
+
 		// returned by ILogicalDevice
 		struct BuildSizes
 		{
@@ -43,164 +51,103 @@ class IGPUAccelerationStructure : public IBackendObject
 			size_t buildScratchSize = 0ull;
 		};
 
-
-
-
 		// copies
-		
-		enum E_COPY_MODE
+		enum class COPY_MODE : uint8_t
 		{
-			ECM_CLONE = 0,
-			ECM_COMPACT = 1,
-			ECM_SERIALIZE = 2,
-			ECM_DESERIALIZE = 3,
+			CLONE = 0,
+			COMPACT = 1,
+			SERIALIZE = 2,
+			DESERIALIZE = 3,
 		};
 		struct CopyInfo
 		{
 			const IGPUAccelerationStructure* src;
 			IGPUAccelerationStructure* dst;
-			E_COPY_MODE copyMode;
+			COPY_MODE copyMode;
 		};
-		
-		template<typename AddressType>
+		template<typename BufferType>
 		struct CopyToMemoryInfo
 		{
 			const IGPUAccelerationStructure* src;
-			AddressType dst;
-			E_COPY_MODE copyMode;
+			asset::SBufferBinding<BufferType> dst;
+			COPY_MODE copyMode;
 		};
-		using DeviceCopyToMemoryInfo = CopyToMemoryInfo<DeviceAddressType>;
-		using HostCopyToMemoryInfo = CopyToMemoryInfo<HostAddressType>;
-
-		
-		template<typename AddressType>
+		using DeviceCopyToMemoryInfo = CopyToMemoryInfo<IGPUBuffer>;
+		using HostCopyToMemoryInfo = CopyToMemoryInfo<asset::ICPUBuffer>;
+		template<typename BufferType>
 		struct CopyFromMemoryInfo
 		{
-			AddressType src;
+			asset::SBufferBinding<const BufferType> src;
 			IGPUAccelerationStructure* dst;
-			E_COPY_MODE copyMode;
+			COPY_MODE copyMode;
 		};
-		using DeviceCopyFromMemoryInfo = CopyFromMemoryInfo<DeviceAddressType>;
-		using HostCopyFromMemoryInfo = CopyFromMemoryInfo<HostAddressType>;
-
-		inline const auto& getCreationParameters() const
-		{
-			return params;
-		}
-
-		//!
-		inline static bool validateCreationParameters(const SCreationParams& _params)
-		{
-			if(!_params.bufferRange.isValid()) {
-				return false;
-			}
-			return true;
-		}
-
-
-		//! Function used for getting the reference to give 'Instance' as a parameter
-		virtual uint64_t getReferenceForDeviceOperations() const = 0;
-		virtual uint64_t getReferenceForHostOperations() const = 0;
+		using DeviceCopyFromMemoryInfo = CopyFromMemoryInfo<IGPUBuffer>;
+		using HostCopyFromMemoryInfo = CopyFromMemoryInfo<asset::ICPUBuffer>;
 
 	protected:
-		virtual ~IGPUAccelerationStructure() = default;
+		IGPUAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), m_bufferRange(std::move(params.bufferRange)) {}
+
+		asset::SBufferBinding<IGPUBuffer> m_bufferRange;
 };
 
 class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure, public IGPUAccelerationStructure
 {
-		using Base = asset::IAccelerationStructure<IGPUAccelerationStructure>;
+		using PseudoBase = asset::IBottomLevelAccelerationStructure;
 
-	public:		
-		//! builds
-		template<typename AddressType>
-		struct BuildGeometryInfo
+	public:
+		template<typename BufferType>
+		struct BuildGeometryInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
-			using Geometry = IAccelerationStructure::Geometry<AddressType>;
-
-			FLAGS flags : 7 = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
-			uint8_t isUpdate : 1 = false;
-			IGPUAccelerationStructure* srcAS = nullptr;
-			IGPUAccelerationStructure* dstAS = nullptr;
-			core::SRange<Geometry> geometries = {};
-			AddressType	scratchAddr = {};
+			const IGPUBottomLevelAccelerationStructure* srcAS = nullptr;
+			IGPUBottomLevelAccelerationStructure* dstAS = nullptr;
+			core::SRange<PseudoBase::BuildGeometryInfo<BufferType>> geometries = {};
 		};
-		using HostBuildGeometryInfo = BuildGeometryInfo<HostAddressType>;
-		using DeviceBuildGeometryInfo = BuildGeometryInfo<DeviceAddressType>;
-		// for indirect builds
-		using BuildRangeInfo = hlsl::acceleration_structures::BuildRangeInfo;
-		// returned by ILogicalDevice
-		struct BuildSizes
-		{
-			size_t accelerationStructureSize = 0ull;
-			size_t updateScratchSize = 0ull;
-			size_t buildScratchSize = 0ull;
-		};
+		using DeviceBuildGeometryInfo = BuildGeometryInfo<IGPUBuffer>;
+		using HostBuildGeometryInfo = BuildGeometryInfo<asset::ICPUBuffer>;
 
-
-
-
-		// copies
-		
-		enum E_COPY_MODE
-		{
-			ECM_CLONE = 0,
-			ECM_COMPACT = 1,
-			ECM_SERIALIZE = 2,
-			ECM_DESERIALIZE = 3,
-		};
-		struct CopyInfo
-		{
-			const IGPUAccelerationStructure* src;
-			IGPUAccelerationStructure* dst;
-			E_COPY_MODE copyMode;
-		};
-		
-		template<typename AddressType>
-		struct CopyToMemoryInfo
-		{
-			const IGPUAccelerationStructure* src;
-			AddressType dst;
-			E_COPY_MODE copyMode;
-		};
-		using DeviceCopyToMemoryInfo = CopyToMemoryInfo<DeviceAddressType>;
-		using HostCopyToMemoryInfo = CopyToMemoryInfo<HostAddressType>;
-
-		
-		template<typename AddressType>
-		struct CopyFromMemoryInfo
-		{
-			AddressType src;
-			IGPUAccelerationStructure* dst;
-			E_COPY_MODE copyMode;
-		};
-		using DeviceCopyFromMemoryInfo = CopyFromMemoryInfo<DeviceAddressType>;
-		using HostCopyFromMemoryInfo = CopyFromMemoryInfo<HostAddressType>;
-
-		inline const auto& getCreationParameters() const
-		{
-			return params;
-		}
-
-		//!
-		inline static bool validateCreationParameters(const SCreationParams& _params)
-		{
-			if(!_params.bufferRange.isValid()) {
-				return false;
-			}
-			return true;
-		}
-
-
-		//! Function used for getting the reference to give 'Instance' as a parameter
+		//! Function used for getting the reference to set `Instance::blas` to
 		virtual uint64_t getReferenceForDeviceOperations() const = 0;
 		virtual uint64_t getReferenceForHostOperations() const = 0;
 
 	protected:
-		IGPUAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) : IBackendObject(std::move(dev)), params(std::move(_params)) {}
-		virtual ~IGPUAccelerationStructure() = default;
+		IGPUBottomLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
+			: PseudoBase(params.flags), IGPUAccelerationStructure(std::move(dev),std::move(params)) {}
+};
 
-	private:
-		 SCreationParams params;
+class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure, public IGPUAccelerationStructure
+{
+		using PseudoBase = asset::ITopLevelAccelerationStructure;
+
+	public:
+		struct SCreationParams : IGPUAccelerationStructure::SCreationParams
+		{
+			// only relevant if `flag` contain `MOTION_BIT`
+			uint32_t maxInstanceCount = 0u;
+		};
+
+		template<typename BufferType>
+		struct BuildGeometryInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
+		{
+			const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
+			IGPUTopLevelAccelerationStructure* dstAS = nullptr;
+			core::SRange<PseudoBase::BuildGeometryInfo<BufferType>> geometries = {};
+		};
+		using DeviceBuildGeometryInfo = BuildGeometryInfo<IGPUBuffer>;
+		using HostBuildGeometryInfo = BuildGeometryInfo<asset::ICPUBuffer>;
+
+		//! BEWARE, OUR RESOURCE LIFETIME TRACKING DOES NOT WORK ACROSS TLAS->BLAS boundaries with these types of BLAS references!
+		using DeviceInstance = PseudoBase::Instance<uint64_t>;
+		using HostInstance = PseudoBase::Instance<uint64_t>;
+		using DeviceStaticInstance = PseudoBase::StaticInstance<uint64_t>;
+		using HostStaticInstance = PseudoBase::StaticInstance<uint64_t>;
+		using DeviceMatrixMotionInstance = PseudoBase::MatrixMotionInstance<uint64_t>;
+		using HostMatrixMotionInstance = PseudoBase::MatrixMotionInstance<uint64_t>;
+		using DeviceSRTMotionInstance = PseudoBase::SRTMotionInstance<uint64_t>;
+		using HostSRTMotionInstance = PseudoBase::SRTMotionInstance<uint64_t>;
+
+	protected:
+		IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
+			: PseudoBase(params.flags), IGPUAccelerationStructure(std::move(dev),std::move(params)) {}
 };
 
 }

@@ -63,38 +63,12 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         // memory  stuff
         SAllocation allocate(const SAllocateInfo& info) override;
-        bool flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
-        bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
-
-        // memory binding
-        bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) override;
-        bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) override;
 
         // descriptor creation
-        core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) override;
-        core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) override;
-        core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) override;
-        core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override;
         core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override;
-        core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
 
         // shaders
         core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer) override;
-        inline core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo) override
-        {
-            return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),core::smart_refctd_ptr<const CVulkanShader>(static_cast<const CVulkanShader*>(_unspecialized)),specInfo);
-        }
-
-        // layouts
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount) override;
-        core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
-            const core::SRange<const asset::SPushConstantRange>& pcRanges,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
-        ) override;
-
-        // descriptor sets
-        core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) override;
 
 
 
@@ -424,21 +398,114 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
     bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
 
-    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
+        inline memory_pool_mt_t& getMemoryPoolForDeferredOperations()
+        {
+            return m_deferred_op_mempool;
+        }
 
-    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) override;
+        const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
 
-    inline memory_pool_mt_t& getMemoryPoolForDeferredOperations()
-    {
-        return m_deferred_op_mempool;
-    }
+        inline const void* getNativeHandle() const {return &m_vkdev;}
+        VkDevice getInternalObject() const {return m_vkdev;}
 
-    const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
+    private:
+        inline ~CVulkanLogicalDevice()
+        {
+            m_devf.vk.vkDestroyDevice(m_vkdev,nullptr);
+        }
+        
+        // memory  stuff
+        bool flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
+        bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
 
-    inline const void* getNativeHandle() const {return &m_vkdev;}
-    VkDevice getInternalObject() const {return m_vkdev;}
+        // memory binding
+        bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) override;
+        bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) override;
 
-protected:
+        // descriptor creation
+        core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) override;
+        core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) override;
+        core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) override;
+        core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override;
+        VkAccelerationStructureKHR createAccelerationStructure(const IGPUAccelerationStructure::SCreationParams& params, const VkAccelerationStructureTypeKHR type, const VkAccelerationStructureMotionInfoNV* motionInfo=nullptr);
+        core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override
+        {
+            const auto vk_as = createAccelerationStructure(params,VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR);
+            if (vk_as!=VK_NULL_HANDLE)
+                return core::make_smart_refctd_ptr<CVulkanBottomLevelAccelerationStructure>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),std::move(params),vk_as);
+            return nullptr;
+        }
+        core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) override
+        {
+            VkAccelerationStructureMotionInfoNV motionInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MOTION_INFO_NV,nullptr };
+            motionInfo.flags = 0;
+            motionInfo.maxInstances = params.maxInstanceCount;
+
+            const auto vk_as = createAccelerationStructure(params,VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) ? (&motionInfo) : nullptr);
+            if (vk_as!=VK_NULL_HANDLE)
+                return core::make_smart_refctd_ptr<CVulkanTopLevelAccelerationStructure>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),std::move(params),vk_as);
+            return nullptr;
+        }
+
+        // acceleration structure modifiers
+        template<typename AddressType>
+        IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) 
+        {
+            if(pMaxPrimitiveCounts == nullptr) {
+                assert(false);
+                return IGPUAccelerationStructure::BuildSizes{};
+            }
+
+            static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
+                
+            VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {};
+
+            // TODO: Use better container when ready for these stack allocated memories.
+            uint32_t geometryArrayOffset = 0u;
+            VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount] = {};
+
+            {
+                uint32_t geomCount = pBuildInfo.geometries.size();
+
+                assert(geomCount > 0);
+                assert(geomCount <= MaxGeometryPerBuildInfoCount);
+
+                vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, pBuildInfo, vk_geometries);
+            }
+        
+            VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR, nullptr};
+            m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev,buildType,&vk_buildGeomsInfo,pMaxPrimitiveCounts,&vk_ret);
+
+            IGPUAccelerationStructure::BuildSizes ret = {};
+            ret.accelerationStructureSize = vk_ret.accelerationStructureSize;
+            ret.updateScratchSize = vk_ret.updateScratchSize;
+            ret.buildScratchSize = vk_ret.buildScratchSize;
+            return ret;
+        }
+
+        // shaders
+        core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer) override;
+        inline core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo) override
+        {
+            return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),core::smart_refctd_ptr<const CVulkanShader>(static_cast<const CVulkanShader*>(_unspecialized)),specInfo);
+        }
+
+        // layouts
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount) override;
+        core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
+            const core::SRange<const asset::SPushConstantRange>& pcRanges,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+        ) override;
+
+        // descriptor sets
+        core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) override;
+
+
+
+
+
+
     bool createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
         uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs) override;
 
@@ -506,9 +573,6 @@ protected:
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
             core::smart_refctd_ptr<const CVulkanShader>(vulkanShader), specInfo);
     }
-
-    
-    core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) override;
 
     // For consistency's sake why not pass IGPUComputePipeline::SCreationParams as
     // only second argument, like in createComputePipelines_impl below? Especially
@@ -711,53 +775,12 @@ protected:
 
         return true;
     }
-    
-    template<typename AddressType>
-    IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) 
-    {
-        VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR, nullptr};
-
-        if(pMaxPrimitiveCounts == nullptr) {
-            assert(false);
-            return IGPUAccelerationStructure::BuildSizes{};
-        }
-
-        static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
-                
-        VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {};
-
-        // TODO: Use better container when ready for these stack allocated memories.
-        uint32_t geometryArrayOffset = 0u;
-        VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount] = {};
-
-        {
-            uint32_t geomCount = pBuildInfo.geometries.size();
-
-            assert(geomCount > 0);
-            assert(geomCount <= MaxGeometryPerBuildInfoCount);
-
-            vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, pBuildInfo, vk_geometries);
-        }
-
-        m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev, buildType, &vk_buildGeomsInfo, pMaxPrimitiveCounts, &vk_ret);
-
-        IGPUAccelerationStructure::BuildSizes ret = {};
-        ret.accelerationStructureSize = vk_ret.accelerationStructureSize;
-        ret.updateScratchSize = vk_ret.updateScratchSize;
-        ret.buildScratchSize = vk_ret.buildScratchSize;
-
-        return ret;
-    }
 
     core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params);
 
     bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
-    private:
-        inline ~CVulkanLogicalDevice()
-        {
-            m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
-        }
+
 
         VkDevice m_vkdev;
         CVulkanDeviceFunctionTable m_devf;

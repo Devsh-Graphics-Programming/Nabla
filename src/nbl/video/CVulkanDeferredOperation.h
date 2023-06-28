@@ -17,7 +17,6 @@ class CVulkanDeferredOperation : public IDeferredOperation
             : IDeferredOperation(std::move(dev)), m_deferredOp(vkDeferredOp) { }
 
         uint32_t getMaxConcurrency() const override;
-        STATUS execute() override;
         bool isPending() const override;
 
         static void* operator new(size_t size) noexcept = delete;
@@ -48,6 +47,8 @@ class CVulkanDeferredOperation : public IDeferredOperation
 
     private:
         ~CVulkanDeferredOperation();
+
+        STATUS execute_impl() override;
 
         VkDeferredOperationKHR m_deferredOp;
 };

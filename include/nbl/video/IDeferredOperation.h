@@ -26,7 +26,13 @@ class IDeferredOperation : public core::IReferenceCounted, public IBackendObject
             THREAD_IDLE,
             _ERROR
         };
-        virtual STATUS execute() = 0;
+        inline STATUS execute()
+        {
+            const auto retval = execute_impl();
+            if (retval==STATUS::COMPLETED || retval==STATUS::_ERROR)
+                m_resourceTracking.clear();
+            return retval;
+        }
 
         // Returns false if nothing was deferred or execution has fully completed
         virtual bool isPending() const = 0;
@@ -53,7 +59,14 @@ class IDeferredOperation : public core::IReferenceCounted, public IBackendObject
         }
 
     protected:
-        explicit IDeferredOperation(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
+        explicit IDeferredOperation(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)), m_resourceTracking() {}
+
+        virtual STATUS execute_impl() = 0;
+
+    private:
+        friend class ILogicalDevice;
+        // when we improve allocators, etc. we'll stop using STL containers here
+        core::vector<core::smart_refctd_ptr<const IReferenceCounted>> m_resourceTracking;
 };
 
 }

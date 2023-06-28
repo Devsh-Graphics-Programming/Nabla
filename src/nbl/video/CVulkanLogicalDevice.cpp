@@ -415,8 +415,20 @@ core::smart_refctd_ptr<IGPUSampler> CVulkanLogicalDevice::createSampler(const IG
     return nullptr;
 }
 
-// TODO: accel structure
+VkAccelerationStructureKHR CVulkanLogicalDevice::createAccelerationStructure(const IGPUAccelerationStructure::SCreationParams& params, const VkAccelerationStructureTypeKHR type, const VkAccelerationStructureMotionInfoNV* motionInfo)
+{
+    VkAccelerationStructureCreateInfoKHR vasci = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,motionInfo};
+    vasci.createFlags = CVulkanAccelerationStructure::getVkASCreateFlagsFrom(params.flags.value);
+    vasci.type = type;
+    vasci.buffer = static_cast<const CVulkanBuffer*>(params.bufferRange.buffer.get())->getInternalObject();
+    vasci.offset = params.bufferRange.offset;
+    vasci.size = params.bufferRange.size;
 
+    VkAccelerationStructureKHR vk_as;
+    if (m_devf.vk.vkCreateAccelerationStructureKHR(m_vkdev,&vasci,nullptr,&vk_as)==VK_SUCCESS)
+        return vk_as;
+    return VK_NULL_HANDLE;
+}
 
 
 core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer)
@@ -981,29 +993,6 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
     {
         return false;
     }
-}
-
-core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
-{
-    auto features = getEnabledFeatures();
-    
-    if(!features.accelerationStructure)
-    {
-        assert(false && "device accelerationStructures is not enabled.");
-        return nullptr;
-    }
-
-    VkAccelerationStructureKHR vk_as = VK_NULL_HANDLE;
-    VkAccelerationStructureCreateInfoKHR vasci = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR, nullptr};
-    vasci.createFlags = CVulkanAccelerationStructure::getVkASCreateFlagsFromASCreateFlags(params.flags);
-    vasci.type = CVulkanAccelerationStructure::getVkASTypeFromASType(params.type);
-    vasci.buffer = IBackendObject::device_compatibility_cast<const CVulkanBuffer*>(params.bufferRange.buffer.get(), this)->getInternalObject();
-    vasci.offset = static_cast<VkDeviceSize>(params.bufferRange.offset);
-    vasci.size = static_cast<VkDeviceSize>(params.bufferRange.size);
-    auto vk_res = m_devf.vk.vkCreateAccelerationStructureKHR(m_vkdev, &vasci, nullptr, &vk_as);
-    if(VK_SUCCESS != vk_res)
-        return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanAccelerationStructure>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_as);
 }
 
 bool CVulkanLogicalDevice::buildAccelerationStructures(

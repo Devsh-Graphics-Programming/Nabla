@@ -4,20 +4,22 @@
 namespace nbl::video
 {
 
-CVulkanAccelerationStructure::CVulkanAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& _params, VkAccelerationStructureKHR accelerationStructure)
-	: IGPUAccelerationStructure(std::move(logicalDevice),std::move(_params)), m_vkAccelerationStructure(accelerationStructure)
+CVulkanAccelerationStructure::CVulkanAccelerationStructure(const CVulkanLogicalDevice* vulkanDevice, const VkAccelerationStructureKHR accelerationStructure)
+	: m_vkAccelerationStructure(accelerationStructure), m_vulkanDevice(vulkanDevice)
 {
 	VkAccelerationStructureDeviceAddressInfoKHR info = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,nullptr};
 	info.accelerationStructure = m_vkAccelerationStructure;
-	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-	m_deviceAddress = vulkanDevice->getFunctionTable()->vk.vkGetAccelerationStructureDeviceAddressKHR(vulkanDevice->getInternalObject(),&info);
+	m_deviceAddress = m_vulkanDevice->getFunctionTable()->vk.vkGetAccelerationStructureDeviceAddressKHR(m_vulkanDevice->getInternalObject(),&info);
 }
 
 CVulkanAccelerationStructure::~CVulkanAccelerationStructure()
 {
-	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-	vulkanDevice->getFunctionTable()->vk.vkDestroyAccelerationStructureKHR(vulkanDevice->getInternalObject(),m_vkAccelerationStructure,nullptr);
+	m_vulkanDevice->getFunctionTable()->vk.vkDestroyAccelerationStructureKHR(m_vulkanDevice->getInternalObject(),m_vkAccelerationStructure,nullptr);
 }
+
+
+
+
 
 template<>
 VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const DeviceAddressType& addr) {

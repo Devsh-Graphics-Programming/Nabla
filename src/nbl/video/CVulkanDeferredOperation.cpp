@@ -18,10 +18,10 @@ uint32_t CVulkanDeferredOperation::getMaxConcurrency() const
     return vkGetDeferredOperationMaxConcurrencyKHR(vk_device,m_deferredOp);
 }
 
-auto CVulkanDeferredOperation::execute() -> STATUS
+auto CVulkanDeferredOperation::execute_impl() -> STATUS
 {
     const VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject();
-    switch (vkDeferredOperationJoinKHR(vk_device, m_deferredOp))
+    switch (vkDeferredOperationJoinKHR(vk_device,m_deferredOp))
     {
         case VK_SUCCESS:
             return STATUS::COMPLETED;

@@ -332,22 +332,25 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         // Create a sampler object to use with ImageViews
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
-        // acceleration structure
-        inline core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        // acceleration structures
+        inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
         {
-            if (!getEnabledFeatures().accelerationStructure)
+            if (invalidCreationParams(params))
                 return nullptr;
-            constexpr size_t MinAlignment = 256u;
-            if (!params.bufferRange.isValid() || !params.bufferRange.buffer->wasCreatedBy(this) || (params.bufferRange.offset&(MinAlignment-1))!=0u)
+            return createBottomLevelAccelerationStructure_impl(std::move(params));
+        }
+        inline core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure(IGPUTopLevelAccelerationStructure::SCreationParams&& params)
+        {
+            if (invalidCreationParams(params))
                 return nullptr;
-            if (params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
+            if (params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) && params.maxInstanceCount==0u)
                 return nullptr;
-            return createAccelerationStructure_impl(std::move(params));
+            return createTopLevelAccelerationStructure_impl(std::move(params));
         }
 
         //! Acceleration Structure modifiers
-        template<typename AddressType>
-        inline IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& info, const uint32_t* pMaxPrimitiveCounts)
+        template<class AccelerationStructure, typename BufferType>
+        inline IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const AccelerationStructure::BuildGeometryInfo<BufferType>& info, const uint32_t* pMaxPrimitiveCounts)
         {
             if (!getEnabledFeatures().accelerationStructure)
                 return {};
@@ -384,14 +387,33 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             return false;
         }
-        inline bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
-        inline bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        // Host-side copy
+        inline bool copyAccelerationStructure(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
         {
-            return false;
+            deferredOperation->m_resourceTracking.resize(2u);
+            if (!copyAccelerationStructure_impl(deferredOperation,copyInfo))
+                return false;
+            deferredOperation->m_resourceTracking[0] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src);
+            deferredOperation->m_resourceTracking[1] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst);
+            return true;
         }
-        inline bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        inline bool copyAccelerationStructureToMemory(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
-            return false;
+            deferredOperation->m_resourceTracking.resize(2u);
+            if (!copyAccelerationStructureToMemory_impl(deferredOperation,copyInfo))
+                return false;
+            deferredOperation->m_resourceTracking[0] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src);
+            deferredOperation->m_resourceTracking[1] = copyInfo.dst.buffer;
+            return true;
+        }
+        inline bool copyAccelerationStructureFromMemory(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        {
+            deferredOperation->m_resourceTracking.resize(2u);
+            if (!copyAccelerationStructureFromMemory_impl(deferredOperation,copyInfo))
+                return false;
+            deferredOperation->m_resourceTracking[0] = copyInfo.src.buffer;
+            deferredOperation->m_resourceTracking[1] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst);
+            return true;
         }
 
         //! Shaders
@@ -737,7 +759,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) = 0;
         virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
+        inline bool invalidCreationParams(const IGPUAccelerationStructure::SCreationParams& params)
+        {
+            if (!getEnabledFeatures().accelerationStructure)
+                return true;
+            constexpr size_t MinAlignment = 256u;
+            if (!params.bufferRange.isValid() || !params.bufferRange.buffer->wasCreatedBy(this) || (params.bufferRange.offset&(MinAlignment-1))!=0u)
+                return true;
+            const auto bufferUsages = params.bufferRange.buffer->getCreationParams().usage;
+            if (!bufferUsages.hasFlags(IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT))
+                return true;
+            if (params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
+                return true;
+            return false;
+        }
+        virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
+        virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
         virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
         virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::HostBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;

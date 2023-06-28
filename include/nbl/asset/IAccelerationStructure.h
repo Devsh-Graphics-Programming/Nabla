@@ -18,12 +18,11 @@
 namespace nbl::asset
 {
 
-template<typename AS_t>
 class IAccelerationStructure : public IDescriptor
 {
 	public:
 		// we don't expose the GENERIC type because Vulkan only intends it for API-translation layers like VKD3D or MoltenVK
-		inline bool isBLAS() const {return m_isBLAS;}
+		virtual bool isBLAS() const = 0;
 
 		enum class CREATE_FLAGS : uint8_t
 		{
@@ -64,30 +63,44 @@ class IAccelerationStructure : public IDescriptor
 			NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u<<1u,
 		};
 
-		// for BLASes
+		//!
+		inline E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
+
+	protected:
+		inline IAccelerationStructure(const core::bitflag<CREATE_FLAGS> flags) : m_creationFlags(flags) {}
+
+	private:
+		const core::bitflag<CREATE_FLAGS> m_creationFlags;
+};
+
+class IBottomLevelAccelerationStructure : public IAccelerationStructure
+{
+	public:
+		inline bool isBLAS() const override {return true;}
+
 		template<typename BufferType>
-		struct BLASGeometry
+		struct Geometry
 		{
 			// Note that in Vulkan strides are 64-bit value but restricted to be 32-bit in range
 			struct Triangles
 			{
 				// vertexData[1] are the vertex positions at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
-				asset::SBufferBinding<BufferType>	vertexData[2] = {{},{}};
-				asset::SBufferBinding<BufferType>	indexData = {};
+				asset::SBufferBinding<const BufferType>	vertexData[2] = {{},{}};
+				asset::SBufferBinding<const BufferType>	indexData = {};
 				// optional, only useful for baking model transforms of multiple meshes into one BLAS
-				asset::SBufferBinding<BufferType>	transformData = {};
-				uint32_t							maxVertex = 0u;
-				uint32_t							vertexStride = sizeof(float);
-				E_FORMAT							vertexFormat = EF_R32G32B32_SFLOAT;
-				E_INDEX_TYPE						indexType = EIT_32BIT;
+				asset::SBufferBinding<const BufferType>	transformData = {};
+				uint32_t								maxVertex = 0u;
+				uint32_t								vertexStride = sizeof(float);
+				E_FORMAT								vertexFormat = EF_R32G32B32_SFLOAT;
+				E_INDEX_TYPE							indexType = EIT_32BIT;
 			};
 			struct AABBs
 			{
-				asset::SBufferBinding<BufferType>	data = {};
-				uint32_t							stride = sizeof(AABB_t);
+				asset::SBufferBinding<const BufferType>	data = {};
+				uint32_t								stride = sizeof(AABB_t);
 			};
 
-			inline auto operator<=>(const BLASGeometry& other) const
+			inline auto operator<=>(const Geometry& other) const
 			{
 				return std::memcmp(this, &other, sizeof(Geometry));
 			}
@@ -100,12 +113,22 @@ class IAccelerationStructure : public IDescriptor
 			uint8_t isAABB : 1 = false;
 			core::bitflag<GEOMETRY_FLAGS> flags = FLAGS::NONE;
 		};
+
 		// For filling the AABB Buffers
 		using AABB_t = core::aabbox3d<float>;
 
-		// for TLASes
-		template<typename AddressType>
-		struct TLASGeometry
+	protected:
+		using IAccelerationStructure::IAccelerationStructure;
+		virtual ~IBottomLevelAccelerationStructure() = default;
+};
+
+class ITopLevelAccelerationStructure : public IAccelerationStructure
+{
+	public:
+		inline bool isBLAS() const override {return false;}
+
+		template<typename BufferType>
+		struct BuildGeometryInfo
 		{
 			enum class TYPE : uint8_t
 			{
@@ -117,16 +140,18 @@ class IAccelerationStructure : public IDescriptor
 				SRT_MOTION_INSTANCES
 			};
 
-			inline auto operator<=>(const TLASGeometry& other) const
+			inline auto operator<=>(const Geometry& other) const
 			{
 				return std::memcmp(this, &other, sizeof(Geometry));
 			}
 
-			AddressType instanceData = {};
-			core::bitflag<TYPE> type = TYPE::STATIC_INSTANCES;
-			core::bitflag<GEOMETRY_FLAGS> flags = FLAGS::NONE;
+			asset::SBufferBinding<const BufferType>	instanceData = {};
+			core::bitflag<TYPE>						type = TYPE::STATIC_INSTANCES;
+			core::bitflag<GEOMETRY_FLAGS>			flags = FLAGS::NONE;
 		};
+
 		// For filling the Instance Buffers
+		template<typename blas_ref_t>
 		struct Instance
 		{
 			enum class FLAGS : uint32_t
@@ -138,23 +163,26 @@ class IAccelerationStructure : public IDescriptor
 				FORCE_OPAQUE_BIT = 0x1u<<2u,
 				FORCE_NO_OPAQUE_BIT = 0x1u<<3u
 			};
-			uint32_t			instanceCustomIndex : 24 = 0u;
-			uint32_t			mask : 8 = 0xFFu;
-			uint32_t			instanceShaderBindingTableRecordOffset : 24 = 0u;
-			FLAGS				flags : 8 = FLAGS::TRIANGLE_FACING_CULL_DISABLE_BIT;
-			const AS_t*			blas = nullptr;
+			uint32_t	instanceCustomIndex : 24 = 0u;
+			uint32_t	mask : 8 = 0xFFu;
+			uint32_t	instanceShaderBindingTableRecordOffset : 24 = 0u;
+			FLAGS		flags : 8 = FLAGS::TRIANGLE_FACING_CULL_DISABLE_BIT;
+			blas_ref_t	blas = {};
 		};
 		// core::matrix3x4SIMD is equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
+		template<typename blas_ref_t>
 		struct StaticInstance
 		{
 			core::matrix3x4SIMD	transform;
-			Instance instance;
+			Instance<blas_ref_t> instance;
 		};
+		template<typename blas_ref_t>
 		struct MatrixMotionInstance
 		{
 			core::matrix3x4SIMD transform[2];
-			Instance instance;
+			Instance<blas_ref_t> instance;
 		};
+		template<typename blas_ref_t>
 		struct SRTMotionInstance
 		{
 			struct SRT
@@ -179,19 +207,12 @@ class IAccelerationStructure : public IDescriptor
 				float    tz;
 			};
 			SRT transform[2];
-			Instance instance;
+			Instance<blas_ref_t> instance;
 		};
 
-		//!
-		inline E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
-
 	protected:
-		inline IAccelerationStructure(const bool isBLAS, const core::bitflag<CREATE_FLAGS> flags) : m_isBLAS(isBLAS), m_creationFlags(flags) {}
-		virtual ~IAccelerationStructure() = default;
-
-	private:
-		uint8_t m_isBLAS : 1;
-		CREATE_FLAGS m_creationFlags : 7;
+		using IAccelerationStructure::IAccelerationStructure;
+		virtual ~ITopLevelAccelerationStructure() = default;
 };
 
 } // end namespace nbl::asset

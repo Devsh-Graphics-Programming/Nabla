@@ -11,10 +11,33 @@
 namespace nbl::asset
 {
 
-class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUAccelerationStructure>, public IAsset
+class ICPUAccelerationStructure : public IAsset
 {
-		using Base = IAccelerationStructure<ICPUAccelerationStructure>;
+		using PseudoBase = IAccelerationStructure;
 
+	public:
+		// a few aliases to make usage simpler
+		using CREATE_FLAGS = PseudoBase::CREATE_FLAGS;
+		using BUILD_FLAGS = PseudoBase::BUILD_FLAGS;
+		using GEOMETRY_FLAGS = PseudoBase::GEOMETRY_FLAGS;
+
+		//
+		inline void setAccelerationStructureSize(const uint64_t accelerationStructureSize)
+		{ 
+			if(!isMutable())
+				return;
+			m_accelerationStructureSize = accelerationStructureSize;
+		}
+		inline uint64_t getAccelerationStructureSize() const { return m_accelerationStructureSize; }
+
+	private:
+		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
+		size_t m_accelerationStructureSize = 0ull;
+		core::bitflag<PseudoBase::BUILD_FLAGS> m_buildFlags = PseudoBase::BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+};
+
+class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottomLevelAccelerationStructure
+{
 	public:
 		//
 		ICPUAccelerationStructure(SCreationParams&& _params)
@@ -23,14 +46,6 @@ class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUAccele
 			, m_accelerationStructureSize(0)
 			, m_buildRangeInfos(nullptr)
 		{}
-
-
-		inline void setAccelerationStructureSize(uint64_t accelerationStructureSize)
-		{ 
-			if(!isMutable())
-				return;m_accelerationStructureSize = accelerationStructureSize;
-		}
-		inline uint64_t getAccelerationStructureSize() const { return m_accelerationStructureSize; }
 
 		inline void setBuildInfoAndRanges(HostBuildGeometryInfo&& buildInfo, const core::smart_refctd_dynamic_array<BuildRangeInfo>& buildRangeInfos)
 		{
@@ -51,8 +66,6 @@ class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUAccele
 		}
 		
 		inline const uint32_t getBuildRangesCount() const { return getBuildRanges().size(); }
-
-		inline const bool hasBuildInfo() const {return m_hasBuildInfo;};
 
 		//!
 		size_t conservativeSizeEstimate() const override
@@ -241,9 +254,7 @@ class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUAccele
 		}
 
 	private:
-		size_t m_accelerationStructureSize;
 		core::smart_refctd_dynamic_array<Geometry<HostAddressType>> m_geometries;
-		BUILD_FLAGS m_buildFlags;
 		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
 };
 
