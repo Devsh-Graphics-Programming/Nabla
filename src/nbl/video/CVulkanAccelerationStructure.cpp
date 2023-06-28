@@ -4,38 +4,19 @@
 namespace nbl::video
 {
 
+CVulkanAccelerationStructure::CVulkanAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& _params, VkAccelerationStructureKHR accelerationStructure)
+	: IGPUAccelerationStructure(std::move(logicalDevice),std::move(_params)), m_vkAccelerationStructure(accelerationStructure)
+{
+	VkAccelerationStructureDeviceAddressInfoKHR info = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,nullptr};
+	info.accelerationStructure = m_vkAccelerationStructure;
+	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	m_deviceAddress = vulkanDevice->getFunctionTable()->vk.vkGetAccelerationStructureDeviceAddressKHR(vulkanDevice->getInternalObject(),&info);
+}
+
 CVulkanAccelerationStructure::~CVulkanAccelerationStructure()
 {
-	const auto originDevice = getOriginDevice();
-
-	if (originDevice->getAPIType() == EAT_VULKAN)
-	{
-		const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-		auto* vk = vulkanDevice->getFunctionTable();
-		VkDevice vk_device = vulkanDevice->getInternalObject();
-		vk->vk.vkDestroyAccelerationStructureKHR(vk_device, m_vkAccelerationStructure, nullptr);
-	}
-}
-uint64_t CVulkanAccelerationStructure::getReferenceForDeviceOperations() const 
-{
-	VkDeviceSize ret = 0;
-	const auto originDevice = getOriginDevice();
-	if (originDevice->getAPIType() == EAT_VULKAN)
-	{
-		const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-		auto* vk = vulkanDevice->getFunctionTable();
-		VkDevice vk_device = vulkanDevice->getInternalObject();
-		VkAccelerationStructureDeviceAddressInfoKHR info = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR, nullptr};
-		info.accelerationStructure = m_vkAccelerationStructure;
-		ret = vk->vk.vkGetAccelerationStructureDeviceAddressKHR(vk_device, &info);
-	}
-
-	return static_cast<uint64_t>(ret);
-}
-uint64_t CVulkanAccelerationStructure::getReferenceForHostOperations() const
-{
-	assert(m_vkAccelerationStructure != VK_NULL_HANDLE);
-	return reinterpret_cast<uint64_t>(m_vkAccelerationStructure);
+	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	vulkanDevice->getFunctionTable()->vk.vkDestroyAccelerationStructureKHR(vulkanDevice->getInternalObject(),m_vkAccelerationStructure,nullptr);
 }
 
 template<>
