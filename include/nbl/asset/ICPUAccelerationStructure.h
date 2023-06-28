@@ -1,7 +1,6 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_CPU_ACCELERATION_STRUCTURE_H_INCLUDED_
 #define _NBL_ASSET_I_CPU_ACCELERATION_STRUCTURE_H_INCLUDED_
 
@@ -9,82 +8,22 @@
 #include "nbl/asset/IAccelerationStructure.h"
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-class ICPUAccelerationStructure final : public IAccelerationStructure, public IAsset
+class ICPUAccelerationStructure final : public IAccelerationStructure<ICPUAccelerationStructure>, public IAsset
 {
-	using Base = IAccelerationStructure;
+		using Base = IAccelerationStructure<ICPUAccelerationStructure>;
 
 	public:
-		struct SCreationParams
-		{
-			E_CREATE_FLAGS	flags;
-			Base::E_TYPE	type;
-			bool operator==(const SCreationParams& rhs) const
-			{
-				return flags == rhs.flags && type == rhs.type;
-			}
-			bool operator!=(const SCreationParams& rhs) const
-			{
-				return !operator==(rhs);
-			}
-		};
-		
-		using HostAddressType = asset::SBufferBinding<asset::ICPUBuffer>;
-		template<typename AddressType>
-		struct BuildGeometryInfo
-		{
-			using Geom = Geometry<AddressType>;
-			BuildGeometryInfo() 
-				: type(static_cast<Base::E_TYPE>(0u))
-				, buildFlags(static_cast<E_BUILD_FLAGS>(0u))
-				, buildMode(static_cast<E_BUILD_MODE>(0u))
-				, geometries(nullptr)
-			{}
-			~BuildGeometryInfo() = default;
-			Base::E_TYPE	type; // TODO: Can deduce from creationParams.type?
-			E_BUILD_FLAGS	buildFlags;
-			E_BUILD_MODE	buildMode;
-			core::smart_refctd_dynamic_array<Geom> geometries;
-			
-			inline const core::SRange<Geom> getGeometries() const 
-			{ 
-				if (geometries)
-					return {geometries->begin(), geometries->end()};
-				return {nullptr,nullptr};
-			}
-		};
-		using HostBuildGeometryInfo = BuildGeometryInfo<HostAddressType>;
-
-		inline const auto& getCreationParameters() const
-		{
-			return params;
-		}
-
-		//!
-		inline static bool validateCreationParameters(const SCreationParams& _params)
-		{
-			return true;
-		}
-
-	public:
-		static core::smart_refctd_ptr<ICPUAccelerationStructure> create(SCreationParams&& params)
-		{
-			if (!validateCreationParameters(params))
-				return nullptr;
-
-			return core::make_smart_refctd_ptr<ICPUAccelerationStructure>(std::move(params));
-		}
-
-		ICPUAccelerationStructure(SCreationParams&& _params) 
+		//
+		ICPUAccelerationStructure(SCreationParams&& _params)
 			: params(std::move(_params))
 			, m_hasBuildInfo(false)
 			, m_accelerationStructureSize(0)
 			, m_buildRangeInfos(nullptr)
 		{}
+
 
 		inline void setAccelerationStructureSize(uint64_t accelerationStructureSize)
 		{ 
@@ -113,13 +52,6 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		
 		inline const uint32_t getBuildRangesCount() const { return getBuildRanges().size(); }
 
-		inline const HostBuildGeometryInfo* getBuildInfo() const 
-		{
-			if(hasBuildInfo())
-				return &m_buildInfo; 
-			else
-				return nullptr;
-		}
 		inline const bool hasBuildInfo() const {return m_hasBuildInfo;};
 
 		//!
@@ -252,11 +184,12 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		}
 
 		//!
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_ACCELERATION_STRUCTURE;
+		constexpr static inline auto AssetType = ET_ACCELERATION_STRUCTURE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 
 	protected:
+		virtual ~ICPUAccelerationStructure() = default;
 
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
@@ -295,8 +228,6 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 			}
 			return false;
 		}
-
-		virtual ~ICPUAccelerationStructure() = default;
 		
 		inline bool validateBuildInfoAndRanges(HostBuildGeometryInfo&& buildInfo, const core::smart_refctd_dynamic_array<BuildRangeInfo>& buildRangeInfos)
 		{
@@ -310,17 +241,12 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		}
 
 	private:
-		SCreationParams params;
-
-		uint64_t m_accelerationStructureSize;
-
-		bool m_hasBuildInfo = false;
-		HostBuildGeometryInfo m_buildInfo;
-		
+		size_t m_accelerationStructureSize;
+		core::smart_refctd_dynamic_array<Geometry<HostAddressType>> m_geometries;
+		BUILD_FLAGS m_buildFlags;
 		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
 };
 
-}
 }
 
 #endif

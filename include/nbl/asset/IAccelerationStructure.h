@@ -1,196 +1,199 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_ACCELERATION_STRUCTURE_H_INCLUDED_
 #define _NBL_ASSET_I_ACCELERATION_STRUCTURE_H_INCLUDED_
 
-#include "nbl/asset/IDescriptor.h"
+
+#include "aabbox3d.h"
+
+#include <compare>
+
 #include "nbl/asset/ECommonEnums.h"
+#include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/format/EFormat.h"
-#include "aabbox3d.h"
-#define uint uint32_t
-#include <compare>
-#include "nbl/builtin/glsl/utils/acceleration_structures.glsl"
-#undef uint
+
 
 namespace nbl::asset
 {
+
+template<typename AS_t>
 class IAccelerationStructure : public IDescriptor
 {
 	public:
-		enum E_TYPE : uint32_t
-		{
-			ET_TOP_LEVEL = 0,
-			ET_BOTTOM_LEVEL = 1,
-			ET_GENERIC = 2,
-		};
-		enum E_CREATE_FLAGS : uint32_t
-		{
-			ECF_NONE								= 0u,
-			ECF_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT	= 0x1u << 0u,
-			ECF_MOTION_BIT_NV						= 0x1u << 1u, // Provided by VK_NV_ray_tracing_motion_blur
-		};
+		// we don't expose the GENERIC type because Vulkan only intends it for API-translation layers like VKD3D or MoltenVK
+		inline bool isBLAS() const {return m_isBLAS;}
 
-		using BuildRangeInfo = nbl_glsl_BuildRangeInfo;
-		enum E_BUILD_FLAGS
+		enum class CREATE_FLAGS : uint8_t
 		{
-			EBF_ALLOW_UPDATE_BIT = 0x1u << 0u,
-			EBF_ALLOW_COMPACTION_BIT = 0x1u << 1u,
-			EBF_PREFER_FAST_TRACE_BIT = 0x1u << 2u,
-			EBF_PREFER_FAST_BUILD_BIT = 0x1u << 3u,
-			EBF_LOW_MEMORY_BIT = 0x1u << 4u,
-			EBF_MOTION_BIT_NV = 0x1u << 5u, // Provided by VK_NV_ray_tracing_motion_blur
+			NONE								= 0u,
+			//DEVICE_ADDRESS_CAPTURE_REPLAY_BIT	= 0x1u<<0u, for tools only
+			// Provided by VK_NV_ray_tracing_motion_blur
+			MOTION_BIT							= 0x1u<<1u,
 		};
-		enum E_BUILD_MODE
+		inline core::bitflag<CREATE_FLAGS> getCreationFlags() const {return m_creationFlags;}
+
+		// build flags
+		enum class BUILD_FLAGS : uint16_t
 		{
-			EBM_BUILD = 0,
-			EBM_UPDATE = 1,
+			ALLOW_UPDATE_BIT = 0x1u<<0u,
+			ALLOW_COMPACTION_BIT = 0x1u<<1u,
+			PREFER_FAST_TRACE_BIT = 0x1u<<2u,
+			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
+			LOW_MEMORY_BIT = 0x1u<<4u,
+			// Provided by VK_NV_ray_tracing_motion_blur
+			MOTION_BIT = 0x1u<<5u,
+			// Provided by VK_EXT_opacity_micromap
+			ALLOW_OPACITY_MICROMAP_UPDATE_BIT = 0x1u<<6u,
+			ALLOW_DISABLE_OPACITY_MICROMAPS_BIT = 0x1u<<7u,
+			ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT = 0x1u<<8u,
+			// Provided by VK_NV_displacement_micromap
+			ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT = 0x1u<<9u,
+			// Provided by VK_KHR_ray_tracing_position_fetch
+			ALLOW_DATA_ACCESS_KHR = 0x1u<<11u
 		};
 		
-		enum E_GEOM_TYPE
+		// we provide some level of type safety here
+		enum class GEOMETRY_FLAGS : uint8_t
 		{
-			EGT_TRIANGLES = 0,
-			EGT_AABBS = 1,
-			EGT_INSTANCES = 2,
-		};
-		enum E_GEOM_FLAGS {
-			EGF_NONE								= 0u,
-			EGF_OPAQUE_BIT							= 0x1u << 0u,
-			EGF_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u << 1u,
-		};
-		enum E_INSTANCE_FLAGS
-		{
-			EIF_NONE								= 0u,
-			EIF_TRIANGLE_FACING_CULL_DISABLE_BIT	= 0x1u << 0u,
-			EIF_TRIANGLE_FLIP_FACING_BIT			= 0x1u << 1u,
-			EIF_FORCE_OPAQUE_BIT					= 0x1u << 2u,
-			EIF_FORCE_NO_OPAQUE_BIT					= 0x1u << 3u,
-			EIF_TRIANGLE_FRONT_COUNTERCLOCKWISE_BIT_KHR = EIF_TRIANGLE_FLIP_FACING_BIT,
+			NONE								= 0u,
+			// means you don't ever want to invoke any-hit shaders on thie geometry, ever.
+			OPAQUE_BIT							= 0x1u<<0u,
+			// useful for dealing with transmissivity effects
+			NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u<<1u,
 		};
 
-		template<typename AddressType>
-		struct GeometryData
+		// for BLASes
+		template<typename BufferType>
+		struct BLASGeometry
 		{
-			GeometryData() 
-			{
-				std::memset(this, 0, sizeof(GeometryData));
-			}
-			~GeometryData() {}
-
-			GeometryData(GeometryData& copy)
-			{
-				std::memmove(this, &copy, sizeof(GeometryData));
-			}
-
-			GeometryData(const GeometryData& copy)
-			{
-				std::memmove(this, &copy, sizeof(GeometryData));
-			}
-
-			GeometryData& operator=(GeometryData& copy)
-			{
-				std::memmove(this, &copy, sizeof(GeometryData));
-				return *this;
-			}
-
-			GeometryData& operator=(const GeometryData& copy)
-			{
-				std::memmove(this, &copy, sizeof(GeometryData));
-				return *this;
-			}
-			
+			// Note that in Vulkan strides are 64-bit value but restricted to be 32-bit in range
 			struct Triangles
 			{
-				E_FORMAT		vertexFormat;
-				AddressType		vertexData;
-				uint64_t		vertexStride;
-				uint32_t		maxVertex;
-				E_INDEX_TYPE	indexType;
-				AddressType		indexData;
-				AddressType		transformData;
+				// vertexData[1] are the vertex positions at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
+				asset::SBufferBinding<BufferType>	vertexData[2] = {{},{}};
+				asset::SBufferBinding<BufferType>	indexData = {};
+				// optional, only useful for baking model transforms of multiple meshes into one BLAS
+				asset::SBufferBinding<BufferType>	transformData = {};
+				uint32_t							maxVertex = 0u;
+				uint32_t							vertexStride = sizeof(float);
+				E_FORMAT							vertexFormat = EF_R32G32B32_SFLOAT;
+				E_INDEX_TYPE						indexType = EIT_32BIT;
 			};
-			
 			struct AABBs
 			{
-				AddressType		data;
-				size_t			stride;
+				asset::SBufferBinding<BufferType>	data = {};
+				uint32_t							stride = sizeof(AABB_t);
 			};
 
-			struct Instances
+			inline auto operator<=>(const BLASGeometry& other) const
 			{
-				AddressType		data;
-			};
-			
+				return std::memcmp(this, &other, sizeof(Geometry));
+			}
+
 			union
 			{
-				Triangles triangles;
+				Triangles triangles = {};
 				AABBs aabbs;
-				Instances instances;
 			};
+			uint8_t isAABB : 1 = false;
+			core::bitflag<GEOMETRY_FLAGS> flags = FLAGS::NONE;
 		};
-		
+		// For filling the AABB Buffers
+		using AABB_t = core::aabbox3d<float>;
+
+		// for TLASes
 		template<typename AddressType>
-		struct Geometry
+		struct TLASGeometry
 		{
-			Geometry()
-				: type(static_cast<E_GEOM_TYPE>(0u))
-				, flags(static_cast<E_GEOM_FLAGS>(0u))
-			{};
-			E_GEOM_TYPE					type;
-			E_GEOM_FLAGS				flags; // change to core::bitflags later
-			GeometryData<AddressType>	data;
-
-			inline bool operator!=(const Geometry& other) const
+			enum class TYPE : uint8_t
 			{
-				return !std::memcmp(this, &other, sizeof(other));
+				// StaticInstance
+				STATIC_INSTANCES,
+				// MatrixMotionInstance
+				MATRIX_MOTION_INSTANCES,
+				// SRTMotionInstance
+				SRT_MOTION_INSTANCES
+			};
+
+			inline auto operator<=>(const TLASGeometry& other) const
+			{
+				return std::memcmp(this, &other, sizeof(Geometry));
 			}
+
+			AddressType instanceData = {};
+			core::bitflag<TYPE> type = TYPE::STATIC_INSTANCES;
+			core::bitflag<GEOMETRY_FLAGS> flags = FLAGS::NONE;
 		};
-
-		// For Filling the Instances/AABBs Buffer
-		using AABB_Position = core::aabbox3d<float>;
-
+		// For filling the Instance Buffers
 		struct Instance
 		{
-			Instance()
-				: instanceCustomIndex(0u)
-				, mask(0xFF)
-				, instanceShaderBindingTableRecordOffset(0u)
-				, flags(EIF_NONE)
-				, accelerationStructureReference(0ull)
-				, mat(core::matrix3x4SIMD())
-			{}
-			core::matrix3x4SIMD				mat; // equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
-			uint32_t						instanceCustomIndex:24;
-			uint32_t						mask:8;
-			uint32_t						instanceShaderBindingTableRecordOffset:24;
-			E_INSTANCE_FLAGS				flags:8;
-			// TODO: change this to be a smartpointer to another AccelerationStructure for CPU and a BDA (AddressType) for the GPU
-			uint64_t						accelerationStructureReference; // retrieve via `getReference` functions in IGPUAccelerationStructrue
+			enum class FLAGS : uint32_t
+			{
+				NONE = 0u,
+				TRIANGLE_FACING_CULL_DISABLE_BIT = 0x1u<<0u,
+				// changes CCW to CW for backface culling
+				TRIANGLE_FLIP_FACING_BIT = 0x1u<<1u,
+				FORCE_OPAQUE_BIT = 0x1u<<2u,
+				FORCE_NO_OPAQUE_BIT = 0x1u<<3u
+			};
+			uint32_t			instanceCustomIndex : 24 = 0u;
+			uint32_t			mask : 8 = 0xFFu;
+			uint32_t			instanceShaderBindingTableRecordOffset : 24 = 0u;
+			FLAGS				flags : 8 = FLAGS::TRIANGLE_FACING_CULL_DISABLE_BIT;
+			const AS_t*			blas = nullptr;
 		};
-		
-		enum E_COPY_MODE 
+		// core::matrix3x4SIMD is equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
+		struct StaticInstance
 		{
-			ECM_CLONE = 0,
-			ECM_COMPACT = 1,
-			ECM_SERIALIZE = 2,
-			ECM_DESERIALIZE = 3,
+			core::matrix3x4SIMD	transform;
+			Instance instance;
+		};
+		struct MatrixMotionInstance
+		{
+			core::matrix3x4SIMD transform[2];
+			Instance instance;
+		};
+		struct SRTMotionInstance
+		{
+			struct SRT
+			{
+				// TODO: some operators to convert back and forth from `core::matrix3x4SIMD
+
+				float    sx;
+				float    a;
+				float    b;
+				float    pvx;
+				float    sy;
+				float    c;
+				float    pvy;
+				float    sz;
+				float    pvz;
+				float    qx;
+				float    qy;
+				float    qz;
+				float    qw;
+				float    tx;
+				float    ty;
+				float    tz;
+			};
+			SRT transform[2];
+			Instance instance;
 		};
 
 		//!
-		E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
+		inline E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
 
 	protected:
-		IAccelerationStructure() 
-		{
-		}
-
-		virtual ~IAccelerationStructure()
-		{}
+		inline IAccelerationStructure(const bool isBLAS, const core::bitflag<CREATE_FLAGS> flags) : m_isBLAS(isBLAS), m_creationFlags(flags) {}
+		virtual ~IAccelerationStructure() = default;
 
 	private:
+		uint8_t m_isBLAS : 1;
+		CREATE_FLAGS m_creationFlags : 7;
 };
+
 } // end namespace nbl::asset
 
 #endif
