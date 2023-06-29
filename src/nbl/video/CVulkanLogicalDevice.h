@@ -79,25 +79,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
 
 
-
-
-
-
-        // commandpool creation
-        inline core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t familyIndex, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override
-        {
-            VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
-            vk_createInfo.pNext = nullptr; // pNext must be NULL
-            vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags.value);
-            vk_createInfo.queueFamilyIndex = familyIndex;
-
-            VkCommandPool vk_commandPool = VK_NULL_HANDLE;
-            if (m_devf.vk.vkCreateCommandPool(m_vkdev, &vk_createInfo, nullptr, &vk_commandPool) == VK_SUCCESS)
-                return core::make_smart_refctd_ptr<CVulkanCommandPool>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),flags,familyIndex,vk_commandPool);
-
-            return nullptr;
-        }
-
      
     // TODO: validation and factor out to `_impl`
     core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) override
@@ -499,16 +480,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
 
 
-
-
-    bool createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
-        uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs) override;
-
-    bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) override
-    {
-        return false;
-    }
-
     core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
     {
         // This flag isn't supported until Vulkan 1.2
@@ -780,6 +751,8 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) override;
         bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) override;
+
+        core::smart_refctd_ptr<IGPUCommandPool> createCommandPool_impl(const uint32_t familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override;
 
 
         VkDevice m_vkdev;

@@ -37,6 +37,54 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         static inline constexpr uint32_t MIN_POOL_ALLOC_SIZE = COMMAND_SEGMENT_SIZE;
 
     public:
+        enum class CREATE_FLAGS : uint8_t
+        {
+            NONE = 0x00,
+            TRANSIENT_BIT = 0x01,
+            RESET_COMMAND_BUFFER_BIT = 0x02,
+            PROTECTED_BIT = 0x04
+        };
+        inline core::bitflag<CREATE_FLAGS> getCreationFlags() const { return m_flags; }
+
+        inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
+
+        enum class BUFFER_LEVEL : uint8_t
+        {
+            PRIMARY = 0u,
+            SECONDARY
+        };
+        inline bool createCommandBuffers(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger=nullptr)
+        {
+            if (count==0u)
+                return false;
+            return createCommandBuffers_impl(level,count,outCmdBufs,std::move(logger));
+        }
+
+        inline bool reset()
+        {
+            m_resetCount.fetch_add(1);
+            m_commandListPool.clear();
+            return reset_impl();
+        }
+        inline uint32_t getResetCounter() { return m_resetCount.load(); }
+
+        // recycles unused memory from the command pool back to the system
+        virtual void trim() = 0; // no extra stuff needed for `CCommandSegmentListPool` because it trims unused blocks at runtime
+
+        // Vulkan: const VkCommandPool*
+        virtual const void* getNativeHandle() const = 0;
+
+    protected:
+        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint32_t _familyIx)
+            : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
+        virtual ~IGPUCommandPool() = default;
+
+        virtual bool createCommandBuffers_impl(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger) = 0;
+
+        virtual bool reset_impl() = 0;
+
+        // for access to Command Constructors and StackAllocation
+        friend class IGPUCommandBuffer;
         // Host access to Command Pools needs to be externally synchronized anyway so its completely fine to do this
         template<typename T>
         class StackAllocation final
@@ -249,7 +297,7 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
                         *(const_cast<uint32_t*>(&(reinterpret_cast<ICommand*>(m_data + nextCmdOffset)->m_size))) = 0;
                 }
         };
-        static_assert(sizeof(CCommandSegment) == COMMAND_SEGMENT_SIZE);
+        static_assert(sizeof(CCommandSegment)==COMMAND_SEGMENT_SIZE);
 
         class CBeginCmd;
         class CBindIndexBufferCmd;
@@ -285,44 +333,8 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
         class CCopyAccelerationStructureCmd;
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
-        
-        enum class CREATE_FLAGS : uint8_t
-        {
-            NONE = 0x00,
-            TRANSIENT_BIT = 0x01,
-            RESET_COMMAND_BUFFER_BIT = 0x02,
-            PROTECTED_BIT = 0x04
-        };
-        inline core::bitflag<CREATE_FLAGS> getCreationFlags() const { return m_flags; }
-
-        inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
-
-        bool reset()
-        {
-            m_resetCount.fetch_add(1);
-            m_commandListPool.clear();
-            return reset_impl();
-        }
-
-        inline uint32_t getResetCounter() { return m_resetCount.load(); }
-
-        // Vulkan: const VkCommandPool*
-        virtual const void* getNativeHandle() const = 0;
-
-    protected:
-        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::bitflag<CREATE_FLAGS> _flags, uint32_t _familyIx)
-            : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
-
-        virtual ~IGPUCommandPool() = default;
-
-        virtual bool reset_impl() { return true; };
-
-        core::bitflag<CREATE_FLAGS> m_flags;
-        uint32_t m_familyIx;
 
     private:
-        friend class IGPUCommandBuffer;
-
         class CCommandSegmentListPool
         {
             public:
@@ -428,9 +440,11 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
         
                 template <typename T>
                 using pool_alignment = core::aligned_allocator<T,COMMAND_SEGMENT_ALIGNMENT>;
-                core::CMemoryPool<core::PoolAddressAllocator<uint32_t>, pool_alignment, false, uint32_t> m_pool;
+                core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,pool_alignment,false,uint32_t> m_pool;
         };
 
+        const core::bitflag<CREATE_FLAGS> m_flags;
+        const uint32_t m_familyIx;
         std::atomic_uint64_t m_resetCount = 0;
         CCommandSegmentListPool m_commandListPool;
 };

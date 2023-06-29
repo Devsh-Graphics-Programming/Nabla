@@ -606,51 +606,6 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
 
 
 
-
-
-
-
-
-bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, IGPUCommandBuffer::E_LEVEL level,
-    uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* outCmdBufs)
-{
-    constexpr uint32_t MAX_COMMAND_BUFFER_COUNT = 1000u;
-
-    if (cmdPool->getAPIType() != EAT_VULKAN)
-        return false;
-
-    auto vulkanCommandPool = IBackendObject::device_compatibility_cast<CVulkanCommandPool*>(cmdPool, this)->getInternalObject();
-
-    assert(count <= MAX_COMMAND_BUFFER_COUNT);
-    VkCommandBuffer vk_commandBuffers[MAX_COMMAND_BUFFER_COUNT];
-
-    VkCommandBufferAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
-    vk_allocateInfo.pNext = nullptr; // this must be NULL
-    vk_allocateInfo.commandPool = vulkanCommandPool;
-    vk_allocateInfo.level = static_cast<VkCommandBufferLevel>(level);
-    vk_allocateInfo.commandBufferCount = count;
-
-    if (m_devf.vk.vkAllocateCommandBuffers(m_vkdev, &vk_allocateInfo, vk_commandBuffers) == VK_SUCCESS)
-    {
-        for (uint32_t i = 0u; i < count; ++i)
-        {
-            const auto* debugCb = m_physicalDevice->getDebugCallback();
-
-            outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
-                core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
-                core::smart_refctd_ptr<IGPUCommandPool>(cmdPool),
-                debugCb ? core::smart_refctd_ptr<system::ILogger>(debugCb->getLogger()) : nullptr);
-        }
-
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-
 core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGraphicsPipeline_impl(
     IGPUPipelineCache* pipelineCache,
     IGPUGraphicsPipeline::SCreationParams&& params)
@@ -1048,13 +1003,6 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
 
 bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
-    auto features = getEnabledFeatures();
-    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
-    {
-        assert(false && "device accelerationStructuresHostCommands is not enabled.");
-        return false;
-    }
-
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
@@ -1077,13 +1025,6 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
     
 bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
 {
-    auto features = getEnabledFeatures();
-    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
-    {
-        assert(false && "device accelerationStructuresHostCommands is not enabled.");
-        return false;
-    }
-
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
@@ -1107,13 +1048,6 @@ bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_
 
 bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
 {
-    auto features = getEnabledFeatures();
-    if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
-    {
-        assert(false && "device accelerationStructuresHostCommands is not enabled.");
-        return false;
-    }
-
     bool ret = false;
     if(deferredOperation.get() != nullptr)
     {
@@ -1173,4 +1107,17 @@ bool CVulkanLogicalDevice::getQueryPoolResults_impl(const IQueryPool* const quer
     const size_t dataSize = IQueryPool::calcQueryResultsSize(pseudoParams,stride,flags);
     const auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFrom(flags.value);
     return m_devf.vk.vkGetQueryPoolResults(m_vkdev,static_cast<const CVulkanQueryPool*>(queryPool)->getInternalObject(),firstQuery,queryCount,dataSize,pData,stride,vk_queryResultsflags)==VK_SUCCESS;
+}
+
+core::smart_refctd_ptr<IGPUCommandPool> CVulkanLogicalDevice::createCommandPool_impl(const uint32_t familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags)
+{
+    VkCommandPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+    vk_createInfo.pNext = nullptr; // pNext must be NULL
+    vk_createInfo.flags = static_cast<VkCommandPoolCreateFlags>(flags.value);
+    vk_createInfo.queueFamilyIndex = familyIx;
+
+    VkCommandPool vk_commandPool = VK_NULL_HANDLE;
+    if (m_devf.vk.vkCreateCommandPool(m_vkdev,&vk_createInfo,nullptr,&vk_commandPool)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanCommandPool>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),flags,familyIx,vk_commandPool);
+    return nullptr;
 }

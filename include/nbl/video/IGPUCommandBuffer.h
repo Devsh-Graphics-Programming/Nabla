@@ -25,12 +25,7 @@ class IGPUMeshBuffer;
 class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBackendObject
 {
     public:
-        enum class LEVEL : uint8_t
-        {
-            PRIMARY = 0u,
-            SECONDARY
-        };
-        inline LEVEL getLevel() const { return m_level; }
+        inline IGPUCommandPool::BUFFER_LEVEL getLevel() const { return m_level; }
 
         inline IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
         inline uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
@@ -443,7 +438,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 
         core::smart_refctd_ptr<IGPUCommandPool> m_cmdpool;
         system::logger_opt_smart_ptr m_logger;
-        const LEVEL m_level;
+        const IGPUCommandPool::BUFFER_LEVEL m_level;
 
     private:
         // everything here is private on purpose so that derived class can't mess with these basic states

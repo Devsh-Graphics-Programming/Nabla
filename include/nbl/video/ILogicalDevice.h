@@ -749,36 +749,18 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return false;
             if (stride&((flags.hasFlags(IQueryPool::RESULTS_FLAGS::_64_BIT) ? alignof(uint64_t):alignof(uint32_t))-1))
                 return false;
+            if (queryPool->getCreationParameters().queryType==IQueryPool::TYPE::TIMESTAMP && flags.hasFlags(IQueryPool::RESULTS_FLAGS::PARTIAL_BIT))
+                return false;
             return getQueryPoolResults_impl(queryPool,firstQuery,queryCount,pData,stride,flags);
         }
 
-
-
-
-
         //! Commandbuffers
-        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t _familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
-        inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
+        inline core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags)
         {
-            if (!_cmdPool->wasCreatedBy(this))
-                return false;
-            return createCommandBuffers_impl(_cmdPool, _level, _count, _outCmdBufs);
+            if (familyIx>=m_queueFamilyInfos->size())
+                return nullptr;
+            return createCommandPool_impl(familyIx,flags);
         }
-        inline bool freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count)
-        {
-            for (uint32_t i=0u; i<_count; ++i)
-            if (!_cmdbufs[i]->wasCreatedBy(this))
-                return false;
-            return freeCommandBuffers_impl(_cmdbufs, _count);
-        }
-
-
-
-
-
-
-
-
 
         // Not implemented stuff:
         //TODO: vkGetDescriptorSetLayoutSupport
@@ -884,8 +866,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
 
 
-        virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
-        virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
         virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
 
@@ -922,7 +902,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
         virtual bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) = 0;
-        
+
+        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool_impl(const uint32_t familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
+
+
         void addCommonShaderDefines(std::ostringstream& pool, const bool runningInRenderDoc);
 
         template<typename... Args>
