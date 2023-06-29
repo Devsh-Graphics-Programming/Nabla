@@ -382,11 +382,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         m_devf.vk.vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets.data(), descriptorCopyCount, vk_copyDescriptorSets.data());
     }
 
-            
-    core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) override;
-    
-    bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override;
-
     bool buildAccelerationStructures(
         core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
         const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
@@ -780,6 +775,11 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
     bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
+
+
+
+        core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) override;
+        bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) override;
 
 
         VkDevice m_vkdev;

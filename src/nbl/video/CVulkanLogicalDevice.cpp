@@ -1146,26 +1146,31 @@ IGPUAccelerationStructure::BuildSizes CVulkanLogicalDevice::getAccelerationStruc
     return getAccelerationStructureBuildSizes_impl(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, pBuildInfo, pMaxPrimitiveCounts);
 }
 
-core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool(IQueryPool::SCreationParams&& params)
+
+
+
+
+
+
+core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool_impl(const IQueryPool::SCreationParams& params)
 {
+    VkQueryPoolCreateInfo info =  {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr};
+    info.flags = 0; // "flags is reserved for future use."
+    info.queryType = CVulkanQueryPool::getVkQueryTypeFrom(params.queryType);
+    info.queryCount = params.queryCount;
+    info.pipelineStatistics = CVulkanQueryPool::getVkPipelineStatisticsFlagsFrom(params.pipelineStatisticsFlags.value);
+
     VkQueryPool vk_queryPool = VK_NULL_HANDLE;
-    VkQueryPoolCreateInfo vk_qpci = CVulkanQueryPool::getVkCreateInfoFromCreationParams(std::move(params));
-    auto vk_res = m_devf.vk.vkCreateQueryPool(m_vkdev, &vk_qpci, nullptr, &vk_queryPool);
-    if(VK_SUCCESS != vk_res)
-        return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_queryPool);
+    if (m_devf.vk.vkCreateQueryPool(m_vkdev,&info,nullptr,&vk_queryPool)!=VK_SUCCESS)
+        return core::make_smart_refctd_ptr<const CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(params),vk_queryPool);
+    return nullptr;
 }
 
-bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::E_QUERY_RESULTS_FLAGS> flags)
+bool CVulkanLogicalDevice::getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
 {
-    bool ret = false;
-    if(queryPool != nullptr)
-    {
-        auto vk_queryPool = IBackendObject::device_compatibility_cast<CVulkanQueryPool*>(queryPool, this)->getInternalObject();
-        auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value);
-        auto vk_res = m_devf.vk.vkGetQueryPoolResults(m_vkdev, vk_queryPool, firstQuery, queryCount, dataSize, pData, static_cast<VkDeviceSize>(stride), vk_queryResultsflags);
-        if(VK_SUCCESS == vk_res)
-            ret = true;
-    }
-    return ret;
+    auto pseudoParams = queryPool->getCreationParameters();
+    pseudoParams.queryCount = queryCount;
+    const size_t dataSize = IQueryPool::calcQueryResultsSize(pseudoParams,stride,flags);
+    const auto vk_queryResultsflags = CVulkanQueryPool::getVkQueryResultsFlagsFrom(flags.value);
+    return m_devf.vk.vkGetQueryPoolResults(m_vkdev,static_cast<const CVulkanQueryPool*>(queryPool)->getInternalObject(),firstQuery,queryCount,dataSize,pData,stride,vk_queryResultsflags)==VK_SUCCESS;
 }

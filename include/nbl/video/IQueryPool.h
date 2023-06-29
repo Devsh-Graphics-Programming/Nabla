@@ -10,17 +10,18 @@ namespace nbl::video
 class IQueryPool : public core::IReferenceCounted, public IBackendObject
 {
     public:
-            enum TYPE : uint8_t
+            enum TYPE : uint16_t
             {
                 OCCLUSION = 0x00000001,
                 PIPELINE_STATISTICS = 0x00000002,
                 TIMESTAMP = 0x00000004,
-                PERFORMANCE_QUERY = 0x00000008, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
+//                PERFORMANCE_QUERY = 0x00000008, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
                 ACCELERATION_STRUCTURE_COMPACTED_SIZE = 0x00000010, // VK_KHR_acceleration_structure
                 ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 0x00000020, // VK_KHR_acceleration_structure
-                COUNT = 6u,
+                ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS = 0x00000040, // VK_KHR_ray_tracing_maintenance1
+                ACCELERATION_STRUCTURE_SIZE = 0x00000080, // VK_KHR_ray_tracing_maintenance1
+                COUNT = 8u,
             };
-
             enum class PIPELINE_STATISTICS_FLAGS : uint16_t
             {
                 NONE = 0,
@@ -37,6 +38,21 @@ class IQueryPool : public core::IReferenceCounted, public IBackendObject
                 COMPUTE_SHADER_INVOCATIONS_BIT = 0x00000400,
             };
 
+            struct SCreationParams
+            {
+                uint32_t                                    queryCount;
+                TYPE                                        queryType;
+                // certain query types need some extra info
+                union
+                {
+                    core::bitflag<PIPELINE_STATISTICS_FLAGS> pipelineStatisticsFlags;
+                };
+            };        
+            inline const auto& getCreationParameters() const
+            {
+                return params;
+            }
+
             enum RESULTS_FLAGS : uint8_t
             {
                 NONE = 0,
@@ -45,24 +61,41 @@ class IQueryPool : public core::IReferenceCounted, public IBackendObject
                 WITH_AVAILABILITY_BIT = 0x00000004,
                 PARTIAL_BIT = 0x00000008,
             };
-
-            struct SCreationParams
+            static inline size_t calcQueryResultsSize(const SCreationParams& params, const size_t stride, const core::bitflag<RESULTS_FLAGS> flags)
             {
-                uint32_t                                    queryCount;
-                core::bitflag<PIPELINE_STATISTICS_FLAGS>    pipelineStatisticsFlags; // only when the queryType is EQT_PIPELINE_STATISTICS
-                TYPE                                        queryType;
-            };
+                if (params.queryCount==0u)
+                    return 0ull;
 
-    public:
-            explicit inline IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) 
-                : IBackendObject(std::move(dev)), params(std::move(_params)) {}
-        
-            inline const auto& getCreationParameters() const
-            {
-                return params;
+                const size_t basicUnitSize = flags.hasFlags(RESULTS_FLAGS::_64_BIT) ? sizeof(uint64_t):sizeof(uint32_t);
+                size_t singleQuerySize;
+                switch (params.queryType)
+                {
+                    case IQueryPool::TYPE::OCCLUSION: [[fallthrough]];
+                    case IQueryPool::TYPE::TIMESTAMP:[[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: [[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: [[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: [[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
+                        singleQuerySize = basicUnitSize;
+                        break;
+                    case IQueryPool::TYPE::PIPELINE_STATISTICS:
+                        singleQuerySize = basicUnitSize*core::bitCount(params.pipelineStatisticsFlags.value);
+                        break;
+                    default:
+                        return 0ull;
+                }
+                if (flags.hasFlags(IQueryPool::RESULTS_FLAGS::WITH_AVAILABILITY_BIT))
+                    singleQuerySize += basicUnitSize;
+                if (stride<singleQuerySize)
+                    return 0ull;
+
+                return stride*(params.queryCount-1u)+singleQuerySize;
             }
 
     protected:
+            explicit inline IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) 
+                : IBackendObject(std::move(dev)), params(std::move(_params)) {}
+
             SCreationParams params;
 };
 
