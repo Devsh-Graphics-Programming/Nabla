@@ -354,7 +354,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             if (!getEnabledFeatures().accelerationStructure)
                 return {};
-            if constexpr (std::is_same_v<AddressType,IGPUAccelerationStructure::HostAddressType>)
+            if constexpr (std::is_same_v<BufferType,asset::ICPUBuffer>)
             if (!getEnabledFeatures().accelerationStructureHostCommands)
                 return {};
 
@@ -380,12 +380,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return IGPUAccelerationStructure::BuildSizes{};
         }
         // Build sizes query
-        inline bool buildAccelerationStructures(
-            core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+        inline bool buildAccelerationStructures(IDeferredOperation* const deferredOperation,
             const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
             IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
         {
-            return false;
+            if (!acquireDeferredOperation(deferredOperation))
+                return false;
+            if (!buildAccelerationStructures_impl(deferredOperation,pInfos,ppBuildRangeInfos))
+                return false;
+            // TODO: resource track!
+            return true;
         }
         // write out props, the length of the bugger pointed to by `data` must be `>=count*stride`
         inline bool writeAccelerationStructuresProperties(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
@@ -406,50 +410,57 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (!getEnabledFeatures().accelerationStructureHostCommands)
                 return false;
             for (auto i=0u; i<count; i++)
-            {
-                auto as = accelerationStructures[i];
-                if (!as)
-                    return false;
-                const auto memory = as->getBufferRange().buffer->getBoundMemory().memory;
-                if (!memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT))
-                    return false;
-            }
+            if (invalidAccelerationStructureForHostOperations(accelerationStructures[i]))
+                return false;
             // unfortunately cannot validate if they're built and if they're built with the right flags
             return writeAccelerationStructuresProperties_impl(count,accelerationStructures,type,data,stride);
         }
-        // Host-side copy
-        inline bool copyAccelerationStructure(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
+        // Host-side copy, DEFERRAL IS NOT OPTIONAL
+        inline bool copyAccelerationStructure(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
         {
-            deferredOperation->m_resourceTracking.resize(2u);
-            if (!getEnabledFeatures().accelerationStructureHostCommands)
+            if (!acquireDeferredOperation(deferredOperation))
                 return false;
-            if (!copyAccelerationStructure_impl(deferredOperation,copyInfo))
+            if (invalidAccelerationStructureForHostOperations(copyInfo.src) || invalidAccelerationStructureForHostOperations(copyInfo.dst))
                 return false;
-            deferredOperation->m_resourceTracking[0] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src);
-            deferredOperation->m_resourceTracking[1] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst);
-            return true;
+            auto result = copyAccelerationStructure_impl(deferredOperation,copyInfo);
+            if (result==DEFERRABLE_RESULT::DEFERRED)
+                deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
+                    core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src),
+                    core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst)
+                });
+            return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
-        inline bool copyAccelerationStructureToMemory(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        inline bool copyAccelerationStructureToMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
-            deferredOperation->m_resourceTracking.resize(2u);
-            if (!getEnabledFeatures().accelerationStructureHostCommands)
+            if (!acquireDeferredOperation(deferredOperation))
                 return false;
-            if (!copyAccelerationStructureToMemory_impl(deferredOperation,copyInfo))
+            if (invalidAccelerationStructureForHostOperations(copyInfo.src))
                 return false;
-            deferredOperation->m_resourceTracking[0] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src);
-            deferredOperation->m_resourceTracking[1] = copyInfo.dst.buffer;
-            return true;
+            if (!core::is_aligned_to(ptrdiff_t(copyInfo.dst.buffer->getPointer())+copyInfo.dst.offset,16u))
+                return false;
+            auto result = copyAccelerationStructureToMemory_impl(deferredOperation,copyInfo);
+            if (result==DEFERRABLE_RESULT::DEFERRED)
+                deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
+                    core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src),
+                    core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst.buffer)
+                });
+            return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
-        inline bool copyAccelerationStructureFromMemory(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        inline bool copyAccelerationStructureFromMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
         {
-            deferredOperation->m_resourceTracking.resize(2u);
-            if (!getEnabledFeatures().accelerationStructureHostCommands)
+            if (!acquireDeferredOperation(deferredOperation))
                 return false;
-            if (!copyAccelerationStructureFromMemory_impl(deferredOperation,copyInfo))
+            if (!core::is_aligned_to(ptrdiff_t(copyInfo.src.buffer->getPointer())+copyInfo.src.offset,16u))
                 return false;
-            deferredOperation->m_resourceTracking[0] = copyInfo.src.buffer;
-            deferredOperation->m_resourceTracking[1] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst);
-            return true;
+            if (invalidAccelerationStructureForHostOperations(copyInfo.dst))
+                return false;
+            auto result = copyAccelerationStructureFromMemory_impl(deferredOperation,copyInfo);
+            if (result==DEFERRABLE_RESULT::DEFERRED)
+                deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
+                    core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src.buffer),
+                    core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst)
+                });
+            return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
 
         //! Shaders
@@ -764,7 +775,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         // Not implemented stuff:
         //TODO: vkGetDescriptorSetLayoutSupport
-        //TODO: vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
         //vkGetPipelineCacheData //as pipeline cache method?? (why not)
         //vkMergePipelineCaches //as pipeline cache method (why not)
 
@@ -844,7 +854,38 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
         virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::HostBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
+        enum class DEFERRABLE_RESULT : uint8_t
+        {
+            DEFERRED,
+            NOT_DEFERRED,
+            SOME_ERROR
+        };
+        inline bool acquireDeferredOperation(IDeferredOperation* const deferredOp)
+        {
+            if (!deferredOp || !deferredOp->wasCreatedBy(this) || deferredOp->isPending())
+                return false;
+            deferredOp->m_resourceTracking.clear();
+            return getEnabledFeatures().accelerationStructureHostCommands;
+        }
+        static inline bool invalidMemoryForAccelerationStructureHostOperations(const IDeviceMemoryAllocation* const memory)
+        {
+            return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+        }
+        inline bool invalidAccelerationStructureForHostOperations(const IGPUAccelerationStructure* const as) const
+        {
+            if (!as)
+                return true;
+            const auto* memory = as->getBufferRange().buffer->getBoundMemory().memory;
+            if (invalidMemoryForAccelerationStructureHostOperations(memory))
+                return true;
+            if (!memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT))
+                m_logger.log("Acceleration Structures manipulated using Host Commands should always be bound to host cached memory, as the implementation may need to repeatedly read and write this memory during the execution of the command.",system::ILogger::ELL_PERFORMANCE);
+            return false;
+        }
         virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;
 
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
 

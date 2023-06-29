@@ -424,6 +424,22 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         }
 
         // acceleration structure modifiers
+        static inline CVulkanLogicalDevice::DEFERRABLE_RESULT getDeferrableResultFrom(const VkResult res)
+        {
+            switch (res)
+            {
+                case VK_OPERATION_DEFERRED_KHR:
+                    return DEFERRABLE_RESULT::DEFERRED;
+                case VK_OPERATION_NOT_DEFERRED_KHR:
+                    return DEFERRABLE_RESULT::NOT_DEFERRED;
+                case VK_SUCCESS:
+                    assert(false); // should never happen if I read the spec correctly
+                    break;
+                default:
+                    break;
+            }
+            return DEFERRABLE_RESULT::SOME_ERROR;
+        }
         template<typename AddressType>
         IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) 
         {
@@ -458,6 +474,9 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             ret.buildScratchSize = vk_ret.buildScratchSize;
             return ret;
         }
+        DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
+        DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;
+        DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
 
         // shaders
         core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer) override;
@@ -480,94 +499,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
 
 
-    core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) override
-    {
-        // This flag isn't supported until Vulkan 1.2
-        // assert(!(m_params.flags & ECF_IMAGELESS_BIT));
 
-        constexpr uint32_t MemSize = 1u << 12;
-        constexpr uint32_t MaxAttachments = MemSize / sizeof(VkImageView);
-
-        VkImageView vk_attachments[MaxAttachments];
-        uint32_t attachmentCount = 0u;
-        for (uint32_t i = 0u; i < params.attachmentCount; ++i)
-        {
-            if (params.attachments[i]->getAPIType() == EAT_VULKAN)
-            {
-                vk_attachments[i] = IBackendObject::device_compatibility_cast<const CVulkanImageView*>(params.attachments[i].get(), this)->getInternalObject();
-                ++attachmentCount;
-            }
-        }
-        assert(attachmentCount <= MaxAttachments);
-
-        VkFramebufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
-        createInfo.pNext = nullptr;
-        createInfo.flags = static_cast<VkFramebufferCreateFlags>(params.flags);
-
-        if (params.renderpass->getAPIType() != EAT_VULKAN)
-            return nullptr;
-
-        createInfo.renderPass = IBackendObject::device_compatibility_cast<const CVulkanRenderpass*>(params.renderpass.get(), this)->getInternalObject();
-        createInfo.attachmentCount = attachmentCount;
-        createInfo.pAttachments = vk_attachments;
-        createInfo.width = params.width;
-        createInfo.height = params.height;
-        createInfo.layers = params.layers;
-
-        VkFramebuffer vk_framebuffer;
-        if (m_devf.vk.vkCreateFramebuffer(m_vkdev, &createInfo, nullptr, &vk_framebuffer) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanFramebuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), vk_framebuffer);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-
-    core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(
-        const IGPUShader* _unspecialized,
-        const asset::ISpecializedShader::SInfo& specInfo) override
-    {
-        if (_unspecialized->getAPIType() != EAT_VULKAN)
-            return nullptr;
-
-        const CVulkanShader* vulkanShader = IBackendObject::device_compatibility_cast<const CVulkanShader*>(_unspecialized, this);
-
-        return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(
-            core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-            core::smart_refctd_ptr<const CVulkanShader>(vulkanShader), specInfo);
-    }
-
-    // For consistency's sake why not pass IGPUComputePipeline::SCreationParams as
-    // only second argument, like in createComputePipelines_impl below? Especially
-    // now, since I've added more members to IGPUComputePipeline::SCreationParams
-    core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline_impl(
-        IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-        core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader) override
-    {
-        core::smart_refctd_ptr<IGPUComputePipeline> result = nullptr;
-
-        IGPUComputePipeline::SCreationParams creationParams = {};
-        creationParams.flags = static_cast<video::IGPUComputePipeline::E_PIPELINE_CREATION>(0); // No way to get this now!
-        creationParams.layout = std::move(_layout);
-        creationParams.shader = std::move(_shader);
-        creationParams.basePipeline = nullptr; // No way to get this now!
-        creationParams.basePipelineIndex = ~0u; // No way to get this now!
-
-        core::SRange<const IGPUComputePipeline::SCreationParams> creationParamsRange(&creationParams,
-            &creationParams + 1);
-
-        if (createComputePipelines_impl(_pipelineCache, creationParamsRange, &result))
-        {
-            return result;
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
 
     bool createComputePipelines_impl(IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
@@ -742,7 +674,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         return true;
     }
 
-    core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params);
 
     bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
 
