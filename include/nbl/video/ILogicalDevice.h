@@ -379,7 +379,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             return IGPUAccelerationStructure::BuildSizes{};
         }
-        // Host-side build
+        // Build sizes query
         inline bool buildAccelerationStructures(
             core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
             const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
@@ -387,10 +387,42 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             return false;
         }
+        // write out props, the length of the bugger pointed to by `data` must be `>=count*stride`
+        inline bool writeAccelerationStructuresProperties(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
+        {
+            if (!core::is_aligned_to(stride,alignof(size_t)))
+                return false;
+            switch (type)
+            {
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: [[fallthrough]];
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: [[fallthrough]];
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: [[fallthrough]];
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
+                    break;
+                default:
+                    return false;
+                    break;
+            }
+            if (!getEnabledFeatures().accelerationStructureHostCommands)
+                return false;
+            for (auto i=0u; i<count; i++)
+            {
+                auto as = accelerationStructures[i];
+                if (!as)
+                    return false;
+                const auto memory = as->getBufferRange().buffer->getBoundMemory().memory;
+                if (!memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT))
+                    return false;
+            }
+            // unfortunately cannot validate if they're built and if they're built with the right flags
+            return writeAccelerationStructuresProperties_impl(count,accelerationStructures,type,data,stride);
+        }
         // Host-side copy
         inline bool copyAccelerationStructure(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
         {
             deferredOperation->m_resourceTracking.resize(2u);
+            if (!getEnabledFeatures().accelerationStructureHostCommands)
+                return false;
             if (!copyAccelerationStructure_impl(deferredOperation,copyInfo))
                 return false;
             deferredOperation->m_resourceTracking[0] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src);
@@ -400,6 +432,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool copyAccelerationStructureToMemory(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
             deferredOperation->m_resourceTracking.resize(2u);
+            if (!getEnabledFeatures().accelerationStructureHostCommands)
+                return false;
             if (!copyAccelerationStructureToMemory_impl(deferredOperation,copyInfo))
                 return false;
             deferredOperation->m_resourceTracking[0] = core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src);
@@ -409,6 +443,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool copyAccelerationStructureFromMemory(IDeferredOperation* deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
         {
             deferredOperation->m_resourceTracking.resize(2u);
+            if (!getEnabledFeatures().accelerationStructureHostCommands)
+                return false;
             if (!copyAccelerationStructureFromMemory_impl(deferredOperation,copyInfo))
                 return false;
             deferredOperation->m_resourceTracking[0] = copyInfo.src.buffer;
@@ -537,22 +573,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Pipelines
         // Create a pipeline cache object
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache() { return nullptr; }
-
-        //! Commandbuffers
-        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t _familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
-        inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
-        {
-            if (!_cmdPool->wasCreatedBy(this))
-                return false;
-            return createCommandBuffers_impl(_cmdPool, _level, _count, _outCmdBufs);
-        }
-        inline bool freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count)
-        {
-            for (uint32_t i=0u; i<_count; ++i)
-            if (!_cmdbufs[i]->wasCreatedBy(this))
-                return false;
-            return freeCommandBuffers_impl(_cmdbufs, _count);
-        }
         
 
 
@@ -691,16 +711,80 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             auto ci = core::SRange<const IGPUGraphicsPipeline::SCreationParams>{ params, params + count };
             return createGraphicsPipelines(pipelineCache, ci, output);
         }
+        
+
+
+
+
+
+
+
+        // queries
+        inline core::smart_refctd_ptr<IQueryPool> createQueryPool(const IQueryPool::SCreationParams& params)
+        {
+            switch (params.queryType)
+            {
+                case IQueryPool::TYPE::PIPELINE_STATISTICS:
+                    if (!getEnabledFeatures().pipelineStatisticsQuery)
+                        return false;
+                    break;
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: [[fallthrough]];
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: [[fallthrough]];
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: [[fallthrough]];
+                case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
+                    if (!getEnabledFeatures().accelerationStructure)
+                        return false;
+                    break;
+                default:
+                    return false;
+            }
+            return createQueryPool_impl(params);
+        }
+        // `pData` must be sufficient to store the results (@see `IQueryPool::calcQueryResultsSize`)
+        inline bool getQueryPoolResults(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
+        {
+            if (!queryPool || !queryPool->wasCreatedBy(this))
+                return false;
+            if (firstQuery+queryCount>=queryPool->getCreationParameters().queryCount)
+                return false;
+            if (stride&((flags.hasFlags(IQueryPool::RESULTS_FLAGS::_64_BIT) ? alignof(uint64_t):alignof(uint32_t))-1))
+                return false;
+            return getQueryPoolResults_impl(queryPool,firstQuery,queryCount,pData,stride,flags);
+        }
+
+
+
+
+
+        //! Commandbuffers
+        virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t _familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
+        inline bool createCommandBuffers(IGPUCommandPool* const _cmdPool, const IGPUCommandBuffer::LEVEL _level, const uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs)
+        {
+            if (!_cmdPool->wasCreatedBy(this))
+                return false;
+            return createCommandBuffers_impl(_cmdPool, _level, _count, _outCmdBufs);
+        }
+        inline bool freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count)
+        {
+            for (uint32_t i=0u; i<_count; ++i)
+            if (!_cmdbufs[i]->wasCreatedBy(this))
+                return false;
+            return freeCommandBuffers_impl(_cmdbufs, _count);
+        }
+
+
+
+
+
+
+
+
 
         // Not implemented stuff:
         //TODO: vkGetDescriptorSetLayoutSupport
         //TODO: vkTrimCommandPool // for this you need to Optimize OpenGL commandrecording to use linked list
         //vkGetPipelineCacheData //as pipeline cache method?? (why not)
         //vkMergePipelineCaches //as pipeline cache method (why not)
-        
-        virtual core::smart_refctd_ptr<IQueryPool> createQueryPool(IQueryPool::SCreationParams&& params) { return nullptr; }
-
-        virtual bool getQueryPoolResults(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, size_t dataSize, void * pData, uint64_t stride, core::bitflag<IQueryPool::RESULTS_FLAGS> flags) { return false;}
 
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;
@@ -778,6 +862,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
         virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::HostBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
+        virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
 
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
 
@@ -830,6 +915,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         ) = 0;
         virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
         virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+
+        
+
+
+
+        virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
+        virtual bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) = 0;
         
         void addCommonShaderDefines(std::ostringstream& pool, const bool runningInRenderDoc);
 
