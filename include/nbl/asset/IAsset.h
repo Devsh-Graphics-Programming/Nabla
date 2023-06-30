@@ -98,11 +98,11 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_RENDERPASS = 1ull<<13,							//!< asset::ICPURenderpass
 			ET_FRAMEBUFFER = 1ull<<14,							//!< asset::ICPUFramebuffer
 			ET_GRAPHICS_PIPELINE = 1ull<<15,					//!< asset::ICPUGraphicsPipeline
-			ET_ACCELERATION_STRUCTURE = 1ull<<16,				//!< asset::ICPUAccelerationStructure
-			ET_SUB_MESH = 1ull<<17,							    //!< DEPRECATED asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<18,								    //!< DEPRECATED asset::ICPUMesh
-			ET_COMPUTE_PIPELINE = 1ull<<19,                     //!< asset::ICPUComputePipeline
-			ET_EVENT = 1ull<<20,								//!< UNUSED asset::ICPUEvent
+			ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE = 1ull<<16,	//!< asset::ICPUBottomLevelAccelerationStructure
+			ET_TOP_LEVEL_ACCELERATION_STRUCTURE = 1ull<<17,		//!< asset::ICPUTopLevelAccelerationStructure
+			ET_SUB_MESH = 1ull<<18,							    //!< DEPRECATED asset::ICPUMeshBuffer
+			ET_MESH = 1ull<<19,								    //!< DEPRECATED asset::ICPUMesh
+			ET_COMPUTE_PIPELINE = 1ull<<20,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.

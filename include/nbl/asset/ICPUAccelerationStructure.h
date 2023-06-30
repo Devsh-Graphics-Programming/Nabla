@@ -11,39 +11,40 @@
 namespace nbl::asset
 {
 
-class ICPUAccelerationStructure : public IAsset
+class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
 {
-		using PseudoBase = IAccelerationStructure;
-
 	public:
-		// a few aliases to make usage simpler
-		using CREATE_FLAGS = PseudoBase::CREATE_FLAGS;
-		using BUILD_FLAGS = PseudoBase::BUILD_FLAGS;
-		using GEOMETRY_FLAGS = PseudoBase::GEOMETRY_FLAGS;
+		//
 
 		//
-		inline void setAccelerationStructureSize(const uint64_t accelerationStructureSize)
+		inline void setBuildFlags(const core::bitflag<BUILD_FLAGS> buildFlags)
 		{ 
 			if(!isMutable())
 				return;
-			m_accelerationStructureSize = accelerationStructureSize;
+			m_buildFlags = buildFlags;
 		}
-		inline uint64_t getAccelerationStructureSize() const { return m_accelerationStructureSize; }
+		inline core::bitflag<BUILD_FLAGS> getBuildFlags() const {return m_buildFlags;}
+
+	protected:
+		using IAccelerationStructure::IAccelerationStructure;
 
 	private:
 		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
-		size_t m_accelerationStructureSize = 0ull;
-		core::bitflag<PseudoBase::BUILD_FLAGS> m_buildFlags = PseudoBase::BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
 
-class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottomLevelAccelerationStructure
+class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerationStructure<ICPUAccelerationStructure>
 {
 	public:
+
+		//!
+		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
+#if 0
 		//
 		ICPUAccelerationStructure(SCreationParams&& _params)
 			: params(std::move(_params))
 			, m_hasBuildInfo(false)
-			, m_accelerationStructureSize(0)
 			, m_buildRangeInfos(nullptr)
 		{}
 
@@ -81,7 +82,6 @@ class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottom
 			auto cp = core::smart_refctd_ptr<ICPUAccelerationStructure>(new ICPUAccelerationStructure(std::move(par)), core::dont_grab);
 			clone_common(cp.get());
 			
-			cp->m_accelerationStructureSize = this->m_accelerationStructureSize;
 			if(this->hasBuildInfo())
 			{
 				cp->m_hasBuildInfo = true;
@@ -184,7 +184,6 @@ class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottom
 			if (canBeConvertedToDummy()) {
 				m_buildRangeInfos = nullptr;
 				m_hasBuildInfo = false;
-				m_accelerationStructureSize = 0ull;
 			}
 		}
 		
@@ -195,10 +194,6 @@ class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottom
 			_NBL_TODO();
 			return false;
 		}
-
-		//!
-		constexpr static inline auto AssetType = ET_ACCELERATION_STRUCTURE;
-		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 
 	protected:
@@ -256,6 +251,7 @@ class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottom
 	private:
 		core::smart_refctd_dynamic_array<Geometry<HostAddressType>> m_geometries;
 		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
+#endif
 };
 
 }

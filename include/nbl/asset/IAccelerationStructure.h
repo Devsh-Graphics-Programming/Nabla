@@ -73,8 +73,10 @@ class IAccelerationStructure : public IDescriptor
 		const core::bitflag<CREATE_FLAGS> m_creationFlags;
 };
 
-class IBottomLevelAccelerationStructure : public IAccelerationStructure
+template<class AccelerationStructure>
+class IBottomLevelAccelerationStructure : public AccelerationStructure
 {
+		static_assert(std::is_base_of_v<IAccelerationStructure,AccelerationStructure>);
 	public:
 		inline bool isBLAS() const override {return true;}
 
@@ -118,12 +120,14 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 		using AABB_t = core::aabbox3d<float>;
 
 	protected:
-		using IAccelerationStructure::IAccelerationStructure;
+		using AccelerationStructure::AccelerationStructure;
 		virtual ~IBottomLevelAccelerationStructure() = default;
 };
 
-class ITopLevelAccelerationStructure : public IAccelerationStructure
+template<class AccelerationStructure>
+class ITopLevelAccelerationStructure : public AccelerationStructure
 {
+		static_assert(std::is_base_of_v<IAccelerationStructure,AccelerationStructure>);
 	public:
 		inline bool isBLAS() const override {return false;}
 
@@ -211,7 +215,7 @@ class ITopLevelAccelerationStructure : public IAccelerationStructure
 		};
 
 	protected:
-		using IAccelerationStructure::IAccelerationStructure;
+		using AccelerationStructure::AccelerationStructure;
 		virtual ~ITopLevelAccelerationStructure() = default;
 };
 
