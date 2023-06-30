@@ -13,40 +13,112 @@
 namespace nbl::video
 {
 
+//! all these utilities cannot be nested because of the complex inheritance between `IGPUAccelerationStructure` and the Vulkan classes
+static inline VkCopyAccelerationStructureModeKHR getVkCopyAccelerationStructureModeFrom(const IGPUAccelerationStructure::COPY_MODE in)
+{
+	return static_cast<VkCopyAccelerationStructureModeKHR>(in);
+}
+static inline VkCopyAccelerationStructureInfoKHR getVkCopyAccelerationStructureInfoFrom(const IGPUAccelerationStructure::CopyInfo& copyInfo)
+{
+	VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.src->getNativeHandle());
+	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.dst->getNativeHandle());
+	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
+	return info;
+}
+
+template<typename BufferType>
+static inline VkDeviceOrHostAddressKHR getVkDeviceOrHostAddress(const asset::SBufferBinding<BufferType>& binding)
+{
+	VkDeviceOrHostAddressKHR addr;
+	if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
+		addr.deviceAddress = binding.buffer->getDeviceAddress()+binding.offset;
+	else
+	{
+		static_assert(std::is_same_v<BufferType,asset::ICPUBuffer>);
+		addr.hostAddress = reinterpret_cast<uint8_t*>(binding.buffer->getPointer())+binding.offset;
+	}
+	return addr;
+}
+template<typename BufferType>
+static inline VkDeviceOrHostAddressConstKHR getVkDeviceOrHostConstAddress(const asset::SBufferBinding<const BufferType>& binding)
+{
+	VkDeviceOrHostAddressConstKHR addr;
+	if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
+		addr.deviceAddress = binding.buffer->getDeviceAddress()+binding.offset;
+	else
+	{
+		static_assert(std::is_same_v<BufferType,asset::ICPUBuffer>);
+		addr.hostAddress = reinterpret_cast<const uint8_t*>(binding.buffer->getPointer())+binding.offset;
+	}
+	return addr;
+}
+template<typename BufferType>
+static inline VkCopyAccelerationStructureToMemoryInfoKHR getVkCopyAccelerationStructureToMemoryInfoFrom(const IGPUAccelerationStructure::CopyToMemoryInfo<BufferType>& copyInfo)
+{
+	VkCopyAccelerationStructureToMemoryInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.src->getNativeHandle());
+	info.dst = getVkDeviceOrHostAddress<BufferType>(copyInfo.dst);
+	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
+	return info;
+}
+template<typename BufferType>
+static inline VkCopyMemoryToAccelerationStructureInfoKHR getVkCopyMemoryToAccelerationStructureInfoFrom(const IGPUAccelerationStructure::CopyFromMemoryInfo<BufferType>& copyInfo)
+{
+	VkCopyMemoryToAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+	info.src = getVkDeviceOrHostConstAddress<BufferType>(copyInfo.src);
+	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.dst->getNativeHandle());
+	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
+	return info;
+}
+
+static inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUAccelerationStructure::GEOMETRY_FLAGS in)
+{
+	return static_cast<VkGeometryFlagsKHR>(in);
+}
+static inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUAccelerationStructure::BUILD_FLAGS in)
+{
+	return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
+}
+
+
 class CVulkanLogicalDevice;
 
-class CVulkanAccelerationStructure
+
+template<class GPUAccelerationStructure>
+class CVulkanAccelerationStructure : public GPUAccelerationStructure
 {
 	public:
-		CVulkanAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& _params, VkAccelerationStructureKHR accelerationStructure);
-
+		inline const void* getNativeHandle() const { return &m_accelerationStructure; }
 		inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
 	
-		// enum converters
-		static inline VkAccelerationStructureCreateFlagsKHR getVkASCreateFlagsFrom(const IGPUAccelerationStructure::CREATE_FLAGS in)
-		{
-			return static_cast<VkAccelerationStructureCreateFlagsKHR>(in);
-		}
-		static inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUAccelerationStructure::GEOMETRY_FLAGS in)
-		{
-			return static_cast<VkGeometryFlagsKHR>(in);
-		}
-		static inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUAccelerationStructure::BUILD_FLAGS in)
-		{
-			return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
-		}
-		static inline VkCopyAccelerationStructureModeKHR getVkCopyAccelerationStructureModeFrom(const IGPUAccelerationStructure::COPY_MODE in)
-		{
-			return static_cast<VkCopyAccelerationStructureModeKHR>(in);
-		}
+		bool wasCopySuccessful(const IDeferredOperation* const deferredOp) override;
 
-	// more complex static utils
-	template<typename AddressType>
-	static VkDeviceOrHostAddressKHR getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const AddressType& addr);
-	
-	template<typename AddressType>
-	static VkDeviceOrHostAddressConstKHR getVkDeviceOrHostConstAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const AddressType& addr);
+	protected:
+		CVulkanAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, IGPUAccelerationStructure::SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure);
+		~CVulkanAccelerationStructure();
 
+		VkAccelerationStructureKHR m_vkAccelerationStructure;
+		VkDeviceAddress m_deviceAddress;
+		
+};
+
+class CVulkanBottomLevelAccelerationStructure final : public CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>
+{
+	public:
+		using CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>::CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>;
+
+		uint64_t getReferenceForDeviceOperations() const override {return m_deviceAddress;}
+		inline uint64_t getReferenceForHostOperations() const override {return reinterpret_cast<uint64_t>(m_vkAccelerationStructure);}
+
+	private:
+};
+
+class CVulkanTopLevelAccelerationStructure final : public CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>
+{
+	public:
+		using CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>::CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>;
+#if 0
 	template<typename AddressType>
 	static VkAccelerationStructureGeometryKHR getVkASGeometry(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const Geometry<AddressType>& geometry)
 	{
@@ -115,57 +187,7 @@ class CVulkanAccelerationStructure
 		}
 		return ret;
 	}
-	
-	template<typename AddressType>
-	static VkCopyAccelerationStructureToMemoryInfoKHR getVkASCopyToMemoryInfo(VkDevice vk_device, const CopyToMemoryInfo<AddressType>& info)
-	{
-		VkCopyAccelerationStructureToMemoryInfoKHR ret = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR, nullptr};
-		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
-		ret.src = static_cast<CVulkanAccelerationStructure *>(info.src)->getInternalObject();
-		ret.dst = getVkDeviceOrHostAddress(vk_device, vk_devf, info.dst);
-		return ret;
-	}
-	
-	template<typename AddressType>
-	static VkCopyMemoryToAccelerationStructureInfoKHR getVkASCopyFromMemoryInfo(VkDevice vk_device, const CopyFromMemoryInfo<AddressType>& info)
-	{
-		VkCopyMemoryToAccelerationStructureInfoKHR  ret = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR, nullptr};
-		ret.mode = getVkASCopyModeFromASCopyMode(info.copyMode);
-		ret.src = getVkDeviceOrHostConstAddress(vk_device, vk_devf, info.src);
-		ret.dst = static_cast<CVulkanAccelerationStructure *>(info.dst)->getInternalObject();
-		return ret;
-	}
-
-	protected:
-		CVulkanAccelerationStructure(const CVulkanLogicalDevice* vulkanDevice, const VkAccelerationStructureKHR accelerationStructure);
-		~CVulkanAccelerationStructure();
-
-		VkAccelerationStructureKHR m_vkAccelerationStructure;
-		VkDeviceAddress m_deviceAddress;
-
-	private:
-		const CVulkanLogicalDevice* m_vulkanDevice;
-};
-
-class CVulkanBottomLevelAccelerationStructure final : public IGPUBottomLevelAccelerationStructure, public CVulkanAccelerationStructure
-{
-	public:
-		CVulkanBottomLevelAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure)
-			: IGPUBottomLevelAccelerationStructure(std::move(logicalDevice),std::move(params)), CVulkanAccelerationStructure(logicalDevice.get(),accelerationStructure) {}
-
-		uint64_t getReferenceForDeviceOperations() const override {return m_deviceAddress;}
-		inline uint64_t getReferenceForHostOperations() const override {return reinterpret_cast<uint64_t>(m_vkAccelerationStructure);}
-
-	private:
-};
-
-class CVulkanTopLevelAccelerationStructure final : public IGPUTopLevelAccelerationStructure, public CVulkanAccelerationStructure
-{
-	public:
-		CVulkanTopLevelAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure)
-			: IGPUTopLevelAccelerationStructure(std::move(logicalDevice),std::move(params)), CVulkanAccelerationStructure(logicalDevice.get(),accelerationStructure) {}
-
-	private:
+#endif
 };
 
 }

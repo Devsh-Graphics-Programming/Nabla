@@ -4,74 +4,28 @@
 namespace nbl::video
 {
 
-CVulkanAccelerationStructure::CVulkanAccelerationStructure(const CVulkanLogicalDevice* vulkanDevice, const VkAccelerationStructureKHR accelerationStructure)
-	: m_vkAccelerationStructure(accelerationStructure), m_vulkanDevice(vulkanDevice)
+template<class GPUAccelerationStructure>
+CVulkanAccelerationStructure<GPUAccelerationStructure>::CVulkanAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, IGPUAccelerationStructure::SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure)
+	: GPUAccelerationStructure(std::move(logicalDevice),std::move(params)), m_vkAccelerationStructure(accelerationStructure)
 {
+	auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
 	VkAccelerationStructureDeviceAddressInfoKHR info = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,nullptr};
 	info.accelerationStructure = m_vkAccelerationStructure;
-	m_deviceAddress = m_vulkanDevice->getFunctionTable()->vk.vkGetAccelerationStructureDeviceAddressKHR(m_vulkanDevice->getInternalObject(),&info);
+	m_deviceAddress = vulkanDevice->getFunctionTable()->vk.vkGetAccelerationStructureDeviceAddressKHR(vulkanDevice->getInternalObject(),&info);
 }
 
-CVulkanAccelerationStructure::~CVulkanAccelerationStructure()
+template<class GPUAccelerationStructure>
+CVulkanAccelerationStructure<GPUAccelerationStructure>::~CVulkanAccelerationStructure()
 {
-	m_vulkanDevice->getFunctionTable()->vk.vkDestroyAccelerationStructureKHR(m_vulkanDevice->getInternalObject(),m_vkAccelerationStructure,nullptr);
+	auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	vulkanDevice->getFunctionTable()->vk.vkDestroyAccelerationStructureKHR(vulkanDevice->getInternalObject(),m_vkAccelerationStructure,nullptr);
 }
 
-
-
-
-
-template<>
-VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const DeviceAddressType& addr) {
-	VkDeviceOrHostAddressKHR ret = {};
-	if(addr.buffer.get() != nullptr)
-	{
-		VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(addr.buffer.get())->getInternalObject();
-		assert(vk_buffer != VK_NULL_HANDLE);
-		VkBufferDeviceAddressInfo info = {VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr};
-		info.buffer = vk_buffer;
-		ret.deviceAddress = vk_devf->vk.vkGetBufferDeviceAddressKHR(vk_device, &info) + addr.offset;
-	}
-	return ret;
-}
-template<>
-VkDeviceOrHostAddressKHR CVulkanAccelerationStructure::getVkDeviceOrHostAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const HostAddressType& addr) {
-	VkDeviceOrHostAddressKHR ret = {};
-	if(addr.buffer.get() != nullptr) 
-	{
-		if(addr.buffer->getPointer() != nullptr) 
-		{
-			uint8_t* hostData = reinterpret_cast<uint8_t*>(addr.buffer->getPointer()) + addr.offset;
-			ret.hostAddress = hostData;
-		}
-	}
-	return ret;
-}
-template<>
-VkDeviceOrHostAddressConstKHR CVulkanAccelerationStructure::getVkDeviceOrHostConstAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const DeviceAddressType& addr) {
-	VkDeviceOrHostAddressConstKHR ret = {};
-	if(addr.buffer.get() != nullptr)
-	{
-		VkBuffer vk_buffer = static_cast<const CVulkanBuffer*>(addr.buffer.get())->getInternalObject();
-		assert(vk_buffer != VK_NULL_HANDLE);
-		VkBufferDeviceAddressInfo info = {VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr};
-		info.buffer = vk_buffer;
-		ret.deviceAddress = vk_devf->vk.vkGetBufferDeviceAddressKHR(vk_device, &info) + addr.offset;
-	}
-	return ret;
-}
-template<>
-VkDeviceOrHostAddressConstKHR CVulkanAccelerationStructure::getVkDeviceOrHostConstAddress(VkDevice vk_device, const CVulkanDeviceFunctionTable* vk_devf, const HostAddressType& addr) {
-	VkDeviceOrHostAddressConstKHR ret = {};
-	if(addr.buffer.get() != nullptr) 
-	{
-		if(addr.buffer->getPointer() != nullptr) 
-		{
-			uint8_t* hostData = reinterpret_cast<uint8_t*>(addr.buffer->getPointer()) + addr.offset;
-			ret.hostAddress = hostData;
-		}
-	}
-	return ret;
+template<class GPUAccelerationStructure>
+bool CVulkanAccelerationStructure<GPUAccelerationStructure>::wasCopySuccessful(const IDeferredOperation* const deferredOp)
+{
+	auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	return vulkanDevice->getFunctionTable()->vk.vkGetDeferredOperationResultKHR(vulkanDevice->getInternalObject(),static_cast<const CVulkanDeferredOperation*>(deferredOp)->getInternalObject())==VK_SUCCESS;
 }
 
 }
