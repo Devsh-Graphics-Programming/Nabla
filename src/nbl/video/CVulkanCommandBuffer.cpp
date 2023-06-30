@@ -341,33 +341,25 @@ bool CVulkanCommandBuffer::copyImage_impl(const IGPUImage* const srcImage, const
 
 bool CVulkanCommandBuffer::copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
-    VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR, nullptr };
-    info.mode = CVulkanAccelerationStructure::getVkCopyAccelerationStructureModeFrom(copyInfo.copyMode);
-    info.src = static_cast<const CVulkanAccelerationStructure*>(copyInfo.src)->getInternalObject();
-    info.dst = static_cast<CVulkanAccelerationStructure*>(copyInfo.dst)->getInternalObject();
+    const auto info = getVkCopyAccelerationStructureInfoFrom(copyInfo);
     getFunctionTable().vkCmdCopyAccelerationStructureKHR(m_cmdbuf,&info);
     return true;
 }
-#if 0
 bool CVulkanCommandBuffer::copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
 {
-    VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(vk_device,copyInfo);
-    getFunctionTable().vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf, &info);
+    const auto info = getVkCopyAccelerationStructureToMemoryInfoFrom(copyInfo);
+    getFunctionTable().vkCmdCopyAccelerationStructureToMemoryKHR(m_cmdbuf,&info);
     return true;
 }
 
 bool CVulkanCommandBuffer::copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
 {
-    const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-    VkDevice vk_device = vulkanDevice->getInternalObject();
-    auto* vk = vulkanDevice->getFunctionTable();
-
-    VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(vk_device, vk, copyInfo);
-    getFunctionTable().vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf, &info);
+    const auto info = getVkCopyMemoryToAccelerationStructureInfoFrom(copyInfo);
+    getFunctionTable().vkCmdCopyMemoryToAccelerationStructureKHR(m_cmdbuf,&info);
     return true;
 }
 
-
+#if 0
 bool CVulkanCommandBuffer::buildAccelerationStructures_impl(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const video::IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos)
 {
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());

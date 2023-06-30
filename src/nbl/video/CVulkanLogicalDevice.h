@@ -417,7 +417,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             motionInfo.flags = 0;
             motionInfo.maxInstances = params.maxInstanceCount;
 
-            const auto vk_as = createAccelerationStructure(params,VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) ? (&motionInfo) : nullptr);
+            const auto vk_as = createAccelerationStructure(params,VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) ? (&motionInfo):nullptr);
             if (vk_as!=VK_NULL_HANDLE)
                 return core::make_smart_refctd_ptr<CVulkanTopLevelAccelerationStructure>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),std::move(params),vk_as);
             return nullptr;

@@ -418,7 +418,7 @@ core::smart_refctd_ptr<IGPUSampler> CVulkanLogicalDevice::createSampler(const IG
 VkAccelerationStructureKHR CVulkanLogicalDevice::createAccelerationStructure(const IGPUAccelerationStructure::SCreationParams& params, const VkAccelerationStructureTypeKHR type, const VkAccelerationStructureMotionInfoNV* motionInfo)
 {
     VkAccelerationStructureCreateInfoKHR vasci = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,motionInfo};
-    vasci.createFlags = CVulkanAccelerationStructure::getVkASCreateFlagsFrom(params.flags.value);
+    vasci.createFlags = static_cast<VkAccelerationStructureCreateFlagsKHR>(params.flags.value);
     vasci.type = type;
     vasci.buffer = static_cast<const CVulkanBuffer*>(params.bufferRange.buffer.get())->getInternalObject();
     vasci.offset = params.bufferRange.offset;
@@ -431,10 +431,10 @@ VkAccelerationStructureKHR CVulkanLogicalDevice::createAccelerationStructure(con
 }
 
 
-bool CVulkanLogicalDevice::buildAccelerationStructures(
-    core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
+auto CVulkanLogicalDevice::buildAccelerationStructures(IDeferredOperation* const deferredOperation,
     const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
-    IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+    IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos
+) -> DEFERRABLE_RESULT
 {
     auto features = getEnabledFeatures();
     if(!features.accelerationStructure)
@@ -444,9 +444,6 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
     }
 
 
-    bool ret = false;
-    if(!pInfos.empty() && deferredOperation.get() != nullptr)
-    {
         VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
         static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
         static constexpr size_t MaxBuildInfoCount = 128;
@@ -473,106 +470,26 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
                 
         static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
         auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
-        VkResult vk_res = m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev, vk_deferredOp, infoCount, vk_buildGeomsInfos, buildRangeInfos);
-        if(VK_SUCCESS == vk_res)
-        {
-            ret = true;
-        }
-    }
-    return ret;
+     
+    return getDeferrableResultFrom(m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),infoCount,vk_buildGeomsInfos,buildRangeInfos));
 }
 
 auto CVulkanLogicalDevice::copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) -> DEFERRABLE_RESULT
 {
-    VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
-    info.src = static_cast<const CVulkanAccelerationStructure*>(copyInfo.src);
-    info.dst = copyInfo.dst;
-    info.mode = static_cast<VkCopyAccelerationStructureModeKHR>(copyInfo.mode);
-    return getDeferrableResultFrom(m_devf.vk.vkCopyAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info);
+    const auto info = getVkCopyAccelerationStructureInfoFrom(copyInfo);
+    return getDeferrableResultFrom(m_devf.vk.vkCopyAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
 }
 
 auto CVulkanLogicalDevice::copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) -> DEFERRABLE_RESULT
 {
-    VkCopyAccelerationStructureToMemoryInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR,nullptr };
-    info.src = ;
-    info.dst = ;
-    return getDeferrableResultFrom(m_devf.vk.vkCopyAccelerationStructureToMemoryKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info);
+    const auto info = getVkCopyAccelerationStructureToMemoryInfoFrom(copyInfo);
+    return getDeferrableResultFrom(m_devf.vk.vkCopyAccelerationStructureToMemoryKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
 }
 
 auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) -> DEFERRABLE_RESULT
 {
-    VkCopyMemoryToAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
-    info.src = ;
-    info.dst = ;
-    return getDeferrableResultFrom(m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info);
-}
-
-
-bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
-{
-    bool ret = false;
-    if(deferredOperation.get() != nullptr)
-    {
-        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
-        if(copyInfo.dst == nullptr || copyInfo.src == nullptr) 
-        {
-            assert(false && "invalid src or dst");
-            return false;
-        }
-
-        VkCopyAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyInfo(m_vkdev, &m_devf, copyInfo);
-        VkResult res = m_devf.vk.vkCopyAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
-        if(VK_SUCCESS == res)
-        {
-            ret = true;
-        }
-    }
-    return ret;
-}
-    
-bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
-{
-    bool ret = false;
-    if(deferredOperation.get() != nullptr)
-    {
-        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
-
-        if(copyInfo.dst.isValid() == false || copyInfo.src == nullptr) 
-        {
-            assert(false && "invalid src or dst");
-            return false;
-        }
-
-        VkCopyAccelerationStructureToMemoryInfoKHR info = CVulkanAccelerationStructure::getVkASCopyToMemoryInfo(m_vkdev, &m_devf, copyInfo);
-        VkResult res = m_devf.vk.vkCopyAccelerationStructureToMemoryKHR(m_vkdev, vk_deferredOp, &info);
-        if(VK_SUCCESS == res)
-        {
-            ret = true;
-        }
-    }
-    return ret;
-}
-
-bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
-{
-    bool ret = false;
-    if(deferredOperation.get() != nullptr)
-    {
-        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
-        if(copyInfo.dst == nullptr || copyInfo.src.isValid() == false) 
-        {
-            assert(false && "invalid src or dst");
-            return false;
-        }
-
-        VkCopyMemoryToAccelerationStructureInfoKHR info = CVulkanAccelerationStructure::getVkASCopyFromMemoryInfo(m_vkdev, &m_devf, copyInfo);
-        VkResult res = m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev, vk_deferredOp, &info);
-        if(VK_SUCCESS == res)
-        {
-            ret = true;
-        }
-    }
-    return ret;
+    const auto info = getVkCopyMemoryToAccelerationStructureInfoFrom(copyInfo);
+    return getDeferrableResultFrom(m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
 }
 
 IGPUAccelerationStructure::BuildSizes CVulkanLogicalDevice::getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
