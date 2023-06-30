@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_ACCELERATION_STRUCTURES_INCLUDED_
 
 
-#include "nlb/builtin/hlsl/acceleration_structures.glsl"
+#include "nbl/builtin/hlsl/common.glsl"
 
 
 namespace nbl
@@ -18,9 +18,9 @@ namespace acceleration_structures
 // Use for Indirect Builds
 struct BuildRangeInfo
 {
-    uint32_t primitiveCount;
+    uint32_t primitiveCount; // needs to stay constant across updates
     uint32_t primitiveOffset;
-    uint32_t firstVertex;
+    uint32_t firstVertex; // needs to stay constant across updates
     uint32_t transformOffset;
 
     #ifdef __cplusplus

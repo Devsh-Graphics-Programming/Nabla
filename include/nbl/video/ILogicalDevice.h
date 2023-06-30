@@ -349,44 +349,27 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //! Acceleration Structure modifiers
-        template<class AccelerationStructure, typename BufferType>
-        inline IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes(const AccelerationStructure::BuildGeometryInfo<BufferType>& info, const uint32_t* pMaxPrimitiveCounts)
+        inline bool invalidAccelerationStructureForHostOperations(const IGPUAccelerationStructure* const as) const
         {
-            if (!getEnabledFeatures().accelerationStructure)
-                return {};
-            if constexpr (std::is_same_v<BufferType,asset::ICPUBuffer>)
-            if (!getEnabledFeatures().accelerationStructureHostCommands)
-                return {};
-
-            const auto& bufferUsages = getPhysicalDevice()->getBufferFormatUsages();
-            for (const auto& geometry : info.geometries)
-            {
-                using type_t = decltype(geometry.type);
-                switch(geometry.type)
-                {
-                    case type_t::TRIANGLES:
-                        if (!bufferUsages[geometry.data.triangles.vertexFormat].accelerationStructureVertex)
-                            return {};
-                        break;
-                    case type_t::AABBS:
-                        break;
-                    case type_t::INSTANCES:
-                        break;
-                    default:
-                        return {};
-                        break;
-                }
-            }
-            return IGPUAccelerationStructure::BuildSizes{};
+            if (!as)
+                return true;
+            const auto* memory = as->getBufferRange().buffer->getBoundMemory().memory;
+            if (invalidMemoryForAccelerationStructureHostOperations(memory))
+                return true;
+            if (!memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT))
+                m_logger.log("Acceleration Structures manipulated using Host Commands should always be bound to host cached memory, as the implementation may need to repeatedly read and write this memory during the execution of the command.",system::ILogger::ELL_PERFORMANCE);
+            return false;
         }
-        // Build sizes query
-        inline bool buildAccelerationStructures(IDeferredOperation* const deferredOperation,
-            const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
+        // build
+        inline bool buildAccelerationStructures(IDeferredOperation* const deferredOperation, const core::SRange<IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
             IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
         {
             if (!acquireDeferredOperation(deferredOperation))
                 return false;
-            if (!buildAccelerationStructures_impl(deferredOperation,pInfos,ppBuildRangeInfos))
+            for (const auto info : infos)
+            if (!info.valid())
+                return false;
+            if (!buildAccelerationStructures_impl(deferredOperation,infos))
                 return false;
             // TODO: resource track!
             return true;
@@ -852,8 +835,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
-        virtual IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl(const IGPUAccelerationStructure::HostBuildGeometryInfo& info, const uint32_t* pMaxPrimitiveCounts) = 0;
         enum class DEFERRABLE_RESULT : uint8_t
         {
             DEFERRED,
@@ -871,17 +852,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
         }
-        inline bool invalidAccelerationStructureForHostOperations(const IGPUAccelerationStructure* const as) const
-        {
-            if (!as)
-                return true;
-            const auto* memory = as->getBufferRange().buffer->getBoundMemory().memory;
-            if (invalidMemoryForAccelerationStructureHostOperations(memory))
-                return true;
-            if (!memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT))
-                m_logger.log("Acceleration Structures manipulated using Host Commands should always be bound to host cached memory, as the implementation may need to repeatedly read and write this memory during the execution of the command.",system::ILogger::ELL_PERFORMANCE);
-            return false;
-        }
+        virtual bool buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<IGPUBottomLevelAccelerationStructure::HostBuildGeometryInfo>& infos) = 0;
+        virtual bool buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<IGPUTopLevelAccelerationStructure::HostBuildGeometryInfo>& infos) = 0;
         virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;

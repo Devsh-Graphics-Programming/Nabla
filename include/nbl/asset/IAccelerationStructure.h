@@ -98,7 +98,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			};
 			struct AABBs
 			{
-				asset::SBufferBinding<const BufferType>	data = {};
+				// data[1] are the AABB extents at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
+				asset::SBufferBinding<const BufferType>	data[2] = {};
 				uint32_t								stride = sizeof(AABB_t);
 			};
 
@@ -112,8 +113,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 				Triangles triangles = {};
 				AABBs aabbs;
 			};
-			uint8_t isAABB : 1 = false;
-			core::bitflag<GEOMETRY_FLAGS> flags = FLAGS::NONE;
+			GEOMETRY_FLAGS flags : 15 = GEOMETRY_FLAGS::NONE;
+			uint16_t isAABB : 1 = false;
 		};
 
 		// For filling the AABB Buffers
@@ -150,8 +151,8 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			}
 
 			asset::SBufferBinding<const BufferType>	instanceData = {};
+			core::bitflag<GEOMETRY_FLAGS>			flags = GEOMETRY_FLAGS::NONE;
 			core::bitflag<TYPE>						type = TYPE::STATIC_INSTANCES;
-			core::bitflag<GEOMETRY_FLAGS>			flags = FLAGS::NONE;
 		};
 
 		// For filling the Instance Buffers

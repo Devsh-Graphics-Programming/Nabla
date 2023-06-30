@@ -15,8 +15,6 @@ class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
 {
 	public:
 		//
-
-		//
 		inline void setBuildFlags(const core::bitflag<BUILD_FLAGS> buildFlags)
 		{ 
 			if(!isMutable())
@@ -29,25 +27,20 @@ class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
 		using IAccelerationStructure::IAccelerationStructure;
 
 	private:
-		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
 
 class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerationStructure<ICPUAccelerationStructure>
 {
 	public:
+		//
+		inline ICPUBottomLevelAccelerationStructure(const CREATE_FLAGS flags=CREATE_FLAGS::NONE) : IBottomLevelAccelerationStructure<ICPUAccelerationStructure>(flags) {}
 
 		//!
 		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
-#if 0
-		//
-		ICPUAccelerationStructure(SCreationParams&& _params)
-			: params(std::move(_params))
-			, m_hasBuildInfo(false)
-			, m_buildRangeInfos(nullptr)
-		{}
 
+#if 0
 		inline void setBuildInfoAndRanges(HostBuildGeometryInfo&& buildInfo, const core::smart_refctd_dynamic_array<BuildRangeInfo>& buildRangeInfos)
 		{
 			if(!isMutable())
@@ -252,6 +245,25 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		core::smart_refctd_dynamic_array<Geometry<HostAddressType>> m_geometries;
 		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
 #endif
+};
+
+class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStructure<ICPUAccelerationStructure>
+{
+		using blas_ref_t = core::smart_refctd_ptr<const ICPUBottomLevelAccelerationStructure>;
+
+	public:
+		//
+		inline ICPUTopLevelAccelerationStructure(const CREATE_FLAGS flags=CREATE_FLAGS::NONE) : IBottomLevelAccelerationStructure<ICPUAccelerationStructure>(flags) {}
+
+		//!
+		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
+
+		//
+		using HostInstance = Instance<blas_ref_t>;
+		using HostStaticInstance = StaticInstance<blas_ref_t>;
+		using HostMatrixMotionInstance = MatrixMotionInstance<blas_ref_t>;
+		using HostSRTMotionInstance = SRTMotionInstance<blas_ref_t>;
 };
 
 }

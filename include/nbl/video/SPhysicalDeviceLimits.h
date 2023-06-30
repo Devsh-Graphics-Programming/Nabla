@@ -288,9 +288,9 @@ struct SPhysicalDeviceLimits
     bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
 
     /* AccelerationStructurePropertiesKHR *//* provided by VK_KHR_acceleration_structure */
-    uint64_t           maxGeometryCount = 0ull;
-    uint64_t           maxInstanceCount = 0ull;
-    uint64_t           maxPrimitiveCount = 0ull;
+    uint64_t           maxAccelerationStructureGeometryCount = 0ull;
+    uint64_t           maxAccelerationStructureInstanceCount = 0ull;
+    uint64_t           maxAccelerationStructurePrimitiveCount = 0ull;
     uint32_t           maxPerStageDescriptorAccelerationStructures = 0u;
     uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures = 0u;
     uint32_t           maxDescriptorSetAccelerationStructures = 0u;

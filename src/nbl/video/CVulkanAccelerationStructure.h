@@ -108,8 +108,8 @@ class CVulkanBottomLevelAccelerationStructure final : public CVulkanAcceleration
 	public:
 		using CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>::CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>;
 
-		uint64_t getReferenceForDeviceOperations() const override {return m_deviceAddress;}
-		inline uint64_t getReferenceForHostOperations() const override {return reinterpret_cast<uint64_t>(m_vkAccelerationStructure);}
+		inline device_op_ref_t getReferenceForDeviceOperations() const override {return {m_deviceAddress};}
+		inline host_op_ref_t getReferenceForHostOperations() const override {return {reinterpret_cast<uint64_t>(m_vkAccelerationStructure)};}
 
 	private:
 };
