@@ -73,18 +73,7 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
 
         // Vulkan: const VkCommandPool*
         virtual const void* getNativeHandle() const = 0;
-
-    protected:
-        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint32_t _familyIx)
-            : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
-        virtual ~IGPUCommandPool() = default;
-
-        virtual bool createCommandBuffers_impl(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger) = 0;
-
-        virtual bool reset_impl() = 0;
-
-        // for access to Command Constructors and StackAllocation
-        friend class IGPUCommandBuffer;
+        
         // Host access to Command Pools needs to be externally synchronized anyway so its completely fine to do this
         template<typename T>
         class StackAllocation final
@@ -123,6 +112,53 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
                 IGPUCommandPool* m_pool;
                 uint32_t m_size,m_addr;
         };
+
+        class CBeginCmd;
+        class CBindIndexBufferCmd;
+        class CIndirectCmd;
+        class CDrawIndirectCountCmd;
+        class CBeginRenderPassCmd;
+        class CPipelineBarrierCmd;
+        class CBindDescriptorSetsCmd;
+        class CBindComputePipelineCmd;
+        class CUpdateBufferCmd;
+        class CResetQueryPoolCmd;
+        class CWriteTimestampCmd;
+        class CBeginQueryCmd;
+        class CEndQueryCmd;
+        class CCopyQueryPoolResultsCmd;
+        class CBindGraphicsPipelineCmd;
+        class CPushConstantsCmd;
+        class CBindVertexBuffersCmd;
+        class CCopyBufferCmd;
+        class CCopyBufferToImageCmd;
+        class CBlitImageCmd;
+        class CCopyImageToBufferCmd;
+        class CExecuteCommandsCmd;
+        class CWaitEventsCmd;
+        class CCopyImageCmd;
+        class CResolveImageCmd;
+        class CClearColorImageCmd;
+        class CClearDepthStencilImageCmd;
+        class CFillBufferCmd;
+        class CSetEventCmd;
+        class CResetEventCmd;
+        class CWriteAccelerationStructurePropertiesCmd;
+        class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
+        class CCopyAccelerationStructureCmd;
+        class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
+
+    protected:
+        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint32_t _familyIx)
+            : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
+        virtual ~IGPUCommandPool() = default;
+
+        virtual bool createCommandBuffers_impl(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger) = 0;
+
+        virtual bool reset_impl() = 0;
+
+        // for access to what?
+        friend class IGPUCommandBuffer;
 
         class CCommandSegment;
         class alignas(COMMAND_ALIGNMENT) ICommand
@@ -298,41 +334,6 @@ class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
                 }
         };
         static_assert(sizeof(CCommandSegment)==COMMAND_SEGMENT_SIZE);
-
-        class CBeginCmd;
-        class CBindIndexBufferCmd;
-        class CIndirectCmd;
-        class CDrawIndirectCountCmd;
-        class CBeginRenderPassCmd;
-        class CPipelineBarrierCmd;
-        class CBindDescriptorSetsCmd;
-        class CBindComputePipelineCmd;
-        class CUpdateBufferCmd;
-        class CResetQueryPoolCmd;
-        class CWriteTimestampCmd;
-        class CBeginQueryCmd;
-        class CEndQueryCmd;
-        class CCopyQueryPoolResultsCmd;
-        class CBindGraphicsPipelineCmd;
-        class CPushConstantsCmd;
-        class CBindVertexBuffersCmd;
-        class CCopyBufferCmd;
-        class CCopyBufferToImageCmd;
-        class CBlitImageCmd;
-        class CCopyImageToBufferCmd;
-        class CExecuteCommandsCmd;
-        class CWaitEventsCmd;
-        class CCopyImageCmd;
-        class CResolveImageCmd;
-        class CClearColorImageCmd;
-        class CClearDepthStencilImageCmd;
-        class CFillBufferCmd;
-        class CSetEventCmd;
-        class CResetEventCmd;
-        class CWriteAccelerationStructurePropertiesCmd;
-        class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
-        class CCopyAccelerationStructureCmd;
-        class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
 
     private:
         class CCommandSegmentListPool
