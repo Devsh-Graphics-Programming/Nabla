@@ -301,7 +301,7 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
-add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
+add_subdirectory(src/nbl)
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW

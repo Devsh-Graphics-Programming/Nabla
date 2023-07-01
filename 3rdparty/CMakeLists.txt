@@ -393,8 +393,10 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		endif()
 endforeach()
 
-set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
+add_custom_target(3rdparty)
+add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
+set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
 ## REMINDER / NOTE : This is how we install 3rdparty headers we need !
 # parallel hashmap headers

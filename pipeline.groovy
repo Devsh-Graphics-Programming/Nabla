@@ -4,6 +4,11 @@ import org.DevshGraphicsProgramming.IBuilder
 
 class CNablaBuilder extends IBuilder
 {
+	public static enum PRESET_TYPE 
+	{
+		CONFIGURE, BUILD
+	}
+
 	public CNablaBuilder(Agent _agent, BuilderInfo _info)
 	{
 		super(_agent, _info)
@@ -12,24 +17,9 @@ class CNablaBuilder extends IBuilder
 	@Override
 	public boolean prepare(Map axisMapping)
 	{
-		IBuilder.BUILD_TYPE buildType = axisMapping.get("BUILD_TYPE")
-		
-		// use Multi-Configuration generators only regarding the platform in future
-		def commonFlags = "-DNBL_UPDATE_GIT_SUBMODULE=OFF -DNBL_COMPILE_WITH_CUDA:BOOL=OFF -DNBL_BUILD_OPTIX:BOOL=OFF -DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF -DNBL_BUILD_RADEON_RAYS:BOOL=OFF -DNBL_RUN_TESTS:BOOL=ON"
-		def extraFlags = ""
-		def toolchain = "v143"
-		def buildDirectory = getNameOfBuildDirectory(buildType)
-		
-		switch (buildType)
-		{
-			case IBuilder.BUILD_TYPE.STATIC:
-				break
-			case IBuilder.BUILD_TYPE.DYNAMIC:
-				extraFlags = "-DNBL_STATIC_BUILD=OFF -DNBL_DYNAMIC_MSVC_RUNTIME=ON"
-				break	
-		}
-		
-		agent.execute("cmake ${commonFlags} ${extraFlags} -S ./ -B ./${buildDirectory} -T ${toolchain}")
+		final def preset = getPreset(PRESET_TYPE.CONFIGURE, axisMapping)
+			
+		agent.execute("cmake . --preset ${preset}")
 		
 		return true
 	}
@@ -37,13 +27,10 @@ class CNablaBuilder extends IBuilder
 	@Override
   	public boolean build(Map axisMapping)
 	{
-		IBuilder.CONFIGURATION config = axisMapping.get("CONFIGURATION")
-		IBuilder.BUILD_TYPE buildType = axisMapping.get("BUILD_TYPE")
+		final def preset = getPreset(PRESET_TYPE.BUILD, axisMapping)	
+		final def nameOfConfig = getNameOfConfig(axisMapping.get("CONFIGURATION"))
 		
-		def buildDirectory = getNameOfBuildDirectory(buildType)
-		def nameOfConfig = getNameOfConfig(config)
-		
-		agent.execute("cmake --build ./${buildDirectory} --target Nabla --config ${nameOfConfig} -j12 -v")
+		agent.execute("cmake --build --preset ${preset} --config ${nameOfConfig} -j12 -v")
 		
 		return true
 	}
@@ -58,6 +45,33 @@ class CNablaBuilder extends IBuilder
 	public boolean install(Map axisMapping)
 	{
 		return true
+	}
+	
+	private def getPreset(final PRESET_TYPE presetType, final Map _axisMapping) // currently we only maintain Windows as host with MSVC target
+	{
+		def mode, preset
+		
+		switch (presetType)
+		{
+			case PRESET_TYPE.CONFIGURE:
+				mode = "configure"
+				break
+			case PRESET_TYPE.BUILD:
+				mode = "build"
+				break
+		}
+	
+		switch (_axisMapping.get("BUILD_TYPE"))
+		{
+			case IBuilder.BUILD_TYPE.STATIC:
+				preset = "ci-${mode}-static-msvc"
+				break
+			case IBuilder.BUILD_TYPE.DYNAMIC:
+				preset = "ci-${mode}-dynamic-msvc"
+				break
+		}
+		
+		return preset
 	}
 }
 
