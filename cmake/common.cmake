@@ -208,6 +208,11 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		endif ()
 		
 	endif()
+	
+	get_target_property(_EX_SOURCE_DIR_ ${EXECUTABLE_NAME} SOURCE_DIR)
+	file(RELATIVE_PATH _REL_DIR_ "${NBL_ROOT_PATH}" "${_EX_SOURCE_DIR_}")
+	
+	nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin")
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
@@ -278,38 +283,14 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 			VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # seems like has no effect
 		)
 	endif()
-
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Release
-	)
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./debug/include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Debug
-	)
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./relwithdebinfo/include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS RelWithDebInfo
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Release
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./debug/lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Debug
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./relwithdebinfo/lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS RelWithDebInfo
-	)
-
+	
+	nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")	
+	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
+	
+	if(NOT NBL_STATIC_BUILD)
+		nbl_install_program(${LIB_NAME})
+	endif()
+	
 	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
 		"${NBL_ROOT_PATH}/include/"
 		"${NBL_ROOT_PATH}/src"
@@ -331,10 +312,17 @@ function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE) # WTF TODO: change CMAKE_BINARY_DIR in future! 
 endfunction()
 
+###########################################
+# Nabla install rules, directory structure:
+#
+# -	$<CONFIG>/include 		(header files)
+# - $<CONFIG>/lib 			(import/static/shared libraries)
+# - $<CONFIG>/runtime 		(DLLs/PDBs)
+# - $<CONFIG>/exe			(executables and media)
+#
+# If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
 
-# function for installing header files preserving directory structure
-# _DEST_DIR is directory relative to CMAKE_INSTALL_PREFIX
-function(nbl_install_headers _HEADERS _BASE_HEADERS_DIR)
+function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
@@ -344,17 +332,71 @@ function(nbl_install_headers _HEADERS _BASE_HEADERS_DIR)
 	endforeach()
 endfunction()
 
-function(nbl_install_file _FILE _RELATIVE_DESTINATION)
-	install(FILES ${_FILE} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(FILES ${_FILE} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(FILES ${_FILE} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+function(nbl_install_headers _HEADERS_)
+	if(NOT DEFINED NBL_ROOT_PATH)
+		message(FATAL_ERROR "NBL_ROOT_PATH isn't defined!")
+	endif()
+
+	nbl_install_headers_spec(${_HEADERS_} "${NBL_ROOT_PATH}/include")
+endfunction()
+
+function(nbl_install_file_spec _FILES _RELATIVE_DESTINATION)
+	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
+	install(FILES ${_FILES} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
+	install(FILES ${_FILES} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+endfunction()
+
+function(nbl_install_file _FILES)
+	nbl_install_file_spec(${_FILES} "")
+endfunction()
+
+function(nbl_install_lib_spec _TARGETS _RELATIVE_DESTINATION)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION debug/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION relwithdebinfo/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+endfunction()
+
+function(nbl_install_lib _TARGETS)
+	nbl_install_lib_spec(${_TARGETS} "")
+endfunction()
+
+function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+	
+	install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
+endfunction()
+
+function(nbl_install_program _TRGT)
+	nbl_install_program_spec(${_TRGT} "")
+endfunction()
+
+function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
+	install(TARGETS ${_TARGETS} RUNTIME DESTINATION exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
+	install(TARGETS ${_TARGETS} RUNTIME DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
+	install(TARGETS ${_TARGETS} RUNTIME DESTINATION relwithdebinfo/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+endfunction()
+
+function(nbl_install_exe _TARGETS)
+	nbl_install_exe_spec(${_TARGETS} "")
+endfunction()
+
+function(nbl_install_dir_spec _DIR _RELATIVE_DESTINATION)
+	install(DIRECTORY ${_DIR} DESTINATION ${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
+	install(DIRECTORY ${_DIR} DESTINATION debug/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
+	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+endfunction()
+
+function(nbl_install_dir _DIR)
+	nbl_install_dir_spec(${_DIR} "")
 endfunction()
 
 function(nbl_install_builtin_resources _TARGET_)
 	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
 	
-	nbl_install_headers("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+	nbl_install_headers_spec("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 function(nbl_install_config_header _CONF_HDR_NAME)
