@@ -363,17 +363,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         m_devf.vk.vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets.data(), descriptorCopyCount, vk_copyDescriptorSets.data());
     }
 
-    bool buildAccelerationStructures(
-        core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation,
-        const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
-        IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;
-
-    bool copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
-    
-    bool copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;
-
-    bool copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
-
         inline memory_pool_mt_t& getMemoryPoolForDeferredOperations()
         {
             return m_deferred_op_mempool;
@@ -424,6 +413,65 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         }
 
         // acceleration structure modifiers
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
+            const uint32_t* const pMaxPrimitiveCounts
+        ) const override
+        {
+            return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxPrimitiveCounts);
+        }
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
+            const uint32_t* const pMaxInstanceCounts
+        ) const override
+        {
+            return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxInstanceCounts);
+        }
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
+            const uint32_t* const pMaxPrimitiveCounts
+        ) const override
+        {
+            return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxPrimitiveCounts);
+        }
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
+            const uint32_t* const pMaxInstanceCounts
+        ) const override
+        {
+            return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxInstanceCounts);
+        }
+        template<class Geometry>
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl_impl(const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags, const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts) const
+        {                
+            core::vector<VkAccelerationStructureGeometryKHR> vk_geometries(geometries.size());
+            for (auto i=0u; i<geometries.size(); i++)
+                vk_geometries[i] = getVkAcelerationStructureGeometryFrom<false>(geometries[i]);
+
+            using buffer_t = Geometry::buffer_t;
+            VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,nullptr};
+            vk_buildGeomsInfo.type = std::is_same_v<IGPUTopLevelAccelerationStructure::Geometry<buffer_t>,Geometry> ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR:VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+            vk_buildGeomsInfo.flags = getVkASBuildFlagsFrom(flags);
+            vk_buildGeomsInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_MAX_ENUM_KHR; // ignored by this command
+            vk_buildGeomsInfo.srcAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
+            vk_buildGeomsInfo.dstAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
+            vk_buildGeomsInfo.geometryCount = geometries.size();
+            vk_buildGeomsInfo.pGeometries = vk_geometries.data();
+            vk_buildGeomsInfo.ppGeometries = nullptr;
+            vk_buildGeomsInfo.scratchData = {}; // ignored by this command
+
+            VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,nullptr};
+            m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev,std::is_same_v<buffer_t,asset::ICPUBuffer> ? VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_KHR:VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,&vk_buildGeomsInfo,pMaxPrimitiveOrInstanceCounts,&vk_ret);
+            return AccelerationStructureBuildSizes{
+                .accelerationStructureSize = vk_ret.accelerationStructureSize;
+                .updateScratchSize = vk_ret.updateScratchSize;
+                .buildScratchSize = vk_ret.buildScratchSize;
+            };
+        }
         static inline CVulkanLogicalDevice::DEFERRABLE_RESULT getDeferrableResultFrom(const VkResult res)
         {
             switch (res)
@@ -439,40 +487,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
                     break;
             }
             return DEFERRABLE_RESULT::SOME_ERROR;
-        }
-        template<typename AddressType>
-        IGPUAccelerationStructure::BuildSizes getAccelerationStructureBuildSizes_impl_impl(VkAccelerationStructureBuildTypeKHR buildType, const IGPUAccelerationStructure::BuildGeometryInfo<AddressType>& pBuildInfo, const uint32_t* pMaxPrimitiveCounts) 
-        {
-            if(pMaxPrimitiveCounts == nullptr) {
-                assert(false);
-                return IGPUAccelerationStructure::BuildSizes{};
-            }
-
-            static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
-                
-            VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {};
-
-            // TODO: Use better container when ready for these stack allocated memories.
-            uint32_t geometryArrayOffset = 0u;
-            VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount] = {};
-
-            {
-                uint32_t geomCount = pBuildInfo.geometries.size();
-
-                assert(geomCount > 0);
-                assert(geomCount <= MaxGeometryPerBuildInfoCount);
-
-                vk_buildGeomsInfo = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, pBuildInfo, vk_geometries);
-            }
-        
-            VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR, nullptr};
-            m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev,buildType,&vk_buildGeomsInfo,pMaxPrimitiveCounts,&vk_ret);
-
-            IGPUAccelerationStructure::BuildSizes ret = {};
-            ret.accelerationStructureSize = vk_ret.accelerationStructureSize;
-            ret.updateScratchSize = vk_ret.updateScratchSize;
-            ret.buildScratchSize = vk_ret.buildScratchSize;
-            return ret;
         }
         DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
         DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;

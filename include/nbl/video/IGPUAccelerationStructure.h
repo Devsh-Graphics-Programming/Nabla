@@ -68,16 +68,6 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		// for indirect builds
 		using BuildRangeInfo = hlsl::acceleration_structures::BuildRangeInfo;
 
-		// Return value of the Build Sizes query
-		struct BuildSizes
-		{
-			inline operator bool() const {return accelerationStructureSize;}
-
-			size_t accelerationStructureSize = 0ull;
-			size_t updateScratchSize = 0ull;
-			size_t buildScratchSize = 0ull;
-		};
-
 		// copies
 		enum class COPY_MODE : uint8_t
 		{
@@ -135,23 +125,19 @@ template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>
 {
 	public:
-		template<typename BufferType>
+		template<class BufferType>
 		struct BuildInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
 			// Returns 0 on failure, otherwise returns the number of `core::smart_refctd_ptr` to reserve for lifetime tracking
 			// When validating for indirect builds pass `nullptr` as the argument
-			inline uint32_t valid(const BuildRangeInfo* const buildRangeInfos) const;
+			uint32_t valid(const BuildRangeInfo* const buildRangeInfos) const;
 
 			const IGPUBottomLevelAccelerationStructure* srcAS = nullptr;
 			IGPUBottomLevelAccelerationStructure* dstAS = nullptr;
-			core::SRange<BuildGeometryInfo<BufferType>> geometries = {};
+			core::SRange<const Geometry<BufferType>> geometries = {nullptr,nullptr};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
-
-		//
-		BuildSizes getAccelerationStructureBuildSizes(const BuildInfo<asset::ICPUBuffer>& info, const uint32_t* pMaxPrimitiveCounts);
-		BuildSizes getAccelerationStructureBuildSizes(const BuildInfo<IGPUBuffer>& info, const uint32_t* pMaxPrimitiveCounts);
 
 		//! Fill your `ITopLevelAccelerationStructure::BuildGeometryInfo<IGPUBuffer>::instanceData` with `ITopLevelAccelerationStructure::Instance<device_op_ref_t>`
 		struct device_op_ref_t
@@ -193,14 +179,10 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 			const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
 			IGPUTopLevelAccelerationStructure* dstAS = nullptr;
-			core::SRange<BuildGeometryInfo<BufferType>> geometries = {};
+			core::SRange<const Geometry<BufferType>> geometries = {nullptr,nullptr};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
-
-		//
-		BuildSizes getAccelerationStructureBuildSizes(const BuildInfo<asset::ICPUBuffer>& info, const uint32_t* pMaxInstanceCounts);
-		BuildSizes getAccelerationStructureBuildSizes(const BuildInfo<IGPUBuffer>& info, const uint32_t* pMaxInstanceCounts);
 
 		//! BEWARE, OUR RESOURCE LIFETIME TRACKING DOES NOT WORK ACROSS TLAS->BLAS boundaries with these types of BLAS references!
 		// TODO: Investigate `EXT_private_data` to be able to go ` -> IGPUBottomLevelAccelerationStructure`

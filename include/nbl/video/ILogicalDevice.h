@@ -349,6 +349,59 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //! Acceleration Structure modifiers
+        //
+        struct AccelerationStructureBuildSizes
+        {
+            inline operator bool() const { return accelerationStructureSize!=(~0ull); }
+
+            size_t accelerationStructureSize = ~0ull;
+            size_t updateScratchSize = ~0ull;
+            size_t buildScratchSize = ~0ull;
+        };
+        // fun fact: you can use garbage/invalid pointers/offset for the Device/Host addresses of the per-geometry data, just make sure what was supposed to be null is null
+        template<class Geometry>
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags, const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts) const
+        {
+            static_assert(nbl::is_any_of_v<Geometry,
+                IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>,
+                IGPUTopLevelAccelerationStructure::Geometry<IGPUBuffer>,
+                IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>,
+                IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>
+            >);
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
+            if (!m_enabledFeatures.accelerationStructure)
+                return {};
+
+            using buffer_t = Geometry::buffer_t;
+			// not sure of VUID
+			if (std::is_same_v<buffer_t,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
+				return {};
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
+            if (geometries.size() && !pMaxPrimitiveOrInstanceCounts)
+                return {};
+            if constexpr (std::is_same_v<IGPUTopLevelAccelerationStructure::Geometry<buffer_t>,Geometry>)
+            {
+                const auto& limits = getPhysicalDevice()->getLimits();
+			    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
+			    for (auto i=0u; i<geometries.size(); i++)
+			    if (pMaxPrimitiveOrInstanceCounts[i]>limits.maxAccelerationStructureInstanceCount)
+				    return {};
+            }
+
+            using flags_t = IGPUAccelerationStructure::BUILD_FLAGS;
+			if (flags.hasFlags(flags_t::MOTION_BIT) && !m_enabledFeatures.rayTracingMotionBlur)
+				return {};
+			/* TODO
+			if (flags.hasFlags(flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !m_enabledFeatures.??????????)
+				return {};
+			if (flags.hasFlags(flags_t::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !m_enabledFeatures.???????????)
+				return {};
+			if (flags.hasFlags(flags_t::ALLOW_DATA_ACCESS_KHR) && !m_enabledFeatures.???????????)
+				return {};
+			*/
+            return getAccelerationStructureBuildSizes_impl(flags,geometries,pMaxPrimitiveOrInstanceCounts);
+        }
+        //
         inline bool invalidAccelerationStructureForHostOperations(const IGPUAccelerationStructure* const as) const
         {
             if (!as)
@@ -835,6 +888,26 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
+        virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
+            const uint32_t* const pMaxPrimitiveCounts
+        ) const = 0;
+        virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
+            const uint32_t* const pMaxInstanceCounts
+        ) const = 0;
+        virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
+            const uint32_t* const pMaxPrimitiveCounts
+        ) const = 0;
+        virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
+            const uint32_t* const pMaxInstanceCounts
+        ) const = 0;
         enum class DEFERRABLE_RESULT : uint8_t
         {
             DEFERRED,
@@ -880,7 +953,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
 
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
-        virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
+        virtual void updateDescriptorSets_impl(
+            const uint32_t descriptorWriteCount,
+            const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
+            uint32_t descriptorCopyCount,
+            const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies
+        ) = 0;
 
         virtual core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline_impl(
             IGPUPipelineCache* _pipelineCache,

@@ -83,6 +83,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		template<typename BufferType>
 		struct Geometry
 		{
+			using buffer_t = BufferType;
+
 			// Note that in Vulkan strides are 64-bit value but restricted to be 32-bit in range
 			struct Triangles
 			{
@@ -113,8 +115,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 				Triangles triangles = {};
 				AABBs aabbs;
 			};
-			GEOMETRY_FLAGS flags : 15 = GEOMETRY_FLAGS::NONE;
-			uint16_t isAABB : 1 = false;
+			core::bitflag<GEOMETRY_FLAGS>	flags = GEOMETRY_FLAGS::NONE;
+			uint8_t							isAABB : 1 = false;
 		};
 
 		// For filling the AABB Buffers
@@ -133,8 +135,10 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 		inline bool isBLAS() const override {return false;}
 
 		template<typename BufferType>
-		struct BuildGeometryInfo
+		struct Geometry
 		{
+			using buffer_t = BufferType;
+
 			enum class TYPE : uint8_t
 			{
 				// StaticInstance
