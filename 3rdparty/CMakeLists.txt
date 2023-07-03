@@ -400,18 +400,4 @@ set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
 ## REMINDER / NOTE : This is how we install 3rdparty headers we need !
 # parallel hashmap headers
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./include/parallel-hashmap
-	CONFIGURATIONS Release
-)
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./debug/include/parallel-hashmap
-	CONFIGURATIONS Debug
-)
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./relwithdebinfo/include/parallel-hashmap
-	CONFIGURATIONS RelWithDebInfo
-)
+nbl_install_dir_spec("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap" "parallel-hashmap")

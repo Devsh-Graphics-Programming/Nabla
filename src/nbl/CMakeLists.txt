@@ -708,6 +708,7 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(zlibstatic)
 	nbl_install_lib(simdjson)
 	nbl_install_lib(volk)
+	
 	if(_NBL_BUILD_DPL_)
 		nbl_install_program(tbb)
 		nbl_install_program(tbbmalloc)
@@ -716,3 +717,5 @@ if(NBL_STATIC_BUILD)
 else()
 	nbl_install_program_spec(Nabla "nbl")
 endif()
+
+nbl_install_program("${DXC_DLL}")
