@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if(NBL_CPACK_CI)
+	message(WARNING "CI CPack mode turned ON, CPack will install only projects which have been built successfully by overriding CPACK_INSTALL_CMAKE_PROJECTS")
+else()
+	set(CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
+endif()
+
 if(WIN32)
 	set(CPACK_GENERATOR "ZIP")
 	set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
@@ -32,8 +38,6 @@ set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 
-set(CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
-
 set(CPACK_COMPONENT_HEADERS_DISPLAY_NAME "Headers")
 set(CPACK_COMPONENT_LIBRARIES_DISPLAY_NAME "Libraries")
 set(CPACK_COMPONENT_RUNTIMES_DISPLAY_NAME "Runtimes")
@@ -42,18 +46,18 @@ set(CPACK_COMPONENT_HEADERS_GROUP "development")
 set(CPACK_COMPONENT_LIBRARIES_GROUP "development")
 set(CPACK_COMPONENT_RUNTIMES_GROUP "development")
 
-if(NBL_CPACK_INCLUDE_EXAMPLES)
-	list(APPEND CPACK_COMPONENTS_ALL Media) # TODO: add Executables conditionally only if there is at least 1 which has been built successfully
+if(NBL_CPACK_INCLUDE_EXAMPLES AND NOT NBL_CPACK_CI)
+	list(APPEND CPACK_COMPONENTS_ALL Media)
 	
-	#set(CPACK_COMPONENT_EXECUTABLES_DISPLAY_NAME "Examples")
+	set(CPACK_COMPONENT_EXECUTABLES_DISPLAY_NAME "Examples")
 	set(CPACK_COMPONENT_MEDIA_DISPLAY_NAME "Media")
 	
-	#set(CPACK_COMPONENT_EXECUTABLES_DESCRIPTION "Example executables built with Nabla library")
+	set(CPACK_COMPONENT_EXECUTABLES_DESCRIPTION "Example executables built with Nabla library")
 	set(CPACK_COMPONENT_MEDIA_DESCRIPTION "Media files Nabla example executables load resources from")
 	
-	#set(CPACK_COMPONENT_EXECUTABLES_DEPENDS Media)
+	set(CPACK_COMPONENT_EXECUTABLES_DEPENDS Media)
 	
-	#set(CPACK_COMPONENT_EXECUTABLES_GROUP "executables")
+	set(CPACK_COMPONENT_EXECUTABLES_GROUP "executables")
 	set(CPACK_COMPONENT_MEDIA_GROUP "executables")	
 endif()
 
@@ -68,6 +72,6 @@ endif()
 
 set(CPACK_COMPONENT_HEADERS_DEPENDS Libraries Runtimes)
 
-set(CPACK_THREADS 0) # try to use all threads for compression 
+set(CPACK_THREADS 0) # try to use all threads for compression
 
 include(CPack)
