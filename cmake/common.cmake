@@ -288,7 +288,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
 	
 	if(NOT NBL_STATIC_BUILD)
-		nbl_install_program(${LIB_NAME})
+		nbl_install_program_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
 	endif()
 	
 	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
@@ -305,11 +305,9 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	)
 endmacro()
 
-# End of TODO, rest are all functions
-
 function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE) # WTF TODO: change CMAKE_BINARY_DIR in future! 
+	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
 ###########################################
@@ -326,9 +324,9 @@ function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
-		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release)
-		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug)
-		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo)
+		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release COMPONENT Headers)
+		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug COMPONENT Headers)
+		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
 	endforeach()
 endfunction()
 
@@ -341,9 +339,9 @@ function(nbl_install_headers _HEADERS_)
 endfunction()
 
 function(nbl_install_file_spec _FILES _RELATIVE_DESTINATION)
-	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(FILES ${_FILES} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(FILES ${_FILES} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
 endfunction()
 
 function(nbl_install_file _FILES)
@@ -351,9 +349,9 @@ function(nbl_install_file _FILES)
 endfunction()
 
 function(nbl_install_lib_spec _TARGETS _RELATIVE_DESTINATION)
-	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION debug/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION relwithdebinfo/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Libraries)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION debug/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Libraries)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION relwithdebinfo/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Libraries)
 endfunction()
 
 function(nbl_install_lib _TARGETS)
@@ -361,9 +359,9 @@ function(nbl_install_lib _TARGETS)
 endfunction()
 
 function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Runtimes)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes)
+	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Runtimes)
 	
 	install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
 endfunction()
@@ -373,9 +371,9 @@ function(nbl_install_program _TRGT)
 endfunction()
 
 function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
-	install(TARGETS ${_TARGETS} RUNTIME DESTINATION exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(TARGETS ${_TARGETS} RUNTIME DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(TARGETS ${_TARGETS} RUNTIME DESTINATION relwithdebinfo/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+	install(TARGETS ${_TARGETS} RUNTIME DESTINATION exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Executables)
+	install(TARGETS ${_TARGETS} RUNTIME DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Executables)
+	install(TARGETS ${_TARGETS} RUNTIME DESTINATION relwithdebinfo/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Executables)
 endfunction()
 
 function(nbl_install_exe _TARGETS)
@@ -383,9 +381,9 @@ function(nbl_install_exe _TARGETS)
 endfunction()
 
 function(nbl_install_dir_spec _DIR _RELATIVE_DESTINATION)
-	install(DIRECTORY ${_DIR} DESTINATION ${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(DIRECTORY ${_DIR} DESTINATION debug/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+	install(DIRECTORY ${_DIR} DESTINATION ${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Media PATTERN "Ditt-Reference-Scenes/*" EXCLUDE)
+	install(DIRECTORY ${_DIR} DESTINATION debug/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Media PATTERN "Ditt-Reference-Scenes/*" EXCLUDE)
+	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Media PATTERN "Ditt-Reference-Scenes/*" EXCLUDE)
 endfunction()
 
 function(nbl_install_dir _DIR)

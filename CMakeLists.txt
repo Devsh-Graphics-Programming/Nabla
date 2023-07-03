@@ -317,4 +317,6 @@ endif()
 
 add_subdirectory(artifacts)
 
+include(cpack/package)
+
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
