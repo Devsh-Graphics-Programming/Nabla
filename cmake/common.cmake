@@ -349,9 +349,9 @@ function(nbl_install_file _FILES)
 endfunction()
 
 function(nbl_install_dir_spec _DIR _RELATIVE_DESTINATION)
-	install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release COMPONENT Headers)
-	install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug COMPONENT Headers)
-	install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
 endfunction()
 
 function(nbl_install_dir _DIR)
