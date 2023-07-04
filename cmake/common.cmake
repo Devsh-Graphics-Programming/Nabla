@@ -27,7 +27,7 @@ endfunction()
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
-macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET)
+macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET) # TODO remove _PCH_TARGET
 	set(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}")
 	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
 	
@@ -36,8 +36,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(ANDROID)
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
-		set(NBL_EXECUTABLE_SOURCES 
-			${NBL_ROOT_PATH}/examples_tests/common/CommonAPI.cpp
+		set(NBL_EXECUTABLE_SOURCES
 			main.cpp
 			${_EXTRA_SOURCES}
 		)
@@ -47,13 +46,8 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 			
-			if(WIN32 AND MSVC)
-				set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-				
+			if(WIN32 AND MSVC)				
 				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-				target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
-					_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
-				)
 			endif()
 		else()
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -61,32 +55,28 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		
 		if(WIN32 AND MSVC)
 			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
-			target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
-				_DXC_DLL_="${DXC_DLL}"
-			)
 		endif()
 	endif()
 	
-	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Nabla)
-	
-	if(NOT "${_PCH_TARGET}" STREQUAL "")
-		if(NOT "${_PCH_TARGET}" STREQUAL Nabla)
-			add_dependencies("${EXECUTABLE_NAME}" "${_PCH_TARGET}")
-		endif()
-		
-		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${_PCH_TARGET}")
+	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
+		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
-		set_target_properties("${EXECUTABLE_NAME}" PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
-	endif()
+		if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined!")
+		endif()
 	
+		add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
+		target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
+		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
+	endif()
+		
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC "${NBL_ROOT_PATH}/examples_tests/common"
 		PUBLIC "${NBL_ROOT_PATH_BINARY}/include"
-		PUBLIC ../../include
+		PUBLIC ../../include # in macro.. relative to what? TODO: correct
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS})
 
 	add_compile_options(${_EXTRA_OPTIONS})
 
@@ -220,11 +210,9 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
-	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${LIB_NAME} Nabla)
-	
 	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
 
+	# TODO: correct those bugs, use generator expressions
 	target_include_directories(${LIB_NAME}
 		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
@@ -241,6 +229,22 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		
 		target_include_directories(${LIB_NAME}
 			PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
+		)
+	endif()
+	
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		if(WIN32 AND MSVC)
+			set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
+			
+			target_compile_definitions(${LIB_NAME} PUBLIC 
+				_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
+			)
+		endif()
+	endif()
+
+	if(WIN32 AND MSVC)
+		target_compile_definitions(${LIB_NAME} PUBLIC 
+			_DXC_DLL_="${DXC_DLL}"
 		)
 	endif()
 	
