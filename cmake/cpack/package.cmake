@@ -12,23 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(NBL_CPACK_CI)
-	message(WARNING "CI CPack mode turned ON, CPack will install only projects which have been built successfully by overriding CPACK_INSTALL_CMAKE_PROJECTS")
-else()
-	set(CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
-endif()
-
-if(WIN32)
-	set(CPACK_GENERATOR "ZIP")
-	set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
-endif() # TODO: Linux, Android, MacOS. Android and MacOS will have non-archive generators but GUI installers. Linux will use 7Z
-
 if(NBL_STATIC_BUILD)
-	set(CPACK_PACKAGE_INSTALL_DIRECTORY "nabla-static")
-	set(CPACK_PACKAGE_NAME "nabla-static")
+	set(CPACK_PACKAGE_NAME "nabla-s")
 else()
-	set(CPACK_PACKAGE_INSTALL_DIRECTORY "nabla-dynamic")
-	set(CPACK_PACKAGE_NAME "nabla-dynamic")
+	set(CPACK_PACKAGE_NAME "nabla-d")
 endif()
 
 set(CPACK_PACKAGE_VENDOR "DevshGraphicsProgramming.org")
@@ -36,7 +23,24 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Nabla")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
 set(CPACK_PACKAGE_VERSION_MINOR "0")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
-set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+
+if(NBL_CPACK_CI)
+	message(WARNING "NBL_CPACK_CI mode turned on, CPack will install only projects which have been built successfully by overriding CPACK_INSTALL_CMAKE_PROJECTS")
+	set(CPACK_PACKAGE_NAME ci-${CPACK_PACKAGE_NAME})
+	if(NOT DEFINED CPACK_PACKAGE_VERSION)
+		message(FATAL_ERROR "CPACK_PACKAGE_VERSION must be defined in NBL_CPACK_CI mode!") # full commit SHA
+	endif()
+else()
+	set(CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
+	set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+endif()
+
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
+
+if(WIN32)
+	set(CPACK_GENERATOR "ZIP")
+	set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
+endif() # TODO: Linux, Android, MacOS. Android and MacOS will have non-archive generators but GUI installers. Linux will use 7Z
 
 set(CPACK_COMPONENT_HEADERS_DISPLAY_NAME "Headers")
 set(CPACK_COMPONENT_LIBRARIES_DISPLAY_NAME "Libraries")

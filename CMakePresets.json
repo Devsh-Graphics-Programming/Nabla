@@ -141,14 +141,12 @@
 	{
       "name": "ci-package-static-dev",
 	  "hidden": true,
-	  "inherits": "ci-package-dev",
-	  "packageName": "nabla-static-ci"
+	  "inherits": "ci-package-dev"
     },
 	{
       "name": "ci-package-dynamic-dev",
 	  "hidden": true,
-	  "inherits": "ci-package-dev",
-	  "packageName": "nabla-dynamic-ci"
+	  "inherits": "ci-package-dev"
     },
 	{
       "name": "ci-build-static-ninja-multi",
