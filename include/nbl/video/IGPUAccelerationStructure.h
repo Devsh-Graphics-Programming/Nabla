@@ -26,18 +26,27 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		};
 		inline const auto& getBufferRange() const {return m_bufferRange;}
 
+#if 0 // TODO: need a non-refcounting `SBufferBinding` and `SBufferRange` variants first
+		//! special binding value which you can fill your Geometry<BufferType> fields with before you call `ILogicalDevice::getAccelerationStructureBuildSizes` 
+		template<class BufferType>
+		static inline asset::SBufferBinding<const BufferType> getDummyBindingForBuildSizeQuery()
+		{
+			constexpr size_t Invalid = 0xdeadbeefBADC0FFEull;
+			return {reinterpret_cast<const BufferType*>(Invalid),Invalid};
+		}
+#endif
+
 		//! builds
 		template<class BufferType>
 		struct BuildInfo
 		{
 			public:
-				BUILD_FLAGS							flags : 15 = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
-				// implicitly satisfies:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-mode-04628
-				uint8_t								isUpdate : 1 = false;
 				asset::SBufferBinding<BufferType>	scratchAddr = {};
+				// implicitly satisfies: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-mode-04628
+				bool								isUpdate = false;
 
 			protected:
+				BuildInfo() = default;
 				// List of things too expensive or impossible (without GPU Assist) to validate:
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03403
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03698
@@ -132,6 +141,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 			// When validating for indirect builds pass `nullptr` as the argument
 			uint32_t valid(const BuildRangeInfo* const buildRangeInfos) const;
 
+			core::bitflag<BUILD_FLAGS> flags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 			const IGPUBottomLevelAccelerationStructure* srcAS = nullptr;
 			IGPUBottomLevelAccelerationStructure* dstAS = nullptr;
 			core::SRange<const Geometry<BufferType>> geometries = {nullptr,nullptr};
@@ -167,6 +177,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			// only relevant if `flag` contain `MOTION_BIT`
 			uint32_t maxInstanceCount = 0u;
 		};
+		//
+		inline uint32_t getMaxInstanceCount() const {return m_maxInstanceCount;}
 
 		template<typename BufferType>
 		struct BuildInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
@@ -176,7 +188,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			// List of things too expensive or impossible (without GPU Assist) to validate:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03706
 			uint32_t valid(const uint32_t* const instanceCounts) const;
-
+			
+			core::bitflag<BUILD_FLAGS> flags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 			const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
 			IGPUTopLevelAccelerationStructure* dstAS = nullptr;
 			core::SRange<const Geometry<BufferType>> geometries = {nullptr,nullptr};
@@ -197,8 +210,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 	protected:
 		inline IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
-			: asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>(std::move(dev),std::move(params)),
-			m_maxInstanceCount(getCreationFlags().hasFlags(CREATE_FLAGS::MOTION_BIT) ? params.maxInstanceCount:(~0u)) {}
+			: asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>(std::move(dev),std::move(params)), m_maxInstanceCount(params.maxInstanceCount) {}
 
 		const uint32_t m_maxInstanceCount;
 };

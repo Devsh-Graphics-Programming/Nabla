@@ -402,19 +402,23 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         }
         core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) override
         {
-            VkAccelerationStructureMotionInfoNV motionInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MOTION_INFO_NV,nullptr };
-            motionInfo.flags = 0;
+            VkAccelerationStructureMotionInfoNV motionInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MOTION_INFO_NV,nullptr,0 };
             motionInfo.maxInstances = params.maxInstanceCount;
 
-            const auto vk_as = createAccelerationStructure(params,VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) ? (&motionInfo):nullptr);
+            const bool hasMotionBit = params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT);
+            const auto vk_as = createAccelerationStructure(params,VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,hasMotionBit ? (&motionInfo):nullptr);
             if (vk_as!=VK_NULL_HANDLE)
+            {
+                if (!hasMotionBit)
+                    params.maxInstanceCount = getPhysicalDevice()->getLimits().maxAccelerationStructureInstanceCount;
                 return core::make_smart_refctd_ptr<CVulkanTopLevelAccelerationStructure>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),std::move(params),vk_as);
+            }
             return nullptr;
         }
 
         // acceleration structure modifiers
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const override
@@ -422,7 +426,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
             const uint32_t* const pMaxInstanceCounts
         ) const override
@@ -430,7 +434,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxInstanceCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const override
@@ -438,7 +442,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
             const uint32_t* const pMaxInstanceCounts
         ) const override
@@ -446,11 +450,15 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return getAccelerationStructureBuildSizes_impl_impl(flags,geometries,pMaxInstanceCounts);
         }
         template<class Geometry>
-        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl_impl(const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags, const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts) const
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl_impl(
+            const core::bitflag<typename Geometry::build_flags_t> flags,
+            const core::SRange<const Geometry>& geometries,
+            const uint32_t* const pMaxPrimitiveOrInstanceCounts
+        ) const
         {                
             core::vector<VkAccelerationStructureGeometryKHR> vk_geometries(geometries.size());
             for (auto i=0u; i<geometries.size(); i++)
-                vk_geometries[i] = getVkAcelerationStructureGeometryFrom<false>(geometries[i]);
+                getVkAcelerationStructureGeometryFrom<true>(geometries[i],vk_geometries[i]);
 
             using buffer_t = Geometry::buffer_t;
             VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,nullptr};
@@ -462,7 +470,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             vk_buildGeomsInfo.geometryCount = geometries.size();
             vk_buildGeomsInfo.pGeometries = vk_geometries.data();
             vk_buildGeomsInfo.ppGeometries = nullptr;
-            vk_buildGeomsInfo.scratchData = {}; // ignored by this command
+            vk_buildGeomsInfo.scratchData.deviceAddress = 0x0ull; // ignored by this command
 
             VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,nullptr};
             m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev,std::is_same_v<buffer_t,asset::ICPUBuffer> ? VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_KHR:VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,&vk_buildGeomsInfo,pMaxPrimitiveOrInstanceCounts,&vk_ret);

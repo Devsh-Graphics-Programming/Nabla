@@ -32,26 +32,6 @@ class IAccelerationStructure : public IDescriptor
 			MOTION_BIT							= 0x1u<<1u,
 		};
 		inline core::bitflag<CREATE_FLAGS> getCreationFlags() const {return m_creationFlags;}
-
-		// build flags
-		enum class BUILD_FLAGS : uint16_t
-		{
-			ALLOW_UPDATE_BIT = 0x1u<<0u,
-			ALLOW_COMPACTION_BIT = 0x1u<<1u,
-			PREFER_FAST_TRACE_BIT = 0x1u<<2u,
-			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
-			LOW_MEMORY_BIT = 0x1u<<4u,
-			// Provided by VK_NV_ray_tracing_motion_blur
-			MOTION_BIT = 0x1u<<5u,
-			// Provided by VK_EXT_opacity_micromap
-			ALLOW_OPACITY_MICROMAP_UPDATE_BIT = 0x1u<<6u,
-			ALLOW_DISABLE_OPACITY_MICROMAPS_BIT = 0x1u<<7u,
-			ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT = 0x1u<<8u,
-			// Provided by VK_NV_displacement_micromap
-			ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT = 0x1u<<9u,
-			// Provided by VK_KHR_ray_tracing_position_fetch
-			ALLOW_DATA_ACCESS_KHR = 0x1u<<11u
-		};
 		
 		// we provide some level of type safety here
 		enum class GEOMETRY_FLAGS : uint8_t
@@ -80,9 +60,28 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 	public:
 		inline bool isBLAS() const override {return true;}
 
+		// build flags, we don't expose flags that don't make sense for certain levels
+		enum class BUILD_FLAGS : uint16_t
+		{
+			ALLOW_UPDATE_BIT = 0x1u<<0u,
+			ALLOW_COMPACTION_BIT = 0x1u<<1u,
+			PREFER_FAST_TRACE_BIT = 0x1u<<2u,
+			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
+			LOW_MEMORY_BIT = 0x1u<<4u,
+			// Provided by VK_EXT_opacity_micromap
+			ALLOW_OPACITY_MICROMAP_UPDATE_BIT = 0x1u<<6u,
+			ALLOW_DISABLE_OPACITY_MICROMAPS_BIT = 0x1u<<7u,
+			ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT = 0x1u<<8u,
+			// Provided by VK_NV_displacement_micromap
+			ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT = 0x1u<<9u,
+			// Provided by VK_KHR_ray_tracing_position_fetch
+			ALLOW_DATA_ACCESS_KHR = 0x1u<<11u
+		};
+
 		template<typename BufferType>
 		struct Geometry
 		{
+			using build_flags_t = BUILD_FLAGS;
 			using buffer_t = BufferType;
 
 			// Note that in Vulkan strides are 64-bit value but restricted to be 32-bit in range
@@ -100,8 +99,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			};
 			struct AABBs
 			{
-				// data[1] are the AABB extents at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
-				asset::SBufferBinding<const BufferType>	data[2] = {};
+				// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation doesn't work
+				asset::SBufferBinding<const BufferType>	data = {};
 				uint32_t								stride = sizeof(AABB_t);
 			};
 
@@ -134,9 +133,23 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 	public:
 		inline bool isBLAS() const override {return false;}
 
+		// build flags, we don't expose flags that don't make sense for certain levels
+		enum class BUILD_FLAGS : uint8_t
+		{
+			ALLOW_UPDATE_BIT = 0x1u<<0u,
+			ALLOW_COMPACTION_BIT = 0x1u<<1u,
+			PREFER_FAST_TRACE_BIT = 0x1u<<2u,
+			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
+			LOW_MEMORY_BIT = 0x1u<<4u,
+			// Provided by VK_NV_ray_tracing_motion_blur, but we always override and deduce from creation flag because of, so only use for build-size queries
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-dstAccelerationStructure-04927
+			MOTION_BIT = 0x1u<<5u
+		};
+
 		template<typename BufferType>
 		struct Geometry
 		{
+			using build_flags_t = BUILD_FLAGS;
 			using buffer_t = BufferType;
 
 			enum class TYPE : uint8_t

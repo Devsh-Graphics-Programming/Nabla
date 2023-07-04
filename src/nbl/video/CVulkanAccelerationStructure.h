@@ -76,7 +76,8 @@ inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUAccelerationStructure
 {
 	return static_cast<VkGeometryFlagsKHR>(in);
 }
-template<typename Geometry>
+//
+template<typename Geometry, bool QueryOnly=false>
 void getVkAcelerationStructureGeometryFrom(const Geometry& geometry, VkAccelerationStructureGeometryKHR& outBase)
 {
 	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr};
@@ -110,12 +111,17 @@ void getVkAcelerationStructureGeometryFrom(const Geometry& geometry, VkAccelerat
 		outBase.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
 		outBase.geometry.instances = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,nullptr};
 		outBase.geometry.instances.data = getVkDeviceOrHostConstAddress<buffer_t>(instances.data);
-		outBase.geometry.instances.arrayOfPointers = VK_FALSE; // (Erfan): Something to expose?
+		// We always force user to use 
+		outBase.geometry.instances.arrayOfPointers = VK_FALSE;
 	}
 	outBase.flags = getVkGeometryFlagsFrom(geometry.flags.value);
 }
 
-inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUAccelerationStructure::BUILD_FLAGS in)
+inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUBottomLevelAccelerationStructure::BUILD_FLAGS in)
+{
+	return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
+}
+inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUTopLevelAccelerationStructure::BUILD_FLAGS in)
 {
 	return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
 }

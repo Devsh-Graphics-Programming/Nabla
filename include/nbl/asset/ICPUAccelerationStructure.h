@@ -13,7 +13,16 @@ namespace nbl::asset
 
 class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
 {
+	protected:
+		using IAccelerationStructure::IAccelerationStructure;
+};
+
+class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerationStructure<ICPUAccelerationStructure>
+{
 	public:
+		//
+		inline ICPUBottomLevelAccelerationStructure(const CREATE_FLAGS flags=CREATE_FLAGS::NONE) : IBottomLevelAccelerationStructure<ICPUAccelerationStructure>(flags) {}
+		
 		//
 		inline void setBuildFlags(const core::bitflag<BUILD_FLAGS> buildFlags)
 		{ 
@@ -22,19 +31,6 @@ class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
 			m_buildFlags = buildFlags;
 		}
 		inline core::bitflag<BUILD_FLAGS> getBuildFlags() const {return m_buildFlags;}
-
-	protected:
-		using IAccelerationStructure::IAccelerationStructure;
-
-	private:
-		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
-};
-
-class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerationStructure<ICPUAccelerationStructure>
-{
-	public:
-		//
-		inline ICPUBottomLevelAccelerationStructure(const CREATE_FLAGS flags=CREATE_FLAGS::NONE) : IBottomLevelAccelerationStructure<ICPUAccelerationStructure>(flags) {}
 
 		//!
 		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
@@ -242,9 +238,10 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		}
 
 	private:
-		core::smart_refctd_dynamic_array<Geometry<HostAddressType>> m_geometries;
 		core::smart_refctd_dynamic_array<BuildRangeInfo> m_buildRangeInfos;
 #endif
+		core::smart_refctd_dynamic_array<Geometry<ICPUBuffer>> m_geometries;
+		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
 
 class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStructure<ICPUAccelerationStructure>
@@ -253,7 +250,16 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 
 	public:
 		//
-		inline ICPUTopLevelAccelerationStructure(const CREATE_FLAGS flags=CREATE_FLAGS::NONE) : IBottomLevelAccelerationStructure<ICPUAccelerationStructure>(flags) {}
+		inline ICPUTopLevelAccelerationStructure(const CREATE_FLAGS flags=CREATE_FLAGS::NONE) : ITopLevelAccelerationStructure<ICPUAccelerationStructure>(flags) {}
+		
+		//
+		inline void setBuildFlags(const core::bitflag<BUILD_FLAGS> buildFlags)
+		{ 
+			if(!isMutable())
+				return;
+			m_buildFlags = buildFlags;
+		}
+		inline core::bitflag<BUILD_FLAGS> getBuildFlags() const {return m_buildFlags;}
 
 		//!
 		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
@@ -264,6 +270,10 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		using HostStaticInstance = StaticInstance<blas_ref_t>;
 		using HostMatrixMotionInstance = MatrixMotionInstance<blas_ref_t>;
 		using HostSRTMotionInstance = SRTMotionInstance<blas_ref_t>;
+
+	private:
+		core::smart_refctd_dynamic_array<Geometry<ICPUBuffer>> m_geometries;
+		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
 
 }

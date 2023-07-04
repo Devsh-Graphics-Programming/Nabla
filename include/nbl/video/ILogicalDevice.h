@@ -349,6 +349,35 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //! Acceleration Structure modifiers
+        template<typename build_flags_t>
+        inline bool validAccelerationStructureBuildFlags(const core::bitflag<build_flags_t> flags) const
+        {
+            constexpr bool BLAS = std::is_same_v<build_flags_t,IGPUBottomLevelAccelerationStructure::BUILD_FLAGS>;
+            constexpr bool TLAS = std::is_same_v<build_flags_t,IGPUTopLevelAccelerationStructure::BUILD_FLAGS>;
+            static_assert(BLAS||TLAS);
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
+            if (!m_enabledFeatures.accelerationStructure)
+                return {};
+            
+            if constexpr(BLAS)
+            {
+                /* TODO
+                if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|build_flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !m_enabledFeatures.??????????)
+                    return {};
+                if (flags.hasFlags(build_flags_t::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !m_enabledFeatures.???????????)
+                    return {};
+                if (flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS) && !m_enabledFeatures.???????????)
+                    return {};
+                */
+            }
+            else
+            {
+                if (flags.hasFlags(build_flags_t::MOTION_BIT) && !m_enabledFeatures.rayTracingMotionBlur)
+                    return {};
+            }
+
+            return true;
+        }
         //
         struct AccelerationStructureBuildSizes
         {
@@ -360,7 +389,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         };
         // fun fact: you can use garbage/invalid pointers/offset for the Device/Host addresses of the per-geometry data, just make sure what was supposed to be null is null
         template<class Geometry>
-        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags, const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts) const
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<typename Geometry::build_flags_t> flags, const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts) const
         {
             static_assert(nbl::is_any_of_v<Geometry,
                 IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>,
@@ -368,37 +397,33 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>,
                 IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>
             >);
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
-            if (!m_enabledFeatures.accelerationStructure)
-                return {};
-
             using buffer_t = Geometry::buffer_t;
 			// not sure of VUID
 			if (std::is_same_v<buffer_t,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
 				return {};
+
+            if (!validAccelerationStructureBuildFlags(flags))
+                return {};
+
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
             if (geometries.size() && !pMaxPrimitiveOrInstanceCounts)
                 return {};
-            if constexpr (std::is_same_v<IGPUTopLevelAccelerationStructure::Geometry<buffer_t>,Geometry>)
+
+            const auto& limits = getPhysicalDevice()->getLimits();
+            constexpr bool BLAS = std::is_same_v<IGPUTopLevelAccelerationStructure::Geometry<buffer_t>,Geometry>;
+            if constexpr (BLAS)
+            if (geometries.size()>limits.maxAccelerationStructureGeometryCount)
+                return {};
+
+            uint32_t primsFree = BLAS ? limits.maxAccelerationStructurePrimitiveCount:limits.maxAccelerationStructureInstanceCount;
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
+			for (auto i=0u; i<geometries.size(); i++)
             {
-                const auto& limits = getPhysicalDevice()->getLimits();
-			    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
-			    for (auto i=0u; i<geometries.size(); i++)
-			    if (pMaxPrimitiveOrInstanceCounts[i]>limits.maxAccelerationStructureInstanceCount)
+			    if (pMaxPrimitiveOrInstanceCounts[i]>primsFree)
 				    return {};
+                primsFree -= pMaxPrimitiveOrInstanceCounts[i];
             }
 
-            using flags_t = IGPUAccelerationStructure::BUILD_FLAGS;
-			if (flags.hasFlags(flags_t::MOTION_BIT) && !m_enabledFeatures.rayTracingMotionBlur)
-				return {};
-			/* TODO
-			if (flags.hasFlags(flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !m_enabledFeatures.??????????)
-				return {};
-			if (flags.hasFlags(flags_t::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !m_enabledFeatures.???????????)
-				return {};
-			if (flags.hasFlags(flags_t::ALLOW_DATA_ACCESS_KHR) && !m_enabledFeatures.???????????)
-				return {};
-			*/
             return getAccelerationStructureBuildSizes_impl(flags,geometries,pMaxPrimitiveOrInstanceCounts);
         }
         //
@@ -889,22 +914,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
             const uint32_t* const pMaxInstanceCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
             const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
             const uint32_t* const pMaxInstanceCounts
         ) const = 0;
