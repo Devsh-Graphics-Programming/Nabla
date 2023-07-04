@@ -27,9 +27,17 @@ set(CPACK_PACKAGE_VERSION_PATCH "0")
 if(NBL_CPACK_CI)
 	message(WARNING "NBL_CPACK_CI mode turned on, CPack will install only projects which have been built successfully by overriding CPACK_INSTALL_CMAKE_PROJECTS")
 	set(CPACK_PACKAGE_NAME ci-${CPACK_PACKAGE_NAME})
-	if(NOT DEFINED CPACK_PACKAGE_VERSION)
-		message(FATAL_ERROR "CPACK_PACKAGE_VERSION must be defined in NBL_CPACK_CI mode!") # full commit SHA
+	
+	execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}" rev-parse HEAD
+		RESULT_VARIABLE _RESULT
+		OUTPUT_VARIABLE _SHA
+	)
+		
+	if(NOT "${_RESULT}" STREQUAL "0")
+		message(FATAL_ERROR "Internal error")
 	endif()
+	
+	set(CPACK_PACKAGE_VERSION ${_SHA})
 else()
 	set(CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
 	set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
