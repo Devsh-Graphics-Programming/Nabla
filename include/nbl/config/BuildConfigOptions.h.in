@@ -63,6 +63,8 @@
 #cmakedefine __NBL_FAST_MATH
 #cmakedefine _NBL_EMBED_BUILTIN_RESOURCES_
 
+#cmakedefine _NBL_BUILD_DPL_
+
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
@@ -76,6 +78,8 @@
 #define _NBL_EG_OP_LNK(_x) ShellExecuteA(NULL, "open", "https://www.youtube.com/watch?v=4HXeL_yimMs", NULL, NULL, SW_SHOWNORMAL)
 #endif
 #endif
+
+#define NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "@NBL_BUILTIN_RESOURCES_DIRECTORY_PATH@"
 
 // DDL exports
 #cmakedefine _NBL_SHARED_BUILD_

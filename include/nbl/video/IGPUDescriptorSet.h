@@ -57,53 +57,17 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline bool isZombie() const { return (m_pool.get() == nullptr); }
 
 	protected:
-        IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, const uint32_t poolOffset, IDescriptorPool::SDescriptorOffsets&& offsets);
+        IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SStorageOffsets&& offsets);
         virtual ~IGPUDescriptorSet();
 
 	private:
-        friend class ILogicalDevice;
-
         inline void incrementVersion() { m_version.fetch_add(1ull); }
 
-        // TODO(achal): Don't know yet if we want to keep these.
-        inline void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write)
-        {
-            assert(write.dstSet == this);
-
-            auto* descriptors = getDescriptors(write.descriptorType, write.binding);
-            auto* samplers = getMutableSamplers(write.binding);
-            for (auto j = 0; j < write.count; ++j)
-            {
-                descriptors[j] = write.info[j].desc;
-
-                if (samplers)
-                    samplers[j] = write.info[j].info.image.sampler;
-            }
-        }
-
-#if 0
-        inline void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy)
-        {
-            assert(copy.dstSet == this);
-
-            for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-            {
-                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-
-                auto* srcDescriptors = srcDS->getDescriptors(type, pDescriptorCopies[i].srcBinding);
-                auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);
-
-                auto* dstDescriptors = dstDS->getDescriptors(type, pDescriptorCopies[i].dstBinding);
-                auto* dstSamplers = dstDS->getMutableSamplers(pDescriptorCopies[i].dstBinding);
-
-                if (srcDescriptors && dstDescriptors)
-                    std::copy_n(srcDescriptors, pDescriptorCopies[i].count, dstDescriptors);
-
-                if (srcSamplers && dstSamplers)
-                    std::copy_n(srcSamplers, pDescriptorCopies[i].count, dstSamplers);
-            }
-        }
-#endif
+        friend class ILogicalDevice;
+        bool validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const;
+        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write);
+        bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
+        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
 
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const uint32_t binding) const
@@ -138,7 +102,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             if (baseAddress == nullptr)
                 return nullptr;
 
-            const auto offset = getDescriptorStorageOffset(type);
+            const auto offset = m_storageOffsets.getDescriptorOffset(type);
             if (offset == ~0u)
                 return nullptr;
 
@@ -151,21 +115,17 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             if (baseAddress == nullptr)
                 return nullptr;
 
-            const auto poolOffset = getMutableSamplerStorageOffset();
-            if (poolOffset == ~0u)
+            const auto offset = m_storageOffsets.getMutableSamplerOffset();
+            if (offset == ~0u)
                 return nullptr;
 
-            return baseAddress + poolOffset;
+            return baseAddress + offset;
         }
-
-        inline uint32_t getDescriptorStorageOffset(const asset::IDescriptor::E_TYPE type) const { return m_descriptorStorageOffsets.data[static_cast<uint32_t>(type)]; }
-        inline uint32_t getMutableSamplerStorageOffset() const { return m_descriptorStorageOffsets.data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
 
         std::atomic_uint64_t m_version;
         friend class IDescriptorPool;
         core::smart_refctd_ptr<IDescriptorPool> m_pool;
-        uint32_t m_poolOffset;
-        const IDescriptorPool::SDescriptorOffsets m_descriptorStorageOffsets;
+        const IDescriptorPool::SStorageOffsets m_storageOffsets;
 };
 
 }

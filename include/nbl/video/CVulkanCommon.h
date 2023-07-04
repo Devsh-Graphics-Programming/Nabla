@@ -649,8 +649,8 @@ static inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const
     if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDIRECT_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
     if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT)) ret |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
-    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+    //if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+    //if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
     if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_CONDITIONAL_RENDERING_BIT_EXT)) ret |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
     if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
@@ -787,27 +787,29 @@ static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(c
 {
     switch (descriptorType)
     {
-    case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
-        return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
-        return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
-        return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
-    case asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
-        return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
-    case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
-        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
-        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
-        return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-    case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
-        return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-    case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
-        return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-    default:
-        assert(!"Invalid code path.");
-        return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+        case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+            return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
+            return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
+            return VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
+            return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+        case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
+            return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+        case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
+            return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+        case asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE:
+            return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+        default:
+            assert(!"Invalid code path.");
+            return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
 }
 static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)

@@ -1,18 +1,18 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED_
+#define _NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
-#define __NBL_ASSET_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/SRange.h"
+
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IShader.h"
 
-namespace nbl
-{
-namespace asset
+
+namespace nbl::asset
 {
 
 //! Interface class for Descriptor Set Layouts
@@ -107,25 +107,25 @@ public:
 			return { foundIndex };
 		}
 
-		inline binding_number_t getBindingFromStorageIndex(const storage_range_index_t index) const
+		inline binding_number_t getBinding(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return m_bindingNumbers[index.data];
 		}
 
-		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlagsFromStorageIndex(const storage_range_index_t index) const
+		inline core::bitflag<IShader::E_SHADER_STAGE> getStageFlags(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return m_stageFlags[index.data];
 		}
 
-		inline uint32_t getCountFromStorageIndex(const storage_range_index_t index) const
+		inline uint32_t getCount(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return (index.data == 0u) ? m_storageOffsets[index.data].data : m_storageOffsets[index.data].data - m_storageOffsets[index.data - 1].data;
 		}
 
-		inline storage_offset_t getStorageOffsetFromStorageIndex(const storage_range_index_t index) const
+		inline storage_offset_t getStorageOffset(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
 			return (index.data == 0u) ? 0u : m_storageOffsets[index.data - 1];
@@ -146,10 +146,10 @@ public:
 		inline uint32_t getCount(const binding_number_t binding) const
 		{
 			const auto index = findBindingStorageIndex(binding);
-			if (index == Invalid)
+			if (index.data == Invalid)
 				return 0;
 
-			return getDescriptorCount(index);
+			return getCount(index);
 		}
 
 		inline storage_offset_t getStorageOffset(const binding_number_t binding) const
@@ -158,7 +158,7 @@ public:
 			if (index.data == Invalid)
 				return { Invalid };
 
-			return getStorageOffsetFromStorageIndex(index);
+			return getStorageOffset(index);
 		}
 
 		inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
@@ -346,9 +346,9 @@ public:
 protected:
 	IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end)
 	{
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_descriptors[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
-		core::vector<CBindingRedirect::SBuildInfo> buildInfo_mutableSamplers;
+		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_descriptors[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
+		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
+		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_mutableSamplers;
 
 		for (auto b = _begin; b != _end; ++b)
 		{
@@ -376,7 +376,7 @@ protected:
 		{
 			if (b->type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b->samplers)
 			{
-				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(CBindingRedirect::binding_number_t(b->binding)).data;
+				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b->binding)).data;
 				assert(localOffset != m_immutableSamplerRedirect.Invalid);
 
 				auto* dst = m_samplers->begin() + localOffset;
@@ -395,6 +395,4 @@ protected:
 };
 
 }
-}
-
 #endif

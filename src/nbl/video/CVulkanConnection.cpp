@@ -138,7 +138,11 @@ namespace nbl::video
         };
 
 
-        if(featuresToEnable.debugUtils)
+        if(featuresToEnable.synchronizationValidation /* || other flags taht require VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME */)
+        {
+            insertToFeatureSetIfAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME, "synchronizationValidation");
+        }
+        if (featuresToEnable.debugUtils)
         {
             insertToFeatureSetIfAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, "debugUtils");
         }
@@ -161,20 +165,42 @@ namespace nbl::video
         if(!allRequestedFeaturesSupported)
             return nullptr;
 
-        std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
-        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT };
-        if (logger && enabledFeatures.debugUtils)
-        {
-            auto logLevelMask = logger->getLogLevelMask();
-            debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
 
-            debugMessengerCreateInfo.pNext = nullptr;
-            debugMessengerCreateInfo.flags = 0;
-            auto debugCallbackFlags = getDebugCallbackFlagsFromLogLevelMask(logLevelMask);
-            debugMessengerCreateInfo.messageSeverity = debugCallbackFlags.first;
-            debugMessengerCreateInfo.messageType = debugCallbackFlags.second;
-            debugMessengerCreateInfo.pfnUserCallback = CVulkanDebugCallback::defaultCallback;
-            debugMessengerCreateInfo.pUserData = debugCallback.get();
+        VkBaseInStructure* structsTail = nullptr;
+        VkBaseInStructure* structsHead = nullptr;
+        // Vulkan has problems with having features in the feature chain that have all values set to false.
+        // For example having an empty "RayTracingPipelineFeaturesKHR" in the chain will lead to validation errors for RayQueryONLY applications.
+        auto addStructToChain = [&structsHead, &structsTail](void* feature) -> void
+        {
+            VkBaseInStructure* toAdd = reinterpret_cast<VkBaseInStructure*>(feature);
+
+            // For protecting against duplication of feature structures that may be requested to add to chain twice due to extension requirements
+            const bool alreadyAdded = (toAdd->pNext != nullptr || toAdd == structsTail);
+
+            if (structsHead == nullptr)
+            {
+                structsHead = toAdd;
+                structsTail = toAdd;
+            }
+            else if (!alreadyAdded)
+            {
+                structsTail->pNext = toAdd;
+                structsTail = toAdd;
+            }
+        };
+
+
+        VkValidationFeaturesEXT validationFeaturesEXT = { VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT, nullptr };
+        VkValidationFeatureEnableEXT validationsEnable[16u] = {};
+        VkValidationFeatureDisableEXT validationsDisable[16u] = {};
+        validationFeaturesEXT.pEnabledValidationFeatures = validationsEnable;
+
+        // TODO: Do the samefor other validation features as well(?)
+        if (enabledFeatures.synchronizationValidation)
+        {
+            validationsEnable[validationFeaturesEXT.enabledValidationFeatureCount] = VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT;
+            validationFeaturesEXT.enabledValidationFeatureCount += 1u;
+            addStructToChain(&validationFeaturesEXT);
         }
         
         uint32_t instanceApiVersion = MinimumVulkanApiVersion;
@@ -183,6 +209,23 @@ namespace nbl::video
         {
             assert(false);
             return nullptr;
+        }
+
+        std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
+        VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
+        if (logger && enabledFeatures.debugUtils)
+        {
+            auto logLevelMask = logger->getLogLevelMask();
+            debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
+
+            debugMessengerCreateInfo.flags = 0;
+            auto debugCallbackFlags = getDebugCallbackFlagsFromLogLevelMask(logLevelMask);
+            debugMessengerCreateInfo.messageSeverity = debugCallbackFlags.first;
+            debugMessengerCreateInfo.messageType = debugCallbackFlags.second;
+            debugMessengerCreateInfo.pfnUserCallback = CVulkanDebugCallback::defaultCallback;
+            debugMessengerCreateInfo.pUserData = debugCallback.get();
+
+            addStructToChain(&debugMessengerCreateInfo);
         }
 
         VkInstance vk_instance;
@@ -196,7 +239,7 @@ namespace nbl::video
             applicationInfo.engineVersion = NABLA_VERSION_INTEGER;
 
             VkInstanceCreateInfo createInfo = { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
-            createInfo.pNext = enabledFeatures.debugUtils ? (VkDebugUtilsMessengerCreateInfoEXT*)&debugMessengerCreateInfo : nullptr;
+            createInfo.pNext = structsHead;
             createInfo.flags = static_cast<VkInstanceCreateFlags>(0);
             createInfo.pApplicationInfo = &applicationInfo;
             createInfo.enabledLayerCount = requiredLayerNameCount;

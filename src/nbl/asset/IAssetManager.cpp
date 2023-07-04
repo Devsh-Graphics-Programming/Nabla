@@ -8,6 +8,9 @@
 #include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
 
+#include <array>
+#include <nbl/core/string/StringLiteral.h>	
+
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #endif
@@ -239,38 +242,47 @@ void IAssetManager::insertBuiltinAssets()
 		};
 		auto fileSystem = getSystem();
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
+        auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+        {
+            nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+            fileSystem->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+            if (future.wait())
+                return future.copy();
+            return nullptr;
+        };
+
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/specialized_shader/fullscreentriangle.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/specialized_shader/fullscreentriangle.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::IShader::ESS_FRAGMENT, 
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
             });
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_color/specialized_shader.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"),
 			asset::IShader::ESS_FRAGMENT,
 			{   
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<typename NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag"),
 			asset::IShader::ESS_FRAGMENT,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
@@ -351,7 +363,7 @@ void IAssetManager::insertBuiltinAssets()
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT | asset::IImage::EUF_STORAGE_BIT);
+        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT);
         auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
@@ -377,11 +389,11 @@ void IAssetManager::insertBuiltinAssets()
     
     //image views
     {
-        asset::ICPUImageView::SCreationParams info;
+        asset::ICPUImageView::SCreationParams info = {};
+        info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
         info.format = dummy2dImage->getCreationParameters().format;
         info.image = dummy2dImage;
         info.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
-        info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
         info.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
         info.subresourceRange.baseArrayLayer = 0u;
         info.subresourceRange.layerCount = 1u;

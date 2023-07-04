@@ -33,35 +33,40 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
 {
     for (auto i = 0; i < descriptorWriteCount; ++i)
     {
-        auto* ds = static_cast<IGPUDescriptorSet*>(pDescriptorWrites[i].dstSet);
+        const auto& write = pDescriptorWrites[i];
+        auto* ds = static_cast<IGPUDescriptorSet*>(write.dstSet);
 
-        ds->incrementVersion();
-        ds->processWrite(pDescriptorWrites[i]);
+        assert(ds->getLayout()->isCompatibleDevicewise(ds));
+
+        if (!ds->validateWrite(write))
+            return false;
     }
 
     for (auto i = 0; i < descriptorCopyCount; ++i)
     {
-        const auto* srcDS = static_cast<const IGPUDescriptorSet*>(pDescriptorCopies[i].srcSet);
+        const auto& copy = pDescriptorCopies[i];
+        const auto* srcDS = static_cast<const IGPUDescriptorSet*>(copy.srcSet);
+        const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
+
+        if (!dstDS->isCompatibleDevicewise(srcDS))
+            return false;
+
+        if (!dstDS->validateCopy(copy))
+            return false;
+    }
+
+    for (auto i = 0; i < descriptorWriteCount; ++i)
+    {
+        auto& write = pDescriptorWrites[i];
+        auto* ds = static_cast<IGPUDescriptorSet*>(write.dstSet);
+        ds->processWrite(write);
+    }
+
+    for (auto i = 0; i < descriptorCopyCount; ++i)
+    {
+        const auto& copy = pDescriptorCopies[i];
         auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
-
-        // dstDS->processCopy(pDescriptorCopies[i]);
-
-        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-        {
-            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-
-            auto* srcDescriptors = srcDS->getDescriptors(type, pDescriptorCopies[i].srcBinding);
-            auto* srcSamplers = srcDS->getMutableSamplers(pDescriptorCopies[i].srcBinding);
-
-            auto* dstDescriptors = dstDS->getDescriptors(type, pDescriptorCopies[i].dstBinding);
-            auto* dstSamplers = dstDS->getMutableSamplers(pDescriptorCopies[i].dstBinding);
-
-            if (srcDescriptors && dstDescriptors)
-                std::copy_n(srcDescriptors, pDescriptorCopies[i].count, dstDescriptors);
-
-            if (srcSamplers && dstSamplers)
-                std::copy_n(srcSamplers, pDescriptorCopies[i].count, dstSamplers);
-        }
+        dstDS->processCopy(copy);
     }
 
     updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);

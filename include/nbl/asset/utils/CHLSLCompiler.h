@@ -8,6 +8,8 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
+#ifdef _NBL_PLATFORM_WINDOWS_
+
 namespace nbl::asset::hlsl::impl
 {
 	class DXC;
@@ -65,5 +67,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 };
 
 }
+
+#endif
 
 #endif

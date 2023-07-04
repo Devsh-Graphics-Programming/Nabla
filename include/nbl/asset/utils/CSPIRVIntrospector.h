@@ -104,7 +104,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		CSPIRVIntrospector() = default;
 
 		//! params.cpuShader.contentType should be ECT_SPIRV
-		//! the compiled SPIRV must be compiled with IShaderCompiler::SCompilerOptions::genDebugInfo with no `spirvOptimizer` used in order to include names in introspection data
+		//! the compiled SPIRV must be compiled with IShaderCompiler::SCompilerOptions::debugInfoFlags enabling EDIF_SOURCE_BIT implicitly or explicitly, with no `spirvOptimizer` used in order to include names in introspection data
 		core::smart_refctd_ptr<const CIntrospectionData> introspect(const SIntrospectionParams& params, bool insertToCache = true);
 
 		//

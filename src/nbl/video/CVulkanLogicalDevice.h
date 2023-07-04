@@ -469,7 +469,7 @@ public:
         core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(descriptorWriteCount);
         core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(descriptorWriteCount);
 
-        core::vector<VkDescriptorBufferInfo>vk_bufferInfos;
+        core::vector<VkDescriptorBufferInfo> vk_bufferInfos;
         core::vector<VkDescriptorImageInfo> vk_imageInfos;
         core::vector<VkBufferView> vk_bufferViews;
         core::vector<VkAccelerationStructureKHR> vk_accelerationStructures;
@@ -479,23 +479,6 @@ public:
             vk_writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             vk_writeDescriptorSets[i].pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkWriteDescriptorSetAccelerationStructureKHR, VkWriteDescriptorSetAccelerationStructureNV, or VkWriteDescriptorSetInlineUniformBlockEXT
 
-            const IGPUDescriptorSetLayout* layout = pDescriptorWrites[i].dstSet->getLayout();
-            if (layout->getAPIType() != EAT_VULKAN)
-            {
-                auto logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-                if (logger)
-                {
-                    const char* dsDebugName = pDescriptorWrites[i].dstSet->getDebugName();
-                    const char* dsLayoutDebugName = pDescriptorWrites[i].dstSet->getDebugName();
-                    if (dsDebugName && dsLayoutDebugName)
-                        logger->log("Descriptor set layout (%s, %p) of the descriptor set (%s, %p) uses a different backend than the logical device it was created with. Skipping the descriptor set..", system::ILogger::ELL_ERROR, dsLayoutDebugName, layout, dsDebugName, pDescriptorWrites[i].dstSet);
-                    else
-                        logger->log("Descriptor set layout (%p) of the descriptor set (%p) uses a different backend than the logical device it was created with. Skipping the descriptor set..", system::ILogger::ELL_ERROR, layout, pDescriptorWrites[i].dstSet);
-
-                }
-                continue;
-            }
-
             const CVulkanDescriptorSet* vulkanDescriptorSet = static_cast<const CVulkanDescriptorSet*>(pDescriptorWrites[i].dstSet);
             vk_writeDescriptorSets[i].dstSet = vulkanDescriptorSet->getInternalObject();
 
@@ -504,57 +487,37 @@ public:
             vk_writeDescriptorSets[i].descriptorType = getVkDescriptorTypeFromDescriptorType(pDescriptorWrites[i].descriptorType);
             vk_writeDescriptorSets[i].descriptorCount = pDescriptorWrites[i].count;
 
-            assert(pDescriptorWrites[i].info[0].desc);
+            const auto bindingWriteCount = pDescriptorWrites[i].count;
 
             switch (pDescriptorWrites[i].info->desc->getTypeCategory())
             {
             case asset::IDescriptor::EC_BUFFER:
             {
-                VkDescriptorBufferInfo dummyInfo = {};
-                dummyInfo.buffer = static_cast<const CVulkanBuffer*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-                dummyInfo.offset = pDescriptorWrites[i].info[0].info.buffer.offset;
-                dummyInfo.range = pDescriptorWrites[i].info[0].info.buffer.size;
-
                 vk_writeDescriptorSets[i].pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(vk_bufferInfos.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_bufferInfos.push_back(dummyInfo);
+                vk_bufferInfos.resize(vk_bufferInfos.size() + bindingWriteCount);
             } break;
 
             case asset::IDescriptor::EC_IMAGE:
             {
-                const auto& firstDescWriteImageInfo = pDescriptorWrites[i].info[0].info.image;
-
-                VkDescriptorImageInfo dummyInfo = { VK_NULL_HANDLE };
-                if (firstDescWriteImageInfo.sampler && (firstDescWriteImageInfo.sampler->getAPIType() == EAT_VULKAN))
-                    dummyInfo.sampler = static_cast<const CVulkanSampler*>(firstDescWriteImageInfo.sampler.get())->getInternalObject();
-                dummyInfo.imageView = static_cast<const CVulkanImageView*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-                dummyInfo.imageLayout = static_cast<VkImageLayout>(pDescriptorWrites[i].info[0].info.image.imageLayout);
-
                 vk_writeDescriptorSets[i].pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(vk_imageInfos.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_imageInfos.push_back(dummyInfo);
+                vk_imageInfos.resize(vk_imageInfos.size() + bindingWriteCount);
             } break;
 
             case asset::IDescriptor::EC_BUFFER_VIEW:
             {
-                VkBufferView dummyBufferView = static_cast<const CVulkanBufferView*>(pDescriptorWrites[i].info[0].desc.get())->getInternalObject();
-
                 vk_writeDescriptorSets[i].pTexelBufferView = reinterpret_cast<VkBufferView*>(vk_bufferViews.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_bufferViews.push_back(dummyBufferView);
+                vk_bufferViews.resize(vk_bufferViews.size() + bindingWriteCount);
             } break;
 
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
             {
                 auto& writeAS = vk_writeDescriptorSetAS[i];
                 writeAS = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR, nullptr };
-                writeAS.accelerationStructureCount = pDescriptorWrites[i].count;
-
+                writeAS.accelerationStructureCount = bindingWriteCount;
                 vk_writeDescriptorSets[i].pNext = &writeAS;
 
                 writeAS.pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(vk_accelerationStructures.size());
-                for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j)
-                    vk_accelerationStructures.push_back({});
+                vk_accelerationStructures.resize(vk_accelerationStructures.size() + bindingWriteCount);
             } break;
 
             default:
@@ -574,12 +537,9 @@ public:
                 auto* infoDst = const_cast<VkDescriptorBufferInfo*>(vk_writeDescriptorSets[i].pBufferInfo);
                 for (uint32_t j = 0; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
                 {
-                    if (infoSrc->info.buffer.size)
-                    {
-                        infoDst->buffer = static_cast<const CVulkanBuffer*>(infoSrc->desc.get())->getInternalObject();
-                        infoDst->offset = infoSrc->info.buffer.offset;
-                        infoDst->range = infoSrc->info.buffer.size;
-                    }
+                    infoDst->buffer = static_cast<const CVulkanBuffer*>(infoSrc->desc.get())->getInternalObject();
+                    infoDst->offset = infoSrc->info.buffer.offset;
+                    infoDst->range = infoSrc->info.buffer.size;
                 }
             } break;
 
@@ -589,18 +549,14 @@ public:
 
                 const auto* infoSrc = pDescriptorWrites[i].info;
                 auto* infoDst = const_cast<VkDescriptorImageInfo*>(vk_writeDescriptorSets[i].pImageInfo);
+
                 for (uint32_t j = 0; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
                 {
-                    if (infoSrc->info.image.imageLayout != asset::IImage::E_LAYOUT::EL_UNDEFINED)
-                    {
-                        VkSampler vk_sampler = VK_NULL_HANDLE;
-                        if (infoSrc->info.image.sampler && (infoSrc->info.image.sampler->getAPIType() == EAT_VULKAN))
-                            vk_sampler = static_cast<const CVulkanSampler*>(infoSrc->info.image.sampler.get())->getInternalObject();
+                    VkSampler vk_sampler = infoSrc->info.image.sampler ? static_cast<const CVulkanSampler*>(infoSrc->info.image.sampler.get())->getInternalObject() : VK_NULL_HANDLE;
 
-                        infoDst->sampler = vk_sampler;
-                        infoDst->imageView = static_cast<const CVulkanImageView*>(infoSrc->desc.get())->getInternalObject();
-                        infoDst->imageLayout = static_cast<VkImageLayout>(infoSrc->info.image.imageLayout);
-                    }
+                    infoDst->sampler = vk_sampler;
+                    infoDst->imageView = static_cast<const CVulkanImageView*>(infoSrc->desc.get())->getInternalObject();
+                    infoDst->imageLayout = static_cast<VkImageLayout>(infoSrc->info.image.imageLayout);
                 }
             } break;
 
@@ -611,10 +567,7 @@ public:
                 const auto* infoSrc = pDescriptorWrites[i].info;
                 auto* infoDst = const_cast<VkBufferView*>(vk_writeDescriptorSets[i].pTexelBufferView);
                 for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
-                {
-                    if (infoSrc->info.buffer.size)
-                        *infoDst = static_cast<const CVulkanBufferView*>(infoSrc->desc.get())->getInternalObject();
-                }
+                    *infoDst = static_cast<const CVulkanBufferView*>(infoSrc->desc.get())->getInternalObject();
             } break;
 
             case asset::IDescriptor::E_CATEGORY::EC_ACCELERATION_STRUCTURE:
@@ -750,7 +703,9 @@ public:
             commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
 
             commonCompileOptions.stage = shaderStage;
-            commonCompileOptions.genDebugInfo = true;
+            commonCompileOptions.debugInfoFlags = 
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
             commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
             commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
@@ -1031,8 +986,12 @@ protected:
 
     core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) override
     {
+        // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+        VkImageViewUsageCreateInfo vk_imageViewUsageInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,nullptr };
+        vk_imageViewUsageInfo.usage = static_cast<VkImageUsageFlags>((params.subUsages.value ? params.subUsages:params.image->getCreationParameters().usage).value);
+
         VkImageViewCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-        vk_createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkImageViewASTCDecodeModeEXT, VkImageViewUsageCreateInfo, VkSamplerYcbcrConversionInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+        vk_createInfo.pNext = &vk_imageViewUsageInfo;
         vk_createInfo.flags = static_cast<VkImageViewCreateFlags>(params.flags);
 
         if (params.image->getAPIType() != EAT_VULKAN)
@@ -1046,7 +1005,7 @@ protected:
         vk_createInfo.components.g = static_cast<VkComponentSwizzle>(params.components.g);
         vk_createInfo.components.b = static_cast<VkComponentSwizzle>(params.components.b);
         vk_createInfo.components.a = static_cast<VkComponentSwizzle>(params.components.a);
-        vk_createInfo.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(params.subresourceRange.aspectMask);
+        vk_createInfo.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(params.subresourceRange.aspectMask.value);
         vk_createInfo.subresourceRange.baseMipLevel = params.subresourceRange.baseMipLevel;
         vk_createInfo.subresourceRange.levelCount = params.subresourceRange.levelCount;
         vk_createInfo.subresourceRange.baseArrayLayer = params.subresourceRange.baseArrayLayer;

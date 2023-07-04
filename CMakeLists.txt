@@ -1,17 +1,17 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
-
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.26)
 #policies
 cmake_policy(SET CMP0112 NEW)
-
+#
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla LANGUAGES CXX C)
+enable_language(C CXX ASM)
 
 option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
@@ -55,6 +55,8 @@ endif()
 
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
@@ -79,8 +81,6 @@ if (NBL_COMPILE_WITH_CUDA)
 	set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
 set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
@@ -260,6 +260,8 @@ endif()
 #uncomment in the future
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
+option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
+
 option(NBL_PCH "Enable pre-compiled header" ON)
 
 option(NBL_FAST_MATH "Enable fast low-precision math" ON)
@@ -269,6 +271,8 @@ option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
+
+option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
@@ -295,9 +299,9 @@ include(common)
 NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
-OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
-add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
+add_subdirectory(src/nbl)
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW

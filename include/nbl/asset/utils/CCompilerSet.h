@@ -15,8 +15,11 @@ namespace nbl::asset
 	{
 	public:
 		CCompilerSet(core::smart_refctd_ptr<system::ISystem>&& sys)
-			: m_HLSLCompiler(core::make_smart_refctd_ptr<CHLSLCompiler>(core::smart_refctd_ptr(sys)))
-			, m_GLSLCompiler(core::make_smart_refctd_ptr<CGLSLCompiler>(core::smart_refctd_ptr(sys)))
+			: 
+#ifdef _NBL_PLATFORM_WINDOWS_
+			m_HLSLCompiler(core::make_smart_refctd_ptr<CHLSLCompiler>(core::smart_refctd_ptr(sys))),
+#endif
+			m_GLSLCompiler(core::make_smart_refctd_ptr<CGLSLCompiler>(core::smart_refctd_ptr(sys)))
 		{}
 
 		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const asset::ICPUShader* shader, const IShaderCompiler::SCompilerOptions& options) const;
@@ -25,8 +28,13 @@ namespace nbl::asset
 
 		inline core::smart_refctd_ptr<IShaderCompiler> getShaderCompiler(IShader::E_CONTENT_TYPE contentType) const
 		{
-			if (contentType == IShader::E_CONTENT_TYPE::ECT_HLSL)
+
+			if (contentType == IShader::E_CONTENT_TYPE::ECT_HLSL) {
+				
+#ifdef _NBL_PLATFORM_WINDOWS_
 				return m_HLSLCompiler;
+#endif
+			}
 			else if (contentType == IShader::E_CONTENT_TYPE::ECT_GLSL)
 				return m_GLSLCompiler;
 			else
@@ -34,7 +42,10 @@ namespace nbl::asset
 		}
 
 	protected:
+
+#ifdef _NBL_PLATFORM_WINDOWS_
 		core::smart_refctd_ptr<CHLSLCompiler> m_HLSLCompiler = nullptr;
+#endif
 		core::smart_refctd_ptr<CGLSLCompiler> m_GLSLCompiler = nullptr;
 	};
 }

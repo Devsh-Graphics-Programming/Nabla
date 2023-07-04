@@ -1,5 +1,5 @@
-#ifndef __NBL_I_DESCRIPTOR_POOL_H_INCLUDED__
-#define __NBL_I_DESCRIPTOR_POOL_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
+#define _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
 
 
 #include "nbl/core/IReferenceCounted.h"
@@ -13,13 +13,15 @@
 namespace nbl::video
 {
 
+class IGPUBuffer;
+class IGPUBufferView;
 class IGPUImageView;
 class IGPUSampler;
-class IGPUBufferView;
+class IGPUAccelerationStructure;
 class IGPUDescriptorSet;
 class IGPUDescriptorSetLayout;
 
-class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
+class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t
@@ -37,16 +39,30 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
             uint32_t maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = { 0 };
         };
 
-        struct SDescriptorOffsets
+        struct SStorageOffsets
         {
-            SDescriptorOffsets()
+            static constexpr inline uint32_t Invalid = ~0u;
+
+            SStorageOffsets()
             {
-                // The default constructor should initiailze all the offsets to an invalid value (~0u) because ~IGPUDescriptorSet relies on it to
-                // know which descriptors are present in the set and hence should be destroyed.
-                std::fill_n(data, static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1, ~0u);
+                // The default constructor should initiailze all the offsets to Invalid because other parts of the codebase relies on it to
+                // know which descriptors are present in the set and hence should be destroyed, or which set in the pool is non-zombie.
+                std::fill_n(data, static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 2, Invalid);
             }
 
-            uint32_t data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1];
+            inline uint32_t getDescriptorOffset(const asset::IDescriptor::E_TYPE type) const
+            {
+                const uint32_t idx = static_cast<uint32_t>(type);
+                assert(idx < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT));
+                return data[idx];
+            }
+
+            inline uint32_t getMutableSamplerOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
+
+            inline uint32_t getSetOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
+            inline uint32_t& getSetOffset() { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
+
+            uint32_t data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 2];
         };
 
         inline core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
@@ -67,43 +83,18 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
         inline bool allowsFreeing() const { return m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT); }
 
     protected:
-        explicit IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo)
-            : IBackendObject(std::move(dev)), m_creationParameters(std::move(createInfo))
-        {
-            for (auto i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
-                m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[i], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));
-
-            // For mutable samplers. We don't know if there will be mutable samplers in sets allocated by this pool when we create the pool.
-            m_descriptorAllocators[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));
-
-            // Initialize the storages.
-            m_textureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]);
-            m_mutableSamplerStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)]);
-            m_storageImageStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT)]);
-            m_UBO_SSBOStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)]);
-            m_UTB_STBStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)]);
-            m_accelerationStructureStorage = std::make_unique<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]>(m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE)]);
-
-            m_allocatedDescriptorSets = std::make_unique<IGPUDescriptorSet* []>(m_creationParameters.maxSets);
-            std::fill_n(m_allocatedDescriptorSets.get(), m_creationParameters.maxSets, nullptr);
-
-            m_descriptorSetAllocatorReservedSpace = std::make_unique<uint8_t[]>(core::IteratablePoolAddressAllocator<uint32_t>::reserved_size(1, m_creationParameters.maxSets, 1));
-            m_descriptorSetAllocator = core::IteratablePoolAddressAllocator<uint32_t>(m_descriptorSetAllocatorReservedSpace.get(), 0, 0, 1, m_creationParameters.maxSets, 1);
-        }
+        IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo);
 
         virtual ~IDescriptorPool()
         {
-            if (allowsFreeing())
-            {
-                assert(m_descriptorSetAllocator.get_allocated_size() == 0);
+            assert(m_descriptorSetAllocator.get_allocated_size() == 0);
 #ifdef _NBL_DEBUG
-                for (uint32_t i = 0u; i < m_creationParameters.maxSets; ++i)
-                    assert(m_allocatedDescriptorSets[i] == nullptr);
+            for (uint32_t i = 0u; i < m_creationParameters.maxSets; ++i)
+                assert(m_allocatedDescriptorSets[i] == nullptr);
 #endif
-            }
         }
 
-        virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SDescriptorOffsets* const offsets, const uint32_t firstSetOffsetInPool, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
+        virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SStorageOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
 
         virtual bool reset_impl() = 0;
 
@@ -159,10 +150,10 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
         friend class IGPUDescriptorSet;
         // Returns the offset into the pool's descriptor storage. These offsets will be combined
         // later with base memory addresses to get the actual memory address where we put the core::smart_refctd_ptr<const IDescriptor>.
-        bool allocateDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout);
-        void freeDescriptorOffsets(SDescriptorOffsets& offsets, const IGPUDescriptorSetLayout* layout);
+        bool allocateStorageOffsets(SStorageOffsets& offsets, const IGPUDescriptorSetLayout* layout);
+        void rewindLastStorageAllocations(const uint32_t count, const SStorageOffsets* offsets, const IGPUDescriptorSetLayout *const *const layouts);
 
-        void deleteSetStorage(IGPUDescriptorSet* set);
+        void deleteSetStorage(const uint32_t setIndex);
 
         struct allocator_state_t
         {
@@ -235,6 +226,8 @@ class IDescriptorPool : public core::IReferenceCounted, public IBackendObject
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUAccelerationStructure>>[]> m_accelerationStructureStorage;
+
+        system::logger_opt_ptr m_logger;
 };
 
 }

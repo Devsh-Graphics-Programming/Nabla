@@ -1,10 +1,14 @@
-#ifndef __NBL_UI_I_INPUT_EVENT_H_INCLUDED__
-#define __NBL_UI_I_INPUT_EVENT_H_INCLUDED__
+#ifndef _NBL_UI_I_INPUT_EVENT_H_INCLUDED_
+#define _NBL_UI_I_INPUT_EVENT_H_INCLUDED_
+
 #include <chrono>
 
 namespace nbl::ui
 {
+
+
 class IWindow;
+
 
 struct SEventBase
 {

@@ -514,9 +514,10 @@ protected:
 
         }
 
-        virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u)
+        // TODO: refactor into the `_impl` pattern, and always add the MUTABLE FORMAT creation flag
+        virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u/*, TODO: const IImage::E_USAGE_FLAGS usages=IImage::EUF_SAMPLED_BIT, const bool extendedUsage=false*/)
         {
-            assert(_layers != 0u);
+            assert(_layers != 0u); // Why the F have the default be 0 then!?
 
             const bool uninitialized = (tileAlctr.get_align_offset() == phys_pg_addr_alctr_t::invalid_address);
             if (uninitialized)
@@ -543,14 +544,16 @@ protected:
             return x | (y<<SPhysPgOffset::PAGE_ADDR_X_BITS) | (layer<<SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT);
         }
 
-        core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format) const
+        // last parameter default means to inherit all usages for a view from the main image
+        core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format, const IImage::E_USAGE_FLAGS usages=IImage::EUF_NONE) const
         {
             auto found = m_viewsCache.find(_format);
             if (found!=m_viewsCache.end())
                 return found->second;
 
-            typename image_view_t::SCreationParams params;
+            typename image_view_t::SCreationParams params = {};
             params.flags = static_cast<typename IImageView<image_t>::E_CREATE_FLAGS>(0);
+            params.subUsages = usages;
             params.format = _format;
             params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
             params.subresourceRange.baseArrayLayer = 0u;

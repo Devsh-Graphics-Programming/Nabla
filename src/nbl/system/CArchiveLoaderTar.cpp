@@ -41,7 +41,7 @@ struct STarHeader
 using namespace nbl;
 using namespace nbl::system;
 
-CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
 {
 	assert(item->allocatorType==EAT_NULL);
 	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset,item->size,nullptr};
@@ -98,7 +98,8 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 	if (!file || !(file->getFlags()&IFileBase::ECF_MAPPABLE))
 		return nullptr;
 
-	core::vector<IFileArchive::SListEntry> items;
+	std::shared_ptr<core::vector<IFileArchive::SFileList::SEntry>> items = std::make_shared<core::vector<IFileArchive::SFileList::SEntry>>();
+
 	for (size_t pos=0ull; true; )
 	{
 		STarHeader fHead;
@@ -158,11 +159,11 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 				pos = offset + core::roundUp(size,BlockSize);
 
 				// add file to list
-				auto& item = items.emplace_back();
+				auto& item = items->emplace_back();
 				item.pathRelativeToArchive = fullPath;
 				item.size = size;
 				item.offset = offset;
-				item.ID = items.size()-1u;
+				item.ID = items->size()-1u;
 				item.allocatorType = IFileArchive::EAT_NULL;
 				break;
 			}
@@ -173,8 +174,8 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 				break;
 		}
 	}
-	if (items.empty())
+	if (items->empty())
 		return nullptr;
 
-	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()),std::move(items));
+	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()),items);
 }

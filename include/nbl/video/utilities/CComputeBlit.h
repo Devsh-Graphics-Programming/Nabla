@@ -484,9 +484,9 @@ public:
 				{
 					auto& write = writes[writeCount++];
 					write.dstSet = ds;
-					write.binding = redirect.getBindingFromStorageIndex(i).data;
+					write.binding = redirect.getBinding(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i }).data;
 					write.arrayElement = 0u;
-					write.count = redirect.getCountFromStorageIndex(i);
+					write.count = redirect.getCount(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i });
 					write.info = &infos[i];
 					write.descriptorType = type;
 				}

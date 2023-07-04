@@ -7,6 +7,7 @@
 #include "nbl/video/IGPUBuffer.h"
 #include "nbl/video/IGPUImage.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
 #include "nbl/video/utilities/CScanner.h"
@@ -66,20 +67,26 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             assert(minStreamingBufferAllocationSize % m_allocationAlignment == 0u);
             assert(minStreamingBufferAllocationSize % m_allocationAlignmentForBufferImageCopy == 0u);
 
+            const auto& enabledFeatures = m_device->getEnabledFeatures();
+
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
-            bool shaderDeviceAddressSupport = false; //TODO(Erfan)
-            auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
-            if(shaderDeviceAddressSupport)
+            auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
+            if(enabledFeatures.bufferDeviceAddress)
                 commonUsages |= IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
+            if (enabledFeatures.accelerationStructure)
+                commonUsages |= IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
             
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_NONE);
-            if(shaderDeviceAddressSupport)
+            if(enabledFeatures.bufferDeviceAddress)
                 allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
 
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = downstreamSize;
-                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT|IGPUBuffer::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT|IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT; // GPU write to RAM usages
+                // GPU write to RAM usages
+                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT;
+                if (enabledFeatures.conditionalRendering)
+                    streamingBufferCreationParams.usage |= IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT;
                 auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
@@ -102,7 +109,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = upstreamSize;
-                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT|IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
+                streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_SRC_BIT|IGPUBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT|IGPUBuffer::EUF_UNIFORM_BUFFER_BIT|IGPUBuffer::EUF_INDEX_BUFFER_BIT|IGPUBuffer::EUF_VERTEX_BUFFER_BIT|IGPUBuffer::EUF_INDIRECT_BUFFER_BIT;
+                if (enabledFeatures.accelerationStructure)
+                    streamingBufferCreationParams.usage |= IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT;
+                if (enabledFeatures.rayTracingPipeline)
+                    streamingBufferCreationParams.usage |= IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
                 auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
 
                 auto reqs = buffer->getMemoryReqs();

@@ -15,13 +15,18 @@ add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
 set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
+if(WIN32)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
+elseif(UNIX)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
+endif()
 option(_NBL_ENABLE_DXC_COMPILE_TESTS_ "Enable it in order to test compilation of Nabla shaders at build time" OFF)
 option(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_ "Enable more verbose log when creating DXC compile test target - only for Nabla developers!" OFF)
 set(_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_ "[DXC_CT]:" CACHE INTERNAL "only for Nabla developers")
@@ -45,10 +50,6 @@ target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/V
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
-
-
-# TODO: redo
-find_package(Wayland)  # TODO: remove, load Wayland dynamically
 
 
 # zlib (target is zlibstatic)
@@ -228,6 +229,47 @@ add_library(spirv_cross OBJECT
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
+if(NBL_BUILD_IMGUI)
+	add_library(imgui STATIC
+		"imgui/imconfig.h"
+		"imgui/imgui_demo.cpp"
+		"imgui/imgui_draw.cpp"
+		"imgui/imgui_internal.h"
+		"imgui/imgui_tables.cpp"
+		"imgui/imgui_widgets.cpp"
+		"imgui/imgui.cpp"
+		"imgui/imgui.h"
+		"imgui/misc/cpp/imgui_stdlib.cpp"
+		"imgui/misc/cpp/imgui_stdlib.h"
+		"imgui/imstb_rectpack.h"
+		"imgui/imstb_textedit.h"
+		"imgui/imstb_truetype.h"
+	)
+	target_include_directories(imgui
+		PUBLIC "imgui"
+		PUBLIC "imgui/misc/cpp"
+		PUBLIC "imgui/backends"
+	)
+
+	# ImPlot
+	add_library(implot STATIC
+		"implot/implot.h"
+		"implot/implot_internal.h"
+		"implot/implot.cpp"
+		"implot/implot_items.cpp"
+	)
+	target_include_directories(implot
+		PUBLIC "imgui"
+	)
+	target_link_libraries(implot PUBLIC imgui)
+	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
+	set_property(TARGET implot PROPERTY CXX_STANDARD 11)
+	if(MSVC)
+		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
+	else()
+		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
+	endif()
+endif()
 
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
@@ -336,6 +378,9 @@ endif()
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
+if (NBL_BUILD_IMGUI)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui)
+endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
@@ -348,8 +393,10 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		endif()
 endforeach()
 
-set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
+add_custom_target(3rdparty)
+add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
+set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
 ## REMINDER / NOTE : This is how we install 3rdparty headers we need !
 # parallel hashmap headers

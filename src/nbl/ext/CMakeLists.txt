@@ -53,5 +53,17 @@ if (NBL_BUILD_OPTIX)
     )
 endif()
 
+if (NBL_BUILD_IMGUI)
+    add_subdirectory(ImGui)
+    set(NBL_EXT_IMGUI_UI_INCLUDE_DIRS
+        ${NBL_EXT_IMGUI_UI_INCLUDE_DIRS}
+        PARENT_SCOPE
+    )
+    set(NBL_EXT_IMGUI_UI_LIB
+        ${NBL_EXT_IMGUI_UI_LIB}
+        PARENT_SCOPE
+    )
+endif()
+
 
 propagate_changed_variables_to_parent_scope()
