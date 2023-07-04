@@ -21,10 +21,18 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 	public:
 		struct SCreationParams
 		{
+			enum class FLAGS : uint8_t
+			{
+				NONE = 0u,
+				//DEVICE_ADDRESS_CAPTURE_REPLAY_BIT	= 0x1u<<0u, for tools only
+				// Provided by VK_NV_ray_tracing_motion_blur
+				MOTION_BIT = 0x1u << 1u,
+			};
+
 			asset::SBufferRange<IGPUBuffer> bufferRange;
-			core::bitflag<CREATE_FLAGS> flags = CREATE_FLAGS::NONE;
+			core::bitflag<FLAGS> flags = FLAGS::NONE;
 		};
-		inline const auto& getBufferRange() const {return m_bufferRange;}
+		inline const SCreationParams& getCreationParams() const {return m_params;}
 
 #if 0 // TODO: need a non-refcounting `SBufferBinding` and `SBufferRange` variants first
 		//! special binding value which you can fill your Geometry<BufferType> fields with before you call `ILogicalDevice::getAccelerationStructureBuildSizes` 
@@ -117,10 +125,9 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
-		inline IGPUAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
-			: asset::IAccelerationStructure(params.flags), IBackendObject(std::move(dev)), m_bufferRange(std::move(params.bufferRange)) {}
+		inline IGPUAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), m_params(std::move(params)) {}
 
-		asset::SBufferRange<IGPUBuffer> m_bufferRange;
+		const SCreationParams m_params;
 };
 template class IGPUAccelerationStructure::BuildInfo<IGPUBuffer>;
 template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
@@ -144,7 +151,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 			core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 			const IGPUBottomLevelAccelerationStructure* srcAS = nullptr;
 			IGPUBottomLevelAccelerationStructure* dstAS = nullptr;
-			// please interpret based on `buildFlags.hasFlags(GEOMETRY_TYPE_AABBs)`
+			// please interpret based on `buildFlags.hasFlags(GEOMETRY_TYPE_IS_AABB_BIT)`
 			union
 			{
 				core::SRange<const Triangles<BufferType>> triangles = {nullptr,nullptr};
@@ -194,14 +201,14 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03706
 			uint32_t valid(const uint32_t* const instanceCounts) const;
 			
-			core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+			core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 			const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
 			IGPUTopLevelAccelerationStructure* dstAS = nullptr;
 			// depending on the presence certain bits in `buildFlags` this buffer will be filled with:
 			// - addresses to `StaticInstance`, `MatrixMotionInstance`, `SRTMotionInstance` packed in upper 60 bits and struct type in lower 4 bits if and only if `buildFlags.hasFlags(INSTANCE_TYPE_ENCODED_IN_POINTER_LSB)`, otherwise
 			// - an array of `PolymorphicInstance` if our `SCreationParams::flags.hasFlags(MOTION_BIT)`, otherwise
 			// - an array of `StaticInstance`
-			core::SRange<const asset::SBufferBinding<const BufferType>> instanceData = {nullptr,nullptr};
+			asset::SBufferBinding<const BufferType> instanceData = {};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
@@ -217,8 +224,60 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using HostMatrixMotionInstance = MatrixMotionInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		using DeviceSRTMotionInstance = SRTMotionInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostSRTMotionInstance = SRTMotionInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+
+		// defined exactly as Vulkan wants it, byte for byte
+		template<typename blas_ref_t>
+		struct PolymorphicInstance final
+		{
+				// make sure we're not trying to memcpy smartpointers
+				static_assert(!std::is_same_v<core::IReferenceCounted<const asset::ICPUBottomLevelAccelerationStructure>,blas_ref_t>);
+
+			public:
+				PolymorphicInstance() = default;
+				PolymorphicInstance(const PolymorphicInstance<blas_ref_t>&) = default;
+				PolymorphicInstance(PolymorphicInstance<blas_ref_t>&&) = default;
+
+				// I made all these assignment operators because of the `core::matrix3x4SIMD` alignment and keeping `type` correct at all times
+				inline PolymorphicInstance<blas_ref_t>& operator=(const StaticInstance<blas_ref_t>& _static)
+				{
+					type = INSTANCE_TYPE::STATIC;
+					memcpy(&largestUnionMember,&_static,sizeof(_static));
+					return *this;
+				}
+				inline PolymorphicInstance<blas_ref_t>& operator=(const MatrixMotionInstance<blas_ref_t>& matrixMotion)
+				{
+					type = INSTANCE_TYPE::MATRIX_MOTION;
+					memcpy(&largestUnionMember,&matrixMotion,sizeof(matrixMotion));
+					return *this;
+				}
+				inline PolymorphicInstance<blas_ref_t>& operator=(const SRTMotionInstance<blas_ref_t>& srtMotion)
+				{
+					type = INSTANCE_TYPE::SRT_MOTION;
+					largestUnionMember = srtMotion;
+					return *this;
+				}
+
+				inline INSTANCE_TYPE getType() const {return type;}
+
+				template<template<class> InstanceT>
+				inline InstanceT<blas_ref_t> copy() const
+				{
+					InstanceT<blas_ref_t> retval;
+					memcpy(&retval,largestUnionMember,sizeof(retval));
+					return retval;
+				}
+
+			private:
+				INSTANCE_TYPE type = INSTANCE_TYPE::STATIC;
+				static_assert(std::is_same_v<std::underlying_type_t<INSTANCE_TYPE>,uint32_t>);
+				// these must be 0 as per vulkan spec
+				uint32_t reservedMotionFlags = 0u;
+				// I don't do an actual union because the preceeding members don't play nicely with alignment of `core::matrix3x4SIMD` and Vulkan requires this struct to be packed
+				SRTMotionInstance<blas_ref_t> largestUnionMember = {};
+				static_assert(alignof(largestUnionMember)==8ull);
+		};
 		using DevicePolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
-		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
+		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 
 	protected:
 		inline IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)

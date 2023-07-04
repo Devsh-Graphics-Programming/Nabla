@@ -24,23 +24,11 @@ class IAccelerationStructure : public IDescriptor
 		// we don't expose the GENERIC type because Vulkan only intends it for API-translation layers like VKD3D or MoltenVK
 		virtual bool isBLAS() const = 0;
 
-		enum class CREATE_FLAGS : uint8_t
-		{
-			NONE								= 0u,
-			//DEVICE_ADDRESS_CAPTURE_REPLAY_BIT	= 0x1u<<0u, for tools only
-			// Provided by VK_NV_ray_tracing_motion_blur
-			MOTION_BIT							= 0x1u<<1u,
-		};
-		inline core::bitflag<CREATE_FLAGS> getCreationFlags() const {return m_creationFlags;}
-
 		//!
 		inline E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
 
 	protected:
-		inline IAccelerationStructure(const core::bitflag<CREATE_FLAGS> flags) : m_creationFlags(flags) {}
-
-	private:
-		const core::bitflag<CREATE_FLAGS> m_creationFlags;
+		IAccelerationStructure() = default;
 };
 
 template<class AccelerationStructure>
@@ -60,7 +48,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			LOW_MEMORY_BIT = 0x1u<<4u,
 			// Synthetic flag we use to indicate that the build data are AABBs instead of triangles, we've taken away the per-geometry choice thanks to:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03792
-			GEOMETRY_TYPE_AABBs = 0x1u<<5u,
+			GEOMETRY_TYPE_IS_AABB_BIT = 0x1u<<5u,
 			// Provided by VK_NV_ray_tracing_motion_blur, but is ignored for BLASes
 			//MOTION_BIT = 0x1u<<5u
 			// Provided by VK_EXT_opacity_micromap
@@ -155,6 +143,9 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 		template<typename blas_ref_t>
 		struct Instance final
 		{
+			static_assert(sizeof(blas_ref_t)==8 && alignof(blas_ref_t)==8);
+			static_assert(std::is_same_v<core::IReferenceCounted<asset::ICPUBottomLevelAccelerationStructure>,blas_ref_t> || std::is_standard_layout_v<blas_ref_t>);
+
 			uint32_t	instanceCustomIndex : 24 = 0u;
 			uint32_t	mask : 8 = 0xFFu;
 			uint32_t	instanceShaderBindingTableRecordOffset : 24 = 0u;
@@ -204,7 +195,7 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			static_assert(alignof(base)==8ull);
 		};
 
-		// To be used in the instance data buffer when you have a MOTION_BIT flag in the creation parameters but no `INSTANCE_TYPE_ENCODED_IN_POINTER_LSB` in build flags
+		// enum for distinguishing unions of Instance Types when there is no `INSTANCE_TYPE_ENCODED_IN_POINTER_LSB` in build flags
 		enum class INSTANCE_TYPE : uint32_t
 		{
 			// StaticInstance
@@ -213,30 +204,6 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			MATRIX_MOTION,
 			// SRTMotionInstance
 			SRT_MOTION
-		};
-		template<typename blas_ref_t>
-		struct PolymorphicInstance final
-		{
-			public:
-				PolymorphicInstance() = default;
-				inline PolymorphicInstance(const StaticInstance<blas_ref_t>& _static) : type(INSTANCE_TYPE::STATIC)
-				{
-					memcpy(&largestUnionMember,&_static,sizeof(_static));
-				}
-				inline PolymorphicInstance(const MatrixMotionInstance<blas_ref_t>& matrixMotion) : type(INSTANCE_TYPE::MATRIX_MOTION)
-				{
-					memcpy(&largestUnionMember,&matrixMotion,sizeof(matrixMotion));
-				}
-				inline PolymorphicInstance(const SRTMotionInstance<blas_ref_t>& srtMotion) : type(INSTANCE_TYPE::SRT_MOTION), largestUnionMember(srtMotion) {}
-
-			private:
-				INSTANCE_TYPE type = INSTANCE_TYPE::STATIC;
-				static_assert(std::is_same_v<std::underlying_type_t<INSTANCE_TYPE>,uint32_t>);
-				// these must be 0 as per vulkan spec
-				uint32_t reservedMotionFlags = 0u;
-				// I don't do an actual union because the preceeding members don't play nicely with alignment of `core::matrix3x4SIMD` and Vulkan requires this struct to be packed
-				SRTMotionInstance<blas_ref_t> largestUnionMember = {};
-				static_assert(alignof(largestUnionMember)==8ull);
 		};
 
 	protected:
