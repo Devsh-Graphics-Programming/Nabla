@@ -149,28 +149,28 @@
 	  "inherits": "ci-package-dev"
     },
 	{
-      "name": "ci-build-static-ninja-multi",
+      "name": "ci-package-static-ninja-multi",
 	  "inherits": "ci-package-static-dev",
 	  "configurePreset": "ci-configure-static-ninja-multi",
 	  "displayName": "CI package-static Ninja Multi-Config",
 	  "description": "CI static package using Ninja Multi-Config generator"
     },
 	{
-      "name": "ci-build-dynamic-ninja-multi",
+      "name": "ci-package-dynamic-ninja-multi",
 	  "inherits": "ci-package-dynamic-dev",
 	  "configurePreset": "ci-configure-dynamic-ninja-multi",
 	  "displayName": "CI package-dynamic Ninja Multi-Config",
 	  "description": "CI dynamic package using Ninja Multi-Config generator"
     },
 	{
-      "name": "ci-build-static-msvc",
+      "name": "ci-package-static-msvc",
 	  "inherits": "ci-package-static-dev",
 	  "configurePreset": "ci-configure-static-msvc",
 	  "displayName": "CI package-static Visual Studio MSVC windows-host-only",
 	  "description": "CI static package using Visual Studio generator and MSVC toolset, windows as host only"
     },
 	{
-      "name": "ci-build-dynamic-msvc",
+      "name": "ci-package-dynamic-msvc",
 	  "inherits": "ci-package-dynamic-dev",
 	  "configurePreset": "ci-configure-dynamic-msvc",
 	  "displayName": "CI package-dynamic Visual Studio MSVC windows-host-only",
