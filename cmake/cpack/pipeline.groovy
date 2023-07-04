@@ -38,7 +38,7 @@ class CCPack extends IBuilder
 		final def preset = getPreset(axisMapping)	
 		final def nameOfConfig = getNameOfConfig(axisMapping.get("CONFIGURATION"))
 		
-		agent.execute("cpack --preset ${preset} -C ${nameOfConfig} -D CPACK_INSTALL_CMAKE_PROJECTS=\"${CPACK_INSTALL_CMAKE_PROJECTS}\"")
+		agent.execute("cpack --preset ${preset} -C ${nameOfConfig} -B ./package/${nameOfConfig} -D CPACK_INSTALL_CMAKE_PROJECTS=\"${CPACK_INSTALL_CMAKE_PROJECTS}\"")
 	
 		return true
 	}
