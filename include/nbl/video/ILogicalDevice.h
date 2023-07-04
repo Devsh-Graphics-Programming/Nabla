@@ -357,23 +357,30 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             static_assert(BLAS||TLAS);
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
             if (!m_enabledFeatures.accelerationStructure)
-                return {};
+                return false;
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
+            if (flags.hasFlags(build_flags_t::PREFER_FAST_BUILD_BIT) && flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT))
+                return false;
             
             if constexpr(BLAS)
             {
                 /* TODO
                 if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|build_flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !m_enabledFeatures.??????????)
-                    return {};
+                    return false;
                 if (flags.hasFlags(build_flags_t::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !m_enabledFeatures.???????????)
-                    return {};
+                    return false;
                 if (flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS) && !m_enabledFeatures.???????????)
-                    return {};
+                    return false;
                 */
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-07334
+                if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT) && flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT))
+                    return false;
             }
             else
             {
                 if (flags.hasFlags(build_flags_t::MOTION_BIT) && !m_enabledFeatures.rayTracingMotionBlur)
-                    return {};
+                    return false;
             }
 
             return true;
@@ -411,6 +418,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
             const auto& limits = getPhysicalDevice()->getLimits();
             constexpr bool BLAS = std::is_same_v<IGPUTopLevelAccelerationStructure::Geometry<buffer_t>,Geometry>;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
             if constexpr (BLAS)
             if (geometries.size()>limits.maxAccelerationStructureGeometryCount)
                 return {};
