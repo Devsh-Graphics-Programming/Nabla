@@ -141,10 +141,15 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 			// When validating for indirect builds pass `nullptr` as the argument
 			uint32_t valid(const BuildRangeInfo* const buildRangeInfos) const;
 
-			core::bitflag<BUILD_FLAGS> flags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+			core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 			const IGPUBottomLevelAccelerationStructure* srcAS = nullptr;
 			IGPUBottomLevelAccelerationStructure* dstAS = nullptr;
-			core::SRange<const Geometry<BufferType>> geometries = {nullptr,nullptr};
+			// please interpret based on `buildFlags.hasFlags(GEOMETRY_TYPE_AABBs)`
+			union
+			{
+				core::SRange<const Triangles<BufferType>> triangles = {nullptr,nullptr};
+				core::SRange<const AABBs<BufferType>> aabbs;
+			};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
@@ -189,10 +194,14 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03706
 			uint32_t valid(const uint32_t* const instanceCounts) const;
 			
-			core::bitflag<BUILD_FLAGS> flags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+			core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 			const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
 			IGPUTopLevelAccelerationStructure* dstAS = nullptr;
-			core::SRange<const Geometry<BufferType>> geometries = {nullptr,nullptr};
+			// depending on the presence certain bits in `buildFlags` this buffer will be filled with:
+			// - addresses to `StaticInstance`, `MatrixMotionInstance`, `SRTMotionInstance` packed in upper 60 bits and struct type in lower 4 bits if and only if `buildFlags.hasFlags(INSTANCE_TYPE_ENCODED_IN_POINTER_LSB)`, otherwise
+			// - an array of `PolymorphicInstance` if our `SCreationParams::flags.hasFlags(MOTION_BIT)`, otherwise
+			// - an array of `StaticInstance`
+			core::SRange<const asset::SBufferBinding<const BufferType>> instanceData = {nullptr,nullptr};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
@@ -201,12 +210,15 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		// TODO: Investigate `EXT_private_data` to be able to go ` -> IGPUBottomLevelAccelerationStructure`
 		using DeviceInstance = Instance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostInstance = Instance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+		// other typedefs for convenience
 		using DeviceStaticInstance = StaticInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostStaticInstance = StaticInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		using DeviceMatrixMotionInstance = MatrixMotionInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostMatrixMotionInstance = MatrixMotionInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		using DeviceSRTMotionInstance = SRTMotionInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostSRTMotionInstance = SRTMotionInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+		using DevicePolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
+		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 
 	protected:
 		inline IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
