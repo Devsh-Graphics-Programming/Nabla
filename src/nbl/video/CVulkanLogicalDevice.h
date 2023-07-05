@@ -455,8 +455,10 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             const core::SRange<const Geometry>& geometries,
             const uint32_t* const pMaxPrimitiveOrInstanceCounts
         ) const
-        {                
-            core::vector<VkAccelerationStructureGeometryKHR> vk_geometries(geometries.size());
+        {
+            const auto geometryCount = geometries.size();
+            core::vector<VkAccelerationStructureGeometryKHR> vk_geometries(geometryCount);
+            core::vector<VkAccelerationStructureGeometryKHR> vk_geometries(geometryCount);
             for (auto i=0u; i<geometries.size(); i++)
                 getVkAcelerationStructureGeometryFrom<true>(geometries[i],vk_geometries[i]);
 
@@ -467,7 +469,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             vk_buildGeomsInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_MAX_ENUM_KHR; // ignored by this command
             vk_buildGeomsInfo.srcAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
             vk_buildGeomsInfo.dstAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
-            vk_buildGeomsInfo.geometryCount = geometries.size();
+            vk_buildGeomsInfo.geometryCount = geometryCount;
             vk_buildGeomsInfo.pGeometries = vk_geometries.data();
             vk_buildGeomsInfo.ppGeometries = nullptr;
             vk_buildGeomsInfo.scratchData.deviceAddress = 0x0ull; // ignored by this command

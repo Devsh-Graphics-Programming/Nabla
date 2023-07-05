@@ -343,12 +343,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             if (invalidCreationParams(params))
                 return nullptr;
-            if (params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) && params.maxInstanceCount==0u)
+            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && (params.maxInstanceCount==0u || params.maxInstanceCount>getPhysicalDevice()->getLimits().maxAccelerationStructureInstanceCount))
                 return nullptr;
             return createTopLevelAccelerationStructure_impl(std::move(params));
         }
 
         //! Acceleration Structure modifiers
+#if 0
         template<typename build_flags_t>
         inline bool validAccelerationStructureBuildFlags(const core::bitflag<build_flags_t> flags) const
         {
@@ -434,31 +435,89 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
             return getAccelerationStructureBuildSizes_impl(flags,geometries,pMaxPrimitiveOrInstanceCounts);
         }
+#endif
+
+
+
+
+
+
+
         //
         inline bool invalidAccelerationStructureForHostOperations(const IGPUAccelerationStructure* const as) const
         {
             if (!as)
                 return true;
-            const auto* memory = as->getBufferRange().buffer->getBoundMemory().memory;
+            const auto* memory = as->getCreationParams().bufferRange.buffer->getBoundMemory().memory;
             if (invalidMemoryForAccelerationStructureHostOperations(memory))
                 return true;
             if (!memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_HOST_CACHED_BIT))
                 m_logger.log("Acceleration Structures manipulated using Host Commands should always be bound to host cached memory, as the implementation may need to repeatedly read and write this memory during the execution of the command.",system::ILogger::ELL_PERFORMANCE);
             return false;
         }
-        // build
-        inline bool buildAccelerationStructures(IDeferredOperation* const deferredOperation, const core::SRange<IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
-            IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
+        // For TLAS build `firstVertex` and `transformOffset` in the build ranges are ignored
+        inline bool buildAccelerationStructures(
+            IDeferredOperation* const deferredOperation,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
+            const IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos
+        )
         {
             if (!acquireDeferredOperation(deferredOperation))
                 return false;
-            for (const auto info : infos)
-            if (!info.valid())
+
+            // we will at least need to track each dstAS
+            uint32_t trackingReservation = infos.size(); 
+            for (auto i=0u; i<infos.size(); i++)
+            if (!infos[i].valid(ppBuildRangeInfos[i]))
                 return false;
-            if (!buildAccelerationStructures_impl(deferredOperation,infos))
+            
+            auto result = buildAccelerationStructures_impl(deferredOperation,infos,ppBuildRangeInfos);
+            // track things created
+            if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
+                auto& tracking = deferredOperation->m_resourceTracking;
+                tracking.reserve(tracking.size()+infos.size()*3u);
+                for (const auto& info : infos)
+                {
+                    if (info.srcAS)
+                        tracking.emplace_back(info.srcAS);
+                    tracking.emplace_back(info.dstAS);
+                    // TODO
+                }
+            }
+            return result!=DEFERRABLE_RESULT::SOME_ERROR;
+        }
+        // For TLAS build `firstVertex` and `transformOffset` in the build ranges are ignored
+        inline bool buildAccelerationStructures(
+            IDeferredOperation* const deferredOperation,
+            const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
+            const IGPUAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos
+        )
+        {
+            if (!acquireDeferredOperation(deferredOperation))
                 return false;
-            // TODO: resource track!
-            return true;
+
+            // we will at least need to track each dstAS
+            uint32_t trackingReservation = infos.size();
+            for (auto i=0u; i<infos.size(); i++)
+            if (!infos[i].valid(pBuildRangeInfos[i].primitiveOrInstanceCount))
+                return false;
+
+            auto result = buildAccelerationStructures_impl(deferredOperation,infos,pBuildRangeInfos);
+            // track things created
+            if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
+                auto& tracking = deferredOperation->m_resourceTracking;
+                tracking.reserve(tracking.size()+infos.size()*3u);
+                for (const auto& info : infos)
+                {
+                    if (info.srcAS)
+                        tracking.emplace_back(info.srcAS);
+                    tracking.emplace_back(info.dstAS);
+                    tracking.emplace_back(info.instanceData.buffer);
+                }
+            }
+            return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
         // write out props, the length of the bugger pointed to by `data` must be `>=count*stride`
         inline bool writeAccelerationStructuresProperties(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
@@ -958,8 +1017,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
         }
-        virtual bool buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<IGPUBottomLevelAccelerationStructure::HostBuildGeometryInfo>& infos) = 0;
-        virtual bool buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<IGPUTopLevelAccelerationStructure::HostBuildGeometryInfo>& infos) = 0;
+        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos) = 0;
+        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) = 0;
         virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;

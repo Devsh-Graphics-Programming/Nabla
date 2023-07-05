@@ -72,49 +72,50 @@ inline VkCopyMemoryToAccelerationStructureInfoKHR getVkCopyMemoryToAccelerationS
 	return info;
 }
 
-inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUAccelerationStructure::GEOMETRY_FLAGS in)
+inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUBottomLevelAccelerationStructure::GEOMETRY_FLAGS in)
 {
 	return static_cast<VkGeometryFlagsKHR>(in);
 }
-//
-template<typename Geometry, bool QueryOnly=false>
-void getVkAcelerationStructureGeometryFrom(const Geometry& geometry, VkAccelerationStructureGeometryKHR& outBase)
+
+// The srcAccelerationStructure, dstAccelerationStructure, and mode members of pBuildInfo are ignored. Any VkDeviceOrHostAddressKHR members of pBuildInfo are ignored by this command
+static const VkDeviceOrHostAddressConstKHR NullAddress = { 0x0ull };
+template<class BufferType, bool QueryOnly=false>
+void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase)
 {
-	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr};
-	
-	using buffer_t = Geometry::buffer_t;
-	constexpr bool BLAS = std::is_same_v<IGPUTopLevelAccelerationStructure::Geometry<buffer_t>,Geometry>;
-	if constexpr (BLAS)
+	static const VkDeviceOrHostAddressConstKHR DummyNonNullAddress = { 0xdeadbeefBADC0FFEull };
+
+	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_TRIANGLES_KHR};
+	outBase.geometry.triangles = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,nullptr};
+	outBase.geometry.triangles.vertexFormat = getVkFormatFromFormat(triangles.vertexFormat);
+	outBase.geometry.triangles.vertexData = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.vertexData[0]);
+	outBase.geometry.triangles.vertexStride = triangles.vertexStride;
+	outBase.geometry.triangles.maxVertex = triangles.maxVertex;
+	outBase.geometry.triangles.indexType = static_cast<VkIndexType>(triangles.indexType);
+	outBase.geometry.triangles.indexData = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.indexData);
+	// except that the hostAddress member of VkAccelerationStructureGeometryTrianglesDataKHR::transformData will be examined to check if it is NULL.
+	outBase.geometry.triangles.transformData = QueryOnly ? DummyNonNullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.transformData);
+	outBase.flags = getVkGeometryFlagsFrom(triangles.geometryFlags.value);
+}
+#if 0 // TODO
+template<class BufferType, bool QueryOnly=false>
+void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase, VkAccelerationStructureGeometryMotionTrianglesDataNV& vertexMotion)
+{
+	getVkAcelerationStructureGeometryFrom(triangles,outBase);
+	if (triangles.vertexData[1].buffer)
 	{
-		if (geometry.isAABB)
-		{
-			outBase.geometryType = VK_GEOMETRY_TYPE_AABBS_KHR;
-			outBase.geometry.aabbs = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR,nullptr};
-			outBase.geometry.aabbs.data = getVkDeviceOrHostConstAddress<buffer_t>(aabbs.data);
-			outBase.geometry.aabbs.stride = aabbs.stride;
-		}
-		else
-		{
-			outBase.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
-			outBase.geometry.triangles = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,nullptr};
-			outBase.geometry.triangles.vertexFormat = getVkFormatFromFormat(triangles.vertexFormat);
-			outBase.geometry.triangles.vertexData = getVkDeviceOrHostConstAddress<buffer_t>(triangles.vertexData);
-			outBase.geometry.triangles.vertexStride = triangles.vertexStride;
-			outBase.geometry.triangles.maxVertex = triangles.maxVertex;
-			outBase.geometry.triangles.indexType = static_cast<VkIndexType>(triangles.indexType);
-			outBase.geometry.triangles.indexData = getVkDeviceOrHostConstAddress<buffer_t>(triangles.indexData);
-			outBase.geometry.triangles.transformData = getVkDeviceOrHostConstAddress<buffer_t>(triangles.transformData);
-		}
+		vertexMotion->vertexData = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.vertexData[1]);
+		outBase.geometry.triangles.pNext = vertexMotion;
 	}
-	else
-	{
-		outBase.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-		outBase.geometry.instances = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,nullptr};
-		outBase.geometry.instances.data = getVkDeviceOrHostConstAddress<buffer_t>(instances.data);
-		// We always force user to use 
-		outBase.geometry.instances.arrayOfPointers = VK_FALSE;
-	}
-	outBase.flags = getVkGeometryFlagsFrom(geometry.flags.value);
+}
+#endif
+template<class BufferType, bool QueryOnly=false>
+void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStructure::AABBs<BufferType>& aabbs, VkAccelerationStructureGeometryKHR& outBase)
+{
+	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_AABBS_KHR};
+	outBase.geometry.aabbs = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR,nullptr};
+	outBase.geometry.aabbs.data = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(aabbs.data);
+	outBase.geometry.aabbs.stride = aabbs.stride;
+	outBase.flags = getVkGeometryFlagsFrom(aabbs.geometryFlags.value);
 }
 
 inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUBottomLevelAccelerationStructure::BUILD_FLAGS in)

@@ -195,11 +195,10 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		template<typename BufferType>
 		struct BuildInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
-			// Returns 0 on failure, otherwise returns the number of `core::smart_refctd_ptr` to reserve for lifetime tracking
-			// When validating for indirect builds pass `nullptr` as the argument
+			// When validating for indirect builds pass the maximum possible instance count as the argument
 			// List of things too expensive or impossible (without GPU Assist) to validate:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03706
-			uint32_t valid(const uint32_t* const instanceCounts) const;
+			bool valid(const uint32_t instanceCount) const;
 			
 			core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 			const IGPUTopLevelAccelerationStructure* srcAS = nullptr;

@@ -18,8 +18,9 @@ namespace acceleration_structures
 // Use for Indirect Builds
 struct BuildRangeInfo
 {
-    uint32_t primitiveCount; // needs to stay constant across updates
-    uint32_t primitiveOffset;
+    uint32_t primitiveOrInstanceCount; // needs to stay constant across updates
+    uint32_t primitiveOrInstanceOffset;
+    // following are only relevant for Triangle Geometries in BLASes
     uint32_t firstVertex; // needs to stay constant across updates
     uint32_t transformOffset;
 
