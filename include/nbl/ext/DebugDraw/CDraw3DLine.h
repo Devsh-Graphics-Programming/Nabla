@@ -120,7 +120,7 @@ class CDraw3DLine : public core::IReferenceCounted
 		}
 		// If @fence is not nullptr, you'll get a new fence assigned to @fence that you can wait for,
 		// If @fence is nullptr, the function will automatically manage fence waiting
-        void updateVertexBuffer(video::IUtilities* utilities, video::IGPUQueue* queue, core::smart_refctd_ptr<video::IGPUFence>* fence = nullptr);
+        void updateVertexBuffer(video::IUtilities* utilities, video::IQueue* queue, core::smart_refctd_ptr<video::IGPUFence>* fence = nullptr);
     private:
 		CDraw3DLine(const core::smart_refctd_ptr<video::ILogicalDevice>& device);
 		virtual ~CDraw3DLine() {}

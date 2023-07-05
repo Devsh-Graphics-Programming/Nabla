@@ -21,7 +21,7 @@ class IPresentationOracle
 
         // TODO: Actually start using this in CommonAPI of the examples
         //! wraps image acquire, could inject timings and queries before and after to obtain frame presentation data
-        virtual void present(nbl::video::ILogicalDevice* device, nbl::video::ISwapchain* swapchain, nbl::video::IGPUQueue* queue, nbl::video::IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumer) = 0;
+        virtual void present(nbl::video::ILogicalDevice* device, nbl::video::ISwapchain* swapchain, nbl::video::IQueue* queue, nbl::video::IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumer) = 0;
 };
 
 }

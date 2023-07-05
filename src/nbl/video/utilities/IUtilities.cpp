@@ -4,9 +4,9 @@
 
 namespace nbl::video
 {
-IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
+IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit)
+    IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit)
 {
     if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
     {
@@ -103,7 +103,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
         {
             // but first submit the already buffered up copies and whatever previously recorded into the command buffer
             cmdbuf->end();
-            IGPUQueue::SSubmitInfo submit = intendedNextSubmit;
+            IQueue::SSubmitInfo submit = intendedNextSubmit;
             submit.signalSemaphoreCount = 0u;
             submit.pSignalSemaphores = nullptr;
             assert(submit.isValid());
@@ -163,7 +163,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submitInfo
+    IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo submitInfo
 )
 {
     if(!submitInfo.isValid())
@@ -184,7 +184,7 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submitInfo
+    IQueue* submissionQueue, const IQueue::SSubmitInfo& submitInfo
 )
 {
     if(!submitInfo.isValid())
@@ -233,7 +233,7 @@ ImageRegionIterator::ImageRegionIterator(
     if (asset::isDepthOrStencilFormat(dstImageFormat))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
 
-    if (!(queueFamilyProps.queueFlags&(IGPUQueue::FAMILY_FLAGS::COMPUTE_BIT|IGPUQueue::FAMILY_FLAGS::GRAPHICS_BIT)))
+    if (!(queueFamilyProps.queueFlags&(IQueue::FAMILY_FLAGS::COMPUTE_BIT|IQueue::FAMILY_FLAGS::GRAPHICS_BIT)))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
     // TODO: Need to have a function to get equivalent format of the specific plane of this format (in aspectMask)
     // if(asset::isPlanarFormat(dstImageFormat->getCreationParameters().format))

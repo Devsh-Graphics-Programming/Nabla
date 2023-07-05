@@ -14,7 +14,7 @@
 
 
 #include "nbl/video/asset_traits.h"
-#include "nbl/video/IGPUSemaphore.h"
+#include "nbl/video/ISemaphore.h"
 #include "nbl/video/ILogicalDevice.h"
 
 #include "nbl/asset/ECommonEnums.h"
@@ -96,12 +96,12 @@ class IGPUObjectFromAssetConverter
         {
             struct SPerQueue
             {
-                IGPUQueue* queue = nullptr;
+                IQueue* queue = nullptr;
 
                 core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf = nullptr;
                 //! If not null, semaphore will be written here. Written semaphore will be signaled once last operations of corresponding type (transfer/compute) are finished.
                 core::smart_refctd_ptr<IGPUSemaphore>* semaphore = nullptr;
-                core::smart_refctd_ptr<IGPUEvent>* event = nullptr;
+                core::smart_refctd_ptr<IEvent>* event = nullptr;
             };
 
             //! Required not null
@@ -305,7 +305,7 @@ class IGPUObjectFromAssetConverter
             const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
             const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
 
-            return _params.device->getPhysicalDevice()->getQueueFamilyProperties()[computeFamIx].queueFlags.hasFlags(IGPUQueue::FAMILY_FLAGS::GRAPHICS_BIT);
+            return _params.device->getPhysicalDevice()->getQueueFamilyProperties()[computeFamIx].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT);
         }
 
     public:
@@ -480,7 +480,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
     core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf = _params.perQueue[EQU_TRANSFER].cmdbuf;
 
-    IGPUQueue::SSubmitInfo submit;
+    IQueue::SSubmitInfo submit;
     {
         submit.commandBufferCount = 1u;
         submit.commandBuffers = &cmdbuf.get();
@@ -853,7 +853,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         return true;
     };
     
-    IGPUQueue::SSubmitInfo submit_transfer;
+    IQueue::SSubmitInfo submit_transfer;
     {
         submit_transfer.commandBufferCount = 1u;
         submit_transfer.commandBuffers = &cmdbuf_transfer.get();
@@ -1153,7 +1153,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
             const auto dstWait = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
             auto* cb_comp = cmdbuf_compute.get();
-            IGPUQueue::SSubmitInfo submit_compute;
+            IQueue::SSubmitInfo submit_compute;
             submit_compute.commandBufferCount = 1u;
             submit_compute.commandBuffers = &cb_comp;
             submit_compute.waitSemaphoreCount = 1u;
@@ -2150,7 +2150,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
             fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
             core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf = _params.perQueue[EQU_COMPUTE].cmdbuf;
 
-            IGPUQueue::SSubmitInfo submit;
+            IQueue::SSubmitInfo submit;
             {
                 submit.commandBufferCount = 1u;
                 submit.commandBuffers = &cmdbuf.get();

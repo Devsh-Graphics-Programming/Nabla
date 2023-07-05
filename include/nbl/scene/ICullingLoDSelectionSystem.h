@@ -40,7 +40,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		};
 
 		//
-		static core::smart_refctd_ptr<video::IGPUBuffer> createDispatchIndirectBuffer(video::IUtilities* utils, video::IGPUQueue* queue)
+		static core::smart_refctd_ptr<video::IGPUBuffer> createDispatchIndirectBuffer(video::IUtilities* utils, video::IQueue* queue)
 		{
 			DispatchIndirectParams contents;
 			auto setWorkgroups = [](asset::DispatchIndirectCommand_t& cmd)

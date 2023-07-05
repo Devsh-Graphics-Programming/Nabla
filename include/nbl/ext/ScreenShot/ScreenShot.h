@@ -20,13 +20,13 @@ using namespace nbl::video;
 
 inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 	ILogicalDevice* logicalDevice,
-	IGPUQueue* queue,
+	IQueue* queue,
 	IGPUSemaphore* semaphore,
 	const IGPUImageView* gpuImageView,
 	const ACCESS_FLAGS accessMask,
 	const IImage::LAYOUT imageLayout)
 {
-	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&IGPUQueue::FAMILY_FLAGS::TRANSFER_BIT);
+	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&IQueue::FAMILY_FLAGS::TRANSFER_BIT);
 
 	auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 	auto gpuImage = fetchedImageViewParmas.image;
@@ -106,7 +106,7 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 
 	auto fence = logicalDevice->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
 
-	IGPUQueue::SSubmitInfo info;
+	IQueue::SSubmitInfo info;
 	info.commandBufferCount = 1u;
 	info.commandBuffers = &gpuCommandBuffer.get();
 	info.pSignalSemaphores = nullptr;
@@ -171,7 +171,7 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 
 inline bool createScreenShot(
 	ILogicalDevice* logicalDevice,
-	IGPUQueue* queue,
+	IQueue* queue,
 	IGPUSemaphore* semaphore,
 	const IGPUImageView* gpuImageView,
 	IAssetManager* assetManager,
@@ -187,7 +187,7 @@ inline bool createScreenShot(
 
 inline bool createScreenShot(
 	ILogicalDevice* logicalDevice,
-	IGPUQueue* queue,
+	IQueue* queue,
 	IGPUSemaphore* semaphore,
 	const IGPUImageView* gpuImageView,
 	IAssetManager* assetManager,

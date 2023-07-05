@@ -102,7 +102,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
+		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IQueue* uploadQueue)
 		{
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
@@ -318,7 +318,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				asset::SBufferBinding<video::IGPUBuffer> scratch;
 				video::StreamingTransientDataBufferMT<>* upBuff;
 				video::CPropertyPoolHandler* poolHandler;
-				video::IGPUQueue* queue;
+				video::IQueue* queue;
 				system::logger_opt_ptr logger = nullptr;
 
 			protected:
