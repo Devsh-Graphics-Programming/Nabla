@@ -2,7 +2,6 @@ find_package (Python3 COMPONENTS Interpreter REQUIRED)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/utils.cmake")
 
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/acceleration_structures.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/mtl/vertex_impl.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/mtl/vertex_no_uv.vert") # TODO: remove naming tautology
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/mtl/vertex_uv.vert") # TODO: remove naming tautology
@@ -237,6 +236,11 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/default_compute_normaliz
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/normalization.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/descriptors.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/shared_normalization.glsl")
+
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/acceleration_structures.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/algorithm.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/common.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/scanning_append.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/line.hlsl")
 
 macro(NBL_ADD_BUILTIN_RESOURCES _TARGET_) # internal & Nabla only, must be added with the macro to properly propagate scope
