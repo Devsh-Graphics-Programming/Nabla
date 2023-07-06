@@ -105,7 +105,7 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 	return cp;
 }
 
-void ICPUDescriptorSet::convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
+void ICPUDescriptorSet::convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert)
 {
 	convertToDummyObject_common(referenceLevelsBelowToConvert);
 
@@ -153,7 +153,7 @@ void ICPUDescriptorSet::convertToDummyObject(uint32_t referenceLevelsBelowToConv
 	}
 }
 
-void ICPUDescriptorSet::restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow)
+void ICPUDescriptorSet::restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow)
 {
 	auto* other = static_cast<ICPUDescriptorSet*>(_other);
 
@@ -207,9 +207,6 @@ bool ICPUDescriptorSet::isAnyDependencyDummy_impl(uint32_t _levelsBelow) const
 	--_levelsBelow;
 	if (_levelsBelow)
 	{
-		if (m_layout->isAnyDependencyDummy(_levelsBelow))
-			return true;
-
 		for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 		{
 			const auto type = static_cast<IDescriptor::E_TYPE>(t);

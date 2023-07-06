@@ -43,8 +43,8 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 				m_descriptorInfos[t] = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo>>(count);
 			}
 		}
+		_NBL_STATIC_INLINE_CONSTEXPR E_TYPE AssetType = ET_DESCRIPTOR_SET;
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUDescriptorSetLayout* getLayout() 
@@ -54,12 +54,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		}
 
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
-
-		inline bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
-			return m_layout->canBeRestoredFrom(other->m_layout.get());
-		}
 
 		inline size_t conservativeSizeEstimate() const override
 		{
@@ -89,10 +83,14 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override;
-
+		
 	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override;
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) override;
+		core::vector<IAsset*> getMembersToRecurse() const override { return { m_layout.get() }; }
+
+		inline bool compatible(const IAsset* _other) const { return true; }
+
+		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override;
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override;
 
@@ -131,7 +129,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			}
 			return category;
 		}
-
+		
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 };
 
