@@ -113,6 +113,12 @@ class IAsset : virtual public core::IReferenceCounted
 		};
 		constexpr static size_t ET_STANDARD_TYPES_COUNT = 24u;
 
+		//! To be implemented by derived classes. Returns a type of an Asset
+		virtual E_TYPE getAssetType() const = 0;
+
+		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
+		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+
 		//! Returns a representaion of an Asset type in decimal system
 		/**
 			Each value is returned from the range 0 to (ET_STANDARD_TYPES_COUNT - 1) to provide
@@ -177,11 +183,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
-			assert(getAssetType() == _other->getAssetType());
-
 			if (!canBeRestoredFrom(_other))
 				return false;
-
 			restoreFromDummy_impl(_other, _levelsBelow);
 			isDummyObjectForCacheAliasing = false;
 			return true;
@@ -208,27 +211,62 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
 
-		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
+		bool canBeRestoredFrom(const IAsset* _other) const {
+			if (_other == nullptr)
+				return false;
+			bool result = getAssetType() == _other->getAssetType() && compatible(_other) && canBeRestoredFrom_impl(_other);
+			if (result)
+				visitChildren([&result](IAsset* thisChild, IAsset* otherChild) {
+				return (result = thisChild->canBeRestoredFrom(otherChild));
+					});
+			return result;
+		}
 
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
-		inline bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
+		bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
 		{
 			if (isADummyObjectForCache())
 				return true;
-
-			return _levelsBelow ? isAnyDependencyDummy_impl(_levelsBelow) : false;
+			bool result = false;
+			if (_levelsBelow) {
+				visitChildren([&result, _levelsBelow](IAsset* thisChild) {
+					result = thisChild->isAnyDependencyDummy(_levelsBelow-1u);
+					return !result;
+					});
+			}
+			return result;
 		}
+
+		
+		size_t hash(std::unordered_map<IAsset*, size_t>*temporary_hash_cache = nullptr) const
+		{
+			size_t value = getAssetType();
+			hash_impl(value);
+			visitChildren(
+				[&value, temporary_hash_cache](IAsset* _child) {
+					core::hash_combine(value, getHashFromCache(_child, temporary_hash_cache));
+					return true;
+				});
+			return value;
+		}
+		bool equals(const IAsset* _other) const
+		{
+			if (_other == nullptr)
+				return false;
+			bool result = getAssetType() == _other->getAssetType() && compatible(_other) && equals_impl(_other);
+			if (result)
+				visitChildren([&result](IAsset* thisChild, IAsset* otherChild) {
+						return (result = thisChild->equals(otherChild));
+					});
+			return result;
+		}
+
 
     protected:
 		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
 		{
 			_this_child->restoreFromDummy_impl(_other_child, _levelsBelow);
 		}
-
-		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
-
-		// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
-		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }
 
         inline void clone_common(IAsset* _clone) const
         {
@@ -242,11 +280,32 @@ class IAsset : virtual public core::IReferenceCounted
 			//_NBL_DEBUG_BREAK_IF(imm);
 			return imm;
 		}
+		//returns asset's hash, by looking it up from a map, or calculates it if entry does not exist
+		//calculating a hash without cache might be fairly expensive
+		static inline size_t getHashFromCache(IAsset* asset, std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) {
+			if (temporary_hash_cache == nullptr) // do not use cache
+				return asset->hash(nullptr);
+			auto hash_iter = temporary_hash_cache->find(asset);
+			if (hash_iter != temporary_hash_cache->end()) 
+				return hash_iter->second; 
+			else {
+				size_t hash_val = asset->hash(temporary_hash_cache);
+				temporary_hash_cache->insert(std::make_pair(asset, hash_val));
+				return hash_val;
+			}
+		}
 
-	private:
-		friend IAssetManager;
+		//todo 
+		virtual bool equals_impl(const IAsset* _other) const { return true; }
+		virtual bool canBeRestoredFrom_impl(const IAsset* _other) const { return true; }
+		virtual void hash_impl(size_t &seed) const = 0; //hash members without recursion into other IAsset objects
+		virtual void restoreFromDummy_impl_impl(IAsset* _other) = 0;
+		virtual bool compatible(const IAsset* _other) const = 0;
 
-	protected:
+		//compares members
+		//common function between equals and canBeRestoredFrom
+
+
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
 		E_MUTABILITY m_mutability;
@@ -268,7 +327,16 @@ class IAsset : virtual public core::IReferenceCounted
 
 			@param referenceLevelsBelowToConvert says how many times to recursively call `convertToDummyObject` on its references.
 		*/
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) = 0;
+		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u)
+		{
+			convertToDummyObject_impl();
+			if (referenceLevelsBelowToConvert)
+				visitChildren([referenceLevelsBelowToConvert](IAsset* thisChild) {
+					thisChild->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+					return true;
+					});
+		}
+		virtual void convertToDummyObject_impl() = 0;
 
         inline void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
         {
@@ -282,12 +350,36 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
-	public:
-		//! To be implemented by derived classes. Returns a type of an Asset
-		virtual E_TYPE getAssetType() const = 0;
+		//! Lists members of type IAsset in order of least expensive to recurse through to most expensive
+		virtual nbl::core::vector<IAsset*> getMembersToRecurse() const = 0;
 
-		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
-		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+
+	private:
+		template<typename ChildLambda>
+		inline void visitChildren(const ChildLambda& childLambda) const {
+			auto assetMemberList = getMembersToRecurse();
+			for (size_t i = 0; i < assetMemberList.size(); i++)
+				if (!childLambda(assetMemberList[i])) break;
+		}
+		template<typename ChildLambda>
+		inline void visitChildren(const ChildLambda& childLambda, const IAsset* _other) {
+			auto assetMemberList = getMembersToRecurse();
+			auto otherAssetMemberList = _other->getMembersToRecurse();
+			for (size_t i = 0; i < assetMemberList.size(); i++)
+				if (!childLambda(assetMemberList[i], otherAssetMemberList[i])) break;
+		}
+
+		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow = (~0u)) {
+			restoreFromDummy_impl_impl(_other);
+			if (!_levelsBelow)
+				return;
+			visitChildren([](IAsset* thisChild, IAsset* otherChild) {
+				thisChild->restoreFromDummy_impl(otherChild);
+				return true; // continue
+			});
+		}
+
+			friend IAssetManager;
 };
 
 }
