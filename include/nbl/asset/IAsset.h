@@ -223,7 +223,7 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
-		bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
+		inline bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
 		{
 			if (isADummyObjectForCache())
 				return true;
@@ -233,12 +233,12 @@ class IAsset : virtual public core::IReferenceCounted
 					result = thisChild->isAnyDependencyDummy(_levelsBelow-1u);
 					return !result;
 					});
+				result |= isAnyDependencyDummy_impl(_levelsBelow);
 			}
 			return result;
 		}
-
 		
-		size_t hash(std::unordered_map<IAsset*, size_t>*temporary_hash_cache = nullptr) const
+		inline size_t hash(std::unordered_map<IAsset*, size_t>*temporary_hash_cache = nullptr) const
 		{
 			size_t value = getAssetType();
 			hash_impl(value);
@@ -249,7 +249,7 @@ class IAsset : virtual public core::IReferenceCounted
 				});
 			return value;
 		}
-		bool equals(const IAsset* _other) const
+		inline bool equals(const IAsset* _other) const
 		{
 			if (_other == nullptr)
 				return false;
@@ -299,8 +299,10 @@ class IAsset : virtual public core::IReferenceCounted
 		virtual bool equals_impl(const IAsset* _other) const { return true; }
 		virtual bool canBeRestoredFrom_impl(const IAsset* _other) const { return true; }
 		virtual void hash_impl(size_t &seed) const = 0; //hash members without recursion into other IAsset objects
-		virtual void restoreFromDummy_impl_impl(IAsset* _other) = 0;
+		virtual void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
 		virtual bool compatible(const IAsset* _other) const = 0;
+		
+		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
 
 		//compares members
 		//common function between equals and canBeRestoredFrom
@@ -329,14 +331,14 @@ class IAsset : virtual public core::IReferenceCounted
 		*/
 		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u)
 		{
-			convertToDummyObject_impl();
+			convertToDummyObject_impl(referenceLevelsBelowToConvert);
 			if (referenceLevelsBelowToConvert)
 				visitChildren([referenceLevelsBelowToConvert](IAsset* thisChild) {
 					thisChild->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 					return true;
 					});
 		}
-		virtual void convertToDummyObject_impl() = 0;
+		virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) = 0;
 
         inline void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
         {
@@ -370,7 +372,7 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 
 		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow = (~0u)) {
-			restoreFromDummy_impl_impl(_other);
+			restoreFromDummy_impl_impl(_other, _levelsBelow);
 			if (!_levelsBelow)
 				return;
 			visitChildren([](IAsset* thisChild, IAsset* otherChild) {
