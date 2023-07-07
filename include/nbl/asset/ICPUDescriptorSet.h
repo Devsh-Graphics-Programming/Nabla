@@ -86,13 +86,12 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		
 	protected:
 		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) override;
-		core::vector<IAsset*> getMembersToRecurse() const override { return { m_layout.get() }; }
+
+		core::vector<IAsset*> getMembersToRecurse() const override;
 
 		inline bool compatible(const IAsset* _other) const { return true; }
 
 		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override;
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override;
 
 		virtual ~ICPUDescriptorSet() = default;
 

@@ -183,6 +183,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
+			if (_other == nullptr)
+				return false;
 			if (!canBeRestoredFrom(_other))
 				return false;
 			restoreFromDummy_impl(_other, _levelsBelow);
@@ -192,6 +194,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 		inline bool willBeRestoredFrom(const IAsset* _other) const
 		{
+			if (_other == nullptr)
+				return false;
 			assert(getAssetType() == _other->getAssetType());
 
 			if (getMutability() != EM_MUTABLE)
