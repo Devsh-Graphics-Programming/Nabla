@@ -7,8 +7,6 @@
 #define uint uint32_t
 #endif
 
-const uint gl_LocalInvocationIndex: SV_GroupIndex;
-
 namespace nbl
 {
 namespace hlsl

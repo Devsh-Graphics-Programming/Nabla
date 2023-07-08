@@ -6,19 +6,13 @@
 
 #include "nbl/builtin/hlsl/atomics.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
-#include "nbl/builtin/hlsl/subgroup/scratch.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
-
-#ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-#define _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-const uint gl_LocalInvocationIndex : SV_GroupIndex;
-#endif
 
 // REVIEW: They were defined in shared_ballot.glsl but only used in ballot.glsl so they were moved
 #define getDWORD(IX) ((IX)>>5)
 // bitfieldDWORDs essentially means 'how many DWORDs are needed to store ballots in bitfields, for each invocation of the workgroup'
-#define bitfieldDWORDs getDWORD(_NBL_HLSL_WORKGROUP_SIZE_+31)
+#define bitfieldDWORDs getDWORD(_NBL_HLSL_WORKGROUP_SIZE_+31) // in case WGSZ is not a multiple of 32 we might miscalculate the DWORDs after the right-shift by 5 which is why we add 31
 
 namespace nbl 
 {
@@ -26,7 +20,7 @@ namespace hlsl
 {
 namespace workgroup
 {
-	
+
 /**
  * Simple ballot function.
  *
@@ -43,9 +37,8 @@ namespace workgroup
  * For each invocation index, we can find its respective DWORD index in the scratch array 
  * by calling the getDWORD function.
  */
-template<class ScratchAccessor, bool initialize, bool edgeBarriers> // REVIEW: Not sure if initialization should be done as a template or as a runtime check. Not sure if barriers as tpl or as new function 'ballotWithBarriers'
-// initialize = gl_LocalInvocationIndex < bitfieldDWORDs
-void ballot(in bool value)
+template<class ScratchAccessor, bool edgeBarriers> // REVIEW: Not sure if barriers as tpl or as new function 'ballotWithBarriers'
+void ballot(in bool value, in bool initialize) // REVIEW: The value of initialize = gl_LocalInvocationIndex < bitfieldDWORDs, maybe add the check here?
 {
 	if(edgeBarriers)
 		Barrier();
@@ -56,8 +49,8 @@ void ballot(in bool value)
 	}
 	Barrier();
 	if(value) {
-		uint temp;
-		scratch.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), temp);
+		uint dummy;
+		scratch.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
 	}
 	
 	if(edgeBarriers)
@@ -69,7 +62,7 @@ void ballot(in bool value)
  * extract any invocation's ballot value using this function.
  */
 template<class ScratchAccessor, bool edgeBarriers>
-bool ballotBitExtract(in uint index) // REVIEW: Should this just be incorporated inside inverseBallot() ?
+bool ballotBitExtract(in uint index)
 {
 	if(edgeBarriers)
 		Barrier();
@@ -95,11 +88,6 @@ bool inverseBallot()
  * 
  * We save the value in the shared array in the bitfieldDWORDs index 
  * and then all invocations access that index.
- * 
- * We want to broadcast types other than uint but because 
- * we use a uint scratch array, we need to convert these types 
- * into uint then back again. We use the converter template for this, 
- * which also contains the source type.
  */
 template<typename T, class ScratchAccessor>
 T broadcast(in T val, in uint id)
@@ -107,7 +95,7 @@ T broadcast(in T val, in uint id)
 // REVIEW: Check if we need edge barriers
 	ScratchAccessor scratch;
 	if(gl_LocalInvocationIndex == id) {
-		scratch.set(bitfieldDWORDs, val); // remember, the type conversion happens from the ScratchAccessor
+		scratch.set(bitfieldDWORDs, val);
 	}
 	Barrier();
 	return scratch.get(bitfieldDWORDs);
@@ -146,8 +134,8 @@ uint ballotBitCount()
 	{
 		const uint localBallot = scratch.get(gl_LocalInvocationIndex);
 		const uint localBallotBitCount = countbits(localBallot);
-		uint temp;
-		scratch.atomicAdd(bitfieldDWORDs, localBallotBitCount, temp);
+		uint dummy;
+		scratch.atomicAdd(bitfieldDWORDs, localBallotBitCount, dummy);
 	}
 	Barrier();
 	return scratch.get(bitfieldDWORDs);
@@ -157,7 +145,6 @@ template<class ScratchAccessor>
 uint ballotScanBitCount(in bool exclusive)
 {
 	ScratchAccessor scratch;
-	subgroup::ScratchOffsetsAndMasks offsetsAndMasks = subgroup::ScratchOffsetsAndMasks::WithDefaults();
 	const uint _dword = getDWORD(gl_LocalInvocationIndex);
 	const uint localBitfield = scratch.get(_dword);
 	uint globalCount;

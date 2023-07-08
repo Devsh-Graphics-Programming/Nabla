@@ -8,39 +8,14 @@
 #include "nbl/builtin/hlsl/subgroup/basic_portability.hlsl"
 #endif
 
+#include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
+
 namespace nbl
 {
 namespace hlsl
 {
 namespace subgroup
 {
-
-#ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-namespace native
-{
-
-template<typename T, class Binop>
-struct reduction;
-template<typename T, class Binop>
-struct exclusive_scan;
-template<typename T, class Binop>
-struct inclusive_scan;
-
-}
-#endif
-
-namespace portability
-{
-
-// PORTABILITY BINOP DECLARATIONS
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
-struct reduction;
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
-struct inclusive_scan;
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
-struct exclusive_scan;
-
-}
 
 template<typename T, class Binop, class ScratchAccessor, bool initializeScratch = true>
 struct reduction
@@ -79,6 +54,8 @@ struct inclusive_scan
         native::inclusive_scan<T, Binop> scan;
         return scan(x);
     #else
+		//if(gl_GlobalInvocationID.x == 0)
+		
         return portability::inclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create()(x);
     #endif
     }
@@ -87,7 +64,5 @@ struct inclusive_scan
 }
 }
 }
-
-#include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
 
 #endif

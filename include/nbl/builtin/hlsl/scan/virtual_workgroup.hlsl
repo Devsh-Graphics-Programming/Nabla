@@ -9,8 +9,6 @@
 
 #include "nbl/builtin/hlsl/binops.hlsl"
 
-const uint gl_LocalInvocationIndex: SV_GroupIndex;
-
 #if 0
 namespace nbl
 {

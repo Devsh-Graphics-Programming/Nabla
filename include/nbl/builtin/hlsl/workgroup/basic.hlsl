@@ -4,15 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BASIC_INCLUDED_
 
-
-//#include "nbl/builtin/hlsl/math/typeless_arithmetic.hlsl"
-#include "nbl/builtin/hlsl/subgroup/basic_portability.hlsl"
-
-#ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-#define _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-const uint gl_LocalInvocationIndex : SV_GroupIndex;
-#endif
-
 //! all functions must be called in uniform control flow (all workgroup invocations active)
 namespace nbl
 {
@@ -20,6 +11,9 @@ namespace hlsl
 {
 namespace workgroup
 {
+	static const uint MaxWorkgroupSizeLog2 = 11;
+	static const uint MaxWorkgroupSize = 0x1u << MaxWorkgroupSizeLog2;
+	
 	bool Elect()
 	{
 		return gl_LocalInvocationIndex==0u;

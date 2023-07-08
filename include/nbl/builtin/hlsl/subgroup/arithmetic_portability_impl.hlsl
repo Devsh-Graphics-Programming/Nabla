@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/binops.hlsl"
 #include "nbl/builtin/hlsl/subgroup/scratch.hlsl"
+#include "nbl/builtin/hlsl/subgroup/shuffle_portability.hlsl"
 
 // REVIEW:  Location and need of these. They need to be over a function but
 //          there's no need to have them over every subgroup func.
@@ -19,11 +20,6 @@
 void fake_for_capability_and_extension(){}
 
 #define WHOLE_WAVE ~0
-
-#ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-#define _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-const uint gl_LocalInvocationIndex : SV_GroupIndex; // REVIEW: Discuss proper placement of SV_* values. They are not allowed to be defined inside a function scope, only as arguments of main() or global variables in the shader.
-#endif
 
 //const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
 #define LastWorkgroupInvocation (_NBL_HLSL_WORKGROUP_SIZE_-1U)
@@ -39,6 +35,13 @@ namespace subgroup
 namespace native
 {
 
+template<typename T, class Binop>
+struct reduction;
+template<typename T, class Binop>
+struct exclusive_scan;
+template<typename T, class Binop>
+struct inclusive_scan;
+
 // *** AND ***
 template<typename T>
 struct reduction<T, binops::bitwise_and<T> >
@@ -48,20 +51,29 @@ struct reduction<T, binops::bitwise_and<T> >
         return WaveActiveBitAnd(x);
     }
 };
+
+// For all WaveMultiPrefix* ops, an example can be found here https://github.com/microsoft/DirectXShaderCompiler/blob/4e5440e1ee1f30d1164f90445611328293de08fa/tools/clang/test/HLSLFileCheck/hlsl/intrinsics/wave/prefix/sm_6_5_wave.hlsl
+// However, it seems they do not work for DXC->SPIR-V yet so we implement them via spirv intrinsics
+
 template<typename T>
-struct exclusive_scan<T, binops::bitwise_and<T> >
-{
-    T operator()(const T x)
-    {
-        return WaveMultiPrefixAnd(x, WHOLE_WAVE);
-    }
-};
+[[vk::ext_instruction(359)]]
+T spirv_subgroupPrefixAnd(uint scope, [[vk::ext_literal]] uint operation, T value);
+
 template<typename T>
 struct inclusive_scan<T, binops::bitwise_and<T> >
 {
     T operator()(const T x)
     {
-        return WaveMultiPrefixAnd(x, WHOLE_WAVE) & x;
+        return spirv_subgroupPrefixAnd(3, 1, x);
+    }
+};
+
+template<typename T>
+struct exclusive_scan<T, binops::bitwise_and<T> >
+{
+    T operator()(const T x)
+    {
+        return spirv_subgroupPrefixAnd(3, 2, x);
     }
 };
 
@@ -74,20 +86,27 @@ struct reduction<T, binops::bitwise_or<T> >
         return WaveActiveBitOr(x);
     }
 };
-template<typename T>
-struct exclusive_scan<T, binops::bitwise_or<T> >
-{
-    T operator()(const T x)
-    {
-        return WaveMultiPrefixOr(x, WHOLE_WAVE);
-    }
-};
+
+//template<typename T>
+[[vk::ext_instruction(360)]]
+//T spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, T value);
+uint spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, uint value);
+
 template<typename T>
 struct inclusive_scan<T, binops::bitwise_or<T> >
 {
     T operator()(const T x)
     {
-        return WaveMultiPrefixOr(x, WHOLE_WAVE) | x;
+        return spirv_subgroupPrefixOr(3, 1, x);
+    }
+};
+
+template<typename T>
+struct exclusive_scan<T, binops::bitwise_or<T> >
+{
+    T operator()(const T x)
+    {
+        return spirv_subgroupPrefixOr(3, 2, x);
     }
 };
 
@@ -100,20 +119,27 @@ struct reduction<T, binops::bitwise_xor<T> >
         return WaveActiveBitXor(x);
     }
 };
+
+
 template<typename T>
-struct exclusive_scan<T, binops::bitwise_xor<T> >
-{
-    T operator()(const T x)
-    {
-        return WaveMultiPrefixXor(x, WHOLE_WAVE);
-    }
-};
+[[vk::ext_instruction(361)]]
+T spirv_subgroupPrefixXor(uint scope, [[vk::ext_literal]] uint operation, T value);
+
 template<typename T>
 struct inclusive_scan<T, binops::bitwise_xor<T> >
 {
     T operator()(const T x)
     {
-        return WaveMultiPrefixXor(x, WHOLE_WAVE) ^ x;
+        return spirv_subgroupPrefixXor(3, 1, x);
+    }
+};
+
+template<typename T>
+struct exclusive_scan<T, binops::bitwise_xor<T> >
+{
+    T operator()(const T x)
+    {
+        return spirv_subgroupPrefixXor(3, 2, x);
     }
 };
 
@@ -179,87 +205,67 @@ struct reduction<T, binops::min<T> >
     }
 };
 
+// The MIN and MAX operations in SPIR-V have different Ops for each type
+// so we implement them distinctly
+
 [[vk::ext_instruction(353)]]
-int spirv_subgroupInclusiveMin(uint scope, [[vk::ext_literal]] uint operation, int value);
-int subgroupInclusiveMin(int t) {
-    return spirv_subgroupInclusiveMin(3, 1, t);
-}
+int spirv_subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, int value);
+[[vk::ext_instruction(354)]]
+uint spirv_subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, uint value);
+[[vk::ext_instruction(355)]]
+float spirv_subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, float value);
+
 template<>
 struct inclusive_scan<int, binops::min<int> >
 {
     int operator()(const int x)
     {
-        return subgroupInclusiveMin(x);
+        return spirv_subgroupPrefixMin(3, 1, x);
     }
 };
 
-[[vk::ext_instruction(354)]]
-uint spirv_subgroupInclusiveMin(uint scope, [[vk::ext_literal]] uint operation, uint value);
-uint subgroupInclusiveMin(uint t) {
-    return spirv_subgroupInclusiveMin(3, 1, t);
-}
 template<>
 struct inclusive_scan<uint, binops::min<uint> >
 {
     uint operator()(const uint x)
     {
-        return subgroupInclusiveMin(x);
+        return spirv_subgroupPrefixMin(3, 1, x);
     }
 };
 
-[[vk::ext_instruction(355)]]
-float spirv_subgroupInclusiveMin(uint scope, [[vk::ext_literal]] uint operation, float value);
-float subgroupInclusiveMin(float t) {
-    return spirv_subgroupInclusiveMin(3, 1, t);
-}
 template<>
 struct inclusive_scan<uint, binops::min<float> >
 {
     float operator()(const float x)
     {
-        return subgroupInclusiveMin(x);
+        return spirv_subgroupPrefixMin(3, 1, x);
     }
 };
 
-[[vk::ext_instruction(353)]]
-int spirv_subgroupExclusiveMin(uint scope, [[vk::ext_literal]] uint operation, int value);
-int subgroupExclusiveMin(int t) {
-    return spirv_subgroupExclusiveMin(3, 2, t);
-}
 template<>
 struct exclusive_scan<int, binops::min<int> >
 {
     int operator()(const int x)
     {
-        return subgroupExclusiveMin(x);
+        return spirv_subgroupPrefixMin(3, 2, x);
     }
 };
 
-[[vk::ext_instruction(354)]]
-uint spirv_subgroupExclusiveMin(uint scope, [[vk::ext_literal]] uint operation, uint value);
-uint subgroupExclusiveMin(uint t) {
-    return spirv_subgroupExclusiveMin(3, 2, t);
-}
 template<>
 struct exclusive_scan<uint, binops::min<uint> >
 {
     uint operator()(const uint x)
     {
-        return subgroupExclusiveMin(x);
+        return spirv_subgroupPrefixMin(3, 2, x);
     }
 };
 
-[[vk::ext_instruction(355)]]
-float spirv_subgroupExclusiveMin(uint scope, [[vk::ext_literal]] uint operation, float value);
-float subgroupExclusiveMin(float t) {
-    return spirv_subgroupExclusiveMin(3, 2, t);
-}
 template<>
 struct exclusive_scan<uint, binops::min<float> >
 {
     float operator()(const float x)
     {
-        return subgroupExclusiveMin(x);
+        return spirv_subgroupPrefixMin(3, 2, x);
     }
 };
 
@@ -274,115 +280,78 @@ struct reduction<T, binops::max<T> >
 };
 
 [[vk::ext_instruction(356)]]
-int spirv_subgroupInclusiveMax(uint scope, [[vk::ext_literal]] uint operation, int value);
-int subgroupInclusiveMax(int t) {
-    return spirv_subgroupInclusiveMax(3, 1, t);
-}
+int spirv_subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, int value);
+[[vk::ext_instruction(357)]]
+uint spirv_subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, uint value);
+[[vk::ext_instruction(358)]]
+float spirv_subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, float value);
+
 template<>
 struct inclusive_scan<int, binops::max<int> >
 {
     int operator()(const int x)
     {
-        return subgroupInclusiveMax(x);
+        return spirv_subgroupPrefixMax(3, 1, x);
     }
 };
 
-[[vk::ext_instruction(357)]]
-uint spirv_subgroupInclusiveMax(uint scope, [[vk::ext_literal]] uint operation, uint value);
-uint subgroupInclusiveMax(uint t) {
-    return spirv_subgroupInclusiveMax(3, 1, t);
-}
 template<>
 struct inclusive_scan<uint, binops::max<uint> >
 {
     uint operator()(const uint x)
     {
-        return subgroupInclusiveMax(x);
+        return spirv_subgroupPrefixMax(3, 1, x);
     }
 };
 
-[[vk::ext_instruction(358)]]
-float spirv_subgroupInclusiveMax(uint scope, [[vk::ext_literal]] uint operation, float value);
-float subgroupInclusiveMax(float t) {
-    return spirv_subgroupInclusiveMin(3, 1, t);
-}
 template<>
 struct inclusive_scan<uint, binops::max<float> >
 {
     float operator()(const float x)
     {
-        return subgroupInclusiveMax(x);
+        return spirv_subgroupPrefixMax(3, 1, x);
     }
 };
 
-[[vk::ext_instruction(356)]]
-int spirv_subgroupExclusiveMax(uint scope, [[vk::ext_literal]] uint operation, int value);
-int subgroupExclusiveMax(int t) {
-    return spirv_subgroupExclusiveMax(3, 2, t);
-}
 template<>
 struct exclusive_scan<int, binops::max<int> >
 {
     int operator()(const int x)
     {
-        return subgroupExclusiveMax(x);
+        return spirv_subgroupPrefixMax(3, 2, x);
     }
 };
 
-[[vk::ext_instruction(357)]]
-uint spirv_subgroupExclusiveMax(uint scope, [[vk::ext_literal]] uint operation, uint value);
-uint subgroupExclusiveMax(uint t) {
-    return spirv_subgroupExclusiveMax(3, 2, t);
-}
 template<>
 struct exclusive_scan<uint, binops::max<uint> >
 {
     uint operator()(const uint x)
     {
-        return subgroupExclusiveMax(x);
+        return spirv_subgroupPrefixMax(3, 2, x);
     }
 };
 
-[[vk::ext_instruction(358)]]
-float spirv_subgroupExclusiveMax(uint scope, [[vk::ext_literal]] uint operation, float value);
-float subgroupExclusiveMax(float t) {
-    return spirv_subgroupExclusiveMax(3, 2, t);
-}
 template<>
 struct exclusive_scan<uint, binops::max<float> >
 {
     float operator()(const float x)
     {
-        return subgroupExclusiveMax(x);
+        return spirv_subgroupPrefixMax(3, 2, x);
     }
 };
 
 }
-#endif
-
+#else
 namespace portability
 {
-
-struct scan_base
-{
-    template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
-	static inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> create()
-	{
-		inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> retval;
-		retval.offsetsAndMasks = ScratchOffsetsAndMasks::WithDefaults();
-		return retval;
-    }
-
-// protected:
-    ScratchOffsetsAndMasks offsetsAndMasks;
-};
-
 template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
-struct inclusive_scan : scan_base
+struct inclusive_scan
 {
     static inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> create()
-    {    
-		return scan_base::create<T, Binop, ScratchAccessor, initializeScratch>();
+    {
+		inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> retval;
+		retval.offsetsAndMasks = ScratchOffsetsAndMasks::WithSubgroupOpDefaults();
+		return retval;
     }
 
     T operator()(T value)
@@ -393,24 +362,27 @@ struct inclusive_scan : scan_base
 		{
 			Barrier();
 			MemoryBarrierShared();
-
+			
 			// each invocation initializes its respective slot with its value
-			scratchAccessor.set(offsetsAndMasks.scanStoreOffset ,value);
-
+			scratchAccessor.set(offsetsAndMasks.scanStoreOffset, value);
 			// additionally, the first half invocations initialize the padding slots
 			// with identity values
-			if (offsetsAndMasks.subgroupInvocation < offsetsAndMasks.halfSubgroupSize)
+			if (offsetsAndMasks.subgroupInvocation < offsetsAndMasks.halfSubgroupSize) {
 				scratchAccessor.set(offsetsAndMasks.lastLoadOffset, op.identity());
+			}
 		}
 		Barrier();
 		MemoryBarrierShared();
+		
 		// Stone-Kogge adder
 		// (devsh): it seems that lanes below <HalfSubgroupSize/step are doing useless work,
 		// but they're SIMD and adding an `if`/conditional execution is more expensive
-	#ifdef NBL_GL_KHR_shader_subgroup_shuffle
-		if(offsetsAndMasks.subgroupInvocation >= 1u)
+	#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: maybe use it by default?
+		uint toAdd = ShuffleUp<T, ScratchAccessor>(value, 1u);
+		if(offsetsAndMasks.subgroupInvocation >= 1u) {
 			// the first invocation (index 0) in the subgroup doesn't have anything in its left
-			value = op(value, ShuffleUp(value, 1u));
+			value = op(value, toAdd);
+		}
 	#else
 		value = op(value, scratchAccessor.get(offsetsAndMasks.scanStoreOffset-1u));
 	#endif
@@ -419,21 +391,36 @@ struct inclusive_scan : scan_base
 		{
 		#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: maybe use it by default?
 			// there is no scratch and padding entries in this case so we have to guard the shuffles to not go out of bounds
-			if(offsetsAndMasks.subgroupInvocation >= step)
-				value = op(value, ShuffleUp(value, step));
+			toAdd = ShuffleUp<T, ScratchAccessor>(value, step);
+			if(offsetsAndMasks.subgroupInvocation >= step) {
+				value = op(value, toAdd);
+			}
 		#else
+			Barrier();
+			MemoryBarrierShared();
 			scratchAccessor.set(offsetsAndMasks.scanStoreOffset, value);
 			Barrier();
 			MemoryBarrierShared();
 			value = op(value, scratchAccessor.get(offsetsAndMasks.scanStoreOffset - step));
 			Barrier();
 			MemoryBarrierShared();
+			scratchAccessor.set(offsetsAndMasks.scanStoreOffset, value);
+			Barrier();
+			MemoryBarrierShared();
+			
+			// REVIEW: The Stone-Kogge adder is done at this point.
+			// The GLSL implementation however has a final operation that uses the lastLoadOffset
+			// but it actually messes the results, not sure what the point was.
+			//value = op(value, scratchAccessor.get(offsetsAndMasks.lastLoadOffset));
+			//Barrier();
+			//MemoryBarrierShared();
 		#endif
 		}
 		return value;
     }
 // protected:
 	ScratchAccessor scratchAccessor;
+	ScratchOffsetsAndMasks offsetsAndMasks;
 };
 
 template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
@@ -452,7 +439,9 @@ struct exclusive_scan
 
 		// store value to smem so we can shuffle it
 	#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: Should we check this or just use shuffle by default?
-		value = ShuffleUp(value, 1);
+		Binop op;
+		uint left = ShuffleUp<T, ScratchAccessor>(value, 1);
+		value = impl.offsetsAndMasks.subgroupInvocation >= 1 ? left : op.identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
 	#else
 		impl.scratchAccessor.set(impl.offsetsAndMasks.scanStoreOffset,value);
 		Barrier();
@@ -483,20 +472,15 @@ struct reduction
     T operator()(T value)
     {
 		value = impl(value);
-        uint reductionResultOffset = impl.offsetsAndMasks.paddingMemoryEnd;
-		// in case of multiple subgroups inside the WG
-		if ((LastWorkgroupInvocation >> SizeLog2()) != InvocationID())
-			reductionResultOffset += LastWorkgroupInvocation & impl.offsetsAndMasks.subgroupMask;
-		else // in case of single subgroup in WG
-			reductionResultOffset += impl.offsetsAndMasks.subgroupMask;
-
+        
 	#ifdef NBL_GL_KHR_shader_subgroup_shuffle
-		Shuffle(value, reductionResultOffset);
+		value = Shuffle<T, ScratchAccessor>(value, impl.offsetsAndMasks.subgroupMask); // take the last subgroup invocation's value
 	#else
-		// store value to smem so we can broadcast it to everyone
 		impl.scratchAccessor.set(impl.offsetsAndMasks.scanStoreOffset, value);
 		Barrier();
 		MemoryBarrierShared();
+		uint reductionResultOffset = impl.offsetsAndMasks.subgroupPaddingMemoryEnd + impl.offsetsAndMasks.subgroupMask; // this should end up being the last subgroup invocation
+		// store value to smem so we can broadcast it to everyone
 		value = impl.scratchAccessor.get(reductionResultOffset);
 		Barrier();
 		MemoryBarrierShared();
@@ -508,7 +492,7 @@ struct reduction
     inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> impl;
 };
 }
-
+#endif
 }
 }
 }

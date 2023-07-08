@@ -8,9 +8,6 @@ namespace nbl
 {
 namespace hlsl
 {
-	static const uint MaxWorkgroupSizeLog2 = 11;
-	static const uint MaxWorkgroupSize = 0x1u << MaxWorkgroupSizeLog2;
-	
 namespace subgroup
 {
 	static const uint MinSubgroupSizeLog2 = 2;
@@ -38,6 +35,10 @@ namespace subgroup
 		return WaveGetLaneIndex();
 	}
 
+	uint SubgroupID() {
+		return gl_LocalInvocationIndex >> SizeLog2();
+	}
+
 	bool Elect() {
 		return WaveIsFirstLane();
 	}
@@ -46,6 +47,14 @@ namespace subgroup
 	T BroadcastFirst(T value)
 	{
 		return WaveReadLaneFirst(value);
+	}
+	
+	uint ElectedSubgroupInvocationID() {
+		return BroadcastFirst<uint>(InvocationID());
+	}
+	
+	uint ElectedWorkgroupInvocationID() {
+		return BroadcastFirst(gl_LocalInvocationIndex);
 	}
 
 	template<typename T>
@@ -89,11 +98,11 @@ namespace subgroup
 
 	// REVIEW Should we name the Barriers with the Subgroup prefix just to make it clearer when calling?
 	// REVIEW Proper Memory Semantics!! Link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
-	// REVIEW: Need advice on memory semantics. Would think SubgroupMemory(0x80) | AcquireRelease(0x8) is the correct bitmask but SubgroupMemory doesn't seem to be supported as  Vulkan storage class
+	// REVIEW: Need advice on memory semantics. Would think SubgroupMemory(0x80) | AcquireRelease(0x8) is the correct bitmask but SubgroupMemory doesn't seem to be supported as Vulkan storage class
 	
 	void Barrier() {
 		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_scope_id
-		// Subgroup scope is number 3
+		// Subgroup scope is number 3, both for execution and memory
 
 		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
 		// By providing memory semantics None we do both control and memory barrier as is done in GLSL

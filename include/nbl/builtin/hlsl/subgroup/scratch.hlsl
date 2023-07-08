@@ -7,11 +7,6 @@
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/basic_portability.hlsl"
 
-#ifndef _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-#define _NBL_GL_LOCAL_INVOCATION_IDX_DECLARED_
-const uint gl_LocalInvocationIndex : SV_GroupIndex;
-#endif
-
 /**
  * The clearIndex for each invocation is the first 8 indices for each set of subgroup::Size().
  * Example for subgroup::Size() == 32:
@@ -37,51 +32,53 @@ namespace subgroup
 	struct ScratchOffsetsAndMasks
 	{
 		/**
-		 * Struct creator with default values.
+		 * Struct creator with default values for subgroup portability arithmetic operations.
+		 * For each subgroup inside the workgroup, the memory range is SubgroupSize + HalfSubgroupSize
+		 * because each subgroup has HalfSubgroupSize padding on its left. This means that the ranges 
+		 * for a 4-subgroup workgroup with size 64 are:
+		 * [0,95] [96,191] [192,287] [288,383].
+		 * The padding is usually initialized with an operation's identity value while the main range 
+		 * with the operated value.
 		 */
-		static ScratchOffsetsAndMasks WithDefaults()
+		static ScratchOffsetsAndMasks WithSubgroupOpDefaults()
 		{
 			ScratchOffsetsAndMasks s;
 			s.subgroupMask = Size() - 1u;
 			s.halfSubgroupSize = Size() >> 1u;
 			s.subgroupInvocation = InvocationID();
-			s.subgroupElectedInvocation = Elect();
-			s.subgroupMemoryBegin = s.subgroupElectedInvocation << 1u;
-			
-			// REVIEW: In the glsl implementation these are initialized like so
-			s.lastLoadOffset = s.subgroupMemoryBegin | s.subgroupInvocation;
-			s.scanStoreOffset = s.lastLoadOffset + s.halfSubgroupSize;
-			// REVIEW: In the comment https://github.com/Devsh-Graphics-Programming/Nabla/pull/434#issuecomment-1312824804 these are initialized as below
-			// lastLoadOffset = subgroupMemoryBegin+subgroupInvocation;
-			// paddingMemoryEnd = subgroupMemoryBegin+halfSubgroupSize;
-			// scanStoreOffset = paddingMemoryEnd+subgroupInvocation;
-			// REVIEW: Which is correct?
-			
-			s.paddingMemoryEnd = s.subgroupMemoryBegin + s.halfSubgroupSize;
-			
+			s.workgroupElectedInvocation = ElectedWorkgroupInvocationID();
+			s.subgroupMemoryBegin = s.workgroupElectedInvocation + s.halfSubgroupSize * (s.workgroupElectedInvocation >> SizeLog2());
+			s.lastLoadOffset = s.subgroupMemoryBegin + s.subgroupInvocation;
+			s.subgroupPaddingMemoryEnd = s.subgroupMemoryBegin + s.halfSubgroupSize;
+			s.scanStoreOffset = s.subgroupPaddingMemoryEnd + s.subgroupInvocation;
 			return s;
 		}
 	
 		uint subgroupMask;
 		uint halfSubgroupSize;
 		uint subgroupInvocation;
-		uint subgroupElectedInvocation;
+		uint workgroupElectedInvocation;
 		uint subgroupMemoryBegin;
 		uint lastLoadOffset;
 		uint scanStoreOffset;
 		
-		uint paddingMemoryEnd;
+		uint subgroupPaddingMemoryEnd;
 	};
 	
 	template<class ScratchAccessor, typename T>
 	void scratchInitialize(T value, T identity, uint activeInvocationIndexUpperBound)
 	{
 		ScratchAccessor accessor;
-		ScratchOffsetsAndMasks offsetsAndMasks = ScratchOffsetsAndMasks::WithDefaults();
+		ScratchOffsetsAndMasks offsetsAndMasks = ScratchOffsetsAndMasks::WithSubgroupOpDefaults();
 		accessor.set(offsetsAndMasks.scanStoreOffset, value);
 		const uint halfSubgroupMask = offsetsAndMasks.subgroupMask >> 1u;
-		accessor.set(scratchInitializeClearIndex(gl_LocalInvocationIndex, halfSubgroupMask), identity);
-		
+		// TEST
+		if (offsetsAndMasks.subgroupInvocation < offsetsAndMasks.halfSubgroupSize) {
+			accessor.set(offsetsAndMasks.lastLoadOffset, identity);
+		}
+		//accessor.set(scratchInitializeClearIndex(gl_LocalInvocationIndex, halfSubgroupMask), identity);
+		//if(gl_WorkGroupID.x==0)
+			//printf("ClearIdx [%d] = %d\n", gl_LocalInvocationIndex, scratchInitializeClearIndex(gl_LocalInvocationIndex, halfSubgroupMask));
 		if(_NBL_HLSL_WORKGROUP_SIZE_ < offsetsAndMasks.halfSubgroupSize)
 		{
 			const uint maxItemsToClear = (((activeInvocationIndexUpperBound - 1u) & (~offsetsAndMasks.subgroupMask)) >> 1u) + offsetsAndMasks.halfSubgroupSize;
