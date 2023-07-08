@@ -119,6 +119,9 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         //! Returns the size of the memory allocation
         virtual size_t getAllocationSize() const = 0;
 
+        //! Returns the API handle of the memory allocation
+        virtual const void* getNativeHandle() const = 0;
+
         //! returns current mapping access based on latest mapMemory's "accessHint", has no effect on Nabla's Vulkan Backend
         inline core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> getCurrentMappingAccess() const {return currentMappingAccess;}
         //!

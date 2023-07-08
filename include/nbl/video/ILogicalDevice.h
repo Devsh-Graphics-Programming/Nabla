@@ -423,6 +423,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //
         virtual void unmapMemory(IDeviceMemoryAllocation* memory) = 0;
 
+        virtual void* getExternalMemoryHandle(IDeviceMemoryBacked* obj) const = 0;
+
         // Not implemented stuff:
         //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)
         //vkGetDescriptorSetLayoutSupport

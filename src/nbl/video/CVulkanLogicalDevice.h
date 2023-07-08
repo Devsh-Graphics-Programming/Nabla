@@ -607,7 +607,13 @@ public:
     {
         VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
         // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-        vk_createInfo.pNext = nullptr;
+        
+        VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
+           .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+           .handleTypes = creationParams.externalMemoryHandType.value,
+        };
+
+        vk_createInfo.pNext = creationParams.externalMemoryHandType.value ? &externalMemoryInfo : nullptr;
         vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
         vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
         vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
@@ -824,6 +830,18 @@ public:
 
         // Todo(achal): Handle errors
         assert(retval == VK_SUCCESS);
+    }
+
+    void* getExternalMemoryHandle(IDeviceMemoryBacked* obj) const override
+    {
+        VkMemoryGetWin32HandleInfoKHR getHandleInfo = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+            .memory = VkDeviceMemory(obj->getBoundMemory()->getNativeHandle()),
+            .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalMemoryHandType.value),
+        };
+        void* handle = 0;
+        m_devf.vk.vkGetMemoryWin32HandleKHR(m_vkdev, &getHandleInfo, &handle);
+        return handle;
     }
 
     void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override

@@ -34,7 +34,7 @@ class CCUDAHandler : public core::IReferenceCounted
 		static T* cast_CUDA_ptr(CUdeviceptr ptr) { return reinterpret_cast<T*>(ptr); }
 
 		//
-		core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
+		static core::smart_refctd_ptr<CCUDAHandler> create(system::ISystem* system, core::smart_refctd_ptr<system::ILogger>&& _logger);
 
 		//
 		using LibLoader = system::DefaultFuncPtrLoader;
@@ -157,9 +157,9 @@ class CCUDAHandler : public core::IReferenceCounted
 			const auto filesize = file->getSize();
 			std::string source(filesize+1u,'0');
 
-			system::future<size_t> bytesRead;
+			system::IFile::success_t bytesRead;
 			file->read(bytesRead,source.data(),0u,file->getSize());
-			source.resize(bytesRead.get());
+			source.resize(bytesRead.getBytesProcessed());
 
 			return createProgram(prog,std::move(source),file->getFileName().string().c_str(),headerCount,headerContents,includeNames);
 		}
@@ -226,8 +226,7 @@ class CCUDAHandler : public core::IReferenceCounted
 		}
 
 		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
-
-	protected:
+protected:
 		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version)
 			: m_cuda(std::move(_cuda)), m_nvrtc(std::move(_nvrtc)), m_headers(std::move(_headers)), m_logger(std::move(_logger)), m_version(_version)
 		{
@@ -239,7 +238,8 @@ class CCUDAHandler : public core::IReferenceCounted
 			}
 		}
 		~CCUDAHandler() = default;
-		
+
+
 		//
 		inline ptx_and_nvrtcResult_t compileDirectlyToPTX_impl(nvrtcResult result, nvrtcProgram program, core::SRange<const char* const> nvrtcOptions, std::string* log)
 		{

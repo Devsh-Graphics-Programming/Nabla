@@ -30,6 +30,7 @@ public:
     //! Returns the size of the memory allocation
     size_t getAllocationSize() const override { return m_size; }
 
+    inline const void* getNativeHandle() const override { return &m_deviceMemoryHandle; }
     inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
 
 private:

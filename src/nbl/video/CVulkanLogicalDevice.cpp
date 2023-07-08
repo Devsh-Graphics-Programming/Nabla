@@ -71,6 +71,10 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
 
     core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
 
+    VkImportMemoryWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
+    VkExportMemoryWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR, .dwAccess = GENERIC_ALL };
+    VkExportMemoryAllocateInfo  exportInfo = { VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR, &handleInfo };
+
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
@@ -86,15 +90,35 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
 
     VkDeviceMemory vk_deviceMemory;
     bool isDedicated = (info.dedication != nullptr);
+    bool external = false;
     if(isDedicated)
     {
+        auto& ccParams = info.dedication->getCachedCreationParams();
+
+        if (ccParams.externalMemoryHandType.value)
+        {
+            external = true;
+            // Importing
+            if (ccParams.externalHandle)
+            {
+                importInfo.handleType = VkExternalMemoryHandleTypeFlagBits(ccParams.externalMemoryHandType.value);
+                importInfo.handle = ccParams.externalHandle;
+                vk_dedicatedInfo.pNext = &importInfo;
+            }
+            else // Exporting
+            {
+                exportInfo.handleTypes = VkExternalMemoryHandleTypeFlags(ccParams.externalMemoryHandType.value);
+                vk_dedicatedInfo.pNext = &exportInfo;
+            }
+        }
+
         // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
         static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
         vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
 
-        if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
+        if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
             vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
-        else if(info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
+        else if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
             vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
     }
 

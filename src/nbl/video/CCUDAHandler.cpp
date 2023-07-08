@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/video/CCUDAHandler.h"
+#include "nbl/system/CFileView.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 #include "jitify/jitify.hpp"
@@ -410,7 +411,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	NVRTC nvrtc = {};
 	#if defined(_NBL_WINDOWS_API_)
 	// Perpetual TODO: any new CUDA releases we need to account for?
-	const char* nvrtc64_versions[] = { "nvrtc64_111","nvrtc64_110","nvrtc64_102","nvrtc64_101","nvrtc64_100","nvrtc64_92","nvrtc64_91","nvrtc64_90","nvrtc64_80","nvrtc64_75","nvrtc64_70",nullptr };
+	const char* nvrtc64_versions[] = { "nvrtc64_120", "nvrtc64_111","nvrtc64_110","nvrtc64_102","nvrtc64_101","nvrtc64_100","nvrtc64_92","nvrtc64_91","nvrtc64_90","nvrtc64_80","nvrtc64_75","nvrtc64_70",nullptr };
 	const char* nvrtc64_suffices[] = {"","_","_0","_1","_2",nullptr};
 	for (auto verpath=nvrtc64_versions; *verpath; verpath++)
 	{
@@ -468,7 +469,7 @@ core::smart_refctd_ptr<CCUDAHandler> CCUDAHandler::create(system::ISystem* syste
 	{
 		const void* contents = it.second.data();
 		headers.push_back(core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
-			core::smart_refctd_ptr<system::ISystem>(system),it.first.c_str(),
+			it.first.c_str(),
 			core::bitflag(system::IFile::ECF_READ)|system::IFile::ECF_MAPPABLE,
 			const_cast<void*>(contents),it.second.size()+1u
 		));
@@ -514,7 +515,8 @@ CCUDAHandler::ptx_and_nvrtcResult_t CCUDAHandler::getPTX(nvrtcProgram prog)
 		return {nullptr,NVRTC_ERROR_INVALID_INPUT};
 
 	auto ptx = core::make_smart_refctd_ptr<asset::ICPUBuffer>(_size);
-	return {std::move(ptx),m_nvrtc.pnvrtcGetPTX(prog,reinterpret_cast<char*>(ptx->getPointer()))};
+	nvrtcResult result = m_nvrtc.pnvrtcGetPTX(prog, reinterpret_cast<char*>(ptx->getPointer()));
+	return {std::move(ptx),result};
 }
 
 core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice)
@@ -538,7 +540,8 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 		CUuuid uuid = {};
 		if (m_cuda.pcuDeviceGetUuid(&uuid,handle)!=CUDA_SUCCESS)
 			continue;
-        if (!memcmp(&uuid,&physicalDevice->getLimits().deviceUUID,VK_UUID_SIZE))
+		
+        if (!memcmp(&uuid,&physicalDevice->getProperties().deviceUUID,VK_UUID_SIZE))
 		{
 			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
 			for (int i=0; i<CU_DEVICE_ATTRIBUTE_MAX; i++)
@@ -624,7 +627,7 @@ core::smart_refctd_ptr<CCUDADevice> CCUDAHandler::createDevice(core::smart_refct
 			if (arch==CCUDADevice::EVA_COUNT)
 				continue;
 
-			auto device = new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch);
+			auto device = new CCUDADevice(std::move(vulkanConnection),physicalDevice,arch,handle,core::smart_refctd_ptr<CCUDAHandler>(this));
             return core::smart_refctd_ptr<CCUDADevice>(device,core::dont_grab);
         }
     }

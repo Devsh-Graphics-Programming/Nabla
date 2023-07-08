@@ -19,6 +19,23 @@ struct NBL_API2 ICleanup
 class IDeviceMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
+        //! Flags for imported/exported allocation
+        enum E_EXTERNAL_MEMORY_HANDLE_TYPE : uint32_t
+        {
+            EHT_NONE = 0,
+            EHT_OPAQUE_FD = 0x00000001,
+            EHT_OPAQUE_WIN32 = 0x00000002,
+            EHT_OPAQUE_WIN32_KMT = 0x00000004,
+            EHT_D3D11_TEXTURE = 0x00000008,
+            EHT_D3D11_TEXTURE_KMT = 0x00000010,
+            EHT_D3D12_HEAP = 0x00000020,
+            EHT_D3D12_RESOURCE = 0x00000040,
+            EHT_DMA_BUF = 0x00000200,
+            EHT_HOST_ALLOCATION = 0x00000080,
+            EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
+            EHT_RDMA_ADDRES = 0x00001000,
+        };
+
         //!
         struct SCachedCreationParams
         {
@@ -30,7 +47,11 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             uint8_t queueFamilyIndexCount = 0u;
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
-
+            // Handle Type for external resources
+            core::bitflag<E_EXTERNAL_MEMORY_HANDLE_TYPE> externalMemoryHandType = EHT_NONE;
+            //! Imports the given handle  if externalHandle != nullptr && externalMemoryHandType != EHT_NONE
+            //! Creates exportable memory if externalHandle == nullptr && externalMemoryHandType != EHT_NONE
+            void* externalHandle = nullptr;
             //! If you specify queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
             {
@@ -76,6 +97,9 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         //! Constant version
         virtual const IDeviceMemoryAllocation* getBoundMemory() const = 0;
 
+        //! Get handle of external memory, might be null
+        virtual void* getExternalHandle() = 0;
+
         //! Returns the offset in the allocation at which it is bound to the resource
         virtual size_t getBoundMemoryOffset() const = 0;
 
@@ -102,6 +126,7 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         //! members
         SCachedCreationParams m_cachedCreationParams;
         SDeviceMemoryRequirements m_cachedMemoryReqs;
+        void* m_cachedExternalHandle = nullptr;
 };
 
 } // end namespace nbl::video
