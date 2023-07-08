@@ -302,8 +302,8 @@ class IAsset : virtual public core::IReferenceCounted
 		//todo 
 		virtual bool equals_impl(const IAsset* _other) const { return true; }
 		virtual bool canBeRestoredFrom_impl(const IAsset* _other) const { return true; }
-		virtual void hash_impl(size_t &seed) const = 0; //hash members without recursion into other IAsset objects
-		virtual void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
+		virtual void hash_impl(size_t& seed) const {} //hash members without recursion into other IAsset objects
+		virtual void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) {};
 		virtual bool compatible(const IAsset* _other) const = 0;
 		
 		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
@@ -342,7 +342,9 @@ class IAsset : virtual public core::IReferenceCounted
 					return true;
 					});
 		}
-		virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) = 0;
+		virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) {
+			convertToDummyObject_common(referenceLevelsBelowToConvert);
+		};
 
         inline void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
         {
@@ -365,14 +367,16 @@ class IAsset : virtual public core::IReferenceCounted
 		inline void visitChildren(const ChildLambda& childLambda) const {
 			auto assetMemberList = getMembersToRecurse();
 			for (size_t i = 0; i < assetMemberList.size(); i++)
-				if (!childLambda(assetMemberList[i])) break;
+				if (assetMemberList[i])
+					if (!childLambda(assetMemberList[i])) break;
 		}
 		template<typename ChildLambda>
 		inline void visitChildren(const ChildLambda& childLambda, const IAsset* _other) {
 			auto assetMemberList = getMembersToRecurse();
 			auto otherAssetMemberList = _other->getMembersToRecurse();
 			for (size_t i = 0; i < assetMemberList.size(); i++)
-				if (!childLambda(assetMemberList[i], otherAssetMemberList[i])) break;
+				if(assetMemberList[i] && otherAssetMemberList[i])
+					if (!childLambda(assetMemberList[i], otherAssetMemberList[i])) break;
 		}
 
 		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow = (~0u)) {

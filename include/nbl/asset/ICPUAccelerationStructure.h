@@ -203,7 +203,7 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		}
 
 		//!
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			convertToDummyObject_common(referenceLevelsBelowToConvert);
 			
@@ -244,7 +244,7 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		}
 		
 		//!
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_impl(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUAccelerationStructure*>(_other);
 			_NBL_TODO();
@@ -258,7 +258,47 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 
 	protected:
 
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		bool compatible(const IAsset* _other) const override {
+			_NBL_TODO();
+			return true;
+
+		}
+
+		core::vector<IAsset*> getMembersToRecurse() const override { 
+			core::vector<IAsset*> members = {};
+			auto geoms = m_buildInfo.getGeometries().begin();
+			const auto geomsCount = m_buildInfo.getGeometries().size();
+			for (uint32_t i = 0; i < geomsCount; ++i)
+			{
+				auto geom = geoms[i];
+				if (geom.type == EGT_TRIANGLES)
+				{
+					if (geom.data.triangles.indexData.buffer)
+						members.push_back(geom.data.triangles.indexData.buffer.get());
+					if (geom.data.triangles.vertexData.buffer)
+						members.push_back(geom.data.triangles.vertexData.buffer.get());
+					if (geom.data.triangles.transformData.buffer)
+						members.push_back(geom.data.triangles.transformData.buffer.get());
+				}
+				else if (geom.type == EGT_AABBS)
+				{
+					if (geom.data.aabbs.data.buffer)
+						members.push_back(geom.data.aabbs.data.buffer.get());
+				}
+				else if (geom.type == EGT_INSTANCES)
+				{
+					if (geom.data.instances.data.buffer)
+						members.push_back(geom.data.instances.data.buffer.get());
+				}
+			}
+			return members;
+		}
+
+		void hash_impl(size_t& seed) const override {
+			_NBL_TODO();
+		}
+
+		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUAccelerationStructure*>(_other);
 			_NBL_TODO();

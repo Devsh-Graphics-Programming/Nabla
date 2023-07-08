@@ -91,6 +91,8 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		inline bool compatible(const IAsset* _other) const { return true; }
 
+		void hash_impl(size_t& seed) const override {}
+
 		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override;
 
 		virtual ~ICPUDescriptorSet() = default;

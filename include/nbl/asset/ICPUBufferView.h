@@ -35,14 +35,6 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
             return cp;
         }
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
-
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
@@ -64,8 +56,10 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
+
+	protected:
+
+		bool compatible(const IAsset* _other) const override {
 			auto* other = static_cast<const ICPUBufferView*>(_other);
 			if (m_size != other->m_size)
 				return false;
@@ -73,26 +67,16 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				return false;
 			if (m_format != other->m_format)
 				return false;
-			if (!m_buffer->canBeRestoredFrom(other->m_buffer.get()))
-				return false;
-
 			return true;
+
 		}
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUBufferView*>(_other);
+		core::vector<IAsset*> getMembersToRecurse() const override { return { m_buffer.get() }; }
 
-			if (_levelsBelow)
-			{
-				restoreFromDummy_impl_call(m_buffer.get(), other->m_buffer.get(), _levelsBelow-1u);
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			return m_buffer->isAnyDependencyDummy(_levelsBelow-1u);
+		void hash_impl(size_t& seed) const override {
+			core::hash_combine(seed, m_size);
+			core::hash_combine(seed, m_offset);
+			core::hash_combine(seed, m_format);
 		}
 
 		virtual ~ICPUBufferView() = default;

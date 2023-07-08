@@ -131,6 +131,8 @@ core::vector<IAsset*> ICPUDescriptorSet::getMembersToRecurse() const {
 				assets.push_back(static_cast<ICPUImageView*>(descriptorInfos[i].desc.get()));
 				if (descriptorInfos[i].info.image.sampler)
 					assets.push_back(descriptorInfos[i].info.image.sampler.get());
+				else
+					assets.push_back(nullptr);
 				break;
 
 			case IDescriptor::EC_BUFFER_VIEW:
@@ -157,4 +159,5 @@ void ICPUDescriptorSet::convertToDummyObject_impl(uint32_t referenceLevelsBelowT
 		m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 	}
 }
+
 }
