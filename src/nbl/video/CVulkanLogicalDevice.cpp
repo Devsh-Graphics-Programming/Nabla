@@ -72,8 +72,8 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
     core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
 
     VkImportMemoryWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
-    VkExportMemoryWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR, .dwAccess = GENERIC_ALL };
-    VkExportMemoryAllocateInfo  exportInfo = { VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR, &handleInfo };
+    VkExportMemoryWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR, .dwAccess = /*DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE*/0x80000000L | 1 };
+    VkExportMemoryAllocateInfo  exportInfo = { VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO, &handleInfo };
 
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
@@ -93,6 +93,15 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
     bool external = false;
     if(isDedicated)
     {
+        // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
+        static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
+        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
+
+        if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
+            vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
+        else if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
+            vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
+
         auto& ccParams = info.dedication->getCachedCreationParams();
 
         if (ccParams.externalMemoryHandType.value)
@@ -112,14 +121,6 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
             }
         }
 
-        // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
-        static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
-        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
-
-        if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
-            vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
-        else if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
-            vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
     }
 
     auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
@@ -807,6 +808,80 @@ bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t f
             ret = true;
     }
     return ret;
+}
+
+core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer::SCreationParams&& creationParams)
+{
+ 
+    VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+
+    VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
+       .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+       .handleTypes = creationParams.externalMemoryHandType.value,
+    };
+
+    const bool external = creationParams.externalMemoryHandType.value;
+    const bool imported = external && creationParams.externalHandle;
+    const bool exported = external && !imported;
+
+    vk_createInfo.pNext = external ? &externalMemoryInfo : nullptr;
+    vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
+    vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
+    vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
+    vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
+    vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
+    vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
+
+    if (external)
+    {
+        VkPhysicalDeviceExternalBufferInfo bufferInfo = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
+            .usage = vk_createInfo.usage,
+            .handleType = VkExternalMemoryHandleTypeFlagBits(creationParams.externalMemoryHandType.value),
+        };
+
+        VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+        VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(m_physicalDevice)->getInternalObject();
+        vkGetPhysicalDeviceExternalBufferProperties(vk_physicalDevice, &bufferInfo, &externalProps);
+        
+        if (imported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT))
+            return nullptr;
+        if (exported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT))
+            return nullptr;
+    }
+
+    VkBuffer vk_buffer;
+    if (m_devf.vk.vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
+    {
+        VkBufferMemoryRequirementsInfo2 vk_memoryRequirementsInfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2 };
+        vk_memoryRequirementsInfo.pNext = nullptr; // pNext must be NULL
+        vk_memoryRequirementsInfo.buffer = vk_buffer;
+
+        VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
+
+        VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
+        vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
+        m_devf.vk.vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
+
+        IDeviceMemoryBacked::SDeviceMemoryRequirements bufferMemoryReqs = {};
+        bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
+        bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
+        bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
+        bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
+        bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
+
+        return core::make_smart_refctd_ptr<CVulkanBuffer>(
+            core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+            bufferMemoryReqs,
+            std::move(creationParams),
+            vk_buffer
+        );
+    }
+    else
+    {
+        return nullptr;
+    }
 }
 
 }

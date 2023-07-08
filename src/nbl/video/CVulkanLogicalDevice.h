@@ -603,55 +603,7 @@ public:
         m_devf.vk.vkUpdateDescriptorSets(m_vkdev, descriptorWriteCount, vk_writeDescriptorSets.data(), descriptorCopyCount, vk_copyDescriptorSets.data());
     }
 
-    core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
-    {
-        VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-        // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-        
-        VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
-           .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
-           .handleTypes = creationParams.externalMemoryHandType.value,
-        };
-
-        vk_createInfo.pNext = creationParams.externalMemoryHandType.value ? &externalMemoryInfo : nullptr;
-        vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
-        vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
-        vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
-        vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
-        vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
-        vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
-
-        VkBuffer vk_buffer;
-        if (m_devf.vk.vkCreateBuffer(m_vkdev, &vk_createInfo, nullptr, &vk_buffer) == VK_SUCCESS)
-        {
-            VkBufferMemoryRequirementsInfo2 vk_memoryRequirementsInfo = { VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2 };
-            vk_memoryRequirementsInfo.pNext = nullptr; // pNext must be NULL
-            vk_memoryRequirementsInfo.buffer = vk_buffer;
-
-            VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS };
-            VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2 };
-            vk_memoryRequirements.pNext = &vk_dedicatedMemoryRequirements;
-            m_devf.vk.vkGetBufferMemoryRequirements2(m_vkdev, &vk_memoryRequirementsInfo, &vk_memoryRequirements);
-
-            IDeviceMemoryBacked::SDeviceMemoryRequirements bufferMemoryReqs = {};
-            bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
-            bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
-            bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
-            bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
-            bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
-
-            return core::make_smart_refctd_ptr<CVulkanBuffer>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                bufferMemoryReqs,
-                std::move(creationParams),
-                vk_buffer
-            );
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
+    core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams);
 
     uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) override
     {
@@ -836,12 +788,13 @@ public:
     {
         VkMemoryGetWin32HandleInfoKHR getHandleInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
-            .memory = VkDeviceMemory(obj->getBoundMemory()->getNativeHandle()),
+            .memory = *static_cast<const VkDeviceMemory*>(obj->getBoundMemory()->getNativeHandle()),
             .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalMemoryHandType.value),
         };
         void* handle = 0;
-        m_devf.vk.vkGetMemoryWin32HandleKHR(m_vkdev, &getHandleInfo, &handle);
-        return handle;
+        if(VK_SUCCESS == m_devf.vk.vkGetMemoryWin32HandleKHR(m_vkdev, &getHandleInfo, &handle))
+            return handle;
+        return nullptr;
     }
 
     void* mapMemory(const IDeviceMemoryAllocation::MappedMemoryRange& memory, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessHint = IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE) override
