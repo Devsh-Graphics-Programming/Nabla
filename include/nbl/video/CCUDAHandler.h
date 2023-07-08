@@ -119,6 +119,7 @@ class CCUDAHandler : public core::IReferenceCounted
 			,cuSurfObjectDestroy
 			,cuTexObjectCreate
 			,cuTexObjectDestroy
+			,cuImportExternalMemory
 		);
 		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
