@@ -544,6 +544,7 @@ add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 
 add_custom_target(dxcompiler DEPENDS "${DXC_LIB}" "${DXC_DLL}")
 add_dependencies(Nabla dxcompiler)
+add_dependencies(3rdparty dxcompiler)
 
 target_include_directories(Nabla PRIVATE "${DXC_INCLUDE_DIRECTORIES}")
 if(NBL_STATIC_BUILD)
@@ -552,7 +553,6 @@ else()
 	target_link_libraries(Nabla PRIVATE "${DXC_LIB}")
 endif()
 	
-
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 

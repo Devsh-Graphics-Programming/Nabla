@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.26)
 #policies
 cmake_policy(SET CMP0112 NEW)
-
+#
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)
@@ -56,6 +56,7 @@ endif()
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
@@ -80,8 +81,6 @@ if (NBL_COMPILE_WITH_CUDA)
 	set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
 set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
@@ -302,7 +301,7 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
-add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
+add_subdirectory(src/nbl)
 
 if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
