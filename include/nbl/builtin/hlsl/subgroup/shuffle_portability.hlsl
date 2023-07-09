@@ -32,12 +32,12 @@ namespace portability
 		ScratchAccessor scratch;
 		// safekeep existing value in temp since scratch is 
 		// probably used for something else while this is called
-		T temp = scratch.get(gl_LocalInvocationIndex);
-		scratch.set(gl_LocalInvocationIndex, value);
+		T temp = scratch.shuffle.get(gl_LocalInvocationIndex);
+		scratch.shuffle.set(gl_LocalInvocationIndex, value);
 		Barrier();
 		MemoryBarrierShared();
-		T result = scratch.get(ElectedWorkgroupInvocationID() + index); // the shuffle offset must be based on the gl_LocalInvocationIndex of the elected subgroup invocation
-		scratch.set(gl_LocalInvocationIndex, temp); // reset previous value
+		T result = scratch.shuffle.get(ElectedLocalInvocationID() + index); // the shuffle offset must be based on the gl_LocalInvocationIndex of the elected subgroup invocation
+		scratch.shuffle.set(gl_LocalInvocationIndex, temp); // reset previous value
 		return result;
 	}
 }

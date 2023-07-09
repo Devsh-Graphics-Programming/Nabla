@@ -46,8 +46,8 @@ namespace subgroup
 			s.subgroupMask = Size() - 1u;
 			s.halfSubgroupSize = Size() >> 1u;
 			s.subgroupInvocation = InvocationID();
-			s.workgroupElectedInvocation = ElectedWorkgroupInvocationID();
-			s.subgroupMemoryBegin = s.workgroupElectedInvocation + s.halfSubgroupSize * (s.workgroupElectedInvocation >> SizeLog2());
+			s.subgroupElectedLocalInvocation = ElectedLocalInvocationID();
+			s.subgroupMemoryBegin = s.subgroupElectedLocalInvocation + s.halfSubgroupSize * (s.subgroupElectedLocalInvocation >> SizeLog2());
 			s.lastLoadOffset = s.subgroupMemoryBegin + s.subgroupInvocation;
 			s.subgroupPaddingMemoryEnd = s.subgroupMemoryBegin + s.halfSubgroupSize;
 			s.scanStoreOffset = s.subgroupPaddingMemoryEnd + s.subgroupInvocation;
@@ -57,7 +57,7 @@ namespace subgroup
 		uint subgroupMask;
 		uint halfSubgroupSize;
 		uint subgroupInvocation;
-		uint workgroupElectedInvocation;
+		uint subgroupElectedLocalInvocation;
 		uint subgroupMemoryBegin;
 		uint lastLoadOffset;
 		uint scanStoreOffset;
@@ -68,22 +68,22 @@ namespace subgroup
 	template<class ScratchAccessor, typename T>
 	void scratchInitialize(T value, T identity, uint activeInvocationIndexUpperBound)
 	{
-		ScratchAccessor accessor;
+		ScratchAccessor scratch;
 		ScratchOffsetsAndMasks offsetsAndMasks = ScratchOffsetsAndMasks::WithSubgroupOpDefaults();
-		accessor.set(offsetsAndMasks.scanStoreOffset, value);
+		scratch.main.set(offsetsAndMasks.scanStoreOffset, value);
 		const uint halfSubgroupMask = offsetsAndMasks.subgroupMask >> 1u;
-		// TEST
+		
+		//OLD CODE WAS USING THIS -> scratch.main.set(scratchInitializeClearIndex(gl_LocalInvocationIndex, halfSubgroupMask), identity);
 		if (offsetsAndMasks.subgroupInvocation < offsetsAndMasks.halfSubgroupSize) {
-			accessor.set(offsetsAndMasks.lastLoadOffset, identity);
+			scratch.main.set(offsetsAndMasks.lastLoadOffset, identity);
 		}
-		//accessor.set(scratchInitializeClearIndex(gl_LocalInvocationIndex, halfSubgroupMask), identity);
-		//if(gl_WorkGroupID.x==0)
-			//printf("ClearIdx [%d] = %d\n", gl_LocalInvocationIndex, scratchInitializeClearIndex(gl_LocalInvocationIndex, halfSubgroupMask));
+		SOMETHING IS UP WITH SCRATCH INITIALIZATION AFTER SUCCESSIVE OPERATIONS ON GROUPSHAREDMEM
+		// TODO (PentaKon): Fix this to not use scratchInitializeClearIndex
 		if(_NBL_HLSL_WORKGROUP_SIZE_ < offsetsAndMasks.halfSubgroupSize)
 		{
 			const uint maxItemsToClear = (((activeInvocationIndexUpperBound - 1u) & (~offsetsAndMasks.subgroupMask)) >> 1u) + offsetsAndMasks.halfSubgroupSize;
 			for (uint ix = gl_LocalInvocationIndex + _NBL_HLSL_WORKGROUP_SIZE_; ix < maxItemsToClear; ix += _NBL_HLSL_WORKGROUP_SIZE_)
-				accessor.set(scratchInitializeClearIndex(ix, halfSubgroupMask), identity);
+				scratch.main.set(scratchInitializeClearIndex(ix, halfSubgroupMask), identity);
 		}
 		workgroup::Barrier();
 	}

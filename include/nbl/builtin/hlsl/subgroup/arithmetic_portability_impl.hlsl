@@ -364,11 +364,11 @@ struct inclusive_scan
 			MemoryBarrierShared();
 			
 			// each invocation initializes its respective slot with its value
-			scratchAccessor.set(offsetsAndMasks.scanStoreOffset, value);
+			scratch.main.set(offsetsAndMasks.scanStoreOffset, value);
 			// additionally, the first half invocations initialize the padding slots
 			// with identity values
 			if (offsetsAndMasks.subgroupInvocation < offsetsAndMasks.halfSubgroupSize) {
-				scratchAccessor.set(offsetsAndMasks.lastLoadOffset, op.identity());
+				scratch.main.set(offsetsAndMasks.lastLoadOffset, op.identity());
 			}
 		}
 		Barrier();
@@ -384,7 +384,7 @@ struct inclusive_scan
 			value = op(value, toAdd);
 		}
 	#else
-		value = op(value, scratchAccessor.get(offsetsAndMasks.scanStoreOffset-1u));
+		value = op(value, scratch.main.get(offsetsAndMasks.scanStoreOffset-1u));
 	#endif
 		[[unroll]]
 		for (uint step=2u; step <= offsetsAndMasks.halfSubgroupSize; step <<= 1u)
@@ -398,20 +398,20 @@ struct inclusive_scan
 		#else
 			Barrier();
 			MemoryBarrierShared();
-			scratchAccessor.set(offsetsAndMasks.scanStoreOffset, value);
+			scratch.main.set(offsetsAndMasks.scanStoreOffset, value);
 			Barrier();
 			MemoryBarrierShared();
-			value = op(value, scratchAccessor.get(offsetsAndMasks.scanStoreOffset - step));
+			value = op(value, scratch.main.get(offsetsAndMasks.scanStoreOffset - step));
 			Barrier();
 			MemoryBarrierShared();
-			scratchAccessor.set(offsetsAndMasks.scanStoreOffset, value);
+			scratch.main.set(offsetsAndMasks.scanStoreOffset, value);
 			Barrier();
 			MemoryBarrierShared();
 			
 			// REVIEW: The Stone-Kogge adder is done at this point.
 			// The GLSL implementation however has a final operation that uses the lastLoadOffset
 			// but it actually messes the results, not sure what the point was.
-			//value = op(value, scratchAccessor.get(offsetsAndMasks.lastLoadOffset));
+			//value = op(value, scratch.main.get(offsetsAndMasks.lastLoadOffset));
 			//Barrier();
 			//MemoryBarrierShared();
 		#endif
@@ -419,7 +419,7 @@ struct inclusive_scan
 		return value;
     }
 // protected:
-	ScratchAccessor scratchAccessor;
+	ScratchAccessor scratch;
 	ScratchOffsetsAndMasks offsetsAndMasks;
 };
 
@@ -443,11 +443,11 @@ struct exclusive_scan
 		uint left = ShuffleUp<T, ScratchAccessor>(value, 1);
 		value = impl.offsetsAndMasks.subgroupInvocation >= 1 ? left : op.identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
 	#else
-		impl.scratchAccessor.set(impl.offsetsAndMasks.scanStoreOffset,value);
+		impl.scratch.main.set(impl.offsetsAndMasks.scanStoreOffset,value);
 		Barrier();
 		MemoryBarrierShared();
 		// get previous item
-		value = impl.scratchAccessor.get(impl.offsetsAndMasks.scanStoreOffset-1u);
+		value = impl.scratch.main.get(impl.offsetsAndMasks.scanStoreOffset-1u);
 		Barrier();
 		MemoryBarrierShared();
 	#endif
@@ -476,12 +476,12 @@ struct reduction
 	#ifdef NBL_GL_KHR_shader_subgroup_shuffle
 		value = Shuffle<T, ScratchAccessor>(value, impl.offsetsAndMasks.subgroupMask); // take the last subgroup invocation's value
 	#else
-		impl.scratchAccessor.set(impl.offsetsAndMasks.scanStoreOffset, value);
+		impl.scratch.main.set(impl.offsetsAndMasks.scanStoreOffset, value);
 		Barrier();
 		MemoryBarrierShared();
 		uint reductionResultOffset = impl.offsetsAndMasks.subgroupPaddingMemoryEnd + impl.offsetsAndMasks.subgroupMask; // this should end up being the last subgroup invocation
 		// store value to smem so we can broadcast it to everyone
-		value = impl.scratchAccessor.get(reductionResultOffset);
+		value = impl.scratch.main.get(reductionResultOffset);
 		Barrier();
 		MemoryBarrierShared();
 	#endif

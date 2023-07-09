@@ -27,7 +27,7 @@ namespace workgroup
 	void spirv_subgroupMemoryBarrierShared(uint memoryScope, uint memorySemantics);
 
 	void MemoryBarrierShared() {
-		spirv_subgroupMemoryBarrierShared(2, 0x0); // REVIEW: Need advice on memory semantics
+		spirv_subgroupMemoryBarrierShared(2, 0x8 | 0x100); // REVIEW: Need advice on memory semantics
 	}
 }
 }

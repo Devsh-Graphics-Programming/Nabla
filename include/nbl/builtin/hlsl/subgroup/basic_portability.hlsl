@@ -53,8 +53,8 @@ namespace subgroup
 		return BroadcastFirst<uint>(InvocationID());
 	}
 	
-	uint ElectedWorkgroupInvocationID() {
-		return BroadcastFirst(gl_LocalInvocationIndex);
+	uint ElectedLocalInvocationID() {
+		return BroadcastFirst<uint>(gl_LocalInvocationIndex);
 	}
 
 	template<typename T>
@@ -96,8 +96,8 @@ namespace subgroup
 	[[vk::ext_instruction(/* OpControlBarrier */ 224)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
 	void spirv_subgroupBarrier(uint executionScope, uint memoryScope, uint memorySemantics);
 
-	// REVIEW Should we name the Barriers with the Subgroup prefix just to make it clearer when calling?
-	// REVIEW Proper Memory Semantics!! Link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
+	// REVIEW: Should we name the Barriers with the Subgroup prefix just to make it clearer when calling?
+	// REVIEW: Proper Memory Semantics!! Link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 	// REVIEW: Need advice on memory semantics. Would think SubgroupMemory(0x80) | AcquireRelease(0x8) is the correct bitmask but SubgroupMemory doesn't seem to be supported as Vulkan storage class
 	
 	void Barrier() {
@@ -106,7 +106,12 @@ namespace subgroup
 
 		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
 		// By providing memory semantics None we do both control and memory barrier as is done in GLSL
-		spirv_subgroupBarrier(3, 3, 0x8 | 0x100);
+		
+		// REVIEW: After testing it seems that this doesn't work at all even if we provide Subgroup execution scope and it 
+		// compiles as `OpControlBarrier %uint_3 %uint_3 %uint_264` which is supposed to be correct. What seems to actually 
+		// happen is that this executes as a workgroup scoped barrier which can break uniform barrier calls and produce UB.
+		// Since subgroups execute in lockstep we could maybe just avoid calling this?
+		//spirv_subgroupBarrier(3, 3, 0x8 | 0x80);
 	}
 
 	[[vk::ext_instruction(/* OpMemoryBarrier */ 225)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier

@@ -17,7 +17,7 @@ namespace hlsl
 //          not WORKGROUP_SIZE (assuming banks == SUBGROUP_SIZE)
 
 #ifdef SHARED_MEM
-struct MemProxy
+struct MainScratchProxy
 {
 	uint get(uint ix)
 	{
@@ -41,7 +41,11 @@ struct MemProxy
 	
 	uint atomicOr(uint ix, uint value)
 	{
-        return atomics::atomicOr(SHARED_MEM[ix], value);
+		// TODO (PentaKon): Fix
+		uint orig;
+		InterlockedOr(SHARED_MEM[ix], value, orig);
+		return orig;
+        //return atomics::atomicOr(SHARED_MEM[ix], value);
 	}
 	
 	uint atomicXor(uint ix, uint value)
@@ -71,6 +75,41 @@ struct MemProxy
 };
 #else
 #error "Must #define scratch memory array as SHARED_MEM"
+#endif
+
+#ifdef BROADCAST_MEM
+struct BroadcastScratchProxy
+{
+	uint get(uint ix)
+	{
+		return BROADCAST_MEM[ix];
+	}
+
+	void set(uint ix, uint value)
+	{
+		BROADCAST_MEM[ix] = value;
+	}
+};
+#else
+struct BroadcastScratchProxy {};
+#endif
+
+#ifdef SHUFFLE_MEM 
+struct ShuffleScratchProxy
+{
+	uint get(uint ix)
+	{
+		return SHUFFLE_MEM[ix];
+	}
+
+	void set(uint ix, uint value)
+	{
+		SHUFFLE_MEM[ix] = value;
+	}
+};
+#else
+struct ShuffleScratchProxy
+{};
 #endif
 
 template<class NumberSharedMemoryAccessor>
@@ -172,6 +211,13 @@ struct SharedMemoryAdaptor
 	void atomicCompSwap(const uint ix, const uint value, const uint comp, out uint orig) {
 	   orig = accessor.atomicCompSwap(ix, comp, value);
 	}
+};
+
+struct SharedMemory
+{
+	SharedMemoryAdaptor<MainScratchProxy> main;
+	SharedMemoryAdaptor<BroadcastScratchProxy> broadcast;
+	SharedMemoryAdaptor<ShuffleScratchProxy> shuffle;
 };
 
 }

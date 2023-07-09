@@ -5,14 +5,9 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 
 #include "nbl/builtin/hlsl/atomics.hlsl"
+#include "nbl/builtin/hlsl/workgroup/shared_ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
-#include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
-
-// REVIEW: They were defined in shared_ballot.glsl but only used in ballot.glsl so they were moved
-#define getDWORD(IX) ((IX)>>5)
-// bitfieldDWORDs essentially means 'how many DWORDs are needed to store ballots in bitfields, for each invocation of the workgroup'
-#define bitfieldDWORDs getDWORD(_NBL_HLSL_WORKGROUP_SIZE_+31) // in case WGSZ is not a multiple of 32 we might miscalculate the DWORDs after the right-shift by 5 which is why we add 31
 
 namespace nbl 
 {
@@ -38,19 +33,20 @@ namespace workgroup
  * by calling the getDWORD function.
  */
 template<class ScratchAccessor, bool edgeBarriers> // REVIEW: Not sure if barriers as tpl or as new function 'ballotWithBarriers'
-void ballot(in bool value, in bool initialize) // REVIEW: The value of initialize = gl_LocalInvocationIndex < bitfieldDWORDs, maybe add the check here?
+void ballot(in bool value)
 {
 	if(edgeBarriers)
 		Barrier();
 	
 	ScratchAccessor scratch;
+	uint initialize = gl_LocalInvocationIndex < bitfieldDWORDs;
 	if(initialize) {
-		scratch.set(gl_LocalInvocationIndex, 0u);
+		scratch.main.set(gl_LocalInvocationIndex, 0u);
 	}
 	Barrier();
 	if(value) {
 		uint dummy;
-		scratch.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
+		scratch.main.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
 	}
 	
 	if(edgeBarriers)
@@ -68,7 +64,7 @@ bool ballotBitExtract(in uint index)
 		Barrier();
 	
 	ScratchAccessor scratch;
-	const bool retval = (scratch.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
+	const bool retval = (scratch.main.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
 	
 	if(edgeBarriers)
 		Barrier();
@@ -80,36 +76,6 @@ template<class ScratchAccessor, bool edgeBarriers>
 bool inverseBallot()
 {
 	return ballotBitExtract<ScratchAccessor, edgeBarriers>(gl_LocalInvocationIndex);
-}
-
-/**
- * Broadcasts the value `val` of invocation index `id`
- * to all other invocations.
- * 
- * We save the value in the shared array in the bitfieldDWORDs index 
- * and then all invocations access that index.
- */
-template<typename T, class ScratchAccessor>
-T broadcast(in T val, in uint id)
-{
-// REVIEW: Check if we need edge barriers
-	ScratchAccessor scratch;
-	if(gl_LocalInvocationIndex == id) {
-		scratch.set(bitfieldDWORDs, val);
-	}
-	Barrier();
-	return scratch.get(bitfieldDWORDs);
-}
-
-// REVIEW: Should we have broadcastFirst and broadcastElected?
-template<typename T, class ScratchAccessor>
-T broadcastFirst(in T val)
-{
-	ScratchAccessor scratch;
-	if (Elect())
-		scratch.set(bitfieldDWORDs, val);
-	Barrier();
-	return scratch.get(bitfieldDWORDs);
 }
 
 /**
@@ -128,68 +94,17 @@ template<class ScratchAccessor>
 uint ballotBitCount()
 {
 	ScratchAccessor scratch;
-	scratch.set(bitfieldDWORDs, 0u);
+	scratch.main.set(bitfieldDWORDs, 0u);
 	Barrier();
 	if(gl_LocalInvocationIndex < bitfieldDWORDs)
 	{
-		const uint localBallot = scratch.get(gl_LocalInvocationIndex);
+		const uint localBallot = scratch.main.get(gl_LocalInvocationIndex);
 		const uint localBallotBitCount = countbits(localBallot);
 		uint dummy;
-		scratch.atomicAdd(bitfieldDWORDs, localBallotBitCount, dummy);
+		scratch.main.atomicAdd(bitfieldDWORDs, localBallotBitCount, dummy);
 	}
 	Barrier();
-	return scratch.get(bitfieldDWORDs);
-}
-
-template<class ScratchAccessor>
-uint ballotScanBitCount(in bool exclusive)
-{
-	ScratchAccessor scratch;
-	const uint _dword = getDWORD(gl_LocalInvocationIndex);
-	const uint localBitfield = scratch.get(_dword);
-	uint globalCount;
-	{
-		uint localBitfieldBackup;
-		if(gl_LocalInvocationIndex < bitfieldDWORDs)
-		{
-			localBitfieldBackup = scratch.get(gl_LocalInvocationIndex);
-		}
-		// scan hierarchically, invocations with `gl_LocalInvocationIndex >= bitfieldDWORDs` will have garbage here
-		Barrier();
-		
-        using WSHT = WorkgroupScanHead<uint, subgroup::inclusive_scan<uint, binops::add<uint>, ScratchAccessor >, ScratchAccessor>;
-		WSHT wsh = WSHT::create(true, 0u, bitfieldDWORDs);
-		wsh();
-
-        using WSTT = WorkgroupScanTail<uint, binops::add<uint>, ScratchAccessor>;
-		WSTT wst = WSTT::create(true, 0u, wsh.lastInvocation, wsh.scanStoreIndex);
-		wst();
-		
-		// fix it (abuse the fact memory is left over)
-		globalCount = _dword != 0u ? scratch.get(_dword) : 0u;
-		Barrier();
-		
-		// restore
-		if(gl_LocalInvocationIndex < bitfieldDWORDs)
-		{
-			scratch.set(gl_LocalInvocationIndex, localBitfieldBackup);
-		}
-		Barrier();
-	}
-	const uint mask = (exclusive ? 0x7fFFffFFu:0xFFffFFffu)>>(31u-(gl_LocalInvocationIndex&31u));
-	return globalCount + countbits(localBitfield & mask);
-}
-
-template<class ScratchAccessor>
-uint ballotInclusiveBitCount()
-{
-	return ballotScanBitCount<ScratchAccessor>(false);
-}
-
-template<class ScratchAccessor>
-uint ballotExclusiveBitCount()
-{
-	return ballotScanBitCount<ScratchAccessor>(true);
+	return scratch.main.get(bitfieldDWORDs);
 }
 
 }
