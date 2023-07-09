@@ -109,6 +109,31 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             const uint32_t* queueFamilyIndices = nullptr;
         };
 
+        void chainPreDestroyCleanup(std::unique_ptr<ICleanup> next)
+        {
+            if (!m_cachedCreationParams.preDestroyCleanup)
+            {
+                m_cachedCreationParams.preDestroyCleanup = std::move(next);
+                return;
+            }
+
+            struct SChainedCleanup : ICleanup
+            {
+                std::unique_ptr<ICleanup> first, next;
+                SChainedCleanup(std::unique_ptr<ICleanup>&& first, std::unique_ptr<ICleanup>&& next)
+                    : first(std::move(first))
+                    , next(std::move(next)) 
+                { }
+                ~SChainedCleanup()
+                {
+                    first = nullptr;
+                    next = nullptr;
+                }
+            };
+
+            m_cachedCreationParams.preDestroyCleanup = std::make_unique<SChainedCleanup>(std::move(m_cachedCreationParams.preDestroyCleanup), std::move(next));
+        }
+
     protected:
         inline IDeviceMemoryBacked(SCreationParams&& _creationParams, const SDeviceMemoryRequirements& reqs)
             : m_cachedCreationParams(std::move(_creationParams)), m_cachedMemoryReqs(reqs) {}

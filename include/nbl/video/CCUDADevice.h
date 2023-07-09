@@ -180,7 +180,38 @@ class CCUDADevice : public core::IReferenceCounted
 		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
 #endif
 		CUdevice getInternalObject() const { return m_handle; }
+		const CCUDAHandler* getHandler() const { return m_handler.get();  }
+
+		struct SSharedCUDAMemory
+		{
+			size_t size;
+			CUdeviceptr ptr;
+			CUmemGenericAllocationHandle memory;
+			void* osHandle;
+		};
+
+		core::smart_refctd_ptr<IGPUBuffer> exportGPUBuffer(SSharedCUDAMemory mem, ILogicalDevice* device);
+
+		CUresult importGPUBuffer(IGPUBuffer* buf, SSharedCUDAMemory* outPtr);
+		CUresult createExportableMemory(size_t size, size_t alignment, SSharedCUDAMemory* outMem);
+		CUresult releaseExportableMemory(SSharedCUDAMemory mem);
 	protected:
+
+		struct SCUDACleaner : video::ICleanup, SSharedCUDAMemory
+		{
+			core::smart_refctd_ptr<video::CCUDADevice> dev;
+			SCUDACleaner(SSharedCUDAMemory mem, core::smart_refctd_ptr<video::CCUDADevice>&& dev)
+				: SSharedCUDAMemory{ mem }
+				, dev(std::move(dev))
+			{ }
+
+			~SCUDACleaner()
+			{
+				dev->releaseExportableMemory(*this);
+			}
+		};
+
+		CUresult reserveAdrressAndMapMemory(size_t size, size_t alignment, CUmemGenericAllocationHandle memory, CUdeviceptr* outPtr);
 		friend class CCUDAHandler;
 		
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _handle, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
