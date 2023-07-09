@@ -45,15 +45,6 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
         }
 
 		//!
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-				params.image->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
-
-		//!
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
@@ -70,7 +61,8 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			params.subresourceRange.aspectMask = aspect.value;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+	protected:
+		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUImageView*>(_other);
 			const auto& rhs = other->params;
@@ -85,22 +77,13 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 				return false;
 			if (memcmp(&params.subresourceRange, &rhs.subresourceRange, sizeof(params.subresourceRange)))
 				return false;
-			if (!params.image->canBeRestoredFrom(rhs.image.get()))
-				return false;
-
 			return true;
 		}
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUImageView*>(_other);
-
-			if (_levelsBelow)
-			{
-				restoreFromDummy_impl_call(params.image.get(), other->params.image.get(), _levelsBelow - 1u);
-			}
+		nbl::core::vector<const IAsset*> getMembersToRecurse() const override {
+			return { params.image.get() };
 		}
+		
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{

@@ -37,14 +37,15 @@ public:
     }
 
 private:
-    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    bool compatible(const IAsset* _other) const override
     {
-        // TODO
+        return false; // TODO
     }
 
-    void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+    nbl::core::vector<const IAsset*> getMembersToRecurse() const override
     {
         // TODO
+        return {};
     }
 };
 

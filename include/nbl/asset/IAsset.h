@@ -359,7 +359,8 @@ class IAsset : virtual public core::IReferenceCounted
 		NBL_API2 virtual ~IAsset() = 0;
 
 		//! Lists members of type IAsset in order of least expensive to recurse through to most expensive
-		virtual nbl::core::vector<IAsset*> getMembersToRecurse() const = 0;
+		//! TODO maybe use SRange instead?
+		virtual nbl::core::vector<const IAsset*> getMembersToRecurse() const = 0;
 
 
 	private:

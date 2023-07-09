@@ -56,7 +56,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
-        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+        virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override
         {
             if (!canBeConvertedToDummy())
                 return;
@@ -82,13 +82,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return data;
         }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUBuffer*>(_other);
-            if (m_creationParams.size != other->m_creationParams.size)
-                return false;
-            return true;
-        }
+       
         
         inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
         {
@@ -108,7 +102,29 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
     protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+
+        bool compatible(const IAsset* _other) const override
+        {
+            auto* other = static_cast<const ICPUBuffer*>(_other);
+            if (m_creationParams.size != other->m_creationParams.size)
+                return false;
+            return true;
+        }
+
+        virtual nbl::core::vector<IAsset*> getMembersToRecurse() const override { return {}; }
+
+        virtual void hash_impl(size_t& seed) const override {
+            core::hash_combine(seed, data);
+            core::hash_combine(seed, m_creationParams.size);
+            core::hash_combine(seed, m_creationParams.usage);
+        }
+
+        virtual bool equals_impl(const IAsset* _other) const override {
+            auto* other = static_cast<const ICPUBuffer*>(_other);
+            return m_creationParams.usage.value == other->m_creationParams.usage.value && data == other->data;
+        }
+
+        void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUBuffer*>(_other);
 

@@ -70,25 +70,12 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             return result;
         }
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			{
-                --referenceLevelsBelowToConvert;
-                if (m_samplers)
-                {
-				    for (auto it=m_samplers->begin(); it!=m_samplers->end(); it++)
-					    it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
-                }
-			}
-		}
-
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
+	protected:
+
+        bool compatible(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
             if (getTotalBindingCount() != other->getTotalBindingCount())
@@ -97,46 +84,19 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 return false;
             if (m_samplers && m_samplers->size() != other->m_samplers->size())
                 return false;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                {
-                    if (!(*m_samplers)[i]->canBeRestoredFrom((*other->m_samplers)[i].get()))
-                        return false;
-                }
-            }
-
             return true;
         }
 
-	protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        nbl::core::vector<const IAsset*> getMembersToRecurse() const override
         {
-            auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
-
-            if (!_levelsBelow)
-                return;
-
-            --_levelsBelow;
+            nbl::core::vector<const IAsset*> assets = {};
+   
             if (m_samplers)
             {
                 for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                    restoreFromDummy_impl_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get(), _levelsBelow);
+                    assets.push_back((*m_samplers)[i].get());
             }
-        }
-
-        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-        {
-            --_levelsBelow;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                {
-                    if ((*m_samplers)[i]->isAnyDependencyDummy(_levelsBelow))
-                        return true;
-                }
-            }
-            return false;
+            return assets;
         }
 
 		virtual ~ICPUDescriptorSetLayout() = default;

@@ -113,7 +113,7 @@ public:
 	explicit ICPUPipelineCache(entries_map_t&& _entries) : m_cache(std::move(_entries)) {}
 
 	size_t conservativeSizeEstimate() const override { return 0ull; /*TODO*/ }
-	void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+	void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override
 	{
 		if (canBeConvertedToDummy())
 			m_cache.clear();
@@ -129,22 +129,30 @@ public:
 		return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 	}
 
-	bool canBeRestoredFrom(const IAsset* _other) const override
+
+protected:
+	bool compatible(const IAsset* _other) const override
 	{
 		auto* other = static_cast<const ICPUPipelineCache*>(_other);
 		if (m_cache.size() != other->m_cache.size())
 			return false;
-
 		return true;
 	}
 
-protected:
-	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+	nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return {}; }
+
+	void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 	{
 		auto* other = static_cast<ICPUPipelineCache*>(_other);
 		const bool restorable = willBeRestoredFrom(_other);
 		if (restorable)
 			std::swap(m_cache, other->m_cache);
+	}
+
+	virtual bool equals_impl(const IAsset* _other) const override 
+	{
+		return std::equal(m_cache.begin(), m_cache.end(),
+			static_cast<const ICPUPipelineCache*>(_other)->m_cache.begin());
 	}
 
 private:

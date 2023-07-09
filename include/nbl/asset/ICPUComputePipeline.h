@@ -27,19 +27,7 @@ public:
     using base_t::base_t;
 
     size_t conservativeSizeEstimate() const override { return sizeof(void*)*3u+sizeof(uint8_t); }
-    void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-	{
-        convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-		if (referenceLevelsBelowToConvert)
-		{
-            //intentionally parent is not converted
-            --referenceLevelsBelowToConvert;
-			m_shader->convertToDummyObject(referenceLevelsBelowToConvert);
-			m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
-		}
-	}
-
+  
     core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
     {
         core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
@@ -79,28 +67,15 @@ public:
         m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); 
     }
 
-    bool canBeRestoredFrom(const IAsset* _other) const override
+protected:
+
+    bool compatible(const IAsset* _other) const override
     {
-        auto* other = static_cast<const ICPUComputePipeline*>(_other);
-        if (!m_shader->canBeRestoredFrom(m_shader.get()))
-            return false;
-        if (!m_layout->canBeRestoredFrom(other->m_layout.get()))
-            return false;
+        //auto* other = static_cast<const ICPUComputePipeline*>(_other);
         return true;
     }
 
-protected:
-    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-    {
-        auto* other = static_cast<ICPUComputePipeline*>(_other);
-
-        if (_levelsBelow)
-        {
-            --_levelsBelow;
-            restoreFromDummy_impl_call(m_shader.get(), other->m_shader.get(), _levelsBelow);
-            restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
-        }
-    }
+    nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return { m_shader.get(), m_layout.get() }; }
 
     bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
     {
