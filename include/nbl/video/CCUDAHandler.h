@@ -131,6 +131,7 @@ class CCUDAHandler : public core::IReferenceCounted
 			,cuMemMap
 			,cuMemRelease
 			,cuMemSetAccess
+			,cuMemImportFromShareableHandle
 		);
 		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
